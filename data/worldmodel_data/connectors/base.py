@@ -129,7 +129,7 @@ class Connector(ABC):
         files = [from_path] if from_path.is_file() else sorted(p for p in from_path.iterdir() if p.is_file())
         for f in files:
             shutil.copy2(f, dest / f.name)
-        return f"file:{from_path.resolve()}"
+        return f"file:{from_path.as_posix()}"
 
     def get(self, url: str, dest: Path) -> None:
         log.info("GET %s", url)
