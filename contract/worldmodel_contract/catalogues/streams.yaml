@@ -1,0 +1,33 @@
+# Named streams: saved queries that other programs (for example a Metaculus
+# forecasting bot) pull by name instead of rebuilding the query.
+#
+#   GET /streams/<name>?format=json|csv|parquet[&as_of=YYYY-MM-DD]
+#   worldmodel-data export <name> --format csv
+#
+# Fields: indicator, entities (ids, or a group id with `members_of`), start,
+# end (years), source (default: the indicator's default source), include
+# projections (true/false), variant (default: central).
+
+- name: nz-population
+  description: New Zealand population, estimates and UN projections.
+  indicator: pop_total
+  entities: [NZL]
+  start: 1950
+  end: 2100
+  projections: true
+
+- name: g7-gdp-growth
+  description: Real GDP growth for each G7 country, IMF estimates and forecasts.
+  indicator: gdp_growth
+  members_of: g7
+  start: 1980
+  end: 2030
+  projections: true
+
+- name: world-fertility
+  description: World total fertility rate.
+  indicator: tfr
+  entities: [world]
+  start: 1950
+  end: 2100
+  projections: true

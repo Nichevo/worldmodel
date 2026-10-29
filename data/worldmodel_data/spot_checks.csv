@@ -1,0 +1,10 @@
+# Known published values. A check runs only when the loaded vintage of its
+# source matches `vintage` (shell-style pattern). Tolerance is absolute, in
+# the indicator's unit. Add a row whenever you verify a value on a source site.
+source_id,vintage,entity_id,indicator_id,year,expected,tolerance,reference
+un_wpp,2024*,world,pop_total,2024,8161972572,40000000,WPP 2024 press release: world population 8.2 billion in mid-2024
+un_wpp,2024*,IND,pop_total,2024,1450935791,7000000,WPP 2024 data portal
+un_wpp,2024*,CHN,pop_total,2024,1419321278,7000000,WPP 2024 data portal
+un_wpp,2024*,USA,pop_total,2024,345426571,2000000,WPP 2024 data portal
+imf_weo,2025-10*,USA,gdp_growth,2024,2.8,0.15,IMF DataMapper NGDP_RPCH
+imf_weo,2025-10*,CHN,gdp_growth,2024,5.0,0.15,IMF DataMapper NGDP_RPCH
