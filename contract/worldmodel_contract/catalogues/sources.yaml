@@ -1,0 +1,57 @@
+# Data sources. `status: active` sources have a connector; `planned` ones are
+# listed so licences and keys are known up front (see data/api_keys.yaml).
+# Licence notes need a check against each provider's current terms. Worldmodel
+# is a personal tool, so non-commercial terms are fine; `commercial_use` marks
+# what would need swapping if that ever changes.
+
+- id: un_wpp
+  name: UN World Population Prospects
+  short_name: UN WPP
+  publisher: United Nations, Department of Economic and Social Affairs, Population Division
+  url: https://population.un.org/wpp/
+  licence: CC BY 3.0 IGO
+  licence_url: https://creativecommons.org/licenses/by/3.0/igo/
+  commercial_use: true
+  cadence: Every 2 years (WPP 2024 released 2024-07-11)
+  attribution: "United Nations, DESA, Population Division (2024). World Population Prospects 2024."
+  status: active
+  default_rank: 1
+
+- id: imf_weo
+  name: IMF World Economic Outlook
+  short_name: IMF WEO
+  publisher: International Monetary Fund
+  url: https://www.imf.org/en/Publications/WEO
+  licence: IMF copyright and usage terms (free use with attribution)
+  licence_url: https://www.imf.org/external/terms.htm
+  commercial_use: true
+  cadence: Twice a year (April and October)
+  attribution: "International Monetary Fund, World Economic Outlook database."
+  status: active
+  default_rank: 1
+
+- id: world_bank_wdi
+  name: World Bank World Development Indicators
+  short_name: WDI
+  publisher: World Bank
+  url: https://databank.worldbank.org/source/world-development-indicators
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Quarterly
+  attribution: "World Bank, World Development Indicators."
+  status: planned
+  default_rank: 2
+
+- id: worldmodel
+  name: Worldmodel aggregates
+  short_name: Worldmodel
+  publisher: This app
+  url: ""
+  licence: Inherits the licence of the source it aggregates
+  licence_url: ""
+  commercial_use: true
+  cadence: Every warehouse build
+  attribution: "Aggregated by worldmodel from the member countries' source values."
+  status: active
+  default_rank: 9

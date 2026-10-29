@@ -1,0 +1,1013 @@
+group_id,member_id,valid_from,valid_to,source,verified
+world,AFG,,,UN M49,yes
+asia,AFG,,,UN M49,yes
+southern-asia,AFG,,,UN M49,yes
+world,ALA,,,UN M49,yes
+europe,ALA,,,UN M49,yes
+northern-europe,ALA,,,UN M49,yes
+world,ALB,,,UN M49,yes
+europe,ALB,,,UN M49,yes
+southern-europe,ALB,,,UN M49,yes
+world,DZA,,,UN M49,yes
+africa,DZA,,,UN M49,yes
+northern-africa,DZA,,,UN M49,yes
+world,ASM,,,UN M49,yes
+oceania,ASM,,,UN M49,yes
+polynesia,ASM,,,UN M49,yes
+world,AND,,,UN M49,yes
+europe,AND,,,UN M49,yes
+southern-europe,AND,,,UN M49,yes
+world,AGO,,,UN M49,yes
+africa,AGO,,,UN M49,yes
+sub-saharan-africa,AGO,,,UN M49,yes
+middle-africa,AGO,,,UN M49,yes
+world,AIA,,,UN M49,yes
+americas,AIA,,,UN M49,yes
+latin-america-and-the-caribbean,AIA,,,UN M49,yes
+caribbean,AIA,,,UN M49,yes
+world,ATA,,,UN M49,yes
+world,ATG,,,UN M49,yes
+americas,ATG,,,UN M49,yes
+latin-america-and-the-caribbean,ATG,,,UN M49,yes
+caribbean,ATG,,,UN M49,yes
+world,ARG,,,UN M49,yes
+americas,ARG,,,UN M49,yes
+latin-america-and-the-caribbean,ARG,,,UN M49,yes
+south-america,ARG,,,UN M49,yes
+world,ARM,,,UN M49,yes
+asia,ARM,,,UN M49,yes
+western-asia,ARM,,,UN M49,yes
+world,ABW,,,UN M49,yes
+americas,ABW,,,UN M49,yes
+latin-america-and-the-caribbean,ABW,,,UN M49,yes
+caribbean,ABW,,,UN M49,yes
+world,AUS,,,UN M49,yes
+oceania,AUS,,,UN M49,yes
+australia-and-new-zealand,AUS,,,UN M49,yes
+world,AUT,,,UN M49,yes
+europe,AUT,,,UN M49,yes
+western-europe,AUT,,,UN M49,yes
+world,AZE,,,UN M49,yes
+asia,AZE,,,UN M49,yes
+western-asia,AZE,,,UN M49,yes
+world,BHS,,,UN M49,yes
+americas,BHS,,,UN M49,yes
+latin-america-and-the-caribbean,BHS,,,UN M49,yes
+caribbean,BHS,,,UN M49,yes
+world,BHR,,,UN M49,yes
+asia,BHR,,,UN M49,yes
+western-asia,BHR,,,UN M49,yes
+world,BGD,,,UN M49,yes
+asia,BGD,,,UN M49,yes
+southern-asia,BGD,,,UN M49,yes
+world,BRB,,,UN M49,yes
+americas,BRB,,,UN M49,yes
+latin-america-and-the-caribbean,BRB,,,UN M49,yes
+caribbean,BRB,,,UN M49,yes
+world,BLR,,,UN M49,yes
+europe,BLR,,,UN M49,yes
+eastern-europe,BLR,,,UN M49,yes
+world,BEL,,,UN M49,yes
+europe,BEL,,,UN M49,yes
+western-europe,BEL,,,UN M49,yes
+world,BLZ,,,UN M49,yes
+americas,BLZ,,,UN M49,yes
+latin-america-and-the-caribbean,BLZ,,,UN M49,yes
+central-america,BLZ,,,UN M49,yes
+world,BEN,,,UN M49,yes
+africa,BEN,,,UN M49,yes
+sub-saharan-africa,BEN,,,UN M49,yes
+western-africa,BEN,,,UN M49,yes
+world,BMU,,,UN M49,yes
+americas,BMU,,,UN M49,yes
+northern-america,BMU,,,UN M49,yes
+world,BTN,,,UN M49,yes
+asia,BTN,,,UN M49,yes
+southern-asia,BTN,,,UN M49,yes
+world,BOL,,,UN M49,yes
+americas,BOL,,,UN M49,yes
+latin-america-and-the-caribbean,BOL,,,UN M49,yes
+south-america,BOL,,,UN M49,yes
+world,BES,,,UN M49,yes
+americas,BES,,,UN M49,yes
+latin-america-and-the-caribbean,BES,,,UN M49,yes
+caribbean,BES,,,UN M49,yes
+world,BIH,,,UN M49,yes
+europe,BIH,,,UN M49,yes
+southern-europe,BIH,,,UN M49,yes
+world,BWA,,,UN M49,yes
+africa,BWA,,,UN M49,yes
+sub-saharan-africa,BWA,,,UN M49,yes
+southern-africa,BWA,,,UN M49,yes
+world,BVT,,,UN M49,yes
+americas,BVT,,,UN M49,yes
+latin-america-and-the-caribbean,BVT,,,UN M49,yes
+south-america,BVT,,,UN M49,yes
+world,BRA,,,UN M49,yes
+americas,BRA,,,UN M49,yes
+latin-america-and-the-caribbean,BRA,,,UN M49,yes
+south-america,BRA,,,UN M49,yes
+world,IOT,,,UN M49,yes
+africa,IOT,,,UN M49,yes
+sub-saharan-africa,IOT,,,UN M49,yes
+eastern-africa,IOT,,,UN M49,yes
+world,BRN,,,UN M49,yes
+asia,BRN,,,UN M49,yes
+south-eastern-asia,BRN,,,UN M49,yes
+world,BGR,,,UN M49,yes
+europe,BGR,,,UN M49,yes
+eastern-europe,BGR,,,UN M49,yes
+world,BFA,,,UN M49,yes
+africa,BFA,,,UN M49,yes
+sub-saharan-africa,BFA,,,UN M49,yes
+western-africa,BFA,,,UN M49,yes
+world,BDI,,,UN M49,yes
+africa,BDI,,,UN M49,yes
+sub-saharan-africa,BDI,,,UN M49,yes
+eastern-africa,BDI,,,UN M49,yes
+world,CPV,,,UN M49,yes
+africa,CPV,,,UN M49,yes
+sub-saharan-africa,CPV,,,UN M49,yes
+western-africa,CPV,,,UN M49,yes
+world,KHM,,,UN M49,yes
+asia,KHM,,,UN M49,yes
+south-eastern-asia,KHM,,,UN M49,yes
+world,CMR,,,UN M49,yes
+africa,CMR,,,UN M49,yes
+sub-saharan-africa,CMR,,,UN M49,yes
+middle-africa,CMR,,,UN M49,yes
+world,CAN,,,UN M49,yes
+americas,CAN,,,UN M49,yes
+northern-america,CAN,,,UN M49,yes
+world,CYM,,,UN M49,yes
+americas,CYM,,,UN M49,yes
+latin-america-and-the-caribbean,CYM,,,UN M49,yes
+caribbean,CYM,,,UN M49,yes
+world,CAF,,,UN M49,yes
+africa,CAF,,,UN M49,yes
+sub-saharan-africa,CAF,,,UN M49,yes
+middle-africa,CAF,,,UN M49,yes
+world,TCD,,,UN M49,yes
+africa,TCD,,,UN M49,yes
+sub-saharan-africa,TCD,,,UN M49,yes
+middle-africa,TCD,,,UN M49,yes
+world,CHL,,,UN M49,yes
+americas,CHL,,,UN M49,yes
+latin-america-and-the-caribbean,CHL,,,UN M49,yes
+south-america,CHL,,,UN M49,yes
+world,CHN,,,UN M49,yes
+asia,CHN,,,UN M49,yes
+eastern-asia,CHN,,,UN M49,yes
+world,CXR,,,UN M49,yes
+oceania,CXR,,,UN M49,yes
+australia-and-new-zealand,CXR,,,UN M49,yes
+world,CCK,,,UN M49,yes
+oceania,CCK,,,UN M49,yes
+australia-and-new-zealand,CCK,,,UN M49,yes
+world,COL,,,UN M49,yes
+americas,COL,,,UN M49,yes
+latin-america-and-the-caribbean,COL,,,UN M49,yes
+south-america,COL,,,UN M49,yes
+world,COM,,,UN M49,yes
+africa,COM,,,UN M49,yes
+sub-saharan-africa,COM,,,UN M49,yes
+eastern-africa,COM,,,UN M49,yes
+world,COG,,,UN M49,yes
+africa,COG,,,UN M49,yes
+sub-saharan-africa,COG,,,UN M49,yes
+middle-africa,COG,,,UN M49,yes
+world,COD,,,UN M49,yes
+africa,COD,,,UN M49,yes
+sub-saharan-africa,COD,,,UN M49,yes
+middle-africa,COD,,,UN M49,yes
+world,COK,,,UN M49,yes
+oceania,COK,,,UN M49,yes
+polynesia,COK,,,UN M49,yes
+world,CRI,,,UN M49,yes
+americas,CRI,,,UN M49,yes
+latin-america-and-the-caribbean,CRI,,,UN M49,yes
+central-america,CRI,,,UN M49,yes
+world,CIV,,,UN M49,yes
+africa,CIV,,,UN M49,yes
+sub-saharan-africa,CIV,,,UN M49,yes
+western-africa,CIV,,,UN M49,yes
+world,HRV,,,UN M49,yes
+europe,HRV,,,UN M49,yes
+southern-europe,HRV,,,UN M49,yes
+world,CUB,,,UN M49,yes
+americas,CUB,,,UN M49,yes
+latin-america-and-the-caribbean,CUB,,,UN M49,yes
+caribbean,CUB,,,UN M49,yes
+world,CUW,,,UN M49,yes
+americas,CUW,,,UN M49,yes
+latin-america-and-the-caribbean,CUW,,,UN M49,yes
+caribbean,CUW,,,UN M49,yes
+world,CYP,,,UN M49,yes
+asia,CYP,,,UN M49,yes
+western-asia,CYP,,,UN M49,yes
+world,CZE,,,UN M49,yes
+europe,CZE,,,UN M49,yes
+eastern-europe,CZE,,,UN M49,yes
+world,DNK,,,UN M49,yes
+europe,DNK,,,UN M49,yes
+northern-europe,DNK,,,UN M49,yes
+world,DJI,,,UN M49,yes
+africa,DJI,,,UN M49,yes
+sub-saharan-africa,DJI,,,UN M49,yes
+eastern-africa,DJI,,,UN M49,yes
+world,DMA,,,UN M49,yes
+americas,DMA,,,UN M49,yes
+latin-america-and-the-caribbean,DMA,,,UN M49,yes
+caribbean,DMA,,,UN M49,yes
+world,DOM,,,UN M49,yes
+americas,DOM,,,UN M49,yes
+latin-america-and-the-caribbean,DOM,,,UN M49,yes
+caribbean,DOM,,,UN M49,yes
+world,ECU,,,UN M49,yes
+americas,ECU,,,UN M49,yes
+latin-america-and-the-caribbean,ECU,,,UN M49,yes
+south-america,ECU,,,UN M49,yes
+world,EGY,,,UN M49,yes
+africa,EGY,,,UN M49,yes
+northern-africa,EGY,,,UN M49,yes
+world,SLV,,,UN M49,yes
+americas,SLV,,,UN M49,yes
+latin-america-and-the-caribbean,SLV,,,UN M49,yes
+central-america,SLV,,,UN M49,yes
+world,GNQ,,,UN M49,yes
+africa,GNQ,,,UN M49,yes
+sub-saharan-africa,GNQ,,,UN M49,yes
+middle-africa,GNQ,,,UN M49,yes
+world,ERI,,,UN M49,yes
+africa,ERI,,,UN M49,yes
+sub-saharan-africa,ERI,,,UN M49,yes
+eastern-africa,ERI,,,UN M49,yes
+world,EST,,,UN M49,yes
+europe,EST,,,UN M49,yes
+northern-europe,EST,,,UN M49,yes
+world,SWZ,,,UN M49,yes
+africa,SWZ,,,UN M49,yes
+sub-saharan-africa,SWZ,,,UN M49,yes
+southern-africa,SWZ,,,UN M49,yes
+world,ETH,,,UN M49,yes
+africa,ETH,,,UN M49,yes
+sub-saharan-africa,ETH,,,UN M49,yes
+eastern-africa,ETH,,,UN M49,yes
+world,FLK,,,UN M49,yes
+americas,FLK,,,UN M49,yes
+latin-america-and-the-caribbean,FLK,,,UN M49,yes
+south-america,FLK,,,UN M49,yes
+world,FRO,,,UN M49,yes
+europe,FRO,,,UN M49,yes
+northern-europe,FRO,,,UN M49,yes
+world,FJI,,,UN M49,yes
+oceania,FJI,,,UN M49,yes
+melanesia,FJI,,,UN M49,yes
+world,FIN,,,UN M49,yes
+europe,FIN,,,UN M49,yes
+northern-europe,FIN,,,UN M49,yes
+world,FRA,,,UN M49,yes
+europe,FRA,,,UN M49,yes
+western-europe,FRA,,,UN M49,yes
+world,GUF,,,UN M49,yes
+americas,GUF,,,UN M49,yes
+latin-america-and-the-caribbean,GUF,,,UN M49,yes
+south-america,GUF,,,UN M49,yes
+world,PYF,,,UN M49,yes
+oceania,PYF,,,UN M49,yes
+polynesia,PYF,,,UN M49,yes
+world,ATF,,,UN M49,yes
+africa,ATF,,,UN M49,yes
+sub-saharan-africa,ATF,,,UN M49,yes
+eastern-africa,ATF,,,UN M49,yes
+world,GAB,,,UN M49,yes
+africa,GAB,,,UN M49,yes
+sub-saharan-africa,GAB,,,UN M49,yes
+middle-africa,GAB,,,UN M49,yes
+world,GMB,,,UN M49,yes
+africa,GMB,,,UN M49,yes
+sub-saharan-africa,GMB,,,UN M49,yes
+western-africa,GMB,,,UN M49,yes
+world,GEO,,,UN M49,yes
+asia,GEO,,,UN M49,yes
+western-asia,GEO,,,UN M49,yes
+world,DEU,,,UN M49,yes
+europe,DEU,,,UN M49,yes
+western-europe,DEU,,,UN M49,yes
+world,GHA,,,UN M49,yes
+africa,GHA,,,UN M49,yes
+sub-saharan-africa,GHA,,,UN M49,yes
+western-africa,GHA,,,UN M49,yes
+world,GIB,,,UN M49,yes
+europe,GIB,,,UN M49,yes
+southern-europe,GIB,,,UN M49,yes
+world,GRC,,,UN M49,yes
+europe,GRC,,,UN M49,yes
+southern-europe,GRC,,,UN M49,yes
+world,GRL,,,UN M49,yes
+americas,GRL,,,UN M49,yes
+northern-america,GRL,,,UN M49,yes
+world,GRD,,,UN M49,yes
+americas,GRD,,,UN M49,yes
+latin-america-and-the-caribbean,GRD,,,UN M49,yes
+caribbean,GRD,,,UN M49,yes
+world,GLP,,,UN M49,yes
+americas,GLP,,,UN M49,yes
+latin-america-and-the-caribbean,GLP,,,UN M49,yes
+caribbean,GLP,,,UN M49,yes
+world,GUM,,,UN M49,yes
+oceania,GUM,,,UN M49,yes
+micronesia-region,GUM,,,UN M49,yes
+world,GTM,,,UN M49,yes
+americas,GTM,,,UN M49,yes
+latin-america-and-the-caribbean,GTM,,,UN M49,yes
+central-america,GTM,,,UN M49,yes
+world,GGY,,,UN M49,yes
+europe,GGY,,,UN M49,yes
+northern-europe,GGY,,,UN M49,yes
+world,GIN,,,UN M49,yes
+africa,GIN,,,UN M49,yes
+sub-saharan-africa,GIN,,,UN M49,yes
+western-africa,GIN,,,UN M49,yes
+world,GNB,,,UN M49,yes
+africa,GNB,,,UN M49,yes
+sub-saharan-africa,GNB,,,UN M49,yes
+western-africa,GNB,,,UN M49,yes
+world,GUY,,,UN M49,yes
+americas,GUY,,,UN M49,yes
+latin-america-and-the-caribbean,GUY,,,UN M49,yes
+south-america,GUY,,,UN M49,yes
+world,HTI,,,UN M49,yes
+americas,HTI,,,UN M49,yes
+latin-america-and-the-caribbean,HTI,,,UN M49,yes
+caribbean,HTI,,,UN M49,yes
+world,HMD,,,UN M49,yes
+oceania,HMD,,,UN M49,yes
+australia-and-new-zealand,HMD,,,UN M49,yes
+world,VAT,,,UN M49,yes
+europe,VAT,,,UN M49,yes
+southern-europe,VAT,,,UN M49,yes
+world,HND,,,UN M49,yes
+americas,HND,,,UN M49,yes
+latin-america-and-the-caribbean,HND,,,UN M49,yes
+central-america,HND,,,UN M49,yes
+world,HKG,,,UN M49,yes
+asia,HKG,,,UN M49,yes
+eastern-asia,HKG,,,UN M49,yes
+world,HUN,,,UN M49,yes
+europe,HUN,,,UN M49,yes
+eastern-europe,HUN,,,UN M49,yes
+world,ISL,,,UN M49,yes
+europe,ISL,,,UN M49,yes
+northern-europe,ISL,,,UN M49,yes
+world,IND,,,UN M49,yes
+asia,IND,,,UN M49,yes
+southern-asia,IND,,,UN M49,yes
+world,IDN,,,UN M49,yes
+asia,IDN,,,UN M49,yes
+south-eastern-asia,IDN,,,UN M49,yes
+world,IRN,,,UN M49,yes
+asia,IRN,,,UN M49,yes
+southern-asia,IRN,,,UN M49,yes
+world,IRQ,,,UN M49,yes
+asia,IRQ,,,UN M49,yes
+western-asia,IRQ,,,UN M49,yes
+world,IRL,,,UN M49,yes
+europe,IRL,,,UN M49,yes
+northern-europe,IRL,,,UN M49,yes
+world,IMN,,,UN M49,yes
+europe,IMN,,,UN M49,yes
+northern-europe,IMN,,,UN M49,yes
+world,ISR,,,UN M49,yes
+asia,ISR,,,UN M49,yes
+western-asia,ISR,,,UN M49,yes
+world,ITA,,,UN M49,yes
+europe,ITA,,,UN M49,yes
+southern-europe,ITA,,,UN M49,yes
+world,JAM,,,UN M49,yes
+americas,JAM,,,UN M49,yes
+latin-america-and-the-caribbean,JAM,,,UN M49,yes
+caribbean,JAM,,,UN M49,yes
+world,JPN,,,UN M49,yes
+asia,JPN,,,UN M49,yes
+eastern-asia,JPN,,,UN M49,yes
+world,JEY,,,UN M49,yes
+europe,JEY,,,UN M49,yes
+northern-europe,JEY,,,UN M49,yes
+world,JOR,,,UN M49,yes
+asia,JOR,,,UN M49,yes
+western-asia,JOR,,,UN M49,yes
+world,KAZ,,,UN M49,yes
+asia,KAZ,,,UN M49,yes
+central-asia,KAZ,,,UN M49,yes
+world,KEN,,,UN M49,yes
+africa,KEN,,,UN M49,yes
+sub-saharan-africa,KEN,,,UN M49,yes
+eastern-africa,KEN,,,UN M49,yes
+world,KIR,,,UN M49,yes
+oceania,KIR,,,UN M49,yes
+micronesia-region,KIR,,,UN M49,yes
+world,PRK,,,UN M49,yes
+asia,PRK,,,UN M49,yes
+eastern-asia,PRK,,,UN M49,yes
+world,KOR,,,UN M49,yes
+asia,KOR,,,UN M49,yes
+eastern-asia,KOR,,,UN M49,yes
+world,KWT,,,UN M49,yes
+asia,KWT,,,UN M49,yes
+western-asia,KWT,,,UN M49,yes
+world,KGZ,,,UN M49,yes
+asia,KGZ,,,UN M49,yes
+central-asia,KGZ,,,UN M49,yes
+world,LAO,,,UN M49,yes
+asia,LAO,,,UN M49,yes
+south-eastern-asia,LAO,,,UN M49,yes
+world,LVA,,,UN M49,yes
+europe,LVA,,,UN M49,yes
+northern-europe,LVA,,,UN M49,yes
+world,LBN,,,UN M49,yes
+asia,LBN,,,UN M49,yes
+western-asia,LBN,,,UN M49,yes
+world,LSO,,,UN M49,yes
+africa,LSO,,,UN M49,yes
+sub-saharan-africa,LSO,,,UN M49,yes
+southern-africa,LSO,,,UN M49,yes
+world,LBR,,,UN M49,yes
+africa,LBR,,,UN M49,yes
+sub-saharan-africa,LBR,,,UN M49,yes
+western-africa,LBR,,,UN M49,yes
+world,LBY,,,UN M49,yes
+africa,LBY,,,UN M49,yes
+northern-africa,LBY,,,UN M49,yes
+world,LIE,,,UN M49,yes
+europe,LIE,,,UN M49,yes
+western-europe,LIE,,,UN M49,yes
+world,LTU,,,UN M49,yes
+europe,LTU,,,UN M49,yes
+northern-europe,LTU,,,UN M49,yes
+world,LUX,,,UN M49,yes
+europe,LUX,,,UN M49,yes
+western-europe,LUX,,,UN M49,yes
+world,MAC,,,UN M49,yes
+asia,MAC,,,UN M49,yes
+eastern-asia,MAC,,,UN M49,yes
+world,MDG,,,UN M49,yes
+africa,MDG,,,UN M49,yes
+sub-saharan-africa,MDG,,,UN M49,yes
+eastern-africa,MDG,,,UN M49,yes
+world,MWI,,,UN M49,yes
+africa,MWI,,,UN M49,yes
+sub-saharan-africa,MWI,,,UN M49,yes
+eastern-africa,MWI,,,UN M49,yes
+world,MYS,,,UN M49,yes
+asia,MYS,,,UN M49,yes
+south-eastern-asia,MYS,,,UN M49,yes
+world,MDV,,,UN M49,yes
+asia,MDV,,,UN M49,yes
+southern-asia,MDV,,,UN M49,yes
+world,MLI,,,UN M49,yes
+africa,MLI,,,UN M49,yes
+sub-saharan-africa,MLI,,,UN M49,yes
+western-africa,MLI,,,UN M49,yes
+world,MLT,,,UN M49,yes
+europe,MLT,,,UN M49,yes
+southern-europe,MLT,,,UN M49,yes
+world,MHL,,,UN M49,yes
+oceania,MHL,,,UN M49,yes
+micronesia-region,MHL,,,UN M49,yes
+world,MTQ,,,UN M49,yes
+americas,MTQ,,,UN M49,yes
+latin-america-and-the-caribbean,MTQ,,,UN M49,yes
+caribbean,MTQ,,,UN M49,yes
+world,MRT,,,UN M49,yes
+africa,MRT,,,UN M49,yes
+sub-saharan-africa,MRT,,,UN M49,yes
+western-africa,MRT,,,UN M49,yes
+world,MUS,,,UN M49,yes
+africa,MUS,,,UN M49,yes
+sub-saharan-africa,MUS,,,UN M49,yes
+eastern-africa,MUS,,,UN M49,yes
+world,MYT,,,UN M49,yes
+africa,MYT,,,UN M49,yes
+sub-saharan-africa,MYT,,,UN M49,yes
+eastern-africa,MYT,,,UN M49,yes
+world,MEX,,,UN M49,yes
+americas,MEX,,,UN M49,yes
+latin-america-and-the-caribbean,MEX,,,UN M49,yes
+central-america,MEX,,,UN M49,yes
+world,FSM,,,UN M49,yes
+oceania,FSM,,,UN M49,yes
+micronesia-region,FSM,,,UN M49,yes
+world,MDA,,,UN M49,yes
+europe,MDA,,,UN M49,yes
+eastern-europe,MDA,,,UN M49,yes
+world,MCO,,,UN M49,yes
+europe,MCO,,,UN M49,yes
+western-europe,MCO,,,UN M49,yes
+world,MNG,,,UN M49,yes
+asia,MNG,,,UN M49,yes
+eastern-asia,MNG,,,UN M49,yes
+world,MNE,,,UN M49,yes
+europe,MNE,,,UN M49,yes
+southern-europe,MNE,,,UN M49,yes
+world,MSR,,,UN M49,yes
+americas,MSR,,,UN M49,yes
+latin-america-and-the-caribbean,MSR,,,UN M49,yes
+caribbean,MSR,,,UN M49,yes
+world,MAR,,,UN M49,yes
+africa,MAR,,,UN M49,yes
+northern-africa,MAR,,,UN M49,yes
+world,MOZ,,,UN M49,yes
+africa,MOZ,,,UN M49,yes
+sub-saharan-africa,MOZ,,,UN M49,yes
+eastern-africa,MOZ,,,UN M49,yes
+world,MMR,,,UN M49,yes
+asia,MMR,,,UN M49,yes
+south-eastern-asia,MMR,,,UN M49,yes
+world,NAM,,,UN M49,yes
+africa,NAM,,,UN M49,yes
+sub-saharan-africa,NAM,,,UN M49,yes
+southern-africa,NAM,,,UN M49,yes
+world,NRU,,,UN M49,yes
+oceania,NRU,,,UN M49,yes
+micronesia-region,NRU,,,UN M49,yes
+world,NPL,,,UN M49,yes
+asia,NPL,,,UN M49,yes
+southern-asia,NPL,,,UN M49,yes
+world,NLD,,,UN M49,yes
+europe,NLD,,,UN M49,yes
+western-europe,NLD,,,UN M49,yes
+world,NCL,,,UN M49,yes
+oceania,NCL,,,UN M49,yes
+melanesia,NCL,,,UN M49,yes
+world,NZL,,,UN M49,yes
+oceania,NZL,,,UN M49,yes
+australia-and-new-zealand,NZL,,,UN M49,yes
+world,NIC,,,UN M49,yes
+americas,NIC,,,UN M49,yes
+latin-america-and-the-caribbean,NIC,,,UN M49,yes
+central-america,NIC,,,UN M49,yes
+world,NER,,,UN M49,yes
+africa,NER,,,UN M49,yes
+sub-saharan-africa,NER,,,UN M49,yes
+western-africa,NER,,,UN M49,yes
+world,NGA,,,UN M49,yes
+africa,NGA,,,UN M49,yes
+sub-saharan-africa,NGA,,,UN M49,yes
+western-africa,NGA,,,UN M49,yes
+world,NIU,,,UN M49,yes
+oceania,NIU,,,UN M49,yes
+polynesia,NIU,,,UN M49,yes
+world,NFK,,,UN M49,yes
+oceania,NFK,,,UN M49,yes
+australia-and-new-zealand,NFK,,,UN M49,yes
+world,MKD,,,UN M49,yes
+europe,MKD,,,UN M49,yes
+southern-europe,MKD,,,UN M49,yes
+world,MNP,,,UN M49,yes
+oceania,MNP,,,UN M49,yes
+micronesia-region,MNP,,,UN M49,yes
+world,NOR,,,UN M49,yes
+europe,NOR,,,UN M49,yes
+northern-europe,NOR,,,UN M49,yes
+world,OMN,,,UN M49,yes
+asia,OMN,,,UN M49,yes
+western-asia,OMN,,,UN M49,yes
+world,PAK,,,UN M49,yes
+asia,PAK,,,UN M49,yes
+southern-asia,PAK,,,UN M49,yes
+world,PLW,,,UN M49,yes
+oceania,PLW,,,UN M49,yes
+micronesia-region,PLW,,,UN M49,yes
+world,PSE,,,UN M49,yes
+asia,PSE,,,UN M49,yes
+western-asia,PSE,,,UN M49,yes
+world,PAN,,,UN M49,yes
+americas,PAN,,,UN M49,yes
+latin-america-and-the-caribbean,PAN,,,UN M49,yes
+central-america,PAN,,,UN M49,yes
+world,PNG,,,UN M49,yes
+oceania,PNG,,,UN M49,yes
+melanesia,PNG,,,UN M49,yes
+world,PRY,,,UN M49,yes
+americas,PRY,,,UN M49,yes
+latin-america-and-the-caribbean,PRY,,,UN M49,yes
+south-america,PRY,,,UN M49,yes
+world,PER,,,UN M49,yes
+americas,PER,,,UN M49,yes
+latin-america-and-the-caribbean,PER,,,UN M49,yes
+south-america,PER,,,UN M49,yes
+world,PHL,,,UN M49,yes
+asia,PHL,,,UN M49,yes
+south-eastern-asia,PHL,,,UN M49,yes
+world,PCN,,,UN M49,yes
+oceania,PCN,,,UN M49,yes
+polynesia,PCN,,,UN M49,yes
+world,POL,,,UN M49,yes
+europe,POL,,,UN M49,yes
+eastern-europe,POL,,,UN M49,yes
+world,PRT,,,UN M49,yes
+europe,PRT,,,UN M49,yes
+southern-europe,PRT,,,UN M49,yes
+world,PRI,,,UN M49,yes
+americas,PRI,,,UN M49,yes
+latin-america-and-the-caribbean,PRI,,,UN M49,yes
+caribbean,PRI,,,UN M49,yes
+world,QAT,,,UN M49,yes
+asia,QAT,,,UN M49,yes
+western-asia,QAT,,,UN M49,yes
+world,REU,,,UN M49,yes
+africa,REU,,,UN M49,yes
+sub-saharan-africa,REU,,,UN M49,yes
+eastern-africa,REU,,,UN M49,yes
+world,ROU,,,UN M49,yes
+europe,ROU,,,UN M49,yes
+eastern-europe,ROU,,,UN M49,yes
+world,RUS,,,UN M49,yes
+europe,RUS,,,UN M49,yes
+eastern-europe,RUS,,,UN M49,yes
+world,RWA,,,UN M49,yes
+africa,RWA,,,UN M49,yes
+sub-saharan-africa,RWA,,,UN M49,yes
+eastern-africa,RWA,,,UN M49,yes
+world,BLM,,,UN M49,yes
+americas,BLM,,,UN M49,yes
+latin-america-and-the-caribbean,BLM,,,UN M49,yes
+caribbean,BLM,,,UN M49,yes
+world,SHN,,,UN M49,yes
+africa,SHN,,,UN M49,yes
+sub-saharan-africa,SHN,,,UN M49,yes
+western-africa,SHN,,,UN M49,yes
+world,KNA,,,UN M49,yes
+americas,KNA,,,UN M49,yes
+latin-america-and-the-caribbean,KNA,,,UN M49,yes
+caribbean,KNA,,,UN M49,yes
+world,LCA,,,UN M49,yes
+americas,LCA,,,UN M49,yes
+latin-america-and-the-caribbean,LCA,,,UN M49,yes
+caribbean,LCA,,,UN M49,yes
+world,MAF,,,UN M49,yes
+americas,MAF,,,UN M49,yes
+latin-america-and-the-caribbean,MAF,,,UN M49,yes
+caribbean,MAF,,,UN M49,yes
+world,SPM,,,UN M49,yes
+americas,SPM,,,UN M49,yes
+northern-america,SPM,,,UN M49,yes
+world,VCT,,,UN M49,yes
+americas,VCT,,,UN M49,yes
+latin-america-and-the-caribbean,VCT,,,UN M49,yes
+caribbean,VCT,,,UN M49,yes
+world,WSM,,,UN M49,yes
+oceania,WSM,,,UN M49,yes
+polynesia,WSM,,,UN M49,yes
+world,SMR,,,UN M49,yes
+europe,SMR,,,UN M49,yes
+southern-europe,SMR,,,UN M49,yes
+world,STP,,,UN M49,yes
+africa,STP,,,UN M49,yes
+sub-saharan-africa,STP,,,UN M49,yes
+middle-africa,STP,,,UN M49,yes
+world,SAU,,,UN M49,yes
+asia,SAU,,,UN M49,yes
+western-asia,SAU,,,UN M49,yes
+world,SEN,,,UN M49,yes
+africa,SEN,,,UN M49,yes
+sub-saharan-africa,SEN,,,UN M49,yes
+western-africa,SEN,,,UN M49,yes
+world,SRB,,,UN M49,yes
+europe,SRB,,,UN M49,yes
+southern-europe,SRB,,,UN M49,yes
+world,SYC,,,UN M49,yes
+africa,SYC,,,UN M49,yes
+sub-saharan-africa,SYC,,,UN M49,yes
+eastern-africa,SYC,,,UN M49,yes
+world,SLE,,,UN M49,yes
+africa,SLE,,,UN M49,yes
+sub-saharan-africa,SLE,,,UN M49,yes
+western-africa,SLE,,,UN M49,yes
+world,SGP,,,UN M49,yes
+asia,SGP,,,UN M49,yes
+south-eastern-asia,SGP,,,UN M49,yes
+world,SXM,,,UN M49,yes
+americas,SXM,,,UN M49,yes
+latin-america-and-the-caribbean,SXM,,,UN M49,yes
+caribbean,SXM,,,UN M49,yes
+world,SVK,,,UN M49,yes
+europe,SVK,,,UN M49,yes
+eastern-europe,SVK,,,UN M49,yes
+world,SVN,,,UN M49,yes
+europe,SVN,,,UN M49,yes
+southern-europe,SVN,,,UN M49,yes
+world,SLB,,,UN M49,yes
+oceania,SLB,,,UN M49,yes
+melanesia,SLB,,,UN M49,yes
+world,SOM,,,UN M49,yes
+africa,SOM,,,UN M49,yes
+sub-saharan-africa,SOM,,,UN M49,yes
+eastern-africa,SOM,,,UN M49,yes
+world,ZAF,,,UN M49,yes
+africa,ZAF,,,UN M49,yes
+sub-saharan-africa,ZAF,,,UN M49,yes
+southern-africa,ZAF,,,UN M49,yes
+world,SGS,,,UN M49,yes
+americas,SGS,,,UN M49,yes
+latin-america-and-the-caribbean,SGS,,,UN M49,yes
+south-america,SGS,,,UN M49,yes
+world,SSD,,,UN M49,yes
+africa,SSD,,,UN M49,yes
+sub-saharan-africa,SSD,,,UN M49,yes
+eastern-africa,SSD,,,UN M49,yes
+world,ESP,,,UN M49,yes
+europe,ESP,,,UN M49,yes
+southern-europe,ESP,,,UN M49,yes
+world,LKA,,,UN M49,yes
+asia,LKA,,,UN M49,yes
+southern-asia,LKA,,,UN M49,yes
+world,SDN,,,UN M49,yes
+africa,SDN,,,UN M49,yes
+northern-africa,SDN,,,UN M49,yes
+world,SUR,,,UN M49,yes
+americas,SUR,,,UN M49,yes
+latin-america-and-the-caribbean,SUR,,,UN M49,yes
+south-america,SUR,,,UN M49,yes
+world,SJM,,,UN M49,yes
+europe,SJM,,,UN M49,yes
+northern-europe,SJM,,,UN M49,yes
+world,SWE,,,UN M49,yes
+europe,SWE,,,UN M49,yes
+northern-europe,SWE,,,UN M49,yes
+world,CHE,,,UN M49,yes
+europe,CHE,,,UN M49,yes
+western-europe,CHE,,,UN M49,yes
+world,SYR,,,UN M49,yes
+asia,SYR,,,UN M49,yes
+western-asia,SYR,,,UN M49,yes
+world,TWN,,,UN M49,yes
+world,TJK,,,UN M49,yes
+asia,TJK,,,UN M49,yes
+central-asia,TJK,,,UN M49,yes
+world,TZA,,,UN M49,yes
+africa,TZA,,,UN M49,yes
+sub-saharan-africa,TZA,,,UN M49,yes
+eastern-africa,TZA,,,UN M49,yes
+world,THA,,,UN M49,yes
+asia,THA,,,UN M49,yes
+south-eastern-asia,THA,,,UN M49,yes
+world,TLS,,,UN M49,yes
+asia,TLS,,,UN M49,yes
+south-eastern-asia,TLS,,,UN M49,yes
+world,TGO,,,UN M49,yes
+africa,TGO,,,UN M49,yes
+sub-saharan-africa,TGO,,,UN M49,yes
+western-africa,TGO,,,UN M49,yes
+world,TKL,,,UN M49,yes
+oceania,TKL,,,UN M49,yes
+polynesia,TKL,,,UN M49,yes
+world,TON,,,UN M49,yes
+oceania,TON,,,UN M49,yes
+polynesia,TON,,,UN M49,yes
+world,TTO,,,UN M49,yes
+americas,TTO,,,UN M49,yes
+latin-america-and-the-caribbean,TTO,,,UN M49,yes
+caribbean,TTO,,,UN M49,yes
+world,TUN,,,UN M49,yes
+africa,TUN,,,UN M49,yes
+northern-africa,TUN,,,UN M49,yes
+world,TUR,,,UN M49,yes
+asia,TUR,,,UN M49,yes
+western-asia,TUR,,,UN M49,yes
+world,TKM,,,UN M49,yes
+asia,TKM,,,UN M49,yes
+central-asia,TKM,,,UN M49,yes
+world,TCA,,,UN M49,yes
+americas,TCA,,,UN M49,yes
+latin-america-and-the-caribbean,TCA,,,UN M49,yes
+caribbean,TCA,,,UN M49,yes
+world,TUV,,,UN M49,yes
+oceania,TUV,,,UN M49,yes
+polynesia,TUV,,,UN M49,yes
+world,UGA,,,UN M49,yes
+africa,UGA,,,UN M49,yes
+sub-saharan-africa,UGA,,,UN M49,yes
+eastern-africa,UGA,,,UN M49,yes
+world,UKR,,,UN M49,yes
+europe,UKR,,,UN M49,yes
+eastern-europe,UKR,,,UN M49,yes
+world,ARE,,,UN M49,yes
+asia,ARE,,,UN M49,yes
+western-asia,ARE,,,UN M49,yes
+world,GBR,,,UN M49,yes
+europe,GBR,,,UN M49,yes
+northern-europe,GBR,,,UN M49,yes
+world,USA,,,UN M49,yes
+americas,USA,,,UN M49,yes
+northern-america,USA,,,UN M49,yes
+world,UMI,,,UN M49,yes
+oceania,UMI,,,UN M49,yes
+micronesia-region,UMI,,,UN M49,yes
+world,URY,,,UN M49,yes
+americas,URY,,,UN M49,yes
+latin-america-and-the-caribbean,URY,,,UN M49,yes
+south-america,URY,,,UN M49,yes
+world,UZB,,,UN M49,yes
+asia,UZB,,,UN M49,yes
+central-asia,UZB,,,UN M49,yes
+world,VUT,,,UN M49,yes
+oceania,VUT,,,UN M49,yes
+melanesia,VUT,,,UN M49,yes
+world,VEN,,,UN M49,yes
+americas,VEN,,,UN M49,yes
+latin-america-and-the-caribbean,VEN,,,UN M49,yes
+south-america,VEN,,,UN M49,yes
+world,VNM,,,UN M49,yes
+asia,VNM,,,UN M49,yes
+south-eastern-asia,VNM,,,UN M49,yes
+world,VGB,,,UN M49,yes
+americas,VGB,,,UN M49,yes
+latin-america-and-the-caribbean,VGB,,,UN M49,yes
+caribbean,VGB,,,UN M49,yes
+world,VIR,,,UN M49,yes
+americas,VIR,,,UN M49,yes
+latin-america-and-the-caribbean,VIR,,,UN M49,yes
+caribbean,VIR,,,UN M49,yes
+world,WLF,,,UN M49,yes
+oceania,WLF,,,UN M49,yes
+polynesia,WLF,,,UN M49,yes
+world,ESH,,,UN M49,yes
+africa,ESH,,,UN M49,yes
+northern-africa,ESH,,,UN M49,yes
+world,YEM,,,UN M49,yes
+asia,YEM,,,UN M49,yes
+western-asia,YEM,,,UN M49,yes
+world,ZMB,,,UN M49,yes
+africa,ZMB,,,UN M49,yes
+sub-saharan-africa,ZMB,,,UN M49,yes
+eastern-africa,ZMB,,,UN M49,yes
+world,ZWE,,,UN M49,yes
+africa,ZWE,,,UN M49,yes
+sub-saharan-africa,ZWE,,,UN M49,yes
+eastern-africa,ZWE,,,UN M49,yes
+asia,TWN,,,UN Population Division (WPP places Taiwan in Eastern Asia),yes
+eastern-asia,TWN,,,UN Population Division (WPP places Taiwan in Eastern Asia),yes
+world,XKX,,,UN M49,yes
+europe,XKX,,,UN Population Division (WPP places Kosovo in Southern Europe),no
+southern-europe,XKX,,,UN Population Division (WPP places Kosovo in Southern Europe),no
+eu,BEL,1958-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,FRA,1958-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,DEU,1958-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,ITA,1958-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,LUX,1958-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,NLD,1958-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,DNK,1973-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,IRL,1973-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,GBR,1973-01-01,2020-01-31,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,GRC,1981-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,ESP,1986-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,PRT,1986-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,AUT,1995-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,FIN,1995-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,SWE,1995-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,CYP,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,CZE,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,EST,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,HUN,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,LVA,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,LTU,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,MLT,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,POL,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,SVK,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,SVN,2004-05-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,BGR,2007-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,ROU,2007-01-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+eu,HRV,2013-07-01,,https://european-union.europa.eu/principles-countries-history/eu-countries_en,no
+euro-area,AUT,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,BEL,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,FIN,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,FRA,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,DEU,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,IRL,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,ITA,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,LUX,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,NLD,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,PRT,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,ESP,1999-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,GRC,2001-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,SVN,2007-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,CYP,2008-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,MLT,2008-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,SVK,2009-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,EST,2011-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,LVA,2014-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,LTU,2015-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,HRV,2023-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+euro-area,BGR,2026-01-01,,https://www.ecb.europa.eu/euro/intro/html/index.en.html,no
+nato,BEL,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,CAN,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,DNK,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,FRA,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,ISL,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,ITA,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,LUX,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,NLD,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,NOR,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,PRT,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,GBR,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,USA,1949-08-24,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,GRC,1952-02-18,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,TUR,1952-02-18,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,DEU,1955-05-09,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,ESP,1982-05-30,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,CZE,1999-03-12,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,HUN,1999-03-12,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,POL,1999-03-12,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,BGR,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,EST,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,LVA,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,LTU,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,ROU,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,SVK,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,SVN,2004-03-29,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,ALB,2009-04-01,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,HRV,2009-04-01,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,MNE,2017-06-05,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,MKD,2020-03-27,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,FIN,2023-04-04,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+nato,SWE,2024-03-07,,https://www.nato.int/cps/en/natohq/topics_52044.htm,no
+asean,IDN,1967-08-08,,https://asean.org/member-states/,no
+asean,MYS,1967-08-08,,https://asean.org/member-states/,no
+asean,PHL,1967-08-08,,https://asean.org/member-states/,no
+asean,SGP,1967-08-08,,https://asean.org/member-states/,no
+asean,THA,1967-08-08,,https://asean.org/member-states/,no
+asean,BRN,1984-01-07,,https://asean.org/member-states/,no
+asean,VNM,1995-07-28,,https://asean.org/member-states/,no
+asean,LAO,1997-07-23,,https://asean.org/member-states/,no
+asean,MMR,1997-07-23,,https://asean.org/member-states/,no
+asean,KHM,1999-04-30,,https://asean.org/member-states/,no
+asean,TLS,2025-10-26,,https://asean.org/member-states/,no
+nafta,USA,1994-01-01,2020-06-30,https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement,no
+nafta,CAN,1994-01-01,2020-06-30,https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement,no
+nafta,MEX,1994-01-01,2020-06-30,https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement,no
+usmca,USA,2020-07-01,,https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement,no
+usmca,CAN,2020-07-01,,https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement,no
+usmca,MEX,2020-07-01,,https://ustr.gov/trade-agreements/free-trade-agreements/united-states-mexico-canada-agreement,no
+mercosur,ARG,1991-03-26,,https://www.mercosur.int/en/about-mercosur/mercosur-countries/,no
+mercosur,BRA,1991-03-26,,https://www.mercosur.int/en/about-mercosur/mercosur-countries/,no
+mercosur,PRY,1991-03-26,,https://www.mercosur.int/en/about-mercosur/mercosur-countries/,no
+mercosur,URY,1991-03-26,,https://www.mercosur.int/en/about-mercosur/mercosur-countries/,no
+mercosur,VEN,2012-07-31,,https://www.mercosur.int/en/about-mercosur/mercosur-countries/,no
+mercosur,BOL,2024-07-08,,https://www.mercosur.int/en/about-mercosur/mercosur-countries/,no
+opec,IRN,1960-09-14,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,IRQ,1960-09-14,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,KWT,1960-09-14,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,SAU,1960-09-14,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,VEN,1960-09-14,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,QAT,1961-01-01,2018-12-31,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,IDN,1962-01-01,2008-12-31,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,IDN,2016-01-01,2016-11-30,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,LBY,1962-01-01,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,ARE,1967-01-01,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,DZA,1969-01-01,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,NGA,1971-01-01,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,ECU,1973-01-01,1992-12-31,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,ECU,2007-10-01,2019-12-31,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,GAB,1975-01-01,1994-12-31,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,GAB,2016-07-01,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,AGO,2007-01-01,2023-12-31,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,GNQ,2017-05-25,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+opec,COG,2018-06-22,,https://www.opec.org/opec_web/en/about_us/25.htm,no
+g7,FRA,1975-11-15,,https://www.g7italy.it/en/the-g7/,no
+g7,DEU,1975-11-15,,https://www.g7italy.it/en/the-g7/,no
+g7,ITA,1975-11-15,,https://www.g7italy.it/en/the-g7/,no
+g7,JPN,1975-11-15,,https://www.g7italy.it/en/the-g7/,no
+g7,GBR,1975-11-15,,https://www.g7italy.it/en/the-g7/,no
+g7,USA,1975-11-15,,https://www.g7italy.it/en/the-g7/,no
+g7,CAN,1976-06-27,,https://www.g7italy.it/en/the-g7/,no
+g20,ARG,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,AUS,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,BRA,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,CAN,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,CHN,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,FRA,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,DEU,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,IND,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,IDN,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,ITA,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,JPN,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,KOR,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,MEX,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,RUS,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,SAU,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,ZAF,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,TUR,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,GBR,1999-09-26,,https://g20.org/about-the-g20/,no
+g20,USA,1999-09-26,,https://g20.org/about-the-g20/,no
+brics,BRA,2009-06-16,,https://brics.br/en/about-brics,no
+brics,RUS,2009-06-16,,https://brics.br/en/about-brics,no
+brics,IND,2009-06-16,,https://brics.br/en/about-brics,no
+brics,CHN,2009-06-16,,https://brics.br/en/about-brics,no
+brics,ZAF,2010-12-24,,https://brics.br/en/about-brics,no
+brics,EGY,2024-01-01,,https://brics.br/en/about-brics,no
+brics,ETH,2024-01-01,,https://brics.br/en/about-brics,no
+brics,IRN,2024-01-01,,https://brics.br/en/about-brics,no
+brics,ARE,2024-01-01,,https://brics.br/en/about-brics,no
+brics,IDN,2025-01-06,,https://brics.br/en/about-brics,no

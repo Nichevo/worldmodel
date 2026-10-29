@@ -1,0 +1,102 @@
+# Driver graph: which variable drives which, for linked forecasts.
+#
+# Status: design only (phase 0). The forecast engine and scenario workbench
+# that evaluate this graph arrive in phase 3. Phase 0 ships the file so the
+# format is fixed and both components can read it through the contract.
+#
+# Nodes are indicator ids from indicators.yaml (or `assumption:` nodes that
+# only exist in scenarios). Each link carries:
+#   from, to       node ids
+#   kind           identity (an accounting rule, exact), structural (a model
+#                  equation) or empirical (estimated from data)
+#   lag_years      how many years later the effect lands
+#   strength       default elasticity or coefficient; null until estimated
+#   source         where the default comes from (paper, method or "accounting")
+#   note           a plain-language reading of the link
+
+version: 1
+nodes:
+  - {id: tfr}
+  - {id: life_expectancy}
+  - {id: net_migration}
+  - {id: births}
+  - {id: deaths}
+  - {id: pop_total}
+  - {id: pop_by_age_sex}
+  - {id: pop_age_15_64}
+  - {id: pop_age_65_plus}
+  - {id: old_age_dependency_ratio}
+  - {id: gdp_growth}
+  - {id: gdp_usd}
+
+links:
+  - from: tfr
+    to: births
+    kind: structural
+    lag_years: 0
+    strength: null
+    source: cohort-component model
+    note: Births are age-specific fertility rates times the number of women of each age.
+  - from: life_expectancy
+    to: deaths
+    kind: structural
+    lag_years: 0
+    strength: null
+    source: cohort-component model
+    note: Death counts follow from age-specific mortality, summarised by life expectancy.
+  - from: births
+    to: pop_total
+    kind: identity
+    lag_years: 0
+    strength: 1
+    source: accounting
+    note: Population change equals births minus deaths plus net migration.
+  - from: deaths
+    to: pop_total
+    kind: identity
+    lag_years: 0
+    strength: -1
+    source: accounting
+    note: Population change equals births minus deaths plus net migration.
+  - from: net_migration
+    to: pop_total
+    kind: identity
+    lag_years: 0
+    strength: 1
+    source: accounting
+    note: Population change equals births minus deaths plus net migration.
+  - from: births
+    to: pop_age_15_64
+    kind: structural
+    lag_years: 15
+    strength: null
+    source: cohort-component model
+    note: Babies born this year reach working age 15 years later.
+  - from: pop_age_65_plus
+    to: old_age_dependency_ratio
+    kind: identity
+    lag_years: 0
+    strength: null
+    source: accounting
+    note: The ratio is people 65 and over divided by people aged 15 to 64.
+  - from: pop_age_15_64
+    to: old_age_dependency_ratio
+    kind: identity
+    lag_years: 0
+    strength: null
+    source: accounting
+    note: The ratio is people 65 and over divided by people aged 15 to 64.
+  - from: pop_age_15_64
+    to: gdp_growth
+    kind: empirical
+    lag_years: 0
+    strength: null
+    source: to be estimated (panel regression of growth on working-age population growth)
+    note: Faster growth of the working-age population tends to lift potential GDP growth.
+  - from: gdp_growth
+    to: gdp_usd
+    kind: identity
+    lag_years: 0
+    strength: null
+    source: accounting (together with inflation and the exchange rate)
+    note: Nominal US dollar GDP moves with real growth, prices and the exchange rate.

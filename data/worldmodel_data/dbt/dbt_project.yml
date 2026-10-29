@@ -1,0 +1,19 @@
+name: worldmodel
+version: "0.1.0"
+config-version: 2
+profile: worldmodel
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+models:
+  worldmodel:
+    +materialized: table
+    intermediate:
+      +materialized: table
+      +schema: int
+
+tests:
+  worldmodel:
+    +severity: error

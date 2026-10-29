@@ -1,0 +1,20 @@
+# Local data: raw vintages, Parquet and warehouse builds
+var/
+# Secrets
+.env
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+# dbt (the build points these at a temp folder; this is for manual runs)
+data/worldmodel_data/dbt/target/
+data/worldmodel_data/dbt/logs/
+# Node
+node_modules/
+app/web/.next/
+app/web/out/
+app/web/next-env.d.ts
+*.tsbuildinfo
+# OS
+.DS_Store
