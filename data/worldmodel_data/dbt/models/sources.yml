@@ -1,0 +1,17 @@
+version: 2
+
+# Loaded into the `src` schema by worldmodel-data build before dbt runs:
+# the contract catalogues, the vintage manifests and every staged vintage.
+sources:
+  - name: src
+    schema: src
+    tables:
+      - name: entities
+      - name: entity_codes
+      - name: memberships
+      - name: successions
+      - name: indicators
+      - name: indicator_sources
+      - name: sources
+      - name: vintages
+      - name: raw_observations

@@ -1,0 +1,114 @@
+version: 2
+
+# Validation gates. A failing error-level test stops the build: the new
+# warehouse is not swapped in and the app keeps reading the previous one.
+
+models:
+  - name: entities
+    columns:
+      - name: entity_id
+        tests: [unique, not_null]
+      - name: type
+        tests:
+          - accepted_values:
+              arguments:
+                values: [country, historical_country, world, continent, subregion, intermediate_region, bloc, alliance, group, custom]
+
+  - name: entity_codes
+    tests:
+      - unique_combination:
+          arguments:
+            columns: [scheme, code, valid_from]
+    columns:
+      - name: entity_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('entities')
+                field: entity_id
+
+  - name: memberships
+    columns:
+      - name: group_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('entities')
+                field: entity_id
+      - name: member_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('entities')
+                field: entity_id
+
+  - name: indicators
+    columns:
+      - name: indicator_id
+        tests: [unique, not_null]
+
+  - name: vintages
+    tests:
+      - unique_combination:
+          arguments:
+            columns: [source_id, vintage]
+
+  - name: observations
+    tests:
+      - unique_combination:
+          arguments:
+            columns: [entity_id, indicator_id, period_start, freq, breakdown, variant, source_id, vintage]
+      - within_indicator_bounds
+    columns:
+      - name: entity_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('entities')
+                field: entity_id
+      - name: indicator_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('indicators')
+                field: indicator_id
+      - name: source_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('sources')
+                field: source_id
+      - name: freq
+        tests:
+          - accepted_values:
+              arguments:
+                values: [A, Q, M, D]
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: [E, P]
+      - name: variant
+        tests:
+          - accepted_values:
+              arguments:
+                values: [central, low, high, lower80, upper80, lower95, upper95]
+
+  - name: series
+    tests:
+      - unique_combination:
+          arguments:
+            columns: [entity_id, indicator_id, period_start, freq, breakdown, variant, source_id]
+      - within_indicator_bounds
+    columns:
+      - name: coverage
+        tests:
+          - between:
+              arguments:
+                low: 0
+                high: 1.000001
+
+  - name: unmapped_codes
+    description: Source codes the crosswalk does not know. Listed in the build report.

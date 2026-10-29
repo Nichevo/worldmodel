@@ -1,0 +1,439 @@
+# Indicator catalogue: one canonical indicator, linked to each source's series.
+#
+# Fields
+#   id            stable key used everywhere (API, warehouse, streams)
+#   name          plain-language name for menus and charts
+#   description   one or two sentences a non-specialist understands
+#   synonyms      other words people use (search and the assistant)
+#   domain        grouping for menus
+#   unit          unit of the stored value (after `scale` is applied)
+#   decimals      display precision
+#   frequency     A (annual), Q, M or D
+#   breakdowns    dimensions carried in the `breakdown` column, if any
+#   aggregation   how a region or bloc value is built from its members:
+#                   sum                       add the members up
+#                   weighted_mean, weight     mean weighted by another indicator
+#                   ratio, numerator, denominator, multiplier
+#                                             ratio of two summed indicators
+#                   none                      not aggregated (for example medians)
+#   bounds        [min, max] any value must fall inside (validation gate)
+#   sources       ranked list; the first is the default on charts
+#     source_id, series (the source's own code), scale (multiplier to `unit`),
+#     notes on definitions that matter when comparing sources
+
+# ---------------------------------------------------------------- population
+- id: pop_total
+  name: Population
+  description: Total population on 1 July of the year, counting everyone living in the country (de facto).
+  synonyms: [population, people, inhabitants, total population, headcount]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 12000000000]
+  sources:
+    - {source_id: un_wpp, series: TPopulation1July, scale: 1000}
+
+- id: pop_male
+  name: Male population
+  description: Male population on 1 July.
+  synonyms: [men, males]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 6000000000]
+  sources:
+    - {source_id: un_wpp, series: TPopulationMale1July, scale: 1000}
+
+- id: pop_female
+  name: Female population
+  description: Female population on 1 July.
+  synonyms: [women, females]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 6000000000]
+  sources:
+    - {source_id: un_wpp, series: TPopulationFemale1July, scale: 1000}
+
+- id: pop_growth_rate
+  name: Population growth rate
+  description: Yearly change in population as a percentage, including births, deaths and migration.
+  synonyms: [population growth, growth of population]
+  domain: population
+  unit: percent
+  decimals: 2
+  frequency: A
+  aggregation: {method: weighted_mean, weight: pop_total}
+  # Wide on purpose: wars and mass flight move this a lot (Kuwait 1990 was about -71).
+  bounds: [-100, 100]
+  sources:
+    - {source_id: un_wpp, series: PopGrowthRate, scale: 1}
+
+- id: pop_density
+  name: Population density
+  description: People per square kilometre of land area.
+  synonyms: [density, people per km2]
+  domain: population
+  unit: persons per km²
+  decimals: 1
+  frequency: A
+  aggregation: {method: none}
+  bounds: [0, 50000]
+  sources:
+    - {source_id: un_wpp, series: PopDensity, scale: 1}
+
+- id: pop_sex_ratio
+  name: Sex ratio
+  description: Males per 100 females in the whole population.
+  synonyms: [gender ratio, males per 100 females]
+  domain: population
+  unit: males per 100 females
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: pop_male, denominator: pop_female, multiplier: 100}
+  bounds: [50, 400]
+  sources:
+    - {source_id: un_wpp, series: PopSexRatio, scale: 1}
+
+- id: median_age
+  name: Median age
+  description: Half the population is older than this age and half is younger.
+  synonyms: [age of population, average age, ageing]
+  domain: population
+  unit: years
+  decimals: 1
+  frequency: A
+  aggregation: {method: none}
+  bounds: [5, 70]
+  sources:
+    - {source_id: un_wpp, series: MedianAgePop, scale: 1}
+
+- id: births
+  name: Births
+  description: Live births during the year.
+  synonyms: [number of births, babies born]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 200000000]
+  sources:
+    - {source_id: un_wpp, series: Births, scale: 1000}
+
+- id: deaths
+  name: Deaths
+  description: Deaths during the year.
+  synonyms: [number of deaths, mortality count]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 200000000]
+  sources:
+    - {source_id: un_wpp, series: Deaths, scale: 1000}
+
+- id: cbr
+  name: Crude birth rate
+  description: Live births per 1,000 people in the year.
+  synonyms: [birth rate, natality]
+  domain: population
+  unit: per 1,000 people
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: births, denominator: pop_total, multiplier: 1000}
+  bounds: [0, 80]
+  sources:
+    - {source_id: un_wpp, series: CBR, scale: 1}
+
+- id: cdr
+  name: Crude death rate
+  description: Deaths per 1,000 people in the year.
+  synonyms: [death rate, mortality rate]
+  domain: population
+  unit: per 1,000 people
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: deaths, denominator: pop_total, multiplier: 1000}
+  bounds: [0, 200]
+  sources:
+    - {source_id: un_wpp, series: CDR, scale: 1}
+
+- id: tfr
+  name: Fertility rate
+  description: Average number of children a woman would have over her lifetime at this year's age-specific birth rates (total fertility rate). About 2.1 keeps a population stable without migration.
+  synonyms: [fertility, total fertility rate, TFR, births per woman, children per woman]
+  domain: population
+  unit: births per woman
+  decimals: 2
+  frequency: A
+  # Approximation: weights by female population rather than women aged 15 to 49.
+  aggregation: {method: weighted_mean, weight: pop_female}
+  bounds: [0.3, 10]
+  sources:
+    - {source_id: un_wpp, series: TFR, scale: 1}
+
+- id: life_expectancy
+  name: Life expectancy at birth
+  description: Years a newborn would live on average if this year's death rates held for their whole life.
+  synonyms: [life expectancy, lifespan, longevity, e0]
+  domain: population
+  unit: years
+  decimals: 1
+  frequency: A
+  # Approximation: population-weighted mean of member values.
+  aggregation: {method: weighted_mean, weight: pop_total}
+  bounds: [5, 100]
+  sources:
+    - {source_id: un_wpp, series: LEx, scale: 1}
+
+- id: life_expectancy_male
+  name: Life expectancy at birth, male
+  description: Life expectancy at birth for males.
+  synonyms: [male life expectancy, men life expectancy]
+  domain: population
+  unit: years
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: pop_male}
+  bounds: [5, 100]
+  sources:
+    - {source_id: un_wpp, series: LExMale, scale: 1}
+
+- id: life_expectancy_female
+  name: Life expectancy at birth, female
+  description: Life expectancy at birth for females.
+  synonyms: [female life expectancy, women life expectancy]
+  domain: population
+  unit: years
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: pop_female}
+  bounds: [5, 105]
+  sources:
+    - {source_id: un_wpp, series: LExFemale, scale: 1}
+
+- id: infant_mortality
+  name: Infant mortality rate
+  description: Deaths before age one per 1,000 live births.
+  synonyms: [infant deaths, IMR, baby deaths]
+  domain: population
+  unit: per 1,000 live births
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: births}
+  bounds: [0, 500]
+  sources:
+    - {source_id: un_wpp, series: IMR, scale: 1}
+
+- id: net_migration
+  name: Net migration
+  description: Immigrants minus emigrants during the year. Negative means more people left than arrived.
+  synonyms: [migration, immigration, emigration, net migrants]
+  domain: migration
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [-50000000, 50000000]
+  sources:
+    - {source_id: un_wpp, series: NetMigrations, scale: 1000}
+
+- id: net_migration_rate
+  name: Net migration rate
+  description: Net migrants per 1,000 people in the year.
+  synonyms: [migration rate]
+  domain: migration
+  unit: per 1,000 people
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: net_migration, denominator: pop_total, multiplier: 1000}
+  bounds: [-1000, 1000]
+  sources:
+    - {source_id: un_wpp, series: CNMR, scale: 1}
+
+# ------------------------------------------------------------- age structure
+- id: pop_by_age_sex
+  name: Population by age and sex
+  description: Population on 1 July in five-year age groups by sex, the data behind a population pyramid.
+  synonyms: [age structure, population pyramid, age groups, age distribution]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  breakdowns: [age, sex]
+  aggregation: {method: sum}
+  bounds: [0, 6000000000]
+  sources:
+    - {source_id: un_wpp, series: PopTotal|PopMale|PopFemale, scale: 1000,
+       notes: "From the WPP population by five-year age group file. age is the WPP AgeGrp label (0-4 ... 100+); sex is total, male or female."}
+
+- id: pop_age_0_14
+  name: Population aged 0 to 14
+  description: Children under 15.
+  synonyms: [children, young population]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 6000000000]
+  sources:
+    - {source_id: un_wpp, series: derived:age_0_14, scale: 1000,
+       notes: "Sum of WPP age groups 0-4, 5-9 and 10-14."}
+
+- id: pop_age_15_64
+  name: Population aged 15 to 64
+  description: The working-age population.
+  synonyms: [working age population, working-age]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 6000000000]
+  sources:
+    - {source_id: un_wpp, series: derived:age_15_64, scale: 1000,
+       notes: "Sum of WPP age groups 15-19 to 60-64."}
+
+- id: pop_age_65_plus
+  name: Population aged 65 and over
+  description: People aged 65 and older.
+  synonyms: [elderly, older people, seniors, retirees]
+  domain: population
+  unit: persons
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 6000000000]
+  sources:
+    - {source_id: un_wpp, series: derived:age_65_plus, scale: 1000,
+       notes: "Sum of WPP age groups 65-69 to 100+."}
+
+- id: pop_share_0_14
+  name: Share of population aged 0 to 14
+  description: Children under 15 as a percentage of the population.
+  synonyms: [youth share, share of children]
+  domain: population
+  unit: percent
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: pop_age_0_14, denominator: pop_total, multiplier: 100}
+  bounds: [0, 100]
+  sources:
+    - {source_id: un_wpp, series: derived:share_0_14, scale: 1}
+
+- id: pop_share_65_plus
+  name: Share of population aged 65 and over
+  description: People aged 65 and older as a percentage of the population.
+  synonyms: [elderly share, ageing, aging, old population share]
+  domain: population
+  unit: percent
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: pop_age_65_plus, denominator: pop_total, multiplier: 100}
+  bounds: [0, 100]
+  sources:
+    - {source_id: un_wpp, series: derived:share_65_plus, scale: 1}
+
+- id: old_age_dependency_ratio
+  name: Old-age dependency ratio
+  description: People aged 65 and over per 100 people of working age (15 to 64). Higher means fewer workers per retiree.
+  synonyms: [dependency ratio, retirees per worker, aged dependency]
+  domain: population
+  unit: per 100 aged 15 to 64
+  decimals: 1
+  frequency: A
+  aggregation: {method: ratio, numerator: pop_age_65_plus, denominator: pop_age_15_64, multiplier: 100}
+  bounds: [0, 200]
+  sources:
+    - {source_id: un_wpp, series: derived:old_age_dependency, scale: 1}
+
+# ------------------------------------------------------------------ economy
+- id: gdp_growth
+  name: GDP growth
+  description: Yearly change in real (inflation-adjusted) gross domestic product, in percent.
+  synonyms: [economic growth, real GDP growth, growth rate, GDP change, recession]
+  domain: economy
+  unit: percent
+  decimals: 1
+  frequency: A
+  # IMF weights regional growth by GDP at purchasing power parity.
+  aggregation: {method: weighted_mean, weight: gdp_ppp}
+  bounds: [-80, 200]
+  sources:
+    - {source_id: imf_weo, series: NGDP_RPCH, scale: 1,
+       notes: "Constant prices, percent change. Years from the release year on are IMF projections."}
+
+- id: gdp_usd
+  name: GDP, current US dollars
+  description: Gross domestic product at current prices, converted to US dollars at market exchange rates.
+  synonyms: [GDP, economy size, nominal GDP, output]
+  domain: economy
+  unit: US dollars
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 500000000000000]
+  sources:
+    - {source_id: imf_weo, series: NGDPD, scale: 1000000000}
+
+- id: gdp_ppp
+  name: GDP, purchasing power parity
+  description: Gross domestic product in international dollars, adjusted for price differences between countries.
+  synonyms: [GDP PPP, PPP GDP]
+  domain: economy
+  unit: international dollars
+  decimals: 0
+  frequency: A
+  aggregation: {method: sum}
+  bounds: [0, 1000000000000000]
+  sources:
+    - {source_id: imf_weo, series: PPPGDP, scale: 1000000000}
+
+- id: gdp_per_capita_usd
+  name: GDP per person, current US dollars
+  description: GDP in US dollars divided by population.
+  synonyms: [GDP per capita, income per person, average income]
+  domain: economy
+  unit: US dollars per person
+  decimals: 0
+  frequency: A
+  # Aggregate uses UN WPP population as the denominator.
+  aggregation: {method: ratio, numerator: gdp_usd, denominator: pop_total, multiplier: 1}
+  bounds: [0, 1000000]
+  sources:
+    - {source_id: imf_weo, series: NGDPDPC, scale: 1}
+
+- id: gdp_ppp_per_capita
+  name: GDP per person, PPP
+  description: GDP at purchasing power parity divided by population, in international dollars.
+  synonyms: [GDP per capita PPP, living standards]
+  domain: economy
+  unit: international dollars per person
+  decimals: 0
+  frequency: A
+  aggregation: {method: ratio, numerator: gdp_ppp, denominator: pop_total, multiplier: 1}
+  bounds: [0, 1000000]
+  sources:
+    - {source_id: imf_weo, series: PPPPC, scale: 1}
+
+- id: inflation
+  name: Inflation
+  description: Yearly change in average consumer prices, in percent.
+  synonyms: [CPI, consumer prices, cost of living, price growth]
+  domain: economy
+  unit: percent
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: gdp_ppp}
+  bounds: [-100, 100000000000]
+  sources:
+    - {source_id: imf_weo, series: PCPIPCH, scale: 1}

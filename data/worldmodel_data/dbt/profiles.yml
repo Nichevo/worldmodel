@@ -1,0 +1,8 @@
+# The warehouse file is chosen by the build step (worldmodel-data build).
+worldmodel:
+  target: build
+  outputs:
+    build:
+      type: duckdb
+      path: "{{ env_var('WM_DUCKDB_PATH') }}"
+      threads: 4
