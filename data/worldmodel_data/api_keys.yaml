@@ -1,0 +1,82 @@
+# API key and rate-limit register.
+#
+# Keys live in a local .env file at the repo root (copy .env.example), never in
+# git. `worldmodel-data keys` shows which are set without printing them.
+# Limits are from each provider's documentation as last known; check them when
+# a connector is built, and keep connectors under them so a refresh does not
+# fail halfway.
+
+- source: un_wpp
+  name: UN World Population Prospects (bulk CSV)
+  env: []
+  needs_key: false
+  limits: Static file downloads, about 100 MB per release.
+  status: active
+
+- source: imf_weo
+  name: IMF DataMapper API
+  env: []
+  needs_key: false
+  limits: No published limit. The connector waits 1 second between requests and sends a User-Agent.
+  status: active
+
+- source: world_bank_wdi
+  name: World Bank Indicators API
+  env: []
+  needs_key: false
+  limits: No key. Pages of up to 32,500 rows; keep to a few requests per second.
+  status: planned (next connector)
+
+- source: un_comtrade
+  name: UN Comtrade API
+  env: [COMTRADE_API_KEY]
+  needs_key: true
+  signup: https://comtradedeveloper.un.org/
+  limits: Free tier about 500 calls a day and 100,000 records per call; bulk files need a subscription.
+  status: planned (phase 2)
+
+- source: acled
+  name: ACLED API
+  env: [ACLED_API_KEY, ACLED_EMAIL]
+  needs_key: true
+  signup: https://developer.acleddata.com/
+  limits: Registration required; terms restrict commercial use and redistribution.
+  status: planned (phase 2)
+
+- source: eia
+  name: US EIA Open Data API
+  env: [EIA_API_KEY]
+  needs_key: true
+  signup: https://www.eia.gov/opendata/register.php
+  limits: Free key; about 5,000 rows per request.
+  status: planned (phase 2)
+
+- source: ember
+  name: Ember API
+  env: [EMBER_API_KEY]
+  needs_key: true
+  signup: https://ember-energy.org/data/api/
+  limits: Free key.
+  status: planned (phase 2)
+
+- source: fred
+  name: FRED API (St. Louis Fed)
+  env: [FRED_API_KEY]
+  needs_key: true
+  signup: https://fred.stlouisfed.org/docs/api/api_key.html
+  limits: About 120 requests a minute.
+  status: planned (finance phase)
+
+- source: assistant
+  name: Local LLM for the assistant (Ollama)
+  env: [OLLAMA_BASE_URL, OLLAMA_MODEL]
+  needs_key: false
+  limits: Runs on this machine. Default base URL http://localhost:11434/v1 (OpenAI-compatible).
+  status: planned (phase 3)
+
+- source: assistant_cloud
+  name: Optional cloud model for the assistant
+  env: [ANTHROPIC_API_KEY]
+  needs_key: true
+  limits: Pay per use; only if a cloud model is switched on.
+  status: planned (phase 3, optional)
