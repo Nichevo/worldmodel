@@ -1,0 +1,614 @@
+{
+ "head": {
+  "vars": [
+   "item",
+   "iso3",
+   "links",
+   "article",
+   "p",
+   "value",
+   "valueLabel"
+  ]
+ },
+ "results": {
+  "bindings": [
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P36"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q23661"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Wellington"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P35"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9682"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Charles III"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P6"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Christopher Luxon"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P37"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1860"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "English"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P37"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q36451"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Maori"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P37"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q33000"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "New Zealand Sign Language"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P38"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1472704"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "New Zealand dollar"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P474"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "literal",
+     "value": "+64"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "+64"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P571"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "literal",
+     "value": "+1907-09-26T00:00:00Z",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "+1907-09-26T00:00:00Z"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P1622"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13196750"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "left"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P41"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Flag%20of%20New%20Zealand.svg"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Flag%20of%20New%20Zealand.svg"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P18"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Q999"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P856"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    },
+    "value": {
+     "type": "uri",
+     "value": "https://www.govt.nz/"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "https://www.govt.nz/"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q664"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "330"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P610"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/New_Zealand"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q55"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NLD"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "320"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P36"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Netherlands"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q727"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Amsterdam"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29999"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NLD"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "120"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P36"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Kingdom_of_the_Netherlands"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q727"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Amsterdam (kingdom)"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q15180"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "SUN"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "250"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P36"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Soviet_Union"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q649"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Moscow"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q15180"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "SUN"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "250"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P571"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Soviet_Union"
+    },
+    "value": {
+     "type": "literal",
+     "value": "+1922-12-30T00:00:00Z",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "+1922-12-30T00:00:00Z"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q99999"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "ZZZ"
+    },
+    "links": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#integer",
+     "value": "3"
+    },
+    "p": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/P36"
+    },
+    "value": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "valueLabel": {
+     "type": "literal",
+     "xml:lang": "en",
+     "value": "Nowhere"
+    }
+   }
+  ]
+ }
+}

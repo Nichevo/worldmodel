@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
   numbeo_daily: 20,
   wikipedia_countries_daily: 20,
   wikipedia_cities_daily: 10,
+  wikipedia_background: true,
   history_paused: false,
   history_retention_days: 0,
 };

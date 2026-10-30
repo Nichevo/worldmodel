@@ -24,7 +24,7 @@ from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
 from worldmodel_data import __version__, gates
 from worldmodel_data.config import Paths
-from worldmodel_data.vintage_store import VintageStore, now_utc
+from worldmodel_data.vintage_store import TEXT_COLUMNS, VintageStore, now_utc
 
 log = logging.getLogger(__name__)
 
@@ -161,21 +161,38 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
     file_list = ", ".join(f"'{f}'" for f in files)
     con.execute(f"CREATE TABLE src.raw_observations AS SELECT * FROM read_parquet([{file_list}], union_by_name = true)")
 
+    # Text (Factbook fields, Wikidata facts): the latest vintage of each source only.
+    texts = [(paths.vintages / m.source_id / m.vintage.replace("/", "_") / "texts.parquet").as_posix()
+             for m in latest.values()]
+    texts = [t for t in texts if Path(t).exists()]
+    cols = ", ".join(f"{c} {t}" for c, t in TEXT_COLUMNS.items())
+    con.execute(f"CREATE TABLE src.raw_texts ({cols})")
+    if texts:
+        con.execute(f"INSERT INTO src.raw_texts BY NAME SELECT * FROM read_parquet([{', '.join(repr(t) for t in texts)}], "
+                    "union_by_name = true)")
+
 
 def all_indicators(paths: Paths, latest) -> list:
     """The contract's indicators, then those the latest vintage of each source
     lists itself (indicators.json beside its observations), leaving out any whose
-    id or source series the contract already covers."""
-    inds = list(catalogue.indicators().values())
-    ids = {i.id for i in inds}
-    mapped = {(s.source_id, s.series) for i in inds for s in i.sources}
-    for m in latest:
+    source series the contract already covers. A listed indicator whose id is
+    already known (the Factbook's population, say) adds its source to that one,
+    after the sources it has. Sources are taken in their default rank order."""
+    inds = {i.id: i for i in catalogue.indicators().values()}
+    mapped = {(s.source_id, s.series) for i in inds.values() for s in i.sources}
+    rank = {k: v.default_rank for k, v in catalogue.sources().items()}
+    for m in sorted(latest, key=lambda m: (rank.get(m.source_id, 99), m.source_id)):
         for i in catalogue.source_indicators(paths.vintages / m.source_id / m.vintage.replace("/", "_") / "indicators.json"):
-            if i.id in ids or any((s.source_id, s.series) in mapped for s in i.sources):
+            new = [s for s in i.sources if (s.source_id, s.series) not in mapped]
+            if not new:
                 continue
-            ids.add(i.id)
-            inds.append(i)
-    return inds
+            mapped |= {(s.source_id, s.series) for s in new}
+            if i.id in inds:
+                have = inds[i.id]
+                inds[i.id] = have.model_copy(update={"sources": [*have.sources, *new]})
+            else:
+                inds[i.id] = i
+    return list(inds.values())
 
 
 def _create(name: str) -> str:

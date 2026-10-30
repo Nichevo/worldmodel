@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
+import CountryAbout from "@/components/CountryAbout";
+import FactbookCard from "@/components/FactbookCard";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
 import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
@@ -94,6 +96,8 @@ export default function EntityPage() {
         </p>
       </div>
 
+      <CountryAbout entity={entity.entity_id} />
+
       {profile.length > 0 && (
         <div className="tiles">
           {profile.map((p) => (
@@ -132,6 +136,7 @@ export default function EntityPage() {
       )}
 
       {!isGroup && <SourcesDiffer entity={entity.entity_id} />}
+      {!isGroup && <FactbookCard entity={entity.entity_id} />}
 
       <div className="grid two">
         {CHARTS.map((c) => {

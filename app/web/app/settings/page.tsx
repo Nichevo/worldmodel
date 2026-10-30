@@ -70,7 +70,9 @@ export default function SettingsPage() {
         <h2>Daily limits for single-page fetches</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
           These sites are never read in bulk. A fetch happens only when you ask for one country (or city), one page at a time,
-          and stops at these daily totals. Countries you open most go first. (The fetch buttons arrive with the country and city data.)
+          and stops at these daily totals. Countries you open most go first. Wikipedia is read through its official API: a country
+          page fetches its introduction and pictures when you open it, and keeps them for a month. (The Numbeo button and city pages
+          arrive with the city data.)
         </p>
         <NumberField label="Numbeo pages per day, all countries together" value={s.numbeo_daily} min={0} max={200} step={1}
           save={(v) => save({ numbeo_daily: v })} />
@@ -78,6 +80,9 @@ export default function SettingsPage() {
           save={(v) => save({ wikipedia_countries_daily: v })} />
         <NumberField label="Wikipedia city pages per day" value={s.wikipedia_cities_daily} min={0} max={500} step={1}
           save={(v) => save({ wikipedia_cities_daily: v })} />
+        <Toggle label="Fetch Wikipedia pages in the background"
+          hint="Fills in countries you have not opened yet, a few an hour, most-populous first, using at most half of the daily Wikipedia limit so the pages you open always have room."
+          on={s.wikipedia_background} set={(v) => save({ wikipedia_background: v })} />
       </section>
 
       <section className="card">
