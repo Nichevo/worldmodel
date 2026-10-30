@@ -196,6 +196,11 @@ def _sample_failures(db_path: Path, checks: list[gates.Check], sql: dict[int, st
                 cur = con.execute(f"SELECT * FROM ({sql[id(c)]}) LIMIT {n}")
                 cols = [d[0] for d in cur.description]
                 c.examples = [", ".join(f"{k}={_fmt(v)}" for k, v in zip(cols, row)) for row in cur.fetchall()]
+                if {"entity_id", "indicator_id", "period_start"} <= set(cols):  # every failure, one line per series
+                    groups = con.execute(f"""SELECT indicator_id, entity_id, count(*), min(year(period_start)),
+                        max(year(period_start)) FROM ({sql[id(c)]}) GROUP BY ALL ORDER BY 1, 2""").fetchall()
+                    c.examples = [f"{ind} {ent}: {k} row(s), {lo}-{hi}" for ind, ent, k, lo, hi in groups] \
+                        + ["", "First rows:"] + c.examples
             except duckdb.Error as exc:
                 c.examples = [f"(could not list the failing rows: {exc})"]
     finally:
