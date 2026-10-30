@@ -246,7 +246,23 @@ export type ScatterPoint = { id: string; name: string; x: number; y: number; siz
 export type Axis = { name: string; unit: string; decimals: number; log: boolean };
 // How dots are coloured and labelled. grouped: dots carry a group index (one
 // colour each; dots without one are grey), else only selected countries get colour.
-export type ScatterStyle = { grouped: boolean; labelled: Set<string> };
+// trim: fit each axis to the bulk of the countries; the few far outside it are
+// drawn as triangles on the edge, with their real values in the tooltip.
+export type ScatterStyle = { grouped: boolean; labelled: Set<string>; trim: boolean };
+
+// The range outside which values count as outliers: 3 interquartile ranges
+// beyond the quartiles (on the log scale for a log axis). Null when nothing is out.
+export function outlierFence(values: number[], log: boolean): [number, number] | null {
+  const v = values.map((x) => (log ? Math.log10(x) : x)).sort((a, b) => a - b);
+  if (v.length < 8) return null;
+  const q = (f: number) => v[Math.floor(f * (v.length - 1))];
+  const iqr = q(0.75) - q(0.25);
+  let lo = q(0.25) - 3 * iqr, hi = q(0.75) + 3 * iqr;
+  if (v[0] >= lo && v[v.length - 1] <= hi) return null;
+  lo = Math.max(lo, v[0]);
+  hi = Math.min(hi, v[v.length - 1]);
+  return log ? [10 ** lo, 10 ** hi] : [lo, hi];
+}
 
 // One dot per country: x and y from two indicators, optionally sized by a
 // third (area proportional to the value). Selected countries keep their
@@ -258,6 +274,9 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
   const radius = (v?: number) => (size ? (max > 0 && v && v > 0 ? 4 + 40 * Math.sqrt(v / max) : 4) : 9);
   const grey = cssVar("--ink-2");
   const ink = cssVar("--ink");
+  const fx = style.trim ? outlierFence(points.map((p) => p.x), x.log) : null;
+  const fy = style.trim ? outlierFence(points.map((p) => p.y), y.log) : null;
+  const clamp = (v: number, f: [number, number] | null) => (f ? Math.min(f[1], Math.max(f[0], v)) : v);
   const data = points
     // Unselected first and big bubbles first, so small and selected dots stay on top.
     .sort((a, b) => (+selection.includes(a.id) - +selection.includes(b.id)) || ((b.size ?? 0) - (a.size ?? 0)))
@@ -267,8 +286,13 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
       const color = style.grouped ? (p.group !== undefined ? seriesColor(p.group) : grey) : on ? seriesColor(i) : grey;
       const strong = on || (style.grouped && p.group !== undefined);
       const ring = on && style.grouped;
+      const px = clamp(p.x, fx), py = clamp(p.y, fy);
+      const out = px !== p.x || py !== p.y;
       return {
-        name: p.id, value: [p.x, p.y, p.size ?? null],
+        // Drawn at the clamped position; the real values ride along for the tooltip.
+        name: p.id, value: [px, py, p.size ?? null, p.x, p.y],
+        symbol: out ? "triangle" : "circle",
+        symbolRotate: out ? (py > p.y ? 180 : px < p.x ? -90 : px > p.x ? 90 : 0) : 0,
         symbolSize: radius(p.size),
         itemStyle: {
           color, opacity: (strong ? 0.85 : 0.45) * (p.proj ? 0.6 : 1),
@@ -279,8 +303,8 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
       };
     });
   const names = new Map(points.map((p) => [p.id, p.name]));
-  const axis = (a: Axis, dim: "x" | "y") => ({
-    type: a.log ? ("log" as const) : ("value" as const), scale: true, name: a.name,
+  const axis = (a: Axis, dim: "x" | "y", f: [number, number] | null) => ({
+    type: a.log ? ("log" as const) : ("value" as const), scale: true, name: f ? `${a.name} (outliers at the edge)` : a.name,
     nameLocation: dim === "x" ? ("middle" as const) : ("end" as const), nameGap: dim === "x" ? 28 : 12,
     nameTextStyle: { color: cssVar("--muted"), align: dim === "y" ? ("left" as const) : undefined },
     axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) },
@@ -291,9 +315,10 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
   return {
     ...base,
     grid: { left: 8, right: 24, top: 36, bottom: 36, containLabel: true },
-    xAxis: axis(x, "x"),
-    yAxis: axis(y, "y"),
-    series: [{ type: "scatter", data, // Hover is drawn by ECharts' own emphasis state (also set from other
+    xAxis: axis(x, "x", fx),
+    yAxis: axis(y, "y", fy),
+    series: [{ type: "scatter", data,
+      // Hover is drawn by ECharts' own emphasis state (also set from other
       // panels via dispatchAction), so hovering never rebuilds the chart.
       emphasis: { focus: "none", scale: false, itemStyle: { borderColor: ink, borderWidth: 2 }, label: { show: true } },
       animationDurationUpdate: 300,
@@ -301,9 +326,9 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
     tooltip: {
       ...(base.tooltip as object), trigger: "item",
       formatter: (p: unknown) => {
-        const { name, value } = p as { name: string; value: [number, number, number | null] };
-        const lines = [`<b>${names.get(name) ?? name}</b>`, `${x.name}: ${formatValue(value[0], x.unit, x.decimals)}`,
-          `${y.name}: ${formatValue(value[1], y.unit, y.decimals)}`];
+        const { name, value } = p as { name: string; value: [number, number, number | null, number, number] };
+        const lines = [`<b>${names.get(name) ?? name}</b>`, `${x.name}: ${formatValue(value[3], x.unit, x.decimals)}`,
+          `${y.name}: ${formatValue(value[4], y.unit, y.decimals)}`];
         if (size && value[2] !== null) lines.push(`${size.name}: ${formatValue(value[2], size.unit, size.decimals)}`);
         return lines.join("<br/>");
       },
