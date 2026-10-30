@@ -160,3 +160,24 @@ def test_free_space_keeps_the_newest_downloads(home):
     assert [f["fetched"] for f in local.freeable_raw(home.home)] == ["20250101T000000Z"]
     assert local.free_raw(home.home)["freed_bytes"] == 10
     assert sorted(p.name for p in (home.raw / "imf_weo" / "2025-10").iterdir()) == ["20250601T000000Z", "20260101T000000Z"]
+
+
+def test_upgrade_rebuilds_an_older_format_only(home, monkeypatch):
+    from typer.testing import CliRunner
+
+    from worldmodel_data.cli import app
+
+    monkeypatch.setenv("WORLDMODEL_HOME", str(home.home))
+    monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
+    runner = CliRunner()
+    assert "No live warehouse" in runner.invoke(app, ["upgrade"]).output
+    fetch_all(home)
+    assert runner.invoke(app, ["build"]).exit_code == 0
+    first = home.current_build()
+    assert "nothing to rebuild" in runner.invoke(app, ["upgrade"]).output
+    con = duckdb.connect(str(first))
+    con.execute("UPDATE meta SET value = '1.0.0' WHERE key = 'schema_version'")
+    con.close()
+    out = runner.invoke(app, ["upgrade"])
+    assert out.exit_code == 0 and "rebuilding" in out.output, out.output
+    assert home.current_build() != first

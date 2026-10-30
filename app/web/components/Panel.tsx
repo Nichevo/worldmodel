@@ -53,7 +53,7 @@ const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "T
 // The panel's year, held inside the indicator's range; unset means the last estimate.
 export function effectiveYear(panel: PanelState, ind: Indicator | undefined): number | null {
   if (!ind || ind.first_year === null || ind.last_year === null) return null;
-  if (panel.year === null) return ind.last_estimate_year ?? ind.last_year;
+  if (panel.year === null) return ind.main_year ?? ind.last_estimate_year ?? ind.last_year;
   return Math.min(ind.last_year, Math.max(ind.first_year, panel.year));
 }
 
@@ -997,7 +997,7 @@ let groupListCache: Promise<Entity[]> | null = null;
 function useGroupList(): Entity[] {
   const [list, setList] = useState<Entity[]>([]);
   useEffect(() => {
-    groupListCache ??= api.entities("bloc,group,alliance");
+    groupListCache ??= api.entities("bloc,group,alliance,income_group");
     let live = true;
     groupListCache.then((l) => live && setList(l)).catch(() => { groupListCache = null; });
     return () => { live = false; };

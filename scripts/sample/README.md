@@ -12,10 +12,15 @@ pip install rdata pandas
 # 1. the inputs: WPP 2024 .rda files from github.com/PPgp/wpp2024 (data/),
 #    and data/values.csv from github.com/datasets/imf-weo
 python scripts/sample/make_sample_inputs.py RDA_DIR values.csv sample_inputs
+#    World Bank: the main series and a quarter of the rest from the mirror at
+#    github.com/datasets/world-development-indicators, from 1990, as WDI_CSV.zip
+python scripts/sample/make_wdi_inputs.py MIRROR_DIR sample_inputs/world_bank_wdi/WDI_CSV.zip --series CODES --first-year 1990
+#    OWID energy: owid-energy-data.csv and its codebook from github.com/owid/energy-data,
+#    cut to the main columns (ENERGY_MAIN in connectors/owid.py, plus the amounts
+#    behind their shares) and years from 1990, in sample_inputs/owid_energy/
 # 2. a throwaway data folder, the normal pipeline, then copy the build
 export WORLDMODEL_HOME=$PWD/sample_home
-worldmodel-data fetch un_wpp --from sample_inputs/un_wpp
-worldmodel-data fetch imf_weo --from sample_inputs/imf_weo
+for s in un_wpp imf_weo world_bank_wdi owid_energy; do worldmodel-data fetch $s --from sample_inputs/$s; done
 worldmodel-data build
 worldmodel-data publish app/sample/worldmodel-sample.duckdb
 ```

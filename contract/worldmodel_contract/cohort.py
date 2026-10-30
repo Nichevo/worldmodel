@@ -416,7 +416,7 @@ def inputs_sql() -> str:
     return f"""
         SELECT indicator_id, year(period_start) AS year, breakdown, value, status
         FROM series
-        WHERE entity_id = ? AND freq = 'A' AND variant = 'central' AND indicator_id IN ({ids})
+        WHERE entity_id = ? AND source_id = 'un_wpp' AND freq = 'A' AND variant = 'central' AND indicator_id IN ({ids})
             AND (breakdown = '' OR breakdown LIKE '%|sex=male' OR breakdown LIKE '%|sex=female')"""
 
 

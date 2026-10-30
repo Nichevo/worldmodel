@@ -3,8 +3,11 @@
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.imf_weo import IMFWEO
 from worldmodel_data.connectors.imf_weo_history import IMFWEOHistory
+from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
 from worldmodel_data.connectors.un_wpp import UNWPP
+from worldmodel_data.connectors.world_bank_wdi import WorldBankWDI
 
-CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (UNWPP, IMFWEO, IMFWEOHistory)}
+CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
+    UNWPP, IMFWEO, IMFWEOHistory, WorldBankWDI, OWIDEnergy, OWIDGrapher)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]
