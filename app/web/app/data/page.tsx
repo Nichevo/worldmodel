@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import ProblemsCard from "@/components/Problems";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
 import { api, type Dataset, type Meta, type Source } from "@/lib/api";
 
@@ -67,6 +68,8 @@ export default function DataPage() {
           </p>
         )}
       </div>
+
+      <ProblemsCard />
 
       <div className="card">
         <h2>Datasets</h2>

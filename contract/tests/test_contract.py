@@ -59,3 +59,41 @@ def test_series_sql_parameters_line_up():
     st = next(s for s in catalogue.streams() if s["name"] == "g7-gdp-growth")
     sql, params = series_sql(stream_query(st))
     assert sql.count("?") == len(params) and "g7" in params
+
+
+def test_problems_count_repeats_and_close_once_a_run_passes(tmp_path):
+    import json
+
+    from worldmodel_contract import local
+
+    log = local.refresh_log_path(tmp_path)
+    log.parent.mkdir(parents=True)
+    (tmp_path / "warehouse" / "reports").mkdir()
+    # An older run logged before failures were recorded: they come from its report.
+    (tmp_path / "warehouse" / "reports" / "B1.md").write_text(
+        "# Build B1\n\nResult: FAILED, not swapped in\nFile: B1.failed.duckdb\n\n| Check | Kind | Status | Detail |\n"
+        "| --- | --- | --- | --- |\n| dbt:within_indicator_bounds_observations_ | dbt_test | fail | 2 failing row(s) |\n"
+        "\n## Failing rows: dbt:within_indicator_bounds_observations_\n\n- gdp_growth KWT: 1 row(s), 1992-1992\n")
+    bounds = {"check_id": "dbt:within_indicator_bounds_observations_", "kind": "dbt_test",
+              "detail": "1 failing row(s)", "examples": ["gdp_growth STP: 1 row(s), 2012-2012"]}
+    runs = [
+        {"kind": "refresh", "status": "failed", "started_at": "2026-10-01T00:00:00+00:00", "build_id": "B1",
+         "error": "1 validation gate(s) failed", "sources": [{"source_id": "imf_weo", "status": "error", "error": "HTTP 403"}]},
+        {"kind": "build", "status": "failed", "started_at": "2026-10-02T00:00:00+00:00", "build_id": "B2",
+         "error": "1 validation gate(s) failed", "failures": [bounds], "sources": []},
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-03T00:00:00+00:00", "build_id": "B3",
+         "sources": [{"source_id": "imf_weo", "status": "error", "error": "HTTP 403"}]},
+        {"kind": "build", "status": "failed", "started_at": "2026-10-04T00:00:00+00:00", "build_id": "B4",
+         "error": "1 validation gate(s) failed", "failures": [bounds], "sources": []},
+    ]
+    log.write_text("".join(json.dumps(r) + "\n" for r in runs))
+    found = {p["key"]: p for p in local.problems(tmp_path)}
+    b = found["check:dbt:within_indicator_bounds_observations_"]
+    assert b["title"] == "Values outside the plausible range" and b["times"] == 3 and b["open"]
+    assert b["in_a_row"] == 1 and b["first_seen"].startswith("2026-10-01") and b["examples"][0].startswith("gdp_growth STP")
+    f = found["fetch:imf_weo"]
+    assert f["times"] == 2 and f["open"] and f["in_a_row"] == 2 and f["summary"] == "HTTP 403"
+    # A later run that fetches the source and passes closes both.
+    log.write_text(log.read_text() + json.dumps({"kind": "refresh", "status": "ok", "started_at": "2026-10-05T00:00:00+00:00",
+                                                 "sources": [{"source_id": "imf_weo", "status": "unchanged"}]}) + "\n")
+    assert not any(p["open"] for p in local.problems(tmp_path))

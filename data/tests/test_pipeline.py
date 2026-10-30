@@ -78,6 +78,32 @@ def test_failed_gate_keeps_previous_build(home, tmp_path):
     assert "assert_world_population_matches_countries" in report
     assert "## Failing rows: dbt:assert_world_population_matches_countries" in report  # shows what broke
     assert list(home.builds.glob("*.failed.duckdb"))
+    failed = {f["check_id"]: f for f in exc.value.failures}
+    assert failed["dbt:assert_world_population_matches_countries"]["examples"]  # recorded for the Problems list
+
+
+def test_failed_build_is_logged_with_its_checks_and_repeats(home, tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from worldmodel_contract import local
+    from worldmodel_data.cli import app
+
+    monkeypatch.setenv("WORLDMODEL_HOME", str(home.home))
+    monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
+    fetch_all(home)
+    broken = tmp_path / "broken_wpp"
+    broken.mkdir()
+    for f in (FIXTURES / "un_wpp").iterdir():
+        with gzip.open(f, "rt") as src, gzip.open(broken / f.name, "wt") as dst:
+            dst.writelines(line for line in src if ",156,,CHN," not in line)
+    CONNECTORS["un_wpp"]().ingest(VintageStore(home), broken, release="2024")
+    runner = CliRunner()
+    runner.invoke(app, ["build"])
+    out = runner.invoke(app, ["build"])
+    assert out.exit_code == 1
+    assert "Totals do not add up" in out.output and "2 times since" in out.output
+    p = next(p for p in local.problems(home.home) if p.get("check_id") == "dbt:assert_world_population_matches_countries")
+    assert p["open"] and p["times"] == p["in_a_row"] == 2
 
 
 def test_refresh_skips_downloads_the_server_says_are_unchanged(home):

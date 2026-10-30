@@ -153,6 +153,7 @@ export type Settings = {
   wikipedia_background: boolean;
   history_paused: boolean;
   history_retention_days: number;
+  problem_banner: boolean;
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.
@@ -206,6 +207,13 @@ export type RefreshRun = {
   build_id: string | null; kind: "refresh" | "build"; status: "ok" | "failed"; started_at: string; finished_at: string | null;
   checks?: Record<"pass" | "warn" | "fail" | "skip", number>; sources: RefreshSource[];
   disk: Record<string, number> | null; backfilled?: boolean; error?: string;
+};
+
+// One distinct failure from the refresh log (worldmodel_contract.local.problems).
+export type Problem = {
+  key: string; kind: "check" | "fetch" | "build"; title: string; explain: string; todo: string; summary: string;
+  examples: string[]; times: number; in_a_row: number; first_seen: string; last_seen: string; open: boolean;
+  fixed_at: string | null; build_id: string | null; check_id?: string; source_id?: string;
 };
 
 export type WhatIfLevers = { tfr: number; e0: number; mig: number; extra: number; phase: number };
@@ -307,6 +315,7 @@ export const api = {
   storage: () => get<Storage>("/storage"),
   freeUp: () => send<{ removed: string[]; freed_bytes: number }>("POST", "/storage/free-up"),
   refreshLog: () => get<RefreshRun[]>("/refresh-log"),
+  problems: () => get<Problem[]>("/problems"),
   whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),
   trackRecord: (indicator: string, entity?: string) => get<TrackRecord>("/track-record", { indicator, entity }),
   comparedIndicators: () => get<ComparedIndicator[]>("/sources/indicators"),

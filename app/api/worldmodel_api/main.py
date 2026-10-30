@@ -809,6 +809,12 @@ def refresh_log():
     return local.read_refresh_log()
 
 
+@api.get("/problems")
+def problems():
+    """Each distinct failure in the refresh log, with how often it happened and whether it is still open."""
+    return local.problems()
+
+
 # ----------------------------------------------------------------------------- streams
 @api.get("/streams")
 def streams():
