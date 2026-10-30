@@ -23,6 +23,7 @@ files can be given instead: worldmodel-data fetch owid_energy --from DIR.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import logging
 import re
@@ -178,6 +179,7 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
+    stage_version = 2  # 2: long column names no longer cut to the same indicator id
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:
@@ -213,7 +215,7 @@ class OWIDGrapher(_OWID):
                 continue
             code = lower.get("code", lower["entity"])
             values = [h for h in header if h.lower() not in ("entity", "code", "year") and "annotation" not in h.lower()]
-            columns = {h: "owid_" + re.sub(r"[^a-z0-9]+", "_", h.lower()).strip("_")[:60] for h in values}
+            columns = {h: column_id(h) for h in values}
             self._stage_wide(con, "charts", path, lower["entity"], code, lower["year"], columns)
             about = dict(CHARTS).get(slug, "")
             for h, ind in columns.items():
@@ -221,6 +223,17 @@ class OWIDGrapher(_OWID):
         if not self.listed_indicators:
             raise ConnectorError(f"owid_grapher: no chart files with yearly values in {raw_dir}")
         return self._query(vintage, "charts")
+
+
+def column_id(column: str) -> str:
+    """The indicator id for a chart column: owid_ and the column name, shortened to fit.
+    Long names often differ only at the end (deaths per conflict type: interstate,
+    intrastate, intrastate internationalised), so a name cut short ends in a short
+    hash of the whole name and two columns never share an id."""
+    name = re.sub(r"[^a-z0-9]+", "_", column.lower()).strip("_")
+    if len(name) <= 60:
+        return "owid_" + name
+    return f"owid_{name[:51]}_{hashlib.sha1(name.encode()).hexdigest()[:8]}"
 
 
 def _chart_indicator(slug: str, col: str, ind: str, meta: dict, about: str) -> dict:

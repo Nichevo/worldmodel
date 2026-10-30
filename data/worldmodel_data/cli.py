@@ -126,6 +126,8 @@ def refresh(allow_shrink: bool = typer.Option(False)):
     if full:
         typer.echo("The data folder is at its size limit: sources with large downloads are skipped this time. "
                    "Free up space on the Data status page or raise the limit in Settings.")
+    for name in _restage_stale(store):
+        typer.echo(f"{name}: staged again with the fixed loader")
     failed = []
     for source_id, cls in CONNECTORS.items():
         last = store.latest(source_id)
@@ -177,10 +179,14 @@ def _not_due(cls, last) -> str | None:
 
 @app.command()
 def upgrade():
-    """After a code update: if the live warehouse was built in an older format than this
-    code reads, build it again from the data already downloaded (nothing is fetched)."""
+    """After a code update: stage again any stored vintage whose loader has since been fixed,
+    and if that happened, or the live warehouse was built in an older format than this code
+    reads, build it again from the data already downloaded (nothing is fetched)."""
     from worldmodel_contract import SCHEMA_VERSION, is_compatible
 
+    restaged = _restage_stale(VintageStore(paths()))
+    if restaged:
+        typer.echo(f"Staged again with fixed loaders: {', '.join(restaged)}")
     current = paths().current_build()
     if not current:
         typer.echo("No live warehouse yet; the app uses its sample until the first refresh.")
@@ -190,12 +196,30 @@ def upgrade():
         found = dict(con.execute("SELECT key, value FROM meta").fetchall()).get("schema_version", "0.0.0")
     finally:
         con.close()
-    if is_compatible(found, SCHEMA_VERSION):
+    if is_compatible(found, SCHEMA_VERSION) and not restaged:
         typer.echo(f"Warehouse format {found} is current; nothing to rebuild.")
         return
-    typer.echo(f"Warehouse format {found} is older than this code's {SCHEMA_VERSION}; "
-               "rebuilding it from the data already downloaded...")
+    if restaged:
+        typer.echo("Rebuilding the warehouse from the data already downloaded...")
+    else:
+        typer.echo(f"Warehouse format {found} is older than this code's {SCHEMA_VERSION}; "
+                   "rebuilding it from the data already downloaded...")
     _build_and_log(False, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []})
+
+
+def _restage_stale(store: VintageStore) -> list[str]:
+    """Stage again, from the raw files, the vintages staged by an older version of their loader."""
+    done = []
+    for m in store.manifests():
+        cls = CONNECTORS.get(m.source_id)
+        if not cls or m.stage_version >= cls.stage_version:
+            continue
+        try:
+            cls().restage(store, m)
+            done.append(f"{m.source_id} {m.vintage}")
+        except Exception as exc:  # noqa: BLE001 - one source's raw files gone must not stop the others
+            typer.echo(f"{m.source_id} {m.vintage}: could not stage again ({exc}); run refresh.bat.")
+    return done
 
 
 @app.command("free-space")
