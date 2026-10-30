@@ -60,6 +60,10 @@ export default function EntityPage() {
           {TYPE_LABEL[entity.type] ?? entity.type}
           {entity.name !== entity.short_name ? ` · ${entity.name}` : ""}
           {entity.valid_to ? ` · existed until ${entity.valid_to}` : ""}
+          {!entity.valid_to && (entity.type === "country" || entity.type === "world") && (
+            <> · <Link href={`/forecasts?e=${entity.entity_id}`}>Population what-if</Link>
+              {" · "}<Link href={`/forecasts?e=${entity.entity_id}&tab=track`}>IMF track record</Link></>
+          )}
         </div>
         {entity.description && <p className="ink-2 small">{entity.description}</p>}
         {entity.groups.length > 0 && (

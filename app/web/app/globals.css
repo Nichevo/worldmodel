@@ -116,8 +116,9 @@ main { padding: 20px; max-width: 1280px; margin: 0 auto; }
 .card {
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
 }
-.grid { display: grid; gap: 16px; }
-.grid.two { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+.grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.grid > * { min-width: 0; }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
 .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .tile .label { color: var(--ink-2); font-size: 0.85rem; }
 .tile .value { font-size: 1.35rem; font-weight: 600; margin: 2px 0; }
@@ -361,3 +362,18 @@ input[type="date"] { font: inherit; color: var(--ink); background: var(--surface
 .meter .fill.critical, .meter .fill.full { background: var(--div-neg-3); }
 .meter i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink-2); opacity: 0.6; }
 .swatch-inline { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+
+/* Forecasts page: what-if levers, small input charts, key numbers. */
+.levers { display: grid; gap: 12px 24px; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); align-items: end; }
+.lever { display: flex; flex-direction: column; gap: 4px; }
+.lever label { font-size: 0.9rem; color: var(--ink-2); }
+.lever input[type="range"] { width: 100%; }
+.lever input[type="number"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 8px; width: 100%; }
+.lever-actions { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.grid.three { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+.pyr-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.pyr-head h3 { margin: 0; }
+.warn-note { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-ink); }
+.summary-table th, .summary-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.summary-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.summary-table tr.selected td { background: var(--surface-2); font-weight: 600; }

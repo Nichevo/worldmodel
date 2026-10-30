@@ -30,6 +30,19 @@
   status: active
   default_rank: 1
 
+- id: imf_weo_history
+  name: IMF WEO historical forecasts
+  short_name: IMF WEO past forecasts
+  publisher: International Monetary Fund
+  url: https://www.imf.org/en/Publications/WEO
+  licence: IMF copyright and usage terms (free use with attribution)
+  licence_url: https://www.imf.org/external/terms.htm
+  commercial_use: true
+  cadence: After each WEO (April and October); one file with every release since 1990
+  attribution: "International Monetary Fund, World Economic Outlook historical forecasts database."
+  status: active
+  default_rank: 5
+
 - id: world_bank_wdi
   name: World Bank World Development Indicators
   short_name: WDI
