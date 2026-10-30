@@ -192,3 +192,21 @@ def test_vintage_staged_by_an_older_loader_is_staged_again(tmp_path, monkeypatch
     assert out.exit_code == 0, out.output
     assert "owid_grapher" in out.output
     assert Manifest.read(path).stage_version == CONNECTORS["owid_grapher"].stage_version
+
+
+def test_shared_names_get_their_source():
+    from worldmodel_contract.catalogue import Aggregation, Indicator, IndicatorSource
+
+    from worldmodel_data.build import with_source_in_shared_names
+
+    def ind(id, name, source, unit):
+        return Indicator(id=id, name=name, description="", domain="energy", unit=unit, aggregation=Aggregation(method="sum"),
+                         bounds=(0, 1e18), sources=[IndicatorSource(source_id=source, series=id)])
+
+    out = {i.id: i.name for i in with_source_in_shared_names([
+        ind("coal_production", "Coal production", "owid_energy", "TWh"),
+        ind("fb_coal_production", "Coal production", "cia_factbook", "metric tonnes"),
+        ind("a", "Oil output", "cia_factbook", "bbl/day"), ind("b", "oil output", "cia_factbook", "metric tonnes"),
+        ind("gdp", "GDP", "imf_weo", "USD")])}
+    assert out == {"coal_production": "Coal production (OWID energy)", "fb_coal_production": "Coal production (CIA Factbook)",
+                   "a": "Oil output (CIA Factbook, bbl/day)", "b": "oil output (CIA Factbook, metric tonnes)", "gdp": "GDP"}
