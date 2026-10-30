@@ -25,6 +25,7 @@ export type Panel = {
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
   xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flags "o" (trim outliers) and "g" (governing party) also apply to charts
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
+  layers: string; // map overlays, one letter each (see MAP_LAYERS): "pv" plate boundaries and volcanoes
 };
 
 // A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
@@ -85,7 +86,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -101,7 +102,7 @@ export const DEFAULT: Workspace = {
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers">> }
   | { type: "load"; ws: Workspace }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
   | { type: "duplicate"; id: string }
@@ -236,9 +237,17 @@ export function reducer(ws: Workspace, a: Action): Workspace {
 // The countries a panel shows: the shared selection, or its own while unlinked.
 export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.selection : p.selection);
 
+// Overlays a map panel can draw over the countries, from the warehouse's layers table.
+export const MAP_LAYERS = [
+  { letter: "p", id: "plate_boundaries", label: "Tectonic plate boundaries" },
+  { letter: "f", id: "active_faults", label: "Active faults" },
+  { letter: "v", id: "volcanoes", label: "Volcanoes" },
+  { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)" },
+] as const;
+
 // URL form, kept readable:
 //   ?l=4&p=map.tfr.1970~chart.tfr~table.gdp_growth.2023.chsyk.B.-20&s=NZL,AUS&s2=FRA
-// Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr[.xy[.range]]]]]]]], trailing defaults dropped,
+// Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr[.xy[.range[.layers]]]]]]]]], trailing defaults dropped,
 // with extra table columns joined by ",";
 // sN holds panel N's own selection while its selection is unlinked;
 // pin=NZL:0:174.8:-41.3,AUS:1 holds pinned popups (country:panel number[:lng:lat]);
@@ -248,7 +257,7 @@ const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.l
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range];
+    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -279,7 +288,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -293,6 +302,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
         xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymaog]{0,6}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
         range: range && RANGE_RE.test(range) ? range : "",
+        layers: layers ? [...new Set(layers)].filter((c) => MAP_LAYERS.some((m) => m.letter === c)).join("") : "",
       });
     });
   if (!panels.length) return DEFAULT;
@@ -452,4 +462,32 @@ export const STARTERS: { name: string; query: string }[] = [
       { view: "map", indicator: "price_level_ratio" },
       { view: "scatter", indicator: "gdp_ppp_per_capita", xy: "price_level_ratio,pop_total,xm,continent" },
     ], ["NZL", "CHE", "IND"]) },
+  { name: "House prices and debt",
+    query: starter("3", [
+      { view: "map", indicator: "oecd_price_to_income_vs_avg" },
+      { view: "chart", indicator: "bis_house_price_real", range: "h50f0" },
+      { view: "chart", indicator: "bis_household_credit_gdp", range: "h50f0" },
+    ], ["NZL", "AUS", "GBR", "USA"]) },
+  { name: "Migration in and out",
+    query: starter("3", [
+      { view: "map", indicator: "migrant_stock" },
+      { view: "map", indicator: "emigrant_stock" },
+      { view: "chart", indicator: "migrant_stock", cols: ["emigrant_stock"] },
+    ], ["NZL"]) },
+  { name: "Refugees",
+    query: starter("2h", [
+      { view: "map", indicator: "refugees_hosted" },
+      { view: "map", indicator: "refugees_from" },
+    ]) },
+  { name: "Schooling to 2100",
+    query: starter("3", [
+      { view: "map", indicator: "wic_mys", year: 2020 },
+      { view: "map", indicator: "wic_mys", year: 2060 },
+      { view: "chart", indicator: "wic_mys", range: "1950-2100" },
+    ], ["NZL", "IND", "NGA"]) },
+  { name: "Voter turnout",
+    query: starter("2h", [
+      { view: "map", indicator: "turnout_parliamentary" },
+      { view: "chart", indicator: "turnout_parliamentary", range: "h50f0" },
+    ], ["NZL", "GBR", "AUS"]) },
 ];

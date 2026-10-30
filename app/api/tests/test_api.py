@@ -292,3 +292,24 @@ def test_your_ratios_work_like_indicators(client, tmp_path, monkeypatch):
     assert len(client.get("/api/v1/map", params={"indicator": r["id"], "year": 2020}).json()["rows"]) > 100
     assert client.delete(f"/api/v1/ratios/{r['id']}").status_code == 200
     assert client.get(f"/api/v1/indicators/{r['id']}").status_code == 404
+
+
+def test_partners_in_and_out(client):
+    into = client.get("/api/v1/partners", params={"indicator": "migrant_stock_by_origin", "entity": "NZL", "direction": "in"}).json()
+    assert into["year"] == into["years"][-1] and len(into["rows"]) == 10
+    assert into["rows"][0]["value"] >= into["rows"][-1]["value"] and into["total"] > sum(r["value"] for r in into["rows"]) * 0.9
+    assert "GBR" in {r["entity_id"] for r in into["rows"]}
+    out = client.get("/api/v1/partners", params={"indicator": "migrant_stock_by_origin", "entity": "NZL", "direction": "out",
+                                                 "year": 2000, "limit": 3}).json()
+    assert out["year"] == 2000 and out["rows"][0]["entity_id"] == "AUS" and out["rows"][0]["name"] == "Australia"
+    none = client.get("/api/v1/partners", params={"indicator": "pop_total", "entity": "NZL"}).json()
+    assert none["rows"] == [] and none["year"] is None
+
+
+def test_map_layers(client):
+    listed = {r["layer_id"]: r for r in client.get("/api/v1/layers").json()}
+    assert {"plate_boundaries", "active_faults", "volcanoes"} <= set(listed)
+    assert listed["volcanoes"]["kind"] == "point" and listed["volcanoes"]["feature_count"] > 900
+    r = client.get("/api/v1/layers/plate_boundaries")
+    assert r.headers["content-type"].startswith("application/geo+json") and r.json()["type"] == "FeatureCollection"
+    assert client.get("/api/v1/layers/nothing").status_code == 404

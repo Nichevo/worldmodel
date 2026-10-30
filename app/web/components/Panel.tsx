@@ -8,6 +8,7 @@ import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/Wor
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
 import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
+import { mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
@@ -15,7 +16,7 @@ import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
 import {
-  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
+  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
   scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View,
 } from "@/lib/workspace";
 
@@ -128,6 +129,7 @@ export default function Panel({
           </label>
         )}
         <span className="spacer" />
+        {panel.view === "map" && <LayersMenu panel={panel} dispatch={dispatch} />}
         <DownloadMenu exporter={exporter} />
         <LinksMenu panel={panel} dispatch={dispatch} />
         <div className="panel-actions">
@@ -268,6 +270,42 @@ async function chartPng(chart: ECharts | null, title: string, note: string, foot
   return titledPng(chart.getDataURL({ type: "svg", excludeComponents: ["dataZoom"] }), chart.getWidth(), chart.getHeight(), title, note, lines);
 }
 
+// Overlays drawn over a map panel's countries: plate boundaries, faults, volcanoes, earthquakes.
+function LayersMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
+  const box = useRef<HTMLDetailsElement>(null);
+  const [have, setHave] = useState<Map<string, MapLayerInfo> | null>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (box.current?.open && !box.current.contains(e.target as Node)) box.current.open = false;
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+  useEffect(() => { mapLayers().then((l) => setHave(new Map(l.map((x) => [x.layer_id, x])))).catch(() => setHave(new Map())); }, []);
+  const toggle = (letter: string, on: boolean) => dispatch({ type: "panel", id: panel.id, patch: {
+    layers: MAP_LAYERS.map((m) => m.letter).filter((l) => (l === letter ? on : panel.layers.includes(l))).join("") } });
+  return (
+    <details className="links" ref={box}>
+      <summary title="Draw plate boundaries, faults, volcanoes or earthquakes over the map">
+        Layers{panel.layers ? <span className="muted"> {panel.layers.length}</span> : null}
+      </summary>
+      <div className="links-menu layers-menu">
+        {MAP_LAYERS.map((m) => {
+          const info = have?.get(m.id);
+          return (
+            <label key={m.letter} title={info?.description ?? "Not loaded yet: a refresh fetches it"} className={info ? undefined : "muted"}>
+              <input type="checkbox" checked={panel.layers.includes(m.letter)} disabled={!info && !panel.layers.includes(m.letter)}
+                onChange={(e) => toggle(m.letter, e.target.checked)} />
+              <span>{m.label}{info ? <small className="muted">{info.source_name}</small> : <small>not loaded yet</small>}</span>
+            </label>
+          );
+        })}
+        <p className="caption">Hover a line or dot for its name. Layers are saved with the panel and its layouts.</p>
+      </div>
+    </details>
+  );
+}
+
 function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
   const box = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -349,7 +387,9 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
     csv: () => csvText(["entity_id", "indicator_id", "year", "value", "status"],
       values.map((v) => [v.entity_id, indicator.indicator_id, year, v.value, v.status])),
     png: async () => {
-      const footer = await credits(sourcesOf(indicator), ["Borders: Natural Earth (public domain)."]);
+      const shown: string[] = MAP_LAYERS.filter((m) => panel.layers.includes(m.letter)).map((m) => m.id);
+      const overlaySources = shown.length ? (await mapLayers().catch(() => [])).filter((l) => shown.includes(l.layer_id)).map((l) => l.source_id) : [];
+      const footer = await credits([...sourcesOf(indicator), ...overlaySources], ["Borders: Natural Earth (public domain)."]);
       return new Promise((ok, fail) => {
         const m = map.current;
         if (!m) return fail(new Error("The map is not ready yet"));
@@ -382,6 +422,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         overlays={overlays}
         spark={spark}
         onMap={onMap}
+        layers={MAP_LAYERS.filter((m) => panel.layers.includes(m.letter)).map((m) => m.id)}
       />
       <p className="caption">
         {sourceLine(indicator)}. {values.length} countries with data.{scale ? " Colour scale shared with linked maps." : ""} {hint}

@@ -173,6 +173,175 @@
   status: active
   default_rank: 5
 
+- id: bis
+  name: BIS residential property prices and credit to households
+  short_name: BIS
+  publisher: Bank for International Settlements
+  url: https://data.bis.org/
+  licence: BIS terms of use (free use with attribution)
+  licence_url: https://www.bis.org/terms_conditions.htm
+  commercial_use: true
+  cadence: Quarterly
+  attribution: "Bank for International Settlements, residential property prices and total credit statistics."
+  status: active
+  default_rank: 3
+
+- id: oecd
+  name: OECD analytical house prices and household debt
+  short_name: OECD
+  publisher: Organisation for Economic Co-operation and Development
+  url: https://data-explorer.oecd.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Quarterly (house prices); yearly (household debt)
+  attribution: "OECD (2025), Analytical house prices indicators; Household dashboard. OECD Data Explorer."
+  status: active
+  default_rank: 3
+
+- id: dallas_fed_ihpd
+  name: Federal Reserve Bank of Dallas International House Price Database
+  short_name: Dallas Fed IHPD
+  publisher: Federal Reserve Bank of Dallas
+  url: https://www.dallasfed.org/research/international/houseprice
+  licence: Free to use with citation
+  licence_url: https://www.dallasfed.org/research/international/houseprice
+  commercial_use: true
+  cadence: Quarterly
+  attribution: "Mack, A. and E. Martinez-Garcia (2011), A Cross-Country Quarterly Database of Real House Prices: A Methodological Note. Federal Reserve Bank of Dallas, Globalization and Monetary Policy Institute Working Paper No. 99."
+  status: active
+  default_rank: 3
+
+- id: imf_gdd
+  name: IMF Global Debt Database
+  short_name: IMF GDD
+  publisher: International Monetary Fund
+  url: https://www.imf.org/external/datamapper/datasets/GDD
+  licence: IMF copyright and usage terms (free use with attribution)
+  licence_url: https://www.imf.org/external/terms.htm
+  commercial_use: true
+  cadence: Yearly (December)
+  attribution: "International Monetary Fund, Global Debt Database."
+  status: active
+  default_rank: 4
+
+- id: un_ims
+  name: UN International Migrant Stock
+  short_name: UN migrant stock
+  publisher: United Nations, Department of Economic and Social Affairs, Population Division
+  url: https://www.un.org/development/desa/pd/content/international-migrant-stock
+  licence: CC BY 3.0 IGO
+  licence_url: https://creativecommons.org/licenses/by/3.0/igo/
+  commercial_use: true
+  cadence: Every few years (2024 edition released January 2025)
+  attribution: "United Nations, DESA, Population Division (2024). International Migrant Stock 2024."
+  status: active
+  default_rank: 2
+
+- id: unhcr
+  name: UNHCR Refugee Data Finder
+  short_name: UNHCR
+  publisher: Office of the United Nations High Commissioner for Refugees
+  url: https://www.unhcr.org/refugee-statistics/
+  licence: CC BY 4.0
+  licence_url: https://www.unhcr.org/refugee-statistics/methodology/data-content/
+  commercial_use: true
+  cadence: Twice a year (mid-year and end of year figures)
+  attribution: "UNHCR Refugee Data Finder, www.unhcr.org/refugee-statistics."
+  status: active
+  default_rank: 2
+
+- id: wittgenstein
+  name: Wittgenstein Centre Human Capital Data Explorer
+  short_name: Wittgenstein Centre
+  publisher: Wittgenstein Centre for Demography and Global Human Capital (IIASA, OeAW, University of Vienna)
+  url: https://dataexplorer.wittgensteincentre.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: New versions every few years (version 3, 2023)
+  attribution: "Wittgenstein Centre for Demography and Global Human Capital (2023). Wittgenstein Centre Data Explorer Version 3.0."
+  status: active
+  default_rank: 3
+
+- id: undp_hdr
+  name: UNDP Human Development Report indices
+  short_name: UNDP HDR
+  publisher: United Nations Development Programme
+  url: https://hdr.undp.org/data-center
+  licence: CC BY 3.0 IGO
+  licence_url: https://hdr.undp.org/terms-use
+  commercial_use: true
+  cadence: Yearly
+  attribution: "UNDP (United Nations Development Programme), Human Development Report composite indices time series."
+  status: active
+  default_rank: 3
+
+- id: idea_turnout
+  name: International IDEA Voter Turnout Database
+  short_name: IDEA turnout
+  publisher: International Institute for Democracy and Electoral Assistance
+  url: https://www.idea.int/data-tools/data/voter-turnout-database
+  licence: Free to use with citation (IDEA terms)
+  licence_url: https://www.idea.int/terms-and-conditions
+  commercial_use: false
+  cadence: Updated after elections
+  attribution: "International IDEA, Voter Turnout Database, www.idea.int."
+  status: active
+  default_rank: 3
+
+- id: plates_bird
+  name: Plate boundaries (Bird 2003, PB2002)
+  short_name: Bird plate boundaries
+  publisher: Peter Bird (UCLA); GIS conversion by Hugo Ahlenius, Nordpil
+  url: https://github.com/fraxen/tectonicplates
+  licence: ODC-BY 1.0
+  licence_url: https://opendatacommons.org/licenses/by/1-0/
+  commercial_use: true
+  cadence: Fixed (published 2003)
+  attribution: "Bird, P. (2003), An updated digital model of plate boundaries, Geochem. Geophys. Geosyst. 4(3), 1027; GIS data by Hugo Ahlenius, Nordpil."
+  status: active
+  default_rank: 5
+
+- id: gem_faults
+  name: GEM Global Active Faults Database
+  short_name: GEM active faults
+  publisher: Global Earthquake Model Foundation
+  url: https://github.com/GEMScienceTools/gem-global-active-faults
+  licence: CC BY-SA 4.0
+  licence_url: https://creativecommons.org/licenses/by-sa/4.0/
+  commercial_use: true
+  cadence: Occasional updates
+  attribution: "Styron, R. and M. Pagani (2020), The GEM Global Active Faults Database, Earthquake Spectra 36(1_suppl), 160-180."
+  status: active
+  default_rank: 5
+
+- id: gvp_volcanoes
+  name: Smithsonian Global Volcanism Program, Volcanoes of the World
+  short_name: Smithsonian GVP
+  publisher: Smithsonian Institution, Global Volcanism Program
+  url: https://volcano.si.edu/
+  licence: Free to use with citation
+  licence_url: https://volcano.si.edu/
+  commercial_use: true
+  cadence: Updated as eruptions are reported
+  attribution: "Global Volcanism Program, Volcanoes of the World, Smithsonian Institution."
+  status: active
+  default_rank: 5
+
+- id: usgs_earthquakes
+  name: USGS earthquake catalogue (ComCat)
+  short_name: USGS earthquakes
+  publisher: U.S. Geological Survey, Earthquake Hazards Program
+  url: https://earthquake.usgs.gov/earthquakes/search/
+  licence: Public domain (U.S. government work)
+  licence_url: https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits
+  commercial_use: true
+  cadence: Continuous; fetched weekly
+  attribution: "U.S. Geological Survey, Earthquake Hazards Program, ANSS Comprehensive Earthquake Catalog (ComCat)."
+  status: active
+  default_rank: 5
+
 - id: notable
   name: Notable episodes (curated list)
   short_name: Notable episodes

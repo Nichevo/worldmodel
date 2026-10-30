@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "1.5.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -138,6 +138,13 @@ TABLES: dict[str, Table] = {
             "Text about countries from the latest vintage of each source that has some: every field of every "
             "CIA World Factbook edition (edition = its year), Wikidata facts (edition empty). field is the name "
             "as published, field_key one that stays the same across editions, position the order on the page."),
+        Table("layers", {
+            "layer_id": "VARCHAR", "name": "VARCHAR", "description": "VARCHAR", "kind": "VARCHAR",
+            "source_id": "VARCHAR", "vintage": "VARCHAR", "feature_count": "INTEGER", "geojson": "VARCHAR",
+        }, ("layer_id",),
+            "Map overlays from the latest vintage of their source: plate boundaries, active faults, volcanoes and "
+            "earthquakes. kind is line or point; geojson holds the layer's features as one FeatureCollection, with "
+            "their properties trimmed to what the map shows."),
         Table("events", {
             "event_id": "VARCHAR", "entity_id": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
             "kind": "VARCHAR", "subkind": "VARCHAR", "title": "VARCHAR", "start_date": "DATE", "end_date": "DATE",

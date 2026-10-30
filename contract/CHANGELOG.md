@@ -3,6 +3,20 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.5.0 (2026-10-30)
+
+- New table `layers`: map overlays (tectonic plate boundaries, active faults,
+  volcanoes, earthquakes of magnitude 6 and over), one row per layer with its
+  features as a GeoJSON FeatureCollection. Key `layer_id`.
+- New sources with their own indicators: bis, oecd, dallas_fed_ihpd, imf_gdd
+  (house prices, price-to-income, household debt), un_ims and unhcr (migrants
+  in and out, refugees; by country of origin in `breakdown` as origin=<entity>),
+  wittgenstein and undp_hdr (schooling, human development), idea_turnout (voter
+  turnout); map layers from plates_bird, gem_faults, gvp_volcanoes and
+  usgs_earthquakes.
+- World Bank: income per person in local currency is a main series
+  (`gni_per_capita_lcu`, `gdp_per_capita_lcu`).
+
 ## 1.4.0 (2026-10-30)
 
 - `events.color`: a colour the source gives an event, as #RRGGBB. Leaders'

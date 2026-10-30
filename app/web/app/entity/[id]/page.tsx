@@ -5,8 +5,11 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import CountryAbout from "@/components/CountryAbout";
+import EducationCard from "@/components/EducationCard";
 import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
+import HousingCard from "@/components/HousingCard";
+import MigrationCard from "@/components/MigrationCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -148,6 +151,9 @@ export default function EntityPage() {
       <Timeline entity={entity.entity_id} name={entity.short_name} isGroup={isGroup} />
 
       <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      <HousingCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      <MigrationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      <EducationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && (
         <div className="charts-bar small">
           <label title="Colour these charts by the party of the head of government (Settings: Governing party)">

@@ -145,6 +145,16 @@ with identical content is skipped; a revised release becomes a new vintage
 | Powell and Thyne coups | Every coup attempt since 1950, successful or failed, to the day | One text file from the University of Kentucky, checked monthly |
 | UCDP/PRIO Armed Conflict Dataset | Armed conflicts since 1946 with at least 25 battle deaths a year: who fought, the type (interstate, intrastate, internationalised) and intensity (minor, or war at 1,000+ deaths a year), as episodes from their start date to their end | One zip from UCDP, checked monthly; each country in the conflict's location gets the event |
 | EM-DAT | Disasters since 1900 (earthquakes, storms, floods, droughts, wildfires, epidemics...) with deaths, people affected and damage in today's dollars | Needs a free sign-in at public.emdat.be, so a refresh never fetches it: download the table there and load it with `.\load.bat emdat <file.xlsx>` (once a year is plenty) |
+| BIS | Residential property prices, nominal and after inflation (index 2010 = 100), and household debt as % of GDP | The BIS statistics API (CSV); if it cannot be reached, the property prices come from the copy on GitHub (datasets/house-prices-global). Quarters averaged to years |
+| OECD | House prices, rents, the price-to-rent and price-to-income ratios and both against their long-run average; household debt as % of disposable income | The OECD Data Explorer API (CSV), yearly |
+| Dallas Fed International House Price Database | House prices and disposable income per person, nominal and real, for about 25 countries since 1975; the price-to-income ratio worked out from them | One Excel file, found on the database's page; checked every four weeks |
+| IMF Global Debt Database | Household and company debt as % of GDP | DataMapper API |
+| UN International Migrant Stock | People living in each country who were born abroad, people born in each country living abroad, and both by country of birth (`migrant_stock_by_origin`, breakdown `origin=<country>`) | One Excel file, found on the UN's page (2024 edition: 1990 to 2024) |
+| UNHCR Refugee Data Finder | Refugees and asylum seekers hosted and fled, people displaced inside their country, stateless people, refugees by country of origin | The UNHCR API, every origin against every host, about 15 pages a second apart; monthly |
+| Wittgenstein Centre Human Capital Data Explorer | Mean years of schooling of adults (all, women, men) from 1950 with projections to 2100, and shares by highest level of education | Two R data files (version 3, middle-of-the-road scenario) from IIASA, or the copy on GitHub; fetched once |
+| UNDP Human Development Report | Human Development Index, expected and mean years of schooling, the gender and inequality-adjusted indices | One CSV, found on UNDP's downloads page |
+| International IDEA Voter Turnout Database | Turnout at parliamentary and presidential elections, of registered voters and of the voting-age population; registered voters and votes cast | IDEA's export, asked for once per refresh. If IDEA answers with a web page instead, export the World table from idea.int and load it with `.\load.bat idea_turnout <file>` |
+| Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
 **Country pages** open with the Wikipedia introduction, pictures and the
@@ -199,6 +209,27 @@ chooses the head of government (a prime minister) or of state (a president).
 **Energy mix.** Country pages draw electricity generation and primary energy
 by fuel as stacked areas, in TWh or as shares, from the OWID energy dataset.
 
+**House prices and incomes.** Country pages set house prices against incomes,
+both as an index on a common base year (choose it), nominal or after
+inflation, so the gap between the lines shows how far homes have outrun pay.
+"Price to income" shows the ratio against its own average, and "Household
+debt" debt as a share of disposable income or of GDP. Prices come from the
+Dallas Fed database where it covers the country, else the OECD or BIS; incomes
+from the Dallas Fed, else the World Bank's income per person in local money.
+
+**Migration in and out.** Country pages show people born abroad living there
+against people born there living abroad, with the ten largest countries of
+birth and of destination for any year, and the same for refugees.
+
+**Education.** Country pages show adults' years of schooling, women and men,
+from 1950 with the Wittgenstein Centre's projection to 2100, and the shares
+by highest level of education.
+
+**Map layers.** A map panel's **Layers** menu draws plate boundaries, active
+faults, volcanoes (darker if they have erupted since 1900) and earthquakes of
+magnitude 6 and over (sized by magnitude) over the countries. Hover one for its
+name; the layers are saved with the panel and in pictures' credits.
+
 **Your ratios.** On the Indicators page, **Make a ratio** divides one
 indicator by another (times 100, 1,000 or any number): household debt by GDP,
 military by education spending. A ratio is an indicator like any other, under
@@ -246,8 +277,11 @@ against the source linked on each row.
 
 **The sample warehouse** holds real UN WPP 2024 data, a real but old IMF
 release (April 2015), about 325 real World Bank series from a mirror, and the
-main OWID energy series, and a cut of the Factbook archive (every country's 2025
-entry, all editions for a few countries, and all the Factbook numbers), because
+main OWID energy series, a cut of the Factbook archive (every country's 2025
+entry, all editions for a few countries, and all the Factbook numbers), BIS
+house prices, the Wittgenstein Centre's schooling figures, UNHCR refugees, the
+UN's 2020 migrant stock edition, plate boundaries, faults and volcanoes (all
+from copies on GitHub), because
 the build environment could not reach the UN, IMF or World Bank sites. It has no
 Wikidata facts. Its income groups are worked out from GNI per person
 rather than read from the World Bank. The app says so in a banner. See
