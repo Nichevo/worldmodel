@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 
 // Thin wrapper: one ECharts instance per element, resized with its box, and
 // redrawn when the colour scheme changes (options are built from CSS variables).
-export default function EChart({ option, height = 300, label }: { option: () => echarts.EChartsOption; height?: number; label: string }) {
+export default function EChart({ option, height = 300, label }: { option: () => echarts.EChartsOption; height?: number | string; label: string }) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
 

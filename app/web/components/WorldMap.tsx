@@ -4,6 +4,7 @@ import maplibregl, { type ExpressionSpecification, type GeoJSONSource } from "ma
 import { useEffect, useMemo, useRef } from "react";
 import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
+import { countryShapes } from "@/lib/geo";
 
 type Value = { entity_id: string; value: number; status: string };
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
   decimals: number;
   diverging: boolean;
   onPick: (iso3: string) => void;
+  selected?: string[];
+  fill?: boolean; // fill the parent's height instead of the fixed page height
 };
 
 type Scale = { breaks: number[]; colors: string[] };
@@ -54,7 +57,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
     cssVar("--no-data")] as ExpressionSpecification;
 }
 
-export default function WorldMap({ values, unit, decimals, diverging, onPick }: Props) {
+export default function WorldMap({ values, unit, decimals, diverging, onPick, selected = [], fill = false }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
@@ -73,8 +76,8 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick }: 
         sources: {},
         layers: [{ id: "bg", type: "background", paint: { "background-color": cssVar("--surface") } }],
       },
-      center: [10, 25],
-      zoom: 1.1,
+      // Fit the inhabited world to whatever size the map's box is.
+      bounds: [[-170, -56], [180, 78]],
       minZoom: 0.5,
       maxZoom: 7,
       attributionControl: { compact: true, customAttribution: "Borders: Natural Earth" },
@@ -85,8 +88,7 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick }: 
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
 
     m.on("load", async () => {
-      const res = await fetch("/geo/countries.json");
-      geo.current = await res.json();
+      geo.current = await countryShapes();
       m.addSource("countries", { type: "geojson", data: geo.current!, promoteId: "iso3" });
       m.addLayer({ id: "fill", type: "fill", source: "countries", paint: { "fill-color": cssVar("--no-data") } });
       m.addLayer({
@@ -97,8 +99,15 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick }: 
         id: "hover", type: "line", source: "countries",
         paint: { "line-color": cssVar("--ink"), "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 0] },
       });
+      m.addLayer({
+        id: "selected", type: "line", source: "countries", filter: ["in", ["get", "iso3"], ["literal", []]],
+        paint: { "line-color": cssVar("--ink"), "line-width": 2.2 },
+      });
       m.fire("worldmodel:ready");
     });
+    // MapLibre only tracks window resizes; panels resize on their own.
+    const ro = new ResizeObserver(() => m.resize());
+    ro.observe(el.current);
 
     let hovered: string | number | undefined;
     m.on("mousemove", "fill", (e) => {
@@ -123,7 +132,10 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick }: 
       const iso = e.features?.[0]?.properties?.iso3;
       if (iso) pick.current(iso);
     });
-    return () => m.remove();
+    return () => {
+      ro.disconnect();
+      m.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -151,8 +163,17 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick }: 
     else m.once("worldmodel:ready", apply);
   }, [byIso, scale, unit, decimals]);
 
+  const selectedKey = selected.join(",");
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => m.setFilter("selected", ["in", ["get", "iso3"], ["literal", selectedKey ? selectedKey.split(",") : []]]);
+    if (m.getLayer("selected")) apply();
+    else m.once("worldmodel:ready", apply);
+  }, [selectedKey]);
+
   return (
-    <div>
+    <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" /></div>
       <Legend scale={scale} unit={unit} />
     </div>

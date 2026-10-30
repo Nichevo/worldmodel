@@ -6,7 +6,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import Search from "@/components/Search";
 import { api, type Entity, type Indicator, type SeriesRow } from "@/lib/api";
-import { seriesColor } from "@/lib/colors";
+import { seriesVar } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
 
 const MAX = 8; // one categorical colour each; more would need folding or small multiples
@@ -65,7 +65,7 @@ function Compare() {
       <div>
         {named.map((e, i) => (
           <span className="chip" key={e.id}>
-            <span className="swatch" style={{ background: seriesColor(i) }} />
+            <span className="swatch" style={{ background: seriesVar(i) }} />
             <Link href={`/entity/${e.id}`}>{e.name}</Link>
             <button aria-label={`Remove ${e.name}`} onClick={() => update(ids.filter((x) => x !== e.id))}>×</button>
           </span>
