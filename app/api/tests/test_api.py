@@ -96,3 +96,79 @@ def test_memberships_by_type_and_group(client):
     eu = {r["member_id"] for r in client.get("/api/v1/memberships", params={"group": "eu"}).json()}
     assert "FRA" in eu and "GBR" not in eu
     assert client.get("/api/v1/memberships").status_code == 400
+
+
+def test_settings_are_checked_and_saved(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path))
+    s = client.get("/api/v1/settings").json()["settings"]
+    assert s["click_mode"] == "popup" and s["disk_limit_gb"] == 100 and s["numbeo_daily"] == 20
+    s = client.put("/api/v1/settings", json={"click_mode": "select", "numbeo_daily": 9999, "nonsense": 1,
+                                             "disk_limit_gb": "250"}).json()["settings"]
+    assert s["click_mode"] == "select" and s["numbeo_daily"] == 200 and s["disk_limit_gb"] == 250
+    assert "nonsense" not in s
+    assert client.put("/api/v1/settings", json={"click_mode": "wobble"}).json()["settings"]["click_mode"] == "select"
+
+
+def test_indicator_switches(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path))
+    inds = {i["indicator_id"]: i for i in client.get("/api/v1/indicators").json()}
+    assert inds["tfr"]["enabled"] and inds["tfr"]["countries"] >= 200
+    assert inds["tfr"]["sources"][0]["licence"]
+    client.put("/api/v1/indicator-switches", json={"tfr": False})
+    assert not client.get("/api/v1/indicators/tfr").json()["enabled"]
+    assert client.put("/api/v1/indicator-switches", json={"nope": True}).status_code == 404
+    client.delete("/api/v1/indicator-switches")
+    assert client.get("/api/v1/indicators/tfr").json()["enabled"]
+
+
+def test_history_log_star_note_clear(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path))
+    a = client.post("/api/v1/history", json={"kind": "page", "title": "New Zealand", "url": "/entity/NZL",
+                                             "entity": "NZL"}).json()["entry"]
+    again = client.post("/api/v1/history", json={"kind": "page", "title": "New Zealand", "url": "/entity/NZL",
+                                                 "entity": "NZL"}).json()["entry"]
+    assert again["id"] == a["id"]  # the same page twice in a row is one entry
+    client.post("/api/v1/history", json={"kind": "view", "title": "Map: fertility", "url": "/?p=map.tfr"})
+    assert client.post("/api/v1/history", json={"kind": "bogus", "title": "x"}).status_code == 422
+    listed = client.get("/api/v1/history").json()
+    assert [e["kind"] for e in listed] == ["view", "page"]
+    assert [e["title"] for e in client.get("/api/v1/history", params={"q": "zealand"}).json()] == ["New Zealand"]
+    client.patch(f"/api/v1/history/{a['id']}", json={"star": True, "note": "check migration"})
+    starred = client.get("/api/v1/history", params={"starred": True}).json()
+    assert len(starred) == 1 and starred[0]["note"] == "check migration"
+    assert client.get("/api/v1/history/interest").json()[0]["entity_id"] == "NZL"
+    assert client.delete("/api/v1/history").json()["deleted"] == 1  # the starred entry stays
+    assert len(client.get("/api/v1/history").json()) == 1
+    client.put("/api/v1/settings", json={"history_paused": True})
+    assert client.post("/api/v1/history", json={"kind": "page", "title": "Paused"}).json()["entry"] is None
+
+
+def test_popup_and_map_range(client):
+    p = client.get("/api/v1/popup", params={"entity": "NZL", "indicator": "tfr", "year": 2023}).json()
+    assert p["value"] and 1 <= p["rank"] <= p["of"] and p["region"]["entity_id"] == "australia-and-new-zealand"
+    assert p["change10"]["from_year"] == 2013 and p["series"]["world"] and p["series"]["region"]
+    r = client.get("/api/v1/map/range", params={"indicator": "tfr", "start": 2000, "end": 2023}).json()
+    assert r["years"][0] == 2000 and r["years"][-1] == 2023 and len(r["rows"]["NZL"]) == 24
+
+
+def test_storage_free_up_and_refresh_log(client, tmp_path, monkeypatch):
+    home = tmp_path / "var"
+    monkeypatch.setenv("WORLDMODEL_HOME", str(home))
+    monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
+    for stamp in ("20260101T000000Z", "20260201T000000Z", "20260301T000000Z"):
+        d = home / "raw" / "un_wpp" / "2024" / stamp
+        d.mkdir(parents=True)
+        (d / "file.csv").write_bytes(b"x" * 1000)
+    (home / "user").mkdir()
+    (home / "user" / "settings.json").write_text('{"disk_limit_gb": 1}')
+    st = client.get("/api/v1/storage").json()
+    raw = next(c for c in st["categories"] if c["key"] == "raw")
+    assert raw["bytes"] == 3000 and st["freeable"] == 1000 and st["level"] == "ok"
+    assert st["limits"][0]["limit"] == 1024 ** 3
+    done = client.post("/api/v1/storage/free-up").json()
+    assert done["removed"] == ["raw/un_wpp/2024/20260101T000000Z"] and done["freed_bytes"] == 1000
+    reports = home / "warehouse" / "reports"
+    reports.mkdir(parents=True)
+    (reports / "20260301T000000Z.md").write_text("# Build x\n\nResult: passed, live\n\n| a | b | pass | d |\n")
+    log = client.get("/api/v1/refresh-log").json()
+    assert log[0]["build_id"] == "20260301T000000Z" and log[0]["checks"]["pass"] == 1 and log[0]["backfilled"]
