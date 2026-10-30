@@ -7,6 +7,7 @@ warehouse, and are written atomically so a crash never leaves half a file.
   indicators.json   indicators switched on or off, where that differs from the default
   history.jsonl     one line per thing opened or looked at; append-only
   history_marks.json  stars and notes on history entries, by entry id
+  milestones.json   your own dated events (a policy change, a deal, a personal marker), shown with the rest
 """
 
 from __future__ import annotations
@@ -236,3 +237,59 @@ def entity_interest(limit: int = 50) -> list[dict]:
         score[ent] += 0.5 ** (days / 30)  # an open counts half as much a month later
         last[ent] = e["at"]
     return [{"entity_id": k, "score": round(v, 3), "last": last[k]} for k, v in score.most_common(limit)]
+
+
+# ----------------------------------------------------------------------------- milestones
+def _date(v, field: str, required: bool) -> str | None:
+    v = (str(v).strip() if v is not None else "")
+    if not v:
+        if required:
+            raise ValueError(f"{field} is required (YYYY-MM-DD)")
+        return None
+    try:
+        return datetime.strptime(v[:10], "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        raise ValueError(f"{field} must be a date, YYYY-MM-DD") from None
+
+
+def milestones() -> list[dict]:
+    """Your own events, oldest first."""
+    return sorted(_read_json("milestones.json", []), key=lambda m: m["start_date"])
+
+
+def save_milestone(data: dict, milestone_id: str | None = None) -> dict:
+    """Add a milestone, or change one: {entity_id, title, start_date, end_date?, subkind?, note?, url?}."""
+    title = str(data.get("title") or "").strip()[:MAX_TEXT]
+    entity = str(data.get("entity_id") or "").strip()[:40]
+    if not title or not entity:
+        raise ValueError("a milestone needs a title and a country (entity_id)")
+    start = _date(data.get("start_date"), "start_date", True)
+    end = _date(data.get("end_date"), "end_date", False)
+    if end and end < start:
+        raise ValueError("end_date is before start_date")
+    m = {"entity_id": entity, "title": title, "start_date": start, "end_date": end,
+         "subkind": str(data.get("subkind") or "").strip()[:60] or None,
+         "note": str(data.get("note") or "").strip()[:2000], "url": str(data.get("url") or "").strip()[:500] or None}
+    with _lock:
+        items = _read_json("milestones.json", [])
+        if milestone_id:
+            old = next((x for x in items if x["id"] == milestone_id), None)
+            if old is None:
+                raise KeyError(milestone_id)
+            old.update(m, updated_at=now())
+            m = old
+        else:
+            m = {"id": secrets.token_hex(6), **m, "created_at": now()}
+            items.append(m)
+        _write_json("milestones.json", items)
+        return m
+
+
+def delete_milestone(milestone_id: str) -> bool:
+    with _lock:
+        items = _read_json("milestones.json", [])
+        kept = [x for x in items if x["id"] != milestone_id]
+        if len(kept) == len(items):
+            return False
+        _write_json("milestones.json", kept)
+        return True
