@@ -1,11 +1,11 @@
-// The map page's workspace: a layout of up to four panels, each a map, chart or
-// table of one indicator, plus the countries selected across all of them.
+// The map page's workspace: a layout of up to four panels, each a map, chart,
+// table, pyramid or scatter of one indicator, plus the countries selected across all of them.
 // Panels in the same link group (A or B) can share their map position, hover,
 // year, indicator and colour scale; selection is shared by every panel that
 // links it. The whole state round-trips through the URL so any view can be
 // bookmarked.
 
-export type View = "map" | "chart" | "table" | "pyramid";
+export type View = "map" | "chart" | "table" | "pyramid" | "scatter";
 export type Layout = "1" | "2h" | "2v" | "3" | "4";
 export type Group = "A" | "B";
 export type LinkKey = "camera" | "hover" | "select" | "year" | "indicator" | "scale";
@@ -22,6 +22,7 @@ export type Panel = {
   selection: string[]; // used only while selection is unlinked
   cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
+  xy: string; // scatter options: "yIndicator,sizeIndicator,flags" (the panel's indicator is x; flags x/y = log axis)
 };
 
 export type Workspace = {
@@ -55,7 +56,7 @@ export const CHANGE_COL = "chg10";
 
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true };
 
-const VIEWS: View[] = ["map", "chart", "table", "pyramid"];
+const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter"];
 export const MAX_PANELS = 4;
 export const MAX_SELECTION = 8; // one categorical colour each
 
@@ -67,7 +68,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -80,7 +81,7 @@ export const DEFAULT: Workspace = {
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy">> }
   | { type: "load"; ws: Workspace }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
   | { type: "duplicate"; id: string }
@@ -191,7 +192,7 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 
 // URL form, kept readable:
 //   ?l=4&p=map.tfr.1970~chart.tfr~table.gdp_growth.2023.chsyk.B.-20&s=NZL,AUS&s2=FRA
-// Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr]]]]]], trailing defaults dropped,
+// Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr[.xy]]]]]]], trailing defaults dropped,
 // with extra table columns joined by ",";
 // sN holds panel N's own selection while its selection is unlinked.
 const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.letter).join("");
@@ -199,7 +200,7 @@ const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.l
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr];
+    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -223,7 +224,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset, cols, pyr] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols, pyr, xy] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -235,6 +236,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         selection: list(q.get(`s${i}`)),
         cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
+        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xy]{0,2})?)?$/.test(xy) ? xy : "",
       });
     });
   if (!panels.length) return DEFAULT;
@@ -263,6 +265,19 @@ export function pyramidString(o: { compare: "auto" | "none" | number; absolute: 
   return `${o.compare === "none" ? "-" : o.compare === "auto" ? "" : o.compare}${o.absolute ? "a" : ""}`;
 }
 
+export type ScatterOptions = { y: string; size: string; logX: boolean; logY: boolean };
+
+export function scatterOptions(xy: string): ScatterOptions {
+  const [y = "", size = "", flags = ""] = xy.split(",");
+  return { y, size, logX: flags.includes("x"), logY: flags.includes("y") };
+}
+
+export function scatterString(o: ScatterOptions): string {
+  const s = [o.y, o.size, `${o.logX ? "x" : ""}${o.logY ? "y" : ""}`];
+  while (s.length && s[s.length - 1] === "") s.pop();
+  return s.join(",");
+}
+
 // Starting points offered in the Layouts menu, built from the same parts as the URL.
 function starter(layout: Layout, panels: Partial<Panel>[], selection: string[] = []): string {
   return toQuery({ ...DEFAULT, layout, panels: panels.map((p, i) => panel(`p${i}`, p)), selection });
@@ -282,6 +297,8 @@ export const STARTERS: { name: string; query: string }[] = [
       { view: "chart", indicator: "tfr" },
       { view: "table", indicator: "tfr", cols: [CHANGE_COL, "life_expectancy", "gdp_growth"] },
     ], ["NZL", "AUS"]) },
+  { name: "Wealth and health (bubbles)",
+    query: starter("1", [{ view: "scatter", indicator: "gdp_ppp_per_capita", xy: "life_expectancy,pop_total,x" }], ["CHN", "IND", "USA"]) },
   { name: "Fertility and growth",
     query: starter("2h", [{ view: "map", indicator: "tfr" }, { view: "map", indicator: "gdp_growth" }]) },
 ];

@@ -44,7 +44,7 @@ function yAxis(unit: string): EChartsOption["yAxis"] {
   };
 }
 
-function tooltipFormatter(unit: string, decimals: number, names: Map<string, string>) {
+function tooltipFormatter(labels: Map<string, string>, fmt: Map<string, (v: number) => string>) {
   return (params: unknown) => {
     const list = (Array.isArray(params) ? params : [params]) as {
       seriesId: string; seriesName: string; value: [number, number]; color: string;
@@ -61,48 +61,61 @@ function tooltipFormatter(unit: string, decimals: number, names: Map<string, str
       .map((p) => {
         const proj = p.seriesId.endsWith(":P") ? " <span style='opacity:.7'>(projection)</span>" : "";
         return `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:6px"></span>` +
-          `${names.get(p.seriesName) ?? p.seriesName}: <b>${formatValue(p.value[1], unit, decimals)}</b>${proj}`;
+          `${labels.get(p.seriesName) ?? p.seriesName}: <b>${fmt.get(p.seriesName)?.(p.value[1]) ?? p.value[1]}</b>${proj}`;
       });
     return [`<b>${year}</b>`, ...lines].join("<br/>");
   };
 }
 
-function byEntity(rows: SeriesRow[]) {
-  const out = new Map<string, SeriesRow[]>();
-  for (const r of rows) {
-    if (!out.has(r.entity_id)) out.set(r.entity_id, []);
-    out.get(r.entity_id)!.push(r);
-  }
-  return out;
+export function lineOption(rows: SeriesRow[], entities: Named[], unit: string, decimals: number): EChartsOption {
+  return linesOption([{ id: "", name: "", unit, decimals, rows }], entities);
 }
 
-export function lineOption(rows: SeriesRow[], entities: Named[], unit: string, decimals: number): EChartsOption {
-  const grouped = byEntity(rows);
+// One indicator's rows for a multi-line chart.
+export type Layer = { id: string; name: string; unit: string; decimals: number; rows: SeriesRow[] };
+
+// A line per entity and indicator. Indicators in the first layer's unit share
+// the left axis; one other unit gets a right axis (callers keep it to two units).
+// Each series is named "entity|indicator" so hover can find its entity.
+export function linesOption(layers: Layer[], entities: Named[]): EChartsOption {
   const names = new Map(entities.map((e) => [e.id, e.name]));
+  const multi = layers.length > 1;
+  const units = [...new Set(layers.map((l) => l.unit))].slice(0, 2);
   const series: SeriesOption[] = [];
-  entities.forEach((e, i) => {
-    const pts = grouped.get(e.id) ?? [];
-    const color = seriesColor(i);
-    const est = pts.filter((p) => p.status === "E").map((p) => [+p.period, p.value]);
-    const projRows = pts.filter((p) => p.status === "P");
-    // Start the dashed line at the last estimate so the two parts join.
-    const proj = projRows.length && est.length ? [est[est.length - 1], ...projRows.map((p) => [+p.period, p.value])]
-      : projRows.map((p) => [+p.period, p.value]);
-    const base = { type: "line" as const, name: e.id, showSymbol: false, symbolSize: 8, color, emphasis: { focus: "series" as const } };
-    series.push({ ...base, id: `${e.id}:E`, data: est, lineStyle: { width: 2 } });
-    if (proj.length) series.push({ ...base, id: `${e.id}:P`, data: proj, lineStyle: { width: 2, type: "dashed" } });
-  });
+  const labels = new Map<string, string>();
+  const fmt = new Map<string, (v: number) => string>();
+  let n = 0;
+  for (const e of entities) {
+    for (const l of layers) {
+      const key = `${e.id}|${l.id}`;
+      labels.set(key, multi ? (entities.length > 1 ? `${e.name} · ${l.name}` : l.name) : e.name);
+      fmt.set(key, (v) => formatValue(v, l.unit, l.decimals));
+      const pts = l.rows.filter((r) => r.entity_id === e.id);
+      const est = pts.filter((p) => p.status === "E").map((p) => [+p.period, p.value]);
+      const projRows = pts.filter((p) => p.status === "P");
+      // Start the dashed line at the last estimate so the two parts join.
+      const proj = projRows.length && est.length ? [est[est.length - 1], ...projRows.map((p) => [+p.period, p.value])]
+        : projRows.map((p) => [+p.period, p.value]);
+      const base = { type: "line" as const, name: key, showSymbol: false, symbolSize: 8, color: seriesColor(n++),
+        yAxisIndex: Math.max(0, units.indexOf(l.unit)), emphasis: { focus: "series" as const } };
+      series.push({ ...base, id: `${key}:E`, data: est, lineStyle: { width: 2 } });
+      if (proj.length) series.push({ ...base, id: `${key}:P`, data: proj, lineStyle: { width: 2, type: "dashed" } });
+    }
+  }
   const base = chrome();
+  const legend = n > 1;
+  const right = units.length > 1 ? { ...(yAxis(units[1]) as object), position: "right", splitLine: { show: false },
+    nameTextStyle: { color: cssVar("--muted"), align: "right" } } : null;
   return {
     ...base,
-    grid: { ...(base.grid as object), top: entities.length > 1 ? 60 : 36 },
-    legend: entities.length > 1 ? {
-      top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8,
-      textStyle: { color: cssVar("--ink-2") }, formatter: (id: string) => names.get(id) ?? id,
+    grid: { ...(base.grid as object), top: legend ? 60 : 36 },
+    legend: legend ? {
+      top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, type: "scroll",
+      textStyle: { color: cssVar("--ink-2") }, formatter: (key: string) => labels.get(key) ?? key,
     } : undefined,
-    yAxis: yAxis(unit),
+    yAxis: (right ? [yAxis(units[0]), right] : yAxis(units[0])) as EChartsOption["yAxis"],
     series,
-    tooltip: { ...(chrome().tooltip as object), formatter: tooltipFormatter(unit, decimals, names) },
+    tooltip: { ...(chrome().tooltip as object), formatter: tooltipFormatter(labels, fmt) },
   };
 }
 
@@ -226,5 +239,62 @@ export function pyramidCompareOption(base: PyramidSide, overlay: PyramidSide | n
       },
     },
     series,
+  };
+}
+
+export type ScatterPoint = { id: string; name: string; x: number; y: number; size?: number; proj: boolean };
+export type Axis = { name: string; unit: string; decimals: number; log: boolean };
+
+// One dot per country: x and y from two indicators, optionally sized by a
+// third (area proportional to the value). Selected countries keep their
+// selection colour and a label; the rest are grey. Projections are faded.
+export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Axis | null,
+  selection: string[], hovered: string | null): EChartsOption {
+  const max = size ? Math.max(0, ...points.map((p) => p.size ?? 0)) : 0;
+  const radius = (v?: number) => (size ? (max > 0 && v && v > 0 ? 4 + 40 * Math.sqrt(v / max) : 4) : 9);
+  const grey = cssVar("--muted");
+  const ink = cssVar("--ink");
+  const data = points
+    // Unselected first and big bubbles first, so small and selected dots stay on top.
+    .sort((a, b) => (+selection.includes(a.id) - +selection.includes(b.id)) || ((b.size ?? 0) - (a.size ?? 0)))
+    .map((p) => {
+      const i = selection.indexOf(p.id);
+      const on = i >= 0;
+      return {
+        name: p.id, value: [p.x, p.y, p.size ?? null],
+        symbolSize: radius(p.size),
+        itemStyle: {
+          color: on ? seriesColor(i) : grey, opacity: (on ? 0.9 : 0.35) * (p.proj ? 0.6 : 1),
+          borderColor: p.id === hovered ? ink : on ? seriesColor(i) : "transparent", borderWidth: p.id === hovered ? 2 : 1,
+        },
+        label: { show: on || p.id === hovered, formatter: p.name, position: "right" as const, color: cssVar("--ink-2"), fontSize: 11 },
+      };
+    });
+  const names = new Map(points.map((p) => [p.id, p.name]));
+  const axis = (a: Axis, dim: "x" | "y") => ({
+    type: a.log ? ("log" as const) : ("value" as const), scale: true, name: a.name,
+    nameLocation: dim === "x" ? ("middle" as const) : ("end" as const), nameGap: dim === "x" ? 28 : 12,
+    nameTextStyle: { color: cssVar("--muted"), align: dim === "y" ? ("left" as const) : undefined },
+    axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) },
+    axisLine: { lineStyle: { color: cssVar("--axis") } },
+    splitLine: { lineStyle: { color: cssVar("--grid") } },
+  });
+  const base = chrome();
+  return {
+    ...base,
+    grid: { left: 8, right: 24, top: 36, bottom: 36, containLabel: true },
+    xAxis: axis(x, "x"),
+    yAxis: axis(y, "y"),
+    series: [{ type: "scatter", data, emphasis: { focus: "self", scale: 1.1 }, animationDurationUpdate: 300 }],
+    tooltip: {
+      ...(base.tooltip as object), trigger: "item",
+      formatter: (p: unknown) => {
+        const { name, value } = p as { name: string; value: [number, number, number | null] };
+        const lines = [`<b>${names.get(name) ?? name}</b>`, `${x.name}: ${formatValue(value[0], x.unit, x.decimals)}`,
+          `${y.name}: ${formatValue(value[1], y.unit, y.decimals)}`];
+        if (size && value[2] !== null) lines.push(`${size.name}: ${formatValue(value[2], size.unit, size.decimals)}`);
+        return lines.join("<br/>");
+      },
+    },
   };
 }
