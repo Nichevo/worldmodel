@@ -78,6 +78,9 @@ class Connector(ABC):
     source_id: str = ""
     frozen = False                     # True: a refresh skips the source once it has a vintage (a closed archive)
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
+    # Raise when stage() changes in a way that alters stored output: vintages staged by an
+    # older version are staged again from their raw files (by `upgrade`, or the next fetch).
+    stage_version = 1
 
     def __init__(self, client: httpx.Client | None = None):
         self._client = client
@@ -151,6 +154,8 @@ class Connector(ABC):
                 shutil.rmtree(staging, ignore_errors=True)
                 if self._cache:
                     self._cache.commit(store.paths.home / existing.raw_dir)
+                if existing.stage_version < self.stage_version:
+                    self.restage(store, existing)
                 return existing, False
 
             vintage = store.vintage_name(self.source_id, release, fetched_at)
@@ -164,8 +169,29 @@ class Connector(ABC):
             shutil.rmtree(staging, ignore_errors=True)
             raise
 
+        manifest = Manifest(
+            source_id=self.source_id, vintage=vintage, release=release, retrieved_at=fetched_at.isoformat(),
+            origin=origin, sha256=sha, raw_dir=str(raw_dir.relative_to(store.paths.home)), files=file_info,
+        )
+        self._stage_vintage(store, manifest)
+        log.info("%s: stored vintage %s (%s rows)", self.source_id, vintage, manifest.row_count)
+        return manifest, True
+
+    def restage(self, store: VintageStore, manifest: Manifest) -> Manifest:
+        """Stage a stored vintage again from its raw files, after a fix to stage()."""
+        raw_dir = store.paths.home / manifest.raw_dir
+        if not raw_dir.is_dir():
+            raise ConnectorError(f"{self.source_id}: raw files for vintage {manifest.vintage} are gone ({raw_dir})")
+        self._stage_vintage(store, manifest)
+        log.info("%s: staged vintage %s again (%s rows)", self.source_id, manifest.vintage, manifest.row_count)
+        return manifest
+
+    def _stage_vintage(self, store: VintageStore, manifest: Manifest) -> None:
+        """Write the staged parquet files and manifest for a vintage whose raw files are stored."""
+        raw_dir, release, vintage = store.paths.home / manifest.raw_dir, manifest.release, manifest.vintage
         out_dir = store.vintage_dir(self.source_id, vintage)
         out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "texts.parquet").unlink(missing_ok=True)
         con = duckdb.connect()
         try:
             query = self.stage(con, raw_dir, release, vintage)
@@ -193,14 +219,8 @@ class Connector(ABC):
             if data:
                 (out_dir / name).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
 
-        manifest = Manifest(
-            source_id=self.source_id, vintage=vintage, release=release, retrieved_at=fetched_at.isoformat(),
-            origin=origin, sha256=sha, raw_dir=str(raw_dir.relative_to(store.paths.home)), row_count=rows,
-            files=file_info,
-        )
+        manifest.row_count, manifest.stage_version = rows, self.stage_version
         manifest.write(out_dir / "manifest.json")
-        log.info("%s: stored vintage %s (%s rows)", self.source_id, vintage, rows)
-        return manifest, True
 
     def _copy_local(self, from_path: Path, dest: Path) -> str:
         from_path = Path(from_path)
