@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from abc import ABC, abstractmethod
@@ -23,11 +24,59 @@ class ConnectorError(RuntimeError):
     pass
 
 
+class HttpCache:
+    """Remembers each URL's ETag / Last-Modified and where its stored copy is, so a
+    refresh can ask the server "changed since?" and reuse the stored file on a 304
+    instead of downloading it again. Kept beside the raw files as http_cache.json."""
+
+    def __init__(self, path: Path, home: Path):
+        self.path, self.home = path, home
+        try:
+            self.entries: dict[str, dict] = json.loads(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.entries = {}
+        self.pending: dict[str, dict] = {}  # url -> validators and file name from this fetch
+
+    def stored_file(self, url: str) -> Path | None:
+        e = self.entries.get(url)
+        f = self.home / e["file"] if e and e.get("file") else None
+        return f if f and f.is_file() else None
+
+    def conditional_headers(self, url: str) -> dict[str, str]:
+        e = self.entries.get(url, {})
+        if not self.stored_file(url):
+            return {}
+        h = {}
+        if e.get("etag"):
+            h["If-None-Match"] = e["etag"]
+        if e.get("last_modified"):
+            h["If-Modified-Since"] = e["last_modified"]
+        return h
+
+    def note(self, url: str, name: str, etag: str | None, last_modified: str | None) -> None:
+        if etag or last_modified:
+            self.pending[url] = {"name": name, "etag": etag, "last_modified": last_modified}
+
+    def commit(self, raw_dir: Path) -> None:
+        """Point this fetch's URLs at their files in the vintage that now holds them."""
+        for url, p in self.pending.items():
+            f = raw_dir / p["name"]
+            if f.is_file():
+                self.entries[url] = {"etag": p["etag"], "last_modified": p["last_modified"],
+                                     "file": f.relative_to(self.home).as_posix()}
+        self.pending = {}
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.entries, indent=2), encoding="utf-8")
+        tmp.replace(self.path)
+
+
 class Connector(ABC):
     source_id: str = ""
 
     def __init__(self, client: httpx.Client | None = None):
         self._client = client
+        self._cache: HttpCache | None = None
 
     @property
     def client(self) -> httpx.Client:
@@ -80,6 +129,7 @@ class Connector(ABC):
                 release = release or self.release_from_files(list(staging.iterdir())) or self.default_release(fetched_at)
             else:
                 release = release or self.default_release(fetched_at)
+                self._cache = HttpCache(store.paths.raw / self.source_id / "http_cache.json", store.paths.home)
                 origin = self.download(staging, release)
             files = [p for p in staging.iterdir() if p.is_file()]
             if not files:
@@ -89,6 +139,8 @@ class Connector(ABC):
             if existing:
                 log.info("%s: content unchanged since vintage %s", self.source_id, existing.vintage)
                 shutil.rmtree(staging, ignore_errors=True)
+                if self._cache:
+                    self._cache.commit(store.paths.home / existing.raw_dir)
                 return existing, False
 
             vintage = store.vintage_name(self.source_id, release, fetched_at)
@@ -96,6 +148,8 @@ class Connector(ABC):
             for f in files:
                 shutil.move(str(f), raw_dir / f.name)
             shutil.rmtree(staging, ignore_errors=True)
+            if self._cache:
+                self._cache.commit(raw_dir)
         except Exception:
             shutil.rmtree(staging, ignore_errors=True)
             raise
@@ -132,13 +186,23 @@ class Connector(ABC):
         return f"file:{from_path.as_posix()}"
 
     def get(self, url: str, dest: Path) -> None:
-        log.info("GET %s", url)
-        with self.client.stream("GET", url) as r:
+        """Download url to dest, unless the server says our stored copy is still current."""
+        cache = self._cache
+        headers = cache.conditional_headers(url) if cache else {}
+        log.info("GET %s%s", url, " (if changed)" if headers else "")
+        with self.client.stream("GET", url, headers=headers) as r:
+            if r.status_code == 304 and cache and (stored := cache.stored_file(url)):
+                log.info("not modified, reusing %s", stored)
+                shutil.copy2(stored, dest)
+                cache.note(url, dest.name, cache.entries[url].get("etag"), cache.entries[url].get("last_modified"))
+                return
             if r.status_code != 200:
                 raise ConnectorError(f"GET {url} returned HTTP {r.status_code}")
             with dest.open("wb") as fh:
                 for chunk in r.iter_bytes():
                     fh.write(chunk)
+            if cache:
+                cache.note(url, dest.name, r.headers.get("etag"), r.headers.get("last-modified"))
 
 
 def sql_str(s: str) -> str:

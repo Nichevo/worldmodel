@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import csv
 import fnmatch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 
@@ -35,6 +35,7 @@ class Check:
     kind: str
     status: str  # pass, warn, fail, info, skip
     detail: str = ""
+    examples: list[str] = field(default_factory=list)  # sample failing rows
 
 
 def run(con: duckdb.DuckDBPyConnection, previous: Path | None, allow_shrink: bool = False) -> list[Check]:
@@ -148,6 +149,9 @@ def write_report(path: Path, build_id: str, checks: list[Check], build_file: Pat
             manual = c
             continue
         lines.append(f"| {c.check_id} | {c.kind} | {c.status} | {' '.join(c.detail.replace('|', '/').split())} |")
+    for c in checks:
+        if c.examples:
+            lines += ["", f"## Failing rows: {c.check_id}", ""] + [f"- {e}" for e in c.examples]
     if manual:
         lines += ["", "## Check these by eye against the source sites", ""]
         lines += [f"- {line}" for line in manual.detail.splitlines()]

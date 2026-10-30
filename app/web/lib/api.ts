@@ -132,6 +132,25 @@ export async function get<T>(path: string, params: Record<string, string | numbe
   return res.json() as Promise<T>;
 }
 
+export type SavedLayout = { name: string; query: string; saved_at: string };
+
+async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`/api/v1${path}`, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const d = (await res.json()).detail;
+      detail = typeof d === "string" ? d : detail;
+    } catch {}
+    throw new ApiError(`${res.status}: ${detail}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export const api = {
   meta: () => get<Meta>("/meta"),
   sources: () => get<Source[]>("/sources"),
@@ -147,4 +166,7 @@ export const api = {
   map: (indicator: string, year: number) =>
     get<{ rows: { entity_id: string; value: number; status: string }[] }>("/map", { indicator, year }).then((r) => r.rows),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),
+  layouts: () => get<SavedLayout[]>("/layouts"),
+  saveLayout: (name: string, query: string) => send<SavedLayout>("PUT", `/layouts/${encodeURIComponent(name)}`, { query }),
+  deleteLayout: (name: string) => send<{ deleted: string }>("DELETE", `/layouts/${encodeURIComponent(name)}`),
 };
