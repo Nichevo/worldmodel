@@ -74,6 +74,27 @@ def build_checks():
     return rows("SELECT * FROM build_checks ORDER BY kind, check_id")
 
 
+@api.get("/datasets")
+def datasets():
+    """One row per source: its latest vintage and what it covers, indicator by indicator."""
+    coverage = rows("""
+        SELECT s.source_id, s.indicator_id, i.name, i.domain,
+            min(year(s.period_start)) AS first_year, max(year(s.period_start)) AS last_year,
+            max(year(s.period_start)) FILTER (WHERE s.status = 'E') AS last_estimate_year,
+            count(DISTINCT s.entity_id) FILTER (WHERE e.type = 'country') AS countries,
+            count(*) AS row_count
+        FROM series s JOIN indicators i USING (indicator_id) JOIN entities e USING (entity_id)
+        GROUP BY ALL ORDER BY s.source_id, i.domain, i.name""")
+    latest = {v["source_id"]: v for v in rows(
+        "SELECT source_id, vintage, release, retrieved_at, origin FROM vintages WHERE is_latest")}
+    out = []
+    for src in sources():
+        inds = [c for c in coverage if c["source_id"] == src["source_id"]]
+        out.append({**src, "latest_vintage": latest.get(src["source_id"]), "indicators": inds,
+                    "row_count": sum(c["row_count"] for c in inds)})
+    return out
+
+
 # ----------------------------------------------------------------------------- entities
 @api.get("/entities")
 def entities(type: str | None = None, q: str | None = None):

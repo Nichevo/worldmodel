@@ -85,6 +85,24 @@ export type Source = {
   status: string;
 };
 
+export type DatasetIndicator = {
+  source_id: string;
+  indicator_id: string;
+  name: string;
+  domain: string;
+  first_year: number | null;
+  last_year: number | null;
+  last_estimate_year: number | null;
+  countries: number;
+  row_count: number;
+};
+
+export type Dataset = Source & {
+  latest_vintage: { vintage: string; release: string; retrieved_at: string; origin: string } | null;
+  indicators: DatasetIndicator[];
+  row_count: number;
+};
+
 export type Pyramid = {
   entity: string;
   year: number;
@@ -117,6 +135,7 @@ export async function get<T>(path: string, params: Record<string, string | numbe
 export const api = {
   meta: () => get<Meta>("/meta"),
   sources: () => get<Source[]>("/sources"),
+  datasets: () => get<Dataset[]>("/datasets"),
   checks: () => get<{ check_id: string; kind: string; status: string; detail: string }[]>("/build-checks"),
   entities: (type?: string) => get<Entity[]>("/entities", { type }),
   entity: (id: string) => get<EntityDetail>(`/entities/${encodeURIComponent(id)}`),
