@@ -23,3 +23,8 @@ export function divergingRamp(): string[] {
 
 // Indicators whose sign matters get a diverging scale centred on zero.
 export const DIVERGING = new Set(["gdp_growth", "pop_growth_rate", "net_migration", "net_migration_rate"]);
+
+// The same colour as a CSS reference, for markup rendered on the server too.
+export function seriesVar(i: number): string {
+  return `var(--series-${(i % 8) + 1})`;
+}
