@@ -747,3 +747,66 @@ export function energyMixOption(parts: MixPart[], share: boolean): EChartsOption
     } },
   };
 }
+
+// Plain lines on one axis for the country page cards (house prices against income,
+// migrants in and out, years of schooling). Each line's projections (status P) are
+// dashed; `stack` turns them into stacked areas (shares that add up to 100).
+export type CardLine = { key: string; label: string; color: string; points: [number, number, string][] };
+export type CardOptions = {
+  unit: string; decimals: number; stack?: boolean; max?: number;
+  refY?: { value: number; label: string }; refX?: { value: number; label: string };
+};
+
+export function cardLinesOption(lines: CardLine[], o: CardOptions): EChartsOption {
+  const base = chrome();
+  const surface = cssVar("--surface");
+  const fmt = (v: number) => formatValue(v, o.unit, o.decimals);
+  const series: SeriesOption[] = [];
+  for (const l of lines) {
+    const est = l.points.filter((p) => p[2] !== "P");
+    const proj = l.points.filter((p) => p[2] === "P");
+    // The projection starts from the last estimate, so the line has no gap.
+    const joined = est.length && proj.length ? [est[est.length - 1], ...proj] : proj;
+    for (const [part, pts] of [["E", est], ["P", joined]] as const) {
+      if (!pts.length) continue;
+      series.push({
+        type: "line", id: `${l.key}:${part}`, name: l.label, color: l.color, symbol: "none", connectNulls: true,
+        stack: o.stack ? `mix:${part}` : undefined,
+        lineStyle: o.stack ? { width: 1, color: surface } : { width: 2, type: part === "P" ? "dashed" : "solid" },
+        areaStyle: o.stack ? { opacity: part === "P" ? 0.7 : 0.9 } : undefined,
+        emphasis: { focus: "series" },
+        data: pts.map((p) => [p[0], p[1]]),
+      });
+    }
+  }
+  if (o.refY || o.refX) {
+    series.push({
+      type: "line", id: "ref", data: [], silent: true, tooltip: { show: false },
+      markLine: { symbol: "none", silent: true, animation: false,
+        label: { color: cssVar("--ink-2"), fontSize: 10, formatter: (p: { name: string }) => p.name },
+        data: [
+          ...(o.refY ? [{ yAxis: o.refY.value, name: o.refY.label, label: { position: "insideEndTop" as const },
+            lineStyle: { color: cssVar("--muted"), type: "dashed" as const, width: 1 } }] : []),
+          ...(o.refX ? [{ xAxis: o.refX.value, name: o.refX.label, label: { position: "insideEndTop" as const },
+            lineStyle: { color: cssVar("--axis"), type: "solid" as const, width: 1 } }] : []),
+        ] },
+    });
+  }
+  return {
+    ...base,
+    grid: { ...(base.grid as object), top: lines.length > 1 ? 52 : 28 },
+    legend: lines.length > 1 ? { top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, type: "scroll",
+      data: lines.map((l) => l.label), textStyle: { color: cssVar("--ink-2") } } : undefined,
+    yAxis: { ...(yAxis(o.unit) as object), max: o.max, scale: !o.stack && o.unit !== "persons" },
+    series,
+    tooltip: { ...(base.tooltip as object), confine: true, formatter: (params: unknown) => {
+      const list = (Array.isArray(params) ? params : [params]) as { seriesId: string; seriesName: string; value: [number, number]; color: string }[];
+      if (!list.length) return "";
+      const seen = new Set<string>();
+      const rows = list.filter((p) => p.seriesId !== "ref" && !seen.has(p.seriesName) && seen.add(p.seriesName))
+        .map((p) => `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:6px"></span>`
+          + `${p.seriesName}: <b>${fmt(p.value[1])}</b>${p.seriesId.endsWith(":P") ? " <span style='opacity:.7'>(projection)</span>" : ""}`);
+      return [`<b>${Math.round(list[0].value[0])}</b>`, ...(o.stack ? [...rows].reverse() : rows)].join("<br/>");
+    } },
+  };
+}

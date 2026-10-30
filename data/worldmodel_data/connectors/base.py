@@ -14,7 +14,8 @@ import duckdb
 import httpx
 
 from worldmodel_contract import catalogue
-from worldmodel_data.vintage_store import EVENT_COLUMNS, STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore, now_utc, sha256_files
+from worldmodel_data.vintage_store import (EVENT_COLUMNS, LAYER_COLUMNS, STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore,
+                                          now_utc, sha256_files)
 
 log = logging.getLogger(__name__)
 
@@ -95,6 +96,8 @@ class Connector(ABC):
         self.listed_memberships: list[dict] = []  # memberships.json: rows shaped like memberships.csv
         self.texts_query: str | None = None  # texts.parquet: a SQL query producing TEXT_COLUMNS, for sources with text
         self.events_query: str | None = None  # events.parquet: a SQL query producing EVENT_COLUMNS, for dated events
+        # layers.parquet: map overlays, dicts with layer_id, name, description, kind (line or point), geojson
+        self.layers: list[dict] = []
 
     @property
     def client(self) -> httpx.Client:
@@ -197,7 +200,7 @@ class Connector(ABC):
         raw_dir, release, vintage = store.paths.home / manifest.raw_dir, manifest.release, manifest.vintage
         out_dir = store.vintage_dir(self.source_id, vintage)
         out_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("texts.parquet", "events.parquet"):
+        for name in ("texts.parquet", "events.parquet", "layers.parquet"):
             (out_dir / name).unlink(missing_ok=True)
         con = duckdb.connect()
         try:
@@ -223,7 +226,13 @@ class Connector(ABC):
                 if events:
                     con.execute(f"COPY staged_events TO '{(out_dir / 'events.parquet').as_posix()}' "
                                 "(FORMAT parquet, COMPRESSION zstd)")
-            if rows == 0 and texts == 0 and events == 0:
+            if self.layers:
+                con.execute(f"CREATE TABLE staged_layers ({', '.join(f'{c} {t}' for c, t in LAYER_COLUMNS.items())})")
+                con.executemany(f"INSERT INTO staged_layers VALUES ({', '.join('?' * len(LAYER_COLUMNS))})", [
+                    (self.source_id, manifest.vintage, lay["layer_id"], lay["name"], lay.get("description", ""), lay["kind"],
+                     lay.get("feature_count", 0), lay["geojson"]) for lay in self.layers])
+                con.execute(f"COPY staged_layers TO '{(out_dir / 'layers.parquet').as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
+            if rows == 0 and texts == 0 and events == 0 and not self.layers:
                 raise ConnectorError(f"{self.source_id}: staged 0 rows from {raw_dir}")
             parquet = out_dir / "observations.parquet"
             con.execute(f"COPY staged TO '{parquet.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
@@ -236,7 +245,7 @@ class Connector(ABC):
                 (out_dir / name).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
 
         manifest.row_count, manifest.stage_version = rows, self.stage_version
-        manifest.text_count, manifest.event_count = texts, events
+        manifest.text_count, manifest.event_count, manifest.layer_count = texts, events, len(self.layers)
         manifest.write(out_dir / "manifest.json")
 
     def _copy_local(self, from_path: Path, dest: Path) -> str:

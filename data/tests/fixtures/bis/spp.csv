@@ -1,0 +1,453 @@
+FREQ:Frequency,REF_AREA:Reference area,VALUE:Value,UNIT_MEASURE:Unit of measure,TIME_PERIOD:Time period or range,OBS_VALUE:Observation Value
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1970-Q1,24.7518
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1970-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1970-Q2,24.6153
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1970-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1970-Q3,25.4126
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1970-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1970-Q4,25.4628
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1970-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1971-Q1,27.2267
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1971-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1971-Q2,27.157
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1971-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1971-Q3,28.3704
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1971-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1971-Q4,28.9058
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1971-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1972-Q1,30.0896
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1972-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1972-Q2,31.9743
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1972-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1972-Q3,33.4614
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1972-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1972-Q4,35.1518
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1972-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1973-Q1,37.7754
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1973-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1973-Q2,37.4724
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1973-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1973-Q3,38.258
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1973-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1973-Q4,37.7132
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1973-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1974-Q1,37.5418
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1974-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1974-Q2,37.6293
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1974-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1974-Q3,37.9015
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1974-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1974-Q4,37.628
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1974-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1975-Q1,36.2178
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1975-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1975-Q2,35.7616
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1975-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1975-Q3,35.4076
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1975-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1975-Q4,35.2472
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1975-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1976-Q1,34.4557
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1976-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1976-Q2,34.6398
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1976-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1976-Q3,34.2643
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1976-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1976-Q4,35.3114
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1976-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1977-Q1,35.2922
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1977-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1977-Q2,35.626
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1977-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1977-Q3,36.3867
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1977-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1977-Q4,36.2699
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1977-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1978-Q1,35.8788
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1978-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1978-Q2,36.7753
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1978-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1978-Q3,37.4129
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1978-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1978-Q4,38.5566
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1978-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1979-Q1,39.05
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1979-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1979-Q2,39.0613
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1979-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1979-Q3,40.6209
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1979-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1979-Q4,41.8454
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1979-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1980-Q1,43.5591
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1980-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1980-Q2,42.8464
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1980-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1980-Q3,43.7912
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1980-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1980-Q4,44.6159
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1980-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1981-Q1,46.4716
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1981-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1981-Q2,47.7989
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1981-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1981-Q3,48.1636
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1981-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1981-Q4,48.9569
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1981-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1982-Q1,50.193
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1982-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1982-Q2,49.7456
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1982-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1982-Q3,50.0979
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1982-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1982-Q4,50.8414
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1982-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1983-Q1,51.0125
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1983-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1983-Q2,51.7985
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1983-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1983-Q3,53.1806
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1983-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1983-Q4,53.9194
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1983-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1984-Q1,54.7272
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1984-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1984-Q2,55.9347
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1984-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1984-Q3,55.9406
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1984-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1984-Q4,56.3268
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1984-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1985-Q1,59.3794
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1985-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1985-Q2,58.0653
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1985-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1985-Q3,58.5682
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1985-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1985-Q4,58.4518
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1985-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1986-Q1,60.6449
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1986-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1986-Q2,58.5807
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1986-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1986-Q3,59.4369
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1986-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1986-Q4,58.9603
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1986-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1987-Q1,60.432
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1987-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1987-Q2,61.3309
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1987-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1987-Q3,61.379
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1987-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1987-Q4,61.0578
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1987-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1988-Q1,62.3657
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1988-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1988-Q2,62.8717
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1988-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1988-Q3,64.8793
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1988-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1988-Q4,67.7737
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1988-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1989-Q1,68.9413
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1989-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1989-Q2,68.1653
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1989-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1989-Q3,69.2141
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1989-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1989-Q4,73.0597
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1989-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1990-Q1,74.434
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1990-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1990-Q2,75.4697
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1990-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1990-Q3,75.2813
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1990-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1990-Q4,73.5581
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1990-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1991-Q1,73.6873
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1991-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1991-Q2,75.2627
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1991-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1991-Q3,79.0945
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1991-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1991-Q4,77.1655
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1991-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1992-Q1,76.8308
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1992-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1992-Q2,76.4913
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1992-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1992-Q3,74.6371
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1992-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1992-Q4,74.7295
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1992-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1993-Q1,74.6092
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1993-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1993-Q2,76.4269
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1993-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1993-Q3,74.5113
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1993-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1993-Q4,74.2277
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1993-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1994-Q1,75.5596
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1994-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1994-Q2,74.7007
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1994-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1994-Q3,74.4127
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1994-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1994-Q4,73.7474
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1994-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1995-Q1,74.157
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1995-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1995-Q2,74.5793
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1995-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1995-Q3,74.3518
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1995-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1995-Q4,73.1119
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1995-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1996-Q1,72.2609
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1996-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1996-Q2,72.593
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1996-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1996-Q3,73.1063
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1996-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1996-Q4,70.8709
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1996-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1997-Q1,70.9758
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1997-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1997-Q2,70.5534
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1997-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1997-Q3,71.1099
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1997-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1997-Q4,70.079
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1997-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1998-Q1,70.4205
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1998-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1998-Q2,69.8934
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1998-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1998-Q3,70.4405
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1998-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1998-Q4,70.178
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1998-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1999-Q1,71.0074
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1999-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1999-Q2,70.9181
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1999-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1999-Q3,70.7142
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1999-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",1999-Q4,70.5565
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",1999-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2000-Q1,70.7953
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2000-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2000-Q2,70.669
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2000-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2000-Q3,71.0566
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2000-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2000-Q4,69.5414
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2000-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2001-Q1,70.9982
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2001-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2001-Q2,70.7427
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2001-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2001-Q3,70.6933
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2001-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2001-Q4,71.665
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2001-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2002-Q1,71.8158
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2002-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2002-Q2,70.9909
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2002-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2002-Q3,71.311
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2002-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2002-Q4,71.3192
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2002-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2003-Q1,71.109
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2003-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2003-Q2,72.8251
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2003-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2003-Q3,73.3959
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2003-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2003-Q4,73.623
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2003-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2004-Q1,74.7461
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2004-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2004-Q2,75.4162
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2004-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2004-Q3,76.8202
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2004-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2004-Q4,77.3915
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2004-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2005-Q1,78.2759
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2005-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2005-Q2,78.6975
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2005-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2005-Q3,79.9389
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2005-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2005-Q4,80.6467
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2005-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2006-Q1,82.2748
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2006-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2006-Q2,83.6199
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2006-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2006-Q3,84.3414
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2006-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2006-Q4,88.0249
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2006-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2007-Q1,89.2381
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2007-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2007-Q2,90.7631
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2007-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2007-Q3,90.3086
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2007-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2007-Q4,91.1156
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2007-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2008-Q1,92.3413
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2008-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2008-Q2,93.6738
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2008-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2008-Q3,94.6781
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2008-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2008-Q4,95.8406
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2008-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2009-Q1,96.1819
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2009-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2009-Q2,95.6529
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2009-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2009-Q3,95.7398
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2009-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2009-Q4,96.1561
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2009-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2010-Q1,98.14
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2010-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2010-Q2,98.9517
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2010-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2010-Q3,100.6296
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2010-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2010-Q4,102.2786
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2010-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2011-Q1,105.2034
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2011-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2011-Q2,106.7933
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2011-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2011-Q3,108.9544
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2011-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2011-Q4,109.1006
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2011-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2012-Q1,111.8143
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2012-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2012-Q2,113.1521
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2012-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2012-Q3,114.801
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2012-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2012-Q4,115.1288
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2012-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2013-Q1,117.2734
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2013-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2013-Q2,118.0957
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2013-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2013-Q3,118.2851
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2013-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2013-Q4,119.5514
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2013-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2014-Q1,120.0269
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2014-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2014-Q2,121.5063
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2014-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2014-Q3,121.3472
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2014-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2014-Q4,122.9653
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2014-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2015-Q1,124.187
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2015-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2015-Q2,123.6868
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2015-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2015-Q3,123.9767
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2015-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2015-Q4,124.4508
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2015-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2016-Q1,125.9295
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2016-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2016-Q2,124.6714
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2016-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2016-Q3,123.8919
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2016-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2016-Q4,122.7885
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2016-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2017-Q1,123.0354
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2017-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2017-Q2,124.702
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2017-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2017-Q3,127.1122
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2017-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2017-Q4,126.849
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2017-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2018-Q1,126.7617
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2018-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2018-Q2,128.7736
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2018-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2018-Q3,129.587
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2018-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2018-Q4,131.4893
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2018-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2019-Q1,132.7897
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2019-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2019-Q2,133.4812
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2019-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2019-Q3,133.6664
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2019-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2019-Q4,136.0166
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2019-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2020-Q1,134.9888
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2020-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2020-Q2,136.8285
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2020-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2020-Q3,137.1256
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2020-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2020-Q4,140.2729
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2020-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2021-Q1,140.199
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2021-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2021-Q2,143.2772
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2021-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2021-Q3,146.6497
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2021-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2021-Q4,150.5325
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2021-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2022-Q1,149.9769
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2022-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2022-Q2,153.9967
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2022-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2022-Q3,155.9098
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2022-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2022-Q4,157.7695
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2022-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2023-Q1,155.8619
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2023-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2023-Q2,157.6822
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2023-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2023-Q3,157.9503
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2023-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2023-Q4,159.7388
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2023-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2024-Q1,158.1655
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2024-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2024-Q2,159.8522
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2024-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2024-Q3,160.7092
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2024-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2024-Q4,163.5223
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2024-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2025-Q1,164.697
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2025-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2025-Q2,167.7727
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2025-Q2,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2025-Q3,169.102
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2025-Q3,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2025-Q4,169.9661
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2025-Q4,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2026-Q1,172.4741
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2026-Q1,1.5
+Q: Quarterly,CH: Switzerland,N: Nominal,"628: Index, 2010 = 100",2026-Q2,173.6874
+Q: Quarterly,CH: Switzerland,N: Nominal,"771: Year-on-year changes, in per cent",2026-Q2,1.5

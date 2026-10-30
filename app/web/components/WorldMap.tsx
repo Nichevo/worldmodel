@@ -9,6 +9,7 @@ import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
 import { countryShapes } from "@/lib/geo";
+import { LAYER_STYLE, layerData, layerLabel } from "@/lib/layers";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -37,6 +38,7 @@ type Props = {
   hovered?: string | null; // a country hovered in a linked panel
   onHover?: (iso3: string | null) => void;
   camera?: { bus: CameraBus; id: string; group: string } | null; // linked map position
+  layers?: string[]; // overlays to draw over the countries (ids in the layers table)
 };
 
 export type Scale = { breaks: number[]; colors: string[] };
@@ -81,7 +83,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
-  doubleClick = false, overlays = [], spark = null, onMap,
+  doubleClick = false, overlays = [], spark = null, onMap, layers = [],
 }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -146,10 +148,29 @@ export default function WorldMap({
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(el.current);
 
+    // The overlay feature under the pointer, if any (a few pixels' slack for thin lines and small dots).
+    const overlayAt = (pt: maplibregl.Point) => {
+      const ids = Object.keys(LAYER_STYLE).map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      if (!ids.length) return null;
+      const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
+      return f ? layerLabel(f.layer.id.slice(3), f.properties as Record<string, unknown>) : null;
+    };
+    let onOverlay = false;
+    m.on("mousemove", (e) => {
+      const label = overlayAt(e.point);
+      if (label) {
+        onOverlay = true;
+        popup.setLngLat(e.lngLat).setHTML(label).addTo(m);
+      } else if (onOverlay) {
+        onOverlay = false;
+        if (!m.queryRenderedFeatures(e.point, { layers: ["fill"] }).length) popup.remove();
+      }
+    });
+
     let hovered: string | number | undefined;
     m.on("mousemove", "fill", (e) => {
       const f = e.features?.[0];
-      if (!f) return;
+      if (!f || overlayAt(e.point)) return;
       if (f.id !== hovered) hover.current?.(f.id === undefined ? null : String(f.id));
       if (hovered !== undefined) m.setFeatureState({ source: "countries", id: hovered }, { hover: false });
       hovered = f.id;
@@ -250,6 +271,40 @@ export default function WorldMap({
     else onLoad.current.push(apply);
   }, [byIso, scale, unit, decimals]);
 
+  // Overlays: add the ones asked for (fetched once per page), remove the rest.
+  const layersKey = layers.join(",");
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    let live = true;
+    const apply = () => {
+      const want = new Set(layersKey ? layersKey.split(",") : []);
+      for (const id of Object.keys(LAYER_STYLE)) {
+        const lid = `ov-${id}`;
+        if (!want.has(id)) {
+          if (m.getLayer(lid)) m.removeLayer(lid);
+          if (m.getSource(lid)) m.removeSource(lid);
+          continue;
+        }
+        if (m.getLayer(lid)) continue;
+        layerData(id).then((data) => {
+          if (!live || m.getLayer(lid) || !m.getStyle()) return;
+          if (!m.getSource(lid)) m.addSource(lid, { type: "geojson", data });
+          const style = LAYER_STYLE[id];
+          // Lines go under the dots; both under the hover and selection outlines.
+          const before = style.dot ? "hover" : (["ov-volcanoes", "ov-earthquakes"].find((x) => m.getLayer(x)) ?? "hover");
+          m.addLayer(style.dot
+            ? { id: lid, type: "circle", source: lid, paint: style.paint() as maplibregl.CircleLayerSpecification["paint"] }
+            : { id: lid, type: "line", source: lid, paint: style.paint() as maplibregl.LineLayerSpecification["paint"],
+                layout: { "line-cap": "round", "line-join": "round" } }, before);
+        }).catch(() => {});
+      }
+    };
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+    return () => { live = false; };
+  }, [layersKey]);
+
   // Outline the country hovered in a linked panel.
   useEffect(() => {
     const m = map.current;
@@ -297,6 +352,16 @@ export default function WorldMap({
     <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" /></div>
       <Legend scale={scale} unit={unit} />
+      {layers.length > 0 && (
+        <div className="legend overlays" aria-label="Map layers">
+          {layers.filter((id) => LAYER_STYLE[id]).map((id) => (
+            <span key={id} className="step">
+              <i className={LAYER_STYLE[id].dot ? "dot" : "line"} style={{ background: LAYER_STYLE[id].swatch() }} />
+              {LAYER_STYLE[id].legend}
+            </span>
+          ))}
+        </div>
+      )}
       {overlays.map((o) => { const target = els.get(o.key); return target ? createPortal(o.node, target, o.key) : null; })}
     </div>
   );

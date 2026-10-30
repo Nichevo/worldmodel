@@ -77,6 +77,20 @@ EVENT_COLUMNS = {
 }
 
 
+# layers.parquet beside a vintage, for sources of map overlays (plate boundaries, faults,
+# volcanoes, earthquakes): one row per layer, its features as one GeoJSON FeatureCollection.
+LAYER_COLUMNS = {
+    "source_id": "VARCHAR",
+    "vintage": "VARCHAR",
+    "layer_id": "VARCHAR",
+    "name": "VARCHAR",
+    "description": "VARCHAR",
+    "kind": "VARCHAR",
+    "feature_count": "INTEGER",
+    "geojson": "VARCHAR",
+}
+
+
 @dataclass
 class Manifest:
     source_id: str
@@ -92,6 +106,7 @@ class Manifest:
     fetch_version: int = 1  # the connector's fetch_version when the raw files were downloaded
     text_count: int = 0     # rows in texts.parquet, if any
     event_count: int = 0    # rows in events.parquet, if any
+    layer_count: int = 0    # map layers in layers.parquet, if any
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2))

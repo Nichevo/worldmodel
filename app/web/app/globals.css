@@ -229,6 +229,10 @@ main:has(.workspace-page) { max-width: none; }
   border: 1px solid var(--axis); border-radius: 6px; padding: 2px 6px;
 }
 .links-menu .caption { margin: 2px 0 0; }
+.layers-menu { width: 270px; }
+.layers-menu label { align-items: flex-start; }
+.layers-menu label input { margin-top: 3px; }
+.layers-menu small { display: block; font-size: 0.75rem; }
 .panel-head .today { padding: 1px 7px; font-size: 0.75rem; }
 .panel-head .today:disabled { opacity: 0.45; cursor: default; }
 .table-tools { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
@@ -444,8 +448,23 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
 /* A card title with a small action on the right (Save picture). */
 .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .card-head h3 { margin-bottom: 0; }
+.card-head h4 { margin: 8px 0 4px; }
+/* Top partner countries: name, a bar scaled to the largest, the number. */
+.partners { margin-top: 8px; gap: 16px; }
+.bar-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.bar-list li { display: grid; grid-template-columns: minmax(90px, 1fr) 2fr auto; gap: 8px; align-items: center; padding: 2px 0; }
+.bar-list .bar { height: 8px; }
+.bar-list .bar i { display: block; height: 100%; min-width: 2px; background: var(--series-1); border-radius: 0 4px 4px 0; }
+.bar-list .num { font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .charts-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 4px 0 -4px; }
 .ratio-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 16px; align-items: end; margin-top: 8px; }
 .ratio-form label { display: flex; flex-direction: column; gap: 4px; }
 .ratio-form p, .ratio-form > div:last-of-type { grid-column: 1 / -1; }
 .ratio-part .chip { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Map overlays' key, under the colour legend. */
+.legend.overlays { gap: 12px; flex-wrap: wrap; }
+.legend.overlays .step { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0; }
+.legend.overlays i { display: inline-block; }
+.legend.overlays i.line { width: 16px; height: 3px; border-radius: 2px; }
+.legend.overlays i.dot { width: 9px; height: 9px; border-radius: 50%; }

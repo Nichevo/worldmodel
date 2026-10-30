@@ -1,0 +1,13 @@
+Country,ISO2,ISO3,Election Type,Year,Voter Turnout,Total vote,Registration,VAP Turnout,Voting age population,Population,Invalid votes,Compulsory voting
+New Zealand,,NZL,Parliamentary,2023-10-14,78.20%,"2,883,412","3,688,292",73.56%,,,,No
+New Zealand,,NZL,Parliamentary,2020-10-17,82.24%,"2,919,086","3,549,580",77.06%,,,,No
+New Zealand,,NZL,Parliamentary,2017-09-23,79.75%,"2,630,173","3,298,009",75.65%,,,,No
+New Zealand,,NZL,Parliamentary,2014-09-20,77.90%,"2,446,279","3,140,417",72.14%,,,,No
+United Kingdom,,GBR,Parliamentary,2024-07-04,59.73%,"28,809,340","48,214,128",54.12%,,,,No
+United Kingdom,,GBR,Parliamentary,2019-12-12,67.55%,"32,014,110","47,587,254",62.31%,,,,No
+United Kingdom,,GBR,Parliamentary,2017-06-08,68.93%,"32,204,124","46,722,795",63.33%,,,,No
+United Kingdom,,GBR,EU Parliament,2019-05-23,37.18%,"17,200,000","46,000,000",33%,,,,No
+United States,,USA,Presidential,2020-11-03,66.59%,"158,383,403","237,849,129",62.04%,,,,No
+United States,,USA,Presidential,2016-11-08,65.44%,"136,787,187","214,109,367",55.98%,,,,No
+United States,,USA,Parliamentary,2022-11-08,,"107,000,000",,41.00%,,,,No
+Atlantis,,,Parliamentary,2020-01-01,50%,1,2,50%,,,,No
