@@ -11,6 +11,7 @@ start "worldmodel API" cmd /k worldmodel-api
 start "worldmodel web" /d "%~dp0app\web" cmd /k npm run dev
 echo Waiting for the app to start...
 timeout /t 10 /nobreak >nul
+echo From other PCs on your network: http://%COMPUTERNAME%:3030
 start "" http://localhost:3030
 exit /b 0
 
