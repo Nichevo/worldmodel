@@ -55,7 +55,7 @@ GRAPHER_QUERY = "?v=1&csvType=full&useColumnShortNames=true"
 # (slug, what it is). Deaths are placed where they occurred, not by the nationality of those killed.
 CHARTS = (
     ("death-rate-in-armed-conflicts", "UCDP: deaths in armed conflicts per 100,000 people, by country where they occurred"),
-    ("deaths-in-armed-conflicts-based-on-where-they-occurred", "UCDP: deaths in armed conflicts, by country where they occurred"),
+    ("death-rate-in-armed-conflicts-by-type-and-country", "UCDP: the same death rate, by type of conflict"),
 )
 
 
