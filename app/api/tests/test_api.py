@@ -208,11 +208,11 @@ def test_track_record_and_variants(client):
 
 def test_source_comparison(client):
     inds = {i["indicator_id"]: i for i in client.get("/api/v1/sources/indicators").json()}
-    assert [s["source_id"] for s in inds["pop_total"]["sources"]] == ["un_wpp", "world_bank_wdi"]
+    assert [s["source_id"] for s in inds["pop_total"]["sources"]] == ["un_wpp", "world_bank_wdi", "cia_factbook"]
     assert inds["gdp_growth"]["countries"] > 150 and inds["gdp_growth"]["differing"] > 0
     cmp = client.get("/api/v1/sources/compare", params={"indicator": "gdp_growth", "entity": "ARG"}).json()
-    assert [s["source_id"] for s in cmp["sources"]] == ["imf_weo", "world_bank_wdi"]
-    assert cmp["differences"] and all(d["source_b"] == "world_bank_wdi" for d in cmp["differences"])
+    assert [s["source_id"] for s in cmp["sources"]] == ["imf_weo", "world_bank_wdi", "cia_factbook"]
+    assert cmp["differences"] and {d["source_b"] for d in cmp["differences"]} == {"world_bank_wdi", "cia_factbook"}
     div = client.get("/api/v1/sources/divergence", params={"indicator": "gdp_growth", "flagged": True}).json()
     assert div and all(d["flagged"] for d in div) and div[0]["rel"] >= div[-1]["rel"]
     nzl = client.get("/api/v1/sources/divergence", params={"entity": "NZL"}).json()

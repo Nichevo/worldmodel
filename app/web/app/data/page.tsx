@@ -13,6 +13,14 @@ const DAY = 86_400_000;
 // sample data, an old release, then live.
 function statusOf(d: Dataset, meta: Meta | null): Status {
   if (d.status === "planned") return { label: "Not connected yet", tone: "off", note: "Planned source; no connector yet." };
+  if (d.on_demand) {
+    const w = d.on_demand;
+    return {
+      label: "On demand", tone: "ok",
+      note: `Fetched by the app when you open a page, never in a refresh. ${w.stored} pages stored${w.stale ? ` (${w.stale} due for their monthly refresh)` : ""}; ` +
+        `${w.budget.used} of today's ${w.budget.limit} fetches used. Background fetching is ${w.background ? "on" : "off"} (Settings).`,
+    };
+  }
   if (!d.latest_vintage) return { label: "No data", tone: "warn", note: "Connected, but nothing loaded. Run a refresh." };
   if (meta?.is_sample) return { label: "Sample", tone: "warn", note: "Bundled sample. Run worldmodel-data refresh for the latest release." };
   const releaseYear = parseInt(d.latest_vintage.release, 10);

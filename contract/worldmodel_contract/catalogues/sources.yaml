@@ -82,6 +82,45 @@
   status: active
   default_rank: 3
 
+- id: cia_factbook
+  name: CIA World Factbook, editions 1990 to 2025
+  short_name: CIA Factbook
+  publisher: Central Intelligence Agency (discontinued February 2026); archive by the CIA World Factbooks Archive 1990-2025 project
+  url: https://github.com/MilkMp/CIA-World-Factbooks-Archive-1990-2025
+  licence: Public domain (US government work); archive code under the MIT licence
+  licence_url: https://github.com/MilkMp/CIA-World-Factbooks-Archive-1990-2025/blob/main/LICENSE
+  commercial_use: true
+  cadence: Frozen; the last edition is 2025 (captured January 2026)
+  attribution: "Central Intelligence Agency, The World Factbook (editions 1990-2025), via the CIA World Factbooks Archive 1990-2025."
+  status: active
+  default_rank: 4
+
+- id: wikidata
+  name: Wikidata country facts
+  short_name: Wikidata
+  publisher: Wikimedia Foundation and Wikidata contributors
+  url: https://www.wikidata.org/
+  licence: CC0 1.0 (data)
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: Live; fetched once a month in one query
+  attribution: "Wikidata (CC0)."
+  status: active
+  default_rank: 5
+
+- id: wikipedia
+  name: Wikipedia article introductions and pictures (fetched by the app, on demand)
+  short_name: Wikipedia
+  publisher: Wikimedia Foundation and Wikipedia contributors; pictures from Wikimedia Commons
+  url: https://en.wikipedia.org/
+  licence: CC BY-SA 4.0 (text); each picture under its own Commons licence
+  licence_url: https://creativecommons.org/licenses/by-sa/4.0/
+  commercial_use: true
+  cadence: At most 20 countries and 10 cities a day (Settings), each at most monthly
+  attribution: "Wikipedia (CC BY-SA 4.0); pictures from Wikimedia Commons, credited on each page."
+  status: active
+  default_rank: 6
+
 - id: worldmodel
   name: Worldmodel aggregates
   short_name: Worldmodel

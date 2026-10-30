@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -109,6 +109,14 @@ TABLES: dict[str, Table] = {
             "members_reporting": "INTEGER",
         }, OBSERVATION_KEY,
             "View. What the app shows: the latest vintage of each source as published, plus aggregates."),
+        Table("texts", {
+            "entity_id": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR", "edition": "INTEGER",
+            "section": "VARCHAR", "field": "VARCHAR", "field_key": "VARCHAR", "content": "VARCHAR",
+            "position": "BIGINT",
+        }, ("entity_id", "source_id", "edition", "position"),
+            "Text about countries from the latest vintage of each source that has some: every field of every "
+            "CIA World Factbook edition (edition = its year), Wikidata facts (edition empty). field is the name "
+            "as published, field_key one that stays the same across editions, position the order on the page."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

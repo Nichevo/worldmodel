@@ -53,6 +53,15 @@ models:
           arguments:
             columns: [source_id, vintage]
 
+  - name: texts
+    tests:
+      - unique_combination:
+          arguments:
+            columns: [entity_id, source_id, edition, position]
+    columns:
+      - name: content
+        tests: [not_null]
+
   - name: observations
     tests:
       - unique_combination:

@@ -37,8 +37,11 @@ export const SOURCE_LABEL: Record<string, string> = {
   world_bank_wdi: "World Bank WDI",
   owid_energy: "Our World in Data energy (Ember, Energy Institute, EIA)",
   owid_grapher: "Our World in Data charts (UCDP conflict deaths)",
+  cia_factbook: "CIA World Factbook (1990-2025 editions)",
+  wikidata: "Wikidata",
 };
 
 export const SOURCE_SHORT: Record<string, string> = {
   un_wpp: "UN WPP", imf_weo: "IMF WEO", world_bank_wdi: "WDI", owid_energy: "OWID energy", owid_grapher: "OWID charts",
+  cia_factbook: "Factbook", wikidata: "Wikidata",
 };

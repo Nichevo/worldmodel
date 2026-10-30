@@ -8,7 +8,7 @@ those live here rather than in either side.
     <home>/raw/        source files as downloaded         (pipeline)
     <home>/vintages/   normalised Parquet per vintage     (pipeline)
     <home>/warehouse/  builds, reports, refresh_log.jsonl (pipeline)
-    <home>/media/      pictures and page caches           (pipeline, later)
+    <home>/media/      pictures and page caches           (app: Wikipedia pages fetched on demand)
     <home>/user/       settings, layouts, history         (app)
 
 home is WORLDMODEL_HOME, else a WORLDMODEL_WAREHOUSE that names a folder, else ./var.
@@ -37,6 +37,7 @@ SETTINGS: dict[str, object] = {
     "numbeo_daily": 20,              # single-page Numbeo fetches per day, all countries together
     "wikipedia_countries_daily": 20,
     "wikipedia_cities_daily": 10,
+    "wikipedia_background": True,    # fetch pages not yet opened, a few an hour, within half the daily limit
     "history_paused": False,
     "history_retention_days": 0,     # 0 keeps history forever
 }
@@ -164,6 +165,13 @@ def storage(root: Path | None = None) -> dict:
     return {"home": str(root), "categories": [{"key": k, "label": label, "bytes": use[k]} for k, label in CATEGORIES],
             "total": use["total"], "limits": limits, "level": worst, "warn_at": WARN_AT, "critical_at": CRITICAL_AT,
             "freeable": sum(f["bytes"] for f in freeable_raw(root))}
+
+
+def pictures_room(root: Path | None = None) -> int:
+    """Bytes media/ may still grow by before the pictures limit in Settings."""
+    limit = load_settings(root)["pictures_limit_gb"] * GB
+    media = (root or home()) / "media"
+    return int(limit - (_size(media) if media.exists() else 0))
 
 
 # ----------------------------------------------------------------------------- freeing space
