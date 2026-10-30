@@ -133,10 +133,33 @@ def test_history_file_is_found_beside_the_latest_weo_release(tmp_path):
         asked.append(str(request.url))
         if "/2025/october/" in str(request.url):
             return httpx.Response(200, content=weo_history(tmp_path / "w.xlsx").read_bytes())
+        if "D2AC2BB4" in str(request.url):  # the last known link now serves a "not found" page
+            return httpx.Response(200, content=b"<html>Page not found</html>")
         return httpx.Response(404)
 
     store = VintageStore(Paths(tmp_path / "var"))
     manifest, new = CONNECTORS["imf_weo_history"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(
         store, release="2026-03-01")
     assert new and manifest.origin.endswith("/2025/october/weohistorical.xlsx")
-    assert ["/".join(u.split("/")[-3:-1]) for u in asked] == ["2025/october"]
+    assert asked[0].startswith("https://data.imf.org/en/datasets/") and "D2AC2BB4" in asked[1]
+    assert ["/".join(u.split("/")[-3:-1]) for u in asked[2:]] == ["2025/october"]
+
+
+def test_history_file_link_is_read_from_the_imf_data_portal(tmp_path):
+    import httpx
+
+    asked = []
+    page = b'<a class="btn" href="/-/media/iData/External-Storage/Documents/NEW123/en/WEOhistorical.xlsx">WEO Historical</a>'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        if request.url.path.startswith("/en/datasets/"):
+            return httpx.Response(200, content=page)
+        if "NEW123" in str(request.url):
+            return httpx.Response(200, content=weo_history(tmp_path / "w.xlsx").read_bytes())
+        return httpx.Response(404)
+
+    store = VintageStore(Paths(tmp_path / "var"))
+    manifest, new = CONNECTORS["imf_weo_history"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
+    assert new and manifest.origin == "https://data.imf.org/-/media/iData/External-Storage/Documents/NEW123/en/WEOhistorical.xlsx"
+    assert len(asked) == 2

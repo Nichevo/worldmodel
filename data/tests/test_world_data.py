@@ -87,3 +87,60 @@ def test_build_report_lists_divergent_sources(built):
     _, con = built
     checks = {r[0]: r for r in con.execute("SELECT check_id, status, detail FROM build_checks").fetchall()}
     assert checks["sources:divergence"][1] in ("pass", "info")
+
+
+def test_wdi_falls_back_to_the_indicators_api(tmp_path, monkeypatch):
+    import json
+
+    import httpx
+
+    from worldmodel_data.connectors import world_bank_wdi
+
+    monkeypatch.setattr(world_bank_wdi, "API_PAUSE", 0)
+    asked = []
+    economies = [
+        {"id": "NZL", "iso2Code": "NZ", "name": "New Zealand", "region": {"id": "EAS", "value": "East Asia & Pacific"},
+         "incomeLevel": {"id": "HIC", "value": "High income"}},
+        {"id": "NER", "iso2Code": "NE", "name": "Niger", "region": {"id": "SSF", "value": "Sub-Saharan Africa "},
+         "incomeLevel": {"id": "LIC", "value": "Low income"}},
+        {"id": "WLD", "iso2Code": "1W", "name": "World", "region": {"id": "NA", "value": "Aggregates"},
+         "incomeLevel": {"id": "NA", "value": "Aggregates"}},
+    ]
+
+    def rows(code, name):
+        return [{"indicator": {"id": code, "value": name}, "country": {"id": e["iso2Code"], "value": e["name"]},
+                 "countryiso3code": e["id"], "date": str(y), "value": None if y == 2023 else 1.5 + i,
+                 "unit": "", "obs_status": "", "decimal": 1} for i, e in enumerate(economies) for y in (2022, 2023)]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        asked.append(url)
+        if "databank.worldbank.org" in url:
+            return httpx.Response(403, content=b"Forbidden")
+        path = request.url.path
+        if path == "/v2/country":
+            return httpx.Response(200, json=[{"page": 1, "pages": 1, "total": 3}, economies])
+        code = path.rsplit("/", 1)[-1]
+        if code == "MS.MIL.XPND.GD.ZS":
+            return httpx.Response(200, json=[{"page": 1, "pages": 1}, rows(code, "Military expenditure (% of GDP)")])
+        if code == "SP.POP.TOTL":
+            return httpx.Response(200, json=[{"page": 1, "pages": 1}, rows(code, "Population, total")])
+        return httpx.Response(200, json=[{"message": [{"id": "120", "value": "Invalid value"}]}])
+
+    store = VintageStore(Paths(tmp_path / "var"))
+    conn = CONNECTORS["world_bank_wdi"](httpx.Client(transport=httpx.MockTransport(handler)))
+    manifest, new = conn.ingest(store)
+    assert new and "api.worldbank.org" in manifest.origin and manifest.row_count == 6
+    assert any("source=2" in u and "/indicator/SP.POP.TOTL" in u for u in asked)
+    out = store.vintage_dir("world_bank_wdi", manifest.vintage)
+    inds = {i["id"]: i for i in json.loads((out / "indicators.json").read_text())}
+    assert inds["military_spending_gdp"]["domain"] == "military" and inds["military_spending_gdp"]["unit"] == "% of GDP"
+    groups = {(m["group_id"], m["member_id"]) for m in json.loads((out / "memberships.json").read_text())}
+    assert groups == {("income-high", "NZL"), ("income-low", "NER")}
+    con = duckdb.connect()
+    got = con.execute(f"""SELECT scheme, source_code, indicator_id, value FROM read_parquet('{(out / "observations.parquet").as_posix()}')
+        ORDER BY 2, 3""").fetchall()
+    assert ("wdi", "WLD", "pop_total", 3.5) in got and ("iso3", "NZL", "military_spending_gdp", 1.5) in got
+    # The same answers again make the same file: no new vintage.
+    again, new_again = CONNECTORS["world_bank_wdi"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
+    assert not new_again and again.vintage == manifest.vintage
