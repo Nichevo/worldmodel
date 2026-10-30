@@ -7,7 +7,7 @@ import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
-import { linesOption, outlierFence, pyramidCompareOption, scatterOption, type ScatterPoint } from "@/lib/charts";
+import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
 import { csvText, fileName, saveText, saveUrl, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
@@ -153,7 +153,7 @@ export default function Panel({
         )}
         {indicator && panel.view === "scatter" && year !== null && (
           <ScatterView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection}
-            dispatch={dispatch} hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
+            dispatch={dispatch} hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} playing={playing.on} />
         )}
         {indicator && panel.view === "pyramid" && year !== null && (
           <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} exporter={exporter} />
@@ -171,7 +171,8 @@ function todayIn(ind: Indicator): number {
   return Math.min(ind.last_year!, Math.max(ind.first_year!, new Date().getFullYear()));
 }
 
-// Steps the year forward once every 400 ms until the indicator's last year.
+// Steps the year forward once every PLAY_STEP ms until the indicator's last year.
+const PLAY_STEP = 400;
 function usePlay(year: number | null, first: number | null, last: number | null, step: (y: number) => void) {
   const [on, setOn] = useState(false);
   const cur = useRef({ year, last, step });
@@ -182,7 +183,7 @@ function usePlay(year: number | null, first: number | null, last: number | null,
       const { year: y, last: l, step: s } = cur.current;
       if (y === null || l === null || y >= l) setOn(false);
       else s(y + 1);
-    }, 400);
+    }, PLAY_STEP);
     return () => clearInterval(t);
   }, [on]);
   const toggle = () => {
@@ -398,6 +399,22 @@ function useRange(indicator: string | null): MapRange | null {
     return () => { live = false; };
   }, [indicator]);
   return range;
+}
+
+// Several indicators for one year, handed over together once all have arrived, so
+// a chart built from them never draws one indicator's new year against another's
+// old one. The values stay on the previous year until then.
+function useYearValues(indicators: string[], year: number) {
+  const [state, setState] = useState<{ values: Value[][]; error: string | null }>({ values: indicators.map(() => []), error: null });
+  const key = indicators.join("|");
+  useEffect(() => {
+    let live = true;
+    Promise.all(indicators.map((i) => mapValues(i, year)))
+      .then((v) => live && setState({ values: v, error: null }))
+      .catch((e) => live && setState((s) => ({ ...s, error: String(e.message || e) })));
+    return () => { live = false; };
+  }, [key, year]); // eslint-disable-line react-hooks/exhaustive-deps
+  return state;
 }
 
 // Values for one indicator and year, shared by every panel that asks (a page load's worth).
@@ -764,10 +781,10 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
 // One dot per country: the panel's indicator across, a second one up, and
 // optionally a third as bubble size. Dots can be coloured by region or group
 // and labelled. Click a dot to select the country.
-function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter }: {
+function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter, playing }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
-  clicks: Clicks; exporter: React.RefObject<Exporter>;
+  clicks: Clicks; exporter: React.RefObject<Exporter>; playing: boolean;
 }) {
   const opts = scatterOptions(panel.xy);
   const usable = indicators.filter((i) => i.available);
@@ -778,17 +795,20 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
   const setOpts = (o: Partial<typeof opts>) =>
     dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, y: yInd.indicator_id, ...o }) } });
 
-  const xs = useMapValues(indicator.indicator_id, year);
-  const ys = useMapValues(yInd.indicator_id, year);
-  // Bubble size, or population when only ranking the "major" countries to label.
-  const sizes = useMapValues(sizeInd?.indicator_id ?? "pop_total", year);
+  // Across, up, and bubble size (or population when only ranking the "major" countries to label).
+  const ids = [indicator.indicator_id, yInd.indicator_id, sizeInd?.indicator_id ?? "pop_total"];
+  const { values: [xs = [], ys = [], sizes = []], error } = useYearValues(ids, year);
+  // While playing, fetch the next year ahead so each step has its data waiting.
+  useEffect(() => {
+    if (!playing) return;
+    for (const id of ids) mapValues(id, year + 1).catch(() => {});
+  }, [playing, year, ids.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = useGroups(opts.colour);
-  const error = xs.error ?? ys.error ?? (sizeInd ? sizes.error : null);
   const points = useMemo(() => {
-    const yBy = new Map(ys.values.map((v) => [v.entity_id, v]));
-    const sBy = new Map(sizes.values.map((v) => [v.entity_id, v]));
+    const yBy = new Map(ys.map((v) => [v.entity_id, v]));
+    const sBy = new Map(sizes.map((v) => [v.entity_id, v]));
     const out: ScatterPoint[] = [];
-    for (const v of xs.values) {
+    for (const v of xs) {
       const w = yBy.get(v.entity_id);
       if (!w || (opts.logX && v.value <= 0) || (opts.logY && w.value <= 0)) continue;
       const z = sizeInd ? sBy.get(v.entity_id) : undefined;
@@ -797,22 +817,34 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
         proj: v.status === "P" || w.status === "P", group: groups?.of.get(v.entity_id) });
     }
     return out;
-  }, [xs.values, ys.values, sizes.values, sizeInd, opts.logX, opts.logY, names, groups]);
+  }, [xs, ys, sizes, sizeInd, opts.logX, opts.logY, names, groups]);
   // "Major": the 12 biggest by bubble size, or by population with plain dots.
   const labelled = useMemo(() => {
     if (opts.labels === "all") return new Set(points.map((p) => p.id));
     if (opts.labels === "selected") return new Set<string>();
     const shown = new Set(points.map((p) => p.id));
-    return new Set([...sizes.values].filter((v) => shown.has(v.entity_id)).sort((a, b) => b.value - a.value)
+    return new Set([...sizes].filter((v) => shown.has(v.entity_id)).sort((a, b) => b.value - a.value)
       .slice(0, 12).map((v) => v.entity_id));
-  }, [opts.labels, points, sizes.values]);
+  }, [opts.labels, points, sizes]);
+
+  // While playing, the axes only ever widen, so dots move against still axes
+  // instead of everything shifting each year as the range changes.
+  const held = useRef<{ x: Extent; y: Extent } | null>(null);
+  const hold = useMemo(() => {
+    if (!playing) return (held.current = null);
+    const now = scatterExtent(points, opts.logX, opts.logY, opts.trim);
+    if (!now) return held.current;
+    const prev = held.current;
+    const grow = (a: Extent, b: Extent): Extent => [Math.min(a[0], b[0]), Math.max(a[1], b[1])];
+    return (held.current = prev ? { x: grow(prev.x, now.x), y: grow(prev.y, now.y) } : now);
+  }, [playing, points, opts.logX, opts.logY, opts.trim]);
 
   const option = useCallback(() => scatterOption([...points],
     { name: indicator.name, unit: indicator.unit, decimals: indicator.decimals, log: opts.logX },
     { name: yInd.name, unit: yInd.unit, decimals: yInd.decimals, log: opts.logY },
     sizeInd ? { name: sizeInd.name, unit: sizeInd.unit, decimals: sizeInd.decimals, log: false } : null,
-    selection, { grouped: !!groups, labelled, trim: opts.trim }),
-  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, opts.trim, selection, groups, labelled]);
+    selection, { grouped: !!groups, labelled, trim: opts.trim, hold, step: playing ? PLAY_STEP : 0 }),
+  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, opts.trim, selection, groups, labelled, hold, playing]);
 
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
