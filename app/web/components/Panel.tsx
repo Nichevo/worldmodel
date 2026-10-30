@@ -560,8 +560,8 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
     { name: indicator.name, unit: indicator.unit, decimals: indicator.decimals, log: opts.logX },
     { name: yInd.name, unit: yInd.unit, decimals: yInd.decimals, log: opts.logY },
     sizeInd ? { name: sizeInd.name, unit: sizeInd.unit, decimals: sizeInd.decimals, log: false } : null,
-    selection, { grouped: !!groups, labelled }),
-  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, selection, groups, labelled]);
+    selection, { grouped: !!groups, labelled, trim: opts.trim }),
+  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, opts.trim, selection, groups, labelled]);
 
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
@@ -627,6 +627,9 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
         </label>
         <label className="small"><input type="checkbox" checked={opts.logX} onChange={(e) => setOpts({ logX: e.target.checked })} /> Log across</label>
         <label className="small"><input type="checkbox" checked={opts.logY} onChange={(e) => setOpts({ logY: e.target.checked })} /> Log up</label>
+        <label className="small" title="Fit the axes to most countries; the few far outside are drawn as triangles on the edge">
+          <input type="checkbox" checked={opts.trim} onChange={(e) => setOpts({ trim: e.target.checked })} /> Ignore outliers
+        </label>
       </div>
       {groups && groups.names.length > 0 && (
         <div className="scatter-legend small">
