@@ -22,7 +22,7 @@ export type Panel = {
   selection: string[]; // used only while selection is unlinked
   cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
-  xy: string; // scatter options: "yIndicator,sizeIndicator,flags" (the panel's indicator is x; flags x/y = log axis)
+  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions)
 };
 
 export type Workspace = {
@@ -236,7 +236,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         selection: list(q.get(`s${i}`)),
         cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
-        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xy]{0,2})?)?$/.test(xy) ? xy : "",
+        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xyma]{0,4}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
       });
     });
   if (!panels.length) return DEFAULT;
@@ -265,15 +265,22 @@ export function pyramidString(o: { compare: "auto" | "none" | number; absolute: 
   return `${o.compare === "none" ? "-" : o.compare === "auto" ? "" : o.compare}${o.absolute ? "a" : ""}`;
 }
 
-export type ScatterOptions = { y: string; size: string; logX: boolean; logY: boolean };
+// Scatter options. colour: "" = only selected countries stand out, "continent" or
+// "subregion" = one colour per region, any other id = members of that group.
+// labels: names next to selected dots only, the biggest ("major") or all.
+export type ScatterOptions = {
+  y: string; size: string; logX: boolean; logY: boolean; colour: string; labels: "selected" | "major" | "all";
+};
 
 export function scatterOptions(xy: string): ScatterOptions {
-  const [y = "", size = "", flags = ""] = xy.split(",");
-  return { y, size, logX: flags.includes("x"), logY: flags.includes("y") };
+  const [y = "", size = "", flags = "", colour = ""] = xy.split(",");
+  return { y, size, logX: flags.includes("x"), logY: flags.includes("y"), colour,
+    labels: flags.includes("a") ? "all" : flags.includes("m") ? "major" : "selected" };
 }
 
 export function scatterString(o: ScatterOptions): string {
-  const s = [o.y, o.size, `${o.logX ? "x" : ""}${o.logY ? "y" : ""}`];
+  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}`;
+  const s = [o.y, o.size, flags, o.colour];
   while (s.length && s[s.length - 1] === "") s.pop();
   return s.join(",");
 }
@@ -298,7 +305,7 @@ export const STARTERS: { name: string; query: string }[] = [
       { view: "table", indicator: "tfr", cols: [CHANGE_COL, "life_expectancy", "gdp_growth"] },
     ], ["NZL", "AUS"]) },
   { name: "Wealth and health (bubbles)",
-    query: starter("1", [{ view: "scatter", indicator: "gdp_ppp_per_capita", xy: "life_expectancy,pop_total,x" }], ["CHN", "IND", "USA"]) },
+    query: starter("1", [{ view: "scatter", indicator: "gdp_ppp_per_capita", xy: "life_expectancy,pop_total,xm,continent" }], ["CHN", "IND", "USA"]) },
   { name: "Fertility and growth",
     query: starter("2h", [{ view: "map", indicator: "tfr" }, { view: "map", indicator: "gdp_growth" }]) },
 ];

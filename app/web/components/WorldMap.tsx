@@ -1,11 +1,15 @@
 "use client";
 
-import maplibregl, { type ExpressionSpecification, type GeoJSONSource } from "maplibre-gl";
+import * as maplibregl from "maplibre-gl";
+import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
 import { useEffect, useMemo, useRef } from "react";
 import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
 import { countryShapes } from "@/lib/geo";
+
+// MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
+if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
 
 type Value = { entity_id: string; value: number; status: string };
 type Props = {
@@ -67,6 +71,7 @@ export default function WorldMap({
 }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
+  const onLoad = useRef<(() => void)[]>([]); // work waiting for the country layers
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
@@ -116,7 +121,7 @@ export default function WorldMap({
         id: "selected", type: "line", source: "countries", filter: ["in", ["get", "iso3"], ["literal", []]],
         paint: { "line-color": cssVar("--ink"), "line-width": 2.2 },
       });
-      m.fire("worldmodel:ready");
+      onLoad.current.splice(0).forEach((f) => f());
     });
     // MapLibre only tracks window resizes; panels resize on their own.
     const ro = new ResizeObserver(() => m.resize());
@@ -175,7 +180,7 @@ export default function WorldMap({
       m.setPaintProperty("fill", "fill-color", colorExpression(scale));
     };
     if (m.getSource("countries")) apply();
-    else m.once("worldmodel:ready", apply);
+    else onLoad.current.push(apply);
   }, [byIso, scale, unit, decimals]);
 
   // Outline the country hovered in a linked panel.
@@ -186,7 +191,7 @@ export default function WorldMap({
     const apply = () => m.setFeatureState({ source: "countries", id }, { linked: true });
     const clear = () => { if (m.getSource("countries")) m.setFeatureState({ source: "countries", id }, { linked: false }); };
     if (m.getSource("countries")) apply();
-    else m.once("worldmodel:ready", apply);
+    else onLoad.current.push(apply);
     return clear;
   }, [hovered]);
 
@@ -216,7 +221,7 @@ export default function WorldMap({
     if (!m) return;
     const apply = () => m.setFilter("selected", ["in", ["get", "iso3"], ["literal", selectedKey ? selectedKey.split(",") : []]]);
     if (m.getLayer("selected")) apply();
-    else m.once("worldmodel:ready", apply);
+    else onLoad.current.push(apply);
   }, [selectedKey]);
 
   return (

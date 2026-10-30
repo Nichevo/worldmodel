@@ -242,17 +242,21 @@ export function pyramidCompareOption(base: PyramidSide, overlay: PyramidSide | n
   };
 }
 
-export type ScatterPoint = { id: string; name: string; x: number; y: number; size?: number; proj: boolean };
+export type ScatterPoint = { id: string; name: string; x: number; y: number; size?: number; proj: boolean; group?: number };
 export type Axis = { name: string; unit: string; decimals: number; log: boolean };
+// How dots are coloured and labelled. grouped: dots carry a group index (one
+// colour each; dots without one are grey), else only selected countries get colour.
+export type ScatterStyle = { grouped: boolean; labelled: Set<string> };
 
 // One dot per country: x and y from two indicators, optionally sized by a
 // third (area proportional to the value). Selected countries keep their
-// selection colour and a label; the rest are grey. Projections are faded.
+// selection colour (or get a dark ring when colour shows groups) and a label.
+// Projections are faded.
 export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Axis | null,
-  selection: string[], hovered: string | null): EChartsOption {
+  selection: string[], hovered: string | null, style: ScatterStyle): EChartsOption {
   const max = size ? Math.max(0, ...points.map((p) => p.size ?? 0)) : 0;
   const radius = (v?: number) => (size ? (max > 0 && v && v > 0 ? 4 + 40 * Math.sqrt(v / max) : 4) : 9);
-  const grey = cssVar("--muted");
+  const grey = cssVar("--ink-2");
   const ink = cssVar("--ink");
   const data = points
     // Unselected first and big bubbles first, so small and selected dots stay on top.
@@ -260,14 +264,18 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
     .map((p) => {
       const i = selection.indexOf(p.id);
       const on = i >= 0;
+      const color = style.grouped ? (p.group !== undefined ? seriesColor(p.group) : grey) : on ? seriesColor(i) : grey;
+      const strong = on || (style.grouped && p.group !== undefined);
+      const ring = p.id === hovered || (on && style.grouped);
       return {
         name: p.id, value: [p.x, p.y, p.size ?? null],
         symbolSize: radius(p.size),
         itemStyle: {
-          color: on ? seriesColor(i) : grey, opacity: (on ? 0.9 : 0.35) * (p.proj ? 0.6 : 1),
-          borderColor: p.id === hovered ? ink : on ? seriesColor(i) : "transparent", borderWidth: p.id === hovered ? 2 : 1,
+          color, opacity: (strong ? 0.85 : 0.45) * (p.proj ? 0.6 : 1),
+          borderColor: ring ? ink : "rgba(255,255,255,0.6)", borderWidth: ring ? 2 : 0.5,
         },
-        label: { show: on || p.id === hovered, formatter: p.name, position: "right" as const, color: cssVar("--ink-2"), fontSize: 11 },
+        label: { show: on || p.id === hovered || style.labelled.has(p.id), formatter: p.name, position: "right" as const,
+          color: cssVar("--ink-2"), fontSize: 11, fontWeight: on ? ("bold" as const) : ("normal" as const) },
       };
     });
   const names = new Map(points.map((p) => [p.id, p.name]));
@@ -285,7 +293,9 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
     grid: { left: 8, right: 24, top: 36, bottom: 36, containLabel: true },
     xAxis: axis(x, "x"),
     yAxis: axis(y, "y"),
-    series: [{ type: "scatter", data, emphasis: { focus: "self", scale: 1.1 }, animationDurationUpdate: 300 }],
+    series: [{ type: "scatter", data, emphasis: { focus: "none", scale: false },
+      animationDurationUpdate: 300,
+      labelLayout: { hideOverlap: true } }],
     tooltip: {
       ...(base.tooltip as object), trigger: "item",
       formatter: (p: unknown) => {

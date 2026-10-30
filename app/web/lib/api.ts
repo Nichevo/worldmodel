@@ -165,6 +165,8 @@ export const api = {
     get<{ rows: SeriesRow[] }>("/series", { indicator, entities: entities.join(","), start, end }).then((r) => r.rows),
   map: (indicator: string, year: number) =>
     get<{ rows: { entity_id: string; value: number; status: string }[] }>("/map", { indicator, year }).then((r) => r.rows),
+  memberships: (q: { type?: string; group?: string }) =>
+    get<{ group_id: string; group_name: string; member_id: string }[]>("/memberships", q),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),
   layouts: () => get<SavedLayout[]>("/layouts"),
   saveLayout: (name: string, query: string) => send<SavedLayout>("PUT", `/layouts/${encodeURIComponent(name)}`, { query }),

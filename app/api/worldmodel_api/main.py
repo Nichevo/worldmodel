@@ -135,6 +135,25 @@ def entity(entity_id: str, on: date | None = None):
             "successions": succession, "codes": codes, "as_of": on}
 
 
+@api.get("/memberships")
+def memberships(type: str | None = None, group: str | None = None, on: date | None = None):
+    """Who belongs to which group today (or on `on`): every group of a type, or one group.
+    Used to colour countries by continent, subregion or bloc."""
+    if not type and not group:
+        raise HTTPException(400, "give type or group")
+    on = on or date.today()
+    where, params = ["(m.valid_from IS NULL OR m.valid_from <= ?) AND (m.valid_to IS NULL OR m.valid_to >= ?)"], [on, on]
+    if type:
+        where.append(f"g.type IN ({', '.join('?' * len(split(type)))})")
+        params += split(type)
+    if group:
+        where.append("g.entity_id = ?")
+        params.append(group)
+    return rows(f"SELECT g.entity_id AS group_id, g.short_name AS group_name, m.member_id FROM memberships m "
+                f"JOIN entities g ON g.entity_id = m.group_id WHERE {' AND '.join(where)} "
+                f"ORDER BY g.short_name, m.member_id", params)
+
+
 @api.get("/entities/{entity_id}/profile")
 def profile(entity_id: str):
     """Latest estimate (not projection) of the headline indicators, with the year and source."""
