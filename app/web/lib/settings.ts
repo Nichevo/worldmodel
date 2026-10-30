@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS: Settings = {
   history_retention_days: 0,
   problem_banner: true,
   events_on_charts: true,
+  party_colours: false,
+  party_office: "government",
   event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,user",
   disaster_min_deaths: 100,
 };

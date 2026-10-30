@@ -30,6 +30,18 @@
      "type": "literal",
      "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
      "value": "2023-01-25T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
     }
    },
    {
@@ -53,6 +65,1841 @@
      "type": "literal",
      "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
      "value": "2023-01-25T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900001"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Keith Holyoake"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1960-12-12T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1972-02-07T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900002"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Jack Marshall"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1972-02-07T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1972-12-08T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900003"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Norman Kirk"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1972-12-08T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1974-08-31T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900004"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Bill Rowling"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1974-09-06T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1975-12-12T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900005"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Robert Muldoon"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1975-12-12T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1984-07-26T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900006"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "David Lange"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1984-07-26T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1989-08-08T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900007"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Geoffrey Palmer"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1989-08-08T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-09-04T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900008"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Mike Moore"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-09-04T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-11-02T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900009"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Jim Bolger"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-11-02T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1997-12-08T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900010"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Jenny Shipley"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1997-12-08T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1999-12-10T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900011"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Helen Clark"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1999-12-10T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2008-11-19T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900012"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "John Key"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2008-11-19T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2016-12-12T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900013"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Bill English"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2016-12-12T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2017-10-26T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900014"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Chris Hipkins"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2023-01-25T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1048835"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "D82A20"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2023-11-27T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900015"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Christopher Luxon"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2023-11-27T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1043685"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "New Zealand National Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "00529F"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900016"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Harold Macmillan"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1957-01-10T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1963-10-19T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900017"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Alec Douglas-Home"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1963-10-19T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1964-10-16T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900018"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Harold Wilson"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1964-10-16T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9630"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E4003B"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1970-06-19T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900019"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Edward Heath"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1970-06-19T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1974-03-04T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900018"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Harold Wilson"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1974-03-04T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9630"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E4003B"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1976-04-05T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900020"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "James Callaghan"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1976-04-05T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9630"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E4003B"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1979-05-04T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900021"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Margaret Thatcher"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1979-05-04T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-11-28T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900022"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "John Major"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-11-28T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1997-05-02T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900023"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Tony Blair"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1997-05-02T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9630"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E4003B"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2007-06-27T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900024"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Gordon Brown"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2007-06-27T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9630"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E4003B"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2010-05-11T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900025"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "David Cameron"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2010-05-11T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2016-07-13T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900026"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Theresa May"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2016-07-13T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2019-07-24T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900027"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Boris Johnson"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2019-07-24T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2022-09-06T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900028"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Liz Truss"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2022-09-06T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2022-10-25T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900029"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Rishi Sunak"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2022-10-25T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9626"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Conservative Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "0087DC"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2024-07-05T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900030"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Keir Starmer"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2024-07-05T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9630"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Labour Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E4003B"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900031"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Dwight D. Eisenhower"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1953-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1961-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900032"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "John F. Kennedy"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1961-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29552"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Democratic Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "3333FF"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1963-11-22T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900033"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Lyndon B. Johnson"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1963-11-22T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29552"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Democratic Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "3333FF"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1969-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900034"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Richard Nixon"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1969-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1974-08-09T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900035"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Gerald Ford"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1974-08-09T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1977-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900036"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Jimmy Carter"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1977-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29552"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Democratic Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "3333FF"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1981-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900037"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Ronald Reagan"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1981-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1989-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900038"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "George H. W. Bush"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1989-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1993-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900039"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Bill Clinton"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1993-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29552"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Democratic Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "3333FF"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2001-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900040"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "George W. Bush"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2001-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2009-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900041"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Barack Obama"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2009-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29552"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Democratic Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "3333FF"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2017-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900042"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Donald Trump"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2017-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2021-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900043"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Joe Biden"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2021-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29552"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Democratic Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "3333FF"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2025-01-20T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900042"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Donald Trump"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2025-01-20T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29468"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Republican Party"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "E81B23"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900009"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Jim Bolger"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1990-11-02T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1997-12-08T00:00:00Z"
+    },
+    "party": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9900990"
+    },
+    "partyLabel": {
+     "type": "literal",
+     "value": "Social Credit Party"
+    },
+    "partyStart": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1960-01-01T00:00:00Z"
+    },
+    "partyEnd": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "1965-01-01T00:00:00Z"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "FFFF00"
     }
    }
   ]

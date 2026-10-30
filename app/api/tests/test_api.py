@@ -268,3 +268,27 @@ def test_around_the_event_lines_up_years(client):
     idx = client.get("/api/v1/around", params={"indicator": "gdp_usd", "kind": "sport", "q": "World Cup"}).json()
     assert idx["mode"] == "index" and all(e["values"][idx["offsets"].index(-1)] == 100 for e in idx["events"])
     assert client.get("/api/v1/around", params={"indicator": "gdp_growth", "kind": "nothing"}).status_code == 404
+
+
+def test_your_ratios_work_like_indicators(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path))
+    bad = client.post("/api/v1/ratios", json={"name": "x", "numerator": "nope", "denominator": "pop_total"})
+    assert bad.status_code == 422 and "numerator" in bad.json()["detail"]
+    r = client.post("/api/v1/ratios", json={"name": "Coal power per person", "numerator": "coal_electricity",
+                                            "denominator": "pop_total", "multiplier": 1e9, "unit": "kWh", "decimals": 0}).json()
+    assert r["id"] == "my_coal_power_per_person"
+    ind = client.get(f"/api/v1/indicators/{r['id']}").json()
+    assert ind["domain"] == "Your ratios" and ind["available"] and ind["ratio"]["denominator"] == "pop_total"
+    assert {s["source_id"] for s in ind["sources"]} == {"owid_energy", "un_wpp"}
+    # The series is numerator / denominator x multiplier, year by year.
+    got = {x["period"][:4]: x["value"] for x in client.get("/api/v1/series", params={
+        "indicator": r["id"], "entities": "NZL", "start": 2015, "end": 2020}).json()["rows"]}
+    coal = {x["period"][:4]: x["value"] for x in client.get("/api/v1/series", params={
+        "indicator": "coal_electricity", "entities": "NZL", "start": 2015, "end": 2020}).json()["rows"]}
+    pop = {x["period"][:4]: x["value"] for x in client.get("/api/v1/series", params={
+        "indicator": "pop_total", "entities": "NZL", "start": 2015, "end": 2020}).json()["rows"]}
+    assert got and all(abs(got[y] - coal[y] / pop[y] * 1e9) < 1e-6 * got[y] for y in got)
+    # It maps like any indicator, and goes away when deleted.
+    assert len(client.get("/api/v1/map", params={"indicator": r["id"], "year": 2020}).json()["rows"]) > 100
+    assert client.delete(f"/api/v1/ratios/{r['id']}").status_code == 200
+    assert client.get(f"/api/v1/indicators/{r['id']}").status_code == 404

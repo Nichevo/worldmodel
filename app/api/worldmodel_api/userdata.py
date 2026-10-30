@@ -293,3 +293,64 @@ def delete_milestone(milestone_id: str) -> bool:
             return False
         _write_json("milestones.json", kept)
         return True
+
+
+# ----------------------------------------------------------------------------- your ratios
+# An indicator you make from two others: numerator / denominator x multiplier,
+# country by country and year by year. Kept in ratios.json; the API serves each as an
+# indicator like any other (id "my_..."), worked out when asked for.
+RATIO_PREFIX = "my_"
+
+
+def ratios() -> list[dict]:
+    items = _read_json("ratios.json", [])
+    return items if isinstance(items, list) else []
+
+
+def save_ratio(data: dict, known: set[str], ratio_id: str | None = None) -> dict:
+    """Add a ratio, or change one: {name, numerator, denominator, multiplier?, unit?, decimals?, description?}.
+    known: the indicator ids it may be made from (not other ratios)."""
+    name = str(data.get("name") or "").strip()[:80]
+    num, den = str(data.get("numerator") or ""), str(data.get("denominator") or "")
+    if not name:
+        raise ValueError("a ratio needs a name")
+    for k, v in (("numerator", num), ("denominator", den)):
+        if v not in known:
+            raise ValueError(f"{k}: no indicator {v or '(none)'}")
+    try:
+        mult = float(data.get("multiplier", 1) or 1)
+        decimals = int(data.get("decimals", 2))
+    except (TypeError, ValueError):
+        raise ValueError("multiplier and decimals must be numbers")
+    if not (0 < abs(mult) <= 1e12) or not 0 <= decimals <= 6:
+        raise ValueError("multiplier must be a non-zero number and decimals 0 to 6")
+    r = {"name": name, "numerator": num, "denominator": den, "multiplier": mult,
+         "unit": str(data.get("unit") or "").strip()[:30], "decimals": decimals,
+         "description": str(data.get("description") or "").strip()[:500]}
+    with _lock:
+        items = ratios()
+        if ratio_id:
+            old = next((x for x in items if x["id"] == ratio_id), None)
+            if old is None:
+                raise KeyError(ratio_id)
+            old.update(r, updated_at=now())
+            r = old
+        else:
+            slug = "".join(c if c.isalnum() else "_" for c in name.lower()).strip("_")[:40] or "ratio"
+            rid, n = f"{RATIO_PREFIX}{slug}", 2
+            while any(x["id"] == rid for x in items) or rid in known:
+                rid, n = f"{RATIO_PREFIX}{slug}_{n}", n + 1
+            r = {"id": rid, **r, "created_at": now()}
+            items.append(r)
+        _write_json("ratios.json", items)
+        return r
+
+
+def delete_ratio(ratio_id: str) -> bool:
+    with _lock:
+        items = ratios()
+        kept = [x for x in items if x["id"] != ratio_id]
+        if len(kept) == len(items):
+            return False
+        _write_json("ratios.json", kept)
+        return True
