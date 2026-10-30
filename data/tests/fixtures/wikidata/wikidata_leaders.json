@@ -1,0 +1,60 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q329436"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Jacinda Ardern"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2017-10-26T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2023-01-25T00:00:00Z"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "office": {
+     "type": "literal",
+     "value": "head of government"
+    },
+    "person": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q57196"
+    },
+    "personLabel": {
+     "type": "literal",
+     "value": "Q57196"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2023-01-25T00:00:00Z"
+    }
+   }
+  ]
+ }
+}

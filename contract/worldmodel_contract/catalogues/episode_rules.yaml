@@ -1,0 +1,83 @@
+# Episodes worked out from the data at each build (data/worldmodel_data/episodes.py).
+# Each rule finds runs of consecutive years in one indicator (estimates only, the
+# default source, countries only) and adds them to the events table as source
+# "worldmodel". Edit the thresholds here; the next build uses them.
+#
+#   test         below / above: the value against threshold
+#                rise: the value minus its value `window` years earlier, against threshold
+#                above_trend: the value minus the median of the `window` years before, against threshold
+#   min_years    shortest run kept
+#   size         what the episode's size is: sum, mean, min, max of the values in the run,
+#                or max_excess (the largest amount above the threshold's baseline)
+
+- id: recession
+  kind: recession
+  title: Recession
+  indicator: gdp_growth
+  test: below
+  threshold: 0
+  min_years: 1
+  size: sum
+  size_unit: "% fall in GDP, added over the years"
+  description: Years in which real GDP fell (annual growth below zero), joined into one episode when they follow each other.
+
+- id: growth_boom
+  kind: boom
+  subkind: growth
+  title: Growth boom
+  indicator: gdp_growth
+  test: above
+  threshold: 7
+  min_years: 3
+  size: mean
+  size_unit: "% a year on average"
+  description: Three or more years in a row with real GDP growth of 7% or more.
+
+- id: investment_boom
+  kind: boom
+  subkind: investment
+  title: Investment boom
+  indicator: investment_share_gdp
+  test: above_trend
+  window: 10
+  threshold: 4
+  min_years: 2
+  size: max_excess
+  size_unit: "points of GDP above the previous ten years' median, at the peak"
+  description: Two or more years in which investment (gross capital formation) is at least 4 points of GDP above its median of the ten years before.
+
+- id: credit_boom
+  kind: boom
+  subkind: credit
+  title: Credit boom
+  indicator: private_credit_gdp
+  test: rise
+  window: 3
+  threshold: 15
+  min_years: 1
+  size: max_excess
+  size_unit: "points of GDP added in three years, at the most"
+  description: Years in which bank credit to the private sector rose by 15 points of GDP or more over the three years before.
+
+- id: inflation_spike
+  kind: inflation
+  title: High inflation
+  indicator: inflation
+  test: above
+  threshold: 20
+  min_years: 1
+  size: max
+  size_unit: "% a year at the peak"
+  description: Years with consumer price inflation of 20% or more.
+
+- id: debt_surge
+  kind: debt
+  title: Government debt surge
+  indicator: central_govt_debt_gdp
+  test: rise
+  window: 3
+  threshold: 20
+  min_years: 1
+  size: max_excess
+  size_unit: "points of GDP added in three years, at the most"
+  description: Years in which central government debt rose by 20 points of GDP or more over the three years before.

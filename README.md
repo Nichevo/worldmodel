@@ -141,7 +141,10 @@ with identical content is skipped; a revised release becomes a new vintage
 | Our World in Data energy dataset | Electricity by source (Ember), primary energy, production and consumption of oil, gas and coal (Energy Institute, EIA), carbon intensity | One CSV from OWID's GitHub. Shares and per-person figures for continents and blocs are recomputed from the amounts |
 | Our World in Data charts | Deaths in armed conflicts (UCDP), by the country where they occurred | One chart download each; a chart OWID has removed only warns |
 | CIA World Factbook, 1990 to 2025 | Every field of every edition as text (geography, people, government, economy, energy, military and more), plus about 60 numbers from it: GDP (PPP), public debt, oil and gas reserves and production, electricity, airports, railways, roads, coastline and the like, and a third source for population, fertility, life expectancy, growth and inflation | One SQLite file (694 MB, downloaded once) from the CIA World Factbooks Archive on GitHub. The CIA has stopped the Factbook, so this is frozen: a refresh never fetches it again. Former states (Soviet Union, Czechoslovakia, Yugoslavia, both Yemens, East Germany) are kept as their own entities. Numbers come from each edition's text, dated by the year the edition gives for them |
-| Wikidata | A facts box for each country: official name, capital, heads of state and government, government type, languages, currency, memberships, calling code and more; the names of its Wikipedia article, flag, coat of arms and locator map | One query a month to the Wikidata Query Service (a refresh skips it in between) |
+| Wikidata | A facts box for each country: official name, capital, heads of state and government, government type, languages, currency, memberships, calling code and more; the names of its Wikipedia article, flag, coat of arms and locator map. Events: national elections and referendums since 1945, heads of state and government with their terms, major sporting events (Olympics, Paralympics, football, rugby and cricket World Cups, Commonwealth, Asian and Pan American Games and more) with host countries and dates, and named disasters | One query a month to the Wikidata Query Service for the facts, and one each for elections, leaders, sporting events and disasters (a refresh skips them in between; one that times out is skipped until next month) |
+| Powell and Thyne coups | Every coup attempt since 1950, successful or failed, to the day | One text file from the University of Kentucky, checked monthly |
+| UCDP/PRIO Armed Conflict Dataset | Armed conflicts since 1946 with at least 25 battle deaths a year: who fought, the type (interstate, intrastate, internationalised) and intensity (minor, or war at 1,000+ deaths a year), as episodes from their start date to their end | One zip from UCDP, checked monthly; each country in the conflict's location gets the event |
+| EM-DAT | Disasters since 1900 (earthquakes, storms, floods, droughts, wildfires, epidemics...) with deaths, people affected and damage in today's dollars | Needs a free sign-in at public.emdat.be, so a refresh never fetches it: download the table there and load it with `.\load.bat emdat <file.xlsx>` (once a year is plenty) |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
 **Country pages** open with the Wikipedia introduction, pictures and the
@@ -164,6 +167,26 @@ percentages more than a point and 10%. Country pages list their own
 disagreements, and each build reports them (`sources:divergence`). API:
 `/api/v1/sources/indicators`, `/sources/compare?indicator=gdp_growth&entity=ARG`,
 `/sources/divergence?indicator=gdp_growth&flagged=true`.
+
+**Events and milestones.** Each country page has a **Timeline**: elections,
+leaders, coups, conflicts, sporting events, disasters, a curated list of notable
+episodes (the canal, railway, electrification, highway, telecom, shale and AI
+build-outs in the US, Japan's asset bubble, the US housing bubble, China's
+post-2008 investment push; each with its source, and more can be added to
+`notable_episodes.csv`), your own milestones, and episodes worked out from the data at
+every build: recessions (years of falling real GDP), growth, investment and
+credit booms, inflation of 20% or more and government debt surges (the rules
+and thresholds are in `contract/worldmodel_contract/catalogues/episode_rules.yaml`).
+The same events show on the charts as shaded bands (anything that lasts) and
+dotted lines (a single day), and the chart tooltip names those covering the
+year under the pointer; Settings picks the kinds shown and the smallest
+disaster. The **Events** page shows a year at a glance across countries, your
+milestones, and **Around an event**: an indicator in the years before and
+after every event of a kind (all Summer Olympics hosts, every successful coup,
+every recession) with their average and the world over the same years, to see
+what the events did. Milestones you add are kept in `var/user/milestones.json`.
+API: `/api/v1/events?entities=JPN&kinds=sport,disaster&start=2000`,
+`/events/kinds`, `/milestones`, `/around?indicator=gdp_growth&kind=sport&subkind=FIFA World Cup`.
 
 **The map page** holds up to six panels: one, two side by side or stacked,
 one large and two small, three side by side, two by two, one large and four

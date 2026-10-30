@@ -1,0 +1,5 @@
+conflict_id,location,side_a,side_a_id,side_a_2nd,side_b,side_b_id,side_b_2nd,incompatibility,territory_name,year,intensity_level,cumulative_intensity,type_of_conflict,start_date,start_prec,start_date2,start_prec2,ep_end,ep_end_date,ep_end_prec,gwno_a,gwno_a_2nd,gwno_b,gwno_b_2nd,gwno_loc,region,version
+13243,"Russia (Soviet Union), Ukraine",Government of Russia (Soviet Union),57,,Government of Ukraine,193,,1,Crimea,2022,2,1,2,2014-03-02,1,2022-02-24,1,0,,,365,,369,,"365, 369",1,25.1
+13243,"Russia (Soviet Union), Ukraine",Government of Russia (Soviet Union),57,,Government of Ukraine,193,,1,Crimea,2023,2,1,2,2014-03-02,1,2022-02-24,1,0,,,365,,369,,"365, 369",1,25.1
+333,Afghanistan,Government of Afghanistan,130,,Taliban,303,,2,,2001,2,1,4,1978-07-03,1,2001-10-07,1,0,,,700,,,,700,3,25.1
+333,Afghanistan,Government of Afghanistan,130,,Taliban,303,,2,,2002,1,1,4,1978-07-03,1,2001-10-07,1,1,2002-12-31,4,700,,,,700,3,25.1

@@ -41,11 +41,14 @@ SETTINGS: dict[str, object] = {
     "history_paused": False,
     "history_retention_days": 0,     # 0 keeps history forever
     "problem_banner": True,          # a banner on every page while a refresh problem is open
+    "events_on_charts": True,        # dated events as lines and bands on line charts of up to three countries
+    "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
+    "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
 }
 CHOICES = {"click_mode": ("popup", "select")}
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
-          "history_retention_days": (0, 36_500)}
+          "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
@@ -89,6 +92,8 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v
+        elif isinstance(default, str):  # a comma-separated list of words
+            out[key] = ",".join(w for w in (x.strip().lower() for x in str(v).split(",")) if re.fullmatch(r"[a-z_]{1,30}", w))[:400]
         elif isinstance(default, (int, float)):
             try:
                 num = float(v)

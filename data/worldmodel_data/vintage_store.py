@@ -50,6 +50,31 @@ TEXT_COLUMNS = {
     "position": "BIGINT",
 }
 
+# events.parquet beside a vintage, for sources of dated events (elections, coups,
+# conflicts, disasters...). event_key is the source's own id for the event, unique
+# within the source; dates are DATEs, with precision saying how exact they are.
+EVENT_COLUMNS = {
+    "source_id": "VARCHAR",
+    "vintage": "VARCHAR",
+    "scheme": "VARCHAR",
+    "source_code": "VARCHAR",
+    "event_key": "VARCHAR",
+    "kind": "VARCHAR",
+    "subkind": "VARCHAR",
+    "title": "VARCHAR",
+    "start_date": "DATE",
+    "end_date": "DATE",
+    "precision": "VARCHAR",
+    "size": "DOUBLE",
+    "size_unit": "VARCHAR",
+    "deaths": "DOUBLE",
+    "affected": "DOUBLE",
+    "damage_usd": "DOUBLE",
+    "place": "VARCHAR",
+    "url": "VARCHAR",
+    "detail": "VARCHAR",
+}
+
 
 @dataclass
 class Manifest:
@@ -63,6 +88,9 @@ class Manifest:
     row_count: int = 0
     files: list[dict] = field(default_factory=list)
     stage_version: int = 1  # the connector's stage_version when the staged files were written
+    fetch_version: int = 1  # the connector's fetch_version when the raw files were downloaded
+    text_count: int = 0     # rows in texts.parquet, if any
+    event_count: int = 0    # rows in events.parquet, if any
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2))

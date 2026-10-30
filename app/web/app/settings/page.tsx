@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { KINDS, kindVar } from "@/lib/events";
 import { useEffect, useState } from "react";
 import { api, type Settings, type Storage } from "@/lib/api";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
@@ -86,6 +87,32 @@ export default function SettingsPage() {
         <Toggle label="Fetch Wikipedia pages in the background"
           hint="Fills in countries you have not opened yet, a few an hour, most-populous first, using at most half of the daily Wikipedia limit so the pages you open always have room."
           on={s.wikipedia_background} set={(v) => save({ wikipedia_background: v })} />
+      </section>
+
+      <section className="card" id="events">
+        <h2>Events on charts</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Dated events show as shaded bands (anything that lasts) and dotted lines (a single day) on the line charts of a country page
+          and on map-page charts of up to three countries. Hover one for its name. All events are listed on each country&apos;s
+          timeline and on the <Link href="/events">Events</Link> page whatever is ticked here.
+        </p>
+        <Toggle label="Show events on charts" on={s.events_on_charts} set={(v) => save({ events_on_charts: v })} />
+        <Field label="Kinds shown" hint="Leaders' terms and elections are left off by default: with them, every chart is striped.">
+          <div className="chips-row">
+            {KINDS.map((k) => {
+              const on = s.event_kinds.split(",").includes(k.kind);
+              const next = (on ? s.event_kinds.split(",").filter((x) => x !== k.kind) : [...s.event_kinds.split(","), k.kind]).filter(Boolean).join(",");
+              return (
+                <button key={k.kind} className={`chip kind ${on ? "" : "off"}`} aria-pressed={on} style={{ borderColor: kindVar(k.kind) }}
+                  onClick={() => save({ event_kinds: next })}>
+                  <i style={{ background: kindVar(k.kind) }} />{k.label}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+        <NumberField label="Disasters and epidemics from" unit="deaths" value={s.disaster_min_deaths} min={0} max={1000000} step={10}
+          save={(v) => save({ disaster_min_deaths: v })} />
       </section>
 
       <section className="card">
