@@ -81,6 +81,9 @@ class Connector(ABC):
         self._client = client
         self._cache: HttpCache | None = None
         self.downloaded_bytes = 0  # over the network, this run; for the refresh log
+        # Set by stage() for sources that describe themselves; saved beside the vintage.
+        self.listed_indicators: list[dict] = []   # indicators.json: catalogue-shaped, see catalogue.source_indicators
+        self.listed_memberships: list[dict] = []  # memberships.json: rows shaped like memberships.csv
 
     @property
     def client(self) -> httpx.Client:
@@ -172,6 +175,11 @@ class Connector(ABC):
             con.execute(f"COPY staged TO '{parquet.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
         finally:
             con.close()
+
+        # What the source lists about itself: its own series as indicators, and group memberships.
+        for name, data in (("indicators.json", self.listed_indicators), ("memberships.json", self.listed_memberships)):
+            if data:
+                (out_dir / name).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
 
         manifest = Manifest(
             source_id=self.source_id, vintage=vintage, release=release, retrieved_at=fetched_at.isoformat(),

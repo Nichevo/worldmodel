@@ -34,6 +34,7 @@ export type Indicator = {
   first_year: number | null;
   last_year: number | null;
   last_estimate_year: number | null;
+  main_year?: number | null; // latest estimate year with good country coverage: where maps open
   available: boolean;
   countries: number;
   default_on: boolean;
@@ -211,6 +212,21 @@ export type TrackRecord = {
   countries?: ({ entity_id: string; name: string } & ForecastErrors)[];
 };
 
+export type SourceRef = { source_id: string; name: string };
+export type ComparedIndicator = {
+  indicator_id: string; name: string; unit: string; domain: string; countries: number; differing: number; sources: SourceRef[];
+};
+export type SourceComparison = {
+  indicator: string; entity: string; name: string;
+  sources: (SourceRef & { rank: number; points: [number, number, string][] })[];
+  differences: { year: number; source_b: string; value_a: number; value_b: number; diff: number; rel: number | null; flagged: boolean }[];
+};
+export type Divergence = {
+  indicator_id: string; indicator_name: string; unit: string; decimals: number; entity_id: string; entity_name: string; year: number;
+  source_a: string; source_a_name: string; value_a: number; source_b: string; source_b_name: string; value_b: number;
+  diff: number; rel: number | null; flagged: boolean;
+};
+
 async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
@@ -266,4 +282,8 @@ export const api = {
   refreshLog: () => get<RefreshRun[]>("/refresh-log"),
   whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),
   trackRecord: (indicator: string, entity?: string) => get<TrackRecord>("/track-record", { indicator, entity }),
+  comparedIndicators: () => get<ComparedIndicator[]>("/sources/indicators"),
+  compareSources: (indicator: string, entity: string) => get<SourceComparison>("/sources/compare", { indicator, entity }),
+  divergence: (q: { indicator?: string; entity?: string; flagged?: boolean; limit?: number }) =>
+    get<Divergence[]>("/sources/divergence", { ...q, flagged: q.flagged ? "true" : undefined }),
 };

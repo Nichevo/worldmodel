@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import Pyramid from "@/components/Pyramid";
-import { api, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
+import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
 import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
 import { logHistory } from "@/lib/history";
 
@@ -19,11 +19,15 @@ const CHARTS: { id: string; kind?: "line" | "bar" }[] = [
   { id: "net_migration_rate" },
   { id: "gdp_growth", kind: "bar" },
   { id: "gdp_per_capita_usd" },
+  { id: "unemployment" },
+  { id: "military_spending_gdp" },
+  { id: "renewables_share_elec" },
+  { id: "co2_per_capita" },
 ];
 
 const TYPE_LABEL: Record<string, string> = {
   country: "Country or area", historical_country: "Former state", world: "World", continent: "Continent",
-  subregion: "UN sub-region", intermediate_region: "UN region", bloc: "Bloc", alliance: "Alliance", group: "Group",
+  subregion: "UN sub-region", intermediate_region: "UN region", bloc: "Bloc", alliance: "Alliance", group: "Group", income_group: "Income group",
 };
 
 export default function EntityPage() {
@@ -127,6 +131,8 @@ export default function EntityPage() {
         </div>
       )}
 
+      {!isGroup && <SourcesDiffer entity={entity.entity_id} />}
+
       <div className="grid two">
         {CHARTS.map((c) => {
           const ind = byId.get(c.id);
@@ -141,5 +147,37 @@ export default function EntityPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Indicators where this country's sources disagree in their latest common year.
+function SourcesDiffer({ entity }: { entity: string }) {
+  const [rows, setRows] = useState<Divergence[] | null>(null);
+  useEffect(() => {
+    setRows(null);
+    api.divergence({ entity, flagged: true }).then(setRows).catch(() => setRows([]));
+  }, [entity]);
+  if (!rows?.length) return null;
+  return (
+    <details className="card">
+      <summary><b>Where sources disagree</b> <span className="small ink-2">({rows.length} indicator{rows.length > 1 ? "s" : ""})</span></summary>
+      <div style={{ overflowX: "auto" }}>
+        <table>
+          <thead><tr><th>Indicator</th><th className="num">Year</th><th className="num">Default source</th><th className="num">Other</th><th className="num">Apart</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.indicator_id}-${r.source_b}`}>
+                <td><Link href={`/sources?ind=${r.indicator_id}&e=${entity}`}>{r.indicator_name}</Link></td>
+                <td className="num">{r.year}</td>
+                <td className="num" title={r.source_a_name}>{formatValue(r.value_a, r.unit, r.decimals)}</td>
+                <td className="num" title={r.source_b_name}>{formatValue(r.value_b, r.unit, r.decimals)}</td>
+                <td className="num">{r.rel === null ? "" : `${Math.round(r.rel * 100)}%`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="caption">Each indicator&apos;s latest year with figures from both sources. Open one to see the sources side by side.</p>
+    </details>
   );
 }

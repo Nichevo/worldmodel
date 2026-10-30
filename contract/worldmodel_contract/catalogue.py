@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 CATALOGUE_DIR = Path(str(resources.files("worldmodel_contract") / "catalogues"))
 
 ENTITY_TYPES = ("country", "historical_country", "world", "continent", "subregion", "intermediate_region",
-                "bloc", "alliance", "group", "custom")
+                "bloc", "alliance", "group", "income_group", "custom")
 GROUP_TYPES = tuple(t for t in ENTITY_TYPES if t not in ("country", "historical_country"))
 
 
@@ -55,6 +55,7 @@ class Indicator(BaseModel):
     aggregation: Aggregation
     bounds: tuple[float, float]
     sources: list[IndicatorSource]
+    default_on: bool = True  # shown in the map page's menus until switched off on the Indicators page
 
 
 class Source(BaseModel):
@@ -107,6 +108,19 @@ def _none_if_blank(row: dict[str, str]) -> dict[str, str | None]:
 @lru_cache
 def indicators() -> dict[str, Indicator]:
     return {d["id"]: Indicator(**d) for d in _yaml("indicators.yaml")}
+
+
+def source_indicators(path: Path) -> list[Indicator]:
+    """Indicators a source lists itself, saved by its connector beside a vintage
+    (indicators.json): for example every World Bank WDI series. Each comes from
+    that one source and starts switched off unless the file says otherwise."""
+    import json
+
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    return [Indicator(**{"default_on": False, **d}) for d in data]
 
 
 @lru_cache

@@ -65,7 +65,8 @@ def test_datasets_summarise_each_source(client):
     assert wpp["latest_vintage"]["vintage"] == "2024"
     tfr = next(i for i in wpp["indicators"] if i["indicator_id"] == "tfr")
     assert tfr["countries"] >= 200 and tfr["first_year"] <= 1950 and tfr["last_year"] >= 2100
-    assert found["world_bank_wdi"]["latest_vintage"] is None and found["world_bank_wdi"]["indicators"] == []
+    assert found["owid_grapher"]["latest_vintage"] is None and found["owid_grapher"]["indicators"] == []
+    assert found["world_bank_wdi"]["latest_vintage"] and len(found["world_bank_wdi"]["indicators"]) > 100
 
 
 def test_pyramid_falls_back_to_the_latest_earlier_year(client):
@@ -203,3 +204,29 @@ def test_track_record_and_variants(client):
     assert {r["variant"] for r in rows} == {"central"}  # the sample has no ranges; the filter still works
     assert {s["name"] for s in client.get("/api/v1/streams").json()} >= {"world-population-forecast"}
     assert client.get("/api/v1/streams/world-population-forecast").json()["rows"]
+
+
+def test_source_comparison(client):
+    inds = {i["indicator_id"]: i for i in client.get("/api/v1/sources/indicators").json()}
+    assert [s["source_id"] for s in inds["pop_total"]["sources"]] == ["un_wpp", "world_bank_wdi"]
+    assert inds["gdp_growth"]["countries"] > 150 and inds["gdp_growth"]["differing"] > 0
+    cmp = client.get("/api/v1/sources/compare", params={"indicator": "gdp_growth", "entity": "ARG"}).json()
+    assert [s["source_id"] for s in cmp["sources"]] == ["imf_weo", "world_bank_wdi"]
+    assert cmp["differences"] and all(d["source_b"] == "world_bank_wdi" for d in cmp["differences"])
+    div = client.get("/api/v1/sources/divergence", params={"indicator": "gdp_growth", "flagged": True}).json()
+    assert div and all(d["flagged"] for d in div) and div[0]["rel"] >= div[-1]["rel"]
+    nzl = client.get("/api/v1/sources/divergence", params={"entity": "NZL"}).json()
+    assert {d["indicator_id"] for d in nzl} >= {"pop_total", "gdp_growth"} and nzl[0]["entity_name"] == "New Zealand"
+
+
+def test_world_bank_indicators_and_income_groups(client):
+    inds = {i["indicator_id"]: i for i in client.get("/api/v1/indicators").json()}
+    assert inds["military_spending_gdp"]["enabled"]
+    assert not any(i["enabled"] for k, i in inds.items() if k.startswith("wdi_"))
+    assert any(k.startswith("wdi_") for k in inds)
+    assert inds["renewables_share_elec"]["enabled"]
+    groups = {e["entity_id"] for e in client.get("/api/v1/entities", params={"type": "income_group"}).json()}
+    assert groups == {"income-high", "income-upper-middle", "income-lower-middle", "income-low"}
+    rows = client.get("/api/v1/series", params={"indicator": "pop_total", "entities": "income-low", "start": 2020,
+                                                "end": 2020}).json()["rows"]
+    assert rows and rows[0]["value"] > 1e8

@@ -130,7 +130,7 @@ export default function DataPage() {
 
       <div className="card">
         <h2>Loaded vintages</h2>
-        <table>
+        <div style={{ overflowX: "auto" }}><table>
           <thead><tr><th>Source</th><th>Vintage</th><th>Fetched</th><th>Used</th><th>From</th></tr></thead>
           <tbody>
             {meta?.vintages.map((v) => (
@@ -141,7 +141,7 @@ export default function DataPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <div className="card">
@@ -151,14 +151,14 @@ export default function DataPage() {
           A build that fails a gate is never swapped in.
         </p>
         {notable.length > 0 && (
-          <table>
+          <div style={{ overflowX: "auto" }}><table>
             <thead><tr><th>Check</th><th>Status</th><th>Detail</th></tr></thead>
             <tbody>
               {notable.map((c) => (
                 <tr key={c.check_id}><td>{c.check_id}</td><td>{c.status}</td><td className="small">{c.detail}</td></tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
         {manual && (
           <details style={{ marginTop: 8 }}>
@@ -175,7 +175,7 @@ export default function DataPage() {
 
       <div className="card">
         <h2>Sources</h2>
-        <table>
+        <div style={{ overflowX: "auto" }}><table>
           <thead><tr><th>Source</th><th>Licence</th><th>Cadence</th><th>Status</th></tr></thead>
           <tbody>
             {sources.map((s) => (
@@ -187,7 +187,7 @@ export default function DataPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

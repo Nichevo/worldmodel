@@ -1,7 +1,8 @@
 @echo off
 rem Bring this copy up to date: the latest code from GitHub, then any new Python
-rem and web packages. Your data in var\ is never touched. Run from this folder
-rem (PowerShell: .\update.bat), with the app stopped.
+rem and web packages. Downloaded data in var\ is never touched; if the new code
+rem reads a newer warehouse format, the warehouse is rebuilt from that data (no
+rem download). Run from this folder (PowerShell: .\update.bat), with the app stopped.
 rem git pull may rewrite this file while cmd is still reading it, so run from a
 rem copy in %TEMP% and keep the original untouched while it runs.
 if not "%~1"=="--from-copy" (
@@ -24,6 +25,8 @@ echo Installing web packages...
 pushd app\web
 call npm install --no-fund --no-audit || (popd & goto :fail)
 popd
+echo Checking the warehouse format...
+worldmodel-data upgrade || echo The warehouse could not be rebuilt from the stored data; run refresh.bat.
 echo.
 echo Up to date:
 git log -1 --format="  %%h %%s (%%cr)"

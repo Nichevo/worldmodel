@@ -24,8 +24,9 @@ export default function SampleBanner() {
   const weo = meta.vintages.find((v) => v.source_id === "imf_weo" && v.is_latest);
   return (
     <div className="banner">
-      Showing the sample warehouse that ships with the app: UN WPP 2024 and IMF WEO {weo?.vintage ?? ""} (an old
-      release). Run <code>.\refresh.bat</code> to load the latest data. <Link href="/data">Details</Link>
+      Showing the sample warehouse that ships with the app: UN WPP 2024, IMF WEO {weo?.vintage ?? ""} (an old
+      release), a selection of World Bank indicators and OWID energy data. Run <code>.\refresh.bat</code> to load
+      everything, up to date. <Link href="/data">Details</Link>
     </div>
   );
 }

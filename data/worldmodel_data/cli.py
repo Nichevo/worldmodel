@@ -4,6 +4,7 @@
     worldmodel-data fetch imf_weo --from DIR   ... or load files you downloaded yourself
     worldmodel-data build                   build, validate and swap in a new warehouse
     worldmodel-data refresh                 fetch every active source, then build
+    worldmodel-data upgrade                 rebuild from stored data if the live build is an older format
     worldmodel-data status                  vintages, live build, last report, disk use
     worldmodel-data free-space              delete old raw downloads (keeps 2 per source)
     worldmodel-data validate                check the catalogues and re-run gates on the live build
@@ -153,6 +154,29 @@ def refresh(allow_shrink: bool = typer.Option(False)):
     if failed:
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
         raise typer.Exit(1)
+
+
+@app.command()
+def upgrade():
+    """After a code update: if the live warehouse was built in an older format than this
+    code reads, build it again from the data already downloaded (nothing is fetched)."""
+    from worldmodel_contract import SCHEMA_VERSION, is_compatible
+
+    current = paths().current_build()
+    if not current:
+        typer.echo("No live warehouse yet; the app uses its sample until the first refresh.")
+        return
+    con = duckdb.connect(str(current), read_only=True)
+    try:
+        found = dict(con.execute("SELECT key, value FROM meta").fetchall()).get("schema_version", "0.0.0")
+    finally:
+        con.close()
+    if is_compatible(found, SCHEMA_VERSION):
+        typer.echo(f"Warehouse format {found} is current; nothing to rebuild.")
+        return
+    typer.echo(f"Warehouse format {found} is older than this code's {SCHEMA_VERSION}; "
+               "rebuilding it from the data already downloaded...")
+    _build_and_log(False, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []})
 
 
 @app.command("free-space")
