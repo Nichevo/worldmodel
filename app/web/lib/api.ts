@@ -105,6 +105,7 @@ export type Dataset = Source & {
   latest_vintage: { vintage: string; release: string; retrieved_at: string; origin: string } | null;
   indicators: DatasetIndicator[];
   row_count: number;
+  on_demand: { stored: number; stale: number; budget: WikiBudget; background: boolean } | null; // Wikipedia
 };
 
 export type Pyramid = {
@@ -149,8 +150,29 @@ export type Settings = {
   numbeo_daily: number;
   wikipedia_countries_daily: number;
   wikipedia_cities_daily: number;
+  wikipedia_background: boolean;
   history_paused: boolean;
   history_retention_days: number;
+};
+
+// Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.
+export type TextField = { field: string; field_key: string; content: string };
+export type Texts = {
+  entity_id: string; source_id: string; editions: (number | null)[]; edition: number | null; vintage: string | null;
+  sections: { section: string; fields: TextField[] }[];
+};
+
+export type WikiImage = {
+  role: "photo" | "flag" | "map"; file: string; src: string | null; width: number | null; height: number | null;
+  artist: string | null; licence: string | null; licence_url: string | null; page_url: string | null;
+};
+export type WikiBudget = { day: string; used: number; limit: number; background_limit: number };
+export type Wikipedia = {
+  status: "ok" | "stale" | "none" | "off"; message: string | null; budget: WikiBudget;
+  page: {
+    entity_id: string; title: string; url: string | null; description: string | null; extract: string;
+    images: WikiImage[]; wikidata_item: string | null; fetched_at: string; licence: string;
+  } | null;
 };
 
 export type HistoryKind = "page" | "view" | "indicator" | "pin" | "fetch";
@@ -252,6 +274,11 @@ export const api = {
   entities: (type?: string) => get<Entity[]>("/entities", { type }),
   entity: (id: string) => get<EntityDetail>(`/entities/${encodeURIComponent(id)}`),
   profile: (id: string) => get<ProfileRow[]>(`/entities/${encodeURIComponent(id)}/profile`),
+  texts: (id: string, source = "cia_factbook", edition?: number | null) =>
+    get<Texts>(`/entities/${encodeURIComponent(id)}/texts`, { source, edition: edition ?? undefined }),
+  textHistory: (id: string, key: string, source = "cia_factbook") =>
+    get<{ edition: number; field: string; content: string }[]>(`/entities/${encodeURIComponent(id)}/texts/history`, { key, source }),
+  wikipedia: (id: string) => get<Wikipedia>(`/entities/${encodeURIComponent(id)}/wikipedia`),
   indicators: () => get<Indicator[]>("/indicators"),
   search: (q: string) => get<SearchHit[]>("/search", { q }),
   series: (indicator: string, entities: string[], start?: number, end?: number) =>

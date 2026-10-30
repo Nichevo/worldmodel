@@ -34,6 +34,22 @@ STAGED_COLUMNS = {
     "status": "VARCHAR",
 }
 
+# texts.parquet beside a vintage, for sources with text as well as numbers (Factbook
+# fields, Wikidata facts). edition is the year of the edition the text is from, if any;
+# field_key a name that stays the same across editions; position orders the fields.
+TEXT_COLUMNS = {
+    "source_id": "VARCHAR",
+    "vintage": "VARCHAR",
+    "scheme": "VARCHAR",
+    "source_code": "VARCHAR",
+    "edition": "INTEGER",
+    "section": "VARCHAR",
+    "field": "VARCHAR",
+    "field_key": "VARCHAR",
+    "content": "VARCHAR",
+    "position": "BIGINT",
+}
+
 
 @dataclass
 class Manifest:

@@ -2,8 +2,10 @@
 
 All endpoints are under /api/v1 and read the warehouse only. The only things
 written are the user's own files (layouts, settings, indicator switches, history)
-in a user folder beside the data (see layouts.py and userdata.py), and, when asked
-on the Data status page, old raw downloads deleted to free space.
+in a user folder beside the data (see layouts.py and userdata.py), Wikipedia pages
+fetched on demand within the daily limits in Settings (media/wikipedia, see
+wiki.py), and, when asked on the Data status page, old raw downloads deleted to
+free space.
 Interactive docs are at /docs when the server runs.
 """
 
@@ -14,6 +16,7 @@ import io
 import json
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -21,12 +24,12 @@ from typing import Literal
 from dotenv import load_dotenv
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
-from worldmodel_api import __version__, layouts, userdata
+from worldmodel_api import __version__, layouts, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -34,7 +37,17 @@ API_VERSION = "1"
 HEADLINE = ["pop_total", "pop_growth_rate", "tfr", "median_age", "life_expectancy", "pop_share_65_plus",
             "net_migration", "gdp_growth", "gdp_usd", "gdp_per_capita_usd", "inflation"]
 
-app = FastAPI(title="Worldmodel API", version=__version__,
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    background = wiki.Background(wiki_targets)
+    background.start()
+    yield
+    background.close()
+
+
+app = FastAPI(title="Worldmodel API", version=__version__, lifespan=lifespan,
               description="Local read-only API over the worldmodel warehouse.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3030", "http://127.0.0.1:3030"],
                    allow_methods=["GET", "PUT", "POST", "PATCH", "DELETE"], allow_headers=["*"])
@@ -95,7 +108,8 @@ def datasets():
     for src in sources():
         inds = [c for c in coverage if c["source_id"] == src["source_id"]]
         out.append({**src, "latest_vintage": latest.get(src["source_id"]), "indicators": inds,
-                    "row_count": sum(c["row_count"] for c in inds)})
+                    "row_count": sum(c["row_count"] for c in inds),
+                    "on_demand": wiki.status() if src["source_id"] == "wikipedia" else None})
     return out
 
 
@@ -136,6 +150,109 @@ def entity(entity_id: str, on: date | None = None):
                  [entity_id])
     return {**found[0], "groups": groups, "members": members, "membership_history": history,
             "successions": succession, "codes": codes, "as_of": on}
+
+
+# ----------------------------------------------------------------------------- texts: Factbook, Wikidata
+@api.get("/entities/{entity_id}/texts")
+def texts(entity_id: str, source: str = "cia_factbook", edition: int | None = None):
+    """One edition of a text source for an entity (the latest unless `edition` is given),
+    as sections of fields in the source's order, with the editions there are."""
+    editions = [r["edition"] for r in rows("SELECT DISTINCT edition FROM texts WHERE entity_id = ? AND source_id = ? "
+                                            "ORDER BY edition DESC NULLS LAST", [entity_id, source])]
+    out = {"entity_id": entity_id, "source_id": source, "editions": editions, "edition": None, "vintage": None,
+           "sections": []}
+    if not editions:
+        return out
+    ed = edition if edition in editions else editions[0]
+    fields = rows("SELECT section, field, field_key, content, vintage FROM texts WHERE entity_id = ? AND source_id = ? "
+                  "AND edition IS NOT DISTINCT FROM ? ORDER BY position", [entity_id, source, ed])
+    sections: dict[str, list] = {}
+    for f in fields:
+        sections.setdefault(f["section"], []).append({k: f[k] for k in ("field", "field_key", "content")})
+    return {**out, "edition": ed, "vintage": fields[0]["vintage"] if fields else None,
+            "sections": [{"section": k, "fields": v} for k, v in sections.items()]}
+
+
+@api.get("/entities/{entity_id}/texts/history")
+def text_history(entity_id: str, key: str, source: str = "cia_factbook"):
+    """One field across every edition, oldest first: how the Factbook's text changed."""
+    return rows("SELECT edition, field, content FROM texts WHERE entity_id = ? AND source_id = ? AND field_key = ? "
+                "ORDER BY edition, position", [entity_id, source, key])
+
+
+# ----------------------------------------------------------------------------- Wikipedia
+WIKI_FACTS = {"article": "article", "item": "item", "P18": "photo", "P41": "flag", "P242": "map"}
+
+
+def _wiki_facts(entity_ids: list[str] | None = None) -> dict[str, dict]:
+    """Article title, Wikidata item and picture file names per entity, from the Wikidata facts."""
+    where, params = "", list(WIKI_FACTS)
+    if entity_ids is not None:
+        where = f" AND entity_id IN ({', '.join('?' * len(entity_ids))})"
+        params += entity_ids
+    out: dict[str, dict] = {}
+    for r in rows(f"SELECT entity_id, field_key, content FROM texts WHERE source_id = 'wikidata' "
+                  f"AND field_key IN ({', '.join('?' * len(WIKI_FACTS))}){where}", params):
+        out.setdefault(r["entity_id"], {})[WIKI_FACTS[r["field_key"]]] = r["content"].split("; ")[0]
+    return out
+
+
+def wiki_target(entity_id: str) -> dict | None:
+    found = rows("SELECT entity_id, name, type FROM entities WHERE entity_id = ?", [entity_id])
+    if not found:
+        return None
+    return {**found[0], **_wiki_facts([entity_id]).get(entity_id, {})}
+
+
+def wiki_targets() -> list[tuple[str, dict]]:
+    """Countries in the order the background fetches them: most opened first, then by population."""
+    countries = rows("""
+        SELECT e.entity_id, e.name, e.type FROM entities e
+        LEFT JOIN (SELECT entity_id, max_by(value, period_start) AS pop FROM series
+                   WHERE indicator_id = 'pop_total' AND breakdown = '' AND variant = 'central' AND status = 'E'
+                   GROUP BY entity_id) p USING (entity_id)
+        WHERE e.type = 'country' AND e.valid_to IS NULL
+        ORDER BY p.pop DESC NULLS LAST, e.entity_id""")
+    by_id = {c["entity_id"]: c for c in countries}
+    opened = [i["entity_id"] for i in userdata.entity_interest(500) if i["entity_id"] in by_id]
+    facts = _wiki_facts()
+    order = list(dict.fromkeys([*opened, *by_id]))
+    return [(e, {**by_id[e], **facts.get(e, {})}) for e in order]
+
+
+def _with_image_urls(page: dict | None) -> dict | None:
+    if not page:
+        return page
+    images = [{**i, "src": f"/api/v1/media/wikipedia/{i['local']}" if i.get("local") else None}
+              for i in page.get("images", [])]
+    return {**page, "images": images}
+
+
+@api.get("/entities/{entity_id}/wikipedia")
+def wikipedia(entity_id: str, fetch: bool = True):
+    """The Wikipedia introduction and pictures for an entity, from the local copy. With
+    fetch (the default), a missing or month-old copy is fetched first if today's limit allows."""
+    target = wiki_target(entity_id)
+    if target is None:
+        raise HTTPException(404, f"no entity {entity_id}")
+    if target["type"] not in wiki.TYPES and "article" not in target:
+        return {"status": "none", "page": None, "budget": wiki.budget(), "message": None}  # no article for this kind of group
+    res = wiki.page(entity_id, target, fetch)
+    return {**res, "page": _with_image_urls(res["page"])}
+
+
+@api.get("/wikipedia/status")
+def wikipedia_status():
+    """Pages stored, pages due for a refresh, and today's fetches against the limit."""
+    return wiki.status()
+
+
+@api.get("/media/wikipedia/{name}")
+def wikipedia_image(name: str):
+    path = wiki.image_path(name)
+    if path is None:
+        raise HTTPException(404, f"no picture {name}")
+    return FileResponse(path, headers={"Cache-Control": "max-age=604800"})
 
 
 @api.get("/memberships")
@@ -540,14 +657,15 @@ def compared_indicators():
                 count(DISTINCT entity_id) FILTER (WHERE flagged) AS differing, list(DISTINCT source_b) AS others
             FROM ({sql}) GROUP BY 1""", params)
         meta = {r["indicator_id"]: r for r in rows("SELECT indicator_id, name, unit, domain FROM indicators")}
-        first = {r["indicator_id"]: r["source_id"] for r in rows(
-            "SELECT indicator_id, source_id FROM indicator_sources WHERE rank = 1")}
+        rank = {(r["indicator_id"], r["source_id"]): r["rank"] for r in rows(
+            "SELECT indicator_id, source_id, rank FROM indicator_sources")}
+        first = {i: s for (i, s), k in rank.items() if k == 1}
         names = _source_names()
         _cmp_cache.update(key=key, rows=sorted((
             {**{k: meta[f["indicator_id"]][k] for k in ("indicator_id", "name", "unit", "domain")},
              "countries": f["countries"], "differing": f["differing"],
-             "sources": [{"source_id": x, "name": names.get(x, x)}
-                         for x in [first[f["indicator_id"]], *sorted(f["others"])]]}
+             "sources": [{"source_id": x, "name": names.get(x, x)} for x in [
+                 first[f["indicator_id"]], *sorted(f["others"], key=lambda o: rank.get((f["indicator_id"], o), 99))]]}
             for f in found), key=lambda r: (r["domain"], r["name"])))
     return _cmp_cache["rows"]
 

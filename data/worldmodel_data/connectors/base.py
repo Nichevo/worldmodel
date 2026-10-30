@@ -14,7 +14,7 @@ import duckdb
 import httpx
 
 from worldmodel_contract import catalogue
-from worldmodel_data.vintage_store import STAGED_COLUMNS, Manifest, VintageStore, now_utc, sha256_files
+from worldmodel_data.vintage_store import STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore, now_utc, sha256_files
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +76,8 @@ class HttpCache:
 
 class Connector(ABC):
     source_id: str = ""
+    frozen = False                     # True: a refresh skips the source once it has a vintage (a closed archive)
+    fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
 
     def __init__(self, client: httpx.Client | None = None):
         self._client = client
@@ -84,6 +86,7 @@ class Connector(ABC):
         # Set by stage() for sources that describe themselves; saved beside the vintage.
         self.listed_indicators: list[dict] = []   # indicators.json: catalogue-shaped, see catalogue.source_indicators
         self.listed_memberships: list[dict] = []  # memberships.json: rows shaped like memberships.csv
+        self.texts_query: str | None = None  # texts.parquet: a SQL query producing TEXT_COLUMNS, for sources with text
 
     @property
     def client(self) -> httpx.Client:
@@ -169,7 +172,16 @@ class Connector(ABC):
             cols = ", ".join(f"CAST({c} AS {t}) AS {c}" for c, t in STAGED_COLUMNS.items())
             con.execute(f"CREATE TABLE staged AS SELECT {cols} FROM ({query}) WHERE value IS NOT NULL")
             rows = con.execute("SELECT count(*) FROM staged").fetchone()[0]
-            if rows == 0:
+            texts = 0
+            if self.texts_query:
+                tcols = ", ".join(f"CAST({c} AS {t}) AS {c}" for c, t in TEXT_COLUMNS.items())
+                con.execute(f"CREATE TABLE staged_texts AS SELECT {tcols} FROM ({self.texts_query}) "
+                            "WHERE content IS NOT NULL AND content <> ''")
+                texts = con.execute("SELECT count(*) FROM staged_texts").fetchone()[0]
+                if texts:
+                    con.execute(f"COPY staged_texts TO '{(out_dir / 'texts.parquet').as_posix()}' "
+                                "(FORMAT parquet, COMPRESSION zstd)")
+            if rows == 0 and texts == 0:
                 raise ConnectorError(f"{self.source_id}: staged 0 rows from {raw_dir}")
             parquet = out_dir / "observations.parquet"
             con.execute(f"COPY staged TO '{parquet.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
