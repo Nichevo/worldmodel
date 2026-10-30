@@ -62,6 +62,13 @@ models:
       - name: content
         tests: [not_null]
 
+  - name: layers
+    columns:
+      - name: layer_id
+        tests: [unique, not_null]
+      - name: geojson
+        tests: [not_null]
+
   - name: events
     tests:
       - unique_combination:

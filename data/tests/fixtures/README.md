@@ -14,3 +14,17 @@ results in the Query Service's JSON layout. The leaders file has the heads of
 government of New Zealand, the UK and the US since about 1960 with their parties
 and party colours (real names and dates; the people's QIDs from Q9900001 on are
 placeholders). They also give the sample warehouse its handful of example events.
+
+House prices, migration and education (scripts/sample/make_d3_inputs.py, from
+copies of the real data on GitHub, cut to NZL, AUS, GBR, USA, DEU, SYR and IND):
+bis/spp_*_index.csv (BIS property prices, the connector's GitHub fallback),
+wittgenstein/*.csv (Wittgenstein Centre v3 tables, ages 25+), unhcr/population_*.json
+(UNHCR figures in the API's page layout) and un_ims/*.xlsx (the UN's 2020 migrant
+stock edition laid out like its Table 1, with World totals added).
+
+Made-up values in real layouts, for sources with no copy on GitHub: bis/spp.csv
+(the BIS API's CSV with labels; Switzerland's real index), bis/tc_households.csv,
+oecd/*.csv (OECD SDMX csvfile layout, house prices shaped on the BIS index),
+dallas_fed_ihpd/hp2502.xlsx, imf_gdd/*.json, undp_hdr/*.csv (Latin-1, as UNDP's
+file is) and idea_turnout/*.csv (IDEA's export layout; real turnout figures for a
+few NZ, UK and US elections, plus an EU election and a made-up country to skip).

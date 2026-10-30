@@ -1,0 +1,745 @@
+name,country_code,year,age,sex,bmys
+Germany,276.0,1950.0,25+,Both,9.89
+India,356.0,1950.0,25+,Both,1.3
+Australia,36.0,1950.0,25+,Both,5.83
+New Zealand,554.0,1950.0,25+,Both,7.24
+Syrian Arab Republic,760.0,1950.0,25+,Both,1.01
+United Kingdom of Great Britain and Northern Ireland,826.0,1950.0,25+,Both,9.79
+United States of America,840.0,1950.0,25+,Both,8.35
+World,900.0,1950.0,25+,Both,3.27
+Germany,276.0,1950.0,25+,Male,11.12
+India,356.0,1950.0,25+,Male,2.12
+Australia,36.0,1950.0,25+,Male,6.5
+New Zealand,554.0,1950.0,25+,Male,7.59
+Syrian Arab Republic,760.0,1950.0,25+,Male,1.69
+United Kingdom of Great Britain and Northern Ireland,826.0,1950.0,25+,Male,10.09
+United States of America,840.0,1950.0,25+,Male,8.09
+World,900.0,1950.0,25+,Male,3.63
+Germany,276.0,1950.0,25+,Female,8.96
+India,356.0,1950.0,25+,Female,0.42
+Australia,36.0,1950.0,25+,Female,5.18
+New Zealand,554.0,1950.0,25+,Female,6.9
+Syrian Arab Republic,760.0,1950.0,25+,Female,0.27
+United Kingdom of Great Britain and Northern Ireland,826.0,1950.0,25+,Female,9.53
+United States of America,840.0,1950.0,25+,Female,8.61
+World,900.0,1950.0,25+,Female,2.93
+Germany,276.0,1955.0,25+,Both,10.18
+India,356.0,1955.0,25+,Both,1.45
+Australia,36.0,1955.0,25+,Both,6.52
+New Zealand,554.0,1955.0,25+,Both,7.53
+Syrian Arab Republic,760.0,1955.0,25+,Both,1.26
+United Kingdom of Great Britain and Northern Ireland,826.0,1955.0,25+,Both,9.89
+United States of America,840.0,1955.0,25+,Both,8.78
+World,900.0,1955.0,25+,Both,3.59
+Germany,276.0,1955.0,25+,Male,11.4
+India,356.0,1955.0,25+,Male,2.32
+Australia,36.0,1955.0,25+,Male,7.16
+New Zealand,554.0,1955.0,25+,Male,7.91
+Syrian Arab Republic,760.0,1955.0,25+,Male,2.07
+United Kingdom of Great Britain and Northern Ireland,826.0,1955.0,25+,Male,10.19
+United States of America,840.0,1955.0,25+,Male,8.56
+World,900.0,1955.0,25+,Male,4.01
+Germany,276.0,1955.0,25+,Female,9.24
+India,356.0,1955.0,25+,Female,0.51
+Australia,36.0,1955.0,25+,Female,5.88
+New Zealand,554.0,1955.0,25+,Female,7.16
+Syrian Arab Republic,760.0,1955.0,25+,Female,0.4
+United Kingdom of Great Britain and Northern Ireland,826.0,1955.0,25+,Female,9.61
+United States of America,840.0,1955.0,25+,Female,8.98
+World,900.0,1955.0,25+,Female,3.19
+Germany,276.0,1960.0,25+,Both,10.47
+India,356.0,1960.0,25+,Both,1.63
+Australia,36.0,1960.0,25+,Both,7.15
+New Zealand,554.0,1960.0,25+,Both,7.86
+Syrian Arab Republic,760.0,1960.0,25+,Both,1.55
+United Kingdom of Great Britain and Northern Ireland,826.0,1960.0,25+,Both,10.0
+United States of America,840.0,1960.0,25+,Both,9.18
+World,900.0,1960.0,25+,Both,3.91
+Germany,276.0,1960.0,25+,Male,11.67
+India,356.0,1960.0,25+,Male,2.57
+Australia,36.0,1960.0,25+,Male,7.76
+New Zealand,554.0,1960.0,25+,Male,8.26
+Syrian Arab Republic,760.0,1960.0,25+,Male,2.48
+United Kingdom of Great Britain and Northern Ireland,826.0,1960.0,25+,Male,10.32
+United States of America,840.0,1960.0,25+,Male,9.03
+World,900.0,1960.0,25+,Male,4.4
+Germany,276.0,1960.0,25+,Female,9.52
+India,356.0,1960.0,25+,Female,0.62
+Australia,36.0,1960.0,25+,Female,6.54
+New Zealand,554.0,1960.0,25+,Female,7.46
+Syrian Arab Republic,760.0,1960.0,25+,Female,0.57
+United Kingdom of Great Britain and Northern Ireland,826.0,1960.0,25+,Female,9.72
+United States of America,840.0,1960.0,25+,Female,9.33
+World,900.0,1960.0,25+,Female,3.45
+Germany,276.0,1965.0,25+,Both,10.82
+India,356.0,1965.0,25+,Both,1.86
+Australia,36.0,1965.0,25+,Both,7.76
+New Zealand,554.0,1965.0,25+,Both,8.25
+Syrian Arab Republic,760.0,1965.0,25+,Both,1.87
+United Kingdom of Great Britain and Northern Ireland,826.0,1965.0,25+,Both,10.13
+United States of America,840.0,1965.0,25+,Both,9.59
+World,900.0,1965.0,25+,Both,4.28
+Germany,276.0,1965.0,25+,Male,11.97
+India,356.0,1965.0,25+,Male,2.87
+Australia,36.0,1965.0,25+,Male,8.34
+New Zealand,554.0,1965.0,25+,Male,8.66
+Syrian Arab Republic,760.0,1965.0,25+,Male,2.92
+United Kingdom of Great Britain and Northern Ireland,826.0,1965.0,25+,Male,10.47
+United States of America,840.0,1965.0,25+,Male,9.49
+World,900.0,1965.0,25+,Male,4.82
+Germany,276.0,1965.0,25+,Female,9.89
+India,356.0,1965.0,25+,Female,0.78
+Australia,36.0,1965.0,25+,Female,7.19
+New Zealand,554.0,1965.0,25+,Female,7.84
+Syrian Arab Republic,760.0,1965.0,25+,Female,0.79
+United Kingdom of Great Britain and Northern Ireland,826.0,1965.0,25+,Female,9.83
+United States of America,840.0,1965.0,25+,Female,9.68
+World,900.0,1965.0,25+,Female,3.76
+Germany,276.0,1970.0,25+,Both,11.16
+India,356.0,1970.0,25+,Both,2.11
+Australia,36.0,1970.0,25+,Both,8.46
+New Zealand,554.0,1970.0,25+,Both,8.7
+Syrian Arab Republic,760.0,1970.0,25+,Both,2.27
+United Kingdom of Great Britain and Northern Ireland,826.0,1970.0,25+,Both,10.29
+United States of America,840.0,1970.0,25+,Both,10.02
+World,900.0,1970.0,25+,Both,4.65
+Germany,276.0,1970.0,25+,Male,12.25
+India,356.0,1970.0,25+,Male,3.2
+Australia,36.0,1970.0,25+,Male,8.99
+New Zealand,554.0,1970.0,25+,Male,9.11
+Syrian Arab Republic,760.0,1970.0,25+,Male,3.42
+United Kingdom of Great Britain and Northern Ireland,826.0,1970.0,25+,Male,10.65
+United States of America,840.0,1970.0,25+,Male,9.97
+World,900.0,1970.0,25+,Male,5.24
+Germany,276.0,1970.0,25+,Female,10.27
+India,356.0,1970.0,25+,Female,0.94
+Australia,36.0,1970.0,25+,Female,7.93
+New Zealand,554.0,1970.0,25+,Female,8.31
+Syrian Arab Republic,760.0,1970.0,25+,Female,1.09
+United Kingdom of Great Britain and Northern Ireland,826.0,1970.0,25+,Female,9.98
+United States of America,840.0,1970.0,25+,Female,10.06
+World,900.0,1970.0,25+,Female,4.09
+Germany,276.0,1975.0,25+,Both,11.44
+India,356.0,1975.0,25+,Both,2.42
+Australia,36.0,1975.0,25+,Both,9.16
+New Zealand,554.0,1975.0,25+,Both,9.28
+Syrian Arab Republic,760.0,1975.0,25+,Both,2.75
+United Kingdom of Great Britain and Northern Ireland,826.0,1975.0,25+,Both,10.51
+United States of America,840.0,1975.0,25+,Both,10.46
+World,900.0,1975.0,25+,Both,5.08
+Germany,276.0,1975.0,25+,Male,12.47
+India,356.0,1975.0,25+,Male,3.6
+Australia,36.0,1975.0,25+,Male,9.63
+New Zealand,554.0,1975.0,25+,Male,9.67
+Syrian Arab Republic,760.0,1975.0,25+,Male,3.99
+United Kingdom of Great Britain and Northern Ireland,826.0,1975.0,25+,Male,10.88
+United States of America,840.0,1975.0,25+,Male,10.46
+World,900.0,1975.0,25+,Male,5.7
+Germany,276.0,1975.0,25+,Female,10.59
+India,356.0,1975.0,25+,Female,1.16
+Australia,36.0,1975.0,25+,Female,8.69
+New Zealand,554.0,1975.0,25+,Female,8.9
+Syrian Arab Republic,760.0,1975.0,25+,Female,1.47
+United Kingdom of Great Britain and Northern Ireland,826.0,1975.0,25+,Female,10.19
+United States of America,840.0,1975.0,25+,Female,10.47
+World,900.0,1975.0,25+,Female,4.48
+Germany,276.0,1980.0,25+,Both,11.73
+India,356.0,1980.0,25+,Both,2.82
+Australia,36.0,1980.0,25+,Both,9.77
+New Zealand,554.0,1980.0,25+,Both,9.84
+Syrian Arab Republic,760.0,1980.0,25+,Both,3.26
+United Kingdom of Great Britain and Northern Ireland,826.0,1980.0,25+,Both,10.75
+United States of America,840.0,1980.0,25+,Both,10.86
+World,900.0,1980.0,25+,Both,5.52
+Germany,276.0,1980.0,25+,Male,12.67
+India,356.0,1980.0,25+,Male,4.09
+Australia,36.0,1980.0,25+,Male,10.18
+New Zealand,554.0,1980.0,25+,Male,10.21
+Syrian Arab Republic,760.0,1980.0,25+,Male,4.56
+United Kingdom of Great Britain and Northern Ireland,826.0,1980.0,25+,Male,11.11
+United States of America,840.0,1980.0,25+,Male,10.89
+World,900.0,1980.0,25+,Male,6.16
+Germany,276.0,1980.0,25+,Female,10.94
+India,356.0,1980.0,25+,Female,1.47
+Australia,36.0,1980.0,25+,Female,9.38
+New Zealand,554.0,1980.0,25+,Female,9.5
+Syrian Arab Republic,760.0,1980.0,25+,Female,1.92
+United Kingdom of Great Britain and Northern Ireland,826.0,1980.0,25+,Female,10.42
+United States of America,840.0,1980.0,25+,Female,10.84
+World,900.0,1980.0,25+,Female,4.9
+Germany,276.0,1985.0,25+,Both,12.01
+India,356.0,1985.0,25+,Both,3.25
+Australia,36.0,1985.0,25+,Both,10.33
+New Zealand,554.0,1985.0,25+,Both,10.43
+Syrian Arab Republic,760.0,1985.0,25+,Both,3.82
+United Kingdom of Great Britain and Northern Ireland,826.0,1985.0,25+,Both,11.0
+United States of America,840.0,1985.0,25+,Both,11.21
+World,900.0,1985.0,25+,Both,5.97
+Germany,276.0,1985.0,25+,Male,12.84
+India,356.0,1985.0,25+,Male,4.57
+Australia,36.0,1985.0,25+,Male,10.67
+New Zealand,554.0,1985.0,25+,Male,10.77
+Syrian Arab Republic,760.0,1985.0,25+,Male,5.14
+United Kingdom of Great Britain and Northern Ireland,826.0,1985.0,25+,Male,11.34
+United States of America,840.0,1985.0,25+,Male,11.24
+World,900.0,1985.0,25+,Male,6.62
+Germany,276.0,1985.0,25+,Female,11.3
+India,356.0,1985.0,25+,Female,1.84
+Australia,36.0,1985.0,25+,Female,10.0
+New Zealand,554.0,1985.0,25+,Female,10.11
+Syrian Arab Republic,760.0,1985.0,25+,Female,2.48
+United Kingdom of Great Britain and Northern Ireland,826.0,1985.0,25+,Female,10.68
+United States of America,840.0,1985.0,25+,Female,11.18
+World,900.0,1985.0,25+,Female,5.33
+Germany,276.0,1990.0,25+,Both,12.28
+India,356.0,1990.0,25+,Both,3.66
+Australia,36.0,1990.0,25+,Both,10.82
+New Zealand,554.0,1990.0,25+,Both,10.95
+Syrian Arab Republic,760.0,1990.0,25+,Both,4.39
+United Kingdom of Great Britain and Northern Ireland,826.0,1990.0,25+,Both,11.25
+United States of America,840.0,1990.0,25+,Both,11.48
+World,900.0,1990.0,25+,Both,6.41
+Germany,276.0,1990.0,25+,Male,12.99
+India,356.0,1990.0,25+,Male,5.02
+Australia,36.0,1990.0,25+,Male,11.09
+New Zealand,554.0,1990.0,25+,Male,11.23
+Syrian Arab Republic,760.0,1990.0,25+,Male,5.66
+United Kingdom of Great Britain and Northern Ireland,826.0,1990.0,25+,Male,11.57
+United States of America,840.0,1990.0,25+,Male,11.52
+World,900.0,1990.0,25+,Male,7.07
+Germany,276.0,1990.0,25+,Female,11.66
+India,356.0,1990.0,25+,Female,2.22
+Australia,36.0,1990.0,25+,Female,10.56
+New Zealand,554.0,1990.0,25+,Female,10.68
+Syrian Arab Republic,760.0,1990.0,25+,Female,3.11
+United Kingdom of Great Britain and Northern Ireland,826.0,1990.0,25+,Female,10.97
+United States of America,840.0,1990.0,25+,Female,11.45
+World,900.0,1990.0,25+,Female,5.78
+Germany,276.0,1995.0,25+,Both,12.52
+India,356.0,1995.0,25+,Both,4.07
+Australia,36.0,1995.0,25+,Both,11.21
+New Zealand,554.0,1995.0,25+,Both,11.4
+Syrian Arab Republic,760.0,1995.0,25+,Both,4.95
+United Kingdom of Great Britain and Northern Ireland,826.0,1995.0,25+,Both,11.49
+United States of America,840.0,1995.0,25+,Both,11.7
+World,900.0,1995.0,25+,Both,6.81
+Germany,276.0,1995.0,25+,Male,13.1
+India,356.0,1995.0,25+,Male,5.45
+Australia,36.0,1995.0,25+,Male,11.42
+New Zealand,554.0,1995.0,25+,Male,11.64
+Syrian Arab Republic,760.0,1995.0,25+,Male,6.11
+United Kingdom of Great Britain and Northern Ireland,826.0,1995.0,25+,Male,11.77
+United States of America,840.0,1995.0,25+,Male,11.72
+World,900.0,1995.0,25+,Male,7.45
+Germany,276.0,1995.0,25+,Female,11.99
+India,356.0,1995.0,25+,Female,2.61
+Australia,36.0,1995.0,25+,Female,11.0
+New Zealand,554.0,1995.0,25+,Female,11.17
+Syrian Arab Republic,760.0,1995.0,25+,Female,3.79
+United Kingdom of Great Britain and Northern Ireland,826.0,1995.0,25+,Female,11.24
+United States of America,840.0,1995.0,25+,Female,11.69
+World,900.0,1995.0,25+,Female,6.19
+Germany,276.0,2000.0,25+,Both,12.69
+India,356.0,2000.0,25+,Both,4.49
+Australia,36.0,2000.0,25+,Both,11.6
+New Zealand,554.0,2000.0,25+,Both,11.81
+Syrian Arab Republic,760.0,2000.0,25+,Both,5.44
+United Kingdom of Great Britain and Northern Ireland,826.0,2000.0,25+,Both,11.73
+United States of America,840.0,2000.0,25+,Both,11.88
+World,900.0,2000.0,25+,Both,7.16
+Germany,276.0,2000.0,25+,Male,13.18
+India,356.0,2000.0,25+,Male,5.87
+Australia,36.0,2000.0,25+,Male,11.75
+New Zealand,554.0,2000.0,25+,Male,12.0
+Syrian Arab Republic,760.0,2000.0,25+,Male,6.45
+United Kingdom of Great Britain and Northern Ireland,826.0,2000.0,25+,Male,11.97
+United States of America,840.0,2000.0,25+,Male,11.89
+World,900.0,2000.0,25+,Male,7.77
+Germany,276.0,2000.0,25+,Female,12.23
+India,356.0,2000.0,25+,Female,3.03
+Australia,36.0,2000.0,25+,Female,11.45
+New Zealand,554.0,2000.0,25+,Female,11.63
+Syrian Arab Republic,760.0,2000.0,25+,Female,4.43
+United Kingdom of Great Britain and Northern Ireland,826.0,2000.0,25+,Female,11.51
+United States of America,840.0,2000.0,25+,Female,11.88
+World,900.0,2000.0,25+,Female,6.57
+Germany,276.0,2005.0,25+,Both,12.83
+India,356.0,2005.0,25+,Both,4.94
+Australia,36.0,2005.0,25+,Both,11.98
+New Zealand,554.0,2005.0,25+,Both,12.15
+Syrian Arab Republic,760.0,2005.0,25+,Both,5.84
+United Kingdom of Great Britain and Northern Ireland,826.0,2005.0,25+,Both,11.96
+United States of America,840.0,2005.0,25+,Both,12.02
+World,900.0,2005.0,25+,Both,7.48
+Germany,276.0,2005.0,25+,Male,13.25
+India,356.0,2005.0,25+,Male,6.3
+Australia,36.0,2005.0,25+,Male,12.09
+New Zealand,554.0,2005.0,25+,Male,12.29
+Syrian Arab Republic,760.0,2005.0,25+,Male,6.69
+United Kingdom of Great Britain and Northern Ireland,826.0,2005.0,25+,Male,12.16
+United States of America,840.0,2005.0,25+,Male,12.01
+World,900.0,2005.0,25+,Male,8.06
+Germany,276.0,2005.0,25+,Female,12.45
+India,356.0,2005.0,25+,Female,3.51
+Australia,36.0,2005.0,25+,Female,11.88
+New Zealand,554.0,2005.0,25+,Female,12.02
+Syrian Arab Republic,760.0,2005.0,25+,Female,4.99
+United Kingdom of Great Britain and Northern Ireland,826.0,2005.0,25+,Female,11.78
+United States of America,840.0,2005.0,25+,Female,12.04
+World,900.0,2005.0,25+,Female,6.91
+Germany,276.0,2010.0,25+,Both,12.98
+India,356.0,2010.0,25+,Both,5.43
+Australia,36.0,2010.0,25+,Both,12.35
+New Zealand,554.0,2010.0,25+,Both,12.44
+Syrian Arab Republic,760.0,2010.0,25+,Both,6.27
+United Kingdom of Great Britain and Northern Ireland,826.0,2010.0,25+,Both,12.18
+United States of America,840.0,2010.0,25+,Both,12.14
+World,900.0,2010.0,25+,Both,7.81
+Germany,276.0,2010.0,25+,Male,13.31
+India,356.0,2010.0,25+,Male,6.74
+Australia,36.0,2010.0,25+,Male,12.41
+New Zealand,554.0,2010.0,25+,Male,12.52
+Syrian Arab Republic,760.0,2010.0,25+,Male,6.95
+United Kingdom of Great Britain and Northern Ireland,826.0,2010.0,25+,Male,12.33
+United States of America,840.0,2010.0,25+,Male,12.11
+World,900.0,2010.0,25+,Male,8.35
+Germany,276.0,2010.0,25+,Female,12.67
+India,356.0,2010.0,25+,Female,4.07
+Australia,36.0,2010.0,25+,Female,12.29
+New Zealand,554.0,2010.0,25+,Female,12.36
+Syrian Arab Republic,760.0,2010.0,25+,Female,5.59
+United Kingdom of Great Britain and Northern Ireland,826.0,2010.0,25+,Female,12.04
+United States of America,840.0,2010.0,25+,Female,12.18
+World,900.0,2010.0,25+,Female,7.28
+Germany,276.0,2015.0,25+,Both,13.07
+India,356.0,2015.0,25+,Both,5.96
+Australia,36.0,2015.0,25+,Both,12.65
+New Zealand,554.0,2015.0,25+,Both,12.67
+Syrian Arab Republic,760.0,2015.0,25+,Both,6.48
+United Kingdom of Great Britain and Northern Ireland,826.0,2015.0,25+,Both,12.37
+United States of America,840.0,2015.0,25+,Both,12.24
+World,900.0,2015.0,25+,Both,8.14
+Germany,276.0,2015.0,25+,Male,13.32
+India,356.0,2015.0,25+,Male,7.17
+Australia,36.0,2015.0,25+,Male,12.67
+New Zealand,554.0,2015.0,25+,Male,12.72
+Syrian Arab Republic,760.0,2015.0,25+,Male,7.12
+United Kingdom of Great Britain and Northern Ireland,826.0,2015.0,25+,Male,12.47
+United States of America,840.0,2015.0,25+,Male,12.18
+World,900.0,2015.0,25+,Male,8.64
+Germany,276.0,2015.0,25+,Female,12.84
+India,356.0,2015.0,25+,Female,4.7
+Australia,36.0,2015.0,25+,Female,12.64
+New Zealand,554.0,2015.0,25+,Female,12.62
+Syrian Arab Republic,760.0,2015.0,25+,Female,5.87
+United Kingdom of Great Britain and Northern Ireland,826.0,2015.0,25+,Female,12.27
+United States of America,840.0,2015.0,25+,Female,12.29
+World,900.0,2015.0,25+,Female,7.66
+Germany,276.0,2020.0,25+,Both,13.18
+India,356.0,2020.0,25+,Both,6.55
+Australia,36.0,2020.0,25+,Both,12.92
+New Zealand,554.0,2020.0,25+,Both,13.02
+Syrian Arab Republic,760.0,2020.0,25+,Both,6.81
+United Kingdom of Great Britain and Northern Ireland,826.0,2020.0,25+,Both,12.56
+United States of America,840.0,2020.0,25+,Both,12.33
+World,900.0,2020.0,25+,Both,8.49
+Germany,276.0,2020.0,25+,Male,13.36
+India,356.0,2020.0,25+,Male,7.63
+Australia,36.0,2020.0,25+,Male,12.91
+New Zealand,554.0,2020.0,25+,Male,13.04
+Syrian Arab Republic,760.0,2020.0,25+,Male,7.37
+United Kingdom of Great Britain and Northern Ireland,826.0,2020.0,25+,Male,12.63
+United States of America,840.0,2020.0,25+,Male,12.25
+World,900.0,2020.0,25+,Male,8.93
+Germany,276.0,2020.0,25+,Female,13.01
+India,356.0,2020.0,25+,Female,5.42
+Australia,36.0,2020.0,25+,Female,12.94
+New Zealand,554.0,2020.0,25+,Female,13.0
+Syrian Arab Republic,760.0,2020.0,25+,Female,6.29
+United Kingdom of Great Britain and Northern Ireland,826.0,2020.0,25+,Female,12.5
+United States of America,840.0,2020.0,25+,Female,12.41
+World,900.0,2020.0,25+,Female,8.05
+Germany,276.0,2025.0,25+,Both,13.28
+India,356.0,2025.0,25+,Both,7.23
+Australia,36.0,2025.0,25+,Both,13.13
+New Zealand,554.0,2025.0,25+,Both,13.17
+Syrian Arab Republic,760.0,2025.0,25+,Both,7.1
+United Kingdom of Great Britain and Northern Ireland,826.0,2025.0,25+,Both,12.76
+United States of America,840.0,2025.0,25+,Both,12.42
+World,900.0,2025.0,25+,Both,8.84
+Germany,276.0,2025.0,25+,Male,13.41
+India,356.0,2025.0,25+,Male,8.19
+Australia,36.0,2025.0,25+,Male,13.1
+New Zealand,554.0,2025.0,25+,Male,13.17
+Syrian Arab Republic,760.0,2025.0,25+,Male,7.53
+United Kingdom of Great Britain and Northern Ireland,826.0,2025.0,25+,Male,12.79
+United States of America,840.0,2025.0,25+,Male,12.33
+World,900.0,2025.0,25+,Male,9.24
+Germany,276.0,2025.0,25+,Female,13.16
+India,356.0,2025.0,25+,Female,6.23
+Australia,36.0,2025.0,25+,Female,13.16
+New Zealand,554.0,2025.0,25+,Female,13.17
+Syrian Arab Republic,760.0,2025.0,25+,Female,6.69
+United Kingdom of Great Britain and Northern Ireland,826.0,2025.0,25+,Female,12.73
+United States of America,840.0,2025.0,25+,Female,12.5
+World,900.0,2025.0,25+,Female,8.44
+Germany,276.0,2030.0,25+,Both,13.38
+India,356.0,2030.0,25+,Both,7.89
+Australia,36.0,2030.0,25+,Both,13.3
+New Zealand,554.0,2030.0,25+,Both,13.3
+Syrian Arab Republic,760.0,2030.0,25+,Both,7.44
+United Kingdom of Great Britain and Northern Ireland,826.0,2030.0,25+,Both,12.93
+United States of America,840.0,2030.0,25+,Both,12.5
+World,900.0,2030.0,25+,Both,9.18
+Germany,276.0,2030.0,25+,Male,13.47
+India,356.0,2030.0,25+,Male,8.73
+Australia,36.0,2030.0,25+,Male,13.26
+New Zealand,554.0,2030.0,25+,Male,13.28
+Syrian Arab Republic,760.0,2030.0,25+,Male,7.76
+United Kingdom of Great Britain and Northern Ireland,826.0,2030.0,25+,Male,12.94
+United States of America,840.0,2030.0,25+,Male,12.4
+World,900.0,2030.0,25+,Male,9.54
+Germany,276.0,2030.0,25+,Female,13.29
+India,356.0,2030.0,25+,Female,7.01
+Australia,36.0,2030.0,25+,Female,13.34
+New Zealand,554.0,2030.0,25+,Female,13.31
+Syrian Arab Republic,760.0,2030.0,25+,Female,7.14
+United Kingdom of Great Britain and Northern Ireland,826.0,2030.0,25+,Female,12.93
+United States of America,840.0,2030.0,25+,Female,12.59
+World,900.0,2030.0,25+,Female,8.82
+Germany,276.0,2035.0,25+,Both,13.46
+India,356.0,2035.0,25+,Both,8.51
+Australia,36.0,2035.0,25+,Both,13.46
+New Zealand,554.0,2035.0,25+,Both,13.42
+Syrian Arab Republic,760.0,2035.0,25+,Both,7.79
+United Kingdom of Great Britain and Northern Ireland,826.0,2035.0,25+,Both,13.1
+United States of America,840.0,2035.0,25+,Both,12.57
+World,900.0,2035.0,25+,Both,9.52
+Germany,276.0,2035.0,25+,Male,13.52
+India,356.0,2035.0,25+,Male,9.25
+Australia,36.0,2035.0,25+,Male,13.41
+New Zealand,554.0,2035.0,25+,Male,13.38
+Syrian Arab Republic,760.0,2035.0,25+,Male,8.01
+United Kingdom of Great Britain and Northern Ireland,826.0,2035.0,25+,Male,13.08
+United States of America,840.0,2035.0,25+,Male,12.47
+World,900.0,2035.0,25+,Male,9.85
+Germany,276.0,2035.0,25+,Female,13.41
+India,356.0,2035.0,25+,Female,7.74
+Australia,36.0,2035.0,25+,Female,13.51
+New Zealand,554.0,2035.0,25+,Female,13.45
+Syrian Arab Republic,760.0,2035.0,25+,Female,7.57
+United Kingdom of Great Britain and Northern Ireland,826.0,2035.0,25+,Female,13.13
+United States of America,840.0,2035.0,25+,Female,12.67
+World,900.0,2035.0,25+,Female,9.2
+Germany,276.0,2040.0,25+,Both,13.54
+India,356.0,2040.0,25+,Both,9.1
+Australia,36.0,2040.0,25+,Both,13.6
+New Zealand,554.0,2040.0,25+,Both,13.53
+Syrian Arab Republic,760.0,2040.0,25+,Both,8.09
+United Kingdom of Great Britain and Northern Ireland,826.0,2040.0,25+,Both,13.26
+United States of America,840.0,2040.0,25+,Both,12.64
+World,900.0,2040.0,25+,Both,9.87
+Germany,276.0,2040.0,25+,Male,13.57
+India,356.0,2040.0,25+,Male,9.75
+Australia,36.0,2040.0,25+,Male,13.54
+New Zealand,554.0,2040.0,25+,Male,13.48
+Syrian Arab Republic,760.0,2040.0,25+,Male,8.26
+United Kingdom of Great Britain and Northern Ireland,826.0,2040.0,25+,Male,13.22
+United States of America,840.0,2040.0,25+,Male,12.53
+World,900.0,2040.0,25+,Male,10.16
+Germany,276.0,2040.0,25+,Female,13.51
+India,356.0,2040.0,25+,Female,8.43
+Australia,36.0,2040.0,25+,Female,13.66
+New Zealand,554.0,2040.0,25+,Female,13.57
+Syrian Arab Republic,760.0,2040.0,25+,Female,7.93
+United Kingdom of Great Britain and Northern Ireland,826.0,2040.0,25+,Female,13.31
+United States of America,840.0,2040.0,25+,Female,12.74
+World,900.0,2040.0,25+,Female,9.58
+Germany,276.0,2045.0,25+,Both,13.62
+India,356.0,2045.0,25+,Both,9.66
+Australia,36.0,2045.0,25+,Both,13.73
+New Zealand,554.0,2045.0,25+,Both,13.62
+Syrian Arab Republic,760.0,2045.0,25+,Both,8.33
+United Kingdom of Great Britain and Northern Ireland,826.0,2045.0,25+,Both,13.41
+United States of America,840.0,2045.0,25+,Both,12.7
+World,900.0,2045.0,25+,Both,10.2
+Germany,276.0,2045.0,25+,Male,13.63
+India,356.0,2045.0,25+,Male,10.21
+Australia,36.0,2045.0,25+,Male,13.66
+New Zealand,554.0,2045.0,25+,Male,13.57
+Syrian Arab Republic,760.0,2045.0,25+,Male,8.46
+United Kingdom of Great Britain and Northern Ireland,826.0,2045.0,25+,Male,13.34
+United States of America,840.0,2045.0,25+,Male,12.59
+World,900.0,2045.0,25+,Male,10.45
+Germany,276.0,2045.0,25+,Female,13.61
+India,356.0,2045.0,25+,Female,9.08
+Australia,36.0,2045.0,25+,Female,13.79
+New Zealand,554.0,2045.0,25+,Female,13.67
+Syrian Arab Republic,760.0,2045.0,25+,Female,8.22
+United Kingdom of Great Britain and Northern Ireland,826.0,2045.0,25+,Female,13.47
+United States of America,840.0,2045.0,25+,Female,12.81
+World,900.0,2045.0,25+,Female,9.95
+Germany,276.0,2050.0,25+,Both,13.7
+India,356.0,2050.0,25+,Both,10.17
+Australia,36.0,2050.0,25+,Both,13.85
+New Zealand,554.0,2050.0,25+,Both,13.71
+Syrian Arab Republic,760.0,2050.0,25+,Both,8.6
+United Kingdom of Great Britain and Northern Ireland,826.0,2050.0,25+,Both,13.54
+United States of America,840.0,2050.0,25+,Both,12.77
+World,900.0,2050.0,25+,Both,10.5
+Germany,276.0,2050.0,25+,Male,13.7
+India,356.0,2050.0,25+,Male,10.65
+Australia,36.0,2050.0,25+,Male,13.77
+New Zealand,554.0,2050.0,25+,Male,13.65
+Syrian Arab Republic,760.0,2050.0,25+,Male,8.68
+United Kingdom of Great Britain and Northern Ireland,826.0,2050.0,25+,Male,13.46
+United States of America,840.0,2050.0,25+,Male,12.65
+World,900.0,2050.0,25+,Male,10.73
+Germany,276.0,2050.0,25+,Female,13.71
+India,356.0,2050.0,25+,Female,9.68
+Australia,36.0,2050.0,25+,Female,13.91
+New Zealand,554.0,2050.0,25+,Female,13.77
+Syrian Arab Republic,760.0,2050.0,25+,Female,8.52
+United Kingdom of Great Britain and Northern Ireland,826.0,2050.0,25+,Female,13.61
+United States of America,840.0,2050.0,25+,Female,12.88
+World,900.0,2050.0,25+,Female,10.28
+Germany,276.0,2055.0,25+,Both,13.78
+India,356.0,2055.0,25+,Both,10.67
+Australia,36.0,2055.0,25+,Both,13.95
+New Zealand,554.0,2055.0,25+,Both,13.79
+Syrian Arab Republic,760.0,2055.0,25+,Both,8.88
+United Kingdom of Great Britain and Northern Ireland,826.0,2055.0,25+,Both,13.66
+United States of America,840.0,2055.0,25+,Both,12.83
+World,900.0,2055.0,25+,Both,10.79
+Germany,276.0,2055.0,25+,Male,13.76
+India,356.0,2055.0,25+,Male,11.06
+Australia,36.0,2055.0,25+,Male,13.88
+New Zealand,554.0,2055.0,25+,Male,13.72
+Syrian Arab Republic,760.0,2055.0,25+,Male,8.93
+United Kingdom of Great Britain and Northern Ireland,826.0,2055.0,25+,Male,13.57
+United States of America,840.0,2055.0,25+,Male,12.71
+World,900.0,2055.0,25+,Male,10.99
+Germany,276.0,2055.0,25+,Female,13.81
+India,356.0,2055.0,25+,Female,10.26
+Australia,36.0,2055.0,25+,Female,14.03
+New Zealand,554.0,2055.0,25+,Female,13.85
+Syrian Arab Republic,760.0,2055.0,25+,Female,8.83
+United Kingdom of Great Britain and Northern Ireland,826.0,2055.0,25+,Female,13.74
+United States of America,840.0,2055.0,25+,Female,12.94
+World,900.0,2055.0,25+,Female,10.59
+Germany,276.0,2060.0,25+,Both,13.86
+India,356.0,2060.0,25+,Both,11.13
+Australia,36.0,2060.0,25+,Both,14.05
+New Zealand,554.0,2060.0,25+,Both,13.87
+Syrian Arab Republic,760.0,2060.0,25+,Both,9.18
+United Kingdom of Great Britain and Northern Ireland,826.0,2060.0,25+,Both,13.77
+United States of America,840.0,2060.0,25+,Both,12.9
+World,900.0,2060.0,25+,Both,11.07
+Germany,276.0,2060.0,25+,Male,13.82
+India,356.0,2060.0,25+,Male,11.46
+Australia,36.0,2060.0,25+,Male,13.97
+New Zealand,554.0,2060.0,25+,Male,13.8
+Syrian Arab Republic,760.0,2060.0,25+,Male,9.2
+United Kingdom of Great Britain and Northern Ireland,826.0,2060.0,25+,Male,13.68
+United States of America,840.0,2060.0,25+,Male,12.78
+World,900.0,2060.0,25+,Male,11.25
+Germany,276.0,2060.0,25+,Female,13.9
+India,356.0,2060.0,25+,Female,10.8
+Australia,36.0,2060.0,25+,Female,14.13
+New Zealand,554.0,2060.0,25+,Female,13.93
+Syrian Arab Republic,760.0,2060.0,25+,Female,9.15
+United Kingdom of Great Britain and Northern Ireland,826.0,2060.0,25+,Female,13.86
+United States of America,840.0,2060.0,25+,Female,13.01
+World,900.0,2060.0,25+,Female,10.9
+Germany,276.0,2065.0,25+,Both,13.93
+India,356.0,2065.0,25+,Both,11.57
+Australia,36.0,2065.0,25+,Both,14.14
+New Zealand,554.0,2065.0,25+,Both,13.94
+Syrian Arab Republic,760.0,2065.0,25+,Both,9.46
+United Kingdom of Great Britain and Northern Ireland,826.0,2065.0,25+,Both,13.88
+United States of America,840.0,2065.0,25+,Both,12.96
+World,900.0,2065.0,25+,Both,11.34
+Germany,276.0,2065.0,25+,Male,13.88
+India,356.0,2065.0,25+,Male,11.83
+Australia,36.0,2065.0,25+,Male,14.06
+New Zealand,554.0,2065.0,25+,Male,13.87
+Syrian Arab Republic,760.0,2065.0,25+,Male,9.46
+United Kingdom of Great Britain and Northern Ireland,826.0,2065.0,25+,Male,13.78
+United States of America,840.0,2065.0,25+,Male,12.84
+World,900.0,2065.0,25+,Male,11.5
+Germany,276.0,2065.0,25+,Female,13.98
+India,356.0,2065.0,25+,Female,11.31
+Australia,36.0,2065.0,25+,Female,14.22
+New Zealand,554.0,2065.0,25+,Female,14.0
+Syrian Arab Republic,760.0,2065.0,25+,Female,9.45
+United Kingdom of Great Britain and Northern Ireland,826.0,2065.0,25+,Female,13.98
+United States of America,840.0,2065.0,25+,Female,13.08
+World,900.0,2065.0,25+,Female,11.2
+Germany,276.0,2070.0,25+,Both,14.01
+India,356.0,2070.0,25+,Both,11.98
+Australia,36.0,2070.0,25+,Both,14.21
+New Zealand,554.0,2070.0,25+,Both,14.01
+Syrian Arab Republic,760.0,2070.0,25+,Both,9.71
+United Kingdom of Great Britain and Northern Ireland,826.0,2070.0,25+,Both,13.98
+United States of America,840.0,2070.0,25+,Both,13.02
+World,900.0,2070.0,25+,Both,11.6
+Germany,276.0,2070.0,25+,Male,13.95
+India,356.0,2070.0,25+,Male,12.18
+Australia,36.0,2070.0,25+,Male,14.13
+New Zealand,554.0,2070.0,25+,Male,13.94
+Syrian Arab Republic,760.0,2070.0,25+,Male,9.7
+United Kingdom of Great Britain and Northern Ireland,826.0,2070.0,25+,Male,13.87
+United States of America,840.0,2070.0,25+,Male,12.9
+World,900.0,2070.0,25+,Male,11.74
+Germany,276.0,2070.0,25+,Female,14.07
+India,356.0,2070.0,25+,Female,11.78
+Australia,36.0,2070.0,25+,Female,14.3
+New Zealand,554.0,2070.0,25+,Female,14.07
+Syrian Arab Republic,760.0,2070.0,25+,Female,9.73
+United Kingdom of Great Britain and Northern Ireland,826.0,2070.0,25+,Female,14.08
+United States of America,840.0,2070.0,25+,Female,13.14
+World,900.0,2070.0,25+,Female,11.47
+Germany,276.0,2075.0,25+,Both,14.08
+India,356.0,2075.0,25+,Both,12.36
+Australia,36.0,2075.0,25+,Both,14.27
+New Zealand,554.0,2075.0,25+,Both,14.08
+Syrian Arab Republic,760.0,2075.0,25+,Both,9.95
+United Kingdom of Great Britain and Northern Ireland,826.0,2075.0,25+,Both,14.07
+United States of America,840.0,2075.0,25+,Both,13.09
+World,900.0,2075.0,25+,Both,11.84
+Germany,276.0,2075.0,25+,Male,14.01
+India,356.0,2075.0,25+,Male,12.5
+Australia,36.0,2075.0,25+,Male,14.19
+New Zealand,554.0,2075.0,25+,Male,14.01
+Syrian Arab Republic,760.0,2075.0,25+,Male,9.92
+United Kingdom of Great Britain and Northern Ireland,826.0,2075.0,25+,Male,13.96
+United States of America,840.0,2075.0,25+,Male,12.96
+World,900.0,2075.0,25+,Male,11.96
+Germany,276.0,2075.0,25+,Female,14.14
+India,356.0,2075.0,25+,Female,12.21
+Australia,36.0,2075.0,25+,Female,14.35
+New Zealand,554.0,2075.0,25+,Female,14.14
+Syrian Arab Republic,760.0,2075.0,25+,Female,9.98
+United Kingdom of Great Britain and Northern Ireland,826.0,2075.0,25+,Female,14.17
+United States of America,840.0,2075.0,25+,Female,13.2
+World,900.0,2075.0,25+,Female,11.73
+Germany,276.0,2080.0,25+,Both,14.15
+India,356.0,2080.0,25+,Both,12.7
+Australia,36.0,2080.0,25+,Both,14.32
+New Zealand,554.0,2080.0,25+,Both,14.14
+Syrian Arab Republic,760.0,2080.0,25+,Both,10.18
+United Kingdom of Great Britain and Northern Ireland,826.0,2080.0,25+,Both,14.15
+United States of America,840.0,2080.0,25+,Both,13.14
+World,900.0,2080.0,25+,Both,12.06
+Germany,276.0,2080.0,25+,Male,14.07
+India,356.0,2080.0,25+,Male,12.8
+Australia,36.0,2080.0,25+,Male,14.24
+New Zealand,554.0,2080.0,25+,Male,14.08
+Syrian Arab Republic,760.0,2080.0,25+,Male,10.14
+United Kingdom of Great Britain and Northern Ireland,826.0,2080.0,25+,Male,14.04
+United States of America,840.0,2080.0,25+,Male,13.02
+World,900.0,2080.0,25+,Male,12.17
+Germany,276.0,2080.0,25+,Female,14.22
+India,356.0,2080.0,25+,Female,12.6
+Australia,36.0,2080.0,25+,Female,14.4
+New Zealand,554.0,2080.0,25+,Female,14.2
+Syrian Arab Republic,760.0,2080.0,25+,Female,10.22
+United Kingdom of Great Britain and Northern Ireland,826.0,2080.0,25+,Female,14.25
+United States of America,840.0,2080.0,25+,Female,13.26
+World,900.0,2080.0,25+,Female,11.97
+Germany,276.0,2085.0,25+,Both,14.21
+India,356.0,2085.0,25+,Both,13.01
+Australia,36.0,2085.0,25+,Both,14.36
+New Zealand,554.0,2085.0,25+,Both,14.21
+Syrian Arab Republic,760.0,2085.0,25+,Both,10.4
+United Kingdom of Great Britain and Northern Ireland,826.0,2085.0,25+,Both,14.22
+United States of America,840.0,2085.0,25+,Both,13.2
+World,900.0,2085.0,25+,Both,12.27
+Germany,276.0,2085.0,25+,Male,14.13
+India,356.0,2085.0,25+,Male,13.08
+Australia,36.0,2085.0,25+,Male,14.28
+New Zealand,554.0,2085.0,25+,Male,14.14
+Syrian Arab Republic,760.0,2085.0,25+,Male,10.35
+United Kingdom of Great Britain and Northern Ireland,826.0,2085.0,25+,Male,14.11
+United States of America,840.0,2085.0,25+,Male,13.08
+World,900.0,2085.0,25+,Male,12.36
+Germany,276.0,2085.0,25+,Female,14.29
+India,356.0,2085.0,25+,Female,12.94
+Australia,36.0,2085.0,25+,Female,14.44
+New Zealand,554.0,2085.0,25+,Female,14.26
+Syrian Arab Republic,760.0,2085.0,25+,Female,10.45
+United Kingdom of Great Britain and Northern Ireland,826.0,2085.0,25+,Female,14.32
+United States of America,840.0,2085.0,25+,Female,13.31
+World,900.0,2085.0,25+,Female,12.18
+Germany,276.0,2090.0,25+,Both,14.27
+India,356.0,2090.0,25+,Both,13.29
+Australia,36.0,2090.0,25+,Both,14.4
+New Zealand,554.0,2090.0,25+,Both,14.26
+Syrian Arab Republic,760.0,2090.0,25+,Both,10.63
+United Kingdom of Great Britain and Northern Ireland,826.0,2090.0,25+,Both,14.28
+United States of America,840.0,2090.0,25+,Both,13.25
+World,900.0,2090.0,25+,Both,12.45
+Germany,276.0,2090.0,25+,Male,14.19
+India,356.0,2090.0,25+,Male,13.33
+Australia,36.0,2090.0,25+,Male,14.32
+New Zealand,554.0,2090.0,25+,Male,14.21
+Syrian Arab Republic,760.0,2090.0,25+,Male,10.58
+United Kingdom of Great Britain and Northern Ireland,826.0,2090.0,25+,Male,14.18
+United States of America,840.0,2090.0,25+,Male,13.13
+World,900.0,2090.0,25+,Male,12.53
+Germany,276.0,2090.0,25+,Female,14.35
+India,356.0,2090.0,25+,Female,13.25
+Australia,36.0,2090.0,25+,Female,14.48
+New Zealand,554.0,2090.0,25+,Female,14.32
+Syrian Arab Republic,760.0,2090.0,25+,Female,10.68
+United Kingdom of Great Britain and Northern Ireland,826.0,2090.0,25+,Female,14.38
+United States of America,840.0,2090.0,25+,Female,13.36
+World,900.0,2090.0,25+,Female,12.37
+Germany,276.0,2095.0,25+,Both,14.32
+India,356.0,2095.0,25+,Both,13.53
+Australia,36.0,2095.0,25+,Both,14.44
+New Zealand,554.0,2095.0,25+,Both,14.32
+Syrian Arab Republic,760.0,2095.0,25+,Both,10.86
+United Kingdom of Great Britain and Northern Ireland,826.0,2095.0,25+,Both,14.34
+United States of America,840.0,2095.0,25+,Both,13.29
+World,900.0,2095.0,25+,Both,12.61
+Germany,276.0,2095.0,25+,Male,14.24
+India,356.0,2095.0,25+,Male,13.55
+Australia,36.0,2095.0,25+,Male,14.36
+New Zealand,554.0,2095.0,25+,Male,14.26
+Syrian Arab Republic,760.0,2095.0,25+,Male,10.8
+United Kingdom of Great Britain and Northern Ireland,826.0,2095.0,25+,Male,14.24
+United States of America,840.0,2095.0,25+,Male,13.17
+World,900.0,2095.0,25+,Male,12.69
+Germany,276.0,2095.0,25+,Female,14.4
+India,356.0,2095.0,25+,Female,13.51
+Australia,36.0,2095.0,25+,Female,14.51
+New Zealand,554.0,2095.0,25+,Female,14.37
+Syrian Arab Republic,760.0,2095.0,25+,Female,10.93
+United Kingdom of Great Britain and Northern Ireland,826.0,2095.0,25+,Female,14.43
+United States of America,840.0,2095.0,25+,Female,13.4
+World,900.0,2095.0,25+,Female,12.54
+Germany,276.0,2100.0,25+,Both,14.37
+India,356.0,2100.0,25+,Both,13.74
+Australia,36.0,2100.0,25+,Both,14.47
+New Zealand,554.0,2100.0,25+,Both,14.37
+Syrian Arab Republic,760.0,2100.0,25+,Both,11.1
+United Kingdom of Great Britain and Northern Ireland,826.0,2100.0,25+,Both,14.39
+United States of America,840.0,2100.0,25+,Both,13.33
+World,900.0,2100.0,25+,Both,12.76
+Germany,276.0,2100.0,25+,Male,14.28
+India,356.0,2100.0,25+,Male,13.74
+Australia,36.0,2100.0,25+,Male,14.4
+New Zealand,554.0,2100.0,25+,Male,14.31
+Syrian Arab Republic,760.0,2100.0,25+,Male,11.02
+United Kingdom of Great Britain and Northern Ireland,826.0,2100.0,25+,Male,14.3
+United States of America,840.0,2100.0,25+,Male,13.22
+World,900.0,2100.0,25+,Male,12.83
+Germany,276.0,2100.0,25+,Female,14.45
+India,356.0,2100.0,25+,Female,13.74
+Australia,36.0,2100.0,25+,Female,14.54
+New Zealand,554.0,2100.0,25+,Female,14.42
+Syrian Arab Republic,760.0,2100.0,25+,Female,11.17
+United Kingdom of Great Britain and Northern Ireland,826.0,2100.0,25+,Female,14.48
+United States of America,840.0,2100.0,25+,Female,13.45
+World,900.0,2100.0,25+,Female,12.69

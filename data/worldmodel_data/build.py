@@ -24,7 +24,7 @@ from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
 from worldmodel_data import __version__, episodes, gates
 from worldmodel_data.config import Paths
-from worldmodel_data.vintage_store import EVENT_COLUMNS, TEXT_COLUMNS, VintageStore, now_utc
+from worldmodel_data.vintage_store import EVENT_COLUMNS, LAYER_COLUMNS, TEXT_COLUMNS, VintageStore, now_utc
 
 log = logging.getLogger(__name__)
 
@@ -175,8 +175,9 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
     file_list = ", ".join(f"'{f}'" for f in files)
     con.execute(f"CREATE TABLE src.raw_observations AS SELECT * FROM read_parquet([{file_list}], union_by_name = true)")
 
-    # Text (Factbook fields, Wikidata facts) and dated events: the latest vintage of each source only.
-    for table, file, columns in (("raw_texts", "texts.parquet", TEXT_COLUMNS), ("raw_events", "events.parquet", EVENT_COLUMNS)):
+    # Text (Factbook fields, Wikidata facts), dated events and map layers: the latest vintage of each source only.
+    for table, file, columns in (("raw_texts", "texts.parquet", TEXT_COLUMNS), ("raw_events", "events.parquet", EVENT_COLUMNS),
+                                 ("raw_layers", "layers.parquet", LAYER_COLUMNS)):
         found = [(paths.vintages / m.source_id / m.vintage.replace("/", "_") / file).as_posix() for m in latest.values()]
         found = [f for f in found if Path(f).exists()]
         con.execute(f"CREATE TABLE src.{table} ({', '.join(f'{c} {t}' for c, t in columns.items())})")
