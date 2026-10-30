@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import Panel from "@/components/Panel";
+import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import Panel, { type Value } from "@/components/Panel";
 import Search from "@/components/Search";
+import { makeScale, type Scale } from "@/components/WorldMap";
 import { api, type Indicator } from "@/lib/api";
-import { seriesVar } from "@/lib/colors";
-import { LAYOUTS, MAX_PANELS, MAX_SELECTION, fromQuery, reducer, toQuery, type Layout, type Workspace } from "@/lib/workspace";
+import { CameraBus } from "@/lib/camera";
+import { DIVERGING, seriesVar } from "@/lib/colors";
+import {
+  LAYOUTS, MAX_PANELS, MAX_SELECTION, fromQuery, reducer, selectionOf, toQuery, type Group, type Layout, type Workspace,
+} from "@/lib/workspace";
 
 // Grid areas per layout; the panels fill a, b, c, d in order.
 const AREAS: Record<Layout, string> = {
@@ -26,6 +30,41 @@ function ExploreWorkspace() {
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [hover, setHover] = useState<{ entity: string; group: Group } | null>(null);
+  const [values, setValues] = useState<Record<string, Value[]>>({});
+  const cameraBus = useMemo(() => new CameraBus(), []);
+
+  const onValues = useCallback((id: string, v: Value[] | null) => {
+    setValues((cur) => {
+      if (v === null) {
+        if (!(id in cur)) return cur;
+        const { [id]: _gone, ...rest } = cur;
+        return rest;
+      }
+      return cur[id] === v ? cur : { ...cur, [id]: v };
+    });
+  }, []);
+
+  // One colour scale per group and indicator, built from every linked map showing it,
+  // so the same colour means the same value across years.
+  const scales = useMemo(() => {
+    const pools = new Map<string, { ids: string[]; vals: number[]; indicator: string }>();
+    for (const p of ws.panels) {
+      if (p.view !== "map" || !p.links.scale || !values[p.id]) continue;
+      const key = `${p.group}|${p.indicator}`;
+      const pool = pools.get(key) ?? { ids: [], vals: [], indicator: p.indicator };
+      pool.ids.push(p.id);
+      pool.vals.push(...values[p.id].map((v) => v.value));
+      pools.set(key, pool);
+    }
+    const out = new Map<string, Scale>();
+    for (const pool of pools.values()) {
+      if (pool.ids.length < 2) continue;
+      const scale = makeScale(pool.vals, DIVERGING.has(pool.indicator));
+      for (const id of pool.ids) out.set(id, scale);
+    }
+    return out;
+  }, [ws.panels, values]);
 
   useEffect(() => {
     api.indicators()
@@ -55,12 +94,20 @@ function ExploreWorkspace() {
             panel={p}
             indicators={indicators}
             names={names}
-            selection={ws.selection}
             dispatch={dispatch}
             canDuplicate={ws.panels.length < MAX_PANELS}
             canClose={ws.panels.length > 1}
             maximised={ws.maximised === p.id}
             style={{ gridArea: ws.maximised ? "a" : "abcd"[i] }}
+            selection={selectionOf(ws, p)}
+            hovered={p.links.hover && hover?.group === p.group ? hover.entity : null}
+            onHover={(entity) => {
+              if (!p.links.hover) return;
+              setHover((h) => (entity === null ? (h?.group === p.group ? null : h) : { entity, group: p.group }));
+            }}
+            scale={scales.get(p.id)}
+            onValues={onValues}
+            cameraBus={cameraBus}
           />
         ))}
       </Grid>

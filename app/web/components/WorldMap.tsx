@@ -4,6 +4,7 @@ import maplibregl, { type ExpressionSpecification, type GeoJSONSource } from "ma
 import { useEffect, useMemo, useRef } from "react";
 import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
+import type { CameraBus } from "@/lib/camera";
 import { countryShapes } from "@/lib/geo";
 
 type Value = { entity_id: string; value: number; status: string };
@@ -15,9 +16,13 @@ type Props = {
   onPick: (iso3: string) => void;
   selected?: string[];
   fill?: boolean; // fill the parent's height instead of the fixed page height
+  scale?: Scale; // a colour scale shared with other maps; default: this map's own
+  hovered?: string | null; // a country hovered in a linked panel
+  onHover?: (iso3: string | null) => void;
+  camera?: { bus: CameraBus; id: string; group: string } | null; // linked map position
 };
 
-type Scale = { breaks: number[]; colors: string[] };
+export type Scale = { breaks: number[]; colors: string[] };
 
 // Seven classes at quantiles of this year's values; a diverging indicator gets
 // three classes each side of zero (red below, blue above) so the sign reads at a glance.
@@ -57,14 +62,19 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
     cssVar("--no-data")] as ExpressionSpecification;
 }
 
-export default function WorldMap({ values, unit, decimals, diverging, onPick, selected = [], fill = false }: Props) {
+export default function WorldMap({
+  values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
+}: Props) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
+  const hover = useRef(onHover);
+  hover.current = onHover;
 
-  const scale = useMemo(() => makeScale(values.map((v) => v.value), diverging), [values, diverging]);
+  const own = useMemo(() => makeScale(values.map((v) => v.value), diverging), [values, diverging]);
+  const scale = shared ?? own;
   const byIso = useMemo(() => new Map(values.map((v) => [v.entity_id, v])), [values]);
 
   useEffect(() => {
@@ -97,7 +107,10 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick, se
       });
       m.addLayer({
         id: "hover", type: "line", source: "countries",
-        paint: { "line-color": cssVar("--ink"), "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 0] },
+        paint: {
+          "line-color": cssVar("--ink"),
+          "line-width": ["case", ["any", ["boolean", ["feature-state", "hover"], false], ["boolean", ["feature-state", "linked"], false]], 1.5, 0],
+        },
       });
       m.addLayer({
         id: "selected", type: "line", source: "countries", filter: ["in", ["get", "iso3"], ["literal", []]],
@@ -113,6 +126,7 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick, se
     m.on("mousemove", "fill", (e) => {
       const f = e.features?.[0];
       if (!f) return;
+      if (f.id !== hovered) hover.current?.(f.id === undefined ? null : String(f.id));
       if (hovered !== undefined) m.setFeatureState({ source: "countries", id: hovered }, { hover: false });
       hovered = f.id;
       if (hovered !== undefined) m.setFeatureState({ source: "countries", id: hovered }, { hover: true });
@@ -125,6 +139,7 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick, se
     m.on("mouseleave", "fill", () => {
       if (hovered !== undefined) m.setFeatureState({ source: "countries", id: hovered }, { hover: false });
       hovered = undefined;
+      hover.current?.(null);
       m.getCanvas().style.cursor = "";
       popup.remove();
     });
@@ -162,6 +177,38 @@ export default function WorldMap({ values, unit, decimals, diverging, onPick, se
     if (m.getSource("countries")) apply();
     else m.once("worldmodel:ready", apply);
   }, [byIso, scale, unit, decimals]);
+
+  // Outline the country hovered in a linked panel.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !hovered) return;
+    const id = hovered;
+    const apply = () => m.setFeatureState({ source: "countries", id }, { linked: true });
+    const clear = () => { if (m.getSource("countries")) m.setFeatureState({ source: "countries", id }, { linked: false }); };
+    if (m.getSource("countries")) apply();
+    else m.once("worldmodel:ready", apply);
+    return clear;
+  }, [hovered]);
+
+  // Follow and lead the other maps in the group.
+  const camKey = camera ? `${camera.id}|${camera.group}` : "";
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !camera) return;
+    const { bus, id, group } = camera;
+    const unsubscribe = bus.subscribe(id, group, (c) => m.jumpTo(c));
+    const start = bus.last.get(group);
+    if (start) m.jumpTo(start);
+    const onMove = () => {
+      const c = m.getCenter();
+      bus.publish(id, group, { center: [c.lng, c.lat], zoom: m.getZoom() });
+    };
+    m.on("move", onMove);
+    return () => {
+      unsubscribe();
+      m.off("move", onMove);
+    };
+  }, [camKey]);
 
   const selectedKey = selected.join(",");
   useEffect(() => {
