@@ -56,6 +56,7 @@ def weo_history(path: Path) -> Path:
     for iso, code in (("NZL", 196), ("AUS", 193)):
         for year in range(2010, 2018):
             ws.append([iso, code, iso, year, 2.0 + (year - 2010) * 0.1, 2.5, "n/a" if year == 2017 else 3.0])
+    ws.append(["STP", 716, "STP", 2012, 296.99, "n/a", "n/a"])  # a slip in one release, far past the bounds
     ws2 = wb.create_sheet("pcpi_pch")
     ws2.append(["note: inflation"])
     ws2.append(["Country", "ISO", "Year", "S2013", "F2013"])
@@ -122,6 +123,13 @@ def test_whatif_checks_in_report(built):
     checks = dict(con.execute("SELECT check_id, status FROM build_checks WHERE check_id LIKE 'whatif:%'").fetchall())
     assert set(checks) == {"whatif:projection", "whatif:backtest"}
     assert "fail" not in checks.values()
+
+
+def test_history_values_outside_the_bounds_are_left_out(built):
+    _, result, _ = built
+    con = duckdb.connect(str(result.path), read_only=True)
+    assert not con.execute("SELECT count(*) FROM observations WHERE source_id = 'imf_weo_history' "
+                           "AND entity_id = 'STP'").fetchone()[0]
 
 
 def test_history_file_is_found_beside_the_latest_weo_release(tmp_path):
