@@ -5,7 +5,7 @@ PY ?= python3
 VENV := .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup setup-data setup-app refresh build status api web dev test typecheck
+.PHONY: setup setup-data setup-app update refresh build status api web dev test typecheck
 
 setup: setup-data setup-app  ## install everything
 
@@ -19,6 +19,10 @@ setup-data: $(BIN)/python  ## the data pipeline only
 setup-app: $(BIN)/python  ## the API and web app only
 	$(BIN)/pip install -e contract -e "app/api[test]"
 	cd app/web && npm install
+
+update:  ## latest code from GitHub, then any new packages (your data in var/ is untouched)
+	git checkout -q main && git pull --ff-only origin main
+	$(MAKE) setup
 
 refresh:  ## fetch every source, then build and validate a new warehouse
 	$(BIN)/worldmodel-data refresh
