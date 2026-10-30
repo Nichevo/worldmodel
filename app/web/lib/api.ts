@@ -35,7 +35,10 @@ export type Indicator = {
   last_year: number | null;
   last_estimate_year: number | null;
   available: boolean;
-  sources: { source_id: string; series: string; rank: number; notes: string }[];
+  countries: number;
+  default_on: boolean;
+  enabled: boolean; // switched on in the Indicators page, so it appears in panel menus
+  sources: { source_id: string; series: string; rank: number; notes: string; source_name: string | null; licence: string | null }[];
 };
 
 export type SeriesRow = {
@@ -134,7 +137,55 @@ export async function get<T>(path: string, params: Record<string, string | numbe
 
 export type SavedLayout = { name: string; query: string; saved_at: string };
 
-async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+// The Settings page; defaults and ranges live in the contract (worldmodel_contract.local).
+export type Settings = {
+  click_mode: "popup" | "select";
+  hover_sparkline: boolean;
+  popup_tabs: boolean;
+  side_panel: boolean;
+  disk_limit_gb: number;
+  pictures_limit_gb: number;
+  numbeo_daily: number;
+  wikipedia_countries_daily: number;
+  wikipedia_cities_daily: number;
+  history_paused: boolean;
+  history_retention_days: number;
+};
+
+export type HistoryKind = "page" | "view" | "indicator" | "pin" | "fetch";
+export type HistoryEntry = {
+  id: string; at: string; kind: HistoryKind; title: string; url?: string; entity?: string; indicator?: string;
+  detail?: string; star: boolean; note: string;
+};
+
+export type Popup = {
+  entity: string; name: string; type: string; indicator: string; year: number;
+  value: number | null; status: string | null; rank: number | null; of: number;
+  change10: { from_year: number; value: number } | null;
+  region: { entity_id: string; name: string } | null;
+  series: { entity: [number, number, string][]; region: [number, number, string][]; world: [number, number, string][] };
+};
+
+export type MapRange = { indicator: string; years: number[]; last_estimate_year: number | null; rows: Record<string, (number | null)[]> };
+
+export type StorageLevel = "ok" | "warn" | "critical" | "full";
+export type Storage = {
+  home: string; total: number; level: StorageLevel; warn_at: number; critical_at: number; freeable: number;
+  categories: { key: string; label: string; bytes: number }[];
+  limits: { key: string; label: string; used: number; limit: number; level: StorageLevel }[];
+};
+
+export type RefreshSource = {
+  source_id: string; status?: "new" | "unchanged" | "skipped" | "error"; vintage?: string; seconds?: number;
+  download_bytes?: number; rows?: number; added?: number; changed?: number; removed?: number; error?: string; note?: string;
+};
+export type RefreshRun = {
+  build_id: string | null; kind: "refresh" | "build"; status: "ok" | "failed"; started_at: string; finished_at: string | null;
+  checks?: Record<"pass" | "warn" | "fail" | "skip", number>; sources: RefreshSource[];
+  disk: Record<string, number> | null; backfilled?: boolean; error?: string;
+};
+
+async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -171,4 +222,20 @@ export const api = {
   layouts: () => get<SavedLayout[]>("/layouts"),
   saveLayout: (name: string, query: string) => send<SavedLayout>("PUT", `/layouts/${encodeURIComponent(name)}`, { query }),
   deleteLayout: (name: string) => send<{ deleted: string }>("DELETE", `/layouts/${encodeURIComponent(name)}`),
+  settings: () => get<{ settings: Settings; defaults: Settings }>("/settings"),
+  saveSettings: (patch: Partial<Settings>) => send<{ settings: Settings; defaults: Settings }>("PUT", "/settings", patch),
+  switchIndicators: (changes: Record<string, boolean>) => send<{ changed: number }>("PUT", "/indicator-switches", changes),
+  resetIndicators: () => send<{ reset: boolean }>("DELETE", "/indicator-switches"),
+  history: (q: { q?: string; kind?: string; starred?: boolean; since?: string; until?: string; limit?: number } = {}) =>
+    get<HistoryEntry[]>("/history", { ...q, starred: q.starred ? "true" : undefined }),
+  logHistory: (entry: { kind: HistoryKind; title: string; url?: string; entity?: string; indicator?: string; detail?: string }) =>
+    send<{ entry: HistoryEntry | null }>("POST", "/history", entry),
+  markHistory: (id: string, mark: { star?: boolean; note?: string }) => send<{ id: string; star: boolean; note: string }>("PATCH", `/history/${id}`, mark),
+  clearHistory: (keepStarred = true, before?: string) =>
+    send<{ deleted: number }>("DELETE", `/history?keep_starred=${keepStarred}${before ? `&before=${before}` : ""}`),
+  popup: (entity: string, indicator: string, year: number) => get<Popup>("/popup", { entity, indicator, year }),
+  mapRange: (indicator: string, start?: number, end?: number) => get<MapRange>("/map/range", { indicator, start, end }),
+  storage: () => get<Storage>("/storage"),
+  freeUp: () => send<{ removed: string[]; freed_bytes: number }>("POST", "/storage/free-up"),
+  refreshLog: () => get<RefreshRun[]>("/refresh-log"),
 };

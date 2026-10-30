@@ -3,6 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Metadata } from "next";
 import Nav from "@/components/Nav";
 import SampleBanner from "@/components/SampleBanner";
+import StorageBanner from "@/components/StorageBanner";
 
 export const metadata: Metadata = {
   title: "Worldmodel",
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Nav />
         <SampleBanner />
+        <StorageBanner />
         <main>{children}</main>
       </body>
     </html>
