@@ -14,7 +14,7 @@ import duckdb
 import httpx
 
 from worldmodel_contract import catalogue
-from worldmodel_data.vintage_store import STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore, now_utc, sha256_files
+from worldmodel_data.vintage_store import EVENT_COLUMNS, STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore, now_utc, sha256_files
 
 log = logging.getLogger(__name__)
 
@@ -77,10 +77,14 @@ class HttpCache:
 class Connector(ABC):
     source_id: str = ""
     frozen = False                     # True: a refresh skips the source once it has a vintage (a closed archive)
+    manual = False                     # True: never downloaded; loaded with `fetch <source> --from FILE` only
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
     # Raise when stage() changes in a way that alters stored output: vintages staged by an
     # older version are staged again from their raw files (by `upgrade`, or the next fetch).
     stage_version = 1
+    # Raise when download() starts fetching more files: the next refresh fetches the source
+    # even if its schedule says it is not due yet (or it is a frozen archive).
+    fetch_version = 1
 
     def __init__(self, client: httpx.Client | None = None):
         self._client = client
@@ -90,6 +94,7 @@ class Connector(ABC):
         self.listed_indicators: list[dict] = []   # indicators.json: catalogue-shaped, see catalogue.source_indicators
         self.listed_memberships: list[dict] = []  # memberships.json: rows shaped like memberships.csv
         self.texts_query: str | None = None  # texts.parquet: a SQL query producing TEXT_COLUMNS, for sources with text
+        self.events_query: str | None = None  # events.parquet: a SQL query producing EVENT_COLUMNS, for dated events
 
     @property
     def client(self) -> httpx.Client:
@@ -172,6 +177,7 @@ class Connector(ABC):
         manifest = Manifest(
             source_id=self.source_id, vintage=vintage, release=release, retrieved_at=fetched_at.isoformat(),
             origin=origin, sha256=sha, raw_dir=str(raw_dir.relative_to(store.paths.home)), files=file_info,
+            fetch_version=self.fetch_version,
         )
         self._stage_vintage(store, manifest)
         log.info("%s: stored vintage %s (%s rows)", self.source_id, vintage, manifest.row_count)
@@ -191,7 +197,8 @@ class Connector(ABC):
         raw_dir, release, vintage = store.paths.home / manifest.raw_dir, manifest.release, manifest.vintage
         out_dir = store.vintage_dir(self.source_id, vintage)
         out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "texts.parquet").unlink(missing_ok=True)
+        for name in ("texts.parquet", "events.parquet"):
+            (out_dir / name).unlink(missing_ok=True)
         con = duckdb.connect()
         try:
             query = self.stage(con, raw_dir, release, vintage)
@@ -207,7 +214,16 @@ class Connector(ABC):
                 if texts:
                     con.execute(f"COPY staged_texts TO '{(out_dir / 'texts.parquet').as_posix()}' "
                                 "(FORMAT parquet, COMPRESSION zstd)")
-            if rows == 0 and texts == 0:
+            events = 0
+            if self.events_query:
+                ecols = ", ".join(f"CAST({c} AS {t}) AS {c}" for c, t in EVENT_COLUMNS.items())
+                con.execute(f"CREATE TABLE staged_events AS SELECT {ecols} FROM ({self.events_query}) "
+                            "WHERE start_date IS NOT NULL AND kind IS NOT NULL")
+                events = con.execute("SELECT count(*) FROM staged_events").fetchone()[0]
+                if events:
+                    con.execute(f"COPY staged_events TO '{(out_dir / 'events.parquet').as_posix()}' "
+                                "(FORMAT parquet, COMPRESSION zstd)")
+            if rows == 0 and texts == 0 and events == 0:
                 raise ConnectorError(f"{self.source_id}: staged 0 rows from {raw_dir}")
             parquet = out_dir / "observations.parquet"
             con.execute(f"COPY staged TO '{parquet.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
@@ -220,6 +236,7 @@ class Connector(ABC):
                 (out_dir / name).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
 
         manifest.row_count, manifest.stage_version = rows, self.stage_version
+        manifest.text_count, manifest.event_count = texts, events
         manifest.write(out_dir / "manifest.json")
 
     def _copy_local(self, from_path: Path, dest: Path) -> str:

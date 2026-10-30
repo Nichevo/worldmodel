@@ -24,6 +24,8 @@ python scripts/sample/make_factbook_sample.py factbook.db sample_inputs/cia_fact
 # 2. a throwaway data folder, the normal pipeline, then copy the build
 export WORLDMODEL_HOME=$PWD/sample_home
 for s in un_wpp imf_weo world_bank_wdi owid_energy cia_factbook; do worldmodel-data fetch $s --from sample_inputs/$s; done
+#    a few example events (coups, conflicts, disasters, elections, sporting events): the test fixtures
+for s in powell_thyne ucdp_acd emdat wikidata; do worldmodel-data fetch $s --from data/tests/fixtures/$s; done
 worldmodel-data build
 worldmodel-data publish app/sample/worldmodel-sample.duckdb
 # 3. keep Factbook text for the last edition, and every edition for a few countries only

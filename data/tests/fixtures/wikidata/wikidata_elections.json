@@ -1,0 +1,55 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q16253391"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2014 New Zealand general election"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2014-09-20T00:00:00Z"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "general election"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q22682986"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2016 United Kingdom European Union membership referendum"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2016-06-23T00:00:00Z"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "referendum"
+    }
+   }
+  ]
+ }
+}

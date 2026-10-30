@@ -16,3 +16,5 @@ sources:
       - name: vintages
       - name: raw_observations
       - name: raw_texts
+      - name: raw_events
+      - name: notable_episodes

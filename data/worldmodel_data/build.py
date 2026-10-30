@@ -22,9 +22,9 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import __version__, gates
+from worldmodel_data import __version__, episodes, gates
 from worldmodel_data.config import Paths
-from worldmodel_data.vintage_store import TEXT_COLUMNS, VintageStore, now_utc
+from worldmodel_data.vintage_store import EVENT_COLUMNS, TEXT_COLUMNS, VintageStore, now_utc
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +79,10 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
         con = duckdb.connect(str(tmp))
         try:
             if dbt_ok:  # the Python gates read tables dbt skips once a test fails
+                found = episodes.compute(con)
+                checks.append(gates.Check("episodes:computed", "episodes", "info",
+                                          f"{found} recessions, booms, inflation spikes and debt surges worked out "
+                                          "from the data (rules in episode_rules.yaml)"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]
@@ -122,6 +126,13 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
         casts = ", ".join(f"CAST(nullif({c}, '') AS {t}) AS {c}" for c, t in cols.items())
         con.execute(f"CREATE TABLE src.{name} AS SELECT {casts} FROM "
                     f"read_csv('{(cat / f'{name}.csv').as_posix()}', header = true, all_varchar = true)")
+    # The curated notable episodes (dates and descriptions typed from the sources linked on each row).
+    cols = {"event_key": "VARCHAR", "entity_id": "VARCHAR", "subkind": "VARCHAR", "title": "VARCHAR",
+            "start_date": "DATE", "end_date": "DATE", "precision": "VARCHAR", "size": "DOUBLE", "size_unit": "VARCHAR",
+            "url": "VARCHAR", "detail": "VARCHAR"}
+    casts = ", ".join(f"CAST(nullif({c}, '') AS {t}) AS {c}" for c, t in cols.items())
+    con.execute(f"CREATE TABLE src.notable_episodes AS SELECT {casts} FROM "
+                f"read_csv('{(cat / 'notable_episodes.csv').as_posix()}', header = true, all_varchar = true)")
 
     latest = {}
     for m in manifests:
@@ -164,15 +175,14 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
     file_list = ", ".join(f"'{f}'" for f in files)
     con.execute(f"CREATE TABLE src.raw_observations AS SELECT * FROM read_parquet([{file_list}], union_by_name = true)")
 
-    # Text (Factbook fields, Wikidata facts): the latest vintage of each source only.
-    texts = [(paths.vintages / m.source_id / m.vintage.replace("/", "_") / "texts.parquet").as_posix()
-             for m in latest.values()]
-    texts = [t for t in texts if Path(t).exists()]
-    cols = ", ".join(f"{c} {t}" for c, t in TEXT_COLUMNS.items())
-    con.execute(f"CREATE TABLE src.raw_texts ({cols})")
-    if texts:
-        con.execute(f"INSERT INTO src.raw_texts BY NAME SELECT * FROM read_parquet([{', '.join(repr(t) for t in texts)}], "
-                    "union_by_name = true)")
+    # Text (Factbook fields, Wikidata facts) and dated events: the latest vintage of each source only.
+    for table, file, columns in (("raw_texts", "texts.parquet", TEXT_COLUMNS), ("raw_events", "events.parquet", EVENT_COLUMNS)):
+        found = [(paths.vintages / m.source_id / m.vintage.replace("/", "_") / file).as_posix() for m in latest.values()]
+        found = [f for f in found if Path(f).exists()]
+        con.execute(f"CREATE TABLE src.{table} ({', '.join(f'{c} {t}' for c, t in columns.items())})")
+        if found:
+            con.execute(f"INSERT INTO src.{table} BY NAME SELECT * FROM read_parquet([{', '.join(repr(f) for f in found)}], "
+                        "union_by_name = true)")
 
 
 def all_indicators(paths: Paths, latest) -> list:
