@@ -38,7 +38,7 @@ Needs Python 3.11+ and Node 20+.
 ```sh
 make setup        # virtualenv + Python packages + npm install
 make api          # terminal 1: API on http://127.0.0.1:8000 (docs at /docs)
-make web          # terminal 2: app on http://localhost:3000
+make web          # terminal 2: app on http://localhost:3030
 ```
 
 The app starts on the bundled sample. To load current data:

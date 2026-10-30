@@ -36,7 +36,7 @@ status:
 api:  ## the local API on http://127.0.0.1:8000 (docs at /docs)
 	$(BIN)/worldmodel-api
 
-web:  ## the web app on http://localhost:3000 (needs the API running)
+web:  ## the web app on http://localhost:3030 (needs the API running)
 	cd app/web && npm run dev
 
 dev:  ## API and web app together
