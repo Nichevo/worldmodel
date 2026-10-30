@@ -57,3 +57,12 @@ def test_bad_warehouse_is_refused(tmp_path):
     from worldmodel_api.warehouse import WarehouseError
     with pytest.raises(WarehouseError):
         Warehouse(str(bad)).current()
+
+
+def test_datasets_summarise_each_source(client):
+    found = {d["source_id"]: d for d in client.get("/api/v1/datasets").json()}
+    wpp = found["un_wpp"]
+    assert wpp["latest_vintage"]["vintage"] == "2024"
+    tfr = next(i for i in wpp["indicators"] if i["indicator_id"] == "tfr")
+    assert tfr["countries"] >= 200 and tfr["first_year"] <= 1950 and tfr["last_year"] >= 2100
+    assert found["world_bank_wdi"]["latest_vintage"] is None and found["world_bank_wdi"]["indicators"] == []

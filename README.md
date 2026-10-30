@@ -38,7 +38,7 @@ Needs Python 3.11+ and Node 20+.
 ```sh
 make setup        # virtualenv + Python packages + npm install
 make api          # terminal 1: API on http://127.0.0.1:8000 (docs at /docs)
-make web          # terminal 2: app on http://localhost:3000
+make web          # terminal 2: app on http://localhost:3030
 ```
 
 The app starts on the bundled sample. To load current data:
@@ -49,14 +49,36 @@ make refresh      # fetch UN WPP 2024 and the latest IMF WEO, build, validate, g
 
 The API notices the new build on its next request; no restart needed.
 
-Without `make` (Windows PowerShell):
+### On Windows, with conda
 
-```powershell
-py -m venv .venv; .venv\Scripts\pip install -e contract -e "data[test]" -e "app/api[test]"
-.venv\Scripts\worldmodel-data refresh
-.venv\Scripts\worldmodel-api
-cd app\web; npm install; npm run dev
+Needs [Miniconda or Anaconda](https://docs.conda.io/en/latest/miniconda.html)
+and Git. Open an **Anaconda Prompt** (plain Command Prompt won't find conda
+unless you ran `conda init cmd.exe`), then:
+
+```bat
+git clone https://github.com/Nichevo/worldmodel D:\worldmodel
+cd /d D:\worldmodel
+setup.bat         :: once: conda env "worldmodel" (Python, Node, Git) + all packages
+start.bat         :: API and web app in their own windows, then the browser
 ```
+
+Your data lives in `var\` inside this folder (set as `WORLDMODEL_HOME` in the
+conda environment, so it doesn't depend on where you run commands from). To
+load current data: `conda activate worldmodel`, then `worldmodel-data refresh`.
+
+### Updating
+
+Stop the app (close its two windows), then:
+
+```bat
+update.bat        :: Windows: latest code from GitHub + any new packages
+```
+```sh
+make update       # macOS / Linux
+```
+
+Updates only touch code and packages; `var/` (your downloads and builds) is
+never changed. If an update says `environment.yml` changed, run `setup.bat` again.
 
 ## The data side
 

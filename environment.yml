@@ -1,0 +1,9 @@
+# Conda environment for running worldmodel on your own machine (used by setup.bat).
+name: worldmodel
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - nodejs=22
+  - git
+  - pip
