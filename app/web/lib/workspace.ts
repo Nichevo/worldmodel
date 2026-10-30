@@ -3,12 +3,13 @@
 // Panels in the same link group (A or B) can share their map position, hover,
 // year, indicator and colour scale; selection is shared by every panel that
 // links it. The whole state round-trips through the URL so any view can be
-// bookmarked.
+// bookmarked. Countries can also be pinned as popups (up to four, on their
+// panel) and sent to the side panel's pinboard; both are saved with the layout.
 
 export type View = "map" | "chart" | "table" | "pyramid" | "scatter";
 export type Layout = "1" | "2h" | "2v" | "3" | "4";
 export type Group = "A" | "B";
-export type LinkKey = "camera" | "hover" | "select" | "year" | "indicator" | "scale";
+export type LinkKey = "camera" | "hover" | "select" | "year" | "indicator" | "scale" | "range";
 export type Links = Record<LinkKey, boolean>;
 
 export type Panel = {
@@ -22,8 +23,14 @@ export type Panel = {
   selection: string[]; // used only while selection is unlinked
   cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
-  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions)
+  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flag "o" also trims chart lines
+  range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
 };
+
+// A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
+export type Pin = { entity: string; panel: string; lng?: number; lat?: number };
+// A card on the side panel's pinboard: one country and indicator.
+export type BoardItem = { entity: string; indicator: string };
 
 export type Workspace = {
   layout: Layout;
@@ -31,6 +38,9 @@ export type Workspace = {
   selection: string[];
   maximised: string | null;
   split: [number, number]; // column and row divider positions, as fractions
+  pins: Pin[];
+  board: BoardItem[];
+  side: boolean; // pinboard shown (when the side panel is on in Settings)
 };
 
 export const LAYOUTS: { id: Layout; label: string; panels: number }[] = [
@@ -49,16 +59,19 @@ export const LINKS: { key: LinkKey; letter: string; label: string; hint: string 
   { key: "year", letter: "y", label: "Year", hint: "One year slider for the group" },
   { key: "indicator", letter: "i", label: "Indicator", hint: "Change the indicator together" },
   { key: "scale", letter: "k", label: "Colour scale", hint: "Same colours for the same values when the indicator matches" },
+  { key: "range", letter: "r", label: "Chart years", hint: "Charts in the group show the same span of years" },
 ];
 
 // The table column for the change in the panel's indicator over ten years.
 export const CHANGE_COL = "chg10";
 
-export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true };
+export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true, range: false };
 
 const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter"];
 export const MAX_PANELS = 4;
 export const MAX_SELECTION = 8; // one categorical colour each
+export const MAX_PINS = 4;
+export const MAX_BOARD = 12;
 
 const count = (layout: Layout) => LAYOUTS.find((l) => l.id === layout)!.panels;
 const layoutFor = (n: number, current: Layout): Layout =>
@@ -68,7 +81,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -77,11 +90,14 @@ export const DEFAULT: Workspace = {
   selection: [],
   maximised: null,
   split: [0.5, 0.5],
+  pins: [],
+  board: [],
+  side: true,
 };
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range">> }
   | { type: "load"; ws: Workspace }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
   | { type: "duplicate"; id: string }
@@ -89,31 +105,40 @@ export type Action =
   | { type: "maximise"; id: string | null }
   | { type: "split"; split: [number, number] }
   | { type: "toggleSelect"; entity: string; panel?: string }
-  | { type: "select"; selection: string[] };
+  | { type: "select"; selection: string[] }
+  | { type: "pin"; pin: Pin }
+  | { type: "unpin"; entity: string; panel: string }
+  | { type: "board"; item: BoardItem; on: boolean }
+  | { type: "clearBoard" }
+  | { type: "side"; on: boolean };
 
 // Other panels in the same group that link this setting.
 const peers = (ws: Workspace, p: Panel, key: LinkKey) =>
   ws.panels.filter((q) => q.id !== p.id && q.group === p.group && q.links[key] && p.links[key]);
 
-// Copy a panel's year and indicator to its linked peers.
-function propagate(ws: Workspace, id: string, keys: ("year" | "indicator")[]): Workspace {
+type Shared = "year" | "indicator" | "range";
+
+// Copy a panel's year, indicator and chart years to its linked peers.
+function propagate(ws: Workspace, id: string, keys: Shared[]): Workspace {
   const src = ws.panels.find((p) => p.id === id);
   if (!src) return ws;
   const year = new Set(keys.includes("year") ? peers(ws, src, "year").map((p) => p.id) : []);
   const ind = new Set(keys.includes("indicator") ? peers(ws, src, "indicator").map((p) => p.id) : []);
-  if (!year.size && !ind.size) return ws;
+  const range = new Set(keys.includes("range") ? peers(ws, src, "range").map((p) => p.id) : []);
+  if (!year.size && !ind.size && !range.size) return ws;
   return {
     ...ws,
     panels: ws.panels.map((p) => ({
       ...p,
       ...(year.has(p.id) && src.year !== null ? { year: src.year - src.offset + p.offset } : {}),
       ...(ind.has(p.id) ? { indicator: src.indicator } : {}),
+      ...(range.has(p.id) ? { range: src.range } : {}),
     })),
   };
 }
 
 // Take a linked setting from the group when a panel joins it.
-function adopt(ws: Workspace, id: string, keys: ("year" | "indicator")[]): Workspace {
+function adopt(ws: Workspace, id: string, keys: Shared[]): Workspace {
   const p = ws.panels.find((q) => q.id === id);
   if (!p) return ws;
   let patch: Partial<Panel> = {};
@@ -122,6 +147,7 @@ function adopt(ws: Workspace, id: string, keys: ("year" | "indicator")[]): Works
     if (!from) continue;
     if (key === "year" && from.year !== null) patch = { ...patch, year: from.year - from.offset + p.offset };
     if (key === "indicator") patch = { ...patch, indicator: from.indicator };
+    if (key === "range") patch = { ...patch, range: from.range };
   }
   return { ...ws, panels: ws.panels.map((q) => (q.id === id ? { ...q, ...patch } : q)) };
 }
@@ -136,11 +162,12 @@ export function reducer(ws: Workspace, a: Action): Workspace {
     }
     case "panel": {
       const next = { ...ws, panels: ws.panels.map((p) => (p.id === a.id ? { ...p, ...a.patch } : p)) };
-      if (a.patch.group !== undefined) return adopt(next, a.id, ["year", "indicator"]);
+      if (a.patch.group !== undefined) return adopt(next, a.id, ["year", "indicator", "range"]);
       if (a.patch.offset !== undefined) return adopt(next, a.id, ["year"]);
-      const keys: ("year" | "indicator")[] = [];
+      const keys: Shared[] = [];
       if (a.patch.year !== undefined) keys.push("year");
       if (a.patch.indicator !== undefined) keys.push("indicator");
+      if (a.patch.range !== undefined) keys.push("range");
       return propagate(next, a.id, keys);
     }
     case "link": {
@@ -153,7 +180,7 @@ export function reducer(ws: Workspace, a: Action): Workspace {
           return { ...p, links: { ...p.links, [a.key]: a.on }, selection };
         }),
       };
-      return a.on && (a.key === "year" || a.key === "indicator") ? adopt(next, a.id, [a.key]) : next;
+      return a.on && (a.key === "year" || a.key === "indicator" || a.key === "range") ? adopt(next, a.id, [a.key]) : next;
     }
     case "duplicate": {
       if (ws.panels.length >= MAX_PANELS) return ws;
@@ -165,7 +192,7 @@ export function reducer(ws: Workspace, a: Action): Workspace {
     case "close": {
       if (ws.panels.length <= 1) return ws;
       const panels = ws.panels.filter((p) => p.id !== a.id);
-      return { ...ws, panels, layout: layoutFor(panels.length, ws.layout), maximised: null };
+      return { ...ws, panels, layout: layoutFor(panels.length, ws.layout), maximised: null, pins: ws.pins.filter((p) => p.panel !== a.id) };
     }
     case "maximise":
       return { ...ws, maximised: a.id };
@@ -184,6 +211,21 @@ export function reducer(ws: Workspace, a: Action): Workspace {
       return a.ws;
     case "select":
       return { ...ws, selection: a.selection.slice(0, MAX_SELECTION) };
+    case "pin": {
+      // Pinning a country again on the same panel moves it; past the limit the oldest pin goes.
+      const rest = ws.pins.filter((p) => !(p.entity === a.pin.entity && p.panel === a.pin.panel));
+      return { ...ws, pins: [...rest, a.pin].slice(-MAX_PINS) };
+    }
+    case "unpin":
+      return { ...ws, pins: ws.pins.filter((p) => !(p.entity === a.entity && p.panel === a.panel)) };
+    case "board": {
+      const rest = ws.board.filter((b) => !(b.entity === a.item.entity && b.indicator === a.item.indicator));
+      return { ...ws, board: a.on ? [a.item, ...rest].slice(0, MAX_BOARD) : rest, side: a.on ? true : ws.side };
+    }
+    case "clearBoard":
+      return { ...ws, board: [] };
+    case "side":
+      return { ...ws, side: a.on };
   }
 }
 
@@ -192,15 +234,17 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 
 // URL form, kept readable:
 //   ?l=4&p=map.tfr.1970~chart.tfr~table.gdp_growth.2023.chsyk.B.-20&s=NZL,AUS&s2=FRA
-// Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr[.xy]]]]]]], trailing defaults dropped,
+// Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr[.xy[.range]]]]]]]], trailing defaults dropped,
 // with extra table columns joined by ",";
-// sN holds panel N's own selection while its selection is unlinked.
+// sN holds panel N's own selection while its selection is unlinked;
+// pin=NZL:0:174.8:-41.3,AUS:1 holds pinned popups (country:panel number[:lng:lat]);
+// b=NZL:tfr,AUS:gdp_growth the pinboard; side=0 a hidden pinboard.
 const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.letter).join("");
 
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy];
+    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -213,7 +257,14 @@ export function toQuery(ws: Workspace): string {
   ws.panels.forEach((p, i) => { if (!p.links.select && p.selection.length) q.set(`s${i}`, p.selection.join(",")); });
   if (ws.maximised) q.set("max", String(ws.panels.findIndex((p) => p.id === ws.maximised)));
   if (ws.split[0] !== 0.5 || ws.split[1] !== 0.5) q.set("split", ws.split.map((f) => Math.round(f * 100)).join("."));
-  return q.toString().replace(/%7E/g, "~").replace(/%2C/g, ",");
+  const pins = ws.pins.map((p) => {
+    const i = ws.panels.findIndex((x) => x.id === p.panel);
+    return i < 0 ? "" : [p.entity, i, ...(p.lng !== undefined && p.lat !== undefined ? [p.lng.toFixed(2), p.lat.toFixed(2)] : [])].join(":");
+  }).filter(Boolean);
+  if (pins.length) q.set("pin", pins.join(","));
+  if (ws.board.length) q.set("b", ws.board.map((b) => `${b.entity}:${b.indicator}`).join(","));
+  if (!ws.side) q.set("side", "0");
+  return q.toString().replace(/%7E/g, "~").replace(/%2C/g, ",").replace(/%3A/g, ":");
 }
 
 const list = (s: string | null) => (s || "").split(",").filter(Boolean).slice(0, MAX_SELECTION);
@@ -224,7 +275,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset, cols, pyr, xy] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -237,6 +288,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
         xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymao]{0,5}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
+        range: range && RANGE_RE.test(range) ? range : "",
       });
     });
   if (!panels.length) return DEFAULT;
@@ -245,13 +297,51 @@ export function fromQuery(q: URLSearchParams): Workspace {
   const max = q.get("max");
   const split = (q.get("split") || "").split(".").map(Number);
   const frac = (n: number) => (n >= 20 && n <= 80 ? n / 100 : 0.5);
+  const ENTITY = /^[A-Za-z0-9_-]{1,60}$/;
+  const pins: Pin[] = (q.get("pin") || "").split(",").map((t) => t.split(":")).flatMap(([entity, i, lng, lat]) => {
+    const p = panels[+i];
+    if (!entity || !ENTITY.test(entity) || !p) return [];
+    const ll = lng !== undefined && lat !== undefined && Number.isFinite(+lng) && Number.isFinite(+lat) ? { lng: +lng, lat: +lat } : {};
+    return [{ entity, panel: p.id, ...ll }];
+  }).slice(-MAX_PINS);
+  const board: BoardItem[] = (q.get("b") || "").split(",").map((t) => t.split(":"))
+    .filter(([e, i]) => e && i && ENTITY.test(e) && /^[a-z0-9_]+$/.test(i))
+    .map(([entity, indicator]) => ({ entity, indicator })).slice(0, MAX_BOARD);
   return {
     layout,
     panels,
     selection: list(q.get("s")),
     maximised: max !== null && panels[+max] ? panels[+max].id : null,
     split: [frac(split[0]), frac(split[1])],
+    pins,
+    board,
+    side: q.get("side") !== "0",
   };
+}
+
+// Chart year spans. Quick choices count from this year: history 5/10/25/50 years
+// back or all, forecast none/5/10/25 years ahead or all. A dragged span is "1990-2030".
+const RANGE_RE = /^((h(5|10|25|50|a))?(f(0|5|10|25|a))?|\d{4}-\d{4})$/;
+export const HISTORY_CHOICES = ["5", "10", "25", "50", "a"] as const;
+export const FORECAST_CHOICES = ["0", "5", "10", "25", "a"] as const;
+
+export type ChartRange = { history: string; forecast: string; custom: [number, number] | null };
+
+export function parseRange(range: string): ChartRange {
+  const m = range.match(/^(\d{4})-(\d{4})$/);
+  if (m) return { history: "", forecast: "", custom: [+m[1], +m[2]] };
+  return { history: range.match(/h(\d+|a)/)?.[1] ?? "a", forecast: range.match(/f(\d+|a)/)?.[1] ?? "a", custom: null };
+}
+
+export function rangeString(r: { history: string; forecast: string }): string {
+  return `${r.history === "a" ? "" : `h${r.history}`}${r.forecast === "a" ? "" : `f${r.forecast}`}`;
+}
+
+// The years to show, or null for everything.
+export function chartSpan(range: string, today = new Date().getFullYear()): [number | null, number | null] {
+  const r = parseRange(range);
+  if (r.custom) return r.custom;
+  return [r.history === "a" ? null : today - +r.history, r.forecast === "a" ? null : today + +r.forecast];
 }
 
 // Pyramid options, unpacked from the panel's pyr string.

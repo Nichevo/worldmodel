@@ -17,7 +17,7 @@ export default function SampleBanner() {
   if (error)
     return (
       <div className="banner">
-        Can&apos;t reach the worldmodel API ({error}). Start it with <code>make api</code>, then reload.
+        Can&apos;t reach the worldmodel API ({error}). Start it with <code>.\start.bat</code>, then reload.
       </div>
     );
   if (!meta?.is_sample) return null;
@@ -25,7 +25,7 @@ export default function SampleBanner() {
   return (
     <div className="banner">
       Showing the sample warehouse that ships with the app: UN WPP 2024 and IMF WEO {weo?.vintage ?? ""} (an old
-      release). Run <code>make refresh</code> to load the latest data. <Link href="/data">Details</Link>
+      release). Run <code>.\refresh.bat</code> to load the latest data. <Link href="/data">Details</Link>
     </div>
   );
 }

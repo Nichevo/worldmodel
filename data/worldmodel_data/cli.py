@@ -4,7 +4,8 @@
     worldmodel-data fetch imf_weo --from DIR   ... or load files you downloaded yourself
     worldmodel-data build                   build, validate and swap in a new warehouse
     worldmodel-data refresh                 fetch every active source, then build
-    worldmodel-data status                  vintages, live build, last report
+    worldmodel-data status                  vintages, live build, last report, disk use
+    worldmodel-data free-space              delete old raw downloads (keeps 2 per source)
     worldmodel-data validate                check the catalogues and re-run gates on the live build
     worldmodel-data keys                    which API keys are set (values never printed)
     worldmodel-data export NAME             write a named stream to CSV, Parquet or JSON
@@ -17,6 +18,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import date
 from importlib import resources
 from pathlib import Path
@@ -26,13 +28,13 @@ import duckdb
 import typer
 import yaml
 
-from worldmodel_contract import catalogue
+from worldmodel_contract import catalogue, local
 from worldmodel_contract.queries import series_sql, stream_query
 from worldmodel_data import build as build_mod
-from worldmodel_data import gates
+from worldmodel_data import gates, monitor
 from worldmodel_data.config import load_env, paths
 from worldmodel_data.connectors import CONNECTORS
-from worldmodel_data.vintage_store import VintageStore
+from worldmodel_data.vintage_store import VintageStore, now_utc
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Worldmodel data pipeline.")
 
@@ -69,26 +71,106 @@ def fetch(
 @app.command()
 def build(allow_shrink: bool = typer.Option(False, help="Do not fail when a series loses rows.")):
     """Build a new warehouse, run the validation gates and swap it in if they pass."""
+    _build_and_log(allow_shrink, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []})
+
+
+def _build_and_log(allow_shrink: bool, record: dict) -> None:
+    """Build, then append the refresh log record: checks, rows changed per source, disk use."""
+    p = paths()
+    previous = p.current_build()
     try:
-        result = build_mod.build(paths(), allow_shrink=allow_shrink)
+        result = build_mod.build(p, allow_shrink=allow_shrink)
     except build_mod.BuildFailed as exc:
         typer.echo(f"BUILD FAILED: {exc}", err=True)
         if exc.report:
             typer.echo(exc.report.read_text(), err=True)
+        _log(p, {**record, "status": "failed", "error": str(exc).splitlines()[0],
+                 "build_id": exc.report.stem if exc.report else None})
         raise typer.Exit(1)
-    counts = {s: sum(c.status == s for c in result.checks) for s in ("pass", "warn", "skip")}
+    counts = {s: sum(c.status == s for c in result.checks) for s in ("pass", "warn", "fail", "skip")}
+    changes = monitor.diff_builds(result.path, previous)
+    by_source = {s["source_id"]: s for s in record["sources"]}
+    for source_id, ch in changes.items():
+        by_source.setdefault(source_id, {"source_id": source_id}).update(ch)
+    storage = monitor.storage_lines(p)
+    with result.report.open("a", encoding="utf-8") as fh:
+        fh.write("\n## Storage\n\n" + "\n".join(f"- {line}" for line in storage) + "\n")
+    _log(p, {**record, "status": "ok", "build_id": result.build_id, "checks": counts,
+             "sources": list(by_source.values())})
     typer.echo(f"build {result.build_id} is live: {counts['pass']} checks passed, {counts['warn']} warnings, "
                f"{counts['skip']} skipped. Report: {result.report}")
+    for line in storage:
+        typer.echo(line)
+
+
+def _log(p, record: dict) -> None:
+    record["finished_at"] = now_utc().isoformat()
+    record["disk"] = local.disk_usage(p.home)
+    try:
+        monitor.append(p, record)
+    except OSError as exc:  # the log is a nice-to-have; never fail a refresh over it
+        typer.echo(f"could not write the refresh log: {exc}", err=True)
+
+
+LARGE_DOWNLOAD = 50 * 1024 ** 2  # skipped once the data folder is at its limit
 
 
 @app.command()
 def refresh(allow_shrink: bool = typer.Option(False)):
-    """Fetch every active source, then build."""
-    store = VintageStore(paths())
+    """Fetch every active source, then build. Logs what each source brought in."""
+    p = paths()
+    store = VintageStore(p)
+    record = {"kind": "refresh", "started_at": now_utc().isoformat(), "sources": []}
+    full = local.storage(p.home)["limits"][0]["level"] == "full"
+    if full:
+        typer.echo("The data folder is at its size limit: sources with large downloads are skipped this time. "
+                   "Free up space on the Data status page or raise the limit in Settings.")
+    failed = []
     for source_id, cls in CONNECTORS.items():
-        manifest, is_new = cls().ingest(store)
+        last = store.latest(source_id)
+        size = sum(f.get("bytes", 0) for f in last.files) if last else 0
+        entry = {"source_id": source_id}
+        record["sources"].append(entry)
+        if full and size > LARGE_DOWNLOAD:
+            entry.update(status="skipped", note=f"limit reached; last download {size / 1024 ** 2:.0f} MB")
+            typer.echo(f"{source_id}: skipped (data folder at its limit)")
+            continue
+        conn = cls()
+        t0 = time.monotonic()
+        try:
+            manifest, is_new = conn.ingest(store)
+        except Exception as exc:  # one source failing should not stop the others
+            entry.update(status="error", error=str(exc), seconds=round(time.monotonic() - t0, 1),
+                         download_bytes=conn.downloaded_bytes)
+            typer.echo(f"{source_id}: FAILED {exc}", err=True)
+            failed.append(source_id)
+            continue
+        entry.update(status="new" if is_new else "unchanged", vintage=manifest.vintage,
+                     seconds=round(time.monotonic() - t0, 1), download_bytes=conn.downloaded_bytes,
+                     vintage_rows=manifest.row_count)
         typer.echo(f"{source_id}: {'new vintage' if is_new else 'unchanged'} {manifest.vintage}")
-    build(allow_shrink=allow_shrink)
+    _build_and_log(allow_shrink, record)
+    if failed:
+        typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("free-space")
+def free_space(keep: int = typer.Option(2, help="Downloads to keep per source."),
+               yes: bool = typer.Option(False, "--yes", help="Delete without asking.")):
+    """Delete old raw downloads, keeping the newest few per source. Vintages and builds are kept."""
+    p = paths()
+    found = local.freeable_raw(p.home, keep)
+    if not found:
+        typer.echo("Nothing to free: every source has at most the downloads it keeps.")
+        return
+    total = sum(f["bytes"] for f in found)
+    for f in found:
+        typer.echo(f"  {f['path']}  {f['bytes'] / 1024 ** 2:,.1f} MB")
+    if not yes and not typer.confirm(f"Delete these {len(found)} old downloads ({total / 1024 ** 2:,.1f} MB)?"):
+        raise typer.Exit(1)
+    done = local.free_raw(p.home, keep)
+    typer.echo(f"Freed {done['freed_bytes'] / 1024 ** 2:,.1f} MB.")
 
 
 @app.command()
@@ -104,6 +186,8 @@ def status():
         report = p.reports / current.name.replace(".duckdb", ".md")
         if report.exists():
             typer.echo(f"report: {report}")
+    for line in monitor.storage_lines(p):
+        typer.echo(line)
 
 
 @app.command()

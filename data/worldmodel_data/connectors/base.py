@@ -77,6 +77,7 @@ class Connector(ABC):
     def __init__(self, client: httpx.Client | None = None):
         self._client = client
         self._cache: HttpCache | None = None
+        self.downloaded_bytes = 0  # over the network, this run; for the refresh log
 
     @property
     def client(self) -> httpx.Client:
@@ -201,6 +202,7 @@ class Connector(ABC):
             with dest.open("wb") as fh:
                 for chunk in r.iter_bytes():
                     fh.write(chunk)
+                    self.downloaded_bytes += len(chunk)
             if cache:
                 cache.note(url, dest.name, r.headers.get("etag"), r.headers.get("last-modified"))
 
