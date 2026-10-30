@@ -17,7 +17,7 @@ from worldmodel_data.connectors import CONNECTORS
 from worldmodel_data.vintage_store import VintageStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SCALE = {"Low": 0.97, "High": 1.03, "Lower 80 PI": 0.98, "Upper 80 PI": 1.02, "Lower 95 PI": 0.96,
+SCALE = {"Low": 0.1, "High": 1.03, "Lower 80 PI": 0.98, "Upper 80 PI": 1.02, "Lower 95 PI": 0.96,
          "Upper 95 PI": 1.04, "Median PI": 1.0, "Constant fertility": 1.1}
 
 
@@ -80,6 +80,11 @@ def test_projection_ranges_are_variants_and_not_summed(built):
         AND period_start = DATE '2024-01-01'""").fetchall())
     assert set(got) == {"central", "low", "high", "lower80", "upper80", "lower95", "upper95"}  # Median PI etc. left out
     assert got["upper95"] == pytest.approx(got["central"] * 1.04, rel=1e-3)
+    # A variant may pass the central path's bounds (the fixture's low variant has fertility
+    # far under the 0.3 floor) without failing the build.
+    low_tfr = con.execute("""SELECT value FROM series WHERE entity_id = 'NZL' AND indicator_id = 'tfr' AND variant = 'low'
+        AND period_start = DATE '2024-01-01'""").fetchone()[0]
+    assert low_tfr < 0.3
     # No estimates years in the ranges, and groups get low/high summed but no summed interval bounds.
     assert not con.execute("SELECT count(*) FROM series WHERE variant <> 'central' AND status = 'E'").fetchone()[0]
     eu = {r[0] for r in con.execute("SELECT DISTINCT variant FROM series WHERE entity_id = 'eu' AND indicator_id = 'pop_total'").fetchall()}
