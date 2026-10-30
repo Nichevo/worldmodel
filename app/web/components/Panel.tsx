@@ -4,10 +4,10 @@ import type { ECharts } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
 import WorldMap, { type Scale } from "@/components/WorldMap";
-import { api, type Indicator, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
+import { api, type Entity, type Indicator, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
 import { linesOption, pyramidCompareOption, scatterOption, type ScatterPoint } from "@/lib/charts";
-import { DIVERGING, cssVar } from "@/lib/colors";
+import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
 import { CHANGE_COL, LINKS, pyramidOptions, pyramidString, scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View } from "@/lib/workspace";
 
@@ -512,7 +512,8 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
 }
 
 // One dot per country: the panel's indicator across, a second one up, and
-// optionally a third as bubble size. Click a dot to select the country.
+// optionally a third as bubble size. Dots can be coloured by region or group
+// and labelled. Click a dot to select the country.
 function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
@@ -528,7 +529,9 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
 
   const xs = useMapValues(indicator.indicator_id, year);
   const ys = useMapValues(yInd.indicator_id, year);
-  const sizes = useMapValues(sizeInd?.indicator_id ?? indicator.indicator_id, year);
+  // Bubble size, or population when only ranking the "major" countries to label.
+  const sizes = useMapValues(sizeInd?.indicator_id ?? "pop_total", year);
+  const groups = useGroups(opts.colour);
   const error = xs.error ?? ys.error ?? (sizeInd ? sizes.error : null);
   const points = useMemo(() => {
     const yBy = new Map(ys.values.map((v) => [v.entity_id, v]));
@@ -540,16 +543,25 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
       const z = sizeInd ? sBy.get(v.entity_id) : undefined;
       if (sizeInd && !z) continue;
       out.push({ id: v.entity_id, name: names.get(v.entity_id) ?? v.entity_id, x: v.value, y: w.value, size: z?.value,
-        proj: v.status === "P" || w.status === "P" });
+        proj: v.status === "P" || w.status === "P", group: groups?.of.get(v.entity_id) });
     }
     return out;
-  }, [xs.values, ys.values, sizes.values, sizeInd, opts.logX, opts.logY, names]);
+  }, [xs.values, ys.values, sizes.values, sizeInd, opts.logX, opts.logY, names, groups]);
+  // "Major": the 12 biggest by bubble size, or by population with plain dots.
+  const labelled = useMemo(() => {
+    if (opts.labels === "all") return new Set(points.map((p) => p.id));
+    if (opts.labels === "selected") return new Set<string>();
+    const shown = new Set(points.map((p) => p.id));
+    return new Set([...sizes.values].filter((v) => shown.has(v.entity_id)).sort((a, b) => b.value - a.value)
+      .slice(0, 12).map((v) => v.entity_id));
+  }, [opts.labels, points, sizes.values]);
 
   const option = useCallback(() => scatterOption([...points],
     { name: indicator.name, unit: indicator.unit, decimals: indicator.decimals, log: opts.logX },
     { name: yInd.name, unit: yInd.unit, decimals: yInd.decimals, log: opts.logY },
     sizeInd ? { name: sizeInd.name, unit: sizeInd.unit, decimals: sizeInd.decimals, log: false } : null,
-    selection, hovered), [points, indicator, yInd, sizeInd, opts.logX, opts.logY, selection, hovered]);
+    selection, hovered, { grouped: !!groups, labelled }),
+  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, selection, hovered, groups, labelled]);
 
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
@@ -561,6 +573,7 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
     c.on("click", (p) => { if (p.name) pickRef.current(String(p.name)); });
   }, []);
 
+  const groupList = useGroupList();
   const domains = [...new Set(usable.map((i) => i.domain))];
   const choices = (skip: string) => domains.map((d) => (
     <optgroup key={d} label={d[0].toUpperCase() + d.slice(1)}>
@@ -584,13 +597,42 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
             {choices("")}
           </select>
         </label>
+        <label className="small">
+          Colour
+          <select value={opts.colour} onChange={(e) => setOpts({ colour: e.target.value })}>
+            <option value="">selected countries</option>
+            <option value="continent">continent</option>
+            <option value="subregion">UN subregion</option>
+            <optgroup label="Members of">
+              {groupList.map((g) => <option key={g.entity_id} value={g.entity_id}>{g.short_name}</option>)}
+            </optgroup>
+          </select>
+        </label>
+        <label className="small">
+          Names
+          <select value={opts.labels} onChange={(e) => setOpts({ labels: e.target.value as typeof opts.labels })}>
+            <option value="selected">selected only</option>
+            <option value="major">{sizeInd ? "12 biggest bubbles" : "12 most populous"}</option>
+            <option value="all">all (where room)</option>
+          </select>
+        </label>
         <label className="small"><input type="checkbox" checked={opts.logX} onChange={(e) => setOpts({ logX: e.target.checked })} /> Log across</label>
         <label className="small"><input type="checkbox" checked={opts.logY} onChange={(e) => setOpts({ logY: e.target.checked })} /> Log up</label>
       </div>
+      {groups && groups.names.length > 0 && (
+        <div className="scatter-legend small">
+          {groups.names.map((n, i) => (
+            <span key={n} className="chip"><span className="swatch" style={{ background: seriesVar(i) }} />{n}</span>
+          ))}
+          {groups.names.length > 8 && <span className="muted">Colours repeat after eight.</span>}
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
       {!error && points.length === 0 && <p className="muted">No countries have both values for {year}.</p>}
       {points.length > 0 && (
-        <div className="chart-fill"><EChart option={option} height="100%" label={`${yInd.name} against ${indicator.name}, ${year}`} onReady={onReady} /></div>
+        <div className="chart-fill">
+          <EChart option={option} height="100%" update="merge" label={`${yInd.name} against ${indicator.name}, ${year}`} onReady={onReady} />
+        </div>
       )}
       <p className="caption">
         {points.length} countries in {year}.{sizeInd ? ` Bubble area shows ${sizeInd.name.toLowerCase()}.` : ""}
@@ -598,6 +640,47 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
       </p>
     </>
   );
+}
+
+// Which group each country is in, for colouring: every continent or subregion,
+// or one bloc's members. Fetched once per choice.
+type Groups = { names: string[]; of: Map<string, number> };
+const groupsCache = new Map<string, Promise<Groups>>();
+function useGroups(colour: string): Groups | null {
+  const [groups, setGroups] = useState<Groups | null>(null);
+  useEffect(() => {
+    if (!colour) { setGroups(null); return; }
+    let live = true;
+    if (!groupsCache.has(colour)) {
+      const byType = colour === "continent" || colour === "subregion";
+      const p = api.memberships(byType ? { type: colour } : { group: colour }).then((rows) => {
+        const names: string[] = [];
+        const of = new Map<string, number>();
+        for (const r of rows) {
+          if (!names.includes(r.group_name)) names.push(r.group_name);
+          if (!of.has(r.member_id)) of.set(r.member_id, names.indexOf(r.group_name));
+        }
+        return { names, of };
+      });
+      p.catch(() => groupsCache.delete(colour));
+      groupsCache.set(colour, p);
+    }
+    groupsCache.get(colour)!.then((g) => live && setGroups(g)).catch(() => live && setGroups(null));
+    return () => { live = false; };
+  }, [colour]);
+  return colour ? groups : null;
+}
+
+let groupListCache: Promise<Entity[]> | null = null;
+function useGroupList(): Entity[] {
+  const [list, setList] = useState<Entity[]>([]);
+  useEffect(() => {
+    groupListCache ??= api.entities("bloc,group,alliance");
+    let live = true;
+    groupListCache.then((l) => live && setList(l)).catch(() => { groupListCache = null; });
+    return () => { live = false; };
+  }, []);
+  return list;
 }
 
 // One population pyramid, optionally with a second drawn over it as an outline:
