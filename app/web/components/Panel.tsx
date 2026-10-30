@@ -6,10 +6,10 @@ import EChart from "@/components/EChart";
 import WorldMap, { type Scale } from "@/components/WorldMap";
 import { api, type Indicator, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
-import { lineOption, pyramidCompareOption } from "@/lib/charts";
+import { linesOption, pyramidCompareOption, scatterOption, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar } from "@/lib/colors";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
-import { CHANGE_COL, LINKS, pyramidOptions, pyramidString, type Action, type Group, type Panel as PanelState, type View } from "@/lib/workspace";
+import { CHANGE_COL, LINKS, pyramidOptions, pyramidString, scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View } from "@/lib/workspace";
 
 export type Value = { entity_id: string; value: number; status: string };
 
@@ -30,7 +30,7 @@ type Props = {
   cameraBus: CameraBus;
 };
 
-const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid" };
+const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter" };
 
 // The panel's year, held inside the indicator's range; unset means the last estimate.
 export function effectiveYear(panel: PanelState, ind: Indicator | undefined): number | null {
@@ -113,7 +113,12 @@ export default function Panel({
             hovered={hovered} onHover={onHover} />
         )}
         {indicator && panel.view === "chart" && (
-          <ChartView indicator={indicator} year={year} names={names} selection={selection} hovered={hovered} onHover={onHover} />
+          <ChartView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection}
+            dispatch={dispatch} hovered={hovered} onHover={onHover} />
+        )}
+        {indicator && panel.view === "scatter" && year !== null && (
+          <ScatterView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection}
+            dispatch={dispatch} hovered={hovered} onHover={onHover} />
         )}
         {indicator && panel.view === "pyramid" && year !== null && (
           <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} />
@@ -372,7 +377,26 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
   );
 }
 
-function ColumnsMenu({ panel, indicators, dispatch }: { panel: PanelState; indicators: Indicator[]; dispatch: (a: Action) => void }) {
+// Extra indicators drawn as lines on a chart: up to MAX_LINES, in at most two units.
+const MAX_LINES = 4;
+function lineExtras(panel: PanelState, indicator: Indicator, indicators: Indicator[]): Indicator[] {
+  const units = new Set([indicator.unit]);
+  const out: Indicator[] = [];
+  for (const c of panel.cols) {
+    const i = indicators.find((x) => x.indicator_id === c);
+    if (!i?.available || i.indicator_id === indicator.indicator_id || out.length >= MAX_LINES - 1) continue;
+    if (!units.has(i.unit) && units.size >= 2) continue;
+    units.add(i.unit);
+    out.push(i);
+  }
+  return out;
+}
+
+// Pick extra indicators: table columns, or extra lines on a chart (`lines`), which
+// allow only indicators that fit the chart's two axes.
+function ColumnsMenu({ panel, indicators, dispatch, lines = false, units = [] }: {
+  panel: PanelState; indicators: Indicator[]; dispatch: (a: Action) => void; lines?: boolean; units?: string[];
+}) {
   const box = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -384,23 +408,33 @@ function ColumnsMenu({ panel, indicators, dispatch }: { panel: PanelState; indic
   const toggle = (id: string, on: boolean) =>
     dispatch({ type: "panel", id: panel.id, patch: { cols: on ? [...panel.cols.filter((c) => c !== id), id] : panel.cols.filter((c) => c !== id) } });
   const domains = [...new Set(indicators.map((i) => i.domain))];
+  const main = indicators.find((i) => i.indicator_id === panel.indicator);
+  const shownIds = new Set(lines && main ? lineExtras(panel, main, indicators).map((i) => i.indicator_id) : []);
+  const lineCount = shownIds.size;
   return (
     <details className="links cols" ref={box}>
-      <summary>Columns <span className="muted">+{panel.cols.length}</span></summary>
+      <summary>{lines ? "Lines" : "Columns"} <span className="muted">+{lines ? lineCount : panel.cols.length}</span></summary>
       <div className="links-menu">
-        <label>
-          <input type="checkbox" checked={panel.cols.includes(CHANGE_COL)} onChange={(e) => toggle(CHANGE_COL, e.target.checked)} />
-          Change over 10 years
-        </label>
+        {lines ? <p className="caption">Add indicators to this chart. Up to {MAX_LINES} lines per country, in at most two units.</p> : (
+          <label>
+            <input type="checkbox" checked={panel.cols.includes(CHANGE_COL)} onChange={(e) => toggle(CHANGE_COL, e.target.checked)} />
+            Change over 10 years
+          </label>
+        )}
         {domains.map((d) => (
           <Fragment key={d}>
             <div className="menu-head">{d[0].toUpperCase() + d.slice(1)}</div>
-            {indicators.filter((i) => i.domain === d && i.indicator_id !== panel.indicator).map((i) => (
-              <label key={i.indicator_id}>
-                <input type="checkbox" checked={panel.cols.includes(i.indicator_id)} onChange={(e) => toggle(i.indicator_id, e.target.checked)} />
-                {i.name}
-              </label>
-            ))}
+            {indicators.filter((i) => i.domain === d && i.indicator_id !== panel.indicator && (i.available || panel.cols.includes(i.indicator_id))).map((i) => {
+              const on = lines ? shownIds.has(i.indicator_id) : panel.cols.includes(i.indicator_id);
+              const blocked = lines && !on && (lineCount >= MAX_LINES - 1 || (units.length >= 2 && !units.includes(i.unit)));
+              return (
+                <label key={i.indicator_id} className={blocked ? "muted" : undefined}
+                  title={blocked ? (lineCount >= MAX_LINES - 1 ? `At most ${MAX_LINES} lines` : `The chart already uses two units: ${units.join(", ")}`) : i.unit}>
+                  <input type="checkbox" checked={on} disabled={blocked} onChange={(e) => toggle(i.indicator_id, e.target.checked)} />
+                  {i.name}
+                </label>
+              );
+            })}
           </Fragment>
         ))}
       </div>
@@ -408,26 +442,30 @@ function ColumnsMenu({ panel, indicators, dispatch }: { panel: PanelState; indic
   );
 }
 
-function ChartView({ indicator, year, names, selection, hovered, onHover }: {
-  indicator: Indicator; year: number | null; names: Map<string, string>; selection: string[];
-  hovered: string | null; onHover: (e: string | null) => void;
+function ChartView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover }: {
+  panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number | null; names: Map<string, string>;
+  selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
 }) {
   // With nothing selected, show the world so the panel is never empty.
   const ids = selection.length ? selection : ["world"];
   const key = ids.join(",");
-  const [rows, setRows] = useState<SeriesRow[] | null>(null);
+  // The panel's indicator plus any extra lines picked in the Lines menu (shared with the table's columns).
+  const shown = useMemo(() => [indicator, ...lineExtras(panel, indicator, indicators)], [panel, indicator, indicators]);
+  const showKey = shown.map((i) => i.indicator_id).join(",");
+  const [rows, setRows] = useState<SeriesRow[][] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     setRows(null);
-    api.series(indicator.indicator_id, key.split(","))
+    Promise.all(showKey.split(",").map((ind) => api.series(ind, key.split(","))))
       .then((r) => { if (live) { setRows(r); setError(null); } })
       .catch((e) => live && setError(String(e.message || e)));
     return () => { live = false; };
-  }, [indicator.indicator_id, key]);
+  }, [showKey, key]);
   const entities = useMemo(() => key.split(",").map((id) => ({ id, name: names.get(id) ?? id })), [key, names]);
   const option = useCallback(() => {
-    const o = lineOption(rows ?? [], entities, indicator.unit, indicator.decimals);
+    const layers = shown.map((i, n) => ({ id: i.indicator_id, name: i.name, unit: i.unit, decimals: i.decimals, rows: rows?.[n] ?? [] }));
+    const o = linesOption(layers, entities);
     if (year === null) return o;
     // A thin rule at the panel's year, so a linked or playing year shows here too.
     const marker = {
@@ -436,7 +474,9 @@ function ChartView({ indicator, year, names, selection, hovered, onHover }: {
         lineStyle: { color: cssVar("--muted"), type: "solid" as const, width: 1 }, data: [{ xAxis: year }] },
     };
     return { ...o, series: [...(o.series as object[]), marker] } as typeof o;
-  }, [rows, entities, indicator, year]);
+  }, [rows, entities, shown, year]);
+  const hasRows = rows?.some((r) => r.length > 0);
+  const units = [...new Set(shown.map((i) => i.unit))];
 
   // Hover in either direction: a linked hover emphasises that line; hovering a line tells the others.
   const chart = useRef<ECharts | null>(null);
@@ -444,24 +484,117 @@ function ChartView({ indicator, year, names, selection, hovered, onHover }: {
   hoverRef.current = onHover;
   const onReady = useCallback((c: ECharts) => {
     chart.current = c;
-    c.on("mouseover", (p) => { if (p.seriesName && p.seriesName !== "year-marker") hoverRef.current(String(p.seriesName)); });
+    c.on("mouseover", (p) => { if (p.seriesName && p.seriesName !== "year-marker") hoverRef.current(String(p.seriesName).split("|")[0]); });
     c.on("mouseout", () => hoverRef.current(null));
   }, []);
   useEffect(() => {
     const c = chart.current;
     if (!c || !hovered || !key.split(",").includes(hovered)) return;
-    const seriesId = [`${hovered}:E`, `${hovered}:P`];
+    const seriesId = showKey.split(",").flatMap((ind) => [`${hovered}|${ind}:E`, `${hovered}|${ind}:P`]);
     c.dispatchAction({ type: "highlight", seriesId });
     return () => { if (!c.isDisposed()) c.dispatchAction({ type: "downplay", seriesId }); };
-  }, [hovered, key, rows]);
+  }, [hovered, key, rows, showKey]);
   return (
     <>
       {error && <p className="error">{error}</p>}
-      {rows && rows.length === 0 && <p className="muted">No data for this indicator yet.</p>}
-      {rows && rows.length > 0 && <div className="chart-fill"><EChart option={option} height="100%" label={`${indicator.name} chart`} onReady={onReady} /></div>}
+      <div className="table-tools">
+        <ColumnsMenu panel={panel} indicators={indicators} dispatch={dispatch} lines units={units} />
+        {units.length > 1 && <span className="small muted">Right axis: {units[1]}</span>}
+      </div>
+      {rows && !hasRows && <p className="muted">No data for this indicator yet.</p>}
+      {rows && hasRows && <div className="chart-fill"><EChart option={option} height="100%" label={`${indicator.name} chart`} onReady={onReady} /></div>}
       <p className="caption">
         {sourceLine(indicator)}. {selection.length ? "Selected countries." : "World shown; select countries on a map or table to compare."}
-        {rows?.some((r) => r.status === "P") ? " Dashed lines are projections." : ""}
+        {rows?.some((r) => r.some((x) => x.status === "P")) ? " Dashed lines are projections." : ""}
+      </p>
+    </>
+  );
+}
+
+// One dot per country: the panel's indicator across, a second one up, and
+// optionally a third as bubble size. Click a dot to select the country.
+function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover }: {
+  panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
+  selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
+}) {
+  const opts = scatterOptions(panel.xy);
+  const usable = indicators.filter((i) => i.available);
+  const yInd = usable.find((i) => i.indicator_id === opts.y && i.indicator_id !== indicator.indicator_id)
+    ?? usable.find((i) => i.indicator_id === (indicator.indicator_id === "life_expectancy" ? "tfr" : "life_expectancy"))
+    ?? usable.find((i) => i.indicator_id !== indicator.indicator_id) ?? indicator;
+  const sizeInd = usable.find((i) => i.indicator_id === opts.size) ?? null;
+  const setOpts = (o: Partial<typeof opts>) =>
+    dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, y: yInd.indicator_id, ...o }) } });
+
+  const xs = useMapValues(indicator.indicator_id, year);
+  const ys = useMapValues(yInd.indicator_id, year);
+  const sizes = useMapValues(sizeInd?.indicator_id ?? indicator.indicator_id, year);
+  const error = xs.error ?? ys.error ?? (sizeInd ? sizes.error : null);
+  const points = useMemo(() => {
+    const yBy = new Map(ys.values.map((v) => [v.entity_id, v]));
+    const sBy = new Map(sizes.values.map((v) => [v.entity_id, v]));
+    const out: ScatterPoint[] = [];
+    for (const v of xs.values) {
+      const w = yBy.get(v.entity_id);
+      if (!w || (opts.logX && v.value <= 0) || (opts.logY && w.value <= 0)) continue;
+      const z = sizeInd ? sBy.get(v.entity_id) : undefined;
+      if (sizeInd && !z) continue;
+      out.push({ id: v.entity_id, name: names.get(v.entity_id) ?? v.entity_id, x: v.value, y: w.value, size: z?.value,
+        proj: v.status === "P" || w.status === "P" });
+    }
+    return out;
+  }, [xs.values, ys.values, sizes.values, sizeInd, opts.logX, opts.logY, names]);
+
+  const option = useCallback(() => scatterOption([...points],
+    { name: indicator.name, unit: indicator.unit, decimals: indicator.decimals, log: opts.logX },
+    { name: yInd.name, unit: yInd.unit, decimals: yInd.decimals, log: opts.logY },
+    sizeInd ? { name: sizeInd.name, unit: sizeInd.unit, decimals: sizeInd.decimals, log: false } : null,
+    selection, hovered), [points, indicator, yInd, sizeInd, opts.logX, opts.logY, selection, hovered]);
+
+  const hoverRef = useRef(onHover);
+  hoverRef.current = onHover;
+  const pickRef = useRef((id: string) => dispatch({ type: "toggleSelect", entity: id, panel: panel.id }));
+  pickRef.current = (id: string) => dispatch({ type: "toggleSelect", entity: id, panel: panel.id });
+  const onReady = useCallback((c: ECharts) => {
+    c.on("mouseover", (p) => { if (p.name) hoverRef.current(String(p.name)); });
+    c.on("mouseout", () => hoverRef.current(null));
+    c.on("click", (p) => { if (p.name) pickRef.current(String(p.name)); });
+  }, []);
+
+  const domains = [...new Set(usable.map((i) => i.domain))];
+  const choices = (skip: string) => domains.map((d) => (
+    <optgroup key={d} label={d[0].toUpperCase() + d.slice(1)}>
+      {usable.filter((i) => i.domain === d && i.indicator_id !== skip).map((i) => (
+        <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>
+      ))}
+    </optgroup>
+  ));
+  return (
+    <>
+      <div className="table-tools">
+        <span className="small muted">Across: {indicator.name}</span>
+        <label className="small">
+          Up
+          <select value={yInd.indicator_id} onChange={(e) => setOpts({ y: e.target.value })}>{choices(indicator.indicator_id)}</select>
+        </label>
+        <label className="small">
+          Bubble size
+          <select value={sizeInd?.indicator_id ?? ""} onChange={(e) => setOpts({ size: e.target.value })}>
+            <option value="">none (dots)</option>
+            {choices("")}
+          </select>
+        </label>
+        <label className="small"><input type="checkbox" checked={opts.logX} onChange={(e) => setOpts({ logX: e.target.checked })} /> Log across</label>
+        <label className="small"><input type="checkbox" checked={opts.logY} onChange={(e) => setOpts({ logY: e.target.checked })} /> Log up</label>
+      </div>
+      {error && <p className="error">{error}</p>}
+      {!error && points.length === 0 && <p className="muted">No countries have both values for {year}.</p>}
+      {points.length > 0 && (
+        <div className="chart-fill"><EChart option={option} height="100%" label={`${yInd.name} against ${indicator.name}, ${year}`} onReady={onReady} /></div>
+      )}
+      <p className="caption">
+        {points.length} countries in {year}.{sizeInd ? ` Bubble area shows ${sizeInd.name.toLowerCase()}.` : ""}
+        {points.some((p) => p.proj) ? " Faded dots are projections." : ""} Click a dot to select the country; press ▶ to play through the years.
       </p>
     </>
   );
