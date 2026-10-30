@@ -42,6 +42,8 @@ def wpp_with_variants(dest: Path) -> Path:
                 out[v] = label
                 for i in pops:
                     out[i] = f"{float(r[i]) * k:.4f}" if r[i] else ""
+                if label == "Upper 95 PI":  # the UN's intervals do hold the odd infinite value
+                    out[pops[1]] = "inf"
                 w.writerow(out)
     return dest
 
@@ -85,6 +87,9 @@ def test_projection_ranges_are_variants_and_not_summed(built):
     low_tfr = con.execute("""SELECT value FROM series WHERE entity_id = 'NZL' AND indicator_id = 'tfr' AND variant = 'low'
         AND period_start = DATE '2024-01-01'""").fetchone()[0]
     assert low_tfr < 0.3
+    # Values that mean nothing (infinite, or far past the bounds) are left out and reported.
+    assert not con.execute("SELECT count(*) FROM series WHERE variant = 'upper95' AND indicator_id = 'tfr'").fetchone()[0]
+    assert dict(con.execute("SELECT check_id, status FROM build_checks").fetchall())["implausible_variants"] == "info"
     # No estimates years in the ranges, and groups get low/high summed but no summed interval bounds.
     assert not con.execute("SELECT count(*) FROM series WHERE variant <> 'central' AND status = 'E'").fetchone()[0]
     eu = {r[0] for r in con.execute("SELECT DISTINCT variant FROM series WHERE entity_id = 'eu' AND indicator_id = 'pop_total'").fetchall()}

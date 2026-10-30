@@ -103,6 +103,25 @@ def test_refresh_skips_downloads_the_server_says_are_unchanged(home):
     assert len(served) == 2  # nothing downloaded the second time
 
 
+def test_busy_server_is_tried_again(home, monkeypatch, tmp_path):
+    import httpx
+
+    from worldmodel_data.connectors import base
+
+    waits, calls = [], []
+    monkeypatch.setattr(base.time, "sleep", waits.append)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) < 3:
+            return httpx.Response(429, headers={"Retry-After": "7"} if len(calls) == 1 else {})
+        return httpx.Response(200, content=b"ok")
+
+    conn = CONNECTORS["imf_weo_history"](httpx.Client(transport=httpx.MockTransport(handler)))
+    conn.get("https://example.org/file", tmp_path / "file")
+    assert (tmp_path / "file").read_bytes() == b"ok" and waits == [7, base.RETRY_WAITS[1]]
+
+
 def test_build_logs_changes_disk_and_storage(home, monkeypatch):
     import json
 
