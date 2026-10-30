@@ -560,18 +560,27 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
     { name: indicator.name, unit: indicator.unit, decimals: indicator.decimals, log: opts.logX },
     { name: yInd.name, unit: yInd.unit, decimals: yInd.decimals, log: opts.logY },
     sizeInd ? { name: sizeInd.name, unit: sizeInd.unit, decimals: sizeInd.decimals, log: false } : null,
-    selection, hovered, { grouped: !!groups, labelled }),
-  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, selection, hovered, groups, labelled]);
+    selection, { grouped: !!groups, labelled }),
+  [points, indicator, yInd, sizeInd, opts.logX, opts.logY, selection, groups, labelled]);
 
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
   const pickRef = useRef((id: string) => dispatch({ type: "toggleSelect", entity: id, panel: panel.id }));
   pickRef.current = (id: string) => dispatch({ type: "toggleSelect", entity: id, panel: panel.id });
+  const chart = useRef<ECharts | null>(null);
   const onReady = useCallback((c: ECharts) => {
+    chart.current = c;
     c.on("mouseover", (p) => { if (p.name) hoverRef.current(String(p.name)); });
     c.on("mouseout", () => hoverRef.current(null));
     c.on("click", (p) => { if (p.name) pickRef.current(String(p.name)); });
   }, []);
+  // A country hovered in another panel lights up here too.
+  useEffect(() => {
+    const c = chart.current;
+    if (!c || !hovered) return;
+    c.dispatchAction({ type: "highlight", seriesIndex: 0, name: hovered });
+    return () => { if (!c.isDisposed()) c.dispatchAction({ type: "downplay", seriesIndex: 0, name: hovered }); };
+  }, [hovered, points]);
 
   const groupList = useGroupList();
   const domains = [...new Set(usable.map((i) => i.domain))];

@@ -253,7 +253,7 @@ export type ScatterStyle = { grouped: boolean; labelled: Set<string> };
 // selection colour (or get a dark ring when colour shows groups) and a label.
 // Projections are faded.
 export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Axis | null,
-  selection: string[], hovered: string | null, style: ScatterStyle): EChartsOption {
+  selection: string[], style: ScatterStyle): EChartsOption {
   const max = size ? Math.max(0, ...points.map((p) => p.size ?? 0)) : 0;
   const radius = (v?: number) => (size ? (max > 0 && v && v > 0 ? 4 + 40 * Math.sqrt(v / max) : 4) : 9);
   const grey = cssVar("--ink-2");
@@ -266,7 +266,7 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
       const on = i >= 0;
       const color = style.grouped ? (p.group !== undefined ? seriesColor(p.group) : grey) : on ? seriesColor(i) : grey;
       const strong = on || (style.grouped && p.group !== undefined);
-      const ring = p.id === hovered || (on && style.grouped);
+      const ring = on && style.grouped;
       return {
         name: p.id, value: [p.x, p.y, p.size ?? null],
         symbolSize: radius(p.size),
@@ -274,7 +274,7 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
           color, opacity: (strong ? 0.85 : 0.45) * (p.proj ? 0.6 : 1),
           borderColor: ring ? ink : "rgba(255,255,255,0.6)", borderWidth: ring ? 2 : 0.5,
         },
-        label: { show: on || p.id === hovered || style.labelled.has(p.id), formatter: p.name, position: "right" as const,
+        label: { show: on || style.labelled.has(p.id), formatter: p.name, position: "right" as const,
           color: cssVar("--ink-2"), fontSize: 11, fontWeight: on ? ("bold" as const) : ("normal" as const) },
       };
     });
@@ -293,7 +293,9 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
     grid: { left: 8, right: 24, top: 36, bottom: 36, containLabel: true },
     xAxis: axis(x, "x"),
     yAxis: axis(y, "y"),
-    series: [{ type: "scatter", data, emphasis: { focus: "none", scale: false },
+    series: [{ type: "scatter", data, // Hover is drawn by ECharts' own emphasis state (also set from other
+      // panels via dispatchAction), so hovering never rebuilds the chart.
+      emphasis: { focus: "none", scale: false, itemStyle: { borderColor: ink, borderWidth: 2 }, label: { show: true } },
       animationDurationUpdate: 300,
       labelLayout: { hideOverlap: true } }],
     tooltip: {
