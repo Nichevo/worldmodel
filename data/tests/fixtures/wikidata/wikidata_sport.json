@@ -1,0 +1,161 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q8007"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2014 FIFA World Cup"
+    },
+    "compName": {
+     "type": "literal",
+     "value": "FIFA World Cup"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "BRA"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2014-06-12T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2014-07-13T00:00:00Z"
+    },
+    "placeLabel": {
+     "type": "literal",
+     "value": "Rio de Janeiro"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q8007"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2014 FIFA World Cup"
+    },
+    "compName": {
+     "type": "literal",
+     "value": "FIFA World Cup"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "BRA"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2014-06-12T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2014-07-13T00:00:00Z"
+    },
+    "placeLabel": {
+     "type": "literal",
+     "value": "S\u00e3o Paulo"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q8402"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2002 FIFA World Cup"
+    },
+    "compName": {
+     "type": "literal",
+     "value": "FIFA World Cup"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "KOR"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2002-05-31T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2002-06-30T00:00:00Z"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q8402"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2002 FIFA World Cup"
+    },
+    "compName": {
+     "type": "literal",
+     "value": "FIFA World Cup"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "JPN"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2002-05-31T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2002-06-30T00:00:00Z"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q181278"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2020 Summer Olympics"
+    },
+    "compName": {
+     "type": "literal",
+     "value": "Summer Olympic Games"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "JPN"
+    },
+    "start": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2021-07-23T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2021-08-08T00:00:00Z"
+    },
+    "placeLabel": {
+     "type": "literal",
+     "value": "Tokyo"
+    }
+   }
+  ]
+ }
+}

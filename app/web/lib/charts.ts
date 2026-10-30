@@ -668,3 +668,35 @@ export function sourcesOption(sources: { source_id: string; name: string; points
     },
   };
 }
+
+// Around events: one thin line per event (years from the event on the x axis), the
+// average in bold and, if asked, the comparison's average dashed.
+export function aroundOption(offsets: number[], events: { label: string; values: (number | null)[] }[],
+  mean: (number | null)[], compare: (number | null)[] | null, compareName: string, unit: string): EChartsOption {
+  const base = chrome();
+  const faint = cssVar("--muted");
+  const series: SeriesOption[] = events.map((e, i) => ({
+    type: "line", id: `ev${i}`, name: e.label, showSymbol: false, data: offsets.map((o, k) => [o, e.values[k]]),
+    lineStyle: { width: 1, color: faint, opacity: 0.45 }, itemStyle: { color: faint }, emphasis: { focus: "series" }, z: 1,
+  }));
+  series.push({ type: "line", id: "mean", name: "Average", data: offsets.map((o, k) => [o, mean[k]]), symbolSize: 6,
+    lineStyle: { width: 3, color: seriesColor(0) }, itemStyle: { color: seriesColor(0) }, z: 3,
+    markLine: { symbol: "none", silent: true, label: { show: true, formatter: "event", color: faint },
+      lineStyle: { color: faint, type: "dashed" }, data: [{ xAxis: 0 }] } });
+  if (compare) series.push({ type: "line", id: "compare", name: `${compareName}, same years`, data: offsets.map((o, k) => [o, compare[k]]),
+    symbolSize: 5, lineStyle: { width: 2, type: "dashed", color: seriesColor(1) }, itemStyle: { color: seriesColor(1) }, z: 2 });
+  return {
+    ...base,
+    xAxis: { ...(base.xAxis as object), min: offsets[0], max: offsets[offsets.length - 1], interval: 1,
+      axisLabel: { color: faint, formatter: (v: number) => (v === 0 ? "year 0" : v > 0 ? `+${v}` : String(v)) } },
+    yAxis: { ...(yAxis(unit) as object), axisLine: { onZero: false } } as EChartsOption["yAxis"],
+    legend: { top: 0, left: 0, data: ["Average", ...(compare ? [`${compareName}, same years`] : [])], textStyle: { color: cssVar("--ink-2") } },
+    grid: { ...(base.grid as object), top: 40 },
+    tooltip: { trigger: "item", backgroundColor: cssVar("--surface"), borderColor: cssVar("--border"), textStyle: { color: cssVar("--ink") },
+      formatter: (p: unknown) => {
+        const x = p as { seriesName: string; value: [number, number] };
+        return `${x.seriesName}<br/>year ${x.value[0] > 0 ? "+" : ""}${x.value[0]}: <b>${x.value[1] === null ? "–" : compact(x.value[1])}</b>`;
+      } },
+    series,
+  };
+}

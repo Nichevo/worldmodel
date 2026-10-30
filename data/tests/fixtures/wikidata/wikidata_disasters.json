@@ -1,0 +1,67 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q36204"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2011 T\u014dhoku earthquake and tsunami"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "earthquake"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "JPN"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2011-03-11T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "19747"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q36204"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2011 T\u014dhoku earthquake and tsunami"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "earthquake"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "JPN"
+    },
+    "date": {
+     "type": "literal",
+     "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+     "value": "2011-03-11T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "19759"
+    },
+    "damage": {
+     "type": "literal",
+     "value": "360000000000"
+    }
+   }
+  ]
+ }
+}

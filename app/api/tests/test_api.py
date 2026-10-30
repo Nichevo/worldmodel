@@ -235,3 +235,36 @@ def test_world_bank_indicators_and_income_groups(client):
     rows = client.get("/api/v1/series", params={"indicator": "pop_total", "entities": "income-low", "start": 2020,
                                                 "end": 2020}).json()["rows"]
     assert rows and rows[0]["value"] > 1e8
+
+
+def test_events_filters_and_your_own_milestones(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path))
+    jpn = client.get("/api/v1/events", params={"entities": "JPN", "kinds": "sport,disaster"}).json()
+    assert {e["title"] for e in jpn} >= {"2002 FIFA World Cup", "Tohoku"}
+    assert all(e["entity_id"] == "JPN" and e["kind"] in ("sport", "disaster") for e in jpn)
+    assert all((e["end_date"] or e["start_date"]) >= "2000" for e in client.get("/api/v1/events", params={"start": "2000"}).json())
+    kinds = {k["kind"]: k for k in client.get("/api/v1/events/kinds").json()}
+    assert kinds["recession"]["sources"] == ["worldmodel"] and "user" not in kinds
+
+    bad = client.post("/api/v1/milestones", json={"entity_id": "NZL", "title": "x", "start_date": "soon"})
+    assert bad.status_code == 422
+    m = client.post("/api/v1/milestones", json={"entity_id": "NZL", "title": "Reserve Bank Act", "start_date": "1989-12-20",
+                                                "note": "inflation targeting starts"}).json()
+    got = client.get("/api/v1/events", params={"entities": "NZL", "kinds": "user"}).json()
+    assert [(e["title"], e["source_id"], e["detail"]) for e in got] == [("Reserve Bank Act", "user", "inflation targeting starts")]
+    client.put(f"/api/v1/milestones/{m['id']}", json={**m, "title": "Reserve Bank of New Zealand Act"})
+    assert client.get("/api/v1/milestones").json()[0]["title"] == "Reserve Bank of New Zealand Act"
+    assert client.delete(f"/api/v1/milestones/{m['id']}").json() == {"deleted": m["id"]}
+    assert client.get("/api/v1/milestones").json() == []
+
+
+def test_around_the_event_lines_up_years(client):
+    a = client.get("/api/v1/around", params={"indicator": "gdp_growth", "kind": "recession", "entity": "NZL",
+                                              "before": 3, "after": 2}).json()
+    assert a["offsets"] == [-3, -2, -1, 0, 1, 2] and a["mode"] == "value" and a["n"] >= 2
+    first = a["events"][0]
+    assert first["values"][3] < 0  # the recession year itself
+    assert first["diff"][3] == pytest.approx(first["values"][3] - first["compare"][3], abs=1e-3)
+    idx = client.get("/api/v1/around", params={"indicator": "gdp_usd", "kind": "sport", "q": "World Cup"}).json()
+    assert idx["mode"] == "index" and all(e["values"][idx["offsets"].index(-1)] == 100 for e in idx["events"])
+    assert client.get("/api/v1/around", params={"indicator": "gdp_growth", "kind": "nothing"}).status_code == 404

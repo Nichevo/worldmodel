@@ -815,6 +815,227 @@ def problems():
     return local.problems()
 
 
+# ----------------------------------------------------------------------------- events and milestones
+EVENT_COLUMNS = ("event_id", "entity_id", "source_id", "kind", "subkind", "title", "start_date", "end_date",
+                 "precision", "size", "size_unit", "deaths", "affected", "damage_usd", "place", "url", "detail")
+
+
+def _year_or_date(v: str | None, end: bool = False) -> str | None:
+    """'1990' -> 1990-01-01 (or 1990-12-31 for an end), a full date as it is."""
+    if not v:
+        return None
+    v = v.strip()
+    if len(v) == 4 and v.isdigit():
+        return f"{v}-12-31" if end else f"{v}-01-01"
+    try:
+        return date.fromisoformat(v[:10]).isoformat()
+    except ValueError:
+        raise HTTPException(422, f"not a year or date: {v}")
+
+
+def _milestone_rows() -> list[dict]:
+    return [{"event_id": f"user:{m['id']}", "entity_id": m["entity_id"], "source_id": "user", "kind": "user",
+             "subkind": m.get("subkind"), "title": m["title"], "start_date": m["start_date"], "end_date": m.get("end_date"),
+             "precision": "day", "size": None, "size_unit": None, "deaths": None, "affected": None, "damage_usd": None,
+             "place": None, "url": m.get("url"), "detail": m.get("note") or None, "milestone_id": m["id"]}
+            for m in userdata.milestones()]
+
+
+@api.get("/events")
+def events(
+    entities: str | None = Query(None, description="Comma-separated entity ids; none for every country"),
+    members: bool = Query(False, description="For a group, its member countries' events (members at the time)"),
+    kinds: str | None = Query(None, description="Comma-separated kinds (see /events/kinds); none for all"),
+    sources: str | None = None,
+    start: str | None = Query(None, description="A year or a date: events still going on or after it"),
+    end: str | None = Query(None, description="A year or a date: events starting on or before it"),
+    min_size: float | None = Query(None, description="Leave out sized events smaller than this (unsized ones stay)"),
+    q: str | None = Query(None, description="Words in the title, place or detail"),
+    limit: int = Query(2000, le=20000),
+):
+    """Dated events: elections, leaders, coups, conflicts, sporting events, disasters, worked-out episodes
+    (recessions, booms...), notable episodes, and your own milestones (source 'user'). Oldest first."""
+    ents, kind_list, src_list = split(entities), split(kinds), split(sources)
+    lo, hi = _year_or_date(start), _year_or_date(end, end=True)
+    where, params = [], []
+    if ents:
+        if members:
+            where.append("""(e.entity_id IN (SELECT unnest(?)) OR EXISTS (SELECT 1 FROM memberships m
+                WHERE m.member_id = e.entity_id AND m.group_id IN (SELECT unnest(?))
+                AND (m.valid_from IS NULL OR m.valid_from <= coalesce(e.end_date, e.start_date))
+                AND (m.valid_to IS NULL OR m.valid_to >= e.start_date)))""")
+            params += [ents, ents]
+        else:
+            where.append("e.entity_id IN (SELECT unnest(?))")
+            params.append(ents)
+    if kind_list:
+        where.append("e.kind IN (SELECT unnest(?))")
+        params.append(kind_list)
+    if src_list:
+        where.append("e.source_id IN (SELECT unnest(?))")
+        params.append(src_list)
+    if lo:
+        where.append("coalesce(e.end_date, e.start_date) >= CAST(? AS DATE)")
+        params.append(lo)
+    if hi:
+        where.append("e.start_date <= CAST(? AS DATE)")
+        params.append(hi)
+    if min_size is not None:
+        where.append("(e.size IS NULL OR abs(e.size) >= ?)")
+        params.append(min_size)
+    if q:
+        where.append("(e.title ILIKE ? OR e.place ILIKE ? OR e.detail ILIKE ? OR e.subkind ILIKE ?)")
+        params += [f"%{q}%"] * 4
+    # The same disaster from Wikidata and EM-DAT: keep EM-DAT's, which has the fuller figures.
+    where.append("""NOT (e.source_id = 'wikidata' AND e.kind IN ('disaster', 'epidemic') AND EXISTS (
+        SELECT 1 FROM events x WHERE x.source_id = 'emdat' AND x.entity_id = e.entity_id
+        AND abs(date_diff('day', x.start_date, e.start_date)) <= 3))""")
+    sql = (f"SELECT {', '.join('e.' + c for c in EVENT_COLUMNS)}, n.short_name AS entity_name FROM events e "
+           f"LEFT JOIN entities n USING (entity_id) {'WHERE ' + ' AND '.join(where) if where else ''} "
+           f"ORDER BY e.start_date, e.entity_id LIMIT ?")
+    out = rows(sql, params + [limit])
+    for r in out:
+        for k in ("start_date", "end_date"):
+            r[k] = r[k].isoformat() if r[k] else None
+    if (not kind_list or "user" in kind_list) and (not src_list or "user" in src_list):
+        names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+        group_members = set()
+        if ents and members:
+            group_members = {r["member_id"] for r in rows(
+                "SELECT member_id FROM memberships WHERE group_id IN (SELECT unnest(?))", [ents])}
+        for m in _milestone_rows():
+            if ents and m["entity_id"] not in ents and m["entity_id"] not in group_members:
+                continue
+            if (lo and (m["end_date"] or m["start_date"]) < lo) or (hi and m["start_date"] > hi):
+                continue
+            if q and q.lower() not in f"{m['title']} {m['detail'] or ''} {m['subkind'] or ''}".lower():
+                continue
+            out.append({**m, "entity_name": names.get(m["entity_id"], m["entity_id"])})
+        out.sort(key=lambda r: (r["start_date"], r["entity_id"]))
+    return out[:limit]
+
+
+@api.get("/events/kinds")
+def event_kinds():
+    """What events there are: per kind, the count, sources and the most common subkinds."""
+    found = rows("""SELECT kind, count(*) AS n, list(DISTINCT source_id ORDER BY source_id) AS sources,
+            min(start_date) AS first, max(start_date) AS last FROM events GROUP BY kind ORDER BY n DESC""")
+    subs = rows("""SELECT * FROM (SELECT kind, subkind, count(*) AS n FROM events WHERE subkind IS NOT NULL GROUP BY 1, 2)
+            QUALIFY row_number() OVER (PARTITION BY kind ORDER BY n DESC) <= 12 ORDER BY kind, n DESC""")
+    for k in found:
+        k["first"], k["last"] = str(k["first"]), str(k["last"])
+        k["subkinds"] = [{"subkind": s["subkind"], "n": s["n"]} for s in subs if s["kind"] == k["kind"]]
+    mine = userdata.milestones()
+    if mine:
+        found.append({"kind": "user", "n": len(mine), "sources": ["user"], "first": mine[0]["start_date"],
+                      "last": mine[-1]["start_date"], "subkinds": []})
+    return found
+
+
+@api.get("/milestones")
+def get_milestones():
+    """Your own events."""
+    return userdata.milestones()
+
+
+@api.post("/milestones")
+def post_milestone(m: dict = Body(...)):
+    """Add a milestone: {entity_id, title, start_date, end_date?, subkind?, note?, url?}."""
+    try:
+        return userdata.save_milestone(m)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.put("/milestones/{milestone_id}")
+def put_milestone(milestone_id: str, m: dict = Body(...)):
+    try:
+        return userdata.save_milestone(m, milestone_id)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except KeyError:
+        raise HTTPException(404, f"no milestone {milestone_id}")
+
+
+@api.delete("/milestones/{milestone_id}")
+def delete_milestone(milestone_id: str):
+    if not userdata.delete_milestone(milestone_id):
+        raise HTTPException(404, f"no milestone {milestone_id}")
+    return {"deleted": milestone_id}
+
+
+@api.get("/around")
+def around(
+    indicator: str,
+    event_id: str | None = Query(None, description="One event (with entity), or else every event matching kind/subkind/q"),
+    entity: str | None = None,
+    kind: str | None = None,
+    subkind: str | None = None,
+    q: str | None = Query(None, description="Words in the title, e.g. Olympic"),
+    before: int = Query(5, ge=1, le=20),
+    after: int = Query(5, ge=1, le=20),
+    compare: str = Query("world", description="An entity to compare with, or 'none'"),
+    mode: Literal["auto", "value", "index"] = Query("auto", description="index: the year before the event = 100"),
+    min_size: float | None = None,
+    limit: int = Query(60, le=200),
+):
+    """An indicator in the years around events: each event's country from `before` years before to `after`
+    years after the event's start year, beside a comparison (the world by default), and the average path.
+    Use it to see what a World Cup, a coup or a disaster did to growth, inflation or anything else."""
+    ind = rows("SELECT indicator_id, name, unit FROM indicators WHERE indicator_id = ?", [indicator])
+    if not ind:
+        raise HTTPException(404, f"no indicator {indicator}")
+    if event_id:
+        evs = [e for e in events(entities=entity, members=False, kinds=None, sources=None, start=None, end=None,
+                                 min_size=None, q=None, limit=20000) if e["event_id"] == event_id]
+    else:
+        evs = events(entities=entity, members=False, kinds=kind, sources=None, start=None, end=None,
+                     min_size=min_size, q=q, limit=20000)
+        if subkind:
+            evs = [e for e in evs if (e["subkind"] or "").lower() == subkind.lower()]
+    if not evs:
+        raise HTTPException(404, "no events match")
+    evs = sorted(evs, key=lambda e: e["start_date"], reverse=True)[:limit]
+    unit = ind[0]["unit"] or ""
+    use_index = mode == "index" or (mode == "auto" and "%" not in unit and "per" not in unit.lower()
+                                    and "rate" not in ind[0]["name"].lower())
+    offsets = list(range(-before, after + 1))
+    years = [int(e["start_date"][:4]) for e in evs]
+    span_lo, span_hi = min(years) - before - 1, max(years) + after
+    ents = sorted({e["entity_id"] for e in evs} | ({compare} if compare != "none" else set()))
+    data = _series(indicator, ",".join(ents), None, span_lo, span_hi, None, "", "central", True, None)
+    by = {(r["entity_id"], int(r["period"][:4])): r["value"] for r in data}
+
+    def path(ent: str, y0: int) -> list[float | None]:
+        vals = [by.get((ent, y0 + k)) for k in offsets]
+        if not use_index:
+            return vals
+        base = by.get((ent, y0 - 1))
+        return [round(v / base * 100, 3) if v is not None and base else None for v in vals]
+
+    out = []
+    for e, y0 in zip(evs, years):
+        own = path(e["entity_id"], y0)
+        if all(v is None for v in own):
+            continue
+        cmp = path(compare, y0) if compare != "none" else None
+        diff = ([round(a - b, 4) if a is not None and b is not None else None for a, b in zip(own, cmp)]
+                if cmp else None)
+        out.append({"event_id": e["event_id"], "entity_id": e["entity_id"], "entity_name": e.get("entity_name"),
+                    "title": e["title"], "kind": e["kind"], "subkind": e["subkind"], "year": y0,
+                    "start_date": e["start_date"], "values": own, "compare": cmp, "diff": diff})
+
+    def mean(key: str) -> list[float | None]:
+        cols = [[r[key][i] for r in out if r[key] and r[key][i] is not None] for i in range(len(offsets))]
+        return [round(sum(c) / len(c), 4) if c else None for c in cols]
+
+    return {"indicator": ind[0], "mode": "index" if use_index else "value", "compare": compare, "offsets": offsets,
+            "events": out, "mean": mean("values"), "mean_compare": mean("compare") if compare != "none" else None,
+            "mean_diff": mean("diff") if compare != "none" else None, "n": len(out),
+            "note": ("Index: the year before each event = 100." if use_index else f"Values in {unit}.")
+            + (f" Compared with {compare} over the same years." if compare != "none" else "")}
+
+
 # ----------------------------------------------------------------------------- streams
 @api.get("/streams")
 def streams():

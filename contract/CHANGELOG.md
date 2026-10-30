@@ -3,6 +3,20 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.3.0 (2026-10-30)
+
+- New table `events`: dated events and episodes per country (elections, leaders,
+  coups, conflicts, crises, sporting events, disasters, epidemics, notable
+  episodes, recessions and booms worked out from the data). Key
+  (event_id, entity_id); `EVENT_KINDS` and `DATE_PRECISIONS` list the values.
+- Catalogues: `notable_episodes.csv` (curated, with sources) and
+  `episode_rules.yaml` (how episodes are worked out); new sources
+  powell_thyne, ucdp_acd, emdat and notable.
+- `catalogue.country_by_name(name, on)`: a country from its name on a date,
+  for sources that name countries instead of coding them.
+- `local`: settings `events_on_charts`, `event_kinds`, `disaster_min_deaths`,
+  `problem_banner`; `problems()` groups the refresh log into distinct problems.
+
 ## 1.2.0 (2026-10-30)
 
 - New table `texts`: text about countries (CIA World Factbook fields for every

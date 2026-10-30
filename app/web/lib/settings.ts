@@ -18,6 +18,9 @@ export const DEFAULT_SETTINGS: Settings = {
   history_paused: false,
   history_retention_days: 0,
   problem_banner: true,
+  events_on_charts: true,
+  event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,user",
+  disaster_min_deaths: 100,
 };
 
 let current: Settings = DEFAULT_SETTINGS;

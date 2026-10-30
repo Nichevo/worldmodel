@@ -66,7 +66,9 @@ def fetch(
         raise typer.BadParameter(f"unknown source {source}; choose from {', '.join(CONNECTORS)}")
     manifest, is_new = CONNECTORS[source]().ingest(VintageStore(paths()), from_path, release)
     word = "stored new vintage" if is_new else "unchanged, already have vintage"
-    typer.echo(f"{source}: {word} {manifest.vintage} ({manifest.row_count:,} rows)")
+    counts = [f"{manifest.row_count:,} rows"] + [f"{n:,} {what}" for n, what in
+                                                 ((manifest.text_count, "texts"), (manifest.event_count, "events")) if n]
+    typer.echo(f"{source}: {word} {manifest.vintage} ({', '.join(counts)})")
 
 
 @app.command()
@@ -180,9 +182,13 @@ def refresh(allow_shrink: bool = typer.Option(False)):
 
 
 def _not_due(cls, last) -> str | None:
-    """Why a refresh leaves a source alone this time: a closed archive already stored,
-    or one fetched on a schedule (monthly, say) whose time has not come."""
-    if last is None:
+    """Why a refresh leaves a source alone this time: one loaded only from a file you
+    download yourself, a closed archive already stored, or one fetched on a schedule
+    (monthly, say) whose time has not come."""
+    if cls.manual:
+        return (f"loaded by hand: worldmodel-data fetch {cls.source_id} --from FILE"
+                + (f"; stored as {last.vintage}" if last else "; nothing loaded yet"))
+    if last is None or last.fetch_version < cls.fetch_version:
         return None
     if cls.frozen:
         return f"archive that no longer changes; stored as {last.vintage}"
