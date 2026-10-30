@@ -122,3 +122,21 @@ def test_whatif_checks_in_report(built):
     checks = dict(con.execute("SELECT check_id, status FROM build_checks WHERE check_id LIKE 'whatif:%'").fetchall())
     assert set(checks) == {"whatif:projection", "whatif:backtest"}
     assert "fail" not in checks.values()
+
+
+def test_history_file_is_found_beside_the_latest_weo_release(tmp_path):
+    import httpx
+
+    asked = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        if "/2025/october/" in str(request.url):
+            return httpx.Response(200, content=weo_history(tmp_path / "w.xlsx").read_bytes())
+        return httpx.Response(404)
+
+    store = VintageStore(Paths(tmp_path / "var"))
+    manifest, new = CONNECTORS["imf_weo_history"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(
+        store, release="2026-03-01")
+    assert new and manifest.origin.endswith("/2025/october/weohistorical.xlsx")
+    assert ["/".join(u.split("/")[-3:-1]) for u in asked] == ["2025/october"]
