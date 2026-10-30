@@ -248,7 +248,31 @@ export type Axis = { name: string; unit: string; decimals: number; log: boolean 
 // colour each; dots without one are grey), else only selected countries get colour.
 // trim: fit each axis to the bulk of the countries; the few far outside it are
 // drawn as triangles on the edge, with their real values in the tooltip.
-export type ScatterStyle = { grouped: boolean; labelled: Set<string>; trim: boolean };
+// hold: fixed axis ranges (while playing through the years); step: the time between
+// years when playing, so dots glide the whole way from one year to the next.
+export type ScatterStyle = { grouped: boolean; labelled: Set<string>; trim: boolean; hold?: { x: Extent; y: Extent } | null; step?: number };
+export type Extent = [number, number];
+
+// The ranges the dots are drawn over (outliers held to the fence when trimming).
+export function scatterExtent(points: ScatterPoint[], logX: boolean, logY: boolean, trim: boolean): { x: Extent; y: Extent } | null {
+  if (!points.length) return null;
+  const one = (v: number[], log: boolean): Extent => {
+    const f = trim ? outlierFence(v, log) : null;
+    const c = f ? v.map((x) => Math.min(f[1], Math.max(f[0], x))) : v;
+    return [Math.min(...c), Math.max(...c)];
+  };
+  return { x: one(points.map((p) => p.x), logX), y: one(points.map((p) => p.y), logY) };
+}
+
+// An extent widened to round numbers, with its tick step: powers of ten on a log
+// axis, else steps of 1, 2 or 5 times a power of ten.
+function niceExtent([lo, hi]: Extent, log: boolean): { min: number; max: number; interval?: number } {
+  if (log) return { min: 10 ** Math.floor(Math.log10(lo)), max: 10 ** Math.ceil(Math.log10(hi)) };
+  const span = hi - lo || Math.abs(hi) || 1;
+  const mag = 10 ** Math.floor(Math.log10(span / 5));
+  const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => span / s <= 6) ?? 10 * mag;
+  return { min: Math.floor(lo / step) * step, max: Math.ceil(hi / step) * step, interval: step };
+}
 
 // The range outside which values count as outliers: 3 interquartile ranges
 // beyond the quartiles (on the log scale for a log axis). Null when nothing is out.
@@ -303,8 +327,14 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
       };
     });
   const names = new Map(points.map((p) => [p.id, p.name]));
+  const held = (dim: "x" | "y", log: boolean): { min?: number; max?: number; interval?: number } => {
+    const e = style.hold?.[dim];
+    // null (not left out) so a chart updated in place lets go of the held range
+    return e ? niceExtent(e, log) : ({ min: null, max: null, interval: null } as unknown as { min?: number });
+  };
   const axis = (a: Axis, dim: "x" | "y", f: [number, number] | null) => ({
     type: a.log ? ("log" as const) : ("value" as const), scale: true, name: f ? `${a.name} (outliers at the edge)` : a.name,
+    ...held(dim, a.log),
     nameLocation: dim === "x" ? ("middle" as const) : ("end" as const), nameGap: dim === "x" ? 28 : 12,
     nameTextStyle: { color: cssVar("--muted"), align: dim === "y" ? ("left" as const) : undefined },
     axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) },
@@ -317,11 +347,15 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
     grid: { left: 8, right: 24, top: 36, bottom: 36, containLabel: true },
     xAxis: axis(x, "x", fx),
     yAxis: axis(y, "y", fy),
-    series: [{ type: "scatter", data,
+    // A fixed id, so each new year updates the drawn dots (which glide to their
+    // new places) instead of replacing the series and fading every dot in again.
+    series: [{ type: "scatter", id: "dots", data,
       // Hover is drawn by ECharts' own emphasis state (also set from other
       // panels via dispatchAction), so hovering never rebuilds the chart.
       emphasis: { focus: "none", scale: false, itemStyle: { borderColor: ink, borderWidth: 2 }, label: { show: true } },
-      animationDurationUpdate: 300,
+      // Playing: a steady glide lasting the whole step, so motion never stops between years.
+      animationDurationUpdate: style.step ? style.step : 300,
+      animationEasingUpdate: style.step ? "linear" : "cubicOut",
       labelLayout: { hideOverlap: true } }],
     tooltip: {
       ...(base.tooltip as object), trigger: "item",
