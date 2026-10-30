@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/", label: "Map" },
   { href: "/compare", label: "Compare" },
   { href: "/forecasts", label: "Forecasts" },
+  { href: "/events", label: "Events" },
   { href: "/indicators", label: "Indicators" },
   { href: "/sources", label: "Sources" },
   { href: "/data", label: "Data status" },
