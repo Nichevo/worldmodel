@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
 import { api, type Dataset, type Meta, type Source } from "@/lib/api";
 
 type Check = { check_id: string; kind: string; status: string; detail: string };
@@ -123,6 +124,9 @@ export default function DataPage() {
           </table>
         </div>
       </div>
+
+      <StorageCard />
+      <RefreshHistoryCard />
 
       <div className="card">
         <h2>Loaded vintages</h2>

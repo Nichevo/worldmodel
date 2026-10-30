@@ -8,6 +8,7 @@ import Search from "@/components/Search";
 import { api, type Entity, type Indicator, type SeriesRow } from "@/lib/api";
 import { seriesVar } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
+import { logHistory } from "@/lib/history";
 
 const MAX = 8; // one categorical colour each; more would need folding or small multiples
 
@@ -22,7 +23,7 @@ function Compare() {
 
   useEffect(() => {
     api.entities().then(setEntities);
-    api.indicators().then((l) => setIndicators(l.filter((i) => i.available && !i.breakdowns)));
+    api.indicators().then((l) => setIndicators(l.filter((i) => i.available && !i.breakdowns && (i.enabled || i.indicator_id === indicatorId))));
   }, []);
 
   const names = useMemo(() => new Map(entities.map((e) => [e.entity_id, e.short_name])), [entities]);
@@ -31,6 +32,12 @@ function Compare() {
 
   const update = (next: string[], ind = indicatorId) =>
     router.replace(`/compare?ids=${next.join(",")}&indicator=${ind}`);
+
+  useEffect(() => {
+    if (!indicator || !names.size) return;
+    logHistory({ kind: "page", title: `Compare ${ids.map((id) => names.get(id) ?? id).join(", ")}: ${indicator.name}`,
+      url: `/compare?ids=${ids.join(",")}&indicator=${indicator.indicator_id}`, indicator: indicator.indicator_id, detail: "compare" });
+  }, [indicator, ids, names]);
 
   useEffect(() => {
     if (!indicator) return;

@@ -335,3 +335,145 @@ export function scatterOption(points: ScatterPoint[], x: Axis, y: Axis, size: Ax
     },
   };
 }
+
+// A popup's small chart: the country against its region and the world, with
+// projections dashed and a rule at the year shown.
+export type MiniLine = { label: string; points: [number, number, string][] };
+export function miniOption(lines: MiniLine[], unit: string, decimals: number, year: number): EChartsOption {
+  const series: SeriesOption[] = [];
+  const fmt = new Map<string, (v: number) => string>();
+  const labels = new Map<string, string>();
+  lines.forEach((l, n) => {
+    if (!l.points.length) return;
+    const key = `${n}`;
+    labels.set(key, l.label);
+    fmt.set(key, (v) => formatValue(v, unit, decimals));
+    const est = l.points.filter((p) => p[2] === "E").map((p) => [p[0], p[1]]);
+    const proj = l.points.filter((p) => p[2] === "P").map((p) => [p[0], p[1]]);
+    const color = n === 0 ? seriesColor(0) : n === 1 ? seriesColor(1) : cssVar("--muted");
+    const base = { type: "line" as const, name: key, showSymbol: false, color, lineStyle: { width: n === 0 ? 2 : 1.5 } };
+    series.push({ ...base, id: `${key}:E`, data: est });
+    if (proj.length) series.push({ ...base, id: `${key}:P`, data: est.length ? [est[est.length - 1], ...proj] : proj,
+      lineStyle: { ...base.lineStyle, type: "dashed" } });
+  });
+  series.push({ type: "line", id: "year", data: [], silent: true, markLine: { symbol: "none", silent: true, animation: false,
+    label: { show: false }, lineStyle: { color: cssVar("--axis"), type: "solid", width: 1 }, data: [{ xAxis: year }] } });
+  const base = chrome();
+  return {
+    ...base,
+    animation: false,
+    grid: { left: 2, right: 6, top: 8, bottom: 2, containLabel: true },
+    xAxis: { ...(base.xAxis as object), axisLabel: { color: cssVar("--muted"), fontSize: 9, formatter: (v: number) => String(v) } },
+    yAxis: { ...(yAxis(unit) as object), name: "", axisLabel: { color: cssVar("--muted"), fontSize: 9, formatter: (v: number) => compact(v) } },
+    series,
+    tooltip: { ...(base.tooltip as object), confine: true, formatter: tooltipFormatter(labels, fmt) },
+  };
+}
+
+// A tiny inline SVG trend line for map tooltips: the values up to the year shown,
+// with a dot on that year.
+export function sparklineSvg(years: number[], values: (number | null)[], upTo: number, color: string, span = 30): string {
+  const pts: [number, number][] = [];
+  years.forEach((y, i) => { if (y <= upTo && y > upTo - span && values[i] !== null) pts.push([y, values[i] as number]); });
+  if (pts.length < 2) return "";
+  const w = 140, h = 34, pad = 3;
+  const x0 = pts[0][0], x1 = pts[pts.length - 1][0];
+  const vs = pts.map((p) => p[1]);
+  const lo = Math.min(...vs), hi = Math.max(...vs);
+  const sx = (x: number) => pad + ((x - x0) / Math.max(1, x1 - x0)) * (w - 2 * pad);
+  const sy = (v: number) => h - pad - ((v - lo) / (hi - lo || 1)) * (h - 2 * pad);
+  const d = pts.map((p, i) => `${i ? "L" : "M"}${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join("");
+  const last = pts[pts.length - 1];
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin-top:4px" aria-hidden="true">` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5"/>` +
+    `<circle cx="${sx(last[0]).toFixed(1)}" cy="${sy(last[1]).toFixed(1)}" r="2.5" fill="${color}"/></svg>` +
+    `<span style="font-size:10px;opacity:.7">${x0}–${x1}</span>`;
+}
+
+// ---------------------------------------------------------------------------- Data status page
+// Charts of the refresh log: one bar or point per refresh run, oldest first.
+export type RunPoint = { label: string; when: string };
+const GBYTES = 1024 ** 3;
+
+function runAxis(runs: RunPoint[]): EChartsOption["xAxis"] {
+  return {
+    type: "category", data: runs.map((r) => r.label),
+    axisLabel: { color: cssVar("--muted"), fontSize: 10, hideOverlap: true },
+    axisLine: { lineStyle: { color: cssVar("--axis") } }, axisTick: { show: false },
+  };
+}
+
+function runChrome(legend: boolean): EChartsOption {
+  const base = chrome();
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: legend ? 34 : 16, bottom: 8, containLabel: true },
+    legend: legend ? { top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar("--ink-2") } } : undefined,
+    tooltip: { ...(base.tooltip as object), trigger: "axis", confine: true },
+  };
+}
+
+// Disk use by category after each run, stacked, with the 80% and 95% lines of the
+// limit drawn when the total comes near enough for them to matter.
+export function spaceOption(runs: RunPoint[], cats: { key: string; label: string }[], disk: Record<string, number>[], limit: number): EChartsOption {
+  const totals = disk.map((d) => cats.reduce((t, c) => t + (d[c.key] ?? 0), 0));
+  const showLimits = Math.max(0, ...totals) > limit * 0.5;
+  const series: SeriesOption[] = cats.map((c, i) => ({
+    type: "line", name: c.label, stack: "disk", areaStyle: { opacity: 0.85 }, symbol: "none", lineStyle: { width: 0 },
+    color: seriesColor(i), data: disk.map((d) => +(((d[c.key] ?? 0) / GBYTES).toFixed(3))),
+  }));
+  if (showLimits) series.push({
+    type: "line", name: "limit", data: [], silent: true, markLine: {
+      symbol: "none", silent: true, label: { color: cssVar("--ink-2"), formatter: "{b}", position: "insideEndTop" },
+      lineStyle: { color: cssVar("--ink-2"), type: "dashed", width: 1 },
+      data: [{ yAxis: +((limit * 0.8) / GBYTES).toFixed(2), name: "80%" }, { yAxis: +((limit * 0.95) / GBYTES).toFixed(2), name: "95%" }],
+    },
+  });
+  return {
+    ...runChrome(true),
+    legend: { ...(runChrome(true).legend as object), data: cats.map((c) => c.label) },
+    xAxis: runAxis(runs),
+    yAxis: { type: "value",
+      axisLabel: { color: cssVar("--muted") }, splitLine: { lineStyle: { color: cssVar("--grid") } },
+      max: showLimits ? Math.max(limit / GBYTES, ...totals.map((t) => t / GBYTES)) : undefined },
+    tooltip: { ...(runChrome(true).tooltip as object), valueFormatter: (v: unknown) => `${(+(v as number)).toFixed(2)} GB` },
+    series,
+  };
+}
+
+// Rows added, changed and removed by each run, all sources together.
+export function changesOption(runs: RunPoint[], added: number[], changed: number[], removed: number[]): EChartsOption {
+  const bar = (name: string, data: number[], i: number): SeriesOption => ({
+    type: "bar", name, stack: "rows", data, color: seriesColor(i), barMaxWidth: 18,
+    itemStyle: { borderColor: cssVar("--surface"), borderWidth: 1 },
+  });
+  return {
+    ...runChrome(true),
+    xAxis: runAxis(runs),
+    yAxis: { type: "value",
+      axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    tooltip: { ...(runChrome(true).tooltip as object), valueFormatter: (v: unknown) => (+(v as number)).toLocaleString("en") },
+    series: [bar("Added", added, 0), bar("Changed", changed, 1), bar("Removed", removed, 2)],
+  };
+}
+
+// How long each run took; failed runs in red, named in the tooltip.
+export function healthOption(runs: (RunPoint & { minutes: number | null; ok: boolean; note: string })[]): EChartsOption {
+  return {
+    ...runChrome(false),
+    xAxis: runAxis(runs),
+    yAxis: { type: "value",
+      axisLabel: { color: cssVar("--muted") }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    tooltip: {
+      ...(runChrome(false).tooltip as object), trigger: "item",
+      formatter: (p: unknown) => {
+        const r = runs[(p as { dataIndex: number }).dataIndex];
+        return `<b>${r.when}</b><br/>${r.ok ? "Passed" : "<b>Failed</b>"}${r.minutes !== null ? `, ${r.minutes.toFixed(1)} min` : ""}<br/>${r.note}`;
+      },
+    },
+    series: [{
+      type: "bar", barMaxWidth: 18,
+      data: runs.map((r) => ({ value: r.minutes ?? 0, itemStyle: { color: r.ok ? seriesColor(0) : cssVar("--div-neg-3"), borderRadius: [3, 3, 0, 0] } })),
+    }],
+  };
+}

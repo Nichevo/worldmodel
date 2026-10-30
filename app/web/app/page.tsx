@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import Panel, { type Value } from "@/components/Panel";
+import Panel, { effectiveYear, type Activate, type At, type PanelPopup, type Value } from "@/components/Panel";
+import PopupCard from "@/components/PopupCard";
 import Search from "@/components/Search";
 import { makeScale, type Scale } from "@/components/WorldMap";
 import { api, type Indicator, type SavedLayout } from "@/lib/api";
 import { CameraBus } from "@/lib/camera";
 import { DIVERGING, seriesVar } from "@/lib/colors";
+import { logHistory } from "@/lib/history";
+import { useSettings } from "@/lib/settings";
 import {
-  LAYOUTS, MAX_PANELS, MAX_SELECTION, STARTERS, fromQuery, reducer, selectionOf, toQuery, type Group, type Layout, type Workspace,
+  LAYOUTS, MAX_PANELS, MAX_PINS, MAX_SELECTION, STARTERS, fromQuery, reducer, selectionOf, toQuery,
+  type Action, type Group, type Layout, type Panel as PanelState, type Workspace,
 } from "@/lib/workspace";
 
 // Grid areas per layout; the panels fill a, b, c, d in order.
@@ -33,6 +37,9 @@ function ExploreWorkspace() {
   const [hover, setHover] = useState<{ entity: string; group: Group } | null>(null);
   const [values, setValues] = useState<Record<string, Value[]>>({});
   const cameraBus = useMemo(() => new CameraBus(), []);
+  const settings = useSettings();
+  // The popup open now (one at a time); pinned ones live in the workspace.
+  const [open, setOpen] = useState<{ entity: string; panel: string; at: At | null } | null>(null);
 
   const onValues = useCallback((id: string, v: Value[] | null) => {
     setValues((cur) => {
@@ -70,8 +77,65 @@ function ExploreWorkspace() {
     api.indicators()
       .then((list) => setIndicators(list.filter((i) => i.available && !i.breakdowns)))
       .catch((e) => setError(String(e.message || e)));
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    window.addEventListener("keydown", esc);
     api.entities().then((list) => setNames(new Map(list.map((e) => [e.entity_id, e.short_name])))).catch(() => {});
+    return () => window.removeEventListener("keydown", esc);
   }, []);
+
+  // Panel menus offer the indicators switched on in the Indicators page, plus any a panel already shows.
+  const inUse = new Set(ws.panels.flatMap((p) => [p.indicator, ...p.cols]));
+  const menu = useMemo(() => indicators.filter((i) => i.enabled || inUse.has(i.indicator_id)), [indicators, [...inUse].join(",")]);
+  const byId = useMemo(() => new Map(indicators.map((i) => [i.indicator_id, i])), [indicators]);
+
+  // Click a country: a popup or a selection, as set in Settings.
+  const activate = (panel: PanelState): Activate => (entity, how, at) => {
+    const popupFirst = settings.click_mode === "popup";
+    const wantsPopup = popupFirst ? !how.shift : how.double;
+    if (!wantsPopup) return dispatch({ type: "toggleSelect", entity, panel: panel.id });
+    setOpen((o) => (o && o.entity === entity && o.panel === panel.id && !how.double ? null : { entity, panel: panel.id, at }));
+  };
+
+  // Every indicator the panels show, for the popup tabs.
+  const tabs = settings.popup_tabs ? [...new Set(ws.panels.map((p) => p.indicator))].map((id) => byId.get(id)).filter((i): i is Indicator => !!i) : [];
+  const popupsFor = (p: PanelState): PanelPopup[] => {
+    const ind = p.view === "pyramid" ? byId.get("pop_total") : byId.get(p.indicator);
+    if (!ind) return [];
+    const year = effectiveYear(p, ind);
+    const sel = selectionOf(ws, p);
+    const card = (entity: string, pinned: boolean, at: At | null) => (
+      <PopupCard entity={entity} indicator={ind} year={year} tabs={tabs} pinned={pinned} selected={sel.includes(entity)}
+        onClose={() => (pinned ? dispatch({ type: "unpin", entity, panel: p.id }) : setOpen(null))}
+        onPin={() => {
+          if (pinned) return dispatch({ type: "unpin", entity, panel: p.id });
+          dispatch({ type: "pin", pin: { entity, panel: p.id, ...(at && "lng" in at ? { lng: at.lng, lat: at.lat } : {}) } });
+          setOpen(null);
+          logHistory({ kind: "pin", title: `Pinned ${names.get(entity) ?? entity}`, entity, indicator: ind.indicator_id });
+        }}
+        onSelect={() => dispatch({ type: "toggleSelect", entity, panel: p.id })}
+        onBoard={settings.side_panel ? (indicator) => dispatch({ type: "board", item: { entity, indicator }, on: true }) : undefined} />
+    );
+    const out: PanelPopup[] = ws.pins.filter((x) => x.panel === p.id).map((x) => {
+      const at = x.lng !== undefined && x.lat !== undefined ? { lng: x.lng, lat: x.lat } : null;
+      return { key: `pin:${x.entity}`, entity: x.entity, pinned: true, at, node: card(x.entity, true, at) };
+    });
+    if (open && open.panel === p.id && !out.some((x) => x.entity === open.entity))
+      out.push({ key: `open:${open.entity}`, entity: open.entity, pinned: false, at: open.at, node: card(open.entity, false, open.at) });
+    return out;
+  };
+
+  // The history log gets each workspace once it has been looked at for a few seconds.
+  useEffect(() => {
+    if (!indicators.length) return;
+    const t = setTimeout(() => {
+      const ind = (id: string) => byId.get(id)?.name ?? id;
+      const parts = ws.panels.map((p) => `${p.view[0].toUpperCase()}${p.view.slice(1)}: ${p.view === "pyramid" ? "population by age" : ind(p.indicator)}${p.year ? ` ${p.year}` : ""}`);
+      const sel = ws.selection.map((id) => names.get(id) ?? id);
+      logHistory({ kind: "view", title: parts.join(" · ") + (sel.length ? ` (${sel.join(", ")})` : ""), url: `/?${toQuery(ws)}`,
+        indicator: ws.panels[0]?.indicator, entity: ws.selection.length === 1 ? ws.selection[0] : undefined });
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [ws, indicators.length]);
 
   // Keep the URL in step without a navigation, so the view can be bookmarked.
   useEffect(() => {
@@ -86,14 +150,22 @@ function ExploreWorkspace() {
         <LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />
         <LayoutsMenu ws={ws} onLoad={(query) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) })} />
         <SelectionBar ws={ws} names={names} dispatch={dispatch} />
+        {settings.side_panel && (
+          <button className={`small side-toggle${ws.side ? " on" : ""}`} aria-pressed={ws.side} onClick={() => dispatch({ type: "side", on: !ws.side })}
+            title="Cards kept beside the panels; send one from any popup">
+            Pinboard{ws.board.length ? ` (${ws.board.length})` : ""}
+          </button>
+        )}
       </div>
       {error && <p className="error">{error}</p>}
+      {ws.pins.length >= MAX_PINS && open && <p className="caption">Up to {MAX_PINS} popups stay pinned; pinning another unpins the oldest.</p>}
+      <div className={`ws-row${settings.side_panel && ws.side ? " with-side" : ""}`}>
       <Grid ws={ws} dispatch={dispatch}>
         {(ws.maximised ? ws.panels.filter((p) => p.id === ws.maximised) : ws.panels).map((p, i) => (
           <Panel
             key={p.id}
             panel={p}
-            indicators={indicators}
+            indicators={menu}
             names={names}
             dispatch={dispatch}
             canDuplicate={ws.panels.length < MAX_PANELS}
@@ -109,10 +181,41 @@ function ExploreWorkspace() {
             scale={scales.get(p.id)}
             onValues={onValues}
             cameraBus={cameraBus}
+            clickMode={settings.click_mode}
+            onActivate={activate(p)}
+            popups={popupsFor(p)}
+            sparkline={settings.hover_sparkline}
           />
         ))}
       </Grid>
+      {settings.side_panel && ws.side && <Pinboard ws={ws} byId={byId} dispatch={dispatch} />}
+      </div>
     </div>
+  );
+}
+
+// The side panel: cards sent from popups, kept with the layout (and in the URL).
+function Pinboard({ ws, byId, dispatch }: { ws: Workspace; byId: Map<string, Indicator>; dispatch: (a: Action) => void }) {
+  return (
+    <aside className="pinboard" aria-label="Pinboard">
+      <div className="pinboard-head">
+        <b>Pinboard</b>
+        <span className="spacer" />
+        {ws.board.length > 0 && <button className="small link" onClick={() => dispatch({ type: "clearBoard" })}>Clear</button>}
+        <button className="x" aria-label="Hide the pinboard" onClick={() => dispatch({ type: "side", on: false })}>×</button>
+      </div>
+      {ws.board.length === 0 && (
+        <p className="caption">Open a country&apos;s popup and press &quot;To side panel&quot; to keep its card here. Cards are saved with the layout.</p>
+      )}
+      {ws.board.map((b) => {
+        const ind = byId.get(b.indicator);
+        if (!ind) return null;
+        return (
+          <PopupCard key={`${b.entity}:${b.indicator}`} variant="board" entity={b.entity} indicator={ind} year={null}
+            onClose={() => dispatch({ type: "board", item: b, on: false })} />
+        );
+      })}
+    </aside>
   );
 }
 

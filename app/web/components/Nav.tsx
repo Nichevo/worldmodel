@@ -7,7 +7,10 @@ import Search from "@/components/Search";
 const LINKS = [
   { href: "/", label: "Map" },
   { href: "/compare", label: "Compare" },
+  { href: "/indicators", label: "Indicators" },
   { href: "/data", label: "Data status" },
+  { href: "/history", label: "History" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function Nav() {
