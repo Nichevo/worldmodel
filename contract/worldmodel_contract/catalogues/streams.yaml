@@ -6,7 +6,12 @@
 #
 # Fields: indicator, entities (ids, or a group id with `members_of`), start,
 # end (years), source (default: the indicator's default source), include
-# projections (true/false), variant (default: central).
+# projections (true/false), variant (default: central) or variants (a list).
+#
+# Variants: central is the source's main path (UN medium variant, IMF forecast).
+# From UN WPP also low and high (fertility half a child below or above central),
+# and the 80% and 95% prediction intervals of the UN's probabilistic projection:
+# lower80/upper80 and lower95/upper95. Each row carries its variant.
 
 - name: nz-population
   description: New Zealand population, estimates and UN projections.
@@ -31,3 +36,40 @@
   start: 1950
   end: 2100
   projections: true
+
+# --------------------------------------------------------------- forecasts with ranges
+# For forecasting tools: the UN central path with its 80% and 95% ranges and the
+# low/high variants, from the last estimate year on. Ranges appear once a refresh
+# has loaded the WPP "other variants" file.
+
+- name: world-population-forecast
+  description: World population, UN projection with 80% and 95% ranges and the low/high variants.
+  indicator: pop_total
+  entities: [world]
+  start: 2023
+  end: 2100
+  variants: [central, lower80, upper80, lower95, upper95, low, high]
+
+- name: g20-population-forecast
+  description: Population of each G20 member, UN projection with 80% and 95% ranges.
+  indicator: pop_total
+  members_of: g20
+  start: 2023
+  end: 2100
+  variants: [central, lower80, upper80, lower95, upper95]
+
+- name: world-fertility-forecast
+  description: World total fertility rate, UN projection with 80% and 95% ranges.
+  indicator: tfr
+  entities: [world]
+  start: 2023
+  end: 2100
+  variants: [central, lower80, upper80, lower95, upper95, low, high]
+
+- name: world-life-expectancy-forecast
+  description: World life expectancy at birth, UN projection with 80% and 95% ranges.
+  indicator: life_expectancy
+  entities: [world]
+  start: 2023
+  end: 2100
+  variants: [central, lower80, upper80, lower95, upper95]

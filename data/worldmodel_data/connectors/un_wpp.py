@@ -1,8 +1,11 @@
 """UN World Population Prospects connector.
 
-Reads the two standard CSV files of a WPP release, medium variant:
+Reads the standard CSV files of a WPP release:
   * WPP<release>_Demographic_Indicators_Medium.csv.gz  (one row per location and year)
   * WPP<release>_PopulationByAge5GroupSex_Medium.csv.gz (five-year age groups by sex)
+  * WPP<release>_Demographic_Indicators_OtherVariants.csv.gz (optional: the low and
+    high variants and the 80% and 95% prediction intervals, as variants low, high,
+    lower80 .. upper95; a failed download of it only warns)
 from https://population.un.org/wpp/downloads (CSV format). Population counts in
 the files are in thousands; the catalogue's `scale` turns them into persons.
 
@@ -19,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 import duckdb
+import httpx
 
 from worldmodel_data.connectors.base import Connector, ConnectorError, sql_str
 
@@ -27,6 +31,17 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://population.un.org/wpp/assets/Excel%20Files/1_Indicator%20(Standard)/CSV_FILES/"
 INDICATORS_FILE = "WPP{release}_Demographic_Indicators_Medium.csv.gz"
 AGE_FILE = "WPP{release}_PopulationByAge5GroupSex_Medium.csv.gz"
+VARIANTS_FILE = "WPP{release}_Demographic_Indicators_OtherVariants.csv.gz"
+# WPP variant labels kept from the other-variants file, and what they become. The
+# rest (constant fertility, zero migration and so on) are left out for now.
+OTHER_VARIANTS = """CASE
+    WHEN Variant = 'Low' THEN 'low'
+    WHEN Variant = 'High' THEN 'high'
+    WHEN regexp_matches(Variant, '^lower 80', 'i') THEN 'lower80'
+    WHEN regexp_matches(Variant, '^upper 80', 'i') THEN 'upper80'
+    WHEN regexp_matches(Variant, '^lower 95', 'i') THEN 'lower95'
+    WHEN regexp_matches(Variant, '^upper 95', 'i') THEN 'upper95'
+END"""
 LATEST_RELEASE = "2024"
 # Last year of estimates in each release; later years are projections.
 ESTIMATES_END = {"2024": 2023, "2022": 2021}
@@ -60,6 +75,13 @@ class UNWPP(Connector):
         urls = [BASE_URL + name.format(release=release) for name in (INDICATORS_FILE, AGE_FILE)]
         for url in urls:
             self.get(url, raw_dir / url.rsplit("/", 1)[-1])
+        extra = BASE_URL + VARIANTS_FILE.format(release=release)
+        try:
+            self.get(extra, raw_dir / extra.rsplit("/", 1)[-1])
+            urls.append(extra)
+        except (ConnectorError, httpx.HTTPError) as exc:
+            (raw_dir / extra.rsplit("/", 1)[-1]).unlink(missing_ok=True)
+            log.warning("un_wpp: no projection ranges this time (%s)", exc)
         return " ".join(urls)
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
@@ -87,6 +109,19 @@ class UNWPP(Connector):
                          f"'central' AS variant, CAST({code} AS DOUBLE) * {scale} AS value, {status} AS status "
                          f"FROM wpp_ind")
 
+        var_file = _find(raw_dir, "Demographic_Indicators_OtherVariants")
+        if var_file is not None:
+            con.execute(f"""CREATE TABLE wpp_var AS SELECT *, {OTHER_VARIANTS} AS wm_variant FROM {_read(var_file)}
+                WHERE {keep.replace("Variant = 'Medium'", "Time > " + str(est_end))}""")
+            con.execute("DELETE FROM wpp_var WHERE wm_variant IS NULL")
+            var_cols = {r[0] for r in con.execute("DESCRIBE wpp_var").fetchall()}
+            for code, (indicator, scale) in series.items():
+                if code.startswith("derived:") or "|" in code or code not in var_cols:
+                    continue
+                parts.append(f"{head}, {sql_str(indicator)} AS indicator_id, {tail}, '' AS breakdown, "
+                             f"wm_variant AS variant, CAST({code} AS DOUBLE) * {scale} AS value, 'P' AS status "
+                             f"FROM wpp_var")
+
         if age_file is not None:
             con.execute(f"CREATE TABLE wpp_age AS SELECT * FROM {_read(age_file)} WHERE {keep}")
             for code, (indicator, scale) in series.items():
@@ -110,7 +145,8 @@ class UNWPP(Connector):
 
 
 def _find(raw_dir: Path, marker: str) -> Path | None:
-    hits = sorted(p for p in raw_dir.iterdir() if marker in p.name and p.name.endswith((".csv", ".csv.gz")))
+    hits = sorted(p for p in raw_dir.iterdir() if marker in p.name and p.name.endswith((".csv", ".csv.gz"))
+                  and (marker.endswith("OtherVariants") or "OtherVariants" not in p.name))
     if marker == "Demographic_Indicators" and not hits:
         raise ConnectorError(f"un_wpp: no *{marker}*.csv(.gz) file in {raw_dir}")
     return hits[0] if hits else None

@@ -180,6 +180,32 @@
   sources:
     - {source_id: un_wpp, series: TFR, scale: 1}
 
+- id: mean_age_childbearing
+  name: Mean age at childbearing
+  description: Average age of mothers when their children are born, at this year's age-specific birth rates. Used by the population what-if to place births across the mothers' ages.
+  synonyms: [MAC, mothers' age, age of mothers at birth]
+  domain: population
+  unit: years
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: births}
+  bounds: [15, 45]
+  sources:
+    - {source_id: un_wpp, series: MAC, scale: 1}
+
+- id: sex_ratio_at_birth
+  name: Sex ratio at birth
+  description: Boys born per 100 girls. About 105 without sex selection.
+  synonyms: [SRB, boys per 100 girls]
+  domain: population
+  unit: boys per 100 girls
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: births}
+  bounds: [90, 130]
+  sources:
+    - {source_id: un_wpp, series: SRB, scale: 1}
+
 - id: life_expectancy
   name: Life expectancy at birth
   description: Years a newborn would live on average if this year's death rates held for their whole life.
@@ -371,6 +397,8 @@
   sources:
     - {source_id: imf_weo, series: NGDP_RPCH, scale: 1,
        notes: "Constant prices, percent change. Years from the release year on are IMF projections."}
+    - {source_id: imf_weo_history, series: ngdp_rpch, scale: 1,
+       notes: "Every WEO release since 1990, one per breakdown release=YYYY-MM; for the forecast track record."}
 
 - id: gdp_usd
   name: GDP, current US dollars
@@ -437,3 +465,5 @@
   bounds: [-100, 100000000000]
   sources:
     - {source_id: imf_weo, series: PCPIPCH, scale: 1}
+    - {source_id: imf_weo_history, series: pcpi_pch, scale: 1,
+       notes: "Every WEO release since 1990, one per breakdown release=YYYY-MM; for the forecast track record."}

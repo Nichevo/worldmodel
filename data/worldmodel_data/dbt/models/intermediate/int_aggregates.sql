@@ -1,6 +1,8 @@
 -- Region and bloc values built from member countries, by each indicator's
 -- aggregation rule in the catalogue. Coverage is the share of the group's
 -- population (UN WPP) living in members that reported a value.
+-- Prediction-interval bounds (lower80 .. upper95) are not added up: the sum of
+-- countries' upper bounds is far wider than the group's own range.
 with members as (
     select * from {{ ref('int_active_members') }}
 ),
@@ -18,6 +20,7 @@ country_values as (
     select l.*, m.group_id
     from {{ ref('int_latest') }} l
     join members m on m.member_id = l.entity_id and m.period_start = l.period_start and m.freq = l.freq
+    where l.variant not like 'lower%' and l.variant not like 'upper%'
 ),
 dv as (
     select * from {{ ref('int_default_values') }}
