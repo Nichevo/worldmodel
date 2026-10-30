@@ -127,8 +127,31 @@ with identical content is skipped; a revised release becomes a new vintage
 
 | Source | What | Notes |
 | --- | --- | --- |
-| UN World Population Prospects 2024 | Population, growth, births, deaths, fertility, life expectancy, median age, migration, population by age and sex (pyramids), age shares, dependency ratio | Estimates to 2023, medium-variant projections to 2100 |
+| UN World Population Prospects 2024 | Population, growth, births, deaths, fertility, mean age at childbearing, sex ratio at birth, life expectancy, median age, migration, population by age and sex (pyramids), age shares, dependency ratio | Estimates to 2023, medium-variant projections to 2100; the low and high variants and the 80% and 95% prediction intervals as variants `low`, `high`, `lower80` .. `upper95` (from the optional "other variants" file) |
 | IMF World Economic Outlook | Real GDP growth, GDP in US dollars and PPP, GDP per person, inflation | Latest release from the DataMapper API; projections about five years ahead |
+| IMF WEO historical forecasts | What every WEO since 1990 forecast for GDP growth and inflation | One Excel file from the IMF; each release kept as breakdown `release=YYYY-MM`, for the track record |
+
+## Forecasts
+
+The **Forecasts** page (also linked from each country's profile) has two parts:
+
+- **Population what-if.** Move fertility, life expectancy and migration away
+  from the UN projection and see the total, the age pyramid and key shares
+  change. The model (`contract/worldmodel_contract/cohort.py`) ages the
+  population a year at a time by single year of age and sex, tuned each year to
+  the UN's births and deaths. What you see is the UN projection plus the
+  difference your changes make, so at the default settings it is the UN's
+  exactly. Each build checks the model on its own against the UN projection and
+  in a 30-year back-test (`whatif:` rows in the build report).
+- **IMF track record.** Past WEO forecasts of GDP growth and inflation against
+  what happened: typical miss and bias by how far ahead the forecast was, for
+  each country and all countries together. Releases come from the IMF's
+  historical file and from every IMF vintage stored here.
+
+API: `/api/v1/whatif?entity=NZL&tfr=-0.5&e0=2&mig=0.5&extra=0&phase=10` and
+`/api/v1/track-record?indicator=gdp_growth&entity=NZL`. `/series` and streams
+take several variants (`variant=central,lower80,upper80`); the
+`*-forecast` streams carry the UN ranges for forecasting tools.
 
 Regions and blocs are entities with membership over time: the world, UN M49
 continents and sub-regions, and EU, euro area, NATO, ASEAN, NAFTA/USMCA,

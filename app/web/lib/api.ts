@@ -185,6 +185,32 @@ export type RefreshRun = {
   disk: Record<string, number> | null; backfilled?: boolean; error?: string;
 };
 
+export type WhatIfLevers = { tfr: number; e0: number; mig: number; extra: number; phase: number };
+export type WhatIfSide = { male: number[]; female: number[] };
+export type WhatIfSummary = { total: number; share_0_14: number; share_65_plus: number; old_age_dependency: number | null; median_age: number | null };
+export type WhatIf = {
+  entity: string; name: string; type: string; base_year: number; years: number[]; groups: string[];
+  baseline: number[]; scenario: number[];
+  births: { baseline: number[]; scenario: number[] }; deaths: { baseline: number[]; scenario: number[] };
+  pyramids: Record<string, { baseline: WhatIfSide; scenario: WhatIfSide }>;
+  inputs: Record<"tfr" | "e0" | "net_migration", { baseline: number[]; scenario: number[] }>;
+  held: Record<string, number>;
+  raw_error: { worst_total_pct: number | null; by_year: Record<string, { total_pct: number; worst_group_pct?: number }> };
+  summary: ({ year: number } & Record<"baseline" | "scenario", WhatIfSummary>)[];
+  ranges: Record<string, (number | null)[]>;
+  levers: WhatIfLevers;
+};
+export type ForecastErrors = { n: number; bias: number | null; mae: number | null; rmse: number | null };
+export type TrackRecord = {
+  indicator: string; entity: string | null; name: string | null; releases: string[]; outcomes_from: string | null;
+  sources: string[];
+  stats: ({ season: "April" | "October"; horizon: number } & ForecastErrors)[];
+  paths?: { release: string; points: [number, number][] }[];
+  actual?: [number, number][];
+  years?: ({ year: number } & ForecastErrors)[];
+  countries?: ({ entity_id: string; name: string } & ForecastErrors)[];
+};
+
 async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
@@ -238,4 +264,6 @@ export const api = {
   storage: () => get<Storage>("/storage"),
   freeUp: () => send<{ removed: string[]; freed_bytes: number }>("POST", "/storage/free-up"),
   refreshLog: () => get<RefreshRun[]>("/refresh-log"),
+  whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),
+  trackRecord: (indicator: string, entity?: string) => get<TrackRecord>("/track-record", { indicator, entity }),
 };

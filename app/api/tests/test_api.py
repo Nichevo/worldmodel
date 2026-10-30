@@ -172,3 +172,34 @@ def test_storage_free_up_and_refresh_log(client, tmp_path, monkeypatch):
     (reports / "20260301T000000Z.md").write_text("# Build x\n\nResult: passed, live\n\n| a | b | pass | d |\n")
     log = client.get("/api/v1/refresh-log").json()
     assert log[0]["build_id"] == "20260301T000000Z" and log[0]["checks"]["pass"] == 1 and log[0]["backfilled"]
+
+
+def test_whatif_defaults_match_un_and_levers_move_it(client):
+    base = client.get("/api/v1/whatif", params={"entity": "NZL"}).json()
+    assert base["base_year"] == 2023 and base["years"][-1] == 2100
+    assert base["scenario"] == base["baseline"]  # defaults are the UN projection exactly
+    assert base["baseline"][0] == pytest.approx(5_172_836, rel=1e-3)
+    low = client.get("/api/v1/whatif", params={"entity": "NZL", "tfr": -0.5, "phase": 5}).json()
+    assert low["scenario"][-1] < 0.85 * low["baseline"][-1]
+    assert low["inputs"]["tfr"]["scenario"][10] == pytest.approx(low["inputs"]["tfr"]["baseline"][10] - 0.5)
+    first, last = low["summary"][0], low["summary"][-1]
+    assert first["year"] == 2023 and last["year"] == 2100
+    assert last["scenario"]["share_65_plus"] > last["baseline"]["share_65_plus"]
+    shut = client.get("/api/v1/whatif", params={"entity": "NZL", "mig": 0}).json()
+    assert shut["scenario"][-1] < base["baseline"][-1]
+    py = low["pyramids"]["2050"]
+    assert len(py["scenario"]["male"]) == 21 and sum(py["scenario"]["male"][:4]) < sum(py["baseline"]["male"][:4])
+    assert client.get("/api/v1/whatif", params={"entity": "NZL", "mig": 9}).status_code == 422
+    assert client.get("/api/v1/whatif", params={"entity": "nowhere"}).status_code == 404
+
+
+def test_track_record_and_variants(client):
+    tr = client.get("/api/v1/track-record", params={"entity": "NZL"}).json()
+    assert tr["releases"] == ["2015-04"] and tr["paths"][0]["points"][0][0] == 2014
+    assert tr["stats"] == []  # the sample holds one release: nothing to score yet
+    assert client.get("/api/v1/track-record", params={"indicator": "tfr"}).status_code == 422
+    rows = client.get("/api/v1/series", params={"indicator": "tfr", "entities": "NZL", "variant": "central,low",
+                                                "start": 2020, "end": 2021}).json()["rows"]
+    assert {r["variant"] for r in rows} == {"central"}  # the sample has no ranges; the filter still works
+    assert {s["name"] for s in client.get("/api/v1/streams").json()} >= {"world-population-forecast"}
+    assert client.get("/api/v1/streams/world-population-forecast").json()["rows"]
