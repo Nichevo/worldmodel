@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
+import Ratios from "@/components/Ratios";
 import WorldMap from "@/components/WorldMap";
 import { api, type Indicator } from "@/lib/api";
 import { DIVERGING } from "@/lib/colors";
@@ -79,6 +80,7 @@ export default function IndicatorsPage() {
           switching one off only hides it there, its data stays. Click a row for details and a preview.
         </p>
       </div>
+      {all && <Ratios indicators={all} changed={(id) => { load(); if (id) { setDomain("Your ratios"); setOpen(id); } }} />}
       <div className="controls">
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search names and descriptions" aria-label="Search indicators" style={{ width: 260 }} />
         <select value={domain} onChange={(e) => setDomain(e.target.value)} aria-label="Topic">

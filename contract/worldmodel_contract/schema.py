@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.3.0"
+SCHEMA_VERSION = "1.4.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -143,13 +143,15 @@ TABLES: dict[str, Table] = {
             "kind": "VARCHAR", "subkind": "VARCHAR", "title": "VARCHAR", "start_date": "DATE", "end_date": "DATE",
             "precision": "VARCHAR", "size": "DOUBLE", "size_unit": "VARCHAR", "deaths": "DOUBLE",
             "affected": "DOUBLE", "damage_usd": "DOUBLE", "place": "VARCHAR", "url": "VARCHAR", "detail": "VARCHAR",
+            "color": "VARCHAR",
         }, ("event_id", "entity_id"),
             "Dated events and episodes per country: elections, leaders' terms, coups, conflicts, crises, sporting "
             "events and disasters from their sources, recessions and booms worked out from the data (source "
             "worldmodel), and the curated notable episodes. kind is one of EVENT_KINDS; an event with several "
             "countries (a co-hosted World Cup) has a row for each. end_date is empty for a one-day event or one "
             "still going; size is the event's own measure (magnitude, cumulative fall in GDP, peak inflation) "
-            "in size_unit."),
+            "in size_unit. For a leader's term, detail is their party and color the party's colour (#RRGGBB) "
+            "where Wikidata has one."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

@@ -13,9 +13,9 @@ from worldmodel_data.connectors.base import sql_str
 log = logging.getLogger(__name__)
 
 # (entity_id, event_key, kind, subkind, title, start, end, precision, size, size_unit, deaths, affected,
-#  damage_usd, place, url, detail)
+#  damage_usd, place, url, detail, color); color may be left off.
 EVENT_ROW = ("entity_id", "event_key", "kind", "subkind", "title", "start_date", "end_date", "precision", "size",
-             "size_unit", "deaths", "affected", "damage_usd", "place", "url", "detail")
+             "size_unit", "deaths", "affected", "damage_usd", "place", "url", "detail", "color")
 
 
 def make_date(year, month=None, day=None) -> tuple[date | None, str]:
@@ -63,11 +63,12 @@ def stage_events(con: duckdb.DuckDBPyConnection, source_id: str, vintage: str, r
              "damage_usd": "DOUBLE"}
     con.execute(f"CREATE TABLE ev ({', '.join(f'{c} {types.get(c, 'VARCHAR')}' for c in EVENT_ROW)})")
     if rows:
-        con.executemany(f"INSERT INTO ev VALUES ({', '.join('?' * len(EVENT_ROW))})", rows)
+        con.executemany(f"INSERT INTO ev VALUES ({', '.join('?' * len(EVENT_ROW))})",
+                        [(*r, *(None,) * (len(EVENT_ROW) - len(r))) for r in rows])
     # The crosswalk's iso3 scheme holds every country and former state under its entity id.
     return (f"SELECT {sql_str(source_id)} AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, "
             "entity_id AS source_code, event_key, kind, subkind, title, start_date, end_date, precision, size, "
-            "size_unit, deaths, affected, damage_usd, place, url, detail FROM ev")
+            "size_unit, deaths, affected, damage_usd, place, url, detail, color FROM ev")
 
 
 EMPTY_OBSERVATIONS = ("SELECT NULL AS source_id, NULL AS vintage, NULL AS scheme, NULL AS source_code, "

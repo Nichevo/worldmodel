@@ -700,3 +700,50 @@ export function aroundOption(offsets: number[], events: { label: string; values:
     series,
   };
 }
+
+// An energy mix: each fuel stacked as an area, year by year, in TWh or as a share
+// of the total. Fuels keep their colour whatever is missing; a thin surface-coloured
+// edge separates the bands.
+export type MixPart = { key: string; label: string; color: string; values: Map<number, number> };
+
+// Only years where most fuels have a figure: early years often have just one or two
+// (hydro alone, say), which would draw as a sudden jump rather than a change in the mix.
+export function mixYears(parts: MixPart[]): number[] {
+  return [...new Set(parts.flatMap((p) => [...p.values.keys()]))].sort((a, b) => a - b)
+    .filter((y) => parts.filter((p) => p.values.has(y)).length >= Math.ceil(parts.length * 0.75));
+}
+
+export function energyMixOption(parts: MixPart[], share: boolean): EChartsOption {
+  const years = mixYears(parts);
+  const total = new Map(years.map((y) => [y, parts.reduce((t, p) => t + (p.values.get(y) ?? 0), 0)]));
+  const value = (p: MixPart, y: number) => {
+    const v = p.values.get(y);
+    if (v === undefined) return null;
+    return share ? (total.get(y) ? (v / total.get(y)!) * 100 : null) : v;
+  };
+  const base = chrome();
+  const surface = cssVar("--surface");
+  const fmt = (v: number) => (share ? `${v.toFixed(1)}%` : `${formatValue(v, "TWh", v < 10 ? 1 : 0)}`);
+  return {
+    ...base,
+    grid: { ...(base.grid as object), top: 44 },
+    legend: { top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, type: "scroll",
+      data: parts.map((p) => p.label), textStyle: { color: cssVar("--ink-2") } },
+    yAxis: { type: "value", max: share ? 100 : undefined, name: share ? "%" : "TWh",
+      axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) },
+      splitLine: { lineStyle: { color: cssVar("--grid") } }, nameTextStyle: { color: cssVar("--muted"), align: "left" } },
+    series: parts.map((p) => ({
+      type: "line" as const, name: p.label, stack: "mix", color: p.color, symbol: "none", connectNulls: false,
+      areaStyle: { opacity: 0.9 }, lineStyle: { width: 1, color: surface }, emphasis: { focus: "series" as const },
+      data: years.map((y) => [y, value(p, y)]),
+    })),
+    tooltip: { ...(base.tooltip as object), confine: true, formatter: (params: unknown) => {
+      const list = (Array.isArray(params) ? params : [params]) as { seriesName: string; value: [number, number | null]; color: string }[];
+      if (!list.length) return "";
+      const y = list[0].value[0];
+      const rows = [...list].reverse().filter((p) => p.value[1] !== null && p.value[1] !== undefined).map((p) =>
+        `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:6px"></span>${p.seriesName}: <b>${fmt(p.value[1]!)}</b>`);
+      return [`<b>${y}</b>${share ? "" : ` · total ${fmt(total.get(y) ?? 0)}`}`, ...rows].join("<br/>");
+    } },
+  };
+}

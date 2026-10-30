@@ -8,9 +8,11 @@ import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/Wor
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
 import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
+import { useGovernments, withParties } from "@/lib/parties";
+import { useSettings } from "@/lib/settings";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
-import { csvText, fileName, saveText, saveUrl, tablePng, titledPng, type Exporter } from "@/lib/download";
+import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
 import {
   CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
@@ -260,9 +262,10 @@ function DownloadMenu({ exporter }: { exporter: React.RefObject<Exporter> }) {
 }
 
 // A picture of an ECharts chart: its SVG drawn onto a canvas under a title.
-function chartPng(chart: ECharts | null, title: string, note: string): Promise<string> {
-  if (!chart || chart.isDisposed()) return Promise.reject(new Error("Nothing drawn yet"));
-  return titledPng(chart.getDataURL({ type: "svg", excludeComponents: ["dataZoom"] }), chart.getWidth(), chart.getHeight(), title, note);
+async function chartPng(chart: ECharts | null, title: string, note: string, footer: Promise<string[]>): Promise<string> {
+  if (!chart || chart.isDisposed()) throw new Error("Nothing drawn yet");
+  const lines = await footer;
+  return titledPng(chart.getDataURL({ type: "svg", excludeComponents: ["dataZoom"] }), chart.getWidth(), chart.getHeight(), title, note, lines);
 }
 
 function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
@@ -345,16 +348,19 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
     name: fileName(indicator.indicator_id, year),
     csv: () => csvText(["entity_id", "indicator_id", "year", "value", "status"],
       values.map((v) => [v.entity_id, indicator.indicator_id, year, v.value, v.status])),
-    png: () => new Promise((ok, fail) => {
-      const m = map.current;
-      if (!m) return fail(new Error("The map is not ready yet"));
-      // The canvas is only readable during a render, so ask for one and copy it then.
-      m.once("render", () => {
-        const c = m.getCanvas();
-        titledPng(c.toDataURL("image/png"), c.clientWidth, c.clientHeight, title, `${sourceLine(indicator)}. Borders: Natural Earth.`).then(ok, fail);
+    png: async () => {
+      const footer = await credits(sourcesOf(indicator), ["Borders: Natural Earth (public domain)."]);
+      return new Promise((ok, fail) => {
+        const m = map.current;
+        if (!m) return fail(new Error("The map is not ready yet"));
+        // The canvas is only readable during a render, so ask for one and copy it then.
+        m.once("render", () => {
+          const c = m.getCanvas();
+          titledPng(c.toDataURL("image/png"), c.clientWidth, c.clientHeight, title, `${values.length} countries with data.`, footer).then(ok, fail);
+        });
+        m.triggerRepaint();
       });
-      m.triggerRepaint();
-    }),
+    },
   };
   const hint = clicks.mode === "popup" ? "Click a country for its popup; shift-click to select it." : "Click a country to select it; double-click for its popup.";
   return (
@@ -514,7 +520,8 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
       rows.map((id) => [ranks.get(id), id, names.get(id) ?? id,
         ...columns.flatMap((c) => [c.values.get(id)?.value, c.values.get(id)?.status])])),
     png: async () => tablePng(`${indicator.name}, ${year}`, ["Rank", "Country", ...columns.map((c) => c.label)],
-      rows.map((id) => [String(ranks.get(id) ?? "–"), names.get(id) ?? id, ...columns.map((c) => fmt(c, c.values.get(id)))])),
+      rows.map((id) => [String(ranks.get(id) ?? "–"), names.get(id) ?? id, ...columns.map((c) => fmt(c, c.values.get(id)))]),
+      40, await credits(sourcesOf(indicator))),
   };
 
   return (
@@ -653,12 +660,18 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
   const [from, to] = chartSpan(panel.range);
   const setRange = (r: string) => dispatch({ type: "panel", id: panel.id, patch: { range: r } });
   const setTrim = (trim: boolean) => dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, trim }) } });
+  const setParty = (party: boolean) => dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, party }) } });
+  const settings = useSettings();
+  const oneCountry = entities.length === 1 && shown.length === 1;
+  const terms = useGovernments(oneCountry ? entities[0].id : null, opts.party, settings.party_office);
   const extent = useMemo(() => {
     const ys = (rows ?? []).flat().map((r) => +r.period);
     return ys.length ? [Math.min(...ys), Math.max(...ys)] as const : null;
   }, [rows]);
   const span = extent ? [Math.max(extent[0], Math.min(extent[1], from ?? extent[0])), Math.min(extent[1], Math.max(extent[0], to ?? extent[1]))] as const : null;
 
+  const inView = useMemo(() => (extent ? chartEvents.filter((e) => +e.start_date.slice(0, 4) <= extent[1] + 1
+    && +(e.end_date ?? e.start_date).slice(0, 4) >= extent[0]) : []), [chartEvents, extent]);
   const option = useCallback(() => {
     const layers = shown.map((i, n) => ({ id: i.indicator_id, name: i.name, unit: i.unit, decimals: i.decimals, rows: rows?.[n] ?? [] }));
     const o = linesOption(layers, entities);
@@ -671,7 +684,6 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
     });
     // Events for the countries shown (up to three; Settings: Events on charts), inside the years with data.
     const shownNames = new Map(entities.map((e) => [e.id, e.name]));
-    const inView = extent ? chartEvents.filter((e) => +e.start_date.slice(0, 4) <= extent[1] + 1 && +(e.end_date ?? e.start_date).slice(0, 4) >= extent[0]) : [];
     if (inView.length) series.push(eventMarks(inView, shownNames));
     let yAxis = o.yAxis;
     // Ignore outliers: fit the left axis to most of the values in view; spikes run off the edge.
@@ -687,16 +699,17 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         yAxis = (Array.isArray(yAxis) ? [trimmed, ...yAxis.slice(1)] : trimmed) as typeof yAxis;
       }
     }
+    const coloured = oneCountry && terms.length ? withParties({ ...o, series } as typeof o, terms, span ? [span[0], span[1]] : null) : { ...o, series };
     return withEventTooltip({
-      ...o, yAxis, series,
-      grid: { ...(o.grid as object), bottom: 40 },
+      ...coloured, yAxis,
+      grid: { ...(coloured.grid as object), bottom: 40 },
       dataZoom: span ? [{
         type: "slider" as const, xAxisIndex: 0, filterMode: "filter" as const, realtime: false, height: 18, bottom: 6,
         startValue: span[0], endValue: span[1], labelFormatter: (v: number) => String(Math.round(v)), brushSelect: false,
         borderColor: cssVar("--border"), textStyle: { color: cssVar("--muted") },
       }] : undefined,
     } as typeof o, inView, shownNames);
-  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], chartEvents, extent]);
+  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], inView, extent, terms, oneCountry]);
   const hasRows = rows?.some((r) => r.length > 0);
   const units = [...new Set(shown.map((i) => i.unit))];
 
@@ -736,7 +749,8 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
     csv: () => csvText(["entity_id", "name", "indicator_id", "year", "value", "status", "source_id", "vintage"],
       (rows ?? []).flat().filter((r) => !span || (+r.period >= span[0] && +r.period <= span[1]))
         .map((r) => [r.entity_id, names.get(r.entity_id) ?? r.entity_id, r.indicator_id, r.period.slice(0, 4), r.value, r.status, r.source_id, r.vintage])),
-    png: () => chartPng(chart.current, title, `${entities.map((e) => e.name).join(", ")}. ${sourceLine(indicator)}.`),
+    png: () => chartPng(chart.current, title, `${entities.map((e) => e.name).join(", ")}.`,
+      credits([...shown.flatMap((i, n) => sourcesOf(i, rows?.[n])), ...inView.map((e) => e.source_id)])),
   };
   const histOn = range.custom ? "" : range.history;
   const foreOn = range.custom ? "" : range.forecast;
@@ -772,6 +786,11 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         <label className="small" title="Fit the axis to most of the values; spikes run off the edge">
           <input type="checkbox" checked={opts.trim} onChange={(e) => setTrim(e.target.checked)} /> Ignore outliers
         </label>
+        <label className="small" title={oneCountry ? `Colour the line by the party of the head of ${settings.party_office} (Wikidata); change whose in Settings`
+          : "For one country and one indicator"}>
+          <input type="checkbox" checked={opts.party && oneCountry} disabled={!oneCountry} onChange={(e) => setParty(e.target.checked)} /> Governing party
+        </label>
+        {opts.party && oneCountry && !terms.length && <span className="small muted">No leaders stored for {entities[0].name}.</span>}
         {units.length > 1 && <span className="small muted">Right axis: {units[1]}</span>}
       </div>
       {rows && !hasRows && <p className="muted">No data for this indicator yet.</p>}
@@ -895,7 +914,8 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
     csv: () => csvText(["entity_id", "name", indicator.indicator_id, yInd.indicator_id, ...(sizeInd ? [sizeInd.indicator_id] : []), "year", "projection"],
       points.map((p) => [p.id, p.name, p.x, p.y, ...(sizeInd ? [p.size] : []), year, p.proj ? "yes" : ""])),
     png: () => chartPng(chart.current, `${yInd.name} against ${indicator.name}, ${year}`,
-      `${points.length} countries.${sizeInd ? ` Bubble area: ${sizeInd.name.toLowerCase()}.` : ""} Sources: ${sourceLine(indicator)}, ${sourceLine(yInd)}.`),
+      `${points.length} countries.${sizeInd ? ` Bubble area: ${sizeInd.name.toLowerCase()}.` : ""}`,
+      credits([indicator, yInd, sizeInd].flatMap((i) => sourcesOf(i)))),
   };
 
   const groupList = useGroupList();
@@ -1055,7 +1075,7 @@ function PyramidView({ panel, year, names, selection, dispatch, exporter }: {
     csv: () => csvText(["entity_id", "year", "age", "male", "female"],
       [a, b].flatMap((d) => (d ? d.groups.map((g) => [d.entity, d.year, g.age, g.male, g.female]) : []))),
     png: () => chartPng(chart.current, `Population by age: ${a ? label(a) : ""}${b && b.groups.length ? ` and ${label(b)}` : ""}`,
-      `${opts.absolute ? "People" : "Share of each population"}. UN WPP.`),
+      `${opts.absolute ? "People" : "Share of each population"}.`, credits(["un_wpp"])),
   };
 
   return (

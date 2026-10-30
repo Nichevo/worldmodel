@@ -44,8 +44,10 @@ SETTINGS: dict[str, object] = {
     "events_on_charts": True,        # dated events as lines and bands on line charts of up to three countries
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
+    "party_colours": False,          # country page charts coloured by the party in government
+    "party_office": "government",    # whose party: the head of "government" (a prime minister) or of "state"
 }
-CHOICES = {"click_mode": ("popup", "select")}
+CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state")}
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000)}
