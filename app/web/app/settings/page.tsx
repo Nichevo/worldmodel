@@ -64,6 +64,9 @@ export default function SettingsPage() {
           note={used("disk") ? `${gb(used("disk")!.used)} used now` : undefined} save={(v) => save({ disk_limit_gb: v })} />
         <NumberField label="Pictures and cached pages" unit="GB" value={s.pictures_limit_gb} min={0.1} max={1000} step={0.5}
           note={used("pictures") ? `${gb(used("pictures")!.used)} used now` : undefined} save={(v) => save({ pictures_limit_gb: v })} />
+        <Toggle label="Banner while a refresh problem is open"
+          hint="Shows the latest failed check or download at the top of every page, with how often it has happened, until a later refresh passes. The Problems list on Data status is always there."
+          on={s.problem_banner} set={(v) => save({ problem_banner: v })} />
       </section>
 
       <section className="card">

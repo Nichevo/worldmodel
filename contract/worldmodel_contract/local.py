@@ -40,6 +40,7 @@ SETTINGS: dict[str, object] = {
     "wikipedia_background": True,    # fetch pages not yet opened, a few an hour, within half the daily limit
     "history_paused": False,
     "history_retention_days": 0,     # 0 keeps history forever
+    "problem_banner": True,          # a banner on every page while a refresh problem is open
 }
 CHOICES = {"click_mode": ("popup", "select")}
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
@@ -274,3 +275,136 @@ def _from_reports(root: Path) -> list[dict]:
         })
         previous = started
     return out
+
+
+# ----------------------------------------------------------------------------- problems
+# What a failed check means, by check id prefix (first match wins): title, what happened.
+CHECK_MEANINGS = (
+    ("dbt:unique_combination", "Duplicate rows",
+     "A source gave two values for the same country, indicator and year, so the build stopped rather than pick one."),
+    ("dbt:within_indicator_bounds", "Values outside the plausible range",
+     "Some values are far outside the range set for their indicator, usually a slip or a change of units in the source."),
+    ("dbt:not_null", "Required values missing", "Some rows lack a value the warehouse needs, such as a country or indicator."),
+    ("dbt:relationships", "Rows that point at nothing",
+     "Some rows name a country, indicator or source that the catalogue does not know."),
+    ("dbt:accepted_values", "Unexpected codes", "Some rows carry a code (frequency, status, variant, type) that is not allowed."),
+    ("dbt:assert_age_groups", "Age groups do not add up", "Population by age does not add up to the total population."),
+    ("dbt:assert_", "Totals do not add up", "Totals for the world, continents or groups do not match their parts."),
+    ("dbt:", "A warehouse step failed", "One of the steps that builds the warehouse tables stopped with an error."),
+    ("coverage:", "Too few countries", "An indicator covers far fewer countries than expected."),
+    ("shrinkage", "A source lost many rows",
+     "Compared with the last good build, a source or indicator lost a large share of its rows; often a download "
+     "cut short or a file whose layout changed."),
+    ("spot:", "Known value does not match", "A value checked against its published figure no longer matches."),
+    ("whatif:", "Population model check failed", "The population what-if model no longer reproduces the UN figures."),
+)
+AFTER_FAILED_BUILD = ("Nothing changed in the app: it keeps the last good data. Copy the details and send them "
+                      "in the project thread to get it fixed.")
+AFTER_FAILED_FETCH = ("The source kept its previous data and the rest of the refresh went ahead. If it keeps "
+                      "happening, copy the details and send them in the project thread.")
+
+
+def _meaning(check_id: str) -> tuple[str, str]:
+    for prefix, title, explain in CHECK_MEANINGS:
+        if check_id.startswith(prefix):
+            return title, explain
+    return check_id, "A validation check failed."
+
+
+def _report_failures(root: Path, build_id: str | None) -> list[dict]:
+    """The failed checks of a build from its report, for runs logged before failures were recorded."""
+    if not build_id:
+        return []
+    try:
+        text = (root / "warehouse" / "reports" / f"{build_id}.md").read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out, by_id, current = [], {}, None
+    for line in text.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) >= 6 and cells[3] == "fail":
+            by_id[cells[1]] = {"check_id": cells[1], "kind": cells[2], "detail": cells[4], "examples": []}
+            out.append(by_id[cells[1]])
+        elif line.startswith("## "):
+            m = re.match(r"## Failing rows: (.+)$", line)
+            current = by_id.get(m.group(1).strip()) if m else None
+        elif current is not None and line.startswith("- ") and len(current["examples"]) < 12:
+            current["examples"].append(line[2:])
+    return out
+
+
+def problems(root: Path | None = None) -> list[dict]:
+    """Each distinct failure in the refresh log (a failed check, a source that could not be
+    downloaded, a build that stopped), with how often it happened, when first and last,
+    and whether it is still open (no successful run since). Open ones first, newest first."""
+    root = root or home()
+    try:
+        from worldmodel_contract import catalogue
+        names = {s.id: s.name for s in catalogue.sources().values()}
+    except Exception:  # noqa: BLE001 - names are a nicety
+        names = {}
+    runs = read_refresh_log(root)
+    found: dict[str, dict] = {}
+
+    def note(key: str, when: str, run: dict, **info) -> None:
+        p = found.setdefault(key, {"key": key, "times": 0, "first_seen": when, "in_a_row": 0, "runs": [], **info})
+        p.update({k: v for k, v in info.items() if v not in (None, "", [])})
+        p["times"] += 1
+        p["last_seen"] = when
+        p["build_id"] = run.get("build_id")
+        p["runs"].append(when)
+
+    builds: list[tuple[str, set[str] | None]] = []  # (when, failing check keys); None when not known
+    fetches: dict[str, list[tuple[str, bool]]] = {}  # source -> (when, fetched ok)
+    for run in runs:
+        when = run.get("started_at") or ""
+        for s in run.get("sources") or []:
+            sid = s.get("source_id")
+            if s.get("status") == "error":
+                note(f"fetch:{sid}", when, run, kind="fetch", source_id=sid,
+                     title=f"Download failed: {names.get(sid, sid)}",
+                     explain="The source could not be fetched.", todo=AFTER_FAILED_FETCH,
+                     summary=s.get("error") or "", examples=[])
+            if s.get("status") in ("new", "unchanged", "error"):
+                fetches.setdefault(sid, []).append((when, s.get("status") != "error"))
+        if run.get("status") == "ok":
+            builds.append((when, set()))
+            continue
+        if run.get("status") != "failed":
+            continue
+        failures = run.get("failures")
+        if failures is None:
+            failures = _report_failures(root, run.get("build_id"))
+        keys: set[str] | None = set()
+        if not failures:
+            error = run.get("error") or "the build stopped"
+            key = "build:" + re.sub(r"\d+", "#", error.split(":")[0])[:80]
+            note(key, when, run, kind="build", title="The build stopped", explain=error, todo=AFTER_FAILED_BUILD,
+                 summary=error, examples=[])
+            keys = None if "validation gate" in error else {key}  # gates failed but not recorded: unknown which
+        for f in failures:
+            cid = f.get("check_id", "?")
+            title, explain = _meaning(cid)
+            note(f"check:{cid}", when, run, kind="check", check_id=cid, title=title, explain=explain,
+                 todo=AFTER_FAILED_BUILD, summary=f.get("detail") or "", examples=f.get("examples") or [])
+            keys.add(f"check:{cid}")
+        builds.append((when, keys))
+
+    for p in found.values():
+        # Each later attempt either shows the problem again or shows it gone; a build stops
+        # on every failing check at once, so one failing on something else still clears it.
+        if p["kind"] == "fetch":
+            attempts = [(w, not ok) for w, ok in fetches.get(p["source_id"], [])]
+        else:
+            attempts = [(w, p["key"] in k) for w, k in builds if k is not None]
+        p["fixed_at"] = next((w for w, hit in attempts if w > p["last_seen"] and not hit), None)
+        p["open"] = p["fixed_at"] is None
+        n = 0
+        for w, hit in reversed([a for a in attempts if a[0] <= p["last_seen"]]):  # failures in a row up to the latest
+            if not hit:
+                break
+            n += 1
+        p["in_a_row"] = n
+        p.pop("runs")
+    out = sorted(found.values(), key=lambda p: p["last_seen"], reverse=True)
+    return sorted(out, key=lambda p: not p["open"])

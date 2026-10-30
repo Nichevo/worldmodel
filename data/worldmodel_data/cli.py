@@ -86,7 +86,8 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
         if exc.report:
             typer.echo(exc.report.read_text(), err=True)
         _log(p, {**record, "status": "failed", "error": str(exc).splitlines()[0],
-                 "build_id": exc.report.stem if exc.report else None})
+                 "build_id": exc.report.stem if exc.report else None, "failures": exc.failures})
+        _echo_problems(p)
         raise typer.Exit(1)
     counts = {s: sum(c.status == s for c in result.checks) for s in ("pass", "warn", "fail", "skip")}
     changes = monitor.diff_builds(result.path, previous)
@@ -102,6 +103,20 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
                f"{counts['skip']} skipped. Report: {result.report}")
     for line in storage:
         typer.echo(line)
+
+
+def _echo_problems(p) -> None:
+    """Say which problems are open and how often each has happened (also on the Data status page)."""
+    try:
+        found = [x for x in local.problems(p.home) if x["open"]]
+    except Exception:  # noqa: BLE001 - a summary must never hide the failure itself
+        return
+    if not found:
+        return
+    typer.echo("\nProblems now open (also listed on the app's Data status page):", err=True)
+    for x in found:
+        again = f"{x['times']} times since {x['first_seen'][:10]}" if x["times"] > 1 else "first time"
+        typer.echo(f"  - {x['title']}: {x['summary']} ({again})", err=True)
 
 
 def _log(p, record: dict) -> None:
@@ -159,6 +174,7 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         typer.echo(f"{source_id}: {'new vintage' if is_new else 'unchanged'} {manifest.vintage}")
     _build_and_log(allow_shrink, record)
     if failed:
+        _echo_problems(p)
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
         raise typer.Exit(1)
 

@@ -407,3 +407,8 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
 .fb-content { overflow-wrap: anywhere; }
 .fb-history { grid-column: 1 / -1; display: grid; gap: 8px; padding: 8px 12px; background: var(--surface-2); border-radius: 6px; }
 @media (max-width: 800px) { .fb-field { grid-template-columns: 1fr; } }
+
+.problem { border: 1px solid var(--border); border-left: 4px solid var(--div-neg-3); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
+.problem.fixed { border-left-color: var(--border); opacity: 0.85; }
+.problem-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.problem-rows { margin: 4px 0; padding-left: 18px; max-height: 220px; overflow: auto; }

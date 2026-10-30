@@ -33,9 +33,10 @@ KEEP_BUILDS = 3
 
 
 class BuildFailed(RuntimeError):
-    def __init__(self, message: str, report: Path | None = None):
+    def __init__(self, message: str, report: Path | None = None, failures: list[dict] | None = None):
         super().__init__(message)
         self.report = report
+        self.failures = failures or []  # the failed checks, for the refresh log and the app's Problems list
 
 
 @dataclass
@@ -89,8 +90,10 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
             kept = paths.builds / f"{build_id}.failed.duckdb"
             os.replace(tmp, kept)
             gates.write_report(report_path, build_id, checks, kept)
-            raise BuildFailed(f"{len(failed)} validation gate(s) failed; the live warehouse is unchanged. "
-                              f"Report: {report_path}. Failed build kept for inspection: {kept}", report_path)
+            failures = [{"check_id": c.check_id, "kind": c.kind, "detail": c.detail, "examples": c.examples[:12]}
+                        for c in checks if c.status == "fail"]
+            raise BuildFailed(f"{len(failures)} validation gate(s) failed; the live warehouse is unchanged. "
+                              f"Report: {report_path}. Failed build kept for inspection: {kept}", report_path, failures)
         gates.write_report(report_path, build_id, checks, final)
     except BuildFailed:
         raise

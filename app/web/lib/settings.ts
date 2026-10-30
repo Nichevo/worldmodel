@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wikipedia_background: true,
   history_paused: false,
   history_retention_days: 0,
+  problem_banner: true,
 };
 
 let current: Settings = DEFAULT_SETTINGS;
