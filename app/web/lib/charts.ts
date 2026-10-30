@@ -511,3 +511,126 @@ export function healthOption(runs: (RunPoint & { minutes: number | null; ok: boo
     }],
   };
 }
+
+// ----------------------------------------------------------------------------- forecasts
+// A band between two lines: an invisible lower line with the gap stacked on it.
+function band(id: string, years: number[], lo: (number | null)[], hi: (number | null)[], color: string, opacity: number): SeriesOption[] {
+  const ok = years.map((_, i) => lo[i] !== null && hi[i] !== null && lo[i] !== undefined && hi[i] !== undefined);
+  if (!ok.some(Boolean)) return [];
+  const base = { type: "line" as const, stack: id, showSymbol: false, silent: true, lineStyle: { width: 0 }, tooltip: { show: false } };
+  return [
+    { ...base, id: `${id}:lo`, name: id, data: years.map((y, i) => [y, ok[i] ? lo[i] : null]) },
+    { ...base, id: `${id}:hi`, name: id, data: years.map((y, i) => [y, ok[i] ? (hi[i] as number) - (lo[i] as number) : null]),
+      areaStyle: { color, opacity } },
+  ];
+}
+
+// The what-if's total population: the UN projection with its 95% and 80% ranges
+// (where loaded) and low/high variants, and the scenario on top.
+export function whatifOption(years: number[], baseline: number[], scenario: number[], ranges: Record<string, (number | null)[]>,
+  changed: boolean): EChartsOption {
+  const base = chrome();
+  const un = cssVar("--muted");
+  const accent = seriesColor(0);
+  const series: SeriesOption[] = [
+    ...band("UN 95% range", years, ranges.lower95 ?? [], ranges.upper95 ?? [], un, 0.12),
+    ...band("UN 80% range", years, ranges.lower80 ?? [], ranges.upper80 ?? [], un, 0.18),
+  ];
+  for (const [k, label] of [["low", "UN low variant"], ["high", "UN high variant"]] as const) {
+    if (ranges[k]) series.push({ type: "line", id: k, name: label, showSymbol: false, color: un,
+      lineStyle: { width: 1, type: "dotted" }, data: years.map((y, i) => [y, ranges[k][i]]) });
+  }
+  series.push({ type: "line", id: "un", name: "UN projection", showSymbol: false, color: un, lineStyle: { width: 2 },
+    data: years.map((y, i) => [y, baseline[i]]) });
+  if (changed) series.push({ type: "line", id: "scenario", name: "Your scenario", showSymbol: false, color: accent,
+    lineStyle: { width: 2.5 }, data: years.map((y, i) => [y, scenario[i]]) });
+  const labels = new Map<string, string>();
+  const fmt = new Map<string, (v: number) => string>();
+  for (const s of series) {
+    if (s.name && !String(s.id).includes(":")) {
+      labels.set(String(s.name), String(s.name));
+      fmt.set(String(s.name), (v) => formatValue(v, "persons"));
+    }
+  }
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: 40, bottom: 8, containLabel: true },
+    legend: { top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar("--ink-2") },
+      data: series.filter((s) => !String(s.id).endsWith(":lo")).map((s) => String(s.name)).filter((n, i, a) => a.indexOf(n) === i) },
+    yAxis: { ...(yAxis("persons") as object), name: "", scale: true },
+    series,
+    tooltip: { ...(base.tooltip as object), formatter: tooltipFormatter(labels, fmt) },
+  };
+}
+
+// v rounded down (or up) to two significant figures.
+function niceFloor(v: number, up = false): number {
+  if (v === 0) return 0;
+  const mag = 10 ** (Math.floor(Math.log10(Math.abs(v))) - 1);
+  return (up ? Math.ceil(v / mag) : Math.floor(v / mag)) * mag;
+}
+
+// A small chart of one what-if input: the UN path and the scenario's.
+export function inputOption(years: number[], baseline: number[], scenario: number[], unit: string, decimals: number,
+  heldFrom: number | null): EChartsOption {
+  const base = chrome();
+  const un = cssVar("--muted");
+  const changed = scenario.some((v, i) => Math.abs(v - baseline[i]) > 1e-9);
+  const series: SeriesOption[] = [
+    { type: "line", id: "un", name: "UN", showSymbol: false, color: un, lineStyle: { width: 1.5 }, data: years.map((y, i) => [y, baseline[i]]),
+      markArea: heldFrom ? { silent: true, itemStyle: { color: un, opacity: 0.08 }, data: [[{ xAxis: heldFrom }, { xAxis: years[years.length - 1] }]] } : undefined },
+  ];
+  if (changed) series.push({ type: "line", id: "you", name: "Yours", showSymbol: false, color: seriesColor(0), lineStyle: { width: 2 },
+    data: years.map((y, i) => [y, scenario[i]]) });
+  const fmt = new Map([["UN", (v: number) => formatValue(v, unit, decimals)], ["Yours", (v: number) => formatValue(v, unit, decimals)]]);
+  return {
+    ...base,
+    animation: false,
+    grid: { left: 2, right: 8, top: 8, bottom: 2, containLabel: true },
+    xAxis: { ...(base.xAxis as object), axisLabel: { color: cssVar("--muted"), fontSize: 9, formatter: (v: number) => String(v) } },
+    // A flat path would otherwise get a needlessly wide axis.
+    yAxis: { ...(yAxis(unit) as object), name: "", scale: true,
+      min: (v: { min: number; max: number }) => niceFloor(v.min - Math.max((v.max - v.min) * 0.1, Math.abs(v.min) * 0.05 || 1)),
+      max: (v: { min: number; max: number }) => niceFloor(v.max + Math.max((v.max - v.min) * 0.1, Math.abs(v.max) * 0.05 || 1), true),
+      axisLabel: { color: cssVar("--muted"), fontSize: 9, formatter: (v: number) => compact(v) } },
+    series,
+    tooltip: { ...(base.tooltip as object), confine: true, formatter: tooltipFormatter(new Map([["UN", "UN"], ["Yours", "Yours"]]), fmt) },
+  };
+}
+
+// Past forecasts against what happened: each release's path as a thin line
+// (newer releases darker), the outcome as a thick one.
+export function trackOption(actual: [number, number][], paths: { release: string; points: [number, number][] }[],
+  unit: string, decimals: number, from: number): EChartsOption {
+  const base = chrome();
+  const shown = paths.filter((p) => p.points.some(([y]) => y >= from));
+  const n = shown.length;
+  const series: SeriesOption[] = shown.map((p, i) => ({
+    type: "line", id: `r${p.release}`, name: p.release, showSymbol: false,
+    color: seriesColor(1), lineStyle: { width: 1, opacity: 0.25 + 0.6 * (n > 1 ? i / (n - 1) : 1) },
+    data: p.points.filter(([y]) => y >= from - 1), z: 2,
+  }));
+  series.push({ type: "line", id: "actual", name: "What happened", showSymbol: false, color: cssVar("--ink"), lineStyle: { width: 2.5 },
+    data: actual.filter(([y]) => y >= from), z: 5 });
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    yAxis: { ...(yAxis(unit) as object), scale: true },
+    series,
+    tooltip: {
+      ...(base.tooltip as object), confine: true,
+      // The outcome for the year, then what the last few releases had forecast for it.
+      formatter: (params: unknown) => {
+        const list = params as { seriesId: string; seriesName: string; value: [number, number] }[];
+        if (!list.length) return "";
+        const year = list[0].value[0];
+        const happened = list.find((p) => p.seriesId === "actual");
+        const made = list.filter((p) => p.seriesId !== "actual").slice(-8).reverse();
+        return [`<b>${year}</b>`,
+          happened ? `What happened: <b>${formatValue(happened.value[1], unit, decimals)}</b>` : "Not known yet",
+          ...(made.length ? ["Forecast in:", ...made.map((p) => `&nbsp;&nbsp;${p.seriesName}: ${formatValue(p.value[1], unit, decimals)}`)] : []),
+        ].join("<br/>");
+      },
+    },
+  };
+}

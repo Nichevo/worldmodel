@@ -7,6 +7,7 @@ import Search from "@/components/Search";
 const LINKS = [
   { href: "/", label: "Map" },
   { href: "/compare", label: "Compare" },
+  { href: "/forecasts", label: "Forecasts" },
   { href: "/indicators", label: "Indicators" },
   { href: "/data", label: "Data status" },
   { href: "/history", label: "History" },

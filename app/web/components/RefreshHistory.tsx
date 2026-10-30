@@ -147,31 +147,33 @@ export function RefreshHistoryCard() {
       {runs && runs.length > 0 && (
         <details style={{ marginTop: 8 }}>
           <summary>Each run, source by source</summary>
-          <table className="small">
-            <thead>
-              <tr><th>When</th><th>Kind</th><th>Result</th><th>Source</th><th>Status</th><th className="num">Download</th>
-                <th className="num">Time</th><th className="num">Added</th><th className="num">Changed</th><th className="num">Removed</th></tr>
-            </thead>
-            <tbody>
-              {[...runs].reverse().flatMap((r, ri) => {
-                const srcs = r.sources.length ? r.sources : [{ source_id: "" }];
-                return srcs.map((s, i) => (
-                  <tr key={`${ri}-${i}`}>
-                    <td>{i === 0 ? pts[runs.length - 1 - ri].when : ""}</td>
-                    <td>{i === 0 ? `${r.kind}${r.backfilled ? " (from report)" : ""}` : ""}</td>
-                    <td>{i === 0 ? (r.status === "ok" ? "passed" : <b>failed</b>) : ""}</td>
-                    <td>{SOURCE_SHORT[s.source_id] ?? s.source_id}</td>
-                    <td>{s.status ?? ""}{s.error ? `: ${s.error}` : ""}{s.note ? ` (${s.note})` : ""}</td>
-                    <td className="num">{s.download_bytes !== undefined ? mb(s.download_bytes) : "–"}</td>
-                    <td className="num">{s.seconds !== undefined ? `${s.seconds}s` : "–"}</td>
-                    <td className="num">{s.added?.toLocaleString("en") ?? "–"}</td>
-                    <td className="num">{s.changed?.toLocaleString("en") ?? "–"}</td>
-                    <td className="num">{s.removed?.toLocaleString("en") ?? "–"}</td>
-                  </tr>
-                ));
-              })}
-            </tbody>
-          </table>
+          <div style={{ overflowX: "auto" }}>
+            <table className="small">
+              <thead>
+                <tr><th>When</th><th>Kind</th><th>Result</th><th>Source</th><th>Status</th><th className="num">Download</th>
+                  <th className="num">Time</th><th className="num">Added</th><th className="num">Changed</th><th className="num">Removed</th></tr>
+              </thead>
+              <tbody>
+                {[...runs].reverse().flatMap((r, ri) => {
+                  const srcs = r.sources.length ? r.sources : [{ source_id: "" }];
+                  return srcs.map((s, i) => (
+                    <tr key={`${ri}-${i}`}>
+                      <td>{i === 0 ? pts[runs.length - 1 - ri].when : ""}</td>
+                      <td>{i === 0 ? `${r.kind}${r.backfilled ? " (from report)" : ""}` : ""}</td>
+                      <td>{i === 0 ? (r.status === "ok" ? "passed" : <b>failed</b>) : ""}</td>
+                      <td>{SOURCE_SHORT[s.source_id] ?? s.source_id}</td>
+                      <td>{s.status ?? ""}{s.error ? `: ${s.error}` : ""}{s.note ? ` (${s.note})` : ""}</td>
+                      <td className="num">{s.download_bytes !== undefined ? mb(s.download_bytes) : "–"}</td>
+                      <td className="num">{s.seconds !== undefined ? `${s.seconds}s` : "–"}</td>
+                      <td className="num">{s.added?.toLocaleString("en") ?? "–"}</td>
+                      <td className="num">{s.changed?.toLocaleString("en") ?? "–"}</td>
+                      <td className="num">{s.removed?.toLocaleString("en") ?? "–"}</td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
+          </div>
         </details>
       )}
     </div>

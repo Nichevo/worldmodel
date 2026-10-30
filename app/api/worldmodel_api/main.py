@@ -24,8 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
-from worldmodel_contract.queries import SeriesQuery, series_sql, stream_query
-from worldmodel_contract import local
+from worldmodel_contract.queries import SeriesQuery, forecast_pairs_sql, series_sql, stream_query
+from worldmodel_contract import cohort, local
 from worldmodel_api import __version__, layouts, userdata
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
@@ -392,6 +392,122 @@ def pyramid(entity: str, year: int):
     first = data[0] if data else {}
     return {"entity": entity, "year": year, "groups": ordered, "years_available": years,
             "status": first.get("status"), "source_id": first.get("source_id"), "vintage": first.get("vintage")}
+
+
+# ----------------------------------------------------------------------------- population what-if
+_whatif_inputs: dict[tuple, cohort.Inputs | None] = {}
+SUMMARY_YEARS = (2030, 2050, 2075, 2100)
+
+
+def _inputs(entity: str) -> cohort.Inputs | None:
+    key = (warehouse.current().meta.get("build_id"), entity)
+    if key not in _whatif_inputs:
+        if len(_whatif_inputs) > 64:
+            _whatif_inputs.clear()
+        _whatif_inputs[key] = cohort.prepare(warehouse.cursor().execute(cohort.inputs_sql(), [entity]).fetchall())
+    return _whatif_inputs[key]
+
+
+@api.get("/whatif")
+def whatif(entity: str,
+           tfr: float = Query(0, ge=-3, le=3, description="change in children per woman, in full after `phase` years"),
+           e0: float = Query(0, ge=-20, le=20, description="change in life expectancy at birth, years"),
+           mig: float = Query(1, ge=0, le=3, description="multiplier on net migration"),
+           extra: float = Query(0, ge=-5_000_000, le=5_000_000, description="extra net migrants a year"),
+           phase: int = Query(10, ge=0, le=50, description="years until the changes are in full"),
+           end: int | None = None):
+    """The population what-if for one country: the UN medium projection (baseline) and
+    the same with the levers moved (scenario), by year, with pyramids, key shares, the
+    inputs used, the UN's own ranges where loaded, and how far the model itself is from
+    the UN at default settings (raw_error)."""
+    found = rows("SELECT short_name, type FROM entities WHERE entity_id = ?", [entity])
+    if not found:
+        raise HTTPException(404, f"no entity {entity}")
+    inp = _inputs(entity)
+    if inp is None:
+        raise HTTPException(404, f"{found[0]['short_name']} has no population by age and sex to start from")
+    stop = min(inp.last_year, end) if end else inp.last_year
+    if stop <= inp.base_year:
+        raise HTTPException(422, f"nothing to project: the data ends in {inp.base_year}")
+    levers = cohort.Levers(tfr=tfr, e0=e0, migration=mig, extra_migrants=extra, phase=phase)
+    out = cohort.whatif(inp.base_year, inp.base, inp.raw, stop, levers, inp.un, inp.un_totals)
+    years = out["years"]
+    for side in ("baseline", "scenario"):
+        out[side] = [round(v) for v in out[side]]
+    for y, p in out["pyramids"].items():
+        for side in p.values():
+            side["male"] = [round(v) for v in side["male"]]
+            side["female"] = [round(v) for v in side["female"]]
+    keys = [y for y in (inp.base_year, *SUMMARY_YEARS) if y in out["pyramids"]] or [years[-1]]
+    if years[-1] not in keys:
+        keys.append(years[-1])
+    out["summary"] = [{"year": y, **{side: cohort.summary(cohort.Pyramid(**out["pyramids"][y][side]))
+                                     for side in ("baseline", "scenario")}} for y in keys]
+    ranges = rows("""SELECT variant, year(period_start) AS y, value FROM series
+        WHERE entity_id = ? AND indicator_id = 'pop_total' AND variant <> 'central' AND freq = 'A'""", [entity])
+    by: dict[str, dict[int, float]] = {}
+    for r in ranges:
+        by.setdefault(r["variant"], {})[r["y"]] = r["value"]
+    out["ranges"] = {k: [v.get(y) for y in years] for k, v in by.items()}
+    out.update(entity=entity, name=found[0]["short_name"], type=found[0]["type"],
+               levers={"tfr": tfr, "e0": e0, "mig": mig, "extra": extra, "phase": phase})
+    return out
+
+
+# ----------------------------------------------------------------------------- forecast track record
+def _errors(pairs: list[dict]) -> dict:
+    d = [p["forecast"] - p["actual"] for p in pairs]
+    n = len(d)
+    return {"n": n, "bias": sum(d) / n, "mae": sum(abs(x) for x in d) / n, "rmse": (sum(x * x for x in d) / n) ** 0.5} \
+        if n else {"n": 0, "bias": None, "mae": None, "rmse": None}
+
+
+@api.get("/track-record")
+def track_record(indicator: str = "gdp_growth", entity: str | None = None, since: int = Query(1990, ge=1980)):
+    """How past IMF WEO forecasts compared with what happened: errors (forecast minus
+    outcome) by how far ahead the forecast was made, for the April and October
+    releases. With an entity: its own record plus every release's forecast path.
+    Without: all countries pooled, and each country's record a year ahead."""
+    if indicator not in ("gdp_growth", "inflation"):
+        raise HTTPException(422, "track records exist for gdp_growth and inflation")
+    names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+    if entity and entity not in names:
+        raise HTTPException(404, f"no entity {entity}")
+    sql, params = forecast_pairs_sql(indicator, [entity] if entity else None, countries_only=entity is None)
+    pairs = [p for p in rows(sql, params) if int(p["release"][:4]) >= since]
+    # Outcomes come from the latest release, so that release's own figures say nothing.
+    latest = (rows("SELECT max(left(vintage, 7)) AS r FROM vintages WHERE source_id = 'imf_weo' AND is_latest")
+              or [{"r": None}])[0]["r"] or "9999"
+    known = [p for p in pairs if p["actual"] is not None and p["release"] < latest]
+    stats = []
+    for month, season in (("04", "April"), ("10", "October")):
+        for h in range(-1, 6):
+            sel = [p for p in known if p["horizon"] == h and p["release"].endswith(month)]
+            if sel:
+                stats.append({"season": season, "horizon": h, **_errors(sel)})
+    releases = sorted({p["release"] for p in pairs})
+    out = {"indicator": indicator, "entity": entity, "name": names.get(entity) if entity else None,
+           "releases": releases, "outcomes_from": latest if latest != "9999" else None, "stats": stats,
+           "sources": sorted({r["source_id"] for r in rows(
+               "SELECT DISTINCT source_id FROM series WHERE indicator_id = ? AND source_id LIKE 'imf_weo%'", [indicator])})}
+    if entity:
+        by: dict[str, list] = {}
+        for p in pairs:
+            by.setdefault(p["release"], []).append([p["year"], p["forecast"]])
+        out["paths"] = [{"release": r, "points": by[r]} for r in releases]
+        out["actual"] = [[r["y"], r["value"]] for r in rows("""SELECT year(period_start) AS y, value FROM series
+            WHERE source_id = 'imf_weo' AND indicator_id = ? AND entity_id = ? AND breakdown = '' AND variant = 'central'
+                AND status = 'E' ORDER BY 1""", [indicator, entity])]
+        out["years"] = [{"year": y, **_errors([p for p in known if p["year"] == y and p["horizon"] == 1])}
+                        for y in sorted({p["year"] for p in known})]
+    else:
+        per: dict[str, list] = {}
+        for p in known:
+            if p["horizon"] == 1:
+                per.setdefault(p["entity_id"], []).append(p)
+        out["countries"] = sorted(({"entity_id": e, "name": names.get(e, e), **_errors(v)} for e, v in per.items()),
+                                  key=lambda r: r["mae"])
+    return out
 
 
 # ----------------------------------------------------------------------------- saved layouts
