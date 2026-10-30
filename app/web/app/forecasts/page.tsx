@@ -241,7 +241,7 @@ function SummaryTable({ data, changed }: { data: WhatIf; changed: boolean }) {
     <div style={{ overflowX: "auto" }}>
       <table className="summary-table">
         <thead>
-          <tr><th /> {data.summary.map((s) => <th key={s.year} className="num">{s.year}</th>)}</tr>
+          <tr><th />{data.summary.map((s) => <th key={s.year} className="num">{s.year}</th>)}</tr>
         </thead>
         <tbody>
           {ROWS.map((r) => (

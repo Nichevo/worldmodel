@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,8 @@ from worldmodel_data.vintage_store import STAGED_COLUMNS, Manifest, VintageStore
 
 log = logging.getLogger(__name__)
 
+# Waits, in seconds, before each new try after HTTP 429 (too many requests) or 503.
+RETRY_WAITS = (15, 45, 90)
 USER_AGENT = "worldmodel-data/0.1 (personal research tool; https://github.com/Nichevo/worldmodel)"
 
 
@@ -191,20 +194,40 @@ class Connector(ABC):
         cache = self._cache
         headers = cache.conditional_headers(url) if cache else {}
         log.info("GET %s%s", url, " (if changed)" if headers else "")
-        with self.client.stream("GET", url, headers=headers) as r:
-            if r.status_code == 304 and cache and (stored := cache.stored_file(url)):
-                log.info("not modified, reusing %s", stored)
-                shutil.copy2(stored, dest)
-                cache.note(url, dest.name, cache.entries[url].get("etag"), cache.entries[url].get("last_modified"))
+        for attempt in range(len(RETRY_WAITS) + 1):
+            with self.client.stream("GET", url, headers=headers) as r:
+                if r.status_code in (429, 503) and attempt < len(RETRY_WAITS):
+                    wait = _retry_after(r.headers.get("retry-after"), RETRY_WAITS[attempt])
+                    log.info("HTTP %s (server busy or asking us to slow down); trying again in %ss",
+                             r.status_code, wait)
+                    time.sleep(wait)
+                    continue
+                self._save(r, url, dest, cache)
                 return
-            if r.status_code != 200:
-                raise ConnectorError(f"GET {url} returned HTTP {r.status_code}")
-            with dest.open("wb") as fh:
-                for chunk in r.iter_bytes():
-                    fh.write(chunk)
-                    self.downloaded_bytes += len(chunk)
-            if cache:
-                cache.note(url, dest.name, r.headers.get("etag"), r.headers.get("last-modified"))
+
+    def _save(self, r: httpx.Response, url: str, dest: Path, cache: HttpCache | None) -> None:
+        """Store a response, or reuse the stored copy on 304 Not Modified."""
+        if r.status_code == 304 and cache and (stored := cache.stored_file(url)):
+            log.info("not modified, reusing %s", stored)
+            shutil.copy2(stored, dest)
+            cache.note(url, dest.name, cache.entries[url].get("etag"), cache.entries[url].get("last_modified"))
+            return
+        if r.status_code != 200:
+            raise ConnectorError(f"GET {url} returned HTTP {r.status_code}")
+        with dest.open("wb") as fh:
+            for chunk in r.iter_bytes():
+                fh.write(chunk)
+                self.downloaded_bytes += len(chunk)
+        if cache:
+            cache.note(url, dest.name, r.headers.get("etag"), r.headers.get("last-modified"))
+
+
+def _retry_after(header: str | None, default: int) -> int:
+    """Seconds to wait from a Retry-After header (seconds only), capped at two minutes."""
+    try:
+        return max(1, min(int(header), 120)) if header else default
+    except ValueError:
+        return default
 
 
 def sql_str(s: str) -> str:

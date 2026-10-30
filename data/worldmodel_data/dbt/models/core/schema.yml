@@ -112,3 +112,6 @@ models:
 
   - name: unmapped_codes
     description: Source codes the crosswalk does not know. Listed in the build report.
+
+  - name: implausible_variant_values
+    description: High/low variant and prediction-interval values left out of observations as meaningless. Listed in the build report.
