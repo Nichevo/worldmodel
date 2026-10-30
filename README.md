@@ -52,15 +52,18 @@ The API notices the new build on its next request; no restart needed.
 ### On Windows, with conda
 
 Needs [Miniconda or Anaconda](https://docs.conda.io/en/latest/miniconda.html)
-and Git. Open an **Anaconda Prompt** (plain Command Prompt won't find conda
-unless you ran `conda init cmd.exe`), then:
+and Git. The scripts find conda themselves, so any terminal works: PowerShell,
+Command Prompt or an Anaconda Prompt. In PowerShell, type `.\setup.bat` and so on.
 
 ```bat
 git clone https://github.com/Nichevo/worldmodel D:\worldmodel
-cd /d D:\worldmodel
-setup.bat         :: once: conda env "worldmodel" (Python, Node, Git) + all packages
-start.bat         :: API and web app in their own windows, then the browser
+cd D:\worldmodel
+.\setup.bat       :: once: conda env "worldmodel" (Python, Node, Git) + all packages
+.\start.bat       :: API and web app in their own windows, then the browser
 ```
+
+If conda is installed somewhere unusual and the scripts can't find it, run them
+from an Anaconda Prompt instead.
 
 Your data lives in `var\` inside this folder (set as `WORLDMODEL_HOME` in the
 conda environment, so it doesn't depend on where you run commands from). To
@@ -71,7 +74,7 @@ load current data: `conda activate worldmodel`, then `worldmodel-data refresh`.
 Stop the app (close its two windows), then:
 
 ```bat
-update.bat        :: Windows: latest code from GitHub + any new packages
+.\update.bat       :: Windows: latest code from GitHub + any new packages
 ```
 ```sh
 make update       # macOS / Linux
