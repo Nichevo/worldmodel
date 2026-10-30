@@ -8,7 +8,7 @@ import pytest
 
 from worldmodel_data.build import build
 from worldmodel_data.config import Paths
-from worldmodel_data.connectors import CONNECTORS
+from worldmodel_data.connectors import CONNECTORS, Connector
 from worldmodel_data.connectors.cia_factbook import estimate_year, number
 from worldmodel_data.vintage_store import VintageStore
 
@@ -77,7 +77,7 @@ def test_refresh_leaves_frozen_and_recent_sources_alone(built):
     assert "no longer changes" in _not_due(CONNECTORS["cia_factbook"], last)
     assert _not_due(CONNECTORS["un_wpp"], VintageStore(home).latest("un_wpp")) is None
 
-    class Monthly:
+    class Monthly(Connector):  # only the scheduling attributes matter here
         frozen, fetch_every_days = False, 28
 
     def fetched(days):

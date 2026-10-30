@@ -62,6 +62,23 @@ models:
       - name: content
         tests: [not_null]
 
+  - name: events
+    tests:
+      - unique_combination:
+          arguments:
+            columns: [event_id, entity_id]
+    columns:
+      - name: kind
+        tests:
+          - accepted_values:
+              arguments:
+                values: [independence, election, leader, coup, conflict, crisis, recession, boom, inflation, debt,
+                         sport, disaster, epidemic, notable, user]
+      - name: start_date
+        tests: [not_null]
+      - name: title
+        tests: [not_null]
+
   - name: observations
     tests:
       - unique_combination:

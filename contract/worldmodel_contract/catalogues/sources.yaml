@@ -130,6 +130,58 @@
   licence_url: ""
   commercial_use: true
   cadence: Every warehouse build
-  attribution: "Aggregated by worldmodel from the member countries' source values."
+  attribution: "Aggregated by worldmodel from the member countries' source values; episodes (recessions, booms, inflation spikes, debt surges) worked out from the data by the rules in episode_rules.yaml."
+  status: active
+  default_rank: 9
+
+- id: powell_thyne
+  name: Coups d'etat since 1950 (Powell and Thyne)
+  short_name: Coups
+  publisher: Jonathan Powell and Clayton Thyne, University of Kentucky
+  url: https://www.uky.edu/~clthyn2/coup_data/home.htm
+  licence: Free to use with citation
+  licence_url: https://www.uky.edu/~clthyn2/coup_data/home.htm
+  commercial_use: true
+  cadence: Updated a few times a year; checked monthly
+  attribution: "Powell, Jonathan M. and Clayton L. Thyne (2011), Global instances of coups from 1950 to 2010: A new dataset, Journal of Peace Research 48(2): 249-259."
+  status: active
+  default_rank: 5
+
+- id: ucdp_acd
+  name: UCDP/PRIO Armed Conflict Dataset
+  short_name: UCDP conflicts
+  publisher: Uppsala Conflict Data Program and Peace Research Institute Oslo
+  url: https://ucdp.uu.se/downloads/
+  licence: Free to use with citation
+  licence_url: https://ucdp.uu.se/downloads/
+  commercial_use: true
+  cadence: Yearly, each June; checked monthly
+  attribution: "UCDP/PRIO Armed Conflict Dataset; Gleditsch et al. (2002), Armed Conflict 1946-2001: A New Dataset, Journal of Peace Research 39(5); Davies, Pettersson and Oberg (2024), Journal of Peace Research."
+  status: active
+  default_rank: 5
+
+- id: emdat
+  name: EM-DAT international disaster database
+  short_name: EM-DAT
+  publisher: Centre for Research on the Epidemiology of Disasters (CRED), UCLouvain
+  url: https://public.emdat.be/
+  licence: Free for non-commercial use after sign-in; a file you download and load yourself
+  licence_url: https://doc.emdat.be/docs/legal/terms-of-use/
+  commercial_use: false
+  cadence: Updated weekly; load a new download when you want (once a year is plenty)
+  attribution: "EM-DAT, CRED / UCLouvain, Brussels, Belgium - www.emdat.be"
+  status: active
+  default_rank: 5
+
+- id: notable
+  name: Notable episodes (curated list)
+  short_name: Notable episodes
+  publisher: This app, from the sources linked on each row
+  url: ""
+  licence: Each row cites its source
+  licence_url: ""
+  commercial_use: true
+  cadence: Edited by hand (notable_episodes.csv)
+  attribution: "Hand-curated list; each episode links to its source."
   status: active
   default_rank: 9

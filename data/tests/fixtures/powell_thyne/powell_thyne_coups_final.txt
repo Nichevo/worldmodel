@@ -1,0 +1,6 @@
+country	ccode	year	month	day	coup	version
+"Thailand"	800	2006	9	19	2	2025-03
+"Thailand"	800	2014	5	22	2	2025-03
+"Cote d'Ivoire"	437	1999	12	24	2	2025-03
+"Turkey"	640	2016	7	15	1	2025-03
+"Atlantis"	999	1990	1	1	1	2025-03

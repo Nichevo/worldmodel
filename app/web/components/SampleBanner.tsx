@@ -25,7 +25,7 @@ export default function SampleBanner() {
   return (
     <div className="banner">
       Showing the sample warehouse that ships with the app: UN WPP 2024, IMF WEO {weo?.vintage ?? ""} (an old
-      release), a selection of World Bank indicators and OWID energy data. Run <code>.\refresh.bat</code> to load
+      release), a selection of World Bank indicators and OWID energy data, and a handful of example events. Run <code>.\refresh.bat</code> to load
       everything, up to date. <Link href="/data">Details</Link>
     </div>
   );
