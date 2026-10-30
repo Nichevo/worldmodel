@@ -205,7 +205,30 @@ def all_indicators(paths: Paths, latest) -> list:
                 inds[i.id] = have.model_copy(update={"sources": [*have.sources, *new]})
             else:
                 inds[i.id] = i
-    return list(inds.values())
+    return with_source_in_shared_names(list(inds.values()))
+
+
+def with_source_in_shared_names(inds: list) -> list:
+    """Two sources can give the same name to different series (OWID's coal production
+    in TWh, the Factbook's in tonnes). Where a name is shared, each one gets its main
+    source after it, "Coal production (CIA Factbook)", and its unit too if that is
+    not enough to tell them apart."""
+    short = {k: v.short_name for k, v in catalogue.sources().items()}
+
+    def tag(i, unit=False):
+        src = short.get(i.sources[0].source_id, i.sources[0].source_id) if i.sources else ""
+        return ", ".join(x for x in (src, i.unit if unit else "") if x)
+
+    def shared(key) -> set[str]:
+        n: dict[str, int] = {}
+        for i in inds:
+            n[key(i)] = n.get(key(i), 0) + 1
+        return {k for k, c in n.items() if c > 1}
+
+    names = shared(lambda i: i.name.lower())
+    tags = shared(lambda i: f"{i.name.lower()}|{tag(i)}")
+    return [i.model_copy(update={"name": f"{i.name} ({tag(i, f'{i.name.lower()}|{tag(i)}' in tags)})"})
+            if i.name.lower() in names else i for i in inds]
 
 
 def _create(name: str) -> str:
