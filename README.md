@@ -133,6 +133,16 @@ with identical content is skipped; a revised release becomes a new vintage
 | World Bank World Development Indicators | Every WDI series (about 1,500): economy, prices and price levels, trade, government, military spending (SIPRI), labour, poverty, health, education, environment and more; income groups | One bulk zip (if the World Bank's download server refuses it, the main series come from its Indicators API instead, and the rest wait for the next refresh). About 120 main series start switched on under plain ids (`unemployment`, `military_spending_gdp`, `price_level_ratio`); the rest are `wdi_<code>`, switched off until you switch them on on the Indicators page. Series the catalogue already has (population, GDP, inflation) become a second source for the comparison |
 | Our World in Data energy dataset | Electricity by source (Ember), primary energy, production and consumption of oil, gas and coal (Energy Institute, EIA), carbon intensity | One CSV from OWID's GitHub. Shares and per-person figures for continents and blocs are recomputed from the amounts |
 | Our World in Data charts | Deaths in armed conflicts (UCDP), by the country where they occurred | One chart download each; a chart OWID has removed only warns |
+| CIA World Factbook, 1990 to 2025 | Every field of every edition as text (geography, people, government, economy, energy, military and more), plus about 60 numbers from it: GDP (PPP), public debt, oil and gas reserves and production, electricity, airports, railways, roads, coastline and the like, and a third source for population, fertility, life expectancy, growth and inflation | One SQLite file (694 MB, downloaded once) from the CIA World Factbooks Archive on GitHub. The CIA has stopped the Factbook, so this is frozen: a refresh never fetches it again. Former states (Soviet Union, Czechoslovakia, Yugoslavia, both Yemens, East Germany) are kept as their own entities. Numbers come from each edition's text, dated by the year the edition gives for them |
+| Wikidata | A facts box for each country: official name, capital, heads of state and government, government type, languages, currency, memberships, calling code and more; the names of its Wikipedia article, flag, coat of arms and locator map | One query a month to the Wikidata Query Service (a refresh skips it in between) |
+| Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
+
+**Country pages** open with the Wikipedia introduction, pictures and the
+Wikidata facts box, and end with the full **CIA World Factbook** entry: pick any
+edition from 1990 to 2025, search the fields, and open a field's history to see
+how its text changed across the editions. API: `/api/v1/entities/NZL/texts`
+(`?edition=1995`, `?source=wikidata`), `/entities/NZL/texts/history?key=Coastline`,
+`/entities/NZL/wikipedia`, `/wikipedia/status`.
 
 **Income groups** (high, upper-middle, lower-middle and low income) are regions
 like the continents: members are the World Bank's latest classification, and
@@ -184,8 +194,10 @@ against the source linked on each row.
 
 **The sample warehouse** holds real UN WPP 2024 data, a real but old IMF
 release (April 2015), about 325 real World Bank series from a mirror, and the
-main OWID energy series, because the build environment could not reach the UN,
-IMF or World Bank sites. Its income groups are worked out from GNI per person
+main OWID energy series, and a cut of the Factbook archive (every country's 2025
+entry, all editions for a few countries, and all the Factbook numbers), because
+the build environment could not reach the UN, IMF or World Bank sites. It has no
+Wikidata facts. Its income groups are worked out from GNI per person
 rather than read from the World Bank. The app says so in a banner. See
 [scripts/sample/README.md](scripts/sample/README.md).
 

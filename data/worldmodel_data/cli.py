@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 import time
-from datetime import date
+from datetime import date, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Optional
@@ -136,6 +136,11 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", note=f"limit reached; last download {size / 1024 ** 2:.0f} MB")
             typer.echo(f"{source_id}: skipped (data folder at its limit)")
             continue
+        wait = _not_due(cls, last)
+        if wait:
+            entry.update(status="skipped", vintage=last.vintage, note=wait)
+            typer.echo(f"{source_id}: skipped ({wait})")
+            continue
         conn = cls()
         t0 = time.monotonic()
         try:
@@ -154,6 +159,20 @@ def refresh(allow_shrink: bool = typer.Option(False)):
     if failed:
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
         raise typer.Exit(1)
+
+
+def _not_due(cls, last) -> str | None:
+    """Why a refresh leaves a source alone this time: a closed archive already stored,
+    or one fetched on a schedule (monthly, say) whose time has not come."""
+    if last is None:
+        return None
+    if cls.frozen:
+        return f"archive that no longer changes; stored as {last.vintage}"
+    if cls.fetch_every_days:
+        age = now_utc() - datetime.fromisoformat(last.retrieved_at)
+        if age.days < cls.fetch_every_days:
+            return f"fetched {age.days} days ago; fetched every {cls.fetch_every_days} days"
+    return None
 
 
 @app.command()
