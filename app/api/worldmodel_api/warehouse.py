@@ -3,7 +3,8 @@
 WORLDMODEL_WAREHOUSE may name
   * a .duckdb file, or
   * a data folder (the pipeline's WORLDMODEL_HOME) holding warehouse/CURRENT.
-If unset: ./var when it has a live build, else the sample shipped in app/sample/.
+If unset: the pipeline's data folder (WORLDMODEL_HOME, else ./var) when it has a live
+build, else the sample shipped in app/sample/.
 The app never writes to the warehouse.
 """
 
@@ -35,7 +36,8 @@ class Opened:
 
 def resolve(setting: str | None = None) -> Path:
     setting = setting if setting is not None else os.environ.get("WORLDMODEL_WAREHOUSE", "")
-    candidates = [Path(setting).expanduser()] if setting else [Path.cwd() / "var", SAMPLE]
+    home = os.environ.get("WORLDMODEL_HOME")
+    candidates = [Path(setting).expanduser()] if setting else [Path(home).expanduser() if home else Path.cwd() / "var", SAMPLE]
     for c in candidates:
         if c.is_file():
             return c.resolve()

@@ -7,7 +7,7 @@ import Search from "@/components/Search";
 const LINKS = [
   { href: "/", label: "Map" },
   { href: "/compare", label: "Compare" },
-  { href: "/data", label: "Sources and data health" },
+  { href: "/data", label: "Data status" },
 ];
 
 export default function Nav() {
