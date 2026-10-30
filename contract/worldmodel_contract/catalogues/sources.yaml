@@ -21,7 +21,7 @@
   name: IMF World Economic Outlook
   short_name: IMF WEO
   publisher: International Monetary Fund
-  url: https://www.imf.org/en/Publications/WEO
+  url: https://data.imf.org/en/datasets/IMF.RES:WEO
   licence: IMF copyright and usage terms (free use with attribution)
   licence_url: https://www.imf.org/external/terms.htm
   commercial_use: true
@@ -34,7 +34,7 @@
   name: IMF WEO historical forecasts
   short_name: IMF WEO past forecasts
   publisher: International Monetary Fund
-  url: https://www.imf.org/en/Publications/WEO
+  url: https://data.imf.org/en/datasets/IMF.RES:WEO
   licence: IMF copyright and usage terms (free use with attribution)
   licence_url: https://www.imf.org/external/terms.htm
   commercial_use: true

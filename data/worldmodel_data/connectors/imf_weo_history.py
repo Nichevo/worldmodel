@@ -1,9 +1,15 @@
 """IMF WEO historical forecasts: what each World Economic Outlook since 1990 forecast.
 
+Since October 2025 the WEO lives on the IMF Data Portal, and the file is linked
+from the WEO dataset page there (https://data.imf.org/en/datasets/IMF.RES:WEO,
+"WEO Historical Forecasts Database"). The link is read from that page, so a new
+upload is found; if the page cannot be read, the last known link is tried, then
+the file's older homes beside each WEO database release on imf.org:
+
     https://www.imf.org/-/media/files/publications/weo/weo-database/<year>/<april|october>/weohistorical.xlsx
 
-(beside each WEO database release; the newest release's copy is tried first, then
-older ones, then the address the file had before the IMF's 2025 site move).
+A download that is not an Excel file (a "page not found" page served as a file,
+say) counts as not found, and the next address is tried.
 
 One Excel file from the IMF, updated after each WEO, holding every spring (April)
 and fall (October) release's figures for real GDP growth, inflation and the
@@ -27,17 +33,24 @@ A copy of the file can be given instead: worldmodel-data fetch imf_weo_history -
 
 from __future__ import annotations
 
+import html
 import logging
 import re
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urljoin
 
 import duckdb
+import httpx
 
 from worldmodel_data.connectors.base import Connector, ConnectorError
 
 log = logging.getLogger(__name__)
 
+DATA_PAGE = "https://data.imf.org/en/datasets/IMF.RES:WEO"
+KNOWN_URL = ("https://data.imf.org/-/media/iData/External-Storage/Documents/D2AC2BB4C12C4A8CB2B6DAF1159263EB/en/"
+             "WEOhistorical.xlsx")
+LINK = re.compile(r"""href=["']([^"']*weohistorical\.xlsx[^"']*)["']""", re.I)
 URL = "https://www.imf.org/-/media/files/publications/weo/weo-database/{year}/{month}/weohistorical.xlsx"
 OLD_URL = "https://www.imf.org/-/media/Files/Publications/WEO/WEO-Database/WEOhistorical.ashx"
 FILE = "WEOhistorical.xlsx"
@@ -60,16 +73,31 @@ class IMFWEOHistory(Connector):
             on = datetime.strptime(release[:10], "%Y-%m-%d")
         except ValueError:  # a release given by hand
             on = datetime.now()
-        for url in candidate_urls(on):
+        urls = [*self.linked_urls(), KNOWN_URL, *candidate_urls(on)]
+        for url in dict.fromkeys(urls):
             try:
                 self.get(url, raw_dir / FILE)
+                if not _is_excel(raw_dir / FILE):
+                    raise ConnectorError(f"GET {url} did not return an Excel file")
                 return url
             except ConnectorError as exc:
                 tried.append(str(exc))
                 (raw_dir / FILE).unlink(missing_ok=True)
         raise ConnectorError("imf_weo_history: could not find the IMF historical forecasts file; tried:\n  "
-                             + "\n  ".join(tried) + "\nDownload it from the IMF's WEO database page (link \"Historical "
-                             "WEO Forecasts Database\") and load it with: worldmodel-data fetch imf_weo_history --from FILE")
+                             + "\n  ".join(tried) + f"\nDownload it from {DATA_PAGE} (link \"WEO Historical "
+                             "Forecasts Database\") and load it with: worldmodel-data fetch imf_weo_history --from FILE")
+
+    def linked_urls(self) -> list[str]:
+        """The historical forecasts link(s) on the IMF Data Portal's WEO page, if it can be read."""
+        try:
+            r = self.client.get(DATA_PAGE)
+        except httpx.HTTPError as exc:
+            log.info("imf_weo_history: could not read %s (%s); trying known addresses", DATA_PAGE, exc)
+            return []
+        if r.status_code != 200:
+            log.info("imf_weo_history: %s returned HTTP %s; trying known addresses", DATA_PAGE, r.status_code)
+            return []
+        return [urljoin(DATA_PAGE, html.unescape(m)) for m in LINK.findall(r.text)]
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".xlsm", ".ashx"))
@@ -97,6 +125,12 @@ def candidate_urls(on: datetime) -> list[str]:
         releases.append((y, m))
         y, m = (y, 4) if m == 10 else (y - 1, 10)
     return [URL.format(year=y, month="october" if m == 10 else "april") for y, m in releases] + [OLD_URL]
+
+
+def _is_excel(path: Path) -> bool:
+    """An .xlsx file is a zip; a web page saved under that name is not."""
+    with path.open("rb") as fh:
+        return fh.read(4) == b"PK\x03\x04"
 
 
 def read_workbook(path: Path, series: dict[str, tuple[str, float]]) -> list[tuple]:
