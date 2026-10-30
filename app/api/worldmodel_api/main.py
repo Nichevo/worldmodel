@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
-from worldmodel_contract.queries import SeriesQuery, forecast_pairs_sql, series_sql, stream_query
+from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
 from worldmodel_api import __version__, layouts, userdata
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -190,6 +190,15 @@ def _indicator_rows() -> list[dict]:
                 count(DISTINCT s.entity_id) FILTER (WHERE e.type = 'country') AS countries
             FROM indicators i LEFT JOIN series s USING (indicator_id) LEFT JOIN entities e USING (entity_id)
             GROUP BY ALL ORDER BY i.domain, i.name""")
+        # The year a map opens on: the latest estimate year with at least half the countries
+        # of the indicator's best-covered year (the very latest year often has only a few).
+        main_year = {r["indicator_id"]: r["y"] for r in rows("""
+            WITH n AS (
+                SELECT s.indicator_id, year(s.period_start) AS y, count(DISTINCT s.entity_id) AS c
+                FROM series s JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country'
+                WHERE s.status = 'E' AND s.variant = 'central' AND s.breakdown = '' GROUP BY 1, 2)
+            SELECT indicator_id, max(y) AS y FROM n
+            WHERE c >= (SELECT max(c) FROM n m WHERE m.indicator_id = n.indicator_id) / 2 GROUP BY 1""")}
         srcs = rows("SELECT r.*, s.short_name AS source_name, s.licence FROM indicator_sources r "
                     "LEFT JOIN sources s USING (source_id) ORDER BY r.indicator_id, r.rank")
         for f in found:
@@ -197,6 +206,7 @@ def _indicator_rows() -> list[dict]:
             f["sources"] = [s for s in srcs if s["indicator_id"] == f["indicator_id"]]
             f["available"] = f["first_year"] is not None
             f["default_on"] = bool(f.get("default_on", True))
+            f["main_year"] = main_year.get(f["indicator_id"], f["last_estimate_year"])
         _ind_cache.update(key=key, rows=found)
     return _ind_cache["rows"]
 
@@ -444,7 +454,8 @@ def whatif(entity: str,
     out["summary"] = [{"year": y, **{side: cohort.summary(cohort.Pyramid(**out["pyramids"][y][side]))
                                      for side in ("baseline", "scenario")}} for y in keys]
     ranges = rows("""SELECT variant, year(period_start) AS y, value FROM series
-        WHERE entity_id = ? AND indicator_id = 'pop_total' AND variant <> 'central' AND freq = 'A'""", [entity])
+        WHERE entity_id = ? AND indicator_id = 'pop_total' AND source_id = 'un_wpp' AND variant <> 'central'
+            AND freq = 'A'""", [entity])
     by: dict[str, dict[int, float]] = {}
     for r in ranges:
         by.setdefault(r["variant"], {})[r["y"]] = r["value"]
@@ -508,6 +519,78 @@ def track_record(indicator: str = "gdp_growth", entity: str | None = None, since
         out["countries"] = sorted(({"entity_id": e, "name": names.get(e, e), **_errors(v)} for e, v in per.items()),
                                   key=lambda r: r["mae"])
     return out
+
+
+# ----------------------------------------------------------------------------- source comparison
+_cmp_cache: dict = {"key": None, "rows": []}
+
+
+def _source_names() -> dict[str, str]:
+    return {r["source_id"]: r["short_name"] for r in rows("SELECT source_id, short_name FROM sources")}
+
+
+@api.get("/sources/indicators")
+def compared_indicators():
+    """Indicators with more than one source holding data, with how many countries can be
+    compared and how many of them differ in their latest common year."""
+    key = warehouse.current().meta.get("build_id")
+    if _cmp_cache["key"] != key or key is None:
+        sql, params = divergence_sql()
+        found = rows(f"""SELECT indicator_id, count(DISTINCT entity_id) AS countries,
+                count(DISTINCT entity_id) FILTER (WHERE flagged) AS differing, list(DISTINCT source_b) AS others
+            FROM ({sql}) GROUP BY 1""", params)
+        meta = {r["indicator_id"]: r for r in rows("SELECT indicator_id, name, unit, domain FROM indicators")}
+        first = {r["indicator_id"]: r["source_id"] for r in rows(
+            "SELECT indicator_id, source_id FROM indicator_sources WHERE rank = 1")}
+        names = _source_names()
+        _cmp_cache.update(key=key, rows=sorted((
+            {**{k: meta[f["indicator_id"]][k] for k in ("indicator_id", "name", "unit", "domain")},
+             "countries": f["countries"], "differing": f["differing"],
+             "sources": [{"source_id": x, "name": names.get(x, x)}
+                         for x in [first[f["indicator_id"]], *sorted(f["others"])]]}
+            for f in found), key=lambda r: (r["domain"], r["name"])))
+    return _cmp_cache["rows"]
+
+
+@api.get("/sources/compare")
+def compare_sources(indicator: str, entity: str):
+    """One country's values for an indicator from every source that has them, default source
+    first, with the years the sources differ (as on the source comparison page)."""
+    if not rows("SELECT 1 FROM indicators WHERE indicator_id = ?", [indicator]):
+        raise HTTPException(404, f"no indicator {indicator}")
+    found = rows("SELECT short_name FROM entities WHERE entity_id = ?", [entity])
+    if not found:
+        raise HTTPException(404, f"no entity {entity}")
+    names = _source_names()
+    data = rows("""SELECT s.source_id, r.rank, year(s.period_start) AS year, s.value, s.status
+        FROM series s JOIN indicator_sources r ON r.indicator_id = s.indicator_id AND r.source_id = s.source_id
+        WHERE s.indicator_id = ? AND s.entity_id = ? AND s.breakdown = '' AND s.variant = 'central' AND s.freq = 'A'
+        ORDER BY r.rank, year""", [indicator, entity])
+    by: dict[str, dict] = {}
+    for r in data:
+        by.setdefault(r["source_id"], {"source_id": r["source_id"], "name": names.get(r["source_id"], r["source_id"]),
+                                       "rank": r["rank"], "points": []})["points"].append([r["year"], r["value"], r["status"]])
+    sql, params = divergence_sql(indicator, [entity], latest_only=False)
+    years = rows(f"SELECT year, source_b, value_a, value_b, diff, rel, flagged FROM ({sql}) ORDER BY year", params)
+    return {"indicator": indicator, "entity": entity, "name": found[0]["short_name"],
+            "sources": sorted(by.values(), key=lambda x: x["rank"]), "differences": years}
+
+
+@api.get("/sources/divergence")
+def source_divergence(indicator: str | None = None, entity: str | None = None, flagged: bool = False,
+                      limit: int = Query(500, ge=1, le=5000)):
+    """Countries where an indicator's sources disagree, in each pair's latest common year,
+    largest gap first. With an entity: every indicator compared for that country."""
+    sql, params = divergence_sql(indicator, [entity] if entity else None, flagged_only=flagged)
+    found = rows(f"SELECT * FROM ({sql}) LIMIT {limit}", params)
+    names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+    inds = {r["indicator_id"]: r for r in rows("SELECT indicator_id, name, unit, decimals FROM indicators")}
+    src = _source_names()
+    for f in found:
+        f.update(entity_name=names.get(f["entity_id"], f["entity_id"]), indicator_name=inds[f["indicator_id"]]["name"],
+                 unit=inds[f["indicator_id"]]["unit"], decimals=inds[f["indicator_id"]]["decimals"],
+                 source_a_name=src.get(f["source_a"], f["source_a"]), source_b_name=src.get(f["source_b"], f["source_b"]))
+    return found
 
 
 # ----------------------------------------------------------------------------- saved layouts
@@ -642,5 +725,8 @@ app.include_router(api)
 
 def run() -> None:
     import uvicorn
+    # The web app's proxy keeps connections open between requests; a server that closes
+    # them first (uvicorn's default is after 5 idle seconds) makes the odd request fail
+    # with a reset when the proxy reuses one just as it closes, so keep them open longer.
     uvicorn.run("worldmodel_api.main:app", host=os.environ.get("WORLDMODEL_API_HOST", "127.0.0.1"),
-                port=int(os.environ.get("WORLDMODEL_API_PORT", "8000")))
+                port=int(os.environ.get("WORLDMODEL_API_PORT", "8000")), timeout_keep_alive=75)

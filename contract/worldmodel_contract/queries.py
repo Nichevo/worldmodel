@@ -150,3 +150,58 @@ def forecast_pairs_sql(indicator_id: str, entity_ids: list[str] | None = None, c
         GROUP BY ALL
         ORDER BY f.entity_id, f.release, f.year"""
     return sql, params
+
+
+# Two sources' values for the same country and year "differ" when they are more than
+# this far apart: relative to the larger of the two, or in points for percentages.
+DIVERGE_RELATIVE = 0.05
+DIVERGE_POINTS = 1.0
+
+
+def divergence_sql(indicator_id: str | None = None, entity_ids: list[str] | None = None,
+                   latest_only: bool = True, flagged_only: bool = False) -> tuple[str, list]:
+    """Where an indicator's default source and its other sources disagree.
+
+    Compares the rank-1 source with each other source on the same country and year
+    (published estimates only: central values, no breakdowns, no projections, no
+    computed aggregates). Rows: indicator_id, entity_id, year, source_a, value_a,
+    source_b, value_b, diff (b - a), rel (|diff| / larger of the two), flagged.
+    A percentage differs when it is more than DIVERGE_POINTS points and 10% apart;
+    anything else when more than DIVERGE_RELATIVE apart. latest_only keeps each
+    pair's latest common year for each country."""
+    params: list = []
+    where = []
+    if indicator_id:
+        where.append("a.indicator_id = ?")
+        params.append(indicator_id)
+    if entity_ids:
+        where.append(f"a.entity_id IN ({', '.join('?' * len(entity_ids))})")
+        params.extend(entity_ids)
+    cond = ("AND " + " AND ".join(where)) if where else ""
+    sql = f"""
+        WITH est AS (
+            SELECT s.indicator_id, s.entity_id, year(s.period_start) AS year, s.source_id, s.value, r.rank
+            FROM series s
+            JOIN indicator_sources r ON r.indicator_id = s.indicator_id AND r.source_id = s.source_id
+            JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country'
+            WHERE s.breakdown = '' AND s.variant = 'central' AND s.status = 'E' AND s.freq = 'A'
+                AND NOT s.is_aggregate
+                AND s.indicator_id IN (SELECT indicator_id FROM indicator_sources GROUP BY 1 HAVING count(*) > 1)
+        ),
+        pairs AS (
+            SELECT a.indicator_id, a.entity_id, a.year, a.source_id AS source_a, a.value AS value_a,
+                b.source_id AS source_b, b.value AS value_b, b.value - a.value AS diff,
+                abs(b.value - a.value) / nullif(greatest(abs(a.value), abs(b.value)), 0) AS rel
+            FROM est a JOIN est b ON b.indicator_id = a.indicator_id AND b.entity_id = a.entity_id
+                AND b.year = a.year AND b.rank > a.rank
+            WHERE a.rank = 1 {cond}
+        )
+        SELECT p.*, coalesce(CASE WHEN i.unit = 'percent' OR i.unit LIKE '%\\%%' ESCAPE '\\'
+                                  THEN abs(p.diff) > {DIVERGE_POINTS} AND p.rel > 0.1
+                                  ELSE p.rel > {DIVERGE_RELATIVE} END, false) AS flagged
+        FROM pairs p JOIN indicators i USING (indicator_id)
+        {"QUALIFY row_number() OVER (PARTITION BY p.indicator_id, p.entity_id, p.source_b ORDER BY p.year DESC) = 1"
+         if latest_only else ""}"""
+    if flagged_only:
+        sql = f"SELECT * FROM ({sql}) WHERE flagged"
+    return sql + " ORDER BY rel DESC NULLS LAST", params

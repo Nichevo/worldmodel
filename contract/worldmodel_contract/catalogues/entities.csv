@@ -40,6 +40,10 @@ opec,OPEC,OPEC,bloc,,,,,,Organization of the Petroleum Exporting Countries,"Orga
 g7,G7,G7,group,,,,,,Group of Seven,Group of Seven. The EU attends but is not counted as a member here.
 g20,G20,G20,group,,,,,,Group of Twenty,Group of Twenty country members. The EU and African Union are members but are left out of aggregates to avoid double counting.
 brics,BRICS,BRICS,group,,,,,,BRIC|BRICS+,"BRICS full members. Saudi Arabia was invited in 2024 but has not confirmed, so it is left out."
+income-high,High-income countries,High income,income_group,,,,,,HIC|high income|rich countries|advanced,"World Bank income group: gross national income per person above the high-income threshold (USD 13,935 for fiscal year 2026). Members are the latest classification from WDI, applied to every year, as the World Bank does for its own aggregates."
+income-upper-middle,Upper-middle-income countries,Upper-middle income,income_group,,,,,,UMC|upper middle income,"World Bank income group: gross national income per person between the upper-middle and high-income thresholds (USD 4,496 to 13,935 for fiscal year 2026). Latest classification from WDI, applied to every year."
+income-lower-middle,Lower-middle-income countries,Lower-middle income,income_group,,,,,,LMC|lower middle income,"World Bank income group: gross national income per person between the low and upper-middle thresholds (USD 1,136 to 4,495 for fiscal year 2026). Latest classification from WDI, applied to every year."
+income-low,Low-income countries,Low income,income_group,,,,,,LIC|low income|poorest countries,"World Bank income group: gross national income per person at or below USD 1,135 (fiscal year 2026). Latest classification from WDI, applied to every year."
 AFG,Afghanistan,Afghanistan,country,AFG,AF,004,,,,
 ALA,Åland Islands,Åland Islands,country,ALA,AX,248,,,,
 ALB,Albania,Albania,country,ALB,AL,008,,,,

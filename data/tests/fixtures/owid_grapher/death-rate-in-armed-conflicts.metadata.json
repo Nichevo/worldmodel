@@ -1,0 +1,4 @@
+{"chart": {"title": "Death rate in armed conflicts based on where they occurred"},
+ "columns": {"death_rate_in_armed_conflicts": {"titleShort": "Death rate in armed conflicts", "unit": "deaths per 100,000 people",
+   "descriptionShort": "Best estimate of deaths of combatants and civilians from fighting in armed conflicts, per 100,000 people, in the country where they occurred.",
+   "citationShort": "Uppsala Conflict Data Program (2026) - processed by Our World in Data"}}}

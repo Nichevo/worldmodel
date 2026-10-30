@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/compare", label: "Compare" },
   { href: "/forecasts", label: "Forecasts" },
   { href: "/indicators", label: "Indicators" },
+  { href: "/sources", label: "Sources" },
   { href: "/data", label: "Data status" },
   { href: "/history", label: "History" },
   { href: "/settings", label: "Settings" },

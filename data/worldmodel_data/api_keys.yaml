@@ -21,11 +21,25 @@
   status: active
 
 - source: world_bank_wdi
-  name: World Bank Indicators API
+  name: World Bank WDI bulk download (WDI_CSV.zip)
   env: []
   needs_key: false
-  limits: No key. Pages of up to 32,500 rows; keep to a few requests per second.
-  status: planned (next connector)
+  limits: No key. One zip file of every series; downloaded again only when it has changed.
+  status: active
+
+- source: owid_energy
+  name: Our World in Data energy dataset on GitHub
+  env: []
+  needs_key: false
+  limits: No key. One CSV file and its codebook from raw.githubusercontent.com.
+  status: active
+
+- source: owid_grapher
+  name: Our World in Data chart downloads
+  env: []
+  needs_key: false
+  limits: No key. One CSV and one metadata file per chart, a few charts, with a pause between them.
+  status: active
 
 - source: un_comtrade
   name: UN Comtrade API

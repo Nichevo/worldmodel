@@ -17,16 +17,22 @@ import {
   type Action, type Group, type Layout, type Panel as PanelState, type Workspace,
 } from "@/lib/workspace";
 
-// Grid areas per layout; the panels fill a, b, c, d in order.
+// Grid areas per layout; the panels fill a, b, c ... in order.
 const AREAS: Record<Layout, string> = {
   "1": `"a"`,
   "2h": `"a b"`,
   "2v": `"a" "b"`,
   "3": `"a b" "a c"`,
+  "3h": `"a b c"`,
   "4": `"a b" "c d"`,
+  "5": `"a b c" "a d e"`,
+  "6": `"a b c" "d e f"`,
 };
-const HAS_COLS = new Set<Layout>(["2h", "3", "4"]);
-const HAS_ROWS = new Set<Layout>(["2v", "3", "4"]);
+// Layouts whose first column divider can be dragged, and whose row divider can.
+const HAS_COLS = new Set<Layout>(["2h", "3", "4", "5"]);
+const HAS_ROWS = new Set<Layout>(["2v", "3", "4", "5", "6"]);
+// Layouts of three columns: the two right of a dragged divider share what is left.
+const THREE_COLS = new Set<Layout>(["3h", "5", "6"]);
 
 function ExploreWorkspace() {
   const params = useSearchParams();
@@ -171,7 +177,7 @@ function ExploreWorkspace() {
             canDuplicate={ws.panels.length < MAX_PANELS}
             canClose={ws.panels.length > 1}
             maximised={ws.maximised === p.id}
-            style={{ gridArea: ws.maximised ? "a" : "abcd"[i] }}
+            style={{ gridArea: ws.maximised ? "a" : "abcdef"[i] }}
             selection={selectionOf(ws, p)}
             hovered={p.links.hover && hover?.group === p.group ? hover.entity : null}
             onHover={(entity) => {
@@ -223,7 +229,8 @@ function Grid({ ws, dispatch, children }: { ws: Workspace; dispatch: (a: { type:
   const box = useRef<HTMLDivElement>(null);
   const layout = ws.maximised ? "1" : ws.layout;
   const [c, r] = ws.split;
-  const cols = HAS_COLS.has(layout) ? `${c}fr ${1 - c}fr` : "1fr";
+  const cols = layout === "5" ? `${c}fr ${(1 - c) / 2}fr ${(1 - c) / 2}fr`
+    : THREE_COLS.has(layout) ? "repeat(3, minmax(0, 1fr))" : HAS_COLS.has(layout) ? `${c}fr ${1 - c}fr` : "1fr";
   const rows = HAS_ROWS.has(layout) ? `${r}fr ${1 - r}fr` : "1fr";
 
   // Dragging a divider moves the split; kept between 20% and 80% so no panel vanishes.
@@ -253,7 +260,7 @@ function Grid({ ws, dispatch, children }: { ws: Workspace; dispatch: (a: { type:
       )}
       {HAS_ROWS.has(layout) && (
         <div className="divider row" onPointerDown={drag(1)} role="separator" aria-orientation="horizontal" aria-label="Resize rows"
-          style={{ top: `calc(${r * 100}% - 6px)`, left: layout === "3" ? `calc(${c * 100}% + 6px)` : 0 }} />
+          style={{ top: `calc(${r * 100}% - 6px)`, left: layout === "3" || layout === "5" ? `calc(${c * 100}% + 6px)` : 0 }} />
       )}
     </div>
   );
@@ -265,7 +272,10 @@ function LayoutIcon({ layout }: { layout: Layout }) {
     "2h": [[0, 0, 7.5, 12], [8.5, 0, 7.5, 12]],
     "2v": [[0, 0, 16, 5.5], [0, 6.5, 16, 5.5]],
     "3": [[0, 0, 7.5, 12], [8.5, 0, 7.5, 5.5], [8.5, 6.5, 7.5, 5.5]],
+    "3h": [[0, 0, 4.7, 12], [5.65, 0, 4.7, 12], [11.3, 0, 4.7, 12]],
     "4": [[0, 0, 7.5, 5.5], [8.5, 0, 7.5, 5.5], [0, 6.5, 7.5, 5.5], [8.5, 6.5, 7.5, 5.5]],
+    "5": [[0, 0, 7, 12], [8, 0, 3.5, 5.5], [12.5, 0, 3.5, 5.5], [8, 6.5, 3.5, 5.5], [12.5, 6.5, 3.5, 5.5]],
+    "6": [[0, 0, 4.7, 5.5], [5.65, 0, 4.7, 5.5], [11.3, 0, 4.7, 5.5], [0, 6.5, 4.7, 5.5], [5.65, 6.5, 4.7, 5.5], [11.3, 6.5, 4.7, 5.5]],
   };
   return (
     <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">

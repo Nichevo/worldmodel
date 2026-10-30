@@ -48,7 +48,7 @@ make web          # terminal 2: app on http://localhost:3030
 The app starts on the bundled sample. To load current data:
 
 ```sh
-make refresh      # fetch UN WPP 2024 and the latest IMF WEO, build, validate, go live
+make refresh      # fetch every source (UN, IMF, World Bank, OWID), build, validate, go live
 ```
 
 The API notices the new build on its next request; no restart needed.
@@ -130,6 +130,27 @@ with identical content is skipped; a revised release becomes a new vintage
 | UN World Population Prospects 2024 | Population, growth, births, deaths, fertility, mean age at childbearing, sex ratio at birth, life expectancy, median age, migration, population by age and sex (pyramids), age shares, dependency ratio | Estimates to 2023, medium-variant projections to 2100; the low and high variants and the 80% and 95% prediction intervals as variants `low`, `high`, `lower80` .. `upper95` (from the optional "other variants" file) |
 | IMF World Economic Outlook | Real GDP growth, GDP in US dollars and PPP, GDP per person, inflation | Latest release from the DataMapper API; projections about five years ahead |
 | IMF WEO historical forecasts | What every WEO since 1990 forecast for GDP growth and inflation | One Excel file from the IMF; each release kept as breakdown `release=YYYY-MM`, for the track record |
+| World Bank World Development Indicators | Every WDI series (about 1,500): economy, prices and price levels, trade, government, military spending (SIPRI), labour, poverty, health, education, environment and more; income groups | One bulk zip. About 120 main series start switched on under plain ids (`unemployment`, `military_spending_gdp`, `price_level_ratio`); the rest are `wdi_<code>`, switched off until you switch them on on the Indicators page. Series the catalogue already has (population, GDP, inflation) become a second source for the comparison |
+| Our World in Data energy dataset | Electricity by source (Ember), primary energy, production and consumption of oil, gas and coal (Energy Institute, EIA), carbon intensity | One CSV from OWID's GitHub. Shares and per-person figures for continents and blocs are recomputed from the amounts |
+| Our World in Data charts | Deaths in armed conflicts (UCDP), by the country where they occurred | One chart download each; a chart OWID has removed only warns |
+
+**Income groups** (high, upper-middle, lower-middle and low income) are regions
+like the continents: members are the World Bank's latest classification, and
+their values are the World Bank's own where it publishes them, built from
+members otherwise.
+
+**Sources compared.** Where two sources publish the same figure (UN and World
+Bank population, IMF and World Bank growth and inflation), the **Sources** page
+draws them side by side for a country and lists the countries where they
+differ most, in each country's latest common year: more than 5% apart, or for
+percentages more than a point and 10%. Country pages list their own
+disagreements, and each build reports them (`sources:divergence`). API:
+`/api/v1/sources/indicators`, `/sources/compare?indicator=gdp_growth&entity=ARG`,
+`/sources/divergence?indicator=gdp_growth&flagged=true`.
+
+**The map page** holds up to six panels: one, two side by side or stacked,
+one large and two small, three side by side, two by two, one large and four
+small, or three by two.
 
 ## Forecasts
 
@@ -161,9 +182,11 @@ entered by hand and are marked `verified: no` in
 `contract/worldmodel_contract/catalogues/memberships.csv` until checked
 against the source linked on each row.
 
-**The sample warehouse** holds real UN WPP 2024 data and a real but old IMF
-release (April 2015), because the build environment could not reach the UN or
-IMF sites. The app says so in a banner. See
+**The sample warehouse** holds real UN WPP 2024 data, a real but old IMF
+release (April 2015), about 325 real World Bank series from a mirror, and the
+main OWID energy series, because the build environment could not reach the UN,
+IMF or World Bank sites. Its income groups are worked out from GNI per person
+rather than read from the World Bank. The app says so in a banner. See
 [scripts/sample/README.md](scripts/sample/README.md).
 
 ## Designed now, built later

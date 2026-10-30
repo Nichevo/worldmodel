@@ -120,12 +120,29 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
         con.execute(f"CREATE TABLE src.{name} AS SELECT {casts} FROM "
                     f"read_csv('{(cat / f'{name}.csv').as_posix()}', header = true, all_varchar = true)")
 
-    inds = catalogue.indicators().values()
+    latest = {}
+    for m in manifests:
+        latest[m.source_id] = m  # manifests are sorted by retrieval time
+    # Memberships a source lists itself (World Bank income groups), for groups the contract
+    # has but does not list members of.
+    known = {r[0] for r in con.execute("SELECT entity_id FROM src.entities").fetchall()}
+    listed = {r[0] for r in con.execute("SELECT DISTINCT group_id FROM src.memberships").fetchall()}
+    for m in latest.values():
+        path = paths.vintages / m.source_id / m.vintage.replace("/", "_") / "memberships.json"
+        if not path.exists():
+            continue
+        rows = [r for r in json.loads(path.read_text(encoding="utf-8"))
+                if r["group_id"] in known and r["member_id"] in known and r["group_id"] not in listed]
+        cols = list(TABLES["memberships"].columns)
+        con.executemany(f"INSERT INTO src.memberships ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                        [[r.get(c) or None for c in cols] for r in rows])
+        listed |= {r["group_id"] for r in rows}
+    inds = all_indicators(paths, latest.values())
     con.execute(_create("indicators"))
     con.executemany(f"INSERT INTO src.indicators VALUES ({', '.join('?' * len(TABLES['indicators'].columns))})", [
         (i.id, i.name, i.description, "|".join(i.synonyms), i.domain, i.unit, i.decimals, i.frequency,
          "|".join(i.breakdowns), i.aggregation.method, i.aggregation.weight, i.aggregation.numerator,
-         i.aggregation.denominator, i.aggregation.multiplier, i.bounds[0], i.bounds[1]) for i in inds])
+         i.aggregation.denominator, i.aggregation.multiplier, i.bounds[0], i.bounds[1], i.default_on) for i in inds])
     con.execute(_create("indicator_sources"))
     con.executemany("INSERT INTO src.indicator_sources VALUES (?, ?, ?, ?, ?, ?)", [
         (i.id, s.source_id, s.series, s.scale, rank, s.notes) for i in inds for rank, s in enumerate(i.sources, 1)])
@@ -134,18 +151,31 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
         (s.id, s.name, s.short_name, s.publisher, s.url, s.licence, s.licence_url, s.commercial_use, s.cadence,
          s.attribution, s.status, s.default_rank) for s in catalogue.sources().values()])
 
-    latest = {}
-    for m in manifests:
-        latest[m.source_id] = m.vintage  # manifests are sorted by retrieval time
     con.execute(_create("vintages"))
     con.executemany("INSERT INTO src.vintages VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
         (m.source_id, m.vintage, m.release, m.retrieved_at, m.sha256, m.row_count, m.origin,
-         latest[m.source_id] == m.vintage) for m in manifests])
+         latest[m.source_id].vintage == m.vintage) for m in manifests])
 
     files = [(paths.vintages / m.source_id / m.vintage.replace("/", "_") / "observations.parquet").as_posix()
              for m in manifests]
     file_list = ", ".join(f"'{f}'" for f in files)
     con.execute(f"CREATE TABLE src.raw_observations AS SELECT * FROM read_parquet([{file_list}], union_by_name = true)")
+
+
+def all_indicators(paths: Paths, latest) -> list:
+    """The contract's indicators, then those the latest vintage of each source
+    lists itself (indicators.json beside its observations), leaving out any whose
+    id or source series the contract already covers."""
+    inds = list(catalogue.indicators().values())
+    ids = {i.id for i in inds}
+    mapped = {(s.source_id, s.series) for i in inds for s in i.sources}
+    for m in latest:
+        for i in catalogue.source_indicators(paths.vintages / m.source_id / m.vintage.replace("/", "_") / "indicators.json"):
+            if i.id in ids or any((s.source_id, s.series) in mapped for s in i.sources):
+                continue
+            ids.add(i.id)
+            inds.append(i)
+    return inds
 
 
 def _create(name: str) -> str:

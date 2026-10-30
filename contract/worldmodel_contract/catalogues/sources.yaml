@@ -51,10 +51,36 @@
   licence: CC BY 4.0
   licence_url: https://creativecommons.org/licenses/by/4.0/
   commercial_use: true
-  cadence: Quarterly
+  cadence: Several updates a year (the bulk file is replaced in place)
   attribution: "World Bank, World Development Indicators."
-  status: planned
+  status: active
   default_rank: 2
+
+- id: owid_energy
+  name: Our World in Data energy dataset (Ember, Energy Institute, EIA)
+  short_name: OWID energy
+  publisher: Our World in Data, compiling Ember, the Energy Institute Statistical Review of World Energy and the US EIA
+  url: https://github.com/owid/energy-data
+  licence: CC BY 4.0 (OWID); underlying data from Ember (CC BY 4.0), Energy Institute and EIA, free with attribution
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Several times a year (after each Ember and Energy Institute release)
+  attribution: "Our World in Data, Energy dataset, based on Ember (Yearly Electricity Data), the Energy Institute Statistical Review of World Energy and the U.S. Energy Information Administration."
+  status: active
+  default_rank: 2
+
+- id: owid_grapher
+  name: Our World in Data charts (conflict deaths from UCDP, and other single charts)
+  short_name: OWID charts
+  publisher: Our World in Data, compiling the Uppsala Conflict Data Program (UCDP) and others
+  url: https://ourworldindata.org/war-and-peace
+  licence: CC BY 4.0 (OWID); UCDP data free with attribution
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Yearly for UCDP (each June); OWID updates its charts after each release
+  attribution: "Our World in Data, based on the Uppsala Conflict Data Program (UCDP) and the other sources each chart names."
+  status: active
+  default_rank: 3
 
 - id: worldmodel
   name: Worldmodel aggregates

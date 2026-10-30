@@ -634,3 +634,37 @@ export function trackOption(actual: [number, number][], paths: { release: string
     },
   };
 }
+
+// Source comparison: one line per source for one country, the default source first and
+// heaviest; years where the sources differ are shaded.
+export function sourcesOption(sources: { source_id: string; name: string; points: [number, number, string][] }[],
+  differing: number[], unit: string, decimals: number): EChartsOption {
+  const base = chrome();
+  const series: SeriesOption[] = sources.map((s, i) => ({
+    type: "line", id: s.source_id, name: s.name, showSymbol: false, color: seriesColor(i),
+    lineStyle: { width: i === 0 ? 2.5 : 1.8, type: i === 0 ? "solid" : "dashed" },
+    data: s.points.map(([y, v]) => [y, v]), z: 5 - i,
+  }));
+  if (series.length && differing.length) {
+    (series[0] as { markArea?: unknown }).markArea = {
+      silent: true, itemStyle: { color: cssVar("--warn-bg"), opacity: 0.8 },
+      data: differing.map((y) => [{ xAxis: y - 0.5 }, { xAxis: y + 0.5 }]),
+    };
+  }
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+    legend: { top: 0, textStyle: { color: cssVar("--ink-2") } },
+    yAxis: { ...(yAxis(unit) as object), scale: true },
+    series,
+    tooltip: {
+      ...(base.tooltip as object), confine: true,
+      formatter: (params: unknown) => {
+        const list = params as { seriesName: string; value: [number, number]; color: string }[];
+        if (!list.length) return "";
+        return [`<b>${list[0].value[0]}</b>`, ...list.map((p) =>
+          `<span style="color:${p.color}">●</span> ${p.seriesName}: <b>${formatValue(p.value[1], unit, decimals)}</b>`)].join("<br/>");
+      },
+    },
+  };
+}

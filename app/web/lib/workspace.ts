@@ -1,4 +1,4 @@
-// The map page's workspace: a layout of up to four panels, each a map, chart,
+// The map page's workspace: a layout of up to six panels, each a map, chart,
 // table, pyramid or scatter of one indicator, plus the countries selected across all of them.
 // Panels in the same link group (A or B) can share their map position, hover,
 // year, indicator and colour scale; selection is shared by every panel that
@@ -7,7 +7,7 @@
 // panel) and sent to the side panel's pinboard; both are saved with the layout.
 
 export type View = "map" | "chart" | "table" | "pyramid" | "scatter";
-export type Layout = "1" | "2h" | "2v" | "3" | "4";
+export type Layout = "1" | "2h" | "2v" | "3" | "3h" | "4" | "5" | "6";
 export type Group = "A" | "B";
 export type LinkKey = "camera" | "hover" | "select" | "year" | "indicator" | "scale" | "range";
 export type Links = Record<LinkKey, boolean>;
@@ -48,7 +48,10 @@ export const LAYOUTS: { id: Layout; label: string; panels: number }[] = [
   { id: "2h", label: "Two side by side", panels: 2 },
   { id: "2v", label: "Two stacked", panels: 2 },
   { id: "3", label: "One large, two small", panels: 3 },
+  { id: "3h", label: "Three side by side", panels: 3 },
   { id: "4", label: "Two by two", panels: 4 },
+  { id: "5", label: "One large, four small", panels: 5 },
+  { id: "6", label: "Three by two", panels: 6 },
 ];
 
 // Letters are the URL form; the order is the order shown in the links menu.
@@ -68,14 +71,15 @@ export const CHANGE_COL = "chg10";
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true, range: false };
 
 const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter"];
-export const MAX_PANELS = 4;
+export const MAX_PANELS = 6;
 export const MAX_SELECTION = 8; // one categorical colour each
 export const MAX_PINS = 4;
 export const MAX_BOARD = 12;
 
 const count = (layout: Layout) => LAYOUTS.find((l) => l.id === layout)!.panels;
 const layoutFor = (n: number, current: Layout): Layout =>
-  count(current) === n ? current : n <= 1 ? "1" : n === 2 ? (current === "2v" ? "2v" : "2h") : n === 3 ? "3" : "4";
+  count(current) === n ? current : n <= 1 ? "1" : n === 2 ? (current === "2v" ? "2v" : "2h")
+    : n === 3 ? (current === "3h" ? "3h" : "3") : n === 4 ? "4" : n === 5 ? "5" : "6";
 
 let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;

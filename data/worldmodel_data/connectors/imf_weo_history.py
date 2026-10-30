@@ -1,6 +1,9 @@
 """IMF WEO historical forecasts: what each World Economic Outlook since 1990 forecast.
 
-    https://www.imf.org/-/media/Files/Publications/WEO/WEO-Database/WEOhistorical.ashx
+    https://www.imf.org/-/media/files/publications/weo/weo-database/<year>/<april|october>/weohistorical.xlsx
+
+(beside each WEO database release; the newest release's copy is tried first, then
+older ones, then the address the file had before the IMF's 2025 site move).
 
 One Excel file from the IMF, updated after each WEO, holding every spring (April)
 and fall (October) release's figures for real GDP growth, inflation and the
@@ -35,7 +38,8 @@ from worldmodel_data.connectors.base import Connector, ConnectorError
 
 log = logging.getLogger(__name__)
 
-URL = "https://www.imf.org/-/media/Files/Publications/WEO/WEO-Database/WEOhistorical.ashx"
+URL = "https://www.imf.org/-/media/files/publications/weo/weo-database/{year}/{month}/weohistorical.xlsx"
+OLD_URL = "https://www.imf.org/-/media/Files/Publications/WEO/WEO-Database/WEOhistorical.ashx"
 FILE = "WEOhistorical.xlsx"
 RELEASE_COLUMN = re.compile(r"^\s*(S|F|spring|fall|apr|april|oct|october)[\s_-]?((?:19|20)\d\d)\s*([a-z_]*)\s*$", re.I)
 ISO_HEADER = re.compile(r"iso.*(3|alpha)|^iso$|^iso_?code$|^country_?code$", re.I)
@@ -51,8 +55,21 @@ class IMFWEOHistory(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        self.get(URL, raw_dir / FILE)
-        return URL
+        tried = []
+        try:
+            on = datetime.strptime(release[:10], "%Y-%m-%d")
+        except ValueError:  # a release given by hand
+            on = datetime.now()
+        for url in candidate_urls(on):
+            try:
+                self.get(url, raw_dir / FILE)
+                return url
+            except ConnectorError as exc:
+                tried.append(str(exc))
+                (raw_dir / FILE).unlink(missing_ok=True)
+        raise ConnectorError("imf_weo_history: could not find the IMF historical forecasts file; tried:\n  "
+                             + "\n  ".join(tried) + "\nDownload it from the IMF's WEO database page (link \"Historical "
+                             "WEO Forecasts Database\") and load it with: worldmodel-data fetch imf_weo_history --from FILE")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".xlsm", ".ashx"))
@@ -68,6 +85,18 @@ class IMFWEOHistory(Connector):
         return (f"SELECT 'imf_weo_history' AS source_id, '{vintage}' AS vintage, 'imf' AS scheme, source_code, "
                 f"indicator_id, period_start, 'A' AS freq, breakdown, 'central' AS variant, value, status "
                 f"FROM weo_hist")
+
+
+def candidate_urls(on: datetime) -> list[str]:
+    """Where the file may be: beside the latest WEO release as of `on` and the four before it, then the old address."""
+    year, month = on.year, on.month
+    releases = []
+    # WEO comes out in mid April and mid October; count back from the latest one out by now.
+    y, m = (year, 10) if (month, on.day) >= (10, 15) else (year, 4) if (month, on.day) >= (4, 15) else (year - 1, 10)
+    for _ in range(5):
+        releases.append((y, m))
+        y, m = (y, 4) if m == 10 else (y - 1, 10)
+    return [URL.format(year=y, month="october" if m == 10 else "april") for y, m in releases] + [OLD_URL]
 
 
 def read_workbook(path: Path, series: dict[str, tuple[str, float]]) -> list[tuple]:
