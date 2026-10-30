@@ -115,6 +115,24 @@ export default function SettingsPage() {
           save={(v) => save({ disaster_min_deaths: v })} />
       </section>
 
+      <section className="card" id="parties">
+        <h2>Governing party</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          A one-country line chart can be coloured by the party in government: the line and the area under it in the party&apos;s
+          colour, with each leader&apos;s name where their term starts. Switch it on for a map-page chart with its
+          &ldquo;Governing party&rdquo; box. Leaders, parties and colours come from Wikidata.
+        </p>
+        <Toggle label="Colour country page charts by governing party" on={s.party_colours} set={(v) => save({ party_colours: v })} />
+        <Field label="Whose party" hint="A prime minister's party for parliamentary countries; a president's where the president governs.">
+          <div className="seg">
+            <button className={s.party_office === "government" ? "on" : ""} aria-pressed={s.party_office === "government"}
+              onClick={() => save({ party_office: "government" })}>Head of government</button>
+            <button className={s.party_office === "state" ? "on" : ""} aria-pressed={s.party_office === "state"}
+              onClick={() => save({ party_office: "state" })}>Head of state</button>
+          </div>
+        </Field>
+      </section>
+
       <section className="card">
         <h2>History</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>

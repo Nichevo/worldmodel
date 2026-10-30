@@ -15,6 +15,7 @@ import csv
 import io
 import json
 import os
+import re
 import tempfile
 from contextlib import asynccontextmanager
 from datetime import date
@@ -60,8 +61,60 @@ def _warehouse_error(_, exc: WarehouseError):
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
-def rows(sql: str, params: list | None = None) -> list[dict]:
+def cursor():
+    """A cursor on the warehouse that also sees your ratios as indicators (see _ratio_views)."""
     cur = warehouse.cursor()
+    found = userdata.ratios()
+    if found:
+        _ratio_views(cur, found)
+    return cur
+
+
+def _ratio_views(cur, found: list[dict]) -> None:
+    """Your ratios as indicators: temporary views, for this cursor only, that put each
+    ratio beside the warehouse's own rows in series, indicators and indicator_sources
+    (the warehouse itself is never written). A ratio's value is numerator / denominator
+    x multiplier for each country, year and variant where both have a value from their
+    first-ranked source; a projection on either side makes it a projection."""
+    db = cur.execute("SELECT current_database()").fetchone()[0].replace('"', '""')
+    main = lambda t: f'"{db}".main.{t}'  # noqa: E731
+    known = {r[0] for r in cur.execute(f"SELECT indicator_id FROM {main('indicators')}").fetchall()}
+    found = [r for r in found if r["numerator"] in known and r["denominator"] in known
+             and re.fullmatch(r"my_[a-z0-9_]{1,60}", str(r.get("id", "")))]
+    if not found:
+        return
+    best = lambda i: (f"(SELECT * FROM {main('series')} WHERE indicator_id = '{i}' AND breakdown = '' AND source_id = "  # noqa: E731
+                      f"(SELECT source_id FROM {main('indicator_sources')} WHERE indicator_id = '{i}' ORDER BY rank LIMIT 1))")
+    parts = [f"""
+        SELECT a.entity_id, '{r["id"]}' AS indicator_id, a.period_start, a.freq, '' AS breakdown, a.variant,
+            'user' AS source_id, 'ratio' AS vintage, a.value / b.value * {float(r["multiplier"])!r} AS value,
+            CASE WHEN a.status = 'P' OR b.status = 'P' THEN 'P' ELSE 'E' END AS status,
+            a.is_aggregate OR b.is_aggregate AS is_aggregate, least(a.coverage, b.coverage) AS coverage
+        FROM {best(r["numerator"])} a
+        JOIN {best(r["denominator"])} b
+            ON b.entity_id = a.entity_id AND b.period_start = a.period_start AND b.freq = a.freq AND b.variant = a.variant
+        WHERE b.value <> 0""" for r in found]
+    cur.execute(f"CREATE OR REPLACE TEMP VIEW series AS SELECT * FROM {main('series')} UNION ALL BY NAME "
+                + " UNION ALL ".join(parts))
+    cur.execute(f"CREATE OR REPLACE TEMP TABLE ratio_indicators AS SELECT * FROM {main('indicators')} LIMIT 0")
+    names = dict(cur.execute(f"SELECT indicator_id, name FROM {main('indicators')}").fetchall())
+    for r in found:
+        mult = r["multiplier"]
+        times = "" if mult == 1 else f" × {mult:g}"
+        cur.execute("INSERT INTO ratio_indicators BY NAME SELECT ? AS indicator_id, ? AS name, ? AS description, '' AS synonyms, "
+                    "'Your ratios' AS domain, ? AS unit, ? AS decimals, 'A' AS frequency, '' AS breakdowns, 'none' AS agg_method, "
+                    "-1e300 AS bound_min, 1e300 AS bound_max, true AS default_on",
+                    [r["id"], r["name"], r.get("description") or f"Your ratio: {names[r['numerator']]} ÷ {names[r['denominator']]}{times}.",
+                     r.get("unit") or "", int(r.get("decimals", 2))])
+    cur.execute(f"CREATE OR REPLACE TEMP VIEW indicators AS SELECT * FROM {main('indicators')} UNION ALL BY NAME "
+                "SELECT * FROM ratio_indicators")
+    values = ", ".join(f"('{r['id']}', 'user', '{r['id']}', 1.0, 1, 'Worked out from your ratio')" for r in found)
+    cur.execute(f"CREATE OR REPLACE TEMP VIEW indicator_sources AS SELECT * FROM {main('indicator_sources')} UNION ALL BY NAME "
+                f"SELECT * FROM (VALUES {values}) v(indicator_id, source_id, series, scale, rank, notes)")
+
+
+def rows(sql: str, params: list | None = None) -> list[dict]:
+    cur = cursor()
     rel = cur.execute(sql, params or [])
     cols = [d[0] for d in rel.description]
     return [dict(zip(cols, r)) for r in rel.fetchall()]
@@ -299,8 +352,10 @@ _ind_cache: dict = {"key": None, "rows": []}
 
 def _indicator_rows() -> list[dict]:
     """Every indicator with its years, country count and sources; cached per build."""
-    key = warehouse.current().meta.get("build_id")
-    if _ind_cache["key"] != key or key is None:
+    build = warehouse.current().meta.get("build_id")
+    mine = userdata.ratios()
+    key = (build, json.dumps(mine, sort_keys=True))
+    if _ind_cache["key"] != key or build is None:
         found = rows("""
             SELECT i.*, min(year(s.period_start)) AS first_year, max(year(s.period_start)) AS last_year,
                 max(year(s.period_start)) FILTER (WHERE s.status = 'E') AS last_estimate_year,
@@ -324,6 +379,15 @@ def _indicator_rows() -> list[dict]:
             f["available"] = f["first_year"] is not None
             f["default_on"] = bool(f.get("default_on", True))
             f["main_year"] = main_year.get(f["indicator_id"], f["last_estimate_year"])
+        # A ratio is credited to the sources of its two indicators; ratio says what it is made of.
+        by_id = {f["indicator_id"]: f for f in found}
+        for r in mine:
+            f = by_id.get(r["id"])
+            if f is None:
+                continue
+            f["ratio"] = {k: r[k] for k in ("numerator", "denominator", "multiplier")}
+            f["sources"] = [{**s, "rank": 1} for part in (r["numerator"], r["denominator"])
+                            for s in by_id.get(part, {}).get("sources", [])[:1]]
         _ind_cache.update(key=key, rows=found)
     return _ind_cache["rows"]
 
@@ -361,6 +425,44 @@ def reset_indicator_switches():
     """Back to the defaults."""
     userdata.reset_indicators()
     return {"reset": True}
+
+
+# ----------------------------------------------------------------------------- your ratios
+def _plain_indicator_ids() -> set[str]:
+    return {f["indicator_id"] for f in _indicator_rows() if not f["indicator_id"].startswith(userdata.RATIO_PREFIX)}
+
+
+@api.get("/ratios")
+def get_ratios():
+    """Your ratios: indicators made from two others, numerator / denominator x multiplier."""
+    return userdata.ratios()
+
+
+@api.post("/ratios")
+def add_ratio(data: dict = Body(...)):
+    """Make a ratio: {name, numerator, denominator, multiplier?, unit?, decimals?, description?}.
+    It appears among the indicators (domain "Your ratios") at once."""
+    try:
+        return userdata.save_ratio(data, _plain_indicator_ids())
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.put("/ratios/{ratio_id}")
+def change_ratio(ratio_id: str, data: dict = Body(...)):
+    try:
+        return userdata.save_ratio(data, _plain_indicator_ids(), ratio_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except KeyError:
+        raise HTTPException(404, f"no ratio {ratio_id}")
+
+
+@api.delete("/ratios/{ratio_id}")
+def remove_ratio(ratio_id: str):
+    if not userdata.delete_ratio(ratio_id):
+        raise HTTPException(404, f"no ratio {ratio_id}")
+    return {"deleted": ratio_id}
 
 
 # ----------------------------------------------------------------------------- search
@@ -531,7 +633,7 @@ def _inputs(entity: str) -> cohort.Inputs | None:
     if key not in _whatif_inputs:
         if len(_whatif_inputs) > 64:
             _whatif_inputs.clear()
-        _whatif_inputs[key] = cohort.prepare(warehouse.cursor().execute(cohort.inputs_sql(), [entity]).fetchall())
+        _whatif_inputs[key] = cohort.prepare(cursor().execute(cohort.inputs_sql(), [entity]).fetchall())
     return _whatif_inputs[key]
 
 
@@ -817,7 +919,7 @@ def problems():
 
 # ----------------------------------------------------------------------------- events and milestones
 EVENT_COLUMNS = ("event_id", "entity_id", "source_id", "kind", "subkind", "title", "start_date", "end_date",
-                 "precision", "size", "size_unit", "deaths", "affected", "damage_usd", "place", "url", "detail")
+                 "precision", "size", "size_unit", "deaths", "affected", "damage_usd", "place", "url", "detail", "color")
 
 
 def _year_or_date(v: str | None, end: bool = False) -> str | None:
@@ -837,7 +939,7 @@ def _milestone_rows() -> list[dict]:
     return [{"event_id": f"user:{m['id']}", "entity_id": m["entity_id"], "source_id": "user", "kind": "user",
              "subkind": m.get("subkind"), "title": m["title"], "start_date": m["start_date"], "end_date": m.get("end_date"),
              "precision": "day", "size": None, "size_unit": None, "deaths": None, "affected": None, "damage_usd": None,
-             "place": None, "url": m.get("url"), "detail": m.get("note") or None, "milestone_id": m["id"]}
+             "place": None, "url": m.get("url"), "detail": m.get("note") or None, "color": None, "milestone_id": m["id"]}
             for m in userdata.milestones()]
 
 

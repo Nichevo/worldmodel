@@ -188,6 +188,28 @@ what the events did. Milestones you add are kept in `var/user/milestones.json`.
 API: `/api/v1/events?entities=JPN&kinds=sport,disaster&start=2000`,
 `/events/kinds`, `/milestones`, `/around?indicator=gdp_growth&kind=sport&subkind=FIFA World Cup`.
 
+**Governing party.** Leaders' terms from Wikidata carry their party and the
+party's colour, so a one-country line chart can be coloured by the party in
+government: the line and the area under it (or each bar) in the party's
+colour, each leader's name where their term starts, the parties in the legend
+and the government in the tooltip. Tick **Governing party** on a map-page
+chart, or "Colour charts by governing party" on a country page; Settings
+chooses the head of government (a prime minister) or of state (a president).
+
+**Energy mix.** Country pages draw electricity generation and primary energy
+by fuel as stacked areas, in TWh or as shares, from the OWID energy dataset.
+
+**Your ratios.** On the Indicators page, **Make a ratio** divides one
+indicator by another (times 100, 1,000 or any number): household debt by GDP,
+military by education spending. A ratio is an indicator like any other, under
+the topic "Your ratios", on maps, charts, tables, scatters and pictures,
+worked out country by country and year by year from each part's first-ranked
+source. Ratios are kept in `var/user/ratios.json`. API: `/api/v1/ratios`.
+
+**Pictures.** Every saved picture (PNG) ends with a footer naming each dataset
+in it in full, with its licence and the day it was saved. Country page charts
+have a "Save picture" link too.
+
 **The map page** holds up to six panels: one, two side by side or stacked,
 one large and two small, three side by side, two by two, one large and four
 small, or three by two.

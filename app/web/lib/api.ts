@@ -40,7 +40,11 @@ export type Indicator = {
   default_on: boolean;
   enabled: boolean; // switched on in the Indicators page, so it appears in panel menus
   sources: { source_id: string; series: string; rank: number; notes: string; source_name: string | null; licence: string | null }[];
+  ratio?: { numerator: string; denominator: string; multiplier: number }; // one of your ratios
 };
+
+export type Ratio = { id: string; name: string; numerator: string; denominator: string; multiplier: number; unit: string;
+  decimals: number; description: string };
 
 export type SeriesRow = {
   entity_id: string;
@@ -155,6 +159,8 @@ export type Settings = {
   history_retention_days: number;
   problem_banner: boolean;
   events_on_charts: boolean;
+  party_colours: boolean; // country page charts coloured by the governing party
+  party_office: "government" | "state";
   event_kinds: string;
   disaster_min_deaths: number;
 };
@@ -224,7 +230,7 @@ export type EventRow = {
   event_id: string; entity_id: string; entity_name: string | null; source_id: string; kind: string; subkind: string | null;
   title: string; start_date: string; end_date: string | null; precision: "day" | "month" | "year"; size: number | null;
   size_unit: string | null; deaths: number | null; affected: number | null; damage_usd: number | null; place: string | null;
-  url: string | null; detail: string | null; milestone_id?: string;
+  url: string | null; detail: string | null; color?: string | null; milestone_id?: string;
 };
 export type EventKind = { kind: string; n: number; sources: string[]; first: string; last: string; subkinds: { subkind: string; n: number }[] };
 export type Milestone = { id: string; entity_id: string; title: string; start_date: string; end_date: string | null;
@@ -346,6 +352,10 @@ export const api = {
   addMilestone: (m: Partial<Milestone>) => send<Milestone>("POST", "/milestones", m),
   saveMilestone: (id: string, m: Partial<Milestone>) => send<Milestone>("PUT", `/milestones/${id}`, m),
   deleteMilestone: (id: string) => send<{ deleted: string }>("DELETE", `/milestones/${id}`),
+  ratios: () => get<Ratio[]>("/ratios"),
+  addRatio: (r: Partial<Ratio>) => send<Ratio>("POST", "/ratios", r),
+  changeRatio: (id: string, r: Partial<Ratio>) => send<Ratio>("PUT", `/ratios/${id}`, r),
+  deleteRatio: (id: string) => send<{ deleted: string }>("DELETE", `/ratios/${id}`),
   around: (q: { indicator: string; event_id?: string; entity?: string; kind?: string; subkind?: string; q?: string;
     before?: number; after?: number; compare?: string; mode?: string; min_size?: number }) => get<Around>("/around", q),
   whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),

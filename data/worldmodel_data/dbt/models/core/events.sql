@@ -21,7 +21,8 @@ select
     t.damage_usd,
     t.place,
     t.url,
-    t.detail
+    t.detail,
+    t.color
 from {{ source('src', 'raw_events') }} t
 join {{ source('src', 'entity_codes') }} c
     on c.scheme = t.scheme
@@ -48,5 +49,6 @@ select
     null as damage_usd,
     null as place,
     n.url,
-    n.detail
+    n.detail,
+    null as color
 from {{ source('src', 'notable_episodes') }} n

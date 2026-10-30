@@ -27,7 +27,7 @@ def built(tmp_path_factory):
 
 def events(con, where: str, params=()):
     cols = ("event_id", "entity_id", "source_id", "kind", "subkind", "title", "start_date", "end_date", "precision",
-            "size", "size_unit", "deaths", "affected", "damage_usd", "place")
+            "size", "size_unit", "deaths", "affected", "damage_usd", "place", "detail", "color")
     rows = con.execute(f"SELECT {', '.join(cols)} FROM events WHERE {where} ORDER BY start_date, entity_id", params).fetchall()
     return [dict(zip(cols, r)) for r in rows]
 
@@ -63,8 +63,16 @@ def test_wikidata_events(built):
     _, con = built
     elections = events(con, "source_id = 'wikidata' AND kind = 'election'")
     assert {(e["entity_id"], e["subkind"]) for e in elections} == {("NZL", "general"), ("GBR", "referendum")}
-    leaders = events(con, "source_id = 'wikidata' AND kind = 'leader'")
-    assert [e["title"] for e in leaders] == ["Jacinda Ardern (head of government)"]  # no English label: left out
+    leaders = {(e["entity_id"], e["title"], e["start_date"].year): e
+               for e in events(con, "source_id = 'wikidata' AND kind = 'leader'")}
+    assert ("NZL", "Jacinda Ardern (head of government)", 2017) in leaders
+    assert not any("Q57196" in t for _, t, _ in leaders)  # no English label: left out
+    ardern = leaders[("NZL", "Jacinda Ardern (head of government)", 2017)]
+    assert ardern["detail"] == "New Zealand Labour Party" and ardern["color"] == "#D82A20"
+    # A party membership whose dates cover the term wins over one that ended long before.
+    bolger = leaders[("NZL", "Jim Bolger (head of government)", 1990)]
+    assert bolger["detail"] == "New Zealand National Party" and bolger["color"] == "#00529F"
+    assert len([k for k in leaders if k[0] == "GBR"]) == 16
     sport = events(con, "source_id = 'wikidata' AND kind = 'sport'")
     cup = [e for e in sport if e["title"] == "2002 FIFA World Cup"]
     assert {e["entity_id"] for e in cup} == {"KOR", "JPN"}  # co-hosts each get the event

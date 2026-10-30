@@ -5,12 +5,15 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import CountryAbout from "@/components/CountryAbout";
+import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
 import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
 import { useChartEvents } from "@/lib/events";
+import { useGovernments } from "@/lib/parties";
+import { saveSettings, useSettings } from "@/lib/settings";
 import { logHistory } from "@/lib/history";
 
 const CHARTS: { id: string; kind?: "line" | "bar" }[] = [
@@ -56,6 +59,8 @@ export default function EntityPage() {
   const named = useMemo(() => (entity ? [{ id: entity.entity_id, name: entity.short_name }] : []), [entity]);
   const byId = useMemo(() => new Map(indicators.map((i) => [i.indicator_id, i])), [indicators]);
   const chartEvents = useChartEvents(entity ? [entity.entity_id] : []);
+  const settings = useSettings();
+  const terms = useGovernments(entity?.entity_id ?? null, settings.party_colours, settings.party_office);
 
   if (error) return <p className="error">{error}</p>;
   if (!entity) return <p className="muted">Loading…</p>;
@@ -142,10 +147,21 @@ export default function EntityPage() {
       {!isGroup && <FactbookCard entity={entity.entity_id} />}
       <Timeline entity={entity.entity_id} name={entity.short_name} isGroup={isGroup} />
 
+      <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      {!isGroup && (
+        <div className="charts-bar small">
+          <label title="Colour these charts by the party of the head of government (Settings: Governing party)">
+            <input type="checkbox" checked={settings.party_colours} onChange={(e) => saveSettings({ party_colours: e.target.checked })} />
+            {" "}Colour charts by governing party
+          </label>
+          {settings.party_colours && !terms.length && <span className="muted">No leaders stored for {entity.short_name} yet; a refresh loads them from Wikidata.</span>}
+        </div>
+      )}
       <div className="grid two">
         {CHARTS.map((c) => {
           const ind = byId.get(c.id);
-          return ind && ind.available ? <ChartCard key={c.id} indicator={ind} entities={named} kind={c.kind} events={chartEvents} /> : null;
+          return ind && ind.available
+            ? <ChartCard key={c.id} indicator={ind} entities={named} kind={c.kind} events={chartEvents} parties={isGroup ? [] : terms} /> : null;
         })}
         {byId.get("pop_by_age_sex")?.available && (
           <div className="card">

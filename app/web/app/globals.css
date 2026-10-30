@@ -440,3 +440,12 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
   .timeline .event { grid-template-columns: 1fr; gap: 0; }
   .timeline .event .tag { display: none; }
 }
+
+/* A card title with a small action on the right (Save picture). */
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.card-head h3 { margin-bottom: 0; }
+.charts-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 4px 0 -4px; }
+.ratio-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px 16px; align-items: end; margin-top: 8px; }
+.ratio-form label { display: flex; flex-direction: column; gap: 4px; }
+.ratio-form p, .ratio-form > div:last-of-type { grid-column: 1 / -1; }
+.ratio-part .chip { display: inline-flex; gap: 6px; align-items: center; }

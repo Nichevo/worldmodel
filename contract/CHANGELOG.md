@@ -3,6 +3,13 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.4.0 (2026-10-30)
+
+- `events.color`: a colour the source gives an event, as #RRGGBB. Leaders'
+  terms from Wikidata now carry their party in `detail` and the party's
+  colour in `color`, for charts coloured by governing party.
+- `local`: settings `party_colours` and `party_office`.
+
 ## 1.3.0 (2026-10-30)
 
 - New table `events`: dated events and episodes per country (elections, leaders,
