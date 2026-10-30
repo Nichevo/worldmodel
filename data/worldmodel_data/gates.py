@@ -151,7 +151,7 @@ def write_report(path: Path, build_id: str, checks: list[Check], build_file: Pat
         lines.append(f"| {c.check_id} | {c.kind} | {c.status} | {' '.join(c.detail.replace('|', '/').split())} |")
     for c in checks:
         if c.examples:
-            lines += ["", f"## Failing rows: {c.check_id}", ""] + [f"- {e}" for e in c.examples]
+            lines += ["", f"## Failing rows: {c.check_id}", ""] + [f"- {e}" if e else "" for e in c.examples]
     if manual:
         lines += ["", "## Check these by eye against the source sites", ""]
         lines += [f"- {line}" for line in manual.detail.splitlines()]

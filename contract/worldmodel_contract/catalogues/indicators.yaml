@@ -110,7 +110,7 @@
   decimals: 1
   frequency: A
   aggregation: {method: none}
-  bounds: [5, 70]
+  bounds: [5, 90]
   sources:
     - {source_id: un_wpp, series: MedianAgePop, scale: 1}
 
@@ -270,7 +270,7 @@
   frequency: A
   breakdowns: [age, sex]
   aggregation: {method: sum}
-  bounds: [0, 6000000000]
+  bounds: [0, 12000000000]
   sources:
     - {source_id: un_wpp, series: PopTotal|PopMale|PopFemale, scale: 1000,
        notes: "From the WPP population by five-year age group file. age is the WPP AgeGrp label (0-4 ... 100+); sex is total, male or female."}
@@ -284,7 +284,7 @@
   decimals: 0
   frequency: A
   aggregation: {method: sum}
-  bounds: [0, 6000000000]
+  bounds: [0, 12000000000]
   sources:
     - {source_id: un_wpp, series: derived:age_0_14, scale: 1000,
        notes: "Sum of WPP age groups 0-4, 5-9 and 10-14."}
@@ -298,7 +298,7 @@
   decimals: 0
   frequency: A
   aggregation: {method: sum}
-  bounds: [0, 6000000000]
+  bounds: [0, 12000000000]
   sources:
     - {source_id: un_wpp, series: derived:age_15_64, scale: 1000,
        notes: "Sum of WPP age groups 15-19 to 60-64."}
@@ -312,7 +312,7 @@
   decimals: 0
   frequency: A
   aggregation: {method: sum}
-  bounds: [0, 6000000000]
+  bounds: [0, 12000000000]
   sources:
     - {source_id: un_wpp, series: derived:age_65_plus, scale: 1000,
        notes: "Sum of WPP age groups 65-69 to 100+."}
