@@ -87,3 +87,12 @@ def test_layouts_save_list_delete(client, tmp_path, monkeypatch):
     assert client.delete("/api/v1/layouts/Fertility across time").status_code == 200
     assert client.delete("/api/v1/layouts/Fertility across time").status_code == 404
     assert client.put("/api/v1/layouts/%20", json={"query": "l=1"}).status_code == 422
+
+
+def test_memberships_by_type_and_group(client):
+    continents = client.get("/api/v1/memberships", params={"type": "continent"}).json()
+    by_member = {r["member_id"]: r["group_id"] for r in continents}
+    assert by_member["NZL"] == "oceania" and by_member["FRA"] == "europe"
+    eu = {r["member_id"] for r in client.get("/api/v1/memberships", params={"group": "eu"}).json()}
+    assert "FRA" in eu and "GBR" not in eu
+    assert client.get("/api/v1/memberships").status_code == 400

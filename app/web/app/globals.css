@@ -262,3 +262,5 @@ table.datasets tr.detail > td { background: var(--surface-2); padding: 10px 12px
   .ws-grid .panel { height: 480px; }
   .divider { display: none; }
 }
+.scatter-legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 6px; }
+.scatter-legend .chip { display: inline-flex; align-items: center; gap: 5px; }

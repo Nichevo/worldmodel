@@ -1,10 +1,18 @@
 @echo off
 rem Bring this copy up to date: the latest code from GitHub, then any new Python
-rem and web packages. Your data in var\ is never touched. Run from an Anaconda
-rem Prompt in this folder, with the app stopped.
+rem and web packages. Your data in var\ is never touched. Run from this folder
+rem (PowerShell: .\update.bat), with the app stopped.
+rem git pull may rewrite this file while cmd is still reading it, so run from a
+rem copy in %TEMP% and keep the original untouched while it runs.
+if not "%~1"=="--from-copy" (
+  copy /y "%~f0" "%TEMP%\worldmodel-update.bat" >nul
+  call "%TEMP%\worldmodel-update.bat" --from-copy "%~dp0."
+  exit /b
+)
 setlocal
-cd /d "%~dp0"
-call conda activate worldmodel || (echo Run setup.bat first. & exit /b 1)
+cd /d "%~f2"
+call scripts\find-conda.bat || exit /b 1
+call "%CONDA_BAT%" activate worldmodel || (echo Run setup.bat first. & exit /b 1)
 echo Fetching the latest code...
 for /f %%i in ('git rev-parse HEAD') do set BEFORE=%%i
 git checkout -q main || goto :fail
