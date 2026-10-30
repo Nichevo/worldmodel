@@ -43,6 +43,7 @@ from urllib.parse import urljoin
 import duckdb
 import httpx
 
+from worldmodel_contract import catalogue
 from worldmodel_data.connectors.base import Connector, ConnectorError
 
 log = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ ISO_HEADER = re.compile(r"iso.*(3|alpha)|^iso$|^iso_?code$|^country_?code$", re.
 
 class IMFWEOHistory(Connector):
     source_id = "imf_weo_history"
+    stage_version = 2  # 2: values outside the indicator's bounds left out
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")  # the file has no release of its own: the fetch date
@@ -107,12 +109,30 @@ class IMFWEOHistory(Connector):
         if not rows:
             raise ConnectorError(f"imf_weo_history: found no release columns (like S2010, F2010) in {files[0].name}; "
                                  "the IMF may have changed the file's layout")
+        rows = within_bounds(rows)
         con.execute("CREATE TABLE weo_hist (source_code VARCHAR, indicator_id VARCHAR, period_start DATE, "
                     "breakdown VARCHAR, value DOUBLE, status VARCHAR)")
         con.executemany("INSERT INTO weo_hist VALUES (?, ?, ?, ?, ?, ?)", rows)
         return (f"SELECT 'imf_weo_history' AS source_id, '{vintage}' AS vintage, 'imf' AS scheme, source_code, "
                 f"indicator_id, period_start, 'A' AS freq, breakdown, 'central' AS variant, value, status "
                 f"FROM weo_hist")
+
+
+def within_bounds(rows: list[tuple]) -> list[tuple]:
+    """Leave out values outside the catalogue's bounds for their indicator. The file keeps
+    every number each release printed, slips included (São Tomé's 2012 growth once
+    appears as 297%), and one such value would stop the whole build."""
+    bounds = {i.id: i.bounds for i in catalogue.indicators().values()}
+    kept, dropped = [], []
+    for r in rows:
+        lo, hi = bounds.get(r[1], (float("-inf"), float("inf")))
+        (kept if lo <= r[4] <= hi else dropped).append(r)
+    for r in dropped[:20]:
+        log.warning("imf_weo_history: left out %s %s %s (%s): %s is outside %s", r[0], r[1], r[2][:4], r[3], r[4],
+                    bounds[r[1]])
+    if len(dropped) > 20:
+        log.warning("imf_weo_history: and %s more values outside their bounds", len(dropped) - 20)
+    return kept
 
 
 def candidate_urls(on: datetime) -> list[str]:
