@@ -156,13 +156,16 @@ def _create(name: str) -> str:
 def _run_dbt(db_path: Path) -> tuple[bool, list[gates.Check]]:
     from dbt.cli.main import dbtRunner
 
-    with tempfile.TemporaryDirectory(prefix="worldmodel-dbt-") as work:
+    # On Windows dbt can still hold its log file open when the run returns, so a
+    # failed clean-up of the scratch folder must not fail the build.
+    with tempfile.TemporaryDirectory(prefix="worldmodel-dbt-", ignore_cleanup_errors=True) as work:
         os.environ["WM_DUCKDB_PATH"] = str(db_path)
         args = ["build", "--project-dir", str(DBT_DIR), "--profiles-dir", str(DBT_DIR),
                 "--target-path", str(Path(work) / "target"), "--log-path", str(Path(work) / "logs"),
                 "--quiet", "--no-use-colors", "--no-send-anonymous-usage-stats"]
         res = dbtRunner().invoke(args)
         checks = []
+        failing_sql = {}
         for r in (res.result or []):
             node = r.node
             if node.resource_type != "test":
@@ -173,10 +176,34 @@ def _run_dbt(db_path: Path) -> tuple[bool, list[gates.Check]]:
             detail = r.message or ""
             if r.failures:
                 detail = f"{r.failures} failing row(s)"
-            checks.append(gates.Check(f"dbt:{node.name}", "dbt_test", status, detail))
+            check = gates.Check(f"dbt:{node.name}", "dbt_test", status, detail)
+            if status == "fail" and getattr(node, "compiled_code", None):
+                failing_sql[id(check)] = node.compiled_code
+            checks.append(check)
         if res.exception:
             checks.append(gates.Check("dbt:run", "dbt_model", "fail", str(res.exception)))
-        return bool(res.success), checks
+    if failing_sql:
+        _sample_failures(db_path, [c for c in checks if id(c) in failing_sql], failing_sql)
+    return bool(res.success), checks
+
+
+def _sample_failures(db_path: Path, checks: list[gates.Check], sql: dict[int, str], n: int = 25) -> None:
+    """Attach the first failing rows of each failed dbt test, so the report shows what broke."""
+    con = duckdb.connect(str(db_path))  # same settings as dbt's own connection, which may still be open
+    try:
+        for c in checks:
+            try:
+                cur = con.execute(f"SELECT * FROM ({sql[id(c)]}) LIMIT {n}")
+                cols = [d[0] for d in cur.description]
+                c.examples = [", ".join(f"{k}={_fmt(v)}" for k, v in zip(cols, row)) for row in cur.fetchall()]
+            except duckdb.Error as exc:
+                c.examples = [f"(could not list the failing rows: {exc})"]
+    finally:
+        con.close()
+
+
+def _fmt(v) -> str:
+    return f"{v:,.6g}" if isinstance(v, float) else str(v)
 
 
 def _finish(con: duckdb.DuckDBPyConnection, build_id: str, started, checks: list[gates.Check]) -> None:

@@ -163,3 +163,68 @@ export function pyramidOption(groups: { age: string; male?: number; female?: num
     ],
   };
 }
+
+export type PyramidSide = { label: string; groups: { age: string; male?: number; female?: number }[] };
+
+// A population pyramid, men left and women right, with an optional second pyramid
+// drawn as an outline over the first so the two shapes compare directly. Shares
+// of each population's own total by default, so countries of any size compare.
+export function pyramidCompareOption(base: PyramidSide, overlay: PyramidSide | null, absolute: boolean): EChartsOption {
+  const ages = base.groups.map((g) => g.age);
+  const scaled = (side: PyramidSide) => {
+    const total = side.groups.reduce((t, g) => t + (g.male ?? 0) + (g.female ?? 0), 0) || 1;
+    const k = absolute ? 1 : 100 / total;
+    const at = new Map(side.groups.map((g) => [g.age, g]));
+    return {
+      male: ages.map((a) => -((at.get(a)?.male ?? 0) * k)),
+      female: ages.map((a) => (at.get(a)?.female ?? 0) * k),
+    };
+  };
+  const a = scaled(base);
+  const b = overlay ? scaled(overlay) : null;
+  const max = Math.max(1e-9, ...a.male.map(Math.abs), ...a.female, ...(b ? [...b.male.map(Math.abs), ...b.female] : []));
+  const fmt = (v: number) => (absolute ? formatValue(Math.abs(v), "persons") : `${Math.abs(v).toFixed(1)}%`);
+  const muted = cssVar("--muted");
+  const ink = cssVar("--ink");
+  const outline = { color: "transparent", borderColor: ink, borderWidth: 1.5 };
+  const series: SeriesOption[] = [
+    { name: base.label, type: "bar", stack: "base", data: a.male, color: seriesColor(0), barCategoryGap: "12%", itemStyle: { borderRadius: [3, 0, 0, 3] } },
+    { name: base.label, type: "bar", stack: "base", data: a.female, color: seriesColor(1), itemStyle: { borderRadius: [0, 3, 3, 0] } },
+  ];
+  if (b && overlay) {
+    series.push(
+      { name: overlay.label, type: "bar", stack: "overlay", data: b.male, barGap: "-100%", itemStyle: outline, color: ink, z: 3 },
+      { name: overlay.label, type: "bar", stack: "overlay", data: b.female, barGap: "-100%", itemStyle: outline, color: ink, z: 3 },
+    );
+  }
+  return {
+    backgroundColor: "transparent",
+    textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", color: cssVar("--ink-2") },
+    grid: { left: 8, right: 16, top: 34, bottom: 8, containLabel: true },
+    legend: {
+      top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar("--ink-2") },
+      data: [base.label, ...(overlay ? [{ name: overlay.label, itemStyle: { color: "transparent", borderColor: ink, borderWidth: 1.5 } }] : [])],
+    },
+    graphic: [
+      { type: "text", right: 16, top: 2, style: { text: "Men ◂  ▸ Women", fill: muted, fontSize: 11 } },
+    ],
+    xAxis: {
+      type: "value", min: -max, max,
+      axisLabel: { color: muted, formatter: (v: number) => (absolute ? compact(Math.abs(v)) : `${Math.abs(v)}%`) },
+      splitLine: { lineStyle: { color: cssVar("--grid") } },
+    },
+    yAxis: { type: "category", data: ages, axisTick: { show: false }, axisLabel: { color: muted, fontSize: 10 },
+      axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    tooltip: {
+      trigger: "axis", axisPointer: { type: "shadow" },
+      backgroundColor: cssVar("--surface"), borderColor: cssVar("--border"), textStyle: { color: ink },
+      formatter: (params: unknown) => {
+        const i = (params as { dataIndex: number }[])[0].dataIndex;
+        const line = (label: string, s: { male: number[]; female: number[] }) =>
+          `${label}: men <b>${fmt(s.male[i])}</b>, women <b>${fmt(s.female[i])}</b>`;
+        return [`<b>Age ${ages[i]}</b>`, line(base.label, a), ...(b && overlay ? [line(overlay.label, b)] : [])].join("<br/>");
+      },
+    },
+    series,
+  };
+}

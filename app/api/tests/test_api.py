@@ -66,3 +66,24 @@ def test_datasets_summarise_each_source(client):
     tfr = next(i for i in wpp["indicators"] if i["indicator_id"] == "tfr")
     assert tfr["countries"] >= 200 and tfr["first_year"] <= 1950 and tfr["last_year"] >= 2100
     assert found["world_bank_wdi"]["latest_vintage"] is None and found["world_bank_wdi"]["indicators"] == []
+
+
+def test_pyramid_falls_back_to_the_latest_earlier_year(client):
+    pyr = client.get("/api/v1/pyramid", params={"entity": "JPN", "year": 2022}).json()
+    assert pyr["year"] == 2020 and len(pyr["groups"]) == 21
+    early = client.get("/api/v1/pyramid", params={"entity": "JPN", "year": 1900}).json()
+    assert early["year"] == early["years_available"][0]
+
+
+def test_layouts_save_list_delete(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path))
+    assert client.get("/api/v1/layouts").json() == []
+    saved = client.put("/api/v1/layouts/Fertility across time", json={"query": "?l=4&p=map.tfr.1970"}).json()
+    assert saved["query"] == "l=4&p=map.tfr.1970"
+    client.put("/api/v1/layouts/Fertility across time", json={"query": "l=2h&p=map.tfr"})
+    listed = client.get("/api/v1/layouts").json()
+    assert [r["name"] for r in listed] == ["Fertility across time"] and listed[0]["query"] == "l=2h&p=map.tfr"
+    assert (tmp_path / "layouts.json").exists()
+    assert client.delete("/api/v1/layouts/Fertility across time").status_code == 200
+    assert client.delete("/api/v1/layouts/Fertility across time").status_code == 404
+    assert client.put("/api/v1/layouts/%20", json={"query": "l=1"}).status_code == 422

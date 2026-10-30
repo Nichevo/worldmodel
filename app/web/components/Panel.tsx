@@ -4,12 +4,12 @@ import type { ECharts } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
 import WorldMap, { type Scale } from "@/components/WorldMap";
-import { api, type Indicator, type SeriesRow } from "@/lib/api";
+import { api, type Indicator, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
-import { lineOption } from "@/lib/charts";
+import { lineOption, pyramidCompareOption } from "@/lib/charts";
 import { DIVERGING, cssVar } from "@/lib/colors";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
-import { CHANGE_COL, LINKS, type Action, type Group, type Panel as PanelState, type View } from "@/lib/workspace";
+import { CHANGE_COL, LINKS, pyramidOptions, pyramidString, type Action, type Group, type Panel as PanelState, type View } from "@/lib/workspace";
 
 export type Value = { entity_id: string; value: number; status: string };
 
@@ -30,7 +30,7 @@ type Props = {
   cameraBus: CameraBus;
 };
 
-const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table" };
+const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid" };
 
 // The panel's year, held inside the indicator's range; unset means the last estimate.
 export function effectiveYear(panel: PanelState, ind: Indicator | undefined): number | null {
@@ -43,7 +43,9 @@ export default function Panel({
   panel, indicators, names, selection, dispatch, canDuplicate, canClose, maximised, style,
   hovered, onHover, scale, onValues, cameraBus,
 }: Props) {
-  const indicator = indicators.find((i) => i.indicator_id === panel.indicator);
+  // A pyramid has no indicator of its own; its years follow total population.
+  const chosen = indicators.find((i) => i.indicator_id === panel.indicator);
+  const indicator = panel.view === "pyramid" ? (indicators.find((i) => i.indicator_id === "pop_total") ?? chosen) : chosen;
   const year = effectiveYear(panel, indicator);
   const set = (patch: Extract<Action, { type: "panel" }>["patch"]) => dispatch({ type: "panel", id: panel.id, patch });
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
@@ -60,15 +62,17 @@ export default function Panel({
             </button>
           ))}
         </div>
-        <select value={panel.indicator} onChange={(e) => set({ indicator: e.target.value })} aria-label="Indicator">
-          {domains.map((d) => (
-            <optgroup key={d} label={d[0].toUpperCase() + d.slice(1)}>
-              {indicators.filter((i) => i.domain === d).map((i) => (
-                <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {panel.view !== "pyramid" && (
+          <select value={panel.indicator} onChange={(e) => set({ indicator: e.target.value })} aria-label="Indicator">
+            {domains.map((d) => (
+              <optgroup key={d} label={d[0].toUpperCase() + d.slice(1)}>
+                {indicators.filter((i) => i.domain === d).map((i) => (
+                  <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
         {indicator && year !== null && (
           <label className="year">
             <button className="play" aria-label={playing.on ? "Pause" : "Play through the years"} title={playing.on ? "Pause" : "Play"}
@@ -110,6 +114,9 @@ export default function Panel({
         )}
         {indicator && panel.view === "chart" && (
           <ChartView indicator={indicator} year={year} names={names} selection={selection} hovered={hovered} onHover={onHover} />
+        )}
+        {indicator && panel.view === "pyramid" && year !== null && (
+          <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} />
         )}
       </div>
     </section>
@@ -455,6 +462,81 @@ function ChartView({ indicator, year, names, selection, hovered, onHover }: {
       <p className="caption">
         {sourceLine(indicator)}. {selection.length ? "Selected countries." : "World shown; select countries on a map or table to compare."}
         {rows?.some((r) => r.status === "P") ? " Dashed lines are projections." : ""}
+      </p>
+    </>
+  );
+}
+
+// One population pyramid, optionally with a second drawn over it as an outline:
+// the second selected country in the same year, or the same country in another year.
+function PyramidView({ panel, year, names, selection, dispatch }: {
+  panel: PanelState; year: number; names: Map<string, string>; selection: string[]; dispatch: (a: Action) => void;
+}) {
+  const opts = pyramidOptions(panel.pyr);
+  const setOpts = (o: Partial<typeof opts>) =>
+    dispatch({ type: "panel", id: panel.id, patch: { pyr: pyramidString({ ...opts, ...o }) } });
+  const base = selection[0] ?? "world";
+  const other = opts.compare === "auto" ? (selection[1] ? { entity: selection[1], year } : null)
+    : opts.compare === "none" ? null : { entity: base, year: opts.compare };
+
+  const [a, setA] = useState<PyramidData | null>(null);
+  const [b, setB] = useState<PyramidData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.pyramid(base, year).then((d) => live && setA(d)).catch((e) => live && setError(String(e.message || e)));
+    return () => { live = false; };
+  }, [base, year]);
+  const otherKey = other ? `${other.entity}|${other.year}` : "";
+  useEffect(() => {
+    let live = true;
+    if (!otherKey) { setB(null); return; }
+    const [e, y] = otherKey.split("|");
+    api.pyramid(e, +y).then((d) => live && setB(d)).catch(() => live && setB(null));
+    return () => { live = false; };
+  }, [otherKey]);
+
+  const label = (d: PyramidData) => `${names.get(d.entity) ?? d.entity} ${d.year}`;
+  const option = useCallback(() => pyramidCompareOption(
+    { label: a ? label(a) : "", groups: a?.groups ?? [] },
+    b && b.groups.length ? { label: label(b), groups: b.groups } : null,
+    opts.absolute,
+  ), [a, b, opts.absolute, names]);
+  const years = a?.years_available ?? [];
+
+  return (
+    <>
+      <div className="table-tools">
+        <label className="small">
+          Compare with
+          <select value={opts.compare === "auto" ? "auto" : opts.compare === "none" ? "none" : "year"}
+            onChange={(e) => setOpts({ compare: e.target.value === "auto" ? "auto" : e.target.value === "none" ? "none"
+              : (years.find((y) => y <= year - 40) ?? years[0] ?? 1950) })}>
+            <option value="auto">second selected country</option>
+            <option value="year">another year</option>
+            <option value="none">nothing</option>
+          </select>
+        </label>
+        {typeof opts.compare === "number" && (
+          <select className="small" value={opts.compare} aria-label="Comparison year" onChange={(e) => setOpts({ compare: +e.target.value })}>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
+        <div className="seg" role="group" aria-label="Scale">
+          <button className={!opts.absolute ? "on" : ""} aria-pressed={!opts.absolute} onClick={() => setOpts({ absolute: false })}>% of population</button>
+          <button className={opts.absolute ? "on" : ""} aria-pressed={opts.absolute} onClick={() => setOpts({ absolute: true })}>People</button>
+        </div>
+      </div>
+      {error && <p className="error">{error}</p>}
+      {a && !a.groups.length && <p className="muted">No age breakdown for {names.get(base) ?? base}.</p>}
+      {a && a.groups.length > 0 && (
+        <div className="chart-fill"><EChart option={option} height="100%" label={`Population pyramid of ${label(a)}`} /></div>
+      )}
+      <p className="caption">
+        UN WPP. {selection.length ? "" : "World shown; select a country to see its pyramid. "}
+        {a && a.year !== year ? `Age data is every few years; showing ${a.year}. ` : ""}
+        {opts.compare === "auto" && selection.length < 2 ? "Select a second country to overlay it. " : ""}
+        {b && b.groups.length ? "The outline is the comparison." : ""}
       </p>
     </>
   );
