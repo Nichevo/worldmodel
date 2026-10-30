@@ -199,6 +199,12 @@ export type Popup = {
   series: { entity: [number, number, string][]; region: [number, number, string][]; world: [number, number, string][] };
 };
 
+// The countries behind a by-country indicator: where a country's migrants come from (in) or live (out).
+export type Partners = {
+  indicator: string; entity: string; direction: "in" | "out"; year: number | null; years: number[]; total: number | null;
+  rows: { entity_id: string; name: string; value: number; source_id: string }[];
+};
+
 export type MapRange = { indicator: string; years: number[]; last_estimate_year: number | null; rows: Record<string, (number | null)[]> };
 
 export type StorageLevel = "ok" | "warn" | "critical" | "full";
@@ -324,6 +330,8 @@ export const api = {
   memberships: (q: { type?: string; group?: string }) =>
     get<{ group_id: string; group_name: string; member_id: string }[]>("/memberships", q),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),
+  partners: (indicator: string, entity: string, direction: "in" | "out", year?: number, limit = 10) =>
+    get<Partners>("/partners", { indicator, entity, direction, year, limit }),
   layouts: () => get<SavedLayout[]>("/layouts"),
   saveLayout: (name: string, query: string) => send<SavedLayout>("PUT", `/layouts/${encodeURIComponent(name)}`, { query }),
   deleteLayout: (name: string) => send<{ deleted: string }>("DELETE", `/layouts/${encodeURIComponent(name)}`),

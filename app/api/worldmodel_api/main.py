@@ -623,6 +623,30 @@ def pyramid(entity: str, year: int):
             "status": first.get("status"), "source_id": first.get("source_id"), "vintage": first.get("vintage")}
 
 
+@api.get("/partners")
+def partners(indicator: str, entity: str, direction: Literal["in", "out"] = "in", year: int | None = None,
+             limit: int = Query(10, ge=1, le=300)):
+    """The countries behind a by-country indicator (breakdown origin=<country>), largest first.
+    in: where the people living in `entity` come from. out: where people from `entity` live.
+    Without a year, the latest year with figures; `years` lists them all."""
+    if direction == "in":
+        where, params, partner = "s.entity_id = ? AND s.breakdown LIKE 'origin=%'", [indicator, entity], "substr(s.breakdown, 8)"
+    else:
+        where, params, partner = "s.breakdown = ?", [indicator, f"origin={entity}"], "s.entity_id"
+    base = f"FROM series s WHERE s.indicator_id = ? AND s.variant = 'central' AND {where}"
+    years = [r["y"] for r in rows(f"SELECT DISTINCT year(s.period_start) AS y {base} ORDER BY 1", params)]
+    if not years:
+        return {"indicator": indicator, "entity": entity, "direction": direction, "year": None, "years": [],
+                "total": None, "rows": []}
+    if year not in years:
+        year = max((y for y in years if y <= (year or years[-1])), default=years[-1])
+    data = rows(f"""SELECT p.partner AS entity_id, coalesce(e.short_name, p.partner) AS name, p.value, p.source_id
+        FROM (SELECT {partner} AS partner, s.value, s.source_id {base} AND year(s.period_start) = ?) p
+        LEFT JOIN entities e ON e.entity_id = p.partner ORDER BY p.value DESC""", [*params, year])
+    return {"indicator": indicator, "entity": entity, "direction": direction, "year": year, "years": years,
+            "total": sum(r["value"] for r in data), "rows": data[:limit]}
+
+
 # ----------------------------------------------------------------------------- population what-if
 _whatif_inputs: dict[tuple, cohort.Inputs | None] = {}
 SUMMARY_YEARS = (2030, 2050, 2075, 2100)
@@ -941,6 +965,23 @@ def _milestone_rows() -> list[dict]:
              "precision": "day", "size": None, "size_unit": None, "deaths": None, "affected": None, "damage_usd": None,
              "place": None, "url": m.get("url"), "detail": m.get("note") or None, "color": None, "milestone_id": m["id"]}
             for m in userdata.milestones()]
+
+
+@api.get("/layers")
+def layers():
+    """The map overlays the warehouse holds (plate boundaries, faults, volcanoes, earthquakes), without their features."""
+    return rows("""SELECT l.layer_id, l.name, l.description, l.kind, l.feature_count, l.source_id, s.short_name AS source_name
+        FROM layers l LEFT JOIN sources s USING (source_id) ORDER BY l.layer_id""")
+
+
+@api.get("/layers/{layer_id}")
+def layer(layer_id: str):
+    """One overlay's features, as GeoJSON."""
+    found = rows("SELECT geojson FROM layers WHERE layer_id = ?", [layer_id])
+    if not found:
+        raise HTTPException(404, f"no map layer {layer_id}; a refresh loads the map layers")
+    return Response(found[0]["geojson"], media_type="application/geo+json",
+                    headers={"Cache-Control": "max-age=3600"})
 
 
 @api.get("/events")

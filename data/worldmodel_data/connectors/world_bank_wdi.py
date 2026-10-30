@@ -87,6 +87,8 @@ MAIN: dict[str, tuple[str, ...]] = {
     "gni_per_capita_ppp": ("NY.GNP.PCAP.PP.CD",),
     "gdp_per_capita_growth": ("NY.GDP.PCAP.KD.ZG",),
     "gdp_per_capita_constant_usd": ("NY.GDP.PCAP.KD",),
+    "gni_per_capita_lcu": ("NY.GNP.PCAP.CN",),  # income per person in local money: house prices against income
+    "gdp_per_capita_lcu": ("NY.GDP.PCAP.CN",),
     "gdp_per_worker": ("SL.GDP.PCAP.EM.KD",),
     "gdp_deflator_inflation": ("NY.GDP.DEFL.KD.ZG",),
     "agriculture_share_gdp": ("NV.AGR.TOTL.ZS",),
@@ -246,6 +248,7 @@ def indicator_id(code: str) -> str:
 
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
+    stage_version = 2  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu)
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")  # the file has no release name of its own
