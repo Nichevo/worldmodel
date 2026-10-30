@@ -67,6 +67,13 @@ cd D:\worldmodel
 .\refresh.bat     :: fetch the latest data, build, check, go live (the app can stay open)
 ```
 
+Other PCs on your network can open the app at `http://<this PC's name or IP>:3030`
+(start.bat prints the address). Only the web app is reached from outside: it passes
+data requests on to the API, which stays on this PC alone. If the other PC can't
+connect at all, allow `node.exe` (port 3030) through Windows Firewall for private
+networks. If you open it under a name the app doesn't recognise, the page shows
+but stays empty; add that name to `WORLDMODEL_ALLOWED_HOSTS` (comma separated).
+
 If conda is installed somewhere unusual and the scripts can't find it, run them
 from an Anaconda Prompt instead.
 
