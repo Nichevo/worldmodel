@@ -236,7 +236,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         selection: list(q.get(`s${i}`)),
         cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
-        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xyma]{0,4}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
+        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymao]{0,5}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
       });
     });
   if (!panels.length) return DEFAULT;
@@ -268,18 +268,19 @@ export function pyramidString(o: { compare: "auto" | "none" | number; absolute: 
 // Scatter options. colour: "" = only selected countries stand out, "continent" or
 // "subregion" = one colour per region, any other id = members of that group.
 // labels: names next to selected dots only, the biggest ("major") or all.
+// trim: fit the axes to the bulk of the countries, outliers drawn at the edge.
 export type ScatterOptions = {
-  y: string; size: string; logX: boolean; logY: boolean; colour: string; labels: "selected" | "major" | "all";
+  y: string; size: string; logX: boolean; logY: boolean; colour: string; labels: "selected" | "major" | "all"; trim: boolean;
 };
 
 export function scatterOptions(xy: string): ScatterOptions {
   const [y = "", size = "", flags = "", colour = ""] = xy.split(",");
-  return { y, size, logX: flags.includes("x"), logY: flags.includes("y"), colour,
+  return { y, size, logX: flags.includes("x"), logY: flags.includes("y"), colour, trim: flags.includes("o"),
     labels: flags.includes("a") ? "all" : flags.includes("m") ? "major" : "selected" };
 }
 
 export function scatterString(o: ScatterOptions): string {
-  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}`;
+  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}${o.trim ? "o" : ""}`;
   const s = [o.y, o.size, flags, o.colour];
   while (s.length && s[s.length - 1] === "") s.pop();
   return s.join(",");
