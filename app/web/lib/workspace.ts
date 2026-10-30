@@ -20,6 +20,7 @@ export type Panel = {
   group: Group;
   offset: number; // years added to the group's year when year is linked
   selection: string[]; // used only while selection is unlinked
+  cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
 };
 
 export type Workspace = {
@@ -48,6 +49,9 @@ export const LINKS: { key: LinkKey; letter: string; label: string; hint: string 
   { key: "scale", letter: "k", label: "Colour scale", hint: "Same colours for the same values when the indicator matches" },
 ];
 
+// The table column for the change in the panel's indicator over ten years.
+export const CHANGE_COL = "chg10";
+
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true };
 
 const VIEWS: View[] = ["map", "chart", "table"];
@@ -62,7 +66,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -75,7 +79,7 @@ export const DEFAULT: Workspace = {
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols">> }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
   | { type: "duplicate"; id: string }
   | { type: "close"; id: string }
@@ -183,14 +187,15 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 
 // URL form, kept readable:
 //   ?l=4&p=map.tfr.1970~chart.tfr~table.gdp_growth.2023.chsyk.B.-20&s=NZL,AUS&s2=FRA
-// Each panel is view.indicator[.year[.links[.group[.offset]]]], trailing defaults dropped;
+// Each panel is view.indicator[.year[.links[.group[.offset[.cols]]]]], trailing defaults dropped,
+// with extra table columns joined by ",";
 // sN holds panel N's own selection while its selection is unlinked.
 const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.letter).join("");
 
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : ""];
+    p.offset ? String(p.offset) : "", p.cols.join(",")];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -214,7 +219,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -224,6 +229,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         group: group === "B" ? "B" : "A",
         offset: offset && /^-?\d{1,3}$/.test(offset) ? +offset : 0,
         selection: list(q.get(`s${i}`)),
+        cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
       });
     });
   if (!panels.length) return DEFAULT;
