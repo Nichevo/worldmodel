@@ -9,20 +9,18 @@ A layout is a name and the map page's URL query, which already holds the whole w
 from __future__ import annotations
 
 import json
-import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+
+from worldmodel_contract import local
 
 MAX_LAYOUTS = 200
 _lock = threading.Lock()
 
 
 def user_dir() -> Path:
-    if os.environ.get("WORLDMODEL_USER_DIR"):
-        return Path(os.environ["WORLDMODEL_USER_DIR"]).expanduser()
-    home = os.environ.get("WORLDMODEL_HOME")
-    return (Path(home).expanduser() if home else Path.cwd() / "var") / "user"
+    return local.user_dir()
 
 
 def _path() -> Path:

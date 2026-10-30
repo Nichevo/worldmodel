@@ -27,7 +27,11 @@ Prospects) and GDP growth (IMF World Economic Outlook) as the first data.
 - **app/** is the local API and web app. It reads whichever warehouse it is
   pointed at, never writes to it, and checks the schema version on start. It
   ships with a sample warehouse (`app/sample/`), so it runs with no pipeline.
-- **contract/** is the only code both import.
+  The only files it writes are your own, in `var/user/`: saved layouts,
+  settings, which indicators are switched on, and the history log.
+- **contract/** is the only code both import. Besides the schema and
+  catalogues it holds the shared view of the data folder: settings and their
+  limits, disk use, and the refresh log (`worldmodel_contract.local`).
 
 More in [docs/architecture.md](docs/architecture.md).
 
@@ -60,6 +64,7 @@ git clone https://github.com/Nichevo/worldmodel D:\worldmodel
 cd D:\worldmodel
 .\setup.bat       :: once: conda env "worldmodel" (Python, Node, Git) + all packages
 .\start.bat       :: API and web app in their own windows, then the browser
+.\refresh.bat     :: fetch the latest data, build, check, go live (the app can stay open)
 ```
 
 If conda is installed somewhere unusual and the scripts can't find it, run them
@@ -67,7 +72,9 @@ from an Anaconda Prompt instead.
 
 Your data lives in `var\` inside this folder (set as `WORLDMODEL_HOME` in the
 conda environment, so it doesn't depend on where you run commands from). To
-load current data: `conda activate worldmodel`, then `worldmodel-data refresh`.
+load current data, run `.\refresh.bat`. Each refresh is logged; the Data status
+page charts the space used, the rows changed and how each run went, and warns
+when the folder nears the size limit set in Settings.
 
 ### Updating
 
@@ -89,7 +96,9 @@ never changed. If an update says `environment.yml` changed, run `setup.bat` agai
 worldmodel-data fetch un_wpp                  # download a source, store a new vintage
 worldmodel-data fetch imf_weo --from DIR      # or load files you downloaded yourself
 worldmodel-data build                         # build + validate + swap in
-worldmodel-data status                        # vintages, live build, latest report
+worldmodel-data refresh                       # fetch every source, then build; logged for Data status
+worldmodel-data status                        # vintages, live build, latest report, disk use
+worldmodel-data free-space                    # delete old raw downloads (keeps 2 per source)
 worldmodel-data validate                      # catalogue checks + gates on the live build
 worldmodel-data keys                          # API key register: which keys are set
 worldmodel-data export nz-population --format csv

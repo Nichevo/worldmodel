@@ -7,6 +7,7 @@ import ChartCard from "@/components/ChartCard";
 import Pyramid from "@/components/Pyramid";
 import { api, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
 import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
+import { logHistory } from "@/lib/history";
 
 const CHARTS: { id: string; kind?: "line" | "bar" }[] = [
   { id: "pop_total" },
@@ -34,7 +35,10 @@ export default function EntityPage() {
 
   useEffect(() => {
     setEntity(null);
-    api.entity(id).then(setEntity).catch((e) => setError(String(e.message || e)));
+    api.entity(id).then((e) => {
+      setEntity(e);
+      logHistory({ kind: "page", title: e.short_name, url: `/entity/${e.entity_id}`, entity: e.entity_id, detail: "profile" });
+    }).catch((e) => setError(String(e.message || e)));
     api.profile(id).then(setProfile).catch(() => setProfile([]));
   }, [id]);
   useEffect(() => {

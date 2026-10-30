@@ -1,7 +1,9 @@
 """Worldmodel API, on localhost. Serves the web app and any other local tool.
 
-All endpoints are under /api/v1 and read the warehouse only; saved layouts are
-the one thing written, to a user folder beside the data (see layouts.py).
+All endpoints are under /api/v1 and read the warehouse only. The only things
+written are the user's own files (layouts, settings, indicator switches, history)
+in a user folder beside the data (see layouts.py and userdata.py), and, when asked
+on the Data status page, old raw downloads deleted to free space.
 Interactive docs are at /docs when the server runs.
 """
 
@@ -23,7 +25,8 @@ from fastapi.responses import JSONResponse, Response
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, series_sql, stream_query
-from worldmodel_api import __version__, layouts
+from worldmodel_contract import local
+from worldmodel_api import __version__, layouts, userdata
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -34,7 +37,7 @@ HEADLINE = ["pop_total", "pop_growth_rate", "tfr", "median_age", "life_expectanc
 app = FastAPI(title="Worldmodel API", version=__version__,
               description="Local read-only API over the worldmodel warehouse.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3030", "http://127.0.0.1:3030"],
-                   allow_methods=["GET", "PUT", "DELETE"], allow_headers=["*"])
+                   allow_methods=["GET", "PUT", "POST", "PATCH", "DELETE"], allow_headers=["*"])
 api = APIRouter(prefix="/api/v1")
 warehouse = Warehouse()
 
@@ -174,20 +177,37 @@ def profile(entity_id: str):
 
 
 # ----------------------------------------------------------------------------- indicators
+_ind_cache: dict = {"key": None, "rows": []}
+
+
+def _indicator_rows() -> list[dict]:
+    """Every indicator with its years, country count and sources; cached per build."""
+    key = warehouse.current().meta.get("build_id")
+    if _ind_cache["key"] != key or key is None:
+        found = rows("""
+            SELECT i.*, min(year(s.period_start)) AS first_year, max(year(s.period_start)) AS last_year,
+                max(year(s.period_start)) FILTER (WHERE s.status = 'E') AS last_estimate_year,
+                count(DISTINCT s.entity_id) FILTER (WHERE e.type = 'country') AS countries
+            FROM indicators i LEFT JOIN series s USING (indicator_id) LEFT JOIN entities e USING (entity_id)
+            GROUP BY ALL ORDER BY i.domain, i.name""")
+        srcs = rows("SELECT r.*, s.short_name AS source_name, s.licence FROM indicator_sources r "
+                    "LEFT JOIN sources s USING (source_id) ORDER BY r.indicator_id, r.rank")
+        for f in found:
+            f["synonyms"] = split((f["synonyms"] or "").replace("|", ","))
+            f["sources"] = [s for s in srcs if s["indicator_id"] == f["indicator_id"]]
+            f["available"] = f["first_year"] is not None
+            f["default_on"] = bool(f.get("default_on", True))
+        _ind_cache.update(key=key, rows=found)
+    return _ind_cache["rows"]
+
+
 @api.get("/indicators")
 def indicators(domain: str | None = None):
-    found = rows("""
-        SELECT i.*, min(year(s.period_start)) AS first_year, max(year(s.period_start)) AS last_year,
-            max(year(s.period_start)) FILTER (WHERE s.status = 'E') AS last_estimate_year
-        FROM indicators i LEFT JOIN series s USING (indicator_id)
-        WHERE (? IS NULL OR i.domain = ?)
-        GROUP BY ALL ORDER BY i.domain, i.name""", [domain, domain])
-    srcs = rows("SELECT * FROM indicator_sources ORDER BY indicator_id, rank")
-    for f in found:
-        f["synonyms"] = split((f["synonyms"] or "").replace("|", ","))
-        f["sources"] = [s for s in srcs if s["indicator_id"] == f["indicator_id"]]
-        f["available"] = f["first_year"] is not None
-    return found
+    """Every indicator, with `enabled`: whether it is switched on (Indicators page)
+    for the panel menus. Switched-off indicators still serve data."""
+    over = userdata.indicator_overrides()
+    return [{**f, "enabled": over.get(f["indicator_id"], f["default_on"])}
+            for f in _indicator_rows() if domain is None or f["domain"] == domain]
 
 
 @api.get("/indicators/{indicator_id}")
@@ -196,6 +216,24 @@ def indicator(indicator_id: str):
         if i["indicator_id"] == indicator_id:
             return i
     raise HTTPException(404, f"no indicator {indicator_id}")
+
+
+@api.put("/indicator-switches")
+def switch_indicators(changes: dict[str, bool] = Body(...)):
+    """Switch indicators on or off: {"tfr": true, "births": false}."""
+    defaults = {f["indicator_id"]: f["default_on"] for f in _indicator_rows()}
+    unknown = [k for k in changes if k not in defaults]
+    if unknown:
+        raise HTTPException(404, f"no indicator {', '.join(unknown[:5])}")
+    userdata.set_indicators(changes, defaults)
+    return {"changed": len(changes)}
+
+
+@api.delete("/indicator-switches")
+def reset_indicator_switches():
+    """Back to the defaults."""
+    userdata.reset_indicators()
+    return {"reset": True}
 
 
 # ----------------------------------------------------------------------------- search
@@ -287,6 +325,52 @@ def map_values(indicator: str, year: int, source: str | None = None):
                      for r in data if r["entity_id"] in countries]}
 
 
+@api.get("/map/range")
+def map_range(indicator: str, start: int | None = None, end: int | None = None):
+    """Every country's values over a span of years, for sparklines: rows[entity] lines up with years."""
+    data = _series(indicator, None, None, start, end, None, "", "central", True, None)
+    countries = {r["entity_id"] for r in rows("SELECT entity_id FROM entities WHERE type = 'country'")}
+    years = sorted({int(r["period"][:4]) for r in data})
+    at = {y: i for i, y in enumerate(years)}
+    out: dict[str, list] = {}
+    for r in data:
+        if r["entity_id"] in countries:
+            out.setdefault(r["entity_id"], [None] * len(years))[at[int(r["period"][:4])]] = r["value"]
+    last_e = max((int(r["period"][:4]) for r in data if r["status"] == "E"), default=None)
+    return {"indicator": indicator, "years": years, "last_estimate_year": last_e, "rows": out}
+
+
+@api.get("/popup")
+def popup(entity: str, indicator: str, year: int):
+    """What a country popup shows: the value and its rank among countries, the change over
+    ten years, and the series for the country, its region (subregion, else continent) and the world."""
+    found = rows("SELECT entity_id, short_name, type FROM entities WHERE entity_id = ?", [entity])
+    if not found:
+        raise HTTPException(404, f"no entity {entity}")
+    if not rows("SELECT 1 FROM indicators WHERE indicator_id = ?", [indicator]):
+        raise HTTPException(404, f"no indicator {indicator}")
+    groups = rows("""SELECT g.entity_id, g.short_name, g.type FROM memberships m JOIN entities g ON g.entity_id = m.group_id
+        WHERE m.member_id = ? AND g.type IN ('subregion', 'continent') AND m.valid_to IS NULL
+        ORDER BY g.type = 'continent'""", [entity])
+    ids = [entity, *[g["entity_id"] for g in groups], "world"]
+    data = _series(indicator, ",".join(dict.fromkeys(ids)), None, None, None, None, "", "central", True, None)
+    by: dict[str, list] = {}
+    for r in data:
+        by.setdefault(r["entity_id"], []).append([int(r["period"][:4]), r["value"], r["status"]])
+    region = next((g for g in groups if by.get(g["entity_id"])), None)
+    now_ = next((p for p in by.get(entity, []) if p[0] == year), None)
+    before = next((p for p in by.get(entity, []) if p[0] == year - 10), None)
+    ranked = sorted((r["value"] for r in map_values(indicator, year)["rows"]), reverse=True)
+    rank = ranked.index(now_[1]) + 1 if now_ and found[0]["type"] == "country" and now_[1] in ranked else None
+    return {"entity": entity, "name": found[0]["short_name"], "type": found[0]["type"], "indicator": indicator,
+            "year": year, "value": now_[1] if now_ else None, "status": now_[2] if now_ else None,
+            "rank": rank, "of": len(ranked),
+            "change10": {"from_year": year - 10, "value": now_[1] - before[1]} if now_ and before else None,
+            "region": {"entity_id": region["entity_id"], "name": region["short_name"]} if region else None,
+            "series": {"entity": by.get(entity, []), "region": by.get(region["entity_id"], []) if region else [],
+                       "world": by.get("world", []) if entity != "world" else []}}
+
+
 @api.get("/pyramid")
 def pyramid(entity: str, year: int):
     """Population by age and sex. Age data comes every few years, so a year without it
@@ -337,6 +421,75 @@ def delete_layout(name: str):
     if not layouts.delete(_layout_name(name)):
         raise HTTPException(404, f"no layout {name}")
     return {"deleted": name}
+
+
+# ----------------------------------------------------------------------------- settings, history
+@api.get("/settings")
+def get_settings():
+    return {"settings": userdata.settings(), "defaults": local.SETTINGS}
+
+
+@api.put("/settings")
+def put_settings(patch: dict = Body(...)):
+    """Change some settings; unknown keys are ignored and numbers held to their ranges."""
+    return {"settings": userdata.save_settings(patch), "defaults": local.SETTINGS}
+
+
+@api.get("/history")
+def get_history(q: str | None = None, kind: str | None = None, starred: bool = False,
+                since: str | None = Query(None, description="YYYY-MM-DD"), until: str | None = None,
+                limit: int = Query(500, le=5000)):
+    """What was opened and looked at, newest first."""
+    return userdata.history(q, kind, starred, since, until, limit)
+
+
+@api.post("/history")
+def post_history(entry: dict = Body(...)):
+    """Log one thing opened: {kind, title, url?, entity?, indicator?, detail?}. Ignored while paused."""
+    try:
+        return {"entry": userdata.add_history(entry)}
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.patch("/history/{entry_id}")
+def patch_history(entry_id: str, star: bool | None = Body(None), note: str | None = Body(None, max_length=2000)):
+    """Star an entry (a bookmark) or write a note on it."""
+    try:
+        return userdata.mark(entry_id, star, note)
+    except KeyError:
+        raise HTTPException(404, f"no history entry {entry_id}")
+
+
+@api.delete("/history")
+def delete_history(keep_starred: bool = True, before: str | None = Query(None, description="YYYY-MM-DD")):
+    """Clear the history (or the part before a date), keeping starred entries unless told not to."""
+    return {"deleted": userdata.clear_history(keep_starred, before)}
+
+
+@api.get("/history/interest")
+def history_interest(limit: int = 50):
+    """Countries by how often and how recently they were opened; on-demand fetches go in this order."""
+    return userdata.entity_interest(limit)
+
+
+# ----------------------------------------------------------------------------- storage, refresh log
+@api.get("/storage")
+def storage():
+    """Disk use of the data folder by category against the limits in Settings, with warning levels."""
+    return local.storage()
+
+
+@api.post("/storage/free-up")
+def free_up(keep: int = Query(2, ge=1, le=10)):
+    """Delete old raw downloads, keeping the newest `keep` per source. Never vintages or builds."""
+    return local.free_raw(keep=keep)
+
+
+@api.get("/refresh-log")
+def refresh_log():
+    """One record per refresh or build, oldest first (see worldmodel_data.monitor)."""
+    return local.read_refresh_log()
 
 
 # ----------------------------------------------------------------------------- streams

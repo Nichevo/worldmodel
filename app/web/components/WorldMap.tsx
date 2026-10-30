@@ -2,7 +2,9 @@
 
 import * as maplibregl from "maplibre-gl";
 import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { sparklineSvg } from "@/lib/charts";
 import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
@@ -12,12 +14,23 @@ import { countryShapes } from "@/lib/geo";
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
 
 type Value = { entity_id: string; value: number; status: string };
+export type PickEvent = { shift: boolean; double: boolean; lngLat: [number, number] };
+// React content drawn on the map at a place, moving with it (popups).
+export type Overlay = { key: string; lng: number; lat: number; node: React.ReactNode };
+// Every country's values over the years, for a trend line in the hover tooltip.
+export type Spark = { years: number[]; rows: Record<string, (number | null)[]>; upTo: number };
 type Props = {
   values: Value[];
   unit: string;
   decimals: number;
   diverging: boolean;
-  onPick: (iso3: string) => void;
+  // A click on a country. With doubleClick, a single click waits a moment so a
+  // double click can be told apart (and the map no longer zooms on double click).
+  onPick: (iso3: string, e: PickEvent) => void;
+  doubleClick?: boolean;
+  overlays?: Overlay[];
+  spark?: Spark | null;
+  onMap?: (m: maplibregl.Map | null) => void; // for pictures of the map
   selected?: string[];
   fill?: boolean; // fill the parent's height instead of the fixed page height
   scale?: Scale; // a colour scale shared with other maps; default: this map's own
@@ -68,6 +81,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
+  doubleClick = false, overlays = [], spark = null, onMap,
 }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -77,6 +91,10 @@ export default function WorldMap({
   pick.current = onPick;
   const hover = useRef(onHover);
   hover.current = onHover;
+  const dbl = useRef(doubleClick);
+  dbl.current = doubleClick;
+  const sparkRef = useRef(spark);
+  sparkRef.current = spark;
 
   const own = useMemo(() => makeScale(values.map((v) => v.value), diverging), [values, diverging]);
   const scale = shared ?? own;
@@ -100,6 +118,7 @@ export default function WorldMap({
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.current = m;
+    onMap?.(m);
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
 
     m.on("load", async () => {
@@ -136,9 +155,11 @@ export default function WorldMap({
       hovered = f.id;
       if (hovered !== undefined) m.setFeatureState({ source: "countries", id: hovered }, { hover: true });
       m.getCanvas().style.cursor = "pointer";
-      const p = f.properties as { name: string; value?: number; status?: string; label?: string };
+      const p = f.properties as { name: string; iso3: string; value?: number; status?: string; label?: string };
+      const sp = sparkRef.current;
+      const line = sp && sp.rows[p.iso3] ? sparklineSvg(sp.years, sp.rows[p.iso3], sp.upTo, cssVar("--series-1")) : "";
       popup.setLngLat(e.lngLat)
-        .setHTML(`<b>${p.name}</b><br/>${p.label ?? "no data"}${p.status === "P" ? " (projection)" : ""}`)
+        .setHTML(`<b>${p.name}</b><br/>${p.label ?? "no data"}${p.status === "P" ? " (projection)" : ""}${line}`)
         .addTo(m);
     });
     m.on("mouseleave", "fill", () => {
@@ -148,15 +169,61 @@ export default function WorldMap({
       m.getCanvas().style.cursor = "";
       popup.remove();
     });
+    let pending: ReturnType<typeof setTimeout> | undefined;
     m.on("click", "fill", (e) => {
       const iso = e.features?.[0]?.properties?.iso3;
-      if (iso) pick.current(iso);
+      if (!iso) return;
+      const ev: PickEvent = { shift: e.originalEvent.shiftKey, double: false, lngLat: [e.lngLat.lng, e.lngLat.lat] };
+      if (!dbl.current || ev.shift) return pick.current(iso, ev);
+      clearTimeout(pending);
+      pending = setTimeout(() => pick.current(iso, ev), 250);
+    });
+    m.on("dblclick", "fill", (e) => {
+      const iso = e.features?.[0]?.properties?.iso3;
+      if (!iso || !dbl.current) return;
+      clearTimeout(pending);
+      e.preventDefault(); // no zoom: the double click opens a popup instead
+      pick.current(iso, { shift: false, double: true, lngLat: [e.lngLat.lng, e.lngLat.lat] });
     });
     return () => {
+      clearTimeout(pending);
       ro.disconnect();
+      onMap?.(null);
       m.remove();
     };
   }, []);
+
+  // Popups: each overlay gets a MapLibre marker whose element React draws into.
+  const [els, setEls] = useState<Map<string, HTMLDivElement>>(new Map());
+  const markers = useRef(new Map<string, maplibregl.Marker>());
+  const overlayKey = overlays.map((o) => `${o.key}@${o.lng.toFixed(3)},${o.lat.toFixed(3)}`).join("|");
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const want = new Map(overlays.map((o) => [o.key, o]));
+    let changed = false;
+    for (const [key, mk] of markers.current) {
+      if (!want.has(key)) { mk.remove(); markers.current.delete(key); changed = true; }
+    }
+    for (const o of overlays) {
+      const have = markers.current.get(o.key);
+      if (have) { have.setLngLat([o.lng, o.lat]); continue; }
+      const el = document.createElement("div");
+      el.className = "map-overlay";
+      // Keep clicks, drags and scrolling inside the popup away from the map.
+      for (const t of ["mousedown", "pointerdown", "click", "dblclick", "wheel", "touchstart"]) el.addEventListener(t, (e) => e.stopPropagation());
+      // Open towards the middle of the map, so the card is not cut off at an edge.
+      const pt = m.project([o.lng, o.lat]);
+      const box = m.getContainer();
+      const v = pt.y < box.clientHeight / 2 ? "top" : "bottom";
+      const h = pt.x < box.clientWidth / 3 ? "-left" : pt.x > (box.clientWidth * 2) / 3 ? "-right" : "";
+      const anchor = `${v}${h}` as maplibregl.PositionAnchor;
+      markers.current.set(o.key, new maplibregl.Marker({ element: el, anchor, offset: [0, v === "top" ? 6 : -6] }).setLngLat([o.lng, o.lat]).addTo(m));
+      changed = true;
+    }
+    if (changed) setEls(new Map([...markers.current].map(([k, mk]) => [k, mk.getElement() as HTMLDivElement])));
+  }, [overlayKey]);
+  useEffect(() => () => { markers.current.forEach((mk) => mk.remove()); markers.current.clear(); }, []);
 
   useEffect(() => {
     const m = map.current;
@@ -224,10 +291,13 @@ export default function WorldMap({
     else onLoad.current.push(apply);
   }, [selectedKey]);
 
+  useEffect(() => { const z = map.current?.doubleClickZoom; if (z) { if (doubleClick) z.disable(); else z.enable(); } }, [doubleClick]);
+
   return (
     <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" /></div>
       <Legend scale={scale} unit={unit} />
+      {overlays.map((o) => { const target = els.get(o.key); return target ? createPortal(o.node, target, o.key) : null; })}
     </div>
   );
 }

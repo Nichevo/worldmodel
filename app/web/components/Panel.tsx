@@ -3,15 +3,29 @@
 import type { ECharts } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
-import WorldMap, { type Scale } from "@/components/WorldMap";
-import { api, type Entity, type Indicator, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
+import type * as maplibregl from "maplibre-gl";
+import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
+import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
-import { linesOption, pyramidCompareOption, scatterOption, type ScatterPoint } from "@/lib/charts";
+import { linesOption, outlierFence, pyramidCompareOption, scatterOption, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
+import { csvText, fileName, saveText, saveUrl, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
-import { CHANGE_COL, LINKS, pyramidOptions, pyramidString, scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View } from "@/lib/workspace";
+import {
+  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
+  scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View,
+} from "@/lib/workspace";
 
 export type Value = { entity_id: string; value: number; status: string };
+
+// Where a click happened: on a map (a place) or anywhere else (the screen).
+export type At = { lng: number; lat: number } | { clientX: number; clientY: number };
+export type ClickMode = "popup" | "select";
+// A popup to draw in this panel: on a map at its place, elsewhere at x/y in the
+// panel (or stacked in the corner when pinned without a place).
+export type PanelPopup = { key: string; entity: string; pinned: boolean; at: At | null; node: React.ReactNode };
+// What a click on a country asks for: shift says select, double says the other action.
+export type Activate = (entity: string, how: { shift: boolean; double: boolean }, at: At | null) => void;
 
 type Props = {
   panel: PanelState;
@@ -28,6 +42,10 @@ type Props = {
   scale?: Scale; // shared colour scale, when linked maps show the same indicator
   onValues: (id: string, values: Value[] | null) => void;
   cameraBus: CameraBus;
+  clickMode: ClickMode;
+  onActivate: Activate;
+  popups: PanelPopup[];
+  sparkline: boolean;
 };
 
 const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter" };
@@ -41,7 +59,7 @@ export function effectiveYear(panel: PanelState, ind: Indicator | undefined): nu
 
 export default function Panel({
   panel, indicators, names, selection, dispatch, canDuplicate, canClose, maximised, style,
-  hovered, onHover, scale, onValues, cameraBus,
+  hovered, onHover, scale, onValues, cameraBus, clickMode, onActivate, popups, sparkline,
 }: Props) {
   // A pyramid has no indicator of its own; its years follow total population.
   const chosen = indicators.find((i) => i.indicator_id === panel.indicator);
@@ -51,6 +69,21 @@ export default function Panel({
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
   const domains = useMemo(() => [...new Set(indicators.map((i) => i.domain))], [indicators]);
   const isProjection = indicator && year !== null && indicator.last_estimate_year !== null && year > indicator.last_estimate_year;
+  const exporter = useRef<Exporter>({});
+  const body = useRef<HTMLDivElement>(null);
+  const activate: Activate = (entity, how, at) => onActivate(entity, how, at);
+  const clicks = { mode: clickMode, activate };
+  // Popups not on a map: the open one where it was clicked, pinned ones stacked in the corner.
+  const loose = panel.view === "map" ? [] : popups;
+  const place = (p: PanelPopup, i: number): React.CSSProperties => {
+    const r = body.current?.getBoundingClientRect();
+    if (p.at && "clientX" in p.at && r && !p.pinned) {
+      const left = Math.min(Math.max(4, p.at.clientX - r.left + 8), Math.max(4, r.width - 300));
+      const top = Math.min(Math.max(4, p.at.clientY - r.top + 8), Math.max(4, r.height - 260));
+      return { left, top };
+    }
+    return { right: 6 + i * 14, top: 6 + i * 26 };
+  };
 
   return (
     <section className="panel" style={style} aria-label={`${indicator?.name ?? "Panel"} ${VIEW_LABEL[panel.view].toLowerCase()}`}>
@@ -92,6 +125,7 @@ export default function Panel({
           </label>
         )}
         <span className="spacer" />
+        <DownloadMenu exporter={exporter} />
         <LinksMenu panel={panel} dispatch={dispatch} />
         <div className="panel-actions">
           <button title="Duplicate panel" aria-label="Duplicate panel" disabled={!canDuplicate}
@@ -102,27 +136,31 @@ export default function Panel({
             onClick={() => dispatch({ type: "close", id: panel.id })}>×</button>
         </div>
       </header>
-      <div className="panel-body">
+      <div className="panel-body" ref={body}>
         {!indicator && <p className="muted">Loading…</p>}
         {indicator && panel.view === "map" && year !== null && (
-          <MapView panel={panel} indicator={indicator} year={year} selection={selection} dispatch={dispatch}
-            hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus} />
+          <MapView panel={panel} indicator={indicator} year={year} selection={selection}
+            hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}
+            clicks={clicks} popups={popups} sparkline={sparkline} exporter={exporter} />
         )}
         {indicator && panel.view === "table" && year !== null && (
           <TableView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection} dispatch={dispatch}
-            hovered={hovered} onHover={onHover} />
+            hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
         )}
         {indicator && panel.view === "chart" && (
           <ChartView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection}
-            dispatch={dispatch} hovered={hovered} onHover={onHover} />
+            dispatch={dispatch} hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
         )}
         {indicator && panel.view === "scatter" && year !== null && (
           <ScatterView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection}
-            dispatch={dispatch} hovered={hovered} onHover={onHover} />
+            dispatch={dispatch} hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
         )}
         {indicator && panel.view === "pyramid" && year !== null && (
-          <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} />
+          <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} exporter={exporter} />
         )}
+        {loose.map((p, i) => (
+          <div key={p.key} className="panel-popup" style={place(p, i)}>{p.node}</div>
+        ))}
       </div>
     </section>
   );
@@ -153,6 +191,76 @@ function usePlay(year: number | null, first: number | null, last: number | null,
     setOn(!on);
   };
   return { on, toggle };
+}
+
+type Clicks = { mode: ClickMode; activate: Activate };
+
+// Mouse handlers for a country in a table row or chart. In select mode a single
+// click waits a moment, so a double click (which opens the popup) can be told apart.
+function useClickHandlers(clicks: Clicks) {
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  return {
+    click: (entity: string, e: { shiftKey: boolean; clientX: number; clientY: number }) => {
+      const at = { clientX: e.clientX, clientY: e.clientY };
+      if (clicks.mode === "popup" || e.shiftKey) return clicks.activate(entity, { shift: e.shiftKey, double: false }, at);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => clicks.activate(entity, { shift: false, double: false }, at), 250);
+    },
+    double: (entity: string, e: { clientX: number; clientY: number }) => {
+      if (clicks.mode !== "select") return;
+      clearTimeout(timer.current);
+      clicks.activate(entity, { shift: false, double: true }, { clientX: e.clientX, clientY: e.clientY });
+    },
+  };
+}
+
+function useOutsideClose(box: React.RefObject<HTMLDetailsElement | null>) {
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (box.current?.open && !box.current.contains(e.target as Node)) box.current.open = false;
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [box]);
+}
+
+// CSV of the panel's data and a PNG picture, from whatever the view registered.
+function DownloadMenu({ exporter }: { exporter: React.RefObject<Exporter> }) {
+  const box = useRef<HTMLDetailsElement>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  useOutsideClose(box);
+  const csv = () => {
+    const text = exporter.current.csv?.();
+    if (text) saveText(text, `${exporter.current.name ?? "worldmodel"}.csv`);
+    if (box.current) box.current.open = false;
+  };
+  const png = async () => {
+    try {
+      const url = await exporter.current.png?.();
+      if (url) saveUrl(url, `${exporter.current.name ?? "worldmodel"}.png`);
+      setMsg(null);
+      if (box.current) box.current.open = false;
+    } catch (e) {
+      setMsg(String((e as Error).message || e));
+    }
+  };
+  return (
+    <details className="links download" ref={box}>
+      <summary title="Download this panel's data or a picture" aria-label="Download">⤓</summary>
+      <div className="links-menu">
+        <button className="link" onClick={csv}>Data (CSV)</button>
+        <button className="link" onClick={png}>Picture (PNG)</button>
+        {msg && <p className="caption error">{msg}</p>}
+      </div>
+    </details>
+  );
+}
+
+// A picture of an ECharts chart: its SVG drawn onto a canvas under a title.
+function chartPng(chart: ECharts | null, title: string, note: string): Promise<string> {
+  if (!chart || chart.isDisposed()) return Promise.reject(new Error("Nothing drawn yet"));
+  return titledPng(chart.getDataURL({ type: "svg", excludeComponents: ["dataZoom"] }), chart.getWidth(), chart.getHeight(), title, note);
 }
 
 function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
@@ -216,14 +324,37 @@ function sourceLine(indicator: Indicator) {
   return s ? (SOURCE_SHORT[s] ?? s) : "";
 }
 
-function MapView({ panel, indicator, year, selection, dispatch, hovered, onHover, scale, onValues, cameraBus }: {
-  panel: PanelState; indicator: Indicator; year: number; selection: string[]; dispatch: (a: Action) => void;
+function MapView({ panel, indicator, year, selection, hovered, onHover, scale, onValues, cameraBus, clicks, popups, sparkline, exporter }: {
+  panel: PanelState; indicator: Indicator; year: number; selection: string[];
   hovered: string | null; onHover: (e: string | null) => void; scale?: Scale;
   onValues: (id: string, v: Value[] | null) => void; cameraBus: CameraBus;
+  clicks: Clicks; popups: PanelPopup[]; sparkline: boolean; exporter: React.RefObject<Exporter>;
 }) {
   const { values, error } = useMapValues(indicator.indicator_id, year);
   useEffect(() => { onValues(panel.id, values); }, [panel.id, values, onValues]);
   useEffect(() => () => onValues(panel.id, null), [panel.id, onValues]);
+  const range = useRange(sparkline ? indicator.indicator_id : null);
+  const spark: Spark | null = useMemo(() => (range ? { years: range.years, rows: range.rows, upTo: year } : null), [range, year]);
+  const overlays: Overlay[] = popups.flatMap((p) => (p.at && "lng" in p.at ? [{ key: p.key, lng: p.at.lng, lat: p.at.lat, node: p.node }] : []));
+  const map = useRef<maplibregl.Map | null>(null);
+  const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; }, []);
+  const title = `${indicator.name}, ${year}`;
+  exporter.current = {
+    name: fileName(indicator.indicator_id, year),
+    csv: () => csvText(["entity_id", "indicator_id", "year", "value", "status"],
+      values.map((v) => [v.entity_id, indicator.indicator_id, year, v.value, v.status])),
+    png: () => new Promise((ok, fail) => {
+      const m = map.current;
+      if (!m) return fail(new Error("The map is not ready yet"));
+      // The canvas is only readable during a render, so ask for one and copy it then.
+      m.once("render", () => {
+        const c = m.getCanvas();
+        titledPng(c.toDataURL("image/png"), c.clientWidth, c.clientHeight, title, `${sourceLine(indicator)}. Borders: Natural Earth.`).then(ok, fail);
+      });
+      m.triggerRepaint();
+    }),
+  };
+  const hint = clicks.mode === "popup" ? "Click a country for its popup; shift-click to select it." : "Click a country to select it; double-click for its popup.";
   return (
     <>
       {error && <p className="error">{error}</p>}
@@ -234,17 +365,39 @@ function MapView({ panel, indicator, year, selection, dispatch, hovered, onHover
         decimals={indicator.decimals}
         diverging={DIVERGING.has(indicator.indicator_id)}
         selected={selection}
-        onPick={(iso) => dispatch({ type: "toggleSelect", entity: iso, panel: panel.id })}
+        onPick={(iso, e) => clicks.activate(iso, { shift: e.shift, double: e.double }, { lng: e.lngLat[0], lat: e.lngLat[1] })}
+        doubleClick={clicks.mode === "select"}
         scale={scale}
         hovered={hovered}
         onHover={onHover}
         camera={panel.links.camera ? { bus: cameraBus, id: panel.id, group: panel.group } : null}
+        overlays={overlays}
+        spark={spark}
+        onMap={onMap}
       />
       <p className="caption">
-        {sourceLine(indicator)}. {values.length} countries with data.{scale ? " Colour scale shared with linked maps." : ""} Click a country to select it.
+        {sourceLine(indicator)}. {values.length} countries with data.{scale ? " Colour scale shared with linked maps." : ""} {hint}
       </p>
     </>
   );
+}
+
+// Every country's values over all years, for the hover sparkline; once per indicator.
+const rangeCache = new Map<string, Promise<MapRange>>();
+function useRange(indicator: string | null): MapRange | null {
+  const [range, setRange] = useState<MapRange | null>(null);
+  useEffect(() => {
+    if (!indicator) { setRange(null); return; }
+    let live = true;
+    if (!rangeCache.has(indicator)) {
+      const p = api.mapRange(indicator);
+      p.catch(() => rangeCache.delete(indicator));
+      rangeCache.set(indicator, p);
+    }
+    rangeCache.get(indicator)!.then((r) => live && setRange(r)).catch(() => {});
+    return () => { live = false; };
+  }, [indicator]);
+  return range;
 }
 
 // Values for one indicator and year, shared by every panel that asks (a page load's worth).
@@ -262,10 +415,12 @@ function mapValues(indicator: string, year: number): Promise<Value[]> {
 type Column = { key: string; label: string; unit: string; decimals: number; values: Map<string, Value> };
 type Sort = { by: string; desc: boolean };
 
-function TableView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover }: {
+function TableView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
+  clicks: Clicks; exporter: React.RefObject<Exporter>;
 }) {
+  const handlers = useClickHandlers(clicks);
   // The panel's indicator, any extra indicators picked for this table (same year),
   // and optionally its change over ten years.
   const extra = panel.cols.filter((c) => c !== panel.indicator && (c === CHANGE_COL || indicators.some((i) => i.indicator_id === c)));
@@ -335,6 +490,14 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
   );
   const fmt = (c: Column, v: Value | undefined) =>
     v === undefined ? "–" : `${c.key === CHANGE_COL && v.value > 0 ? "+" : ""}${formatValue(v.value, c.unit === "points" ? "" : c.unit, c.decimals)}${c.key === CHANGE_COL && c.unit === "points" ? " pts" : ""}${v.status === "P" ? " *" : ""}`;
+  exporter.current = {
+    name: fileName(indicator.indicator_id, "table", year),
+    csv: () => csvText(["rank", "entity_id", "name", ...columns.flatMap((c) => [c.label, `${c.label} status`])],
+      rows.map((id) => [ranks.get(id), id, names.get(id) ?? id,
+        ...columns.flatMap((c) => [c.values.get(id)?.value, c.values.get(id)?.status])])),
+    png: async () => tablePng(`${indicator.name}, ${year}`, ["Rank", "Country", ...columns.map((c) => c.label)],
+      rows.map((id) => [String(ranks.get(id) ?? "–"), names.get(id) ?? id, ...columns.map((c) => fmt(c, c.values.get(id)))])),
+  };
 
   return (
     <>
@@ -358,7 +521,7 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
               const on = selection.includes(id);
               return (
                 <tr key={id} className={[on ? "selected" : "", hovered === id ? "hovered" : ""].join(" ")}
-                  onClick={() => dispatch({ type: "toggleSelect", entity: id, panel: panel.id })}
+                  onClick={(e) => handlers.click(id, e)} onDoubleClick={(e) => handlers.double(id, e)}
                   onMouseEnter={() => onHover(id)} aria-selected={on}>
                   <td className="num">{ranks.get(id) ?? "–"}</td>
                   <td>{names.get(id) ?? id}</td>
@@ -370,7 +533,7 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
         </table>
       </div>
       <p className="caption">
-        {sourceLine(indicator)}. {rows.length} countries. Click a row to select it; click a heading to sort.
+        {sourceLine(indicator)}. {rows.length} countries. {clicks.mode === "popup" ? "Click a row for its popup, shift-click to select it" : "Click a row to select it, double-click for its popup"}; click a heading to sort.
         {[...main.values()].some((r) => r.status === "P") ? " * projection." : ""}
       </p>
     </>
@@ -442,9 +605,10 @@ function ColumnsMenu({ panel, indicators, dispatch, lines = false, units = [] }:
   );
 }
 
-function ChartView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover }: {
+function ChartView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number | null; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
+  clicks: Clicks; exporter: React.RefObject<Exporter>;
 }) {
   // With nothing selected, show the world so the panel is never empty.
   const ids = selection.length ? selection : ["world"];
@@ -463,18 +627,53 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
     return () => { live = false; };
   }, [showKey, key]);
   const entities = useMemo(() => key.split(",").map((id) => ({ id, name: names.get(id) ?? id })), [key, names]);
+
+  // Years shown: quick choices around today, or a span dragged on the slider under the chart.
+  const opts = scatterOptions(panel.xy);
+  const range = parseRange(panel.range);
+  const [from, to] = chartSpan(panel.range);
+  const setRange = (r: string) => dispatch({ type: "panel", id: panel.id, patch: { range: r } });
+  const setTrim = (trim: boolean) => dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, trim }) } });
+  const extent = useMemo(() => {
+    const ys = (rows ?? []).flat().map((r) => +r.period);
+    return ys.length ? [Math.min(...ys), Math.max(...ys)] as const : null;
+  }, [rows]);
+  const span = extent ? [Math.max(extent[0], Math.min(extent[1], from ?? extent[0])), Math.min(extent[1], Math.max(extent[0], to ?? extent[1]))] as const : null;
+
   const option = useCallback(() => {
     const layers = shown.map((i, n) => ({ id: i.indicator_id, name: i.name, unit: i.unit, decimals: i.decimals, rows: rows?.[n] ?? [] }));
     const o = linesOption(layers, entities);
-    if (year === null) return o;
+    const series: object[] = (o.series as object[]).map((x) => ({ ...x, triggerLineEvent: true }));
     // A thin rule at the panel's year, so a linked or playing year shows here too.
-    const marker = {
+    if (year !== null) series.push({
       type: "line" as const, id: "year-marker", data: [], silent: true,
       markLine: { symbol: "none", silent: true, animation: false, label: { show: false },
         lineStyle: { color: cssVar("--muted"), type: "solid" as const, width: 1 }, data: [{ xAxis: year }] },
-    };
-    return { ...o, series: [...(o.series as object[]), marker] } as typeof o;
-  }, [rows, entities, shown, year]);
+    });
+    let yAxis = o.yAxis;
+    // Ignore outliers: fit the left axis to most of the values in view; spikes run off the edge.
+    if (opts.trim && span) {
+      const left = layers.filter((l) => l.unit === layers[0].unit).flatMap((l) => l.rows)
+        .filter((r) => +r.period >= span[0] && +r.period <= span[1]).map((r) => r.value);
+      const fence = outlierFence(left, false);
+      if (fence) {
+        const pad = (fence[1] - fence[0]) * 0.05;
+        const first = Array.isArray(yAxis) ? yAxis[0] : yAxis;
+        const trimmed = { ...(first as object), min: fence[0] - pad, max: fence[1] + pad, scale: true,
+          name: `${(first as { name?: string }).name ?? ""} (outliers cut off)` };
+        yAxis = (Array.isArray(yAxis) ? [trimmed, ...yAxis.slice(1)] : trimmed) as typeof yAxis;
+      }
+    }
+    return {
+      ...o, yAxis, series,
+      grid: { ...(o.grid as object), bottom: 40 },
+      dataZoom: span ? [{
+        type: "slider" as const, xAxisIndex: 0, filterMode: "filter" as const, realtime: false, height: 18, bottom: 6,
+        startValue: span[0], endValue: span[1], labelFormatter: (v: number) => String(Math.round(v)), brushSelect: false,
+        borderColor: cssVar("--border"), textStyle: { color: cssVar("--muted") },
+      }] : undefined,
+    } as typeof o;
+  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1]]);
   const hasRows = rows?.some((r) => r.length > 0);
   const units = [...new Set(shown.map((i) => i.unit))];
 
@@ -482,10 +681,23 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
   const chart = useRef<ECharts | null>(null);
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
+  const handlers = useClickHandlers(clicks);
+  const clickRef = useRef(handlers);
+  clickRef.current = handlers;
+  const rangeRef = useRef(setRange);
+  rangeRef.current = setRange;
   const onReady = useCallback((c: ECharts) => {
     chart.current = c;
-    c.on("mouseover", (p) => { if (p.seriesName && p.seriesName !== "year-marker") hoverRef.current(String(p.seriesName).split("|")[0]); });
+    const entityOf = (p: { seriesName?: string }) => (p.seriesName && p.seriesName !== "year-marker" ? String(p.seriesName).split("|")[0] : null);
+    c.on("mouseover", (p) => { const e = entityOf(p); if (e) hoverRef.current(e); });
     c.on("mouseout", () => hoverRef.current(null));
+    c.on("click", (p) => { const e = entityOf(p); const ev = (p.event as { event?: MouseEvent } | undefined)?.event; if (e && ev) clickRef.current.click(e, ev); });
+    c.on("dblclick", (p) => { const e = entityOf(p); const ev = (p.event as { event?: MouseEvent } | undefined)?.event; if (e && ev) clickRef.current.double(e, ev); });
+    // Dragging the slider sets a span of years, kept with the panel.
+    c.on("datazoom", () => {
+      const dz = (c.getOption().dataZoom as { startValue?: number; endValue?: number }[] | undefined)?.[0];
+      if (dz?.startValue !== undefined && dz.endValue !== undefined) rangeRef.current(`${Math.round(dz.startValue)}-${Math.round(dz.endValue)}`);
+    });
   }, []);
   useEffect(() => {
     const c = chart.current;
@@ -494,18 +706,56 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
     c.dispatchAction({ type: "highlight", seriesId });
     return () => { if (!c.isDisposed()) c.dispatchAction({ type: "downplay", seriesId }); };
   }, [hovered, key, rows, showKey]);
+
+  const title = `${shown.map((i) => i.name).join(", ")}${span ? `, ${span[0]}–${span[1]}` : ""}`;
+  exporter.current = {
+    name: fileName(showKey.replace(/,/g, "-"), span?.[0], span?.[1]),
+    csv: () => csvText(["entity_id", "name", "indicator_id", "year", "value", "status", "source_id", "vintage"],
+      (rows ?? []).flat().filter((r) => !span || (+r.period >= span[0] && +r.period <= span[1]))
+        .map((r) => [r.entity_id, names.get(r.entity_id) ?? r.entity_id, r.indicator_id, r.period.slice(0, 4), r.value, r.status, r.source_id, r.vintage])),
+    png: () => chartPng(chart.current, title, `${entities.map((e) => e.name).join(", ")}. ${sourceLine(indicator)}.`),
+  };
+  const histOn = range.custom ? "" : range.history;
+  const foreOn = range.custom ? "" : range.forecast;
   return (
     <>
       {error && <p className="error">{error}</p>}
       <div className="table-tools">
         <ColumnsMenu panel={panel} indicators={indicators} dispatch={dispatch} lines units={units} />
+        <div className="range-picker small" role="group" aria-label="Years shown">
+          <span className="muted">Back</span>
+          <div className="seg">
+            {HISTORY_CHOICES.map((h) => (
+              <button key={h} className={histOn === h ? "on" : ""} aria-pressed={histOn === h}
+                title={h === "a" ? "All history" : `${h} years back from today`}
+                onClick={() => setRange(rangeString({ history: h, forecast: range.custom ? "a" : range.forecast }))}>{h === "a" ? "All" : h}</button>
+            ))}
+          </div>
+          <span className="muted">Ahead</span>
+          <div className="seg">
+            {FORECAST_CHOICES.map((f) => (
+              <button key={f} className={foreOn === f ? "on" : ""} aria-pressed={foreOn === f}
+                title={f === "a" ? "All projections" : f === "0" ? "No projections" : `${f} years ahead of today`}
+                onClick={() => setRange(rangeString({ history: range.custom ? "a" : range.history, forecast: f }))}>{f === "a" ? "All" : f === "0" ? "None" : f}</button>
+            ))}
+          </div>
+          {range.custom && (
+            <span className="chip" title="Set by dragging the slider under the chart">
+              {range.custom[0]}–{range.custom[1]}
+              <button aria-label="Show all years" onClick={() => setRange("")}>×</button>
+            </span>
+          )}
+        </div>
+        <label className="small" title="Fit the axis to most of the values; spikes run off the edge">
+          <input type="checkbox" checked={opts.trim} onChange={(e) => setTrim(e.target.checked)} /> Ignore outliers
+        </label>
         {units.length > 1 && <span className="small muted">Right axis: {units[1]}</span>}
       </div>
       {rows && !hasRows && <p className="muted">No data for this indicator yet.</p>}
       {rows && hasRows && <div className="chart-fill"><EChart option={option} height="100%" label={`${indicator.name} chart`} onReady={onReady} /></div>}
       <p className="caption">
         {sourceLine(indicator)}. {selection.length ? "Selected countries." : "World shown; select countries on a map or table to compare."}
-        {rows?.some((r) => r.some((x) => x.status === "P")) ? " Dashed lines are projections." : ""}
+        {rows?.some((r) => r.some((x) => x.status === "P")) ? " Dashed lines are projections." : ""} Drag the ends of the slider for any span of years.
       </p>
     </>
   );
@@ -514,9 +764,10 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
 // One dot per country: the panel's indicator across, a second one up, and
 // optionally a third as bubble size. Dots can be coloured by region or group
 // and labelled. Click a dot to select the country.
-function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover }: {
+function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
+  clicks: Clicks; exporter: React.RefObject<Exporter>;
 }) {
   const opts = scatterOptions(panel.xy);
   const usable = indicators.filter((i) => i.available);
@@ -565,22 +816,49 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
 
   const hoverRef = useRef(onHover);
   hoverRef.current = onHover;
-  const pickRef = useRef((id: string) => dispatch({ type: "toggleSelect", entity: id, panel: panel.id }));
-  pickRef.current = (id: string) => dispatch({ type: "toggleSelect", entity: id, panel: panel.id });
+  const handlers = useClickHandlers(clicks);
+  const clickRef = useRef(handlers);
+  clickRef.current = handlers;
   const chart = useRef<ECharts | null>(null);
   const onReady = useCallback((c: ECharts) => {
     chart.current = c;
-    c.on("mouseover", (p) => { if (p.name) hoverRef.current(String(p.name)); });
+    c.on("mouseover", (p) => { if (p.name && p.seriesId !== "linked") hoverRef.current(String(p.name)); });
     c.on("mouseout", () => hoverRef.current(null));
-    c.on("click", (p) => { if (p.name) pickRef.current(String(p.name)); });
+    const ev = (p: { event?: unknown }) => (p.event as { event?: MouseEvent } | undefined)?.event;
+    c.on("click", (p) => { const e = ev(p); if (p.name && e) clickRef.current.click(String(p.name), e); });
+    c.on("dblclick", (p) => { const e = ev(p); if (p.name && e) clickRef.current.double(String(p.name), e); });
   }, []);
-  // A country hovered in another panel lights up here too.
+  // A country hovered in another panel lights up here too, with its name: drawn
+  // as a separate one-dot series so label crowding never hides it.
   useEffect(() => {
     const c = chart.current;
     if (!c || !hovered) return;
+    type Dot = { name: string; value: number[]; symbolSize?: number; symbol?: string; symbolRotate?: number };
+    const opt = c.getOption() as { series?: { id?: string; data?: Dot[] }[] };
+    const dot = opt.series?.find((x) => x.id !== "linked")?.data?.find((d) => d.name === hovered);
+    if (!dot) return;
     c.dispatchAction({ type: "highlight", seriesIndex: 0, name: hovered });
-    return () => { if (!c.isDisposed()) c.dispatchAction({ type: "downplay", seriesIndex: 0, name: hovered }); };
-  }, [hovered, points]);
+    // Only the dot's place and shape: its own label and colour settings would hide the name.
+    c.setOption({ series: [{
+      id: "linked", type: "scatter", silent: true, z: 10, animation: false,
+      data: [{ name: dot.name, value: dot.value, symbol: dot.symbol, symbolRotate: dot.symbolRotate, symbolSize: dot.symbolSize,
+        itemStyle: { color: "transparent", borderColor: cssVar("--ink"), borderWidth: 2 },
+        label: { show: true, formatter: names.get(hovered) ?? hovered, position: "right", color: cssVar("--ink"), fontWeight: "bold",
+          fontSize: 12, backgroundColor: cssVar("--surface"), padding: [1, 4], borderRadius: 3 } }],
+    }] });
+    return () => {
+      if (c.isDisposed()) return;
+      c.dispatchAction({ type: "downplay", seriesIndex: 0, name: hovered });
+      c.setOption({ series: [{ id: "linked", data: [] }] });
+    };
+  }, [hovered, points, names]);
+  exporter.current = {
+    name: fileName(indicator.indicator_id, yInd.indicator_id, sizeInd?.indicator_id, year),
+    csv: () => csvText(["entity_id", "name", indicator.indicator_id, yInd.indicator_id, ...(sizeInd ? [sizeInd.indicator_id] : []), "year", "projection"],
+      points.map((p) => [p.id, p.name, p.x, p.y, ...(sizeInd ? [p.size] : []), year, p.proj ? "yes" : ""])),
+    png: () => chartPng(chart.current, `${yInd.name} against ${indicator.name}, ${year}`,
+      `${points.length} countries.${sizeInd ? ` Bubble area: ${sizeInd.name.toLowerCase()}.` : ""} Sources: ${sourceLine(indicator)}, ${sourceLine(yInd)}.`),
+  };
 
   const groupList = useGroupList();
   const domains = [...new Set(usable.map((i) => i.domain))];
@@ -648,7 +926,7 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
       )}
       <p className="caption">
         {points.length} countries in {year}.{sizeInd ? ` Bubble area shows ${sizeInd.name.toLowerCase()}.` : ""}
-        {points.some((p) => p.proj) ? " Faded dots are projections." : ""} Click a dot to select the country; press ▶ to play through the years.
+        {points.some((p) => p.proj) ? " Faded dots are projections." : ""} {clicks.mode === "popup" ? "Click a dot for its popup, shift-click to select" : "Click a dot to select, double-click for its popup"}; press ▶ to play through the years.
       </p>
     </>
   );
@@ -697,8 +975,9 @@ function useGroupList(): Entity[] {
 
 // One population pyramid, optionally with a second drawn over it as an outline:
 // the second selected country in the same year, or the same country in another year.
-function PyramidView({ panel, year, names, selection, dispatch }: {
+function PyramidView({ panel, year, names, selection, dispatch, exporter }: {
   panel: PanelState; year: number; names: Map<string, string>; selection: string[]; dispatch: (a: Action) => void;
+  exporter: React.RefObject<Exporter>;
 }) {
   const opts = pyramidOptions(panel.pyr);
   const setOpts = (o: Partial<typeof opts>) =>
@@ -731,6 +1010,15 @@ function PyramidView({ panel, year, names, selection, dispatch }: {
     opts.absolute,
   ), [a, b, opts.absolute, names]);
   const years = a?.years_available ?? [];
+  const chart = useRef<ECharts | null>(null);
+  const onReady = useCallback((c: ECharts) => { chart.current = c; }, []);
+  exporter.current = {
+    name: fileName("pyramid", a?.entity, a?.year, b?.entity !== a?.entity ? b?.entity : "", b?.year),
+    csv: () => csvText(["entity_id", "year", "age", "male", "female"],
+      [a, b].flatMap((d) => (d ? d.groups.map((g) => [d.entity, d.year, g.age, g.male, g.female]) : []))),
+    png: () => chartPng(chart.current, `Population by age: ${a ? label(a) : ""}${b && b.groups.length ? ` and ${label(b)}` : ""}`,
+      `${opts.absolute ? "People" : "Share of each population"}. UN WPP.`),
+  };
 
   return (
     <>
@@ -758,7 +1046,7 @@ function PyramidView({ panel, year, names, selection, dispatch }: {
       {error && <p className="error">{error}</p>}
       {a && !a.groups.length && <p className="muted">No age breakdown for {names.get(base) ?? base}.</p>}
       {a && a.groups.length > 0 && (
-        <div className="chart-fill"><EChart option={option} height="100%" label={`Population pyramid of ${label(a)}`} /></div>
+        <div className="chart-fill"><EChart option={option} height="100%" label={`Population pyramid of ${label(a)}`} onReady={onReady} /></div>
       )}
       <p className="caption">
         UN WPP. {selection.length ? "" : "World shown; select a country to see its pyramid. "}

@@ -99,3 +99,43 @@ def test_refresh_skips_downloads_the_server_says_are_unchanged(home):
     again, new_again = CONNECTORS["un_wpp"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
     assert not new_again and again.vintage == first.vintage
     assert len(served) == 2  # nothing downloaded the second time
+
+
+def test_build_logs_changes_disk_and_storage(home, monkeypatch):
+    import json
+
+    from typer.testing import CliRunner
+
+    from worldmodel_contract import local
+    from worldmodel_data.cli import app
+
+    monkeypatch.setenv("WORLDMODEL_HOME", str(home.home))
+    monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
+    fetch_all(home)
+    runner = CliRunner()
+    first = runner.invoke(app, ["build"])
+    assert first.exit_code == 0, first.output
+    assert "Whole data folder:" in first.output
+    second = runner.invoke(app, ["build"])
+    assert second.exit_code == 0, second.output
+    log = [json.loads(line) for line in local.refresh_log_path(home.home).read_text().splitlines()]
+    assert [r["kind"] for r in log] == ["build", "build"]
+    wpp = {s["source_id"]: s for s in log[0]["sources"]}["un_wpp"]
+    assert wpp["added"] == wpp["rows"] > 1000
+    again = {s["source_id"]: s for s in log[1]["sources"]}["un_wpp"]
+    assert again["added"] == again["changed"] == again["removed"] == 0
+    assert log[1]["disk"]["builds"] > 0 and log[1]["checks"]["fail"] == 0
+    assert "## Storage" in (home.reports / f"{log[1]['build_id']}.md").read_text()
+    assert [r["build_id"] for r in local.read_refresh_log(home.home)] == [r["build_id"] for r in log]
+
+
+def test_free_space_keeps_the_newest_downloads(home):
+    from worldmodel_contract import local
+
+    for stamp in ("20250101T000000Z", "20250601T000000Z", "20260101T000000Z"):
+        d = home.raw / "imf_weo" / "2025-10" / stamp
+        d.mkdir(parents=True)
+        (d / "a.xls").write_bytes(b"x" * 10)
+    assert [f["fetched"] for f in local.freeable_raw(home.home)] == ["20250101T000000Z"]
+    assert local.free_raw(home.home)["freed_bytes"] == 10
+    assert sorted(p.name for p in (home.raw / "imf_weo" / "2025-10").iterdir()) == ["20250601T000000Z", "20260101T000000Z"]
