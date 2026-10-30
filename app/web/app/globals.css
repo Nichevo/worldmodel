@@ -242,6 +242,12 @@ table.datasets tr.clickable { cursor: pointer; }
 table.datasets .nowrap { white-space: nowrap; }
 table.datasets tr.clickable:hover td { background: var(--surface-2); }
 table.datasets tr.detail > td { background: var(--surface-2); padding: 10px 12px 14px; }
+.layouts .links-menu { left: 0; right: auto; width: 280px; }
+.layouts form { gap: 6px; }
+.layouts form input { flex: 1; min-width: 0; padding: 4px 8px; }
+.links-menu button.link { border: 0; background: none; padding: 2px 0; color: var(--accent); text-align: left; }
+.links-menu button.link:hover { text-decoration: underline; }
+.links-menu .layout-row button.x { border: 0; background: none; color: var(--muted); padding: 0 4px; }
 .th-sort { border: 0; background: none; padding: 0; font-weight: 600; color: var(--ink-2); }
 .divider { position: absolute; z-index: 5; touch-action: none; }
 .divider.col { top: 0; bottom: 0; width: 12px; cursor: col-resize; }

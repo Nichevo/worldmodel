@@ -76,4 +76,26 @@ def test_failed_gate_keeps_previous_build(home, tmp_path):
     assert home.current_build() == good
     report = exc.value.report.read_text()
     assert "assert_world_population_matches_countries" in report
+    assert "## Failing rows: dbt:assert_world_population_matches_countries" in report  # shows what broke
     assert list(home.builds.glob("*.failed.duckdb"))
+
+
+def test_refresh_skips_downloads_the_server_says_are_unchanged(home):
+    import httpx
+
+    served = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = request.url.path.rsplit("/", 1)[-1]
+        etag = f'"{name}-v1"'
+        if request.headers.get("if-none-match") == etag:
+            return httpx.Response(304, headers={"ETag": etag})
+        served.append(name)
+        return httpx.Response(200, content=(FIXTURES / "un_wpp" / name).read_bytes(), headers={"ETag": etag})
+
+    store = VintageStore(home)
+    first, new = CONNECTORS["un_wpp"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
+    assert new and len(served) == 2
+    again, new_again = CONNECTORS["un_wpp"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
+    assert not new_again and again.vintage == first.vintage
+    assert len(served) == 2  # nothing downloaded the second time

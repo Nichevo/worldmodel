@@ -6,11 +6,11 @@ import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState
 import Panel, { type Value } from "@/components/Panel";
 import Search from "@/components/Search";
 import { makeScale, type Scale } from "@/components/WorldMap";
-import { api, type Indicator } from "@/lib/api";
+import { api, type Indicator, type SavedLayout } from "@/lib/api";
 import { CameraBus } from "@/lib/camera";
 import { DIVERGING, seriesVar } from "@/lib/colors";
 import {
-  LAYOUTS, MAX_PANELS, MAX_SELECTION, fromQuery, reducer, selectionOf, toQuery, type Group, type Layout, type Workspace,
+  LAYOUTS, MAX_PANELS, MAX_SELECTION, STARTERS, fromQuery, reducer, selectionOf, toQuery, type Group, type Layout, type Workspace,
 } from "@/lib/workspace";
 
 // Grid areas per layout; the panels fill a, b, c, d in order.
@@ -84,6 +84,7 @@ function ExploreWorkspace() {
       <div className="controls ws-bar">
         <h1 className="ws-title">World map</h1>
         <LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />
+        <LayoutsMenu ws={ws} onLoad={(query) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) })} />
         <SelectionBar ws={ws} names={names} dispatch={dispatch} />
       </div>
       {error && <p className="error">{error}</p>}
@@ -217,5 +218,74 @@ export default function ExplorePage() {
     <Suspense fallback={<p className="muted">Loading…</p>}>
       <ExploreWorkspace />
     </Suspense>
+  );
+}
+
+// Save the whole workspace under a name, and load saved ones or a starter.
+// Saved layouts are kept by the API in a user folder beside the data.
+function LayoutsMenu({ ws, onLoad }: { ws: Workspace; onLoad: (query: string) => void }) {
+  const box = useRef<HTMLDetailsElement>(null);
+  const [saved, setSaved] = useState<SavedLayout[]>([]);
+  const [name, setName] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const refresh = () => api.layouts().then(setSaved).catch((e) => setMsg(String(e.message || e)));
+
+  useEffect(() => {
+    refresh();
+    const close = (e: MouseEvent) => {
+      if (box.current?.open && !box.current.contains(e.target as Node)) box.current.open = false;
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = name.trim();
+    if (!n) return;
+    if (saved.some((l) => l.name === n) && !window.confirm(`Replace the saved layout "${n}"?`)) return;
+    try {
+      await api.saveLayout(n, toQuery(ws));
+      setName("");
+      setMsg(`Saved "${n}".`);
+      refresh();
+    } catch (err) {
+      setMsg(String((err as Error).message || err));
+    }
+  };
+  const remove = async (n: string) => {
+    if (!window.confirm(`Delete the saved layout "${n}"?`)) return;
+    await api.deleteLayout(n).catch((err) => setMsg(String(err.message || err)));
+    refresh();
+  };
+  const load = (query: string) => {
+    onLoad(query);
+    if (box.current) box.current.open = false;
+  };
+
+  return (
+    <details className="links layouts" ref={box}>
+      <summary>Layouts</summary>
+      <div className="links-menu">
+        <form onSubmit={save} className="row">
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name this layout" maxLength={60}
+            aria-label="Layout name" />
+          <button type="submit" disabled={!name.trim()}>Save</button>
+        </form>
+        {msg && <p className="caption">{msg}</p>}
+        <div className="menu-head">Saved</div>
+        {saved.length === 0 && <p className="caption">Nothing saved yet.</p>}
+        {saved.map((l) => (
+          <div className="row layout-row" key={l.name}>
+            <button className="link" onClick={() => load(l.query)} title={`Saved ${l.saved_at.slice(0, 10)}`}>{l.name}</button>
+            <button className="x" aria-label={`Delete ${l.name}`} onClick={() => remove(l.name)}>×</button>
+          </div>
+        ))}
+        <div className="menu-head">Starters</div>
+        {STARTERS.map((l) => (
+          <button className="link" key={l.name} onClick={() => load(l.query)}>{l.name}</button>
+        ))}
+      </div>
+    </details>
   );
 }

@@ -1,7 +1,8 @@
 """Worldmodel API, on localhost. Serves the web app and any other local tool.
 
-All endpoints are under /api/v1 and read the warehouse only. Interactive docs
-are at /docs when the server runs.
+All endpoints are under /api/v1 and read the warehouse only; saved layouts are
+the one thing written, to a user folder beside the data (see layouts.py).
+Interactive docs are at /docs when the server runs.
 """
 
 from __future__ import annotations
@@ -16,13 +17,13 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, series_sql, stream_query
-from worldmodel_api import __version__
+from worldmodel_api import __version__, layouts
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -33,7 +34,7 @@ HEADLINE = ["pop_total", "pop_growth_rate", "tfr", "median_age", "life_expectanc
 app = FastAPI(title="Worldmodel API", version=__version__,
               description="Local read-only API over the worldmodel warehouse.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3030", "http://127.0.0.1:3030"],
-                   allow_methods=["GET"], allow_headers=["*"])
+                   allow_methods=["GET", "PUT", "DELETE"], allow_headers=["*"])
 api = APIRouter(prefix="/api/v1")
 warehouse = Warehouse()
 
@@ -269,6 +270,12 @@ def map_values(indicator: str, year: int, source: str | None = None):
 
 @api.get("/pyramid")
 def pyramid(entity: str, year: int):
+    """Population by age and sex. Age data comes every few years, so a year without it
+    falls back to the latest year before it (or the first year); `year` says which was used."""
+    years = [r["y"] for r in rows("SELECT DISTINCT year(period_start) AS y FROM series WHERE "
+                                  "indicator_id = 'pop_by_age_sex' AND entity_id = ? ORDER BY 1", [entity])]
+    if years and year not in years:
+        year = max((y for y in years if y <= year), default=years[0])
     data = rows("""
         SELECT split_part(split_part(breakdown, '|', 1), '=', 2) AS age,
             split_part(split_part(breakdown, '|', 2), '=', 2) AS sex, value, status, source_id, vintage, is_aggregate
@@ -279,11 +286,38 @@ def pyramid(entity: str, year: int):
         g = groups.setdefault(r["age"], {"age": r["age"]})
         g[r["sex"]] = r["value"]
     ordered = sorted(groups.values(), key=lambda g: int(g["age"].rstrip("+").split("-")[0]))
-    years = [r["y"] for r in rows("SELECT DISTINCT year(period_start) AS y FROM series WHERE "
-                                  "indicator_id = 'pop_by_age_sex' AND entity_id = ? ORDER BY 1", [entity])]
     first = data[0] if data else {}
     return {"entity": entity, "year": year, "groups": ordered, "years_available": years,
             "status": first.get("status"), "source_id": first.get("source_id"), "vintage": first.get("vintage")}
+
+
+# ----------------------------------------------------------------------------- saved layouts
+def _layout_name(name: str) -> str:
+    name = name.strip()
+    if not 1 <= len(name) <= 60 or any(c in name for c in "\r\n\t"):
+        raise HTTPException(422, "a layout name is 1 to 60 characters on one line")
+    return name
+
+
+@api.get("/layouts")
+def list_layouts():
+    return layouts.all_layouts()
+
+
+@api.put("/layouts/{name}")
+def save_layout(name: str, query: str = Body(..., embed=True, max_length=4000)):
+    """Save (or overwrite) a named layout: the map page's URL query."""
+    try:
+        return layouts.save(_layout_name(name), query.lstrip("?"))
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+
+
+@api.delete("/layouts/{name}")
+def delete_layout(name: str):
+    if not layouts.delete(_layout_name(name)):
+        raise HTTPException(404, f"no layout {name}")
+    return {"deleted": name}
 
 
 # ----------------------------------------------------------------------------- streams
