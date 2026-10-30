@@ -32,7 +32,7 @@ HEADLINE = ["pop_total", "pop_growth_rate", "tfr", "median_age", "life_expectanc
 
 app = FastAPI(title="Worldmodel API", version=__version__,
               description="Local read-only API over the worldmodel warehouse.")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3030", "http://127.0.0.1:3030"],
                    allow_methods=["GET"], allow_headers=["*"])
 api = APIRouter(prefix="/api/v1")
 warehouse = Warehouse()
