@@ -173,6 +173,11 @@ def test_storage_free_up_and_refresh_log(client, tmp_path, monkeypatch):
     (reports / "20260301T000000Z.md").write_text("# Build x\n\nResult: passed, live\n\n| a | b | pass | d |\n")
     log = client.get("/api/v1/refresh-log").json()
     assert log[0]["build_id"] == "20260301T000000Z" and log[0]["checks"]["pass"] == 1 and log[0]["backfilled"]
+    assert client.get("/api/v1/problems").json() == []  # one passing build: nothing to report
+    (reports / "20260302T000000Z.md").write_text(
+        "# Build y\n\nResult: FAILED, not swapped in\n\n| dbt:unique_combination_observations_x | dbt_test | fail | 2 failing row(s) |\n")
+    got = client.get("/api/v1/problems").json()
+    assert [(p["title"], p["times"], p["open"]) for p in got] == [("Duplicate rows", 1, True)]
 
 
 def test_whatif_defaults_match_un_and_levers_move_it(client):
