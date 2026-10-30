@@ -34,15 +34,26 @@ What is stored:
 All values are the World Bank's estimates (status E); WDI has no projections.
 A copy of the zip, or a folder holding the CSV files, can be given instead:
 worldmodel-data fetch world_bank_wdi --from PATH.
+
+If the bulk file cannot be downloaded (the World Bank's download server sometimes
+refuses scripts with HTTP 403), the series the catalogue maps and the MAIN ones
+(about 150) are fetched from the World Bank's Indicators API instead, one request
+per series (https://api.worldbank.org/v2/country/all/indicator/<code>?source=2),
+plus one for the list of economies with their regions and income groups. They are
+written into a zip of the bulk layout (WDI_API.zip), so staging is the same. The
+other series wait for the next refresh that gets the bulk file.
 """
 
 from __future__ import annotations
 
 import csv
+import io
+import json
 import logging
 import re
 import shutil
 import tempfile
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -55,6 +66,9 @@ log = logging.getLogger(__name__)
 
 URL = "https://databank.worldbank.org/data/download/WDI_CSV.zip"
 FILE = "WDI_CSV.zip"
+API = "https://api.worldbank.org/v2"
+API_FILE = "WDI_API.zip"
+API_PAUSE = 0.3  # seconds between API requests
 DATA_FILE = re.compile(r"^WDI(CSV|Data)\.csv$", re.I)
 SERIES_FILE = re.compile(r"^WDISeries\.csv$", re.I)
 COUNTRY_FILE = re.compile(r"^WDICountry\.csv$", re.I)
@@ -214,6 +228,14 @@ TOPIC_DOMAIN = {
 }
 CODE_DOMAIN = (("MS.MIL.", "military"), ("SP.POP.", "population"), ("SP.DYN.", "population"),
                ("SM.POP.", "migration"), ("PA.NUS.", "prices"), ("FR.INR.", "prices"))
+# When a series has no topic (the API fallback carries none), its code's prefix.
+PREFIX_DOMAIN = (("SP.URB.", "cities"), ("EN.URB.", "cities"), ("NY.", "economy"), ("NE.", "economy"),
+                 ("NV.", "economy"), ("SL.", "labour"), ("SH.", "health"), ("SN.", "health"), ("SE.", "education"),
+                 ("SI.", "poverty"), ("GC.", "government"), ("SG.", "gender"), ("FM.", "finance"), ("FS.", "finance"),
+                 ("FI.", "finance"), ("CM.", "finance"), ("BX.", "trade"), ("BN.", "trade"), ("TX.", "trade"),
+                 ("TM.", "trade"), ("ST.", "trade"), ("DT.", "debt"), ("EG.", "energy"), ("EN.", "environment"),
+                 ("ER.", "environment"), ("AG.", "agriculture"), ("IT.", "infrastructure"),
+                 ("IS.", "infrastructure"), ("IP.", "science"), ("GB.", "science"), ("VC.", "society"))
 SUM_METHODS = ("sum", "gap-filled total")
 UNIT_HINT = re.compile(r"%|\$|US\$|LCU|per |number|km|kg|kt|mt|hectares|tonnes|kwh|years|days|index|ratio|people|persons", re.I)
 
@@ -232,8 +254,93 @@ class WorldBankWDI(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        self.get(URL, raw_dir / FILE)
-        return URL
+        try:
+            self.get(URL, raw_dir / FILE)
+            if not zipfile.is_zipfile(raw_dir / FILE):
+                raise ConnectorError(f"GET {URL} did not return a zip file")
+            return URL
+        except ConnectorError as exc:
+            (raw_dir / FILE).unlink(missing_ok=True)
+            log.warning("world_bank_wdi: the bulk file could not be downloaded (%s); fetching the main series "
+                        "from the World Bank's Indicators API instead", exc)
+        codes = sorted(set(self.series_map()) | {c for alts in MAIN.values() for c in alts})
+        self.from_api(raw_dir / API_FILE, codes)
+        return f"{API} ({len(codes)} series; the bulk file {URL} was refused)"
+
+    def from_api(self, dest: Path, codes: list[str]) -> None:
+        """The given series, the economies and their income groups from the Indicators API,
+        written as a zip in the bulk layout."""
+        with tempfile.TemporaryDirectory(prefix="wdi-api-") as work:
+            work = Path(work)
+            countries = self._api_pages("country", work, "countries")
+            values: dict[tuple[str, str], dict[int, str]] = {}
+            names: dict[str, str] = {}
+            failed = []
+            for code in codes:
+                time.sleep(API_PAUSE)
+                try:
+                    rows = self._api_pages(f"country/all/indicator/{code}", work, code, source=2)
+                except ConnectorError as exc:  # an old code the World Bank has dropped, say
+                    failed.append(code)
+                    log.info("world_bank_wdi: %s skipped (%s)", code, exc)
+                    continue
+                for r in rows:
+                    econ, year = (r.get("countryiso3code") or "").strip(), str(r.get("date") or "")
+                    if econ and r.get("value") is not None and re.fullmatch(r"(19|20)\d\d", year):
+                        values.setdefault((econ, code), {})[int(year)] = str(r["value"])
+                        names.setdefault(code, (r.get("indicator") or {}).get("value") or code)
+        if not values:
+            raise ConnectorError("world_bank_wdi: neither the bulk file nor the Indicators API gave any data. Download "
+                                 f"{URL} in a browser and load it with: worldmodel-data fetch world_bank_wdi --from FILE")
+        if failed:
+            log.warning("world_bank_wdi: %s of %s series not found in the API: %s", len(failed), len(codes),
+                        ", ".join(failed[:20]))
+        years = sorted({y for v in values.values() for y in v})
+        data = io.StringIO()
+        w = csv.writer(data)
+        w.writerow(["Country Name", "Country Code", "Indicator Name", "Indicator Code", *map(str, years)])
+        econ_names = {c.get("id"): c.get("name", "") for c in countries}
+        for (econ, code), by_year in sorted(values.items()):
+            w.writerow([econ_names.get(econ, econ), econ, names[code], code, *[by_year.get(y, "") for y in years]])
+        series = io.StringIO()
+        w = csv.writer(series)
+        w.writerow(["Series Code", "Indicator Name"])
+        w.writerows(sorted(names.items()))
+        country = io.StringIO()
+        w = csv.writer(country)
+        w.writerow(["Country Code", "Short Name", "2-alpha code", "Region", "Income Group"])
+        for c in countries:
+            region = (c.get("region") or {}).get("value", "").strip()
+            income = (c.get("incomeLevel") or {}).get("value", "").strip()
+            w.writerow([c.get("id", ""), c.get("name", ""), c.get("iso2Code", ""),
+                        "" if region.lower() == "aggregates" else region,
+                        income if income.lower() in INCOME_GROUPS else ""])
+        with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
+            for name, text in (("WDICSV.csv", data), ("WDISeries.csv", series), ("WDICountry.csv", country)):
+                # A fixed date inside the zip, so the same data makes the same file (and no new vintage).
+                z.writestr(zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0)), text.getvalue(),
+                           compress_type=zipfile.ZIP_DEFLATED)
+        log.info("world_bank_wdi: %s series for %s economies from the Indicators API", len(names),
+                 len({e for e, _ in values}))
+
+    def _api_pages(self, path: str, work: Path, name: str, **params) -> list[dict]:
+        """Every row of one Indicators API listing, following its pages."""
+        out, page = [], 1
+        while True:
+            query = "&".join(f"{k}={v}" for k, v in {**params, "format": "json", "per_page": 20000, "page": page}.items())
+            dest = work / f"{re.sub(r'[^A-Za-z0-9.]+', '_', name)}_{page}.json"
+            self.get(f"{API}/{path}?{query}", dest)
+            try:
+                body = json.loads(dest.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                raise ConnectorError(f"{path}: the API did not return JSON ({exc})") from None
+            if not isinstance(body, list) or len(body) < 2 or not isinstance(body[1], list):
+                message = body[0].get("message") if isinstance(body, list) and body and isinstance(body[0], dict) else body
+                raise ConnectorError(f"{path}: no data ({str(message)[:200]})")
+            out += body[1]
+            if page >= int(body[0].get("pages") or 1):
+                return out
+            page += 1
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         tmp = Path(tempfile.mkdtemp(prefix="wdi-"))
@@ -352,7 +459,8 @@ def _indicator(code: str, ind: str, meta: dict[str, str], name: str, main: bool)
     topic = meta.get("topic", "")
     domain = next((d for p, d in CODE_DOMAIN if code.startswith(p)), None) \
         or TOPIC_DOMAIN.get(topic.split(":")[0].strip().lower()) \
-        or (re.sub(r"[^a-z]+", "_", topic.split(":")[0].strip().lower()).strip("_") or "other")
+        or re.sub(r"[^a-z]+", "_", topic.split(":")[0].strip().lower()).strip("_") \
+        or next((d for p, d in PREFIX_DOMAIN if code.startswith(p)), "other")
     unit = meta.get("unit of measure", "").strip() or _unit(name)
     description = (meta.get("short definition") or meta.get("long definition") or name).strip()
     if len(description) > 1200:

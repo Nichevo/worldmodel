@@ -24,7 +24,9 @@
   name: World Bank WDI bulk download (WDI_CSV.zip)
   env: []
   needs_key: false
-  limits: No key. One zip file of every series; downloaded again only when it has changed.
+  limits: No key. One zip file of every series; downloaded again only when it has changed. If the download
+    server refuses it, the main series (about 150) come from the Indicators API (api.worldbank.org), one
+    request per series, 0.3 seconds apart.
   status: active
 
 - source: owid_energy
