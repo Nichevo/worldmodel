@@ -4,6 +4,7 @@
   spot checks  known published values match (spot_checks.csv)
   shrinkage    no source or indicator lost a large share of its rows
   unmapped     source codes the crosswalk does not know (warning)
+  implausible  high/low variant or interval values left out as meaningless (info)
   manual       a random sample with links to the source sites, to check by eye
   what-if      the population what-if model, run with the UN's own inputs, against
                the UN projection (never fails: it says how far the model is from it)
@@ -44,7 +45,7 @@ class Check:
 
 def run(con: duckdb.DuckDBPyConnection, previous: Path | None, allow_shrink: bool = False) -> list[Check]:
     return [*coverage(con), *spot_checks(con), *shrinkage(con, previous, allow_shrink), *unmapped(con),
-            *whatif_model(con), manual_sample(con)]
+            *implausible_variants(con), *whatif_model(con), manual_sample(con)]
 
 
 def coverage(con) -> list[Check]:
@@ -120,6 +121,19 @@ def unmapped(con) -> list[Check]:
     listed = ", ".join(f"{s}:{c}" for s, _, c, _ in rows[:30])
     more = f" and {len(rows) - 30} more" if len(rows) > 30 else ""
     return [Check("unmapped", "crosswalk", "warn", f"{len(rows)} codes not in the crosswalk: {listed}{more}")]
+
+
+def implausible_variants(con) -> list[Check]:
+    """Values of high/low variants or prediction intervals left out as meaningless."""
+    rows = con.execute("""SELECT source_id, indicator_id, entity_id, variant, rows, first_year, last_year
+        FROM implausible_variant_values ORDER BY rows DESC, 1, 2, 3""").fetchall()
+    if not rows:
+        return [Check("implausible_variants", "variants", "pass", "every variant value is within reach of the bounds")]
+    total = sum(r[4] for r in rows)
+    return [Check("implausible_variants", "variants", "info",
+                  f"{total} variant value(s) left out as implausible (outside the room given around the "
+                  f"indicator's bounds, or infinite)",
+                  [f"{s} {i} {e} {v}: {n} row(s), {a}-{b}" for s, i, e, v, n, a, b in rows[:10]])]
 
 
 WHATIF_TOLERANCE = 1.0  # percent of total population, at every year compared
@@ -221,7 +235,8 @@ def write_report(path: Path, build_id: str, checks: list[Check], build_file: Pat
         lines.append(f"| {c.check_id} | {c.kind} | {c.status} | {' '.join(c.detail.replace('|', '/').split())} |")
     for c in checks:
         if c.examples:
-            lines += ["", f"## Failing rows: {c.check_id}", ""] + [f"- {e}" if e else "" for e in c.examples]
+            title = "Failing rows" if c.status == "fail" else "Details"
+            lines += ["", f"## {title}: {c.check_id}", ""] + [f"- {e}" if e else "" for e in c.examples]
     if manual:
         lines += ["", "## Check these by eye against the source sites", ""]
         lines += [f"- {line}" for line in manual.detail.splitlines()]
