@@ -27,7 +27,7 @@ class SeriesQuery:
     end: int | None = None
     source_id: str | None = None  # default: the indicator's rank-1 source
     breakdown: str | None = ""  # None = every breakdown
-    variant: str = "central"
+    variant: str = "central"  # one variant, several comma-separated (central,lower80,upper80), or "all"
     projections: bool = True
     as_of: date | None = None  # point in time: values as known on this date, from the vintages
 
@@ -66,8 +66,10 @@ def series_sql(q: SeriesQuery) -> tuple[str, list]:
     if q.breakdown is not None:
         where.append("s.breakdown = ?")
         params.append(q.breakdown)
-    where.append("s.variant = ?")
-    params.append(q.variant)
+    variants = [v.strip() for v in q.variant.split(",") if v.strip()]
+    if "all" not in variants:
+        where.append(f"s.variant IN ({', '.join('?' * len(variants))})")
+        params.extend(variants)
     if not q.projections:
         where.append("s.status = 'E'")
 
@@ -84,7 +86,7 @@ def series_sql(q: SeriesQuery) -> tuple[str, list]:
 
     sql = (f"SELECT s.entity_id, s.indicator_id, {period_label('s.')} AS period, "
            f"s.period_start, s.freq, s.breakdown, s.variant, s.source_id, s.vintage, s.value, s.status, {extra} "
-           f"FROM {table} WHERE {' AND '.join(where)} ORDER BY s.entity_id, s.breakdown, s.period_start")
+           f"FROM {table} WHERE {' AND '.join(where)} ORDER BY s.entity_id, s.breakdown, s.variant, s.period_start")
     return sql, params
 
 
@@ -97,6 +99,54 @@ def stream_query(stream: dict) -> SeriesQuery:
         start=stream.get("start"),
         end=stream.get("end"),
         source_id=stream.get("source"),
-        variant=stream.get("variant", "central"),
+        variant=",".join(stream["variants"]) if stream.get("variants") else stream.get("variant", "central"),
         projections=stream.get("projections", True),
     )
+
+
+def forecast_pairs_sql(indicator_id: str, entity_ids: list[str] | None = None, countries_only: bool = True,
+                       source_id: str = "imf_weo") -> tuple[str, list]:
+    """Each past forecast next to what happened, for a forecast track record.
+
+    Forecasts come from every stored vintage of the source (one per release) and
+    from <source>_history (all releases in one vintage, breakdown 'release=YYYY-MM'),
+    the history file winning where both have a release. What happened is the
+    latest vintage's estimate (status E), so it is null for years not yet known.
+    Rows: entity_id, release ('YYYY-MM'), year, horizon (year - release year),
+    forecast, actual."""
+    params: list = [source_id, indicator_id, f"{source_id}_history", indicator_id, source_id, indicator_id]
+    ent = ""
+    if entity_ids:
+        ent = f"AND f.entity_id IN ({', '.join('?' * len(entity_ids))})"
+        params.extend(entity_ids)
+    if countries_only:
+        ent += " AND f.entity_id IN (SELECT entity_id FROM entities WHERE type = 'country')"
+    sql = f"""
+        WITH own AS (
+            SELECT entity_id, left(vintage, 7) AS release, year(period_start) AS year, value
+            FROM observations
+            WHERE source_id = ? AND indicator_id = ? AND breakdown = '' AND variant = 'central' AND freq = 'A'
+                AND regexp_matches(vintage, '^\\d{{4}}-\\d{{2}}')
+        ),
+        hist AS (
+            SELECT entity_id, split_part(breakdown, '=', 2) AS release, year(period_start) AS year, value
+            FROM series
+            WHERE source_id = ? AND indicator_id = ? AND breakdown LIKE 'release=%' AND variant = 'central'
+        ),
+        forecasts AS (
+            SELECT * FROM hist
+            UNION ALL
+            SELECT * FROM own o WHERE NOT EXISTS (
+                SELECT 1 FROM hist h WHERE h.release = o.release AND h.entity_id = o.entity_id)
+        ),
+        actual AS (
+            SELECT entity_id, year(period_start) AS year, value FROM series
+            WHERE source_id = ? AND indicator_id = ? AND breakdown = '' AND variant = 'central' AND status = 'E'
+        )
+        SELECT f.entity_id, f.release, f.year, f.year - CAST(left(f.release, 4) AS INTEGER) AS horizon,
+            any_value(f.value) AS forecast, any_value(a.value) AS actual
+        FROM forecasts f LEFT JOIN actual a ON a.entity_id = f.entity_id AND a.year = f.year
+        WHERE f.year >= CAST(left(f.release, 4) AS INTEGER) - 1 {ent}
+        GROUP BY ALL
+        ORDER BY f.entity_id, f.release, f.year"""
+    return sql, params

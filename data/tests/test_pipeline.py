@@ -90,6 +90,8 @@ def test_refresh_skips_downloads_the_server_says_are_unchanged(home):
         etag = f'"{name}-v1"'
         if request.headers.get("if-none-match") == etag:
             return httpx.Response(304, headers={"ETag": etag})
+        if not (FIXTURES / "un_wpp" / name).exists():
+            return httpx.Response(404)  # the optional other-variants file: only warns
         served.append(name)
         return httpx.Response(200, content=(FIXTURES / "un_wpp" / name).read_bytes(), headers={"ETag": etag})
 
