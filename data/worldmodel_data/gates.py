@@ -5,6 +5,8 @@
   shrinkage    no source or indicator lost a large share of its rows
   unmapped     source codes the crosswalk does not know (warning)
   manual       a random sample with links to the source sites, to check by eye
+  what-if      the population what-if model, run with the UN's own inputs, against
+               the UN projection (never fails: it says how far the model is from it)
 """
 
 from __future__ import annotations
@@ -16,6 +18,8 @@ from importlib import resources
 from pathlib import Path
 
 import duckdb
+
+from worldmodel_contract import cohort
 
 SPOT_CHECKS = Path(str(resources.files("worldmodel_data") / "spot_checks.csv"))
 
@@ -40,7 +44,7 @@ class Check:
 
 def run(con: duckdb.DuckDBPyConnection, previous: Path | None, allow_shrink: bool = False) -> list[Check]:
     return [*coverage(con), *spot_checks(con), *shrinkage(con, previous, allow_shrink), *unmapped(con),
-            manual_sample(con)]
+            *whatif_model(con), manual_sample(con)]
 
 
 def coverage(con) -> list[Check]:
@@ -116,6 +120,72 @@ def unmapped(con) -> list[Check]:
     listed = ", ".join(f"{s}:{c}" for s, _, c, _ in rows[:30])
     more = f" and {len(rows) - 30} more" if len(rows) > 30 else ""
     return [Check("unmapped", "crosswalk", "warn", f"{len(rows)} codes not in the crosswalk: {listed}{more}")]
+
+
+WHATIF_TOLERANCE = 1.0  # percent of total population, at every year compared
+BACKTEST_YEARS = 30
+
+
+def whatif_model(con) -> list[Check]:
+    """The what-if's default run per country against the UN: forward over the UN
+    projection, and a back-test from 30 years before the last estimate to it."""
+    loaded = {r[0] for r in con.execute("SELECT DISTINCT indicator_id FROM series").fetchall()}
+    if "pop_by_age_sex" not in loaded:
+        return [Check("whatif:model", "model", "skip", "no population pyramids loaded")]
+    countries = [r[0] for r in con.execute("SELECT entity_id FROM entities WHERE type = 'country' ORDER BY 1").fetchall()]
+    sql = cohort.inputs_sql()
+    runs: dict[str, list] = {"projection": [], "backtest": []}
+    failed, short = [], 0
+    for e in countries:
+        rows = con.execute(sql, [e]).fetchall()
+        inp = cohort.prepare(rows)
+        if inp is None:
+            continue
+        tests = []
+        if inp.last_year > inp.base_year:
+            # Only a fair test where the UN's own projected inputs run to the end.
+            held = cohort.fill_paths(inp.raw, inp.base_year, inp.last_year).held
+            if any(k in held for k in ("tfr", "e0_male", "e0_female", "net_migration")):
+                short += 1
+            else:
+                tests.append(("projection", inp, inp.last_year))
+        start = max((r[1] for r in rows if r[0] == "pop_by_age_sex" and r[1] <= inp.base_year - BACKTEST_YEARS),
+                    default=None)
+        old = cohort.prepare(rows, start) if start else None
+        if old:
+            tests.append(("backtest", old, inp.base_year))
+        for kind, i, end in tests:
+            un = {y: p for y, p in i.un.items() if y <= end}
+            if kind == "backtest":
+                un[inp.base_year] = inp.base
+            try:
+                run = cohort.whatif(i.base_year, i.base, i.raw, end, cohort.Levers(), un, i.un_totals)
+            except (ValueError, ZeroDivisionError, OverflowError) as exc:
+                failed.append(f"{e}: {exc}")
+                continue
+            if run["raw_error"]["worst_total_pct"] is not None:
+                runs[kind].append((run["raw_error"]["worst_total_pct"], e, i.base_year, end))
+    out = []
+    for kind, label in (("projection", "the UN projection"), ("backtest", "what happened")):
+        errors = sorted(runs[kind], reverse=True)
+        cid = f"whatif:{kind}"
+        if not errors:
+            why = (f"the UN's projected inputs (life expectancy, migration) stop before the projection ends for {short} "
+                   f"countries" if kind == "projection" and short else "no country had the data to compare with")
+            out.append(Check(cid, "model", "skip", why))
+            continue
+        within = sum(w <= WHATIF_TOLERANCE for w, *_ in errors)
+        share = within / len(errors)
+        years = f"{min(b for *_, b, _ in errors)}-{max(e for *_, e in errors)}"
+        furthest = ", ".join(f"{e} {w:.1f}%" for w, e, *_ in errors[:8])
+        detail = (f"Population what-if against {label}, {years}: {within} of {len(errors)} countries ({share:.0%}) within "
+                  f"{WHATIF_TOLERANCE:g}% of the UN total in every year; median largest gap "
+                  f"{errors[len(errors) // 2][0]:.2f}%. Furthest: {furthest}."
+                  + (f" Could not run: {'; '.join(failed[:5])}." if failed else "")
+                  + (" The app shows the UN figures plus what the levers change, so this gap is not in what you see."
+                     if kind == "projection" else ""))
+        out.append(Check(cid, "model", "pass" if share >= 0.9 and not failed else "warn", detail))
+    return out
 
 
 def manual_sample(con, n: int = 12) -> Check:
