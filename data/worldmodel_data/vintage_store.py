@@ -73,6 +73,7 @@ EVENT_COLUMNS = {
     "place": "VARCHAR",
     "url": "VARCHAR",
     "detail": "VARCHAR",
+    "color": "VARCHAR",
 }
 
 

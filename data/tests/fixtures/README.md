@@ -10,5 +10,7 @@ hand-made chart file in OWID's download layout (made-up values).
 Events: powell_thyne, ucdp_acd and emdat are small hand-made files in each
 source's own layout (a few real events, figures rounded or approximate, plus a
 made-up country that must not match); wikidata_*.json are hand-made query
-results in the Query Service's JSON layout. They also give the sample
-warehouse its handful of example events.
+results in the Query Service's JSON layout. The leaders file has the heads of
+government of New Zealand, the UK and the US since about 1960 with their parties
+and party colours (real names and dates; the people's QIDs from Q9900001 on are
+placeholders). They also give the sample warehouse its handful of example events.

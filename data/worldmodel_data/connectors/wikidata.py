@@ -18,7 +18,8 @@ Four more queries fetch dated events for the milestones (events.parquet):
 * elections: national presidential, general, legislative and parliamentary
   elections and referendums since 1945, past and scheduled (date P585);
 * leaders: heads of state (P35) and government (P6) with their start and end
-  dates, as periods;
+  dates, as periods, and the party (P102) each belonged to when the term began
+  with the party's colour (P465), for charts coloured by governing party;
 * sport: editions of the major championships in SPORT_COMPETITIONS, with host
   country (P17, or the country of the venue P276) and start and end dates;
   an event with several hosts has a row for each;
@@ -121,11 +122,17 @@ SELECT ?e ?eLabel ?iso3 ?date ?kindName WHERE {
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }""" % _names(ELECTION_TYPES),
     "leaders": """
-SELECT ?iso3 ?office ?person ?personLabel ?start ?end WHERE {
+SELECT ?iso3 ?office ?person ?personLabel ?start ?end ?party ?partyLabel ?partyStart ?partyEnd ?colour WHERE {
   VALUES (?p ?ps ?office) { (p:P35 ps:P35 "head of state") (p:P6 ps:P6 "head of government") }
   ?c wdt:P298 ?iso3 ; ?p ?st .
   ?st ?ps ?person ; pq:P580 ?start .
   OPTIONAL { ?st pq:P582 ?end }
+  OPTIONAL {
+    ?person p:P102 ?ms . ?ms ps:P102 ?party .
+    OPTIONAL { ?ms pq:P580 ?partyStart }
+    OPTIONAL { ?ms pq:P582 ?partyEnd }
+    OPTIONAL { ?party wdt:P465 ?colour }
+  }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }""",
     "sport": """
@@ -162,7 +169,7 @@ SELECT ?e ?eLabel ?typeName ?iso3 ?start ?end ?date ?deaths ?damage WHERE {
 class Wikidata(Connector):
     source_id = "wikidata"
     fetch_every_days = FETCH_EVERY_DAYS
-    fetch_version = 2  # 2: elections, leaders, sporting events and disasters as well as the facts
+    fetch_version = 3  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -208,13 +215,14 @@ class Wikidata(Connector):
         log.info("wikidata: %s events", len(events))
         con.execute("CREATE TABLE wd_events (source_code VARCHAR, event_key VARCHAR, kind VARCHAR, subkind VARCHAR, "
                     "title VARCHAR, start_date DATE, end_date DATE, precision VARCHAR, deaths DOUBLE, damage_usd DOUBLE, "
-                    "place VARCHAR, url VARCHAR)")
-        if events:
-            con.executemany("INSERT INTO wd_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", events)
+                    "place VARCHAR, url VARCHAR, detail VARCHAR, color VARCHAR)")
+        if events:  # rows from the readers that give no party or colour end at url
+            con.executemany("INSERT INTO wd_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            [(*e, *(None,) * (14 - len(e))) for e in events])
         self.events_query = (f"SELECT 'wikidata' AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, "
                              "source_code, event_key, kind, subkind, title, start_date, end_date, precision, "
                              "deaths AS size, CASE WHEN deaths IS NOT NULL THEN 'deaths' END AS size_unit, deaths, "
-                             "NULL AS affected, damage_usd, place, url, NULL AS detail FROM wd_events")
+                             "NULL AS affected, damage_usd, place, url, detail, color FROM wd_events")
         # No numbers: an empty observation set with the staged columns.
         return (f"SELECT 'wikidata' AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, NULL AS source_code, "
                 "NULL AS indicator_id, NULL AS period_start, 'A' AS freq, '' AS breakdown, 'central' AS variant, "
@@ -328,7 +336,11 @@ def election_events(bindings: list[dict]) -> list[tuple]:
 
 
 def leader_events(bindings: list[dict]) -> list[tuple]:
-    out = {}
+    """A row per term, with the party the leader belonged to when the term began
+    (a membership whose dates cover the start, else one with no dates, else any)
+    and that party's colour."""
+    out: dict[tuple, tuple] = {}
+    fit: dict[tuple, int] = {}
     for b in bindings:
         start, prec = _day(_val(b, "start"))
         end, _ = _day(_val(b, "end"))
@@ -339,9 +351,23 @@ def leader_events(bindings: list[dict]) -> list[tuple]:
         name = _val(b, "personLabel") or person
         if name.startswith("Q") and name[1:].isdigit():  # no English label
             continue
-        out[(iso3, office, person, start)] = (
+        party = _val(b, "partyLabel")
+        if party and party.startswith("Q") and party[1:].isdigit():
+            party = None
+        p_start, _ = _day(_val(b, "partyStart"))
+        p_end, _ = _day(_val(b, "partyEnd"))
+        score = 0 if not party else 3 if ((p_start or p_end) and (not p_start or p_start <= start)
+                                         and (not p_end or start <= p_end)) else 2 if not (p_start or p_end) else 1
+        key = (iso3, office, person, start)
+        if key in out and fit[key] >= score:
+            continue
+        colour = (_val(b, "colour") or "").strip().lstrip("#")
+        colour = f"#{colour.upper()}" if len(colour) == 6 and all(c in "0123456789abcdefABCDEF" for c in colour) else None
+        fit[key] = score
+        out[key] = (
             iso3, f"leader:{iso3}:{'hos' if 'state' in office else 'hog'}:{person}:{start}", "leader",
-            office, f"{name} ({office})", start, end, prec, None, None, None, f"https://www.wikidata.org/wiki/{person}")
+            office, f"{name} ({office})", start, end, prec, None, None, None, f"https://www.wikidata.org/wiki/{person}",
+            party if score else None, colour if score else None)
     return list(out.values())
 
 

@@ -23,7 +23,7 @@ export type Panel = {
   selection: string[]; // used only while selection is unlinked
   cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
-  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flag "o" also trims chart lines
+  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flags "o" (trim outliers) and "g" (governing party) also apply to charts
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
 };
 
@@ -291,7 +291,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         selection: list(q.get(`s${i}`)),
         cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
-        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymao]{0,5}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
+        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymaog]{0,6}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
         range: range && RANGE_RE.test(range) ? range : "",
       });
     });
@@ -365,16 +365,17 @@ export function pyramidString(o: { compare: "auto" | "none" | number; absolute: 
 // trim: fit the axes to the bulk of the countries, outliers drawn at the edge.
 export type ScatterOptions = {
   y: string; size: string; logX: boolean; logY: boolean; colour: string; labels: "selected" | "major" | "all"; trim: boolean;
+  party: boolean; // line charts of one country: coloured by the party in government
 };
 
 export function scatterOptions(xy: string): ScatterOptions {
   const [y = "", size = "", flags = "", colour = ""] = xy.split(",");
-  return { y, size, logX: flags.includes("x"), logY: flags.includes("y"), colour, trim: flags.includes("o"),
+  return { y, size, logX: flags.includes("x"), logY: flags.includes("y"), colour, trim: flags.includes("o"), party: flags.includes("g"),
     labels: flags.includes("a") ? "all" : flags.includes("m") ? "major" : "selected" };
 }
 
 export function scatterString(o: ScatterOptions): string {
-  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}${o.trim ? "o" : ""}`;
+  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}${o.trim ? "o" : ""}${o.party ? "g" : ""}`;
   const s = [o.y, o.size, flags, o.colour];
   while (s.length && s[s.length - 1] === "") s.pop();
   return s.join(",");
@@ -403,4 +404,52 @@ export const STARTERS: { name: string; query: string }[] = [
     query: starter("1", [{ view: "scatter", indicator: "gdp_ppp_per_capita", xy: "life_expectancy,pop_total,xm,continent" }], ["CHN", "IND", "USA"]) },
   { name: "Fertility and growth",
     query: starter("2h", [{ view: "map", indicator: "tfr" }, { view: "map", indicator: "gdp_growth" }]) },
+  { name: "Life expectancy across time",
+    query: starter("6", [1960, 1975, 1990, 2005, 2023, 2050].map((year) => ({ view: "map" as View, indicator: "life_expectancy", year }))) },
+  { name: "New Zealand by governing party",
+    query: starter("4", ["gdp_growth", "unemployment", "inflation", "net_migration_rate"].map((indicator) =>
+      ({ view: "chart" as View, indicator, xy: ",,g", range: "h50f0" })), ["NZL"]) },
+  { name: "UK growth by governing party",
+    query: starter("2v", [
+      { view: "chart", indicator: "gdp_growth", xy: ",,g", range: "h50f0" },
+      { view: "chart", indicator: "gdp_per_capita_usd", xy: ",,g", range: "h50f0" },
+    ], ["GBR"]) },
+  { name: "Energy transition",
+    query: starter("3", [
+      { view: "map", indicator: "renewables_share_elec" },
+      { view: "chart", indicator: "renewables_share_elec", cols: ["coal_share_elec"] },
+      { view: "scatter", indicator: "gdp_ppp_per_capita", xy: "co2_per_capita,pop_total,xm,continent" },
+    ], ["DEU", "GBR", "CHN"]) },
+  { name: "Rich and old (bubbles)",
+    query: starter("2h", [
+      { view: "scatter", indicator: "gdp_ppp_per_capita", xy: "median_age,pop_total,xm,continent" },
+      { view: "map", indicator: "pop_share_65_plus" },
+    ], ["JPN", "NGA", "USA"]) },
+  { name: "Growth and inflation, three crises",
+    query: starter("6", [
+      ...[1998, 2009, 2020].map((year) => ({ view: "map" as View, indicator: "gdp_growth", year })),
+      ...[1998, 2009, 2022].map((year) => ({ view: "map" as View, indicator: "inflation", year })),
+    ]) },
+  { name: "Military spending",
+    query: starter("3", [
+      { view: "map", indicator: "military_spending_gdp" },
+      { view: "chart", indicator: "military_spending_gdp", range: "h50f0" },
+      { view: "table", indicator: "military_spending_gdp", cols: [CHANGE_COL, "gdp_ppp_per_capita"] },
+    ], ["USA", "CHN", "RUS"]) },
+  { name: "Debt and credit",
+    query: starter("2h", [
+      { view: "map", indicator: "central_govt_debt_gdp" },
+      { view: "chart", indicator: "private_credit_gdp", cols: ["central_govt_debt_gdp"], range: "h50f0" },
+    ], ["USA", "JPN"]) },
+  { name: "Migration and ageing",
+    query: starter("3", [
+      { view: "map", indicator: "net_migration_rate" },
+      { view: "map", indicator: "median_age" },
+      { view: "scatter", indicator: "median_age", xy: "net_migration_rate,pop_total,,continent" },
+    ]) },
+  { name: "Price levels and income",
+    query: starter("2h", [
+      { view: "map", indicator: "price_level_ratio" },
+      { view: "scatter", indicator: "gdp_ppp_per_capita", xy: "price_level_ratio,pop_total,xm,continent" },
+    ], ["NZL", "CHE", "IND"]) },
 ];

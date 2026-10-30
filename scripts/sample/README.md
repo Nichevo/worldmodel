@@ -16,8 +16,9 @@ python scripts/sample/make_sample_inputs.py RDA_DIR values.csv sample_inputs
 #    github.com/datasets/world-development-indicators, from 1990, as WDI_CSV.zip
 python scripts/sample/make_wdi_inputs.py MIRROR_DIR sample_inputs/world_bank_wdi/WDI_CSV.zip --series CODES --first-year 1990
 #    OWID energy: owid-energy-data.csv and its codebook from github.com/owid/energy-data,
-#    cut to the main columns (ENERGY_MAIN in connectors/owid.py, plus the amounts
-#    behind their shares) and years from 1990, in sample_inputs/owid_energy/
+#    cut to the main columns (ENERGY_MAIN in connectors/owid.py, the amounts
+#    behind their shares, and each fuel's <fuel>_electricity and <fuel>_consumption
+#    for the energy mix charts) and years from 1990, in sample_inputs/owid_energy/
 #    CIA Factbook: factbook.db from the archive's release (see connectors/cia_factbook.py),
 #    cut to the last edition plus every edition of the fields the numeric series read
 python scripts/sample/make_factbook_sample.py factbook.db sample_inputs/cia_factbook/factbook.db
