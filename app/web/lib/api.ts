@@ -154,6 +154,9 @@ export type Settings = {
   history_paused: boolean;
   history_retention_days: number;
   problem_banner: boolean;
+  events_on_charts: boolean;
+  event_kinds: string;
+  disaster_min_deaths: number;
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.
@@ -214,6 +217,25 @@ export type Problem = {
   key: string; kind: "check" | "fetch" | "build"; title: string; explain: string; todo: string; summary: string;
   examples: string[]; times: number; in_a_row: number; first_seen: string; last_seen: string; open: boolean;
   fixed_at: string | null; build_id: string | null; check_id?: string; source_id?: string;
+};
+
+// Dated events and episodes (/events), and the around-the-event view (/around).
+export type EventRow = {
+  event_id: string; entity_id: string; entity_name: string | null; source_id: string; kind: string; subkind: string | null;
+  title: string; start_date: string; end_date: string | null; precision: "day" | "month" | "year"; size: number | null;
+  size_unit: string | null; deaths: number | null; affected: number | null; damage_usd: number | null; place: string | null;
+  url: string | null; detail: string | null; milestone_id?: string;
+};
+export type EventKind = { kind: string; n: number; sources: string[]; first: string; last: string; subkinds: { subkind: string; n: number }[] };
+export type Milestone = { id: string; entity_id: string; title: string; start_date: string; end_date: string | null;
+  subkind: string | null; note: string; url: string | null };
+export type EventQuery = { entities?: string[]; members?: boolean; kinds?: string[]; sources?: string[]; start?: string;
+  end?: string; min_size?: number; q?: string; limit?: number };
+export type Around = {
+  indicator: { indicator_id: string; name: string; unit: string }; mode: "value" | "index"; compare: string; offsets: number[];
+  events: { event_id: string; entity_id: string; entity_name: string | null; title: string; kind: string; subkind: string | null;
+    year: number; start_date: string; values: (number | null)[]; compare: (number | null)[] | null; diff: (number | null)[] | null }[];
+  mean: (number | null)[]; mean_compare: (number | null)[] | null; mean_diff: (number | null)[] | null; n: number; note: string;
 };
 
 export type WhatIfLevers = { tfr: number; e0: number; mig: number; extra: number; phase: number };
@@ -316,6 +338,16 @@ export const api = {
   freeUp: () => send<{ removed: string[]; freed_bytes: number }>("POST", "/storage/free-up"),
   refreshLog: () => get<RefreshRun[]>("/refresh-log"),
   problems: () => get<Problem[]>("/problems"),
+  events: (q: EventQuery) => get<EventRow[]>("/events", {
+    entities: q.entities?.join(","), members: q.members ? "true" : undefined, kinds: q.kinds?.join(","),
+    sources: q.sources?.join(","), start: q.start, end: q.end, min_size: q.min_size, q: q.q, limit: q.limit }),
+  eventKinds: () => get<EventKind[]>("/events/kinds"),
+  milestones: () => get<Milestone[]>("/milestones"),
+  addMilestone: (m: Partial<Milestone>) => send<Milestone>("POST", "/milestones", m),
+  saveMilestone: (id: string, m: Partial<Milestone>) => send<Milestone>("PUT", `/milestones/${id}`, m),
+  deleteMilestone: (id: string) => send<{ deleted: string }>("DELETE", `/milestones/${id}`),
+  around: (q: { indicator: string; event_id?: string; entity?: string; kind?: string; subkind?: string; q?: string;
+    before?: number; after?: number; compare?: string; mode?: string; min_size?: number }) => get<Around>("/around", q),
   whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),
   trackRecord: (indicator: string, entity?: string) => get<TrackRecord>("/track-record", { indicator, entity }),
   comparedIndicators: () => get<ComparedIndicator[]>("/sources/indicators"),

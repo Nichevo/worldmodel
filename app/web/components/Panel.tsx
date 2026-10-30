@@ -7,6 +7,7 @@ import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
+import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
 import { csvText, fileName, saveText, saveUrl, tablePng, titledPng, type Exporter } from "@/lib/download";
@@ -644,6 +645,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
     return () => { live = false; };
   }, [showKey, key]);
   const entities = useMemo(() => key.split(",").map((id) => ({ id, name: names.get(id) ?? id })), [key, names]);
+  const chartEvents = useChartEvents(useMemo(() => key.split(",").filter(Boolean), [key]));
 
   // Years shown: quick choices around today, or a span dragged on the slider under the chart.
   const opts = scatterOptions(panel.xy);
@@ -667,6 +669,10 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
       markLine: { symbol: "none", silent: true, animation: false, label: { show: false },
         lineStyle: { color: cssVar("--muted"), type: "solid" as const, width: 1 }, data: [{ xAxis: year }] },
     });
+    // Events for the countries shown (up to three; Settings: Events on charts), inside the years with data.
+    const shownNames = new Map(entities.map((e) => [e.id, e.name]));
+    const inView = extent ? chartEvents.filter((e) => +e.start_date.slice(0, 4) <= extent[1] + 1 && +(e.end_date ?? e.start_date).slice(0, 4) >= extent[0]) : [];
+    if (inView.length) series.push(eventMarks(inView, shownNames));
     let yAxis = o.yAxis;
     // Ignore outliers: fit the left axis to most of the values in view; spikes run off the edge.
     if (opts.trim && span) {
@@ -681,7 +687,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         yAxis = (Array.isArray(yAxis) ? [trimmed, ...yAxis.slice(1)] : trimmed) as typeof yAxis;
       }
     }
-    return {
+    return withEventTooltip({
       ...o, yAxis, series,
       grid: { ...(o.grid as object), bottom: 40 },
       dataZoom: span ? [{
@@ -689,8 +695,8 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         startValue: span[0], endValue: span[1], labelFormatter: (v: number) => String(Math.round(v)), brushSelect: false,
         borderColor: cssVar("--border"), textStyle: { color: cssVar("--muted") },
       }] : undefined,
-    } as typeof o;
-  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1]]);
+    } as typeof o, inView, shownNames);
+  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], chartEvents, extent]);
   const hasRows = rows?.some((r) => r.length > 0);
   const units = [...new Set(shown.map((i) => i.unit))];
 

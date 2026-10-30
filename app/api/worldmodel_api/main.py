@@ -886,6 +886,10 @@ def events(
     if q:
         where.append("(e.title ILIKE ? OR e.place ILIKE ? OR e.detail ILIKE ? OR e.subkind ILIKE ?)")
         params += [f"%{q}%"] * 4
+    # The same disaster from Wikidata and EM-DAT: keep EM-DAT's, which has the fuller figures.
+    where.append("""NOT (e.source_id = 'wikidata' AND e.kind IN ('disaster', 'epidemic') AND EXISTS (
+        SELECT 1 FROM events x WHERE x.source_id = 'emdat' AND x.entity_id = e.entity_id
+        AND abs(date_diff('day', x.start_date, e.start_date)) <= 3))""")
     sql = (f"SELECT {', '.join('e.' + c for c in EVENT_COLUMNS)}, n.short_name AS entity_name FROM events e "
            f"LEFT JOIN entities n USING (entity_id) {'WHERE ' + ' AND '.join(where) if where else ''} "
            f"ORDER BY e.start_date, e.entity_id LIMIT ?")

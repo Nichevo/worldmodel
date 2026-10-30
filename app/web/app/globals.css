@@ -412,3 +412,31 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
 .problem.fixed { border-left-color: var(--border); opacity: 0.85; }
 .problem-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .problem-rows { margin: 4px 0; padding-left: 18px; max-height: 220px; overflow: auto; }
+
+/* Events: timeline, kind chips, calendar */
+.chips-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 8px; }
+.chips-row input[type="search"] { width: 160px; }
+.chip.kind { cursor: pointer; border-left-width: 3px; }
+.chip.kind i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.chip.kind.off { opacity: 0.45; text-decoration: line-through; }
+.timeline { max-height: 520px; overflow: auto; }
+.timeline .decade { font-weight: 600; color: var(--ink-2); margin: 10px 0 2px; font-size: 0.85rem; }
+.timeline .event { display: grid; grid-template-columns: 11em 10px minmax(0, 1fr) auto; gap: 8px; align-items: baseline;
+  padding: 3px 0; border-bottom: 1px solid var(--grid); font-size: 0.88rem; }
+.timeline .when { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.timeline .tag, .cal .tag { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.timeline .actions { white-space: nowrap; }
+.milestone-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; padding: 8px; margin-bottom: 8px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); }
+.milestone-form label { display: flex; flex-direction: column; gap: 2px; }
+.cal { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.cal .month { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; min-height: 80px; }
+.cal .month h4 { margin: 0 0 4px; font-size: 0.9rem; }
+.cal .item { display: grid; grid-template-columns: 3.2em 10px minmax(0, 1fr); gap: 6px; font-size: 0.82rem; padding: 1px 0; align-items: baseline; }
+.cal .item .d { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: var(--page); border-color: var(--accent); }
+@media (max-width: 700px) {
+  .timeline .event { grid-template-columns: 1fr; gap: 0; }
+  .timeline .event .tag { display: none; }
+}

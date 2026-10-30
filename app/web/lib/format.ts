@@ -39,9 +39,14 @@ export const SOURCE_LABEL: Record<string, string> = {
   owid_grapher: "Our World in Data charts (UCDP conflict deaths)",
   cia_factbook: "CIA World Factbook (1990-2025 editions)",
   wikidata: "Wikidata",
+  powell_thyne: "Powell and Thyne coup data",
+  ucdp_acd: "UCDP/PRIO Armed Conflict Dataset",
+  emdat: "EM-DAT (CRED, UCLouvain)",
+  notable: "Curated notable episodes",
 };
 
 export const SOURCE_SHORT: Record<string, string> = {
   un_wpp: "UN WPP", imf_weo: "IMF WEO", world_bank_wdi: "WDI", owid_energy: "OWID energy", owid_grapher: "OWID charts",
-  cia_factbook: "Factbook", wikidata: "Wikidata",
+  cia_factbook: "Factbook", wikidata: "Wikidata", powell_thyne: "Powell & Thyne", ucdp_acd: "UCDP", emdat: "EM-DAT",
+  notable: "Curated", worldmodel: "From the data",
 };

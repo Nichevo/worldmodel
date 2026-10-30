@@ -6,9 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import CountryAbout from "@/components/CountryAbout";
 import FactbookCard from "@/components/FactbookCard";
+import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
 import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
+import { useChartEvents } from "@/lib/events";
 import { logHistory } from "@/lib/history";
 
 const CHARTS: { id: string; kind?: "line" | "bar" }[] = [
@@ -53,6 +55,7 @@ export default function EntityPage() {
 
   const named = useMemo(() => (entity ? [{ id: entity.entity_id, name: entity.short_name }] : []), [entity]);
   const byId = useMemo(() => new Map(indicators.map((i) => [i.indicator_id, i])), [indicators]);
+  const chartEvents = useChartEvents(entity ? [entity.entity_id] : []);
 
   if (error) return <p className="error">{error}</p>;
   if (!entity) return <p className="muted">Loading…</p>;
@@ -137,11 +140,12 @@ export default function EntityPage() {
 
       {!isGroup && <SourcesDiffer entity={entity.entity_id} />}
       {!isGroup && <FactbookCard entity={entity.entity_id} />}
+      <Timeline entity={entity.entity_id} name={entity.short_name} isGroup={isGroup} />
 
       <div className="grid two">
         {CHARTS.map((c) => {
           const ind = byId.get(c.id);
-          return ind && ind.available ? <ChartCard key={c.id} indicator={ind} entities={named} kind={c.kind} /> : null;
+          return ind && ind.available ? <ChartCard key={c.id} indicator={ind} entities={named} kind={c.kind} events={chartEvents} /> : null;
         })}
         {byId.get("pop_by_age_sex")?.available && (
           <div className="card">
