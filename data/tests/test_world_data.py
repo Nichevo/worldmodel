@@ -144,3 +144,51 @@ def test_wdi_falls_back_to_the_indicators_api(tmp_path, monkeypatch):
     # The same answers again make the same file: no new vintage.
     again, new_again = CONNECTORS["world_bank_wdi"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
     assert not new_again and again.vintage == manifest.vintage
+
+
+def test_owid_chart_columns_with_long_names_keep_their_own_ids(built):
+    _, con = built
+    ids = [r[0] for r in con.execute("""SELECT DISTINCT indicator_id FROM series WHERE entity_id = 'AFG'
+        AND indicator_id LIKE 'owid_number_deaths_ongoing_conflicts%' ORDER BY 1""").fetchall()]
+    assert len(ids) == 3 and all(len(i) <= 65 for i in ids)
+    intra = next(i for i in ids if con.execute(
+        "SELECT value FROM series WHERE entity_id = 'AFG' AND indicator_id = ? AND period_start = DATE '2022-01-01'",
+        [i]).fetchone()[0] == 3.5)
+    assert intra
+
+
+def test_vintage_staged_by_an_older_loader_is_staged_again(tmp_path, monkeypatch):
+    """A stored vintage keeps the output of the loader that staged it; when the loader is
+    fixed (stage_version raised), upgrade and the next fetch of the same files stage it again."""
+    from typer.testing import CliRunner
+
+    from worldmodel_data import cli
+    from worldmodel_data.vintage_store import Manifest
+
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    manifest, _ = CONNECTORS["owid_grapher"]().ingest(store, FIXTURES / "owid_grapher")
+    path = store.vintage_dir("owid_grapher", manifest.vintage) / "manifest.json"
+    parquet = path.parent / "observations.parquet"
+    # Pretend the stored vintage came from version 1, with one column under the wrong id.
+    old = Manifest.read(path)
+    old.stage_version = 1
+    old.write(path)
+    duckdb.execute(f"COPY (SELECT * REPLACE ('owid_stale' AS indicator_id) FROM '{parquet.as_posix()}') "
+                   f"TO '{parquet.as_posix()}.tmp' (FORMAT parquet)")
+    Path(f"{parquet}.tmp").replace(parquet)
+
+    # The same files fetched again: unchanged, but staged again.
+    again, is_new = CONNECTORS["owid_grapher"]().ingest(store, FIXTURES / "owid_grapher")
+    assert not is_new and again.vintage == manifest.vintage
+    assert Manifest.read(path).stage_version == CONNECTORS["owid_grapher"].stage_version
+    ids = {r[0] for r in duckdb.execute(f"SELECT DISTINCT indicator_id FROM '{parquet.as_posix()}'").fetchall()}
+    assert "owid_stale" not in ids
+
+    # upgrade does the same without fetching, and builds when it did.
+    old.write(path)
+    monkeypatch.setattr(cli, "paths", lambda: home)
+    out = CliRunner().invoke(cli.app, ["upgrade"])
+    assert out.exit_code == 0, out.output
+    assert "owid_grapher" in out.output
+    assert Manifest.read(path).stage_version == CONNECTORS["owid_grapher"].stage_version

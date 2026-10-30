@@ -62,13 +62,16 @@ class Manifest:
     raw_dir: str
     row_count: int = 0
     files: list[dict] = field(default_factory=list)
+    stage_version: int = 1  # the connector's stage_version when the staged files were written
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2))
 
     @classmethod
     def read(cls, path: Path) -> "Manifest":
-        return cls(**json.loads(path.read_text()))
+        data = json.loads(path.read_text())
+        known = cls.__dataclass_fields__
+        return cls(**{k: v for k, v in data.items() if k in known})
 
 
 def now_utc() -> datetime:
