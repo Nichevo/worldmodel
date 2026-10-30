@@ -173,7 +173,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .maplibregl-popup-content { background: var(--surface); color: var(--ink); font-size: 0.85rem; }
 
-/* Map page workspace: up to four panels in a grid, each a map, chart or table. */
+/* Map page workspace: up to six panels in a grid, each a map, chart or table. */
 main:has(.workspace-page) { max-width: none; }
 .ws-bar { margin-bottom: 10px; }
 .ws-title { font-size: 1.25rem; margin: 0 8px 0 0; }
@@ -377,3 +377,9 @@ input[type="date"] { font: inherit; color: var(--ink); background: var(--surface
 .summary-table th, .summary-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
 .summary-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .summary-table tr.selected td { background: var(--surface-2); font-weight: 600; }
+
+/* Sources compared */
+.src-row { display: flex; align-items: center; }
+table.click-rows tbody tr { cursor: pointer; }
+table.click-rows tbody tr:hover { background: var(--grid); }
+table.click-rows tbody tr.on { background: var(--warn-bg); }

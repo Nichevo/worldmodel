@@ -35,6 +35,10 @@ export const SOURCE_LABEL: Record<string, string> = {
   un_wpp: "UN World Population Prospects",
   imf_weo: "IMF World Economic Outlook",
   world_bank_wdi: "World Bank WDI",
+  owid_energy: "Our World in Data energy (Ember, Energy Institute, EIA)",
+  owid_grapher: "Our World in Data charts (UCDP conflict deaths)",
 };
 
-export const SOURCE_SHORT: Record<string, string> = { un_wpp: "UN WPP", imf_weo: "IMF WEO", world_bank_wdi: "WDI" };
+export const SOURCE_SHORT: Record<string, string> = {
+  un_wpp: "UN WPP", imf_weo: "IMF WEO", world_bank_wdi: "WDI", owid_energy: "OWID energy", owid_grapher: "OWID charts",
+};

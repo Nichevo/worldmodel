@@ -34,6 +34,8 @@
   bounds: [0, 12000000000]
   sources:
     - {source_id: un_wpp, series: TPopulation1July, scale: 1000}
+    - {source_id: world_bank_wdi, series: SP.POP.TOTL, scale: 1,
+       notes: "Mostly the UN WPP figures, but national sources for some countries; mid-year."}
 
 - id: pop_male
   name: Male population
@@ -47,6 +49,7 @@
   bounds: [0, 6000000000]
   sources:
     - {source_id: un_wpp, series: TPopulationMale1July, scale: 1000}
+    - {source_id: world_bank_wdi, series: SP.POP.TOTL.MA.IN, scale: 1}
 
 - id: pop_female
   name: Female population
@@ -60,6 +63,7 @@
   bounds: [0, 6000000000]
   sources:
     - {source_id: un_wpp, series: TPopulationFemale1July, scale: 1000}
+    - {source_id: world_bank_wdi, series: SP.POP.TOTL.FE.IN, scale: 1}
 
 - id: pop_growth_rate
   name: Population growth rate
@@ -74,6 +78,7 @@
   bounds: [-100, 100]
   sources:
     - {source_id: un_wpp, series: PopGrowthRate, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.POP.GROW, scale: 1}
 
 - id: pop_density
   name: Population density
@@ -87,6 +92,7 @@
   bounds: [0, 50000]
   sources:
     - {source_id: un_wpp, series: PopDensity, scale: 1}
+    - {source_id: world_bank_wdi, series: EN.POP.DNST, scale: 1}
 
 - id: pop_sex_ratio
   name: Sex ratio
@@ -152,6 +158,7 @@
   bounds: [0, 80]
   sources:
     - {source_id: un_wpp, series: CBR, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.CBRT.IN, scale: 1}
 
 - id: cdr
   name: Crude death rate
@@ -165,6 +172,7 @@
   bounds: [0, 200]
   sources:
     - {source_id: un_wpp, series: CDR, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.CDRT.IN, scale: 1}
 
 - id: tfr
   name: Fertility rate
@@ -179,6 +187,7 @@
   bounds: [0.3, 10]
   sources:
     - {source_id: un_wpp, series: TFR, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.TFRT.IN, scale: 1}
 
 - id: mean_age_childbearing
   name: Mean age at childbearing
@@ -219,6 +228,7 @@
   bounds: [5, 100]
   sources:
     - {source_id: un_wpp, series: LEx, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.LE00.IN, scale: 1}
 
 - id: life_expectancy_male
   name: Life expectancy at birth, male
@@ -232,6 +242,7 @@
   bounds: [5, 100]
   sources:
     - {source_id: un_wpp, series: LExMale, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.LE00.MA.IN, scale: 1}
 
 - id: life_expectancy_female
   name: Life expectancy at birth, female
@@ -245,6 +256,7 @@
   bounds: [5, 105]
   sources:
     - {source_id: un_wpp, series: LExFemale, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.LE00.FE.IN, scale: 1}
 
 - id: infant_mortality
   name: Infant mortality rate
@@ -258,6 +270,7 @@
   bounds: [0, 500]
   sources:
     - {source_id: un_wpp, series: IMR, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.DYN.IMRT.IN, scale: 1}
 
 - id: net_migration
   name: Net migration
@@ -271,6 +284,8 @@
   bounds: [-50000000, 50000000]
   sources:
     - {source_id: un_wpp, series: NetMigrations, scale: 1000}
+    - {source_id: world_bank_wdi, series: SM.POP.NETM, scale: 1,
+       notes: "Five-year totals in older WDI releases; recent releases are annual."}
 
 - id: net_migration_rate
   name: Net migration rate
@@ -314,6 +329,7 @@
   sources:
     - {source_id: un_wpp, series: derived:age_0_14, scale: 1000,
        notes: "Sum of WPP age groups 0-4, 5-9 and 10-14."}
+    - {source_id: world_bank_wdi, series: SP.POP.0014.TO, scale: 1}
 
 - id: pop_age_15_64
   name: Population aged 15 to 64
@@ -328,6 +344,7 @@
   sources:
     - {source_id: un_wpp, series: derived:age_15_64, scale: 1000,
        notes: "Sum of WPP age groups 15-19 to 60-64."}
+    - {source_id: world_bank_wdi, series: SP.POP.1564.TO, scale: 1}
 
 - id: pop_age_65_plus
   name: Population aged 65 and over
@@ -342,6 +359,7 @@
   sources:
     - {source_id: un_wpp, series: derived:age_65_plus, scale: 1000,
        notes: "Sum of WPP age groups 65-69 to 100+."}
+    - {source_id: world_bank_wdi, series: SP.POP.65UP.TO, scale: 1}
 
 - id: pop_share_0_14
   name: Share of population aged 0 to 14
@@ -355,6 +373,7 @@
   bounds: [0, 100]
   sources:
     - {source_id: un_wpp, series: derived:share_0_14, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.POP.0014.TO.ZS, scale: 1}
 
 - id: pop_share_65_plus
   name: Share of population aged 65 and over
@@ -368,6 +387,7 @@
   bounds: [0, 100]
   sources:
     - {source_id: un_wpp, series: derived:share_65_plus, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.POP.65UP.TO.ZS, scale: 1}
 
 - id: old_age_dependency_ratio
   name: Old-age dependency ratio
@@ -381,6 +401,7 @@
   bounds: [0, 200]
   sources:
     - {source_id: un_wpp, series: derived:old_age_dependency, scale: 1}
+    - {source_id: world_bank_wdi, series: SP.POP.DPND.OL, scale: 1}
 
 # ------------------------------------------------------------------ economy
 - id: gdp_growth
@@ -399,6 +420,7 @@
        notes: "Constant prices, percent change. Years from the release year on are IMF projections."}
     - {source_id: imf_weo_history, series: ngdp_rpch, scale: 1,
        notes: "Every WEO release since 1990, one per breakdown release=YYYY-MM; for the forecast track record."}
+    - {source_id: world_bank_wdi, series: NY.GDP.MKTP.KD.ZG, scale: 1}
 
 - id: gdp_usd
   name: GDP, current US dollars
@@ -412,6 +434,7 @@
   bounds: [0, 500000000000000]
   sources:
     - {source_id: imf_weo, series: NGDPD, scale: 1000000000}
+    - {source_id: world_bank_wdi, series: NY.GDP.MKTP.CD, scale: 1}
 
 - id: gdp_ppp
   name: GDP, purchasing power parity
@@ -425,6 +448,8 @@
   bounds: [0, 1000000000000000]
   sources:
     - {source_id: imf_weo, series: PPPGDP, scale: 1000000000}
+    - {source_id: world_bank_wdi, series: NY.GDP.MKTP.PP.CD, scale: 1,
+       notes: "International dollars of the latest ICP round, which can differ from the IMF base year."}
 
 - id: gdp_per_capita_usd
   name: GDP per person, current US dollars
@@ -439,6 +464,7 @@
   bounds: [0, 1000000]
   sources:
     - {source_id: imf_weo, series: NGDPDPC, scale: 1}
+    - {source_id: world_bank_wdi, series: NY.GDP.PCAP.CD, scale: 1}
 
 - id: gdp_ppp_per_capita
   name: GDP per person, PPP
@@ -452,6 +478,8 @@
   bounds: [0, 1000000]
   sources:
     - {source_id: imf_weo, series: PPPPC, scale: 1}
+    - {source_id: world_bank_wdi, series: NY.GDP.PCAP.PP.CD, scale: 1,
+       notes: "International dollars of the latest ICP round, which can differ from the IMF base year."}
 
 - id: inflation
   name: Inflation
@@ -467,3 +495,5 @@
     - {source_id: imf_weo, series: PCPIPCH, scale: 1}
     - {source_id: imf_weo_history, series: pcpi_pch, scale: 1,
        notes: "Every WEO release since 1990, one per breakdown release=YYYY-MM; for the forecast track record."}
+    - {source_id: world_bank_wdi, series: FP.CPI.TOTL.ZG, scale: 1,
+       notes: "Consumer prices, annual average; the IMF series is the same concept."}

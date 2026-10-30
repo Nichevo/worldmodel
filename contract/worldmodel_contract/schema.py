@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -73,8 +73,9 @@ TABLES: dict[str, Table] = {
             "domain": "VARCHAR", "unit": "VARCHAR", "decimals": "INTEGER", "frequency": "VARCHAR",
             "breakdowns": "VARCHAR", "agg_method": "VARCHAR", "agg_weight": "VARCHAR",
             "agg_numerator": "VARCHAR", "agg_denominator": "VARCHAR", "agg_multiplier": "DOUBLE",
-            "bound_min": "DOUBLE", "bound_max": "DOUBLE",
-        }, ("indicator_id",), "Indicator catalogue."),
+            "bound_min": "DOUBLE", "bound_max": "DOUBLE", "default_on": "BOOLEAN",
+        }, ("indicator_id",), "Indicator catalogue: the contract's own, plus indicators a source lists itself "
+            "(every World Bank WDI series, say), which start switched off."),
         Table("indicator_sources", {
             "indicator_id": "VARCHAR", "source_id": "VARCHAR", "series": "VARCHAR", "scale": "DOUBLE",
             "rank": "INTEGER", "notes": "VARCHAR",

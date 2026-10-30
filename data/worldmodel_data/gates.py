@@ -5,6 +5,7 @@
   shrinkage    no source or indicator lost a large share of its rows
   unmapped     source codes the crosswalk does not know (warning)
   implausible  high/low variant or interval values left out as meaningless (info)
+  divergence   countries where an indicator's sources disagree (info)
   manual       a random sample with links to the source sites, to check by eye
   what-if      the population what-if model, run with the UN's own inputs, against
                the UN projection (never fails: it says how far the model is from it)
@@ -31,6 +32,7 @@ MAX_SHRINK = 0.10
 SOURCE_LINKS = {
     "un_wpp": "https://population.un.org/dataportal/data/indicators/49/locations/{m49}/start/{year}/end/{year}",
     "imf_weo": "https://www.imf.org/external/datamapper/{series}@WEO/{iso3}",
+    "world_bank_wdi": "https://data.worldbank.org/indicator/{series}?locations={iso2}",
 }
 
 
@@ -45,7 +47,8 @@ class Check:
 
 def run(con: duckdb.DuckDBPyConnection, previous: Path | None, allow_shrink: bool = False) -> list[Check]:
     return [*coverage(con), *spot_checks(con), *shrinkage(con, previous, allow_shrink), *unmapped(con),
-            *implausible_variants(con), *whatif_model(con), manual_sample(con)]
+            *implausible_variants(con), *divergence(con),
+            *whatif_model(con), manual_sample(con)]
 
 
 def coverage(con) -> list[Check]:
@@ -55,13 +58,16 @@ def coverage(con) -> list[Check]:
         if indicator not in loaded:
             out.append(Check(f"coverage:{indicator}", "coverage", "skip", "indicator not loaded"))
             continue
-        year, n = con.execute("""
+        # The indicator's default source only: a second source's latest year may hold few countries.
+        first = """(SELECT source_id FROM indicator_sources WHERE indicator_id = ? AND rank = 1)"""
+        year, n = con.execute(f"""
             WITH latest_year AS (
-                SELECT max(period_start) AS p FROM series WHERE indicator_id = ? AND status = 'E')
+                SELECT max(period_start) AS p FROM series WHERE indicator_id = ? AND status = 'E'
+                    AND source_id = {first})
             SELECT strftime(l.p, '%Y'), count(DISTINCT s.entity_id)
             FROM series s JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country', latest_year l
-            WHERE s.indicator_id = ? AND s.period_start = l.p AND s.status = 'E'
-            GROUP BY l.p""", [indicator, indicator]).fetchone() or ("?", 0)
+            WHERE s.indicator_id = ? AND s.period_start = l.p AND s.status = 'E' AND s.source_id = {first}
+            GROUP BY l.p""", [indicator, indicator, indicator, indicator]).fetchone() or ("?", 0)
         status = "pass" if n >= minimum else "fail"
         out.append(Check(f"coverage:{indicator}", "coverage", status,
                          f"{n} countries in {year} (need {minimum})"))
@@ -136,6 +142,29 @@ def implausible_variants(con) -> list[Check]:
                   [f"{s} {i} {e} {v}: {n} row(s), {a}-{b}" for s, i, e, v, n, a, b in rows[:10]])]
 
 
+def divergence(con) -> list[Check]:
+    """Countries where an indicator's sources disagree in their latest common year (never fails)."""
+    from worldmodel_contract.queries import divergence_sql
+
+    sql, params = divergence_sql()
+    rows = con.execute(f"SELECT indicator_id, entity_id, year, source_a, value_a, source_b, value_b, rel, flagged "
+                       f"FROM ({sql})", params).fetchall()
+    if not rows:
+        return [Check("sources:divergence", "sources", "pass", "no indicator has two sources with data to compare")]
+    flagged = [r for r in rows if r[8]]
+    by_ind: dict[str, int] = {}
+    for r in flagged:
+        by_ind[r[0]] = by_ind.get(r[0], 0) + 1
+    if not flagged:
+        return [Check("sources:divergence", "sources", "pass",
+                      f"{len(rows)} country comparisons; the sources agree in their latest common year")]
+    summary = ", ".join(f"{k} {v}" for k, v in sorted(by_ind.items(), key=lambda kv: -kv[1]))
+    return [Check("sources:divergence", "sources", "info",
+                  f"{len(flagged)} of {len(rows)} country comparisons differ (latest common year): {summary}",
+                  [f"{i} {e} {y}: {a} {va:,.4g} vs {b} {vb:,.4g} ({rel:.0%} apart)"
+                   for i, e, y, a, va, b, vb, rel, _ in flagged[:15]])]
+
+
 WHATIF_TOLERANCE = 1.0  # percent of total population, at every year compared
 BACKTEST_YEARS = 30
 
@@ -205,19 +234,20 @@ def whatif_model(con) -> list[Check]:
 def manual_sample(con, n: int = 12) -> Check:
     """A reproducible sample of values to compare by eye with the source sites."""
     rows = con.execute(f"""
-        SELECT s.source_id, s.entity_id, e.m49, s.indicator_id, i.name, strftime(s.period_start, '%Y'), s.value,
+        SELECT s.source_id, s.entity_id, e.m49, e.iso2, s.indicator_id, i.name, strftime(s.period_start, '%Y'), s.value,
             i.unit, src.series
         FROM series s
         JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country'
         JOIN indicators i ON i.indicator_id = s.indicator_id
         JOIN indicator_sources src ON src.indicator_id = s.indicator_id AND src.source_id = s.source_id
         WHERE s.breakdown = '' AND s.status = 'E' AND NOT s.is_aggregate
-            AND s.indicator_id IN ('pop_total', 'tfr', 'life_expectancy', 'median_age', 'gdp_growth', 'gdp_usd')
+            AND s.indicator_id IN ('pop_total', 'tfr', 'life_expectancy', 'median_age', 'gdp_growth', 'gdp_usd',
+                                   'military_spending_gdp', 'unemployment', 'electricity_generation')
         ORDER BY hash(s.entity_id || s.indicator_id || s.period_start::VARCHAR) LIMIT {n}""").fetchall()
     lines = []
-    for source_id, iso3, m49, ind, name, year, value, unit, series in rows:
+    for source_id, iso3, m49, iso2, ind, name, year, value, unit, series in rows:
         link = SOURCE_LINKS.get(source_id, "").format(m49=int(m49) if m49 else "", year=year, iso3=iso3,
-                                                      series=series)
+                                                      iso2=iso2 or iso3, series=series)
         lines.append(f"{iso3} {name} {year}: {value:,.6g} {unit} ({source_id}) {link}")
     return Check("manual_sample", "manual", "info", "\n".join(lines))
 
