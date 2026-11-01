@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import type { ECharts } from "echarts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
@@ -90,7 +91,7 @@ export default function EnergyMix({ entity, name, indicators }: { entity: string
   return (
     <div className="card" id="energy-mix">
       <div className="card-head">
-        <h3>Energy mix</h3>
+        <h3>Energy mix <Help note={mix === "elec" ? "energy_elec" : "energy_primary"} /></h3>
         {parts && parts.length > 0 && <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>}
       </div>
       <div className="chips-row small">

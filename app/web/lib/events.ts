@@ -91,19 +91,39 @@ export function eventMarks(events: EventRow[], names?: Map<string, string>) {
 
 // Events for the countries on a chart, as Settings asks; none when switched off or
 // for more than three countries (the chart would be all bands).
-export function useChartEvents(entityIds: string[]): EventRow[] {
+// `kinds` (comma-separated) overrides the kinds ticked in Settings, as the country
+// page's event chips do.
+export function useChartEvents(entityIds: string[], kinds?: string): EventRow[] {
   const s = useSettings();
   const [rows, setRows] = useState<EventRow[]>([]);
   const key = entityIds.join(",");
+  const wanted = kinds ?? s.event_kinds;
   useEffect(() => {
-    if (!s.events_on_charts || !key || entityIds.length > 3) { setRows([]); return; }
+    if (!s.events_on_charts || !key || entityIds.length > 3 || !wanted) { setRows([]); return; }
     let live = true;
-    api.events({ entities: key.split(","), kinds: s.event_kinds.split(",").filter(Boolean) })
-      .then((r) => live && setRows(forCharts(r, s))).catch(() => live && setRows([]));
+    api.events({ entities: key.split(","), kinds: wanted.split(",").filter(Boolean) })
+      .then((r) => live && setRows(forCharts(r, { ...s, event_kinds: wanted }))).catch(() => live && setRows([]));
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, s.events_on_charts, s.event_kinds, s.disaster_min_deaths]);
+  }, [key, s.events_on_charts, wanted, s.disaster_min_deaths]);
   return rows;
+}
+
+// The country page's own choice of event kinds, remembered in this browser; null
+// until changed, which means "as in Settings".
+const PROFILE_KINDS = "wm.profileEventKinds";
+export function useProfileKinds(): [string | null, (k: string | null) => void] {
+  const [kinds, setKinds] = useState<string | null>(null);
+  useEffect(() => {
+    try { setKinds(window.localStorage.getItem(PROFILE_KINDS)); } catch { /* storage blocked: use Settings */ }
+  }, []);
+  const set = (k: string | null) => {
+    setKinds(k);
+    try {
+      if (k === null) window.localStorage.removeItem(PROFILE_KINDS); else window.localStorage.setItem(PROFILE_KINDS, k);
+    } catch { /* kept for this visit only */ }
+  };
+  return [kinds, set];
 }
 
 // Add the events that cover the hovered year to a chart's axis tooltip.

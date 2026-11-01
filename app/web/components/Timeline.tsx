@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, type EventRow } from "@/lib/api";
@@ -37,7 +38,7 @@ export default function Timeline({ entity, name, isGroup }: { entity: string; na
 
   return (
     <div className="card" id="timeline">
-      <h3>Timeline <span className="small ink-2">· {rows.length} events</span></h3>
+      <h3>Timeline <span className="small ink-2">· {rows.length} events</span> <Help note="timeline" /></h3>
       <div className="chips-row">
         {kinds.map((k) => (
           <button key={k.kind} className={`chip kind ${off.has(k.kind) ? "off" : ""}`} onClick={() => toggle(k.kind)}
