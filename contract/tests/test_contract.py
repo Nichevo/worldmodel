@@ -97,3 +97,23 @@ def test_problems_count_repeats_and_close_once_a_run_passes(tmp_path):
     log.write_text(log.read_text() + json.dumps({"kind": "refresh", "status": "ok", "started_at": "2026-10-05T00:00:00+00:00",
                                                  "sources": [{"source_id": "imf_weo", "status": "unchanged"}]}) + "\n")
     assert not any(p["open"] for p in local.problems(tmp_path))
+
+
+def test_statistical_forecast_models():
+    import math
+
+    import pytest
+
+    from worldmodel_contract.forecast import forecast, recent_run, use_log
+
+    years = list(range(1980, 2024))
+    trend = [100 * 1.02 ** i for i in range(len(years))]
+    f = forecast(years, trend, 5, "persons")
+    assert f["transform"] == "log" and f["points"][-1]["mean"] == pytest.approx(trend[-1] * 1.02 ** 5, rel=0.01)
+    swing = [2 + math.sin(i) for i in range(len(years))]
+    g = forecast(years, swing, 10, "percent", bounds=(-1, 3.5))
+    assert g["transform"] == "none" and all(-1 <= p["lo95"] and p["hi95"] <= 3.5 for p in g["points"])
+    assert recent_run([2000, 2001, 2005, 2006, 2007], [1, 2, 3, 4, 5]) == ([2005, 2006, 2007], [3.0, 4.0, 5.0])
+    assert not use_log([1, 2], "percent") and use_log([1, 2], "US dollars")
+    with pytest.raises(ValueError):
+        forecast([2000, 2001], [1, 2])

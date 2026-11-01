@@ -2,18 +2,38 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import ChartCard from "@/components/ChartCard";
 import EChart from "@/components/EChart";
-import { api, type Entity, type ForecastErrors, type TrackRecord, type WhatIf, type WhatIfLevers } from "@/lib/api";
+import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
+  type WhatIfLevers } from "@/lib/api";
 import { inputOption, pyramidCompareOption, trackOption, whatifOption } from "@/lib/charts";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
+import { useSettings } from "@/lib/settings";
 
 // Forecasts: the population what-if (move fertility, life expectancy and
 // migration away from the UN projection and see the population and its age
-// shape change), and the IMF's track record (how far its past growth and
-// inflation forecasts were from what happened).
-const DEFAULTS: WhatIfLevers = { tfr: 0, e0: 0, mig: 1, extra: 0, phase: 10 };
+// shape change), a statistical forecast of any indicator, and forecasters' track
+// records (how far the IMF's, OECD's and World Bank's past forecasts were from
+// what happened, and who forecasts best).
+const DEFAULTS: WhatIfLevers = { tfr: 0, e0: 0, mig: 1, extra: 0, phase: 10, hold: 0 };
+// Ready-made scenarios, after the UN's own variants where there is one.
+const PRESETS: { label: string; title: string; levers: WhatIfLevers }[] = [
+  { label: "Low fertility", title: "The UN's low variant: half a child fewer per woman, reached within 5 years",
+    levers: { ...DEFAULTS, tfr: -0.5, phase: 5 } },
+  { label: "High fertility", title: "The UN's high variant: half a child more per woman, reached within 5 years",
+    levers: { ...DEFAULTS, tfr: 0.5, phase: 5 } },
+  { label: "Fertility stays as today", title: "The UN's constant-fertility idea: births per woman stay at this year's level",
+    levers: { ...DEFAULTS, hold: 1 } },
+  { label: "No migration", title: "The UN's zero-migration variant: no one moves in or out",
+    levers: { ...DEFAULTS, mig: 0 } },
+  { label: "Double migration", title: "Twice the UN's migration, in or out", levers: { ...DEFAULTS, mig: 2 } },
+  { label: "Longer lives", title: "Five more years of life expectancy, built up over 25 years",
+    levers: { ...DEFAULTS, e0: 5, phase: 25 } },
+];
+const FORECASTERS = [["imf_weo", "IMF"], ["oecd_eo", "OECD"], ["wb_gep", "World Bank"]] as const;
+type Tab = "whatif" | "stat" | "track";
 const HELD_LABEL: Record<string, string> = {
   tfr: "fertility", e0_male: "men's life expectancy", e0_female: "women's life expectancy", net_migration: "migration",
 };
@@ -33,13 +53,14 @@ function num(v: string | null, d: number): number {
 
 function Forecasts() {
   const params = useSearchParams();
-  const [tab, setTab] = useState<"whatif" | "track">(params.get("tab") === "track" ? "track" : "whatif");
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "track" ? "track" : params.get("tab") === "stat" ? "stat" : "whatif");
   const [entity, setEntity] = useState(params.get("e") ?? "NZL");
   const [levers, setLevers] = useState<WhatIfLevers>({
     tfr: num(params.get("tfr"), 0), e0: num(params.get("e0"), 0), mig: num(params.get("mig"), 1),
-    extra: num(params.get("extra"), 0), phase: num(params.get("phase"), 10),
+    extra: num(params.get("extra"), 0), phase: num(params.get("phase"), 10), hold: num(params.get("hold"), 0) ? 1 : 0,
   });
-  const [indicator, setIndicator] = useState(params.get("ind") === "inflation" ? "inflation" : "gdp_growth");
+  const [indicator, setIndicator] = useState(params.get("ind") ?? "gdp_growth");
+  const [forecaster, setForecaster] = useState(params.get("src") ?? "imf_weo");
   const [countries, setCountries] = useState<Entity[]>([]);
 
   useEffect(() => {
@@ -55,18 +76,23 @@ function Forecasts() {
     if (tab === "track") {
       q.set("tab", "track");
       q.set("ind", indicator);
+      if (forecaster !== "imf_weo") q.set("src", forecaster);
+    } else if (tab === "stat") {
+      q.set("tab", "stat");
+      q.set("ind", indicator);
     } else {
       for (const [k, v] of Object.entries(levers)) if (v !== DEFAULTS[k as keyof WhatIfLevers]) q.set(k, String(v));
     }
     return q.toString();
-  }, [entity, levers, tab, indicator]);
+  }, [entity, levers, tab, indicator, forecaster]);
   useEffect(() => {
     if (query !== window.location.search.slice(1)) window.history.replaceState(null, "", `?${query}`);
   }, [query]);
 
   const name = countries.find((c) => c.entity_id === entity)?.short_name ?? entity;
   useEffect(() => {
-    const t = setTimeout(() => logHistory({ kind: "page", title: `${tab === "track" ? "IMF track record" : "Population what-if"}: ${name}`,
+    const what = tab === "track" ? "Forecast track record" : tab === "stat" ? "Statistical forecast" : "Population what-if";
+    const t = setTimeout(() => logHistory({ kind: "page", title: `${what}: ${name}`,
       url: `/forecasts?${query}`, entity, detail: "forecasts" }), 3000);
     return () => clearTimeout(t);
   }, [query, name, entity, tab]);
@@ -78,13 +104,17 @@ function Forecasts() {
         <p className="ink-2" style={{ marginTop: 0 }}>
           {tab === "whatif"
             ? "Change fertility, life expectancy or migration and see how the population and its ages would differ from the UN projection."
-            : "How far the IMF's past forecasts of growth and inflation were from what happened."}
+            : tab === "stat" ? "A statistical forecast of any indicator: simple models tried against the past, the best one used, with the ranges it fell inside."
+            : "How far forecasters' past forecasts of growth and inflation were from what happened, and who forecasts best."}
         </p>
       </div>
       <div className="controls">
         <div className="seg" role="tablist">
           <button role="tab" aria-selected={tab === "whatif"} className={tab === "whatif" ? "on" : ""} onClick={() => setTab("whatif")}>Population what-if</button>
-          <button role="tab" aria-selected={tab === "track"} className={tab === "track" ? "on" : ""} onClick={() => setTab("track")}>IMF track record</button>
+          <button role="tab" aria-selected={tab === "stat"} className={tab === "stat" ? "on" : ""}
+            onClick={() => setTab("stat")}>Statistical forecast</button>
+          <button role="tab" aria-selected={tab === "track"} className={tab === "track" ? "on" : ""}
+            onClick={() => { setTab("track"); if (!["gdp_growth", "inflation"].includes(indicator)) setIndicator("gdp_growth"); }}>Track record</button>
         </div>
         <select value={entity} onChange={(e) => setEntity(e.target.value)} aria-label="Country">
           {!countries.some((c) => c.entity_id === entity) && <option value={entity}>{entity}</option>}
@@ -93,7 +123,8 @@ function Forecasts() {
         <Link className="small" href={`/entity/${entity}`}>Profile</Link>
       </div>
       {tab === "whatif" ? <WhatIfView entity={entity} levers={levers} setLevers={setLevers} />
-        : <TrackView entity={entity} indicator={indicator} setIndicator={setIndicator} />}
+        : tab === "stat" ? <StatView entity={entity} name={name} indicator={indicator} setIndicator={setIndicator} />
+        : <TrackView entity={entity} indicator={indicator} setIndicator={setIndicator} source={forecaster} setSource={setForecaster} />}
     </div>
   );
 }
@@ -115,6 +146,7 @@ function WhatIfView({ entity, levers, setLevers }: { entity: string; levers: Wha
 
   const set = (patch: Partial<WhatIfLevers>) => setLevers({ ...levers, ...patch });
   const changed = Object.entries(levers).some(([k, v]) => k !== "phase" && v !== DEFAULTS[k as keyof WhatIfLevers]);
+  const preset = PRESETS.find((p) => Object.entries(p.levers).every(([k, v]) => levers[k as keyof WhatIfLevers] === v));
   const shownYear = data ? Math.min(data.years[data.years.length - 1], Math.max(data.base_year, year ?? 2050)) : null;
   const total = useCallback(() => whatifOption(data?.years ?? [], data?.baseline ?? [], data?.scenario ?? [], data?.ranges ?? {}, changed),
     [data, changed]);
@@ -134,6 +166,13 @@ function WhatIfView({ entity, levers, setLevers }: { entity: string; levers: Wha
 
   return (
     <>
+      <div className="chips-row small" role="group" aria-label="Ready-made scenarios">
+        <span className="muted">Scenarios:</span>
+        {PRESETS.map((p) => (
+          <button key={p.label} className={`chip${preset === p ? " on" : ""}`} aria-pressed={preset === p} title={p.title}
+            onClick={() => setLevers(p.levers)}>{p.label}</button>
+        ))}
+      </div>
       <section className="card levers">
         <div className="lever">
           <label htmlFor="l-tfr">Fertility <b>{levers.tfr > 0 ? "+" : ""}{levers.tfr.toFixed(1)}</b> children per woman</label>
@@ -154,6 +193,10 @@ function WhatIfView({ entity, levers, setLevers }: { entity: string; levers: Wha
         <div className="lever">
           <label htmlFor="l-phase">Phased in over <b>{levers.phase}</b> {levers.phase === 1 ? "year" : "years"}</label>
           <input id="l-phase" type="range" min={0} max={30} step={1} value={levers.phase} onChange={(e) => set({ phase: +e.target.value })} />
+        </div>
+        <div className="lever">
+          <label><input type="checkbox" checked={!!levers.hold} onChange={(e) => set({ hold: e.target.checked ? 1 : 0 })} /> Fertility stays at {"today's"} level</label>
+          <span className="small muted">Instead of following the UN path; the fertility slider then moves it from there.</span>
         </div>
         <div className="lever-actions">
           <button onClick={() => setLevers(DEFAULTS)} disabled={!changed && levers.phase === DEFAULTS.phase}>Back to the UN projection</button>
@@ -261,24 +304,95 @@ function SummaryTable({ data, changed }: { data: WhatIf; changed: boolean }) {
   );
 }
 
+// ----------------------------------------------------------------------------- statistical forecast
+const STAT_CHOICES = ["gdp_growth", "inflation", "pop_total", "gdp_per_capita_usd", "life_expectancy", "tfr", "unemployment",
+  "co2_per_capita", "govt_debt_gdp", "median_age"];
+
+function StatView({ entity, name, indicator, setIndicator }: { entity: string; name: string; indicator: string; setIndicator: (i: string) => void }) {
+  const [inds, setInds] = useState<Indicator[]>([]);
+  const [fc, setFc] = useState<Forecast | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const s = useSettings();
+  useEffect(() => { api.indicators().then(setInds).catch(() => {}); }, []);
+  useEffect(() => {
+    let live = true;
+    setFc(null);
+    api.forecast(indicator, entity, s.forecast_horizon, false).then((f) => { if (live) { setFc(f); setError(null); } })
+      .catch((e) => live && setError(String(e.message || e)));
+    return () => { live = false; };
+  }, [indicator, entity, s.forecast_horizon]);
+  const ind = inds.find((i) => i.indicator_id === indicator);
+  const picks = useMemo(() => {
+    const top = STAT_CHOICES.map((id) => inds.find((i) => i.indicator_id === id)).filter((i): i is Indicator => !!i);
+    const rest = inds.filter((i) => i.enabled && !STAT_CHOICES.includes(i.indicator_id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { top, rest };
+  }, [inds]);
+  return (
+    <>
+      <div className="controls">
+        <select value={indicator} onChange={(e) => setIndicator(e.target.value)} aria-label="Indicator">
+          {!ind && <option value={indicator}>{indicator}</option>}
+          <optgroup label="Often forecast">{picks.top.map((i) => <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>)}</optgroup>
+          <optgroup label="All switched-on indicators">{picks.rest.map((i) => <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>)}</optgroup>
+        </select>
+        <Link className="small" href="/settings">Forecast settings</Link>
+      </div>
+      {ind && <ChartCard indicator={ind} entities={[{ id: entity, name }]} height={320} forecast />}
+      {error && <p className="error">{error}</p>}
+      {fc && (
+        <section className="card">
+          <h3>Models tried for {name}</h3>
+          <table className="summary-table">
+            <thead><tr><th>Model</th><th className="num">Typical miss</th><th className="num">Forecasts scored</th></tr></thead>
+            <tbody>
+              {fc.models.map((m) => (
+                <tr key={m.id} className={m.id === fc.model ? "selected" : ""}>
+                  <td>{m.name}{m.id === fc.model ? " (used)" : ""}</td>
+                  <td className="num">{m.mae === null ? "–" : formatValue(m.mae, fc.unit, fc.decimals)}</td>
+                  <td className="num">{m.n}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="small muted" style={{ marginBottom: 0 }}>
+            Each model was refitted on the figures up to each of the last {fc.backtest_origins} years and asked to forecast
+            up to {fc.backtest_depth} {fc.backtest_depth === 1 ? "year" : "years"} on; typical miss is the average distance from
+            what happened. The simplest model within 5% of the best is used, as a small edge over a few years is more often
+            luck than skill.{fc.transform === "log" ? " This series is modelled in percentage changes, so it cannot fall below zero." : ""}
+            {" "}The UN, IMF and other sources&apos; own projections, where they exist, are the dashed lines.
+          </p>
+        </section>
+      )}
+    </>
+  );
+}
+
 // ----------------------------------------------------------------------------- track record
 const HORIZON = ["the year before", "the same year", "the next year", "2 years ahead", "3 years ahead", "4 years ahead", "5 years ahead"];
 
-function TrackView({ entity, indicator, setIndicator }: { entity: string; indicator: string; setIndicator: (i: string) => void }) {
+function TrackView({ entity, indicator, setIndicator, source, setSource }: {
+  entity: string; indicator: string; setIndicator: (i: string) => void; source: string; setSource: (s: string) => void;
+}) {
   const [one, setOne] = useState<TrackRecord | null>(null);
   const [all, setAll] = useState<TrackRecord | null>(null);
+  const [best, setBest] = useState<Forecaster[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState(2005);
+  const src = indicator === "inflation" && source === "wb_gep" ? "imf_weo" : source;
   useEffect(() => {
     let live = true;
-    Promise.all([api.trackRecord(indicator, entity), api.trackRecord(indicator)])
+    setOne(null); setAll(null);
+    Promise.all([api.trackRecord(indicator, entity, src), api.trackRecord(indicator, undefined, src)])
       .then(([a, b]) => { if (live) { setOne(a); setAll(b); setError(null); } })
       .catch((e) => live && setError(String(e.message || e)));
+    api.compareForecasters(indicator, entity).then((r) => live && setBest(r.forecasters)).catch(() => live && setBest(null));
     return () => { live = false; };
-  }, [entity, indicator]);
+  }, [entity, indicator, src]);
   const unit = "percent";
   const option = useCallback(() => trackOption(one?.actual ?? [], one?.paths ?? [], unit, 1, from), [one, from]);
   const label = indicator === "inflation" ? "inflation" : "GDP growth";
+  const who = one?.source_name ?? "IMF";
   const fewReleases = (one?.releases.length ?? 0) < 3;
 
   return (
@@ -288,6 +402,13 @@ function TrackView({ entity, indicator, setIndicator }: { entity: string; indica
           <button className={indicator === "gdp_growth" ? "on" : ""} onClick={() => setIndicator("gdp_growth")}>GDP growth</button>
           <button className={indicator === "inflation" ? "on" : ""} onClick={() => setIndicator("inflation")}>Inflation</button>
         </div>
+        <div className="seg" role="group" aria-label="Forecaster">
+          {FORECASTERS.map(([id, name]) => (
+            <button key={id} className={src === id ? "on" : ""} aria-pressed={src === id}
+              disabled={indicator === "inflation" && id === "wb_gep"} title={indicator === "inflation" && id === "wb_gep" ? "The World Bank's outlook forecasts growth only" : ""}
+              onClick={() => setSource(id)}>{name}</button>
+          ))}
+        </div>
         <label className="small">From <select value={from} onChange={(e) => setFrom(+e.target.value)}>
           {[1990, 2000, 2005, 2010, 2015, 2020].map((y) => <option key={y} value={y}>{y}</option>)}
         </select></label>
@@ -295,16 +416,18 @@ function TrackView({ entity, indicator, setIndicator }: { entity: string; indica
       {error && <p className="error">{error}</p>}
       {one && fewReleases && (
         <p className="small warn-note">
-          Only {one.releases.length === 1 ? "one IMF release is" : `${one.releases.length} IMF releases are`} stored so far ({one.releases.join(", ") || "none"}).
-          Run <code>.\refresh.bat</code> to load the IMF&apos;s file of every forecast since 1990; each refresh after a new
-          WEO (April and October) adds that release too.
+          Only {one.releases.length === 1 ? `one ${who} release is` : `${one.releases.length} ${who} releases are`} stored so far ({one.releases.join(", ") || "none"}).
+          {src === "imf_weo"
+            ? <> Run <code>.\refresh.bat</code> to load the IMF&apos;s file of every forecast since 1990; each refresh after a new WEO (April and October) adds that release too.</>
+            : <> The record builds up as <code>.\refresh.bat</code> stores each new edition ({src === "oecd_eo" ? "June and December" : "January and June"}); the first can be scored once the next year&apos;s figures are in.</>}
         </p>
       )}
+      {best && best.length > 0 && <BestTable rows={best} label={label} />}
       {one && (
         <div className="grid two">
           <section className="card">
-            <h3>{one.name}: {label}, forecasts and what happened</h3>
-            <EChart option={option} height={300} label={`${label} in ${one.name}: past IMF forecasts and outcomes`} />
+            <h3>{one.name}: {label}, {who} forecasts and what happened</h3>
+            <EChart option={option} height={300} label={`${label} in ${one.name}: past ${who} forecasts and outcomes`} />
             <p className="small muted" style={{ marginBottom: 0 }}>
               Thin lines are what each release forecast (darker is newer); the thick line is what happened, from the
               {one.outcomes_from ? ` ${one.outcomes_from}` : " latest"} release.
@@ -312,15 +435,15 @@ function TrackView({ entity, indicator, setIndicator }: { entity: string; indica
           </section>
           <section className="card">
             <h3>How far off, on average</h3>
-            <ErrorTable stats={one.stats} />
+            <ErrorTable stats={one.stats} seasons={one.seasons} />
             {all && all.stats.length > 0 && (
               <>
                 <h3 style={{ marginTop: 14 }}>All countries together</h3>
-                <ErrorTable stats={all.stats} />
+                <ErrorTable stats={all.stats} seasons={all.seasons} />
               </>
             )}
             <p className="small muted" style={{ marginBottom: 0 }}>
-              Error is forecast minus outcome, in percentage points. Bias above zero means the IMF forecast too high on
+              Error is forecast minus outcome, in percentage points. Bias above zero means {who} forecast too high on
               average; typical miss is the mean absolute error.
             </p>
           </section>
@@ -328,7 +451,7 @@ function TrackView({ entity, indicator, setIndicator }: { entity: string; indica
       )}
       {all?.countries && all.countries.length > 0 && (
         <section className="card">
-          <h3>Next-year {label} forecasts by country</h3>
+          <h3>Next-year {label} forecasts by country ({who})</h3>
           <div style={{ maxHeight: 360, overflow: "auto" }}>
             <table className="summary-table">
               <thead><tr><th>Country</th><th className="num">Forecasts</th><th className="num">Typical miss</th><th className="num">Bias</th></tr></thead>
@@ -347,31 +470,72 @@ function TrackView({ entity, indicator, setIndicator }: { entity: string; indica
   );
 }
 
+// Who forecasts best: each forecaster's typical miss over the years all of them were scored.
+function BestTable({ rows, label }: { rows: Forecaster[]; label: string }) {
+  const scored = rows.filter((r) => r.this_year.n || r.next_year.n);
+  const fair = (r: Forecaster, k: "this_year" | "next_year") => r[`${k}_common`].mae;
+  const winner = (k: "this_year" | "next_year") => {
+    const c = scored.filter((r) => fair(r, k) !== null);
+    return c.length > 1 ? c.reduce((a, b) => (fair(a, k)! <= fair(b, k)! ? a : b)).source_id : null;
+  };
+  const w0 = winner("this_year"), w1 = winner("next_year");
+  return (
+    <section className="card">
+      <h3>Who forecasts {label} best here</h3>
+      <table className="summary-table">
+        <thead>
+          <tr><th>Forecaster</th><th className="num">This year: typical miss</th><th className="num">over shared years</th>
+            <th className="num">Next year: typical miss</th><th className="num">over shared years</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.source_id}>
+              <td>{r.name}{r.releases !== null ? <span className="small muted"> ({r.releases} {r.releases === 1 ? "release" : "releases"} scored)</span> : null}</td>
+              <td className="num" title={`${r.this_year.n} forecasts`}>{pts(r.this_year.mae)}</td>
+              <td className="num" title={`${r.this_year_common.n} forecasts over ${r.this_year_common_years} shared years`}>
+                {w0 === r.source_id ? <b>{pts(fair(r, "this_year"))}</b> : pts(fair(r, "this_year"))}</td>
+              <td className="num" title={`${r.next_year.n} forecasts`}>{pts(r.next_year.mae)}</td>
+              <td className="num" title={`${r.next_year_common.n} forecasts over ${r.next_year_common_years} shared years`}>
+                {w1 === r.source_id ? <b>{pts(fair(r, "next_year"))}</b> : pts(fair(r, "next_year"))}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="small muted" style={{ marginBottom: 0 }}>
+        Typical miss is the average distance between forecast and outcome, in percentage points. The fair comparison is
+        over shared years, the years every forecaster with a record forecast; bold is the closest. Worldmodel is the
+        statistical forecast on this page, tried on the past with only the figures known before each year. Forecasters
+        with no scored releases yet build a record as each edition is stored.
+      </p>
+    </section>
+  );
+}
+
 function pts(v: number | null, signed = false): string {
   if (v === null) return "–";
   return `${signed && v > 0 ? "+" : ""}${v.toFixed(2)} pts`;
 }
 
-function ErrorTable({ stats }: { stats: ({ season: string; horizon: number } & ForecastErrors)[] }) {
+function ErrorTable({ stats, seasons }: { stats: ({ season: string; horizon: number } & ForecastErrors)[]; seasons: string[] }) {
   if (!stats.length) return <p className="small muted">No forecasts to score yet.</p>;
   const horizons = [...new Set(stats.map((s) => s.horizon))].sort((a, b) => a - b);
+  const cols = seasons.filter((x) => stats.some((s) => s.season === x));
   const get = (season: string, h: number) => stats.find((s) => s.season === season && s.horizon === h);
   return (
     <table className="summary-table">
       <thead>
-        <tr><th>Forecast for</th><th className="num">April: typical miss</th><th className="num">bias</th><th className="num">October: typical miss</th><th className="num">bias</th></tr>
+        <tr><th>Forecast for</th>{cols.map((c) => <Fragment key={c}><th className="num">{c}: typical miss</th><th className="num">bias</th></Fragment>)}</tr>
       </thead>
       <tbody>
-        {horizons.map((h) => {
-          const a = get("April", h), o = get("October", h);
-          return (
-            <tr key={h}>
-              <th scope="row">{HORIZON[h + 1] ?? `${h} years ahead`}</th>
-              <td className="num" title={a ? `${a.n} forecasts` : ""}>{pts(a?.mae ?? null)}</td><td className="num">{pts(a?.bias ?? null, true)}</td>
-              <td className="num" title={o ? `${o.n} forecasts` : ""}>{pts(o?.mae ?? null)}</td><td className="num">{pts(o?.bias ?? null, true)}</td>
-            </tr>
-          );
-        })}
+        {horizons.map((h) => (
+          <tr key={h}>
+            <th scope="row">{HORIZON[h + 1] ?? `${h} years ahead`}</th>
+            {cols.map((c) => {
+              const x = get(c, h);
+              return <Fragment key={c}><td className="num" title={x ? `${x.n} forecasts` : ""}>{pts(x?.mae ?? null)}</td><td className="num">{pts(x?.bias ?? null, true)}</td></Fragment>;
+            })}
+          </tr>
+        ))}
       </tbody>
     </table>
   );

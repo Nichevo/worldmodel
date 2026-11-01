@@ -10,17 +10,22 @@ import { credits, fileName, saveUrl, sourcesOf, titledPng } from "@/lib/download
 import { eventMarks, withEventTooltip } from "@/lib/events";
 import { withParties, type Term } from "@/lib/parties";
 import { SOURCE_LABEL } from "@/lib/format";
+import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
+import { useSettings } from "@/lib/settings";
 
 type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; start?: number; end?: number; height?: number;
-  events?: EventRow[]; parties?: Term[] };
+  events?: EventRow[]; parties?: Term[]; forecast?: boolean };
 
 // One indicator for one or more entities, with its source line underneath, and
 // dated events (Settings: Events on charts) as bands and lines, optionally coloured
 // by the party in government, and a button to save it as a picture.
-export default function ChartCard({ indicator, entities, kind = "line", start, end, height = 260, events = [], parties = [] }: Props) {
+export default function ChartCard({ indicator, entities, kind = "line", start, end, height = 260, events = [], parties = [], forecast = false }: Props) {
   const [rows, setRows] = useState<SeriesRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ids = entities.map((e) => e.id).join(",");
+  const [forecastOn, setForecastOn] = useState(forecast);
+  const settings = useSettings();
+  const forecasts = useForecasts(indicator.indicator_id, entities.map((e) => e.id), forecastOn && kind === "line");
 
   useEffect(() => {
     setRows(null);
@@ -37,10 +42,11 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
       ? barOption(rows ?? [], entities[0], indicator.unit, indicator.decimals)
       : lineOption(rows ?? [], entities, indicator.unit, indicator.decimals);
     if (parties.length && entities.length === 1) o = withParties(o, parties, years);
+    if (forecasts) o = withForecast(o, forecasts, entities, settings.forecast_ranges, rows?.[0]?.source_id);
     if (!inView.length) return o;
     const shownNames = new Map(entities.map((e) => [e.id, e.name]));
     return withEventTooltip({ ...o, series: [...(o.series as object[]), eventMarks(inView, shownNames)] } as typeof o, inView, shownNames);
-  }, [rows, entities, indicator, kind, inView.length, parties]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, entities, indicator, kind, inView.length, parties, forecasts, settings.forecast_ranges]); // eslint-disable-line react-hooks/exhaustive-deps
   const chart = useRef<ECharts | null>(null);
   const onReady = useCallback((c: ECharts) => { chart.current = c; }, []);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -49,7 +55,8 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
     if (!c || c.isDisposed()) return;
     try {
       const footer = await credits([...sourcesOf(indicator, rows ?? []), ...inView.map((e) => e.source_id),
-        ...(parties.length ? ["wikidata"] : [])]);
+        ...(parties.length ? ["wikidata"] : []),
+        ...(forecasts ? [...forecasts.byEntity.values()].flatMap((f) => f.official.map((x) => x.source_id)) : [])]);
       const url = await titledPng(c.getDataURL({ type: "svg" }), c.getWidth(), c.getHeight(),
         `${indicator.name}: ${entities.map((e) => e.name).join(", ")}`, years ? `${years[0]}–${years[1]}.` : "", footer);
       saveUrl(url, `${fileName(indicator.indicator_id, ...entities.map((e) => e.id))}.png`);
@@ -68,7 +75,14 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
     <div className="card">
       <div className="card-head">
         <h3>{indicator.name} <Help indicator={indicator} /></h3>
-        {rows && rows.length > 0 && <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>}
+        {rows && rows.length > 0 && (
+          <span className="card-actions">
+            {kind === "line" && <button className={`link small${forecastOn ? " on" : ""}`} aria-pressed={forecastOn}
+              title="Extend each line with a statistical forecast and its ranges (Settings: Forecasts)"
+              onClick={() => setForecastOn(!forecastOn)}>{forecastOn ? "Hide forecast" : "Forecast"}</button>}
+            <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>
+          </span>
+        )}
       </div>
       {saveError && <p className="error small">{saveError}</p>}
       {error && <p className="error">{error}</p>}
@@ -79,6 +93,8 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
           Source: {vintages.join("; ")}.{hasProjection ? (kind === "bar" ? " Faded bars are projections." : " Dashed lines are projections.") : ""}
           {events.length > 0 ? " Shaded bands and dotted lines are events; hover one for its name." : ""}
           {parties.length > 0 && entities.length === 1 ? " Coloured by the party in government (Wikidata)." : ""}
+          {forecastOn && forecasts ? ` ${forecastCaption(forecasts, entities, settings.forecast_ranges)}` : ""}
+          {forecastOn && !forecasts ? " Working out the forecast…" : ""}
           {lastAgg && lastAgg.coverage !== null
             ? ` Built from member countries; ${Math.round(lastAgg.coverage * 100)}% of the group's population reported in ${lastAgg.period}.`
             : ""}

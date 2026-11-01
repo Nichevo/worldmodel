@@ -421,6 +421,10 @@
     - {source_id: imf_weo_history, series: ngdp_rpch, scale: 1,
        notes: "Every WEO release since 1990, one per breakdown release=YYYY-MM; for the forecast track record."}
     - {source_id: world_bank_wdi, series: NY.GDP.MKTP.KD.ZG, scale: 1}
+    - {source_id: oecd_eo, series: GDPV_ANNPCT, scale: 1,
+       notes: "OECD Economic Outlook; years from the edition's year on are OECD projections."}
+    - {source_id: wb_gep, series: NYGDPMKTPKDZ, scale: 1,
+       notes: "World Bank Global Economic Prospects, at average 2010-19 prices and exchange rates; forecasts from the edition's year."}
 
 - id: gdp_usd
   name: GDP, current US dollars
@@ -510,3 +514,5 @@
        notes: "Every WEO release since 1990, one per breakdown release=YYYY-MM; for the forecast track record."}
     - {source_id: world_bank_wdi, series: FP.CPI.TOTL.ZG, scale: 1,
        notes: "Consumer prices, annual average; the IMF series is the same concept."}
+    - {source_id: oecd_eo, series: CPI_YTYPCT, scale: 1,
+       notes: "OECD Economic Outlook, consumer price index; years from the edition's year on are OECD projections."}

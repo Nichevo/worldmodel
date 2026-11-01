@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Fragment, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import Ratios from "@/components/Ratios";
@@ -170,6 +172,7 @@ function Details({ indicator: i }: { indicator: Indicator }) {
     <div className="indicator-detail">
       <div>
         <p style={{ marginTop: 0 }}>{i.description || <span className="muted">No description.</span>}</p>
+        <p className="small" style={{ marginTop: 0 }}><Link href={`/indicator/${i.indicator_id}`}>Open its page: map, every country ranked, key countries and forecast →</Link></p>
         <dl className="facts small">
           <dt>Id</dt><dd><code>{i.indicator_id}</code></dd>
           <dt>Unit</dt><dd>{i.unit}{i.decimals !== undefined ? `, ${i.decimals} decimals` : ""}</dd>
