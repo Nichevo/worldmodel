@@ -53,28 +53,36 @@ function Events() {
 // ----------------------------------------------------------------------------- year at a glance
 function YearView() {
   const [year, setYear] = useState(new Date().getFullYear() - 1);
+  const [span, setSpan] = useState(1);  // how many years, ending at `year`
   const [rows, setRows] = useState<EventRow[] | null>(null);
   const [off, setOff] = useState<Set<string>>(new Set(["leader"]));
   const [country, setCountry] = useState<{ id: string; name: string } | null>(null);
+  const first = year - span + 1;
   useEffect(() => {
     setRows(null);
-    api.events({ start: String(year), end: String(year), entities: country ? [country.id] : undefined })
+    api.events({ start: String(first), end: String(year), entities: country ? [country.id] : undefined, limit: span > 1 ? 20000 : undefined })
       .then(setRows).catch(() => setRows([]));
-  }, [year, country]);
+  }, [first, year, span, country]);
   const shown = (rows ?? []).filter((r) => !off.has(r.kind));
-  const yearStart = `${year}-01-01`;
-  // Through the year: anything that started before it, or is dated only to the year.
-  const through = shown.filter((r) => r.start_date < yearStart || r.precision === "year");
-  const dated = shown.filter((r) => !through.includes(r));
   const kinds = KINDS.filter((k) => (rows ?? []).some((r) => r.kind === k.kind));
   const toggle = (k: string) => setOff((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const years = Array.from({ length: span }, (_, i) => year - i);  // newest first
+  const where = country ? ` in ${country.name}` : "";
 
   return (
     <div className="card">
       <div className="chips-row">
-        <button onClick={() => setYear(year - 1)} aria-label="Year before">◀</button>
-        <input type="number" value={year} min={1800} max={2100} onChange={(e) => setYear(+e.target.value || year)} style={{ width: 80 }} aria-label="Year" />
-        <button onClick={() => setYear(year + 1)} aria-label="Year after">▶</button>
+        <button onClick={() => setYear(year - span)} aria-label={span > 1 ? "Earlier years" : "Year before"}>◀</button>
+        {span > 1 && <span className="muted">{first} to</span>}
+        <input type="number" value={year} min={1800} max={2100} onChange={(e) => setYear(+e.target.value || year)} style={{ width: 80 }} aria-label={span > 1 ? "Last year" : "Year"} />
+        <button onClick={() => setYear(year + span)} aria-label={span > 1 ? "Later years" : "Year after"}>▶</button>
+        <div className="seg" role="group" aria-label="How many years">
+          {[1, 5, 10, 25].map((n) => (
+            <button key={n} className={span === n ? "on" : ""} aria-pressed={span === n} onClick={() => setSpan(n)}>{n === 1 ? "1 year" : `${n} years`}</button>
+          ))}
+        </div>
+        <label className="muted">From <input type="number" value={first} min={1800} max={year} style={{ width: 72 }}
+          onChange={(e) => { const v = +e.target.value; if (v && v <= year) setSpan(Math.min(200, year - v + 1)); }} aria-label="First year" /></label>
         <div style={{ width: 220 }}>
           <Search placeholder={country ? country.name : "All countries (pick one)"} kinds={["entity"]} onPick={(h) => setCountry({ id: h.id, name: h.name })} />
         </div>
@@ -89,9 +97,40 @@ function YearView() {
         ))}
       </div>
       {rows === null && <p className="muted">Loading…</p>}
-      {rows && shown.length === 0 && <p className="muted">No events stored for {year}{country ? ` in ${country.name}` : ""}.</p>}
+      {rows && shown.length === 0 && <p className="muted">No events stored for {span > 1 ? `${first} to ${year}` : year}{where}.</p>}
+      {rows && shown.length > 0 && (span === 1
+        ? <YearBlock year={year} rows={shown} />
+        : years.map((y, i) => {
+          const these = inYear(shown, y);
+          return (
+            <details key={y} className="year-block" open={i < 3}>
+              <summary><b>{y}</b> <span className="muted small">{these.length ? `${these.length} events${where}` : `no events${where}`}</span></summary>
+              {these.length > 0 && <YearBlock year={y} rows={these} compact />}
+            </details>
+          );
+        }))}
+    </div>
+  );
+}
+
+// Events touching a year: starting in it, or begun earlier and still going on.
+function inYear(rows: EventRow[], y: number): EventRow[] {
+  const lo = `${y}-01-01`, hi = `${y}-12-31`;
+  return rows.filter((r) => r.start_date <= hi && (r.end_date ?? r.start_date) >= lo);
+}
+
+// One year's events: those running through the year, then the dated ones by month.
+// Compact (several years shown) leaves out the empty months.
+function YearBlock({ year, rows, compact }: { year: number; rows: EventRow[]; compact?: boolean }) {
+  const yearStart = `${year}-01-01`;
+  const through = rows.filter((r) => r.start_date < yearStart || r.precision === "year");
+  const dated = rows.filter((r) => !through.includes(r));
+  const months = MONTHS.map((m, i) => ({ m, items: dated.filter((r) => +r.start_date.slice(5, 7) === i + 1) }))
+    .filter((x) => !compact || x.items.length);
+  return (
+    <>
       {through.length > 0 && (
-        <details open={through.length <= 40}>
+        <details open={through.length <= (compact ? 12 : 40)}>
           <summary><b>Through the year</b> <span className="muted small">({through.length}: episodes, conflicts and anything that started earlier)</span></summary>
           <div className="cal" style={{ marginTop: 6 }}>
             <div className="month" style={{ gridColumn: "1 / -1" }}>
@@ -101,17 +140,14 @@ function YearView() {
         </details>
       )}
       <div className="cal" style={{ marginTop: 8 }}>
-        {MONTHS.map((m, i) => {
-          const items = dated.filter((r) => +r.start_date.slice(5, 7) === i + 1);
-          return (
-            <div className="month" key={m}>
-              <h4>{m} <span className="muted small">{items.length || ""}</span></h4>
-              {items.map((r) => <Item key={`${r.event_id}|${r.entity_id}`} r={r} day={r.precision === "day" ? String(+r.start_date.slice(8, 10)) : ""} />)}
-            </div>
-          );
-        })}
+        {months.map(({ m, items }) => (
+          <div className="month" key={m}>
+            <h4>{m} <span className="muted small">{items.length || ""}</span></h4>
+            {items.map((r) => <Item key={`${r.event_id}|${r.entity_id}`} r={r} day={r.precision === "day" ? String(+r.start_date.slice(8, 10)) : ""} />)}
+          </div>
+        ))}
       </div>
-    </div>
+    </>
   );
 }
 
