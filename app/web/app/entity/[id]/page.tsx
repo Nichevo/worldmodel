@@ -1,10 +1,12 @@
 "use client";
 
+import Help from "@/components/Help";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import CountryAbout from "@/components/CountryAbout";
+import DebtCard from "@/components/DebtCard";
 import EducationCard from "@/components/EducationCard";
 import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
@@ -14,7 +16,7 @@ import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
 import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
-import { useChartEvents } from "@/lib/events";
+import { KINDS, kindVar, useChartEvents, useProfileKinds } from "@/lib/events";
 import { useGovernments } from "@/lib/parties";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { logHistory } from "@/lib/history";
@@ -61,8 +63,9 @@ export default function EntityPage() {
 
   const named = useMemo(() => (entity ? [{ id: entity.entity_id, name: entity.short_name }] : []), [entity]);
   const byId = useMemo(() => new Map(indicators.map((i) => [i.indicator_id, i])), [indicators]);
-  const chartEvents = useChartEvents(entity ? [entity.entity_id] : []);
   const settings = useSettings();
+  const [profileKinds, setProfileKinds] = useProfileKinds();
+  const chartEvents = useChartEvents(entity ? [entity.entity_id] : [], profileKinds ?? undefined);
   const terms = useGovernments(entity?.entity_id ?? null, settings.party_colours, settings.party_office);
 
   if (error) return <p className="error">{error}</p>;
@@ -107,6 +110,9 @@ export default function EntityPage() {
         </p>
       </div>
 
+      <EventChips kinds={profileKinds ?? settings.event_kinds} own={profileKinds !== null} on={settings.events_on_charts}
+        set={setProfileKinds} />
+
       <CountryAbout entity={entity.entity_id} />
 
       {profile.length > 0 && (
@@ -123,7 +129,7 @@ export default function EntityPage() {
 
       {isGroup && entity.members.length > 0 && (
         <div className="card">
-          <h3>Members today ({entity.members.length})</h3>
+          <h3>Members today ({entity.members.length}) <Help note="members" /></h3>
           <div>
             {entity.members.map((m) => (
               <Link key={m.entity_id} href={`/entity/${m.entity_id}`} className="chip">{m.short_name}</Link>
@@ -152,6 +158,7 @@ export default function EntityPage() {
 
       <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       <HousingCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      {!isGroup && <DebtCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
       <MigrationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       <EducationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && (
@@ -171,7 +178,7 @@ export default function EntityPage() {
         })}
         {byId.get("pop_by_age_sex")?.available && (
           <div className="card">
-            <h3>Population by age and sex</h3>
+            <h3>Population by age and sex <Help note="pyramid" /></h3>
             <Pyramid entity={entity.entity_id} name={entity.short_name} />
             <p className="caption">Source: {SOURCE_LABEL.un_wpp}. Five-year age groups on 1 July.</p>
           </div>
@@ -191,7 +198,7 @@ function SourcesDiffer({ entity }: { entity: string }) {
   if (!rows?.length) return null;
   return (
     <details className="card">
-      <summary><b>Where sources disagree</b> <span className="small ink-2">({rows.length} indicator{rows.length > 1 ? "s" : ""})</span></summary>
+      <summary><b>Where sources disagree</b> <Help note="sources_differ" /> <span className="small ink-2">({rows.length} indicator{rows.length > 1 ? "s" : ""})</span></summary>
       <div style={{ overflowX: "auto" }}>
         <table>
           <thead><tr><th>Indicator</th><th className="num">Year</th><th className="num">Default source</th><th className="num">Other</th><th className="num">Apart</th></tr></thead>
@@ -210,5 +217,35 @@ function SourcesDiffer({ entity }: { entity: string }) {
       </div>
       <p className="caption">Each indicator&apos;s latest year with figures from both sources. Open one to see the sources side by side.</p>
     </details>
+  );
+}
+
+// Which kinds of event show as bands on this page's charts. The choice is kept in
+// this browser for every country page; "As in Settings" goes back to the default.
+function EventChips({ kinds, own, on, set }: { kinds: string; own: boolean; on: boolean; set: (k: string | null) => void }) {
+  const picked = kinds.split(",").filter(Boolean);
+  if (!on) {
+    return (
+      <p className="small muted" style={{ margin: 0 }}>
+        Events on charts are off. <Link href="/settings#events">Switch them on in Settings</Link>.
+      </p>
+    );
+  }
+  return (
+    <div className="chips-row small event-chips" role="group" aria-label="Events shown on charts">
+      <span className="ink-2">Events on charts:</span>
+      {KINDS.map((k) => {
+        const lit = picked.includes(k.kind);
+        const next = (lit ? picked.filter((x) => x !== k.kind) : [...picked, k.kind]).join(",");
+        return (
+          <button key={k.kind} className={`chip kind ${lit ? "" : "off"}`} aria-pressed={lit} style={{ borderColor: kindVar(k.kind) }}
+            onClick={() => set(next)}>
+            <i style={{ background: kindVar(k.kind) }} />{k.label}
+          </button>
+        );
+      })}
+      <button className="link" onClick={() => set("")} disabled={!picked.length}>None</button>
+      {own && <button className="link" onClick={() => set(null)} title="Use the kinds ticked in Settings">As in Settings</button>}
+    </div>
   );
 }

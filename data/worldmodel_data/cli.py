@@ -157,7 +157,7 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             continue
         wait = _not_due(cls, last)
         if wait:
-            entry.update(status="skipped", vintage=last.vintage, note=wait)
+            entry.update(status="skipped", vintage=last.vintage if last else None, note=wait)
             typer.echo(f"{source_id}: skipped ({wait})")
             continue
         conn = cls()

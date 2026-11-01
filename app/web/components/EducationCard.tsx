@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import { useCallback, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
 import type { Indicator } from "@/lib/api";
@@ -66,7 +67,7 @@ export default function EducationCard({ entity, name, indicators }: { entity: st
   return (
     <div className="card" id="education">
       <div className="card-head">
-        <h3>Education</h3>
+        <h3>Education <Help note="education" /></h3>
         {lines.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${title}: ${name}`, hasProjection ? "Dashed or paler: projection (middle-of-the-road scenario)." : "", sources, "education", view, entity)}>Save picture</button>}
       </div>

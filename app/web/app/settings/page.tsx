@@ -51,6 +51,8 @@ export default function SettingsPage() {
           on={s.hover_sparkline} set={(v) => save({ hover_sparkline: v })} />
         <Toggle label="Indicator tabs in popups" hint="A tab for each indicator the panels show, to flip between them."
           on={s.popup_tabs} set={(v) => save({ popup_tabs: v })} />
+        <NumberField label="Ranks panels show the top" unit="countries (0 = all)" value={s.ranks_top_n} min={0} max={300} step={1}
+          save={(v) => save({ ranks_top_n: v })} />
         <Toggle label="Side panel (pinboard)" hint="A column beside the panels for cards sent from popups; saved with each layout."
           on={s.side_panel} set={(v) => save({ side_panel: v })} />
       </section>

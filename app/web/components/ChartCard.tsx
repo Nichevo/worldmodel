@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import type { ECharts } from "echarts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import EChart from "@/components/EChart";
@@ -66,7 +67,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   return (
     <div className="card">
       <div className="card-head">
-        <h3>{indicator.name}</h3>
+        <h3>{indicator.name} <Help indicator={indicator} /></h3>
         {rows && rows.length > 0 && <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>}
       </div>
       {saveError && <p className="error small">{saveError}</p>}

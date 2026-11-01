@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   party_office: "government",
   event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,user",
   disaster_min_deaths: 100,
+  ranks_top_n: 10,
 };
 
 let current: Settings = DEFAULT_SETTINGS;

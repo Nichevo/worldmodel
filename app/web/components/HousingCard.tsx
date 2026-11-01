@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import { useCallback, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
 import type { Indicator } from "@/lib/api";
@@ -118,7 +119,7 @@ export default function HousingCard({ entity, name, indicators }: { entity: stri
   return (
     <div className="card" id="housing">
       <div className="card-head">
-        <h3>House prices and incomes</h3>
+        <h3>House prices and incomes <Help note="housing" /></h3>
         {lines.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${title}: ${name}`, note, sources, "housing", view, entity)}>Save picture</button>}
       </div>
