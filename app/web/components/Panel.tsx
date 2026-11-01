@@ -12,6 +12,7 @@ import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
 import { mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
+import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
@@ -709,13 +710,17 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
   const setRange = (r: string) => dispatch({ type: "panel", id: panel.id, patch: { range: r } });
   const setTrim = (trim: boolean) => dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, trim }) } });
   const setParty = (party: boolean) => dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, party }) } });
+  const setForecast = (forecast: boolean) => dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, forecast }) } });
   const settings = useSettings();
   const oneCountry = entities.length === 1 && shown.length === 1;
   const terms = useGovernments(oneCountry ? entities[0].id : null, opts.party, settings.party_office);
+  // The statistical forecast is for the panel's own indicator (the first line set).
+  const forecasts = useForecasts(indicator.indicator_id, entities.map((e) => e.id), opts.forecast && shown.length === 1);
   const extent = useMemo(() => {
     const ys = (rows ?? []).flat().map((r) => +r.period);
+    for (const f of forecasts?.byEntity.values() ?? []) if (f.points.length) ys.push(f.points[f.points.length - 1].year);
     return ys.length ? [Math.min(...ys), Math.max(...ys)] as const : null;
-  }, [rows]);
+  }, [rows, forecasts]);
   const span = extent ? [Math.max(extent[0], Math.min(extent[1], from ?? extent[0])), Math.min(extent[1], Math.max(extent[0], to ?? extent[1]))] as const : null;
 
   const inView = useMemo(() => (extent ? chartEvents.filter((e) => +e.start_date.slice(0, 4) <= extent[1] + 1
@@ -747,7 +752,8 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         yAxis = (Array.isArray(yAxis) ? [trimmed, ...yAxis.slice(1)] : trimmed) as typeof yAxis;
       }
     }
-    const coloured = oneCountry && terms.length ? withParties({ ...o, series } as typeof o, terms, span ? [span[0], span[1]] : null) : { ...o, series };
+    const partied = oneCountry && terms.length ? withParties({ ...o, series } as typeof o, terms, span ? [span[0], span[1]] : null) : { ...o, series };
+    const coloured = forecasts ? withForecast(partied, forecasts, entities, settings.forecast_ranges, rows?.[0]?.[0]?.source_id) : partied;
     return withEventTooltip({
       ...coloured, yAxis,
       grid: { ...(coloured.grid as object), bottom: 40 },
@@ -757,7 +763,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         borderColor: cssVar("--border"), textStyle: { color: cssVar("--muted") },
       }] : undefined,
     } as typeof o, inView, shownNames);
-  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], inView, extent, terms, oneCountry]);
+  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], inView, extent, terms, oneCountry, forecasts, settings.forecast_ranges]);
   const hasRows = rows?.some((r) => r.length > 0);
   const units = [...new Set(shown.map((i) => i.unit))];
 
@@ -839,6 +845,9 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
           <input type="checkbox" checked={opts.party && oneCountry} disabled={!oneCountry} onChange={(e) => setParty(e.target.checked)} /> Governing party
         </label>
         {opts.party && oneCountry && !terms.length && <span className="small muted">No leaders stored for {entities[0].name}.</span>}
+        <label className="small" title={shown.length === 1 ? "Extend each line with a statistical forecast and its ranges (Settings: Forecasts)" : "For one indicator"}>
+          <input type="checkbox" checked={opts.forecast && shown.length === 1} disabled={shown.length !== 1} onChange={(e) => setForecast(e.target.checked)} /> Forecast
+        </label>
         {units.length > 1 && <span className="small muted">Right axis: {units[1]}</span>}
       </div>
       {rows && !hasRows && <p className="muted">No data for this indicator yet.</p>}
@@ -846,6 +855,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
       <p className="caption">
         {sourceLine(indicator)}. {selection.length ? "Selected countries." : "World shown; select countries on a map or table to compare."}
         {rows?.some((r) => r.some((x) => x.status === "P")) ? " Dashed lines are projections." : ""} Drag the ends of the slider for any span of years.
+        {opts.forecast && forecasts ? ` ${forecastCaption(forecasts, entities, settings.forecast_ranges)}` : ""}
       </p>
     </>
   );

@@ -23,7 +23,7 @@ export type Panel = {
   selection: string[]; // used only while selection is unlinked
   cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
-  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flags "o" (trim outliers) and "g" (governing party) also apply to charts
+  xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flags "o" (trim outliers), "g" (governing party) and "s" (statistical forecast) also apply to charts
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
   layers: string; // map overlays, one letter each (see MAP_LAYERS): "pv" plate boundaries and volcanoes
   rk: string; // ranks options: "years,who,among+order,top" (see rankOptions)
@@ -301,7 +301,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         selection: list(q.get(`s${i}`)),
         cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
-        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymaog]{0,6}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
+        xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymaogs]{0,7}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
         range: range && RANGE_RE.test(range) ? range : "",
         layers: layers ? [...new Set(layers)].filter((c) => MAP_LAYERS.some((m) => m.letter === c)).join("") : "",
         rk: rk && RANK_RE.test(rk) ? rk : "",
@@ -378,16 +378,18 @@ export function pyramidString(o: { compare: "auto" | "none" | number; absolute: 
 export type ScatterOptions = {
   y: string; size: string; logX: boolean; logY: boolean; colour: string; labels: "selected" | "major" | "all"; trim: boolean;
   party: boolean; // line charts of one country: coloured by the party in government
+  forecast: boolean; // line charts: each line extended by a statistical forecast (lib/forecast.ts)
 };
 
 export function scatterOptions(xy: string): ScatterOptions {
   const [y = "", size = "", flags = "", colour = ""] = xy.split(",");
   return { y, size, logX: flags.includes("x"), logY: flags.includes("y"), colour, trim: flags.includes("o"), party: flags.includes("g"),
+    forecast: flags.includes("s"),
     labels: flags.includes("a") ? "all" : flags.includes("m") ? "major" : "selected" };
 }
 
 export function scatterString(o: ScatterOptions): string {
-  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}${o.trim ? "o" : ""}${o.party ? "g" : ""}`;
+  const flags = `${o.logX ? "x" : ""}${o.logY ? "y" : ""}${o.labels === "all" ? "a" : o.labels === "major" ? "m" : ""}${o.trim ? "o" : ""}${o.party ? "g" : ""}${o.forecast ? "s" : ""}`;
   const s = [o.y, o.size, flags, o.colour];
   while (s.length && s[s.length - 1] === "") s.pop();
   return s.join(",");

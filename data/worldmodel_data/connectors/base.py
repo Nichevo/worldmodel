@@ -28,6 +28,20 @@ class ConnectorError(RuntimeError):
     pass
 
 
+def tls_context():
+    """Certificates checked against the computer's own trust store (Windows, macOS or
+    Linux) where truststore is installed. The Windows store fetches an intermediate
+    certificate a site forgets to send (as www.uky.edu does), which Python's bundled
+    list cannot; elsewhere, or without truststore, the usual check (True)."""
+    try:
+        import ssl
+
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except Exception:  # noqa: BLE001 - fall back to httpx's own certificate bundle
+        return True
+
+
 class HttpCache:
     """Remembers each URL's ETag / Last-Modified and where its stored copy is, so a
     refresh can ask the server "changed since?" and reuse the stored file on a 304
@@ -102,7 +116,8 @@ class Connector(ABC):
     @property
     def client(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=120, follow_redirects=True)
+            self._client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=120, follow_redirects=True,
+                                        verify=tls_context())
         return self._client
 
     # -- to implement ------------------------------------------------------------

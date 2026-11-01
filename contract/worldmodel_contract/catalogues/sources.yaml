@@ -354,3 +354,68 @@
   attribution: "Hand-curated list; each episode links to its source."
   status: active
   default_rank: 9
+
+- id: oecd_eo
+  name: OECD Economic Outlook
+  short_name: OECD EO
+  publisher: Organisation for Economic Co-operation and Development
+  url: https://www.oecd.org/en/topics/economic-outlook.html
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Twice a year (early June and early December)
+  attribution: "OECD Economic Outlook database (DSD_EO@DF_EO), OECD Data Explorer."
+  status: active
+  default_rank: 4
+
+- id: wb_gep
+  name: World Bank Global Economic Prospects
+  short_name: World Bank GEP
+  publisher: World Bank
+  url: https://www.worldbank.org/en/publication/global-economic-prospects
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Twice a year (January and June)
+  attribution: "World Bank, Global Economic Prospects (World Bank API source 27)."
+  status: active
+  default_rank: 4
+
+- id: eurostat_ai
+  name: Eurostat, artificial intelligence use in enterprises
+  short_name: Eurostat AI use
+  publisher: Eurostat
+  url: https://ec.europa.eu/eurostat/databrowser/view/isoc_eb_ai/default/table
+  licence: CC BY 4.0 (Eurostat reuse policy)
+  licence_url: https://ec.europa.eu/eurostat/about-us/policies/copyright
+  commercial_use: true
+  cadence: Yearly (ICT usage in enterprises survey)
+  attribution: "Eurostat (isoc_eb_ai), Artificial intelligence by size class of enterprise."
+  status: active
+  default_rank: 3
+
+- id: anthropic_aei
+  name: Anthropic Economic Index
+  short_name: Anthropic Economic Index
+  publisher: Anthropic
+  url: https://huggingface.co/datasets/Anthropic/EconomicIndex
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: A few releases a year
+  attribution: "Anthropic Economic Index (Hugging Face dataset Anthropic/EconomicIndex)."
+  status: active
+  default_rank: 3
+
+- id: ms_ai_diffusion
+  name: Microsoft AI Diffusion Report
+  short_name: Microsoft AI Diffusion
+  publisher: Microsoft AI Economy Institute
+  url: https://www.microsoft.com/en-us/corporate-responsibility/topics/ai-economy-institute
+  licence: Microsoft report terms (free to cite with attribution); loaded by hand
+  licence_url: https://www.microsoft.com/en-us/legal/terms-of-use
+  commercial_use: false
+  cadence: About twice a year; manual import (.\load.bat ms_ai_diffusion <file>)
+  attribution: "Microsoft AI Economy Institute, AI Diffusion Report."
+  status: active
+  default_rank: 3

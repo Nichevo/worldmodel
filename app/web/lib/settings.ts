@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS: Settings = {
   event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,user",
   disaster_min_deaths: 100,
   ranks_top_n: 10,
+  forecast_horizon: 10,
+  forecast_ranges: "80+95",
+  forecast_official: true,
 };
 
 let current: Settings = DEFAULT_SETTINGS;

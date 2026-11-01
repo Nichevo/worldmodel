@@ -164,6 +164,9 @@ export type Settings = {
   event_kinds: string;
   disaster_min_deaths: number;
   ranks_top_n: number; // lines on a Ranks panel unless it sets its own (0 = all)
+  forecast_horizon: number; // years the Forecast button looks ahead
+  forecast_ranges: "80+95" | "80" | "none";
+  forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.
@@ -251,7 +254,7 @@ export type Around = {
   mean: (number | null)[]; mean_compare: (number | null)[] | null; mean_diff: (number | null)[] | null; n: number; note: string;
 };
 
-export type WhatIfLevers = { tfr: number; e0: number; mig: number; extra: number; phase: number };
+export type WhatIfLevers = { tfr: number; e0: number; mig: number; extra: number; phase: number; hold: number }; // hold: 1 = fertility stays as in the base year
 export type WhatIfSide = { male: number[]; female: number[] };
 export type WhatIfSummary = { total: number; share_0_14: number; share_65_plus: number; old_age_dependency: number | null; median_age: number | null };
 export type WhatIf = {
@@ -270,12 +273,33 @@ export type ForecastErrors = { n: number; bias: number | null; mae: number | nul
 export type TrackRecord = {
   indicator: string; entity: string | null; name: string | null; releases: string[]; outcomes_from: string | null;
   sources: string[];
-  stats: ({ season: "April" | "October"; horizon: number } & ForecastErrors)[];
+  source: string; source_name: string; seasons: string[];
+  stats: ({ season: string; horizon: number } & ForecastErrors)[];
   paths?: { release: string; points: [number, number][] }[];
   actual?: [number, number][];
   years?: ({ year: number } & ForecastErrors)[];
   countries?: ({ entity_id: string; name: string } & ForecastErrors)[];
 };
+
+export type ForecastPoint = { year: number; mean: number; lo80: number; hi80: number; lo95: number; hi95: number };
+export type Forecast = {
+  indicator: string; entity: string; unit: string; decimals: number; source: string;
+  model: string; model_name: string; transform: "log" | "none"; history_start: number; history_end: number; last_value: number;
+  models: { id: string; name: string; mae: number | null; n: number }[]; backtest_origins: number; backtest_depth: number;
+  points: ForecastPoint[];
+  backtest: { origin: number; year: number; forecast: number; actual: number }[];
+  official: { source_id: string; name: string; release: string; points: [number, number][] }[];
+};
+export type Forecaster = {
+  source_id: string; name: string; releases: number | null;
+  this_year: ForecastErrors; this_year_common: ForecastErrors; this_year_common_years: number;
+  next_year: ForecastErrors; next_year_common: ForecastErrors; next_year_common_years: number;
+};
+
+export type Topic = { id: string; name: string; intro: string; map: string; indicators: string[]; missing: string[] };
+export type RankingRow = { entity_id: string; name: string; value: number; status: string; source_id: string;
+  ten_years_before: number | null; rank: number };
+export type Ranking = { indicator: string; year: number | null; rows: RankingRow[]; world: RankingRow | null };
 
 export type SourceRef = { source_id: string; name: string };
 export type ComparedIndicator = {
@@ -368,7 +392,14 @@ export const api = {
   around: (q: { indicator: string; event_id?: string; entity?: string; kind?: string; subkind?: string; q?: string;
     before?: number; after?: number; compare?: string; mode?: string; min_size?: number }) => get<Around>("/around", q),
   whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),
-  trackRecord: (indicator: string, entity?: string) => get<TrackRecord>("/track-record", { indicator, entity }),
+  trackRecord: (indicator: string, entity?: string, source = "imf_weo") => get<TrackRecord>("/track-record", { indicator, entity, source }),
+  compareForecasters: (indicator: string, entity?: string) =>
+    get<{ indicator: string; entity: string | null; forecasters: Forecaster[] }>("/track-record/compare", { indicator, entity }),
+  forecast: (indicator: string, entity: string, horizon: number, official = true) =>
+    get<Forecast>("/forecast", { indicator, entity, horizon, official: official ? "true" : "false" }),
+  topics: () => get<Topic[]>("/topics"),
+  topic: (id: string) => get<Topic>(`/topics/${id}`),
+  ranking: (indicator: string, year?: number) => get<Ranking>(`/indicators/${indicator}/ranking`, { year }),
   comparedIndicators: () => get<ComparedIndicator[]>("/sources/indicators"),
   compareSources: (indicator: string, entity: string) => get<SourceComparison>("/sources/compare", { indicator, entity }),
   divergence: (q: { indicator?: string; entity?: string; flagged?: boolean; limit?: number }) =>

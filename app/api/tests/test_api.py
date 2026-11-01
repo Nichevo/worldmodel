@@ -313,3 +313,43 @@ def test_map_layers(client):
     r = client.get("/api/v1/layers/plate_boundaries")
     assert r.headers["content-type"].startswith("application/geo+json") and r.json()["type"] == "FeatureCollection"
     assert client.get("/api/v1/layers/nothing").status_code == 404
+
+
+def test_statistical_forecast(client):
+    f = client.get("/api/v1/forecast", params={"indicator": "pop_total", "entity": "NZL", "horizon": 5}).json()
+    assert f["transform"] == "log" and len(f["points"]) == 5 and f["points"][0]["year"] == f["history_end"] + 1
+    p = f["points"][-1]
+    assert p["lo95"] < p["lo80"] < p["mean"] < p["hi80"] < p["hi95"]
+    assert f["model"] in {m["id"] for m in f["models"]} and f["backtest"]
+    g = client.get("/api/v1/forecast", params={"indicator": "gdp_growth", "entity": "NZL"}).json()
+    assert g["transform"] == "none" and any(o["source_id"] == "imf_weo" for o in g["official"])
+    widths = [x["hi80"] - x["lo80"] for x in g["points"]]
+    assert widths == sorted(widths)  # ranges never narrow further out
+    assert client.get("/api/v1/forecast", params={"indicator": "pop_total", "entity": "NZL", "model": "x"}).status_code == 422
+    v = client.post("/api/v1/forecast/values", json={"years": list(range(2000, 2012)), "values": [float(i) for i in range(12)],
+                                                    "horizon": 3}).json()
+    assert v["points"][-1]["mean"] == pytest.approx(14, abs=0.5)
+
+
+def test_forecasters_compared(client):
+    best = client.get("/api/v1/track-record/compare", params={"indicator": "gdp_growth", "entity": "NZL"}).json()
+    by = {f["source_id"]: f for f in best["forecasters"]}
+    assert by["worldmodel"]["this_year"]["n"] > 5 and by["imf_weo"]["this_year"]["n"] == 0
+    tr = client.get("/api/v1/track-record", params={"entity": "NZL", "source": "imf_weo"}).json()
+    assert tr["seasons"] == ["April"] and tr["source_name"]
+
+
+def test_whatif_constant_fertility(client):
+    held = client.get("/api/v1/whatif", params={"entity": "NZL", "hold": True}).json()
+    tfr = held["inputs"]["tfr"]["scenario"]
+    assert tfr[0] == pytest.approx(tfr[-1]) and held["levers"]["hold"] == 1
+    assert held["scenario"][-1] != held["baseline"][-1]
+
+
+def test_topics_and_ranking(client):
+    topics = {t["id"]: t for t in client.get("/api/v1/topics").json()}
+    assert {"population", "economy", "ai"} <= set(topics) and "tfr" in topics["population"]["indicators"]
+    assert "ai_use_population" in topics["ai"]["missing"]  # not in the sample
+    r = client.get("/api/v1/indicators/tfr/ranking", params={"year": 2020}).json()
+    assert r["year"] == 2020 and r["rows"][0]["rank"] == 1 and r["rows"][0]["value"] >= r["rows"][-1]["value"]
+    assert r["world"]["entity_id"] == "world"

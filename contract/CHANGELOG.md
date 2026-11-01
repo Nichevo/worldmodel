@@ -3,6 +3,22 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.5.1 (2026-11-01)
+
+No change to the warehouse tables, so existing warehouses stay readable.
+
+- New catalogue `topics.yaml` (`catalogue.topics()`): topic pages with an
+  introduction, a map indicator and their indicators in order.
+- New module `forecast`: statistical forecasts of yearly series (five simple
+  models scored by a rolling back-test, 80% and 95% ranges from its misses).
+- New sources: oecd_eo and wb_gep (further sources of `gdp_growth`, and for the
+  OECD `inflation`; one vintage per edition, years from the edition's year on
+  are projections, status P), eurostat_ai, anthropic_aei and ms_ai_diffusion
+  (AI use by country: `ai_use_enterprises`, `ai_claude_use_per_capita_index`,
+  `ai_claude_use_share`, `ai_use_population`).
+- `cohort.Levers.hold_fertility`: fertility held at its base-year level.
+- `local`: settings `forecast_horizon`, `forecast_ranges`, `forecast_official`.
+
 ## 1.5.0 (2026-10-30)
 
 - New table `layers`: map overlays (tectonic plate boundaries, active faults,
