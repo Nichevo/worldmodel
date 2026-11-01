@@ -91,3 +91,68 @@ def test_corrections_quarterly_pages(tmp_path):
     vals = dict(con.execute("SELECT year(period_start), value FROM series WHERE entity_id = 'NZL' "
                             "AND indicator_id = 'nz_prisoners_total'").fetchall())
     assert vals == {2024: 10300, 2025: 10860}  # each year's latest quarter
+
+
+FIX = Path(__file__).parent / "fixtures"
+
+
+def test_rbnz_real_file_and_history(tmp_path):
+    """RBNZ's own B2 monthly-close file says its sheet is one cell (A1), which once read as
+    empty; a history file loaded beside it fills the earlier years, and stays when the
+    current files are fetched again."""
+    series = {s["id"]: s for s in read_rbnz(FIX / "rbnz" / "hb2-monthly-close.xlsx")}
+    assert len(series) == 25 and series["INM.MP1.N.nae"]["points"][0][1] == 1.75
+    hist = tmp_path / "hist"
+    hist.mkdir()
+    rbnz_file(hist / "hb2-daily-close-1985-2017.xlsx", [("Cash rate", "Official Cash Rate (OCR)", "%pa", "INM.DP1.N")],
+              [(datetime(2017, 1, 2 + d), [1.75]) for d in range(20)] + [(datetime(2018, 1, 3), [9.0])])
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    CONNECTORS["imf_weo"]().ingest(store, FIX / "imf_weo")
+    CONNECTORS["rbnz"]().ingest(store, hist)
+    import time
+    time.sleep(1.1)
+    m, _ = CONNECTORS["rbnz"]().ingest(store, FIX / "rbnz")  # the current file, as a refresh brings it
+    assert sorted(f["name"] for f in m.files) == ["hb2-daily-close-1985-2017.xlsx", "hb2-monthly-close.xlsx"]
+    con = duckdb.connect(str(build(home).path), read_only=True)
+    ocr = dict(con.execute("SELECT year(period_start), value FROM series WHERE entity_id = 'NZL' AND indicator_id = 'rbnz_ocr'").fetchall())
+    assert ocr[2017] == pytest.approx(1.75) and ocr[2018] == pytest.approx(1.75)  # 2018 from the current file, not the 9.0
+    assert min(ocr) == 2017 and max(ocr) == 2026
+    assert con.execute("SELECT count(*) FROM indicators WHERE indicator_id = 'rbnz_inm_ms61_nzzc'").fetchone()[0] == 1
+
+
+def test_mbie_energy_balance_and_flow(tmp_path):
+    from worldmodel_contract.energy_flow import flow
+    from worldmodel_data.connectors.nz import read_energy_balance
+
+    rows = read_energy_balance(FIX / "mbie_energy" / "energy-balance-tables.xlsx")
+    f = flow([(e, fu, v) for e, fu, y, v in rows if y == 2025])
+    # MBIE's own balance table for 2025: primary supply 827.05 PJ, transport 208.99 PJ.
+    assert f["totals"]["primary_supply"] == pytest.approx(827.053, abs=0.01)
+    assert f["totals"]["use_by_sector"]["Transport"] == pytest.approx(208.994, abs=0.01)
+    links = {(x["source"], x["target"]): x["value"] for x in f["links"]}
+    assert links[("Geothermal", "Electricity generation")] > 200 and links[("Oil", "Transport")] > 200
+    assert links[("Electricity generation", "Electricity")] == pytest.approx(f["totals"]["electricity_generated"])
+    assert {n["name"] for n in f["nodes"] if n["kind"] == "loss"} == {"Conversion losses", "Losses and own use"}
+
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    CONNECTORS["imf_weo"]().ingest(store, FIX / "imf_weo")
+    CONNECTORS["mbie_energy"]().ingest(store, FIX / "mbie_energy")
+    path = build(home).path
+    con = duckdb.connect(str(path), read_only=True)
+    v = dict(con.execute("SELECT indicator_id, value FROM series WHERE entity_id = 'NZL' AND breakdown = '' "
+                         "AND period_start = '2025-01-01' AND source_id = 'mbie_energy'").fetchall())
+    assert v["nz_energy_primary_supply"] == pytest.approx(827.05, abs=0.01)
+    assert v["nz_energy_consumer"] == pytest.approx(523.15, abs=0.01)
+    assert 40 < v["nz_energy_renewable_share_primary"] < 60
+    con.close()
+
+    from fastapi.testclient import TestClient
+    from worldmodel_api import main
+    from worldmodel_api.warehouse import Warehouse
+
+    main.warehouse = Warehouse(str(path))
+    got = TestClient(main.app).get("/api/v1/energy-flow", params={"entity": "NZL", "year": 2030}).json()
+    assert got["years"] == [2024, 2025] and got["year"] == 2025 and got["totals"]["primary_supply"] == pytest.approx(827.053, abs=0.01)
+    assert TestClient(main.app).get("/api/v1/energy-flow", params={"entity": "AUS"}).json()["years"] == []

@@ -30,6 +30,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
+from worldmodel_contract import energy_flow
 from worldmodel_contract import forecast as statforecast
 from worldmodel_api import __version__, layouts, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -622,6 +623,26 @@ def pyramid(entity: str, year: int):
     first = data[0] if data else {}
     return {"entity": entity, "year": year, "groups": ordered, "years_available": years,
             "status": first.get("status"), "source_id": first.get("source_id"), "vintage": first.get("vintage")}
+
+
+@api.get("/energy-flow")
+def energy_flow_chart(entity: str, year: int | None = None):
+    """Where a country's energy comes from and goes (a Sankey chart), from its energy
+    balance (energy_balance_pj, breakdown flow=<row>|fuel=<fuel>). Without a year, or for
+    a year without a balance, the latest year before it; `years` lists them all."""
+    base = ("FROM series WHERE indicator_id = 'energy_balance_pj' AND entity_id = ? AND variant = 'central' "
+            "AND breakdown LIKE 'flow=%'")
+    years = [r["y"] for r in rows(f"SELECT DISTINCT year(period_start) AS y {base} ORDER BY 1", [entity])]
+    if not years:
+        return {"entity": entity, "year": None, "years": [], "nodes": [], "links": [], "totals": None}
+    if year not in years:
+        year = max((y for y in years if y <= (year or years[-1])), default=years[-1])
+    data = rows(f"""SELECT split_part(split_part(breakdown, '|', 1), '=', 2) AS flow,
+            split_part(split_part(breakdown, '|', 2), '=', 2) AS fuel, value, source_id, vintage
+        {base} AND year(period_start) = ?""", [entity, year])
+    out = energy_flow.flow([(r["flow"], r["fuel"], r["value"]) for r in data])
+    return {"entity": entity, "year": year, "years": years, "unit": "PJ",
+            "source_id": data[0]["source_id"] if data else None, "vintage": data[0]["vintage"] if data else None, **out}
 
 
 @api.get("/partners")

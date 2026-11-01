@@ -77,7 +77,13 @@
 
 - id: nz
   name: New Zealand in detail
-  intro: The New Zealand pack's own figures, from the Reserve Bank and the Department of Corrections, beside the international series. Switch the pack on or off in Settings.
+  intro: The New Zealand pack's own figures, from the Reserve Bank, MBIE, the Electoral Commission and the Department of Corrections, beside the international series. Switch the pack on or off in Settings.
   map: bis_policy_rate
-  indicators: [rbnz_ocr, rbnz_mortgage_floating, rbnz_mortgage_2y, rbnz_govt_bond_10y, rbnz_nzd_usd, rbnz_twi, nz_prisoners_total, nz_prisoners_remand_accused]
+  indicators: [rbnz_ocr, rbnz_mortgage_floating, rbnz_mortgage_2y, rbnz_govt_bond_10y, rbnz_nzd_usd, rbnz_twi, nz_energy_primary_supply, nz_energy_renewable_share_primary, nz_energy_use_transport, nz_turnout, nz_turnout_maori, nz_prisoners_total, nz_prisoners_remand_accused]
+
+- id: voting
+  name: Voting
+  intro: How many people vote, and who. Turnout has fallen in many countries since the 1980s; everywhere it is lower among the young, and in the US among people who are not white. Turnout counts votes against registered voters; the share of the voting-age population also counts people who never registered.
+  map: turnout_parliamentary
+  indicators: [turnout_parliamentary, vap_turnout_parliamentary, turnout_presidential, us_voted, us_voted_age_18_24, us_voted_age_65_plus, nz_turnout, nz_turnout_age_18_24, nz_turnout_age_70_plus]
 
