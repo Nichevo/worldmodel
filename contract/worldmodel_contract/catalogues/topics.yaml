@@ -15,6 +15,12 @@
   map: gdp_per_capita_usd
   indicators: [gdp_growth, gdp_usd, gdp_per_capita_usd, gdp_ppp_per_capita, inflation, unemployment, current_account_gdp]
 
+- id: rates
+  name: Interest and exchange rates
+  intro: The rates central banks set to steer their economies, and what each currency is worth in US dollars. Policy rates rise to cool inflation and fall to support growth; a currency that buys fewer dollars makes imports dearer.
+  map: bis_policy_rate
+  indicators: [bis_policy_rate, bis_policy_rate_end, inflation, bis_usd_exchange_rate]
+
 - id: debt
   name: Debt
   intro: What governments, households and companies owe. Debt lets spending run ahead of income; how much is too much depends on interest rates, growth and who holds it.
@@ -68,3 +74,10 @@
   intro: How much people and firms use artificial intelligence. The figures come from different angles, firms surveyed by Eurostat, users counted by Microsoft and Claude conversations measured by Anthropic, so each covers different countries and they do not add up to one number. All are new and short, and change fast.
   map: ai_use_population
   indicators: [ai_use_population, ai_use_enterprises, ai_claude_use_per_capita_index, ai_claude_use_share, internet_users_share, rd_spending_gdp]
+
+- id: nz
+  name: New Zealand in detail
+  intro: The New Zealand pack's own figures, from the Reserve Bank and the Department of Corrections, beside the international series. Switch the pack on or off in Settings.
+  map: bis_policy_rate
+  indicators: [rbnz_ocr, rbnz_mortgage_floating, rbnz_mortgage_2y, rbnz_govt_bond_10y, rbnz_nzd_usd, rbnz_twi, nz_prisoners_total, nz_prisoners_remand_accused]
+

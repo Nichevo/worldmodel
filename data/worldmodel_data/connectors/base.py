@@ -92,6 +92,7 @@ class HttpCache:
 class Connector(ABC):
     source_id: str = ""
     frozen = False                     # True: a refresh skips the source once it has a vintage (a closed archive)
+    pack: str | None = None            # a country pack ("nz"): fetched only while Settings switches it on (pack_<x>)
     manual = False                     # True: never downloaded; loaded with `fetch <source> --from FILE` only
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
     # Raise when stage() changes in a way that alters stored output: vintages staged by an

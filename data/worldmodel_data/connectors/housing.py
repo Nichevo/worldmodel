@@ -76,10 +76,16 @@ BIS_API = "https://stats.bis.org/api/v2/data/dataflow/BIS/"
 BIS_SPP = BIS_API + "WS_SPP/1.0?format=csv"
 BIS_TC = [BIS_API + f"WS_TC/{v}/Q..H.A.M.770.A?format=csv" for v in ("2.0", "1.0")]
 BIS_MIRROR = "https://raw.githubusercontent.com/datasets/house-prices-global/main/data/"
+# Central bank policy rates (monthly, end of month) and exchange rates against the US dollar
+# (monthly averages): key FREQ.REF_AREA and FREQ.REF_AREA.CURRENCY.COLLECTION.
+BIS_CBPOL = BIS_API + "WS_CBPOL/1.0/M.?format=csv"
+BIS_XRU = BIS_API + "WS_XRU/1.0/M...A?format=csv"
 
 
 class BIS(Connector):
     source_id = "bis"
+    stage_version = 2  # 2: central bank policy rates and exchange rates against the US dollar
+    fetch_version = 2  # 2: downloads WS_CBPOL and WS_XRU too
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -106,6 +112,12 @@ class BIS(Connector):
                 log.info("bis: %s (%s)", url, exc)
         else:
             log.warning("bis: household credit could not be downloaded; house prices only")
+        for url, name in ((BIS_CBPOL, "cbpol.csv"), (BIS_XRU, "xru.csv")):
+            try:
+                self.get(url, raw_dir / name)
+                got.append(url)
+            except ConnectorError as exc:
+                log.warning("bis: %s not downloaded (%s)", name, exc)
         return " ".join(got)
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
@@ -141,6 +153,32 @@ class BIS(Connector):
                     if y := year_of(r[period]):
                         rows.add_period("iso2", code(r[area]), "bis_household_credit_gdp", y, num(r[obs]))
         rows.finish_periods(need=2)
+        # Policy rates: the yearly average and the rate at the end of the year (December, or the
+        # latest month of the current year). Exchange rates: the yearly average.
+        for name, ind in (("cbpol.csv", "bis_policy_rate"), ("xru.csv", "bis_usd_exchange_rate")):
+            p = raw_dir / name
+            data = read_csv(p) if p.exists() else []
+            if not data:
+                continue
+            h = data[0].keys()
+            area, period, obs, coll = col(h, "REF_AREA"), col(h, "TIME_PERIOD"), col(h, "OBS_VALUE"), col(h, "COLLECTION")
+            if not (area and period and obs):
+                log.warning("bis: %s lacks REF_AREA, TIME_PERIOD or OBS_VALUE", name)
+                continue
+            last: dict[tuple, tuple[str, float]] = {}
+            for r in data:
+                if coll and code(r[coll]) not in ("A", ""):
+                    continue
+                y, v = year_of(r[period]), num(r[obs])
+                if not y or v is None:
+                    continue
+                rows.add_period("iso2", code(r[area]), ind, y, v)
+                k = (code(r[area]), y)
+                if ind == "bis_policy_rate" and (k not in last or str(r[period]) > last[k][0]):
+                    last[k] = (str(r[period]), v)
+            for (a, y), (_, v) in last.items():
+                rows.add("iso2", a, "bis_policy_rate_end", y, v)
+        rows.finish_periods(need=1)
         if not len(rows):
             raise ConnectorError(f"bis: no values read from {raw_dir}")
         self.listed_indicators = BIS_INDICATORS
@@ -148,6 +186,19 @@ class BIS(Connector):
 
 
 BIS_INDICATORS = [
+    indicator("bis_policy_rate", "Central bank policy rate",
+              "The interest rate the central bank sets to steer the economy (New Zealand's official cash rate, the US "
+              "federal funds target, the Bank of England's Bank Rate, the ECB's deposit rate for euro countries). Yearly "
+              "average of the month-end rates, collected by the BIS.", "percent", "finance", "bis", "WS_CBPOL:M",
+              decimals=2, bounds=(-5, 1000)),
+    indicator("bis_policy_rate_end", "Central bank policy rate, end of year",
+              "The central bank policy rate at the end of December (for the current year, the latest month). BIS.",
+              "percent", "finance", "bis", "WS_CBPOL:M (December)", decimals=2, bounds=(-5, 1000)),
+    indicator("bis_usd_exchange_rate", "Exchange rate (local currency per US dollar)",
+              "How many units of the country's currency one US dollar buys, yearly average of monthly averages; a "
+              "rise means the currency weakened against the dollar. BIS. For New Zealand dollars per US dollar; the "
+              "NZD in US cents is 100 divided by this.", "local currency per US dollar", "finance", "bis",
+              "WS_XRU:M.A", decimals=4, bounds=(0, 1e9)),
     indicator("bis_house_price_nominal", "House prices (nominal)",
               "Residential property prices in local currency, as published by the central bank or statistics office "
               "and collected by the BIS. Yearly average of the quarterly index, 2010 = 100.",

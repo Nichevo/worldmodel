@@ -419,3 +419,29 @@
   attribution: "Microsoft AI Economy Institute, AI Diffusion Report."
   status: active
   default_rank: 3
+
+- id: rbnz
+  name: Reserve Bank of New Zealand statistics
+  short_name: RBNZ
+  publisher: Reserve Bank of New Zealand
+  url: https://www.rbnz.govt.nz/statistics
+  licence: CC BY 4.0
+  licence_url: https://www.rbnz.govt.nz/about-our-site/terms-of-use
+  commercial_use: true
+  cadence: Monthly; tried weekly, else loaded by hand (.\load.bat rbnz <folder>)
+  attribution: "Reserve Bank of New Zealand, statistics tables B1, B2, B3 and B20."
+  status: active
+  default_rank: 2
+
+- id: nz_corrections
+  name: Department of Corrections quarterly prison statistics
+  short_name: NZ Corrections
+  publisher: Ara Poutama Aotearoa, Department of Corrections
+  url: https://www.corrections.govt.nz/resources/statistics/quarterly_prison_statistics
+  licence: CC BY 4.0 (New Zealand Government)
+  licence_url: https://www.corrections.govt.nz/copyright
+  commercial_use: true
+  cadence: Quarterly; read every four weeks
+  attribution: "Department of Corrections, Prison facts and statistics (quarterly)."
+  status: active
+  default_rank: 3
