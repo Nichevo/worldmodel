@@ -70,6 +70,20 @@ export const HELP = {
     units: "Years of schooling; % of adults",
     sources: [{ label: "Wittgenstein Centre (CC BY 4.0)" }, { label: "UNDP Human Development Report" }],
   },
+  energyflow: {
+    title: "Where energy comes from and goes",
+    what: "One year of the country's energy balance as a flow: the fuels it produced or imported and kept (left), what was turned into electricity (middle), and the sectors that used the energy (right), with the losses on the way.",
+    how: "Primary supply is production plus imports, less exports, stock building and fuel for international ships and planes. Conversion losses are the fuel going into power stations less the electricity coming out; geothermal counts at the heat drawn from the ground, so most of it shows as a loss. 'Losses and own use' covers refining, the energy industry's own use and losses in the grid and gas network.",
+    units: "Petajoules (PJ), gross calorific value. 1 PJ is about 278 GWh.",
+    sources: [{ label: "MBIE energy balance tables (New Zealand pack)", indicator: "nz_energy_primary_supply" }],
+  },
+  voters: {
+    title: "Who votes",
+    what: "Turnout by age group, and by sex or by group where the country reports it, at national elections.",
+    how: "United States: the Census Bureau's survey after each November election, as a share of everyone of that age living in the US (citizens or not); people over-report voting a little. New Zealand: the Electoral Commission's count of who voted, as a share of people enrolled. The two are measured differently, so compare the age pattern rather than the levels.",
+    units: "% of residents of voting age (US); % of enrolled voters (NZ)",
+    sources: [{ label: "US Census Bureau, CPS table A-1", indicator: "us_voted" }, { label: "NZ Electoral Commission", indicator: "nz_turnout" }],
+  },
   pyramid: {
     title: "Population by age and sex",
     what: "How many men (left) and women (right) there are in each five-year age group. A wide base means many children; a wide top means an older population.",

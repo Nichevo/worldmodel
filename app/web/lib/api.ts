@@ -112,6 +112,19 @@ export type Dataset = Source & {
   on_demand: { stored: number; stale: number; budget: WikiBudget; background: boolean } | null; // Wikipedia
 };
 
+export type EnergyFlow = {
+  entity: string;
+  year: number | null;
+  years: number[];
+  unit?: string;
+  source_id?: string | null;
+  vintage?: string | null;
+  nodes: { name: string; kind: "source" | "electricity" | "use" | "loss" }[];
+  links: { source: string; target: string; value: number }[];
+  totals: { primary_supply: number; supply_by_group: Record<string, number>; electricity_generated: number;
+    use_by_sector: Record<string, number> } | null;
+};
+
 export type Pyramid = {
   entity: string;
   year: number;
@@ -356,6 +369,7 @@ export const api = {
   memberships: (q: { type?: string; group?: string }) =>
     get<{ group_id: string; group_name: string; member_id: string }[]>("/memberships", q),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),
+  energyFlow: (entity: string, year?: number) => get<EnergyFlow>("/energy-flow", year ? { entity, year } : { entity }),
   partners: (indicator: string, entity: string, direction: "in" | "out", year?: number, limit = 10) =>
     get<Partners>("/partners", { indicator, entity, direction, year, limit }),
   layouts: () => get<SavedLayout[]>("/layouts"),

@@ -4,7 +4,8 @@ rbnz
     Reserve Bank of New Zealand statistics spreadsheets (rbnz.govt.nz/statistics):
     B1 exchange rates (monthly), B2 wholesale interest rates (monthly close: the
     official cash rate, bank bills, government bonds), B3 retail interest rates and
-    B20 mortgage rates. The site sits behind Cloudflare, which often turns away
+    B20 mortgage rates. Older history files, such as B2 daily 1985-2017, can be
+    loaded beside them; where both cover a year the current file counts. The site sits behind Cloudflare, which often turns away
     programs, so each file is tried and, if refused, the refresh says how to load
     them by hand: download them in a browser into one folder and run
     `.\\load.bat rbnz <folder>`.
@@ -26,6 +27,7 @@ from pathlib import Path
 
 import duckdb
 
+from worldmodel_contract.energy_flow import FUEL_GROUP, RENEWABLE, SECTOR, SECTOR_IDS, SUPPLY_SIGN
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.tabular import Rows, indicator, key, num, xlsx_rows, xlsx_sheet_names
 
@@ -39,11 +41,11 @@ RBNZ_PAGE = "https://www.rbnz.govt.nz/statistics"
 # Headline series: a pattern on "group series" (lower case) -> (indicator id, name, description).
 RBNZ_HEADLINE = [
     (r"official cash rate", "rbnz_ocr", "Official cash rate (RBNZ)",
-     "The Reserve Bank of New Zealand's official cash rate, yearly average of month-end rates."),
+     "The Reserve Bank of New Zealand's official cash rate (set since March 1999), yearly average."),
     (r"90.?day", "rbnz_bill_90d", "90-day bank bill rate (NZ)",
      "New Zealand 90-day bank bill yield, yearly average."),
     (r"10.?year", "rbnz_govt_bond_10y", "10-year government bond yield (NZ)",
-     "New Zealand government 10-year bond yield, yearly average of month-end closes."),
+     "New Zealand government 10-year bond yield, yearly average."),
     (r"\btwi\b|trade.?weighted", "rbnz_twi", "Trade-weighted index of the NZ dollar",
      "The New Zealand dollar against a basket of trading partners' currencies (TWI), yearly average."),
     (r"united states dollar|\busd\b", "rbnz_nzd_usd", "NZ dollar in US dollars",
@@ -117,6 +119,7 @@ class RBNZ(Connector):
     source_id = "rbnz"
     pack = "nz"
     fetch_every_days = 7
+    keeps_files = True  # history files loaded by hand (B2 daily 1985-2017) stay when the current ones are refetched
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")
@@ -150,44 +153,71 @@ class RBNZ(Connector):
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".xlsm"))
         if not files:
             raise ConnectorError(f"rbnz: no .xlsx files in {raw_dir}")
-        rows, listed, used = Rows(), [], set()
+        # The current files first: where a history file (such as B2 daily 1985-2017) covers
+        # the same year as a current one, the current one's figure counts.
+        files.sort(key=lambda p: (0 if any(p.stem.lower() == n for n in RBNZ_FILES) else 1, p.name))
+        yearly: dict[str, dict[int, float]] = {}
+        listed: dict[str, dict] = {}
         for p in files:
             try:
                 series = read_rbnz(p)
             except ConnectorError as exc:
                 log.warning("%s", exc)
                 continue
-            table = next((c.upper() for n, c in RBNZ_FILES.items() if p.stem.lower().startswith(n)), p.stem)
+            table = rbnz_table(p.stem)
+            used: set[str] = set()  # headline ids taken in this file
             for s in series:
                 if not s["points"]:
                     continue
-                text = f"{s['group']} {s['name']}".lower()
-                head = next((h for h in RBNZ_HEADLINE if re.search(h[0], text)), None)
-                # A headline id goes to the first series that matches it (the B20 2-year rate, not the B2 bond).
+                head = rbnz_headline(s, table)
                 if head and head[1] in used:
-                    head = None
-                if head and head[1] in ("rbnz_mortgage_floating", "rbnz_mortgage_2y") and "mortgage" not in text \
-                        and table != "B20":
-                    head = None
-                if head and head[1] == "rbnz_govt_bond_10y" and "bond" not in text and "government" not in text:
-                    head = None
-                if head and head[1] == "rbnz_nzd_usd" and table != "B1":
                     head = None
                 ind = head[1] if head else "rbnz_" + re.sub(r"[^a-z0-9]+", "_", s["id"].lower()).strip("_")
                 if ind in used:
                     continue
                 used.add(ind)
+                by_year: dict[int, list[float]] = {}
                 for d, v in s["points"]:
-                    rows.add_period("iso3", "NZL", ind, d.year, v)
-                name = head[2] if head else f"{s['group']}: {s['name']}".strip(": ") + " (RBNZ)"
-                desc = head[3] if head else f"RBNZ table {table}, series {s['id']}: {s['group']} – {s['name']}. Yearly average."
-                listed.append(indicator(ind, name, desc, s["unit"] or "", "finance", self.source_id,
-                                        f"{table}:{s['id']}", decimals=2, default_on=bool(head)))
-        rows.finish_periods(need=1)
+                    by_year.setdefault(d.year, []).append(v)
+                into = yearly.setdefault(ind, {})
+                for y, vals in by_year.items():
+                    into.setdefault(y, sum(vals) / len(vals))
+                if ind not in listed:
+                    name = head[2] if head else f"{s['group']}: {s['name']}".strip(": ") + " (RBNZ)"
+                    desc = head[3] if head else f"RBNZ table {table}, series {s['id']}: {s['group']} – {s['name']}. Yearly average."
+                    listed[ind] = indicator(ind, name, desc, s["unit"] or "", "finance", self.source_id,
+                                            f"{table}:{s['id']}", decimals=2, default_on=bool(head))
+        rows = Rows()
+        for ind, years in yearly.items():
+            for y, v in years.items():
+                rows.add("iso3", "NZL", ind, y, v)
         if not len(rows):
             raise ConnectorError("rbnz: no series read; are these RBNZ statistics spreadsheets (B1, B2, B3, B20)?")
-        self.listed_indicators = listed
+        self.listed_indicators = list(listed.values())
         return rows.stage(con, self.source_id, vintage)
+
+
+def rbnz_table(stem: str) -> str:
+    """The RBNZ table code (B1, B2 ...) from a file name such as hb2-monthly-close or hb2-daily-close-1985-2017."""
+    m = re.match(r"h?(b\d+)\b", stem.lower().replace("_", "-"))
+    return m.group(1).upper() if m else stem
+
+
+def rbnz_headline(s: dict, table: str) -> tuple | None:
+    """The headline series (friendly id) a series is, if any."""
+    text = f"{s['group']} {s['name']}".lower()
+    head = next((h for h in RBNZ_HEADLINE if re.search(h[0], text)), None)
+    if not head:
+        return None
+    if head[1] in ("rbnz_mortgage_floating", "rbnz_mortgage_2y") and ("mortgage" not in text and table != "B20"):
+        return None
+    if head[1] == "rbnz_govt_bond_10y" and "bond" not in text and "government" not in text:
+        return None
+    if head[1] in ("rbnz_nzd_usd", "rbnz_twi") and table != "B1":
+        return None
+    if head[1] in ("rbnz_ocr", "rbnz_bill_90d") and table != "B2":
+        return None
+    return head
 
 
 # ------------------------------------------------------------------------------------------- Corrections
@@ -332,4 +362,121 @@ class NZCorrections(Connector):
                     ind, f"{n}{who} (NZ)", f"{n}{who} at the end of the year's latest quarter (usually 31 December). "
                     "Department of Corrections quarterly prison statistics.", "persons", "justice", self.source_id,
                     f"prison_stats:{k}{suffix}", decimals=0, default_on=(k == "total" or k.startswith("remand")) and not suffix))
+        return rows.stage(con, self.source_id, vintage)
+
+
+# ------------------------------------------------------------------------------------------- MBIE energy balances
+MBIE_PAGE = ("https://www.mbie.govt.nz/building-and-energy/energy-and-natural-resources/energy-statistics-and-modelling/"
+             "energy-statistics/energy-balances")
+MBIE_SITE = "https://www.mbie.govt.nz"
+MBIE_LINK = re.compile(r"""href=["']([^"']*energy-balance[^"']*\.xlsx)["']""", re.I)
+def read_energy_balance(path: Path) -> list[tuple[str, str, int, float]]:
+    """MBIE's energy balance workbook, sheet "Data" (entry, fuel, year, unit, value): rows in gross PJ."""
+    sheets = xlsx_sheet_names(path)
+    name = next((s for s in sheets if s.strip().lower() == "data"), None)
+    if not name:
+        raise ConnectorError(f"mbie_energy: {path.name} has no 'Data' sheet; is it MBIE's energy balance tables?")
+    rows = xlsx_rows(path, name)
+    head = [key(c) for c in rows[0]] if rows else []
+    try:
+        ei, fi, yi, ui, vi = (head.index(k) for k in ("entry", "fuel", "year", "unit", "value"))
+    except ValueError:
+        raise ConnectorError(f"mbie_energy: the Data sheet of {path.name} has no entry, fuel, year, unit and value "
+                             "columns") from None
+    out = []
+    for r in rows[1:]:
+        if len(r) <= max(ei, fi, yi, ui, vi) or key(r[ui]) != "grosspj":
+            continue
+        v, y = num(r[vi]), num(r[yi])
+        if v is None or y is None:
+            continue
+        out.append((str(r[ei]).strip(), str(r[fi]).strip(), int(y), v))
+    if not out:
+        raise ConnectorError(f"mbie_energy: no Gross PJ rows in {path.name}")
+    return out
+
+
+class MBIEEnergy(Connector):
+    """MBIE energy balance tables: New Zealand's energy supply, transformation and use by
+    sector and fuel since 1990, in gross petajoules. Every balance row is kept as one
+    indicator with breakdown flow=<row>|fuel=<fuel> (energy_balance_pj), which the
+    country page's energy flow chart reads; a few totals become ordinary indicators."""
+
+    source_id = "mbie_energy"
+    pack = "nz"
+    fetch_every_days = 28  # updated each quarter
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y-%m-%d")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        manual = ("mbie_energy: MBIE's website turned the download away. Download 'Energy balance tables' "
+                  f"(energy-balance-tables.xlsx) from {MBIE_PAGE} in your browser and run: "
+                  r".\load.bat mbie_energy <file>")
+        try:
+            page = self.client.get(MBIE_PAGE)
+            m = MBIE_LINK.search(page.text) if page.status_code == 200 else None
+        except Exception as exc:  # noqa: BLE001
+            raise ConnectorError(f"{manual} ({exc})") from None
+        if not m:
+            raise ConnectorError(manual)
+        url = m.group(1) if m.group(1).startswith("http") else MBIE_SITE + m.group(1)
+        dest = raw_dir / "energy-balance-tables.xlsx"
+        self.get(url, dest)
+        if dest.read_bytes()[:2] != b"PK":
+            dest.unlink()
+            raise ConnectorError(manual)
+        return url
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".xlsm"))
+        if not files:
+            raise ConnectorError(f"mbie_energy: no .xlsx file in {raw_dir}")
+        data = read_energy_balance(files[0])
+        rows = Rows()
+        primary: dict[int, dict[str, float]] = {}
+        use: dict[int, dict[str, float]] = {}
+        for entry, fuel, year, v in data:
+            rows.add("iso3", "NZL", "energy_balance_pj", year, v, breakdown=f"flow={entry}|fuel={fuel}")
+            e, group = key(entry), FUEL_GROUP.get(key(fuel), "Other")
+            if e in SUPPLY_SIGN:
+                p = primary.setdefault(year, {})
+                p[group] = p.get(group, 0.0) + SUPPLY_SIGN[e] * v
+            elif e in SECTOR and SECTOR[e] != "Non-energy use":
+                u = use.setdefault(year, {})
+                u[SECTOR[e]] = u.get(SECTOR[e], 0.0) + v
+        for y, p in primary.items():
+            total = sum(p.values())
+            rows.add("iso3", "NZL", "nz_energy_primary_supply", y, total)
+            if total > 0:
+                rows.add("iso3", "NZL", "nz_energy_renewable_share_primary", y,
+                         100 * sum(v for g, v in p.items() if g in RENEWABLE) / total)
+        for y, u in use.items():
+            rows.add("iso3", "NZL", "nz_energy_consumer", y, sum(u.values()))
+            for sector, v in u.items():
+                rows.add("iso3", "NZL", f"nz_energy_use_{SECTOR_IDS[sector]}", y, v)
+        note = "MBIE energy balance tables (gross petajoules)."
+        self.listed_indicators = [
+            indicator("energy_balance_pj", "Energy balance (by flow and fuel)",
+                      "Each row of the energy balance: supply, transformation and use by sector, for each fuel "
+                      "(breakdown flow=<row>|fuel=<fuel>). Drawn as the energy flow chart. " + note,
+                      "PJ", "energy", self.source_id, "Data: Gross PJ", decimals=2, breakdowns=["flow", "fuel"],
+                      default_on=False),
+            indicator("nz_energy_primary_supply", "Primary energy supply (NZ)",
+                      "Total primary energy supply: production plus imports, less exports, stock building and fuel for "
+                      "international transport. " + note, "PJ", "energy", self.source_id, "TPES", decimals=0),
+            indicator("nz_energy_renewable_share_primary", "Renewable share of primary energy (NZ)",
+                      "Hydro, geothermal, solar, wind and bioenergy as a share of primary energy supply. Geothermal "
+                      "counts at its heat, so it weighs more than the electricity it makes. " + note,
+                      "% of primary energy", "energy", self.source_id, "TPES renewable share", bounds=(0, 100)),
+            indicator("nz_energy_consumer", "Energy used by consumers (NZ)",
+                      "Energy used by farms, industry, businesses, transport and homes (not counting non-energy use "
+                      "such as gas made into methanol). " + note, "PJ", "energy", self.source_id, "consumer energy",
+                      decimals=0),
+        ] + [indicator(f"nz_energy_use_{sid}", f"Energy used: {s.lower()} (NZ)", f"Energy used by {s.lower()}. " + note,
+                       "PJ", "energy", self.source_id, f"consumption {sid}", decimals=1, default_on=sid in ("transport", "industry", "residential"))
+             for s, sid in SECTOR_IDS.items() if sid != "non_energy"]
         return rows.stage(con, self.source_id, vintage)

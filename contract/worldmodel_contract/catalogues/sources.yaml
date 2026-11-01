@@ -445,3 +445,42 @@
   attribution: "Department of Corrections, Prison facts and statistics (quarterly)."
   status: active
   default_rank: 3
+
+- id: mbie_energy
+  name: MBIE energy balance tables
+  short_name: MBIE energy
+  publisher: Ministry of Business, Innovation and Employment (New Zealand)
+  url: https://www.mbie.govt.nz/building-and-energy/energy-and-natural-resources/energy-statistics-and-modelling/energy-statistics/energy-balances
+  licence: CC BY 4.0 (New Zealand Government)
+  licence_url: https://www.mbie.govt.nz/about/open-government/copyright-and-linking
+  commercial_use: true
+  cadence: Quarterly; tried every four weeks, else loaded by hand (.\load.bat mbie_energy <file>)
+  attribution: "Ministry of Business, Innovation and Employment, Energy balance tables."
+  status: active
+  default_rank: 2
+
+- id: us_census_voting
+  name: US Census Bureau, Voting and Registration historical tables (CPS November supplement)
+  short_name: US Census voting
+  publisher: U.S. Census Bureau
+  url: https://www.census.gov/data/tables/time-series/demo/voting-and-registration/voting-historical-time-series.html
+  licence: Public domain (US federal government work)
+  licence_url: https://www.census.gov/about/policies/open-gov/open-data.html
+  commercial_use: true
+  cadence: Every two years, after each November election; read every three months
+  attribution: "U.S. Census Bureau, Current Population Survey, November supplement, table A-1."
+  status: active
+  default_rank: 2
+
+- id: nz_election_turnout
+  name: Electoral Commission general election turnout statistics
+  short_name: NZ Electoral Commission
+  publisher: Te Kaitiaki Take Kōwhiri, Electoral Commission (New Zealand)
+  url: https://elections.nz/stats-and-research/
+  licence: CC BY 4.0 (New Zealand Government)
+  licence_url: https://elections.nz/about-us/copyright/
+  commercial_use: true
+  cadence: After each general election; loaded by hand (.\load.bat nz_election_turnout <file>)
+  attribution: "Electoral Commission, general election voter turnout statistics."
+  status: active
+  default_rank: 2

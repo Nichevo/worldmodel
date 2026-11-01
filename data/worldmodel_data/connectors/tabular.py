@@ -118,6 +118,10 @@ def xlsx_rows(path, sheet: int | str = 0) -> list[list]:
         wb = load_workbook(fh, read_only=True, data_only=True)
         try:
             ws = wb.worksheets[sheet] if isinstance(sheet, int) else wb[sheet]
+            # Some files (RBNZ's among them) state a wrong size, such as A1, which would
+            # cut the sheet short in read-only mode; read up to the last row actually there.
+            if hasattr(ws, "reset_dimensions"):
+                ws.reset_dimensions()
             return [list(r) for r in ws.iter_rows(values_only=True)]
         finally:
             wb.close()

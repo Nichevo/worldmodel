@@ -159,6 +159,8 @@ with identical content is skipped; a revised release becomes a new vintage
 | Eurostat AI use in enterprises | Share of enterprises (10+ employees) using at least one AI technology (`ai_use_enterprises`) | Eurostat SDMX-CSV of `isoc_eb_ai`; every four weeks |
 | Anthropic Economic Index | Claude use per working-age person against the world average, and share of world use (`ai_claude_use_per_capita_index`, `ai_claude_use_share`) | The newest enriched Claude.ai file in the Hugging Face dataset `Anthropic/EconomicIndex`; every four weeks |
 | Microsoft AI Diffusion Report | Share of working-age people using AI (`ai_use_population`) | Loaded by hand: `.\load.bat ms_ai_diffusion <file>` |
+| BIS policy rates and exchange rates | Central bank policy rates (yearly average and December), and each currency's US dollar rate | BIS statistics API (`WS_CBPOL`, `WS_XRU`) |
+| US Census Bureau voting tables | Who voted and who registered at every November election since 1964: by age group, by sex (also within age groups), and for White non-Hispanic, Black, Asian and Hispanic Americans; citizens and all residents | Table A-1 (`hst_vote01.xlsx`), checked every three months. If the Census site refuses it, download it from the voting historical time series page and run `.\load.bat us_census_voting <file>` |
 | Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
@@ -357,6 +359,26 @@ world use (fetched from its Hugging Face dataset by `refresh`), and Microsoft's
 AI Diffusion Report share of working-age people using AI. Microsoft publishes
 that table with its report, so download it and load it by hand:
 `.\load.bat ms_ai_diffusion <file.csv or .xlsx>`.
+
+**Voting** is a topic page too, and country pages for the US and New Zealand
+have a **Who votes** card: turnout by age group (young to old, light to dark),
+and by sex, group or Māori descent. With three or more elections it shows lines
+over time; with fewer, bars for the latest election.
+
+## New Zealand pack
+
+Extra New Zealand sources, switched on or off together in Settings, Country
+packs (on by default). None needs a key; the regional and census figures that
+need a Stats NZ key come later.
+
+| Source | What | How it is fetched |
+| --- | --- | --- |
+| Reserve Bank (RBNZ) | Official cash rate, bank bill and government bond yields, swap rates (B2), exchange rates and the TWI (B1), retail rates (B3) and mortgage rates (B20); every series in the files, the headline ones switched on | Tried every week. The RBNZ site turns most programs away, so if it does, download the tables in your browser into one folder and run `.\load.bat rbnz <folder>`. History files such as *B2 daily 1985-2017* can be loaded the same way; they are kept when the current files are fetched again, and where both cover a year the current file counts |
+| MBIE energy balance tables | Energy supply, conversion and use by sector and fuel since 1990 (gross PJ), drawn as the **Where energy comes from and goes** flow chart on the country page with a year slider; primary energy, its renewable share, and energy use by sector as indicators | Tried every four weeks; if MBIE refuses, download *Energy balance tables* from MBIE's energy balances page and run `.\load.bat mbie_energy <file>` |
+| Electoral Commission | Turnout at general elections, by age band, by Māori and non-Māori descent, and both; enrolled voters and votes cast (national figures for now) | Loaded by hand, one election at a time: download *<year> General Election voter turnout by age* from elections.nz and run `.\load.bat nz_election_turnout <file>`. Each file adds to the ones loaded before |
+| Department of Corrections | People in prison: on remand (accused or convicted) and sentenced, men and women, at each year's latest quarter | The quarterly statistics pages, every four weeks |
+
+The **New Zealand in detail** topic page gathers the pack's headline series.
 
 ## Designed now, built later
 
