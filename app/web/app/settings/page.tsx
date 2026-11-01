@@ -58,6 +58,26 @@ export default function SettingsPage() {
       </section>
 
       <section className="card">
+        <h2>Forecasts</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The Forecast button on charts extends each line with a statistical forecast: the simple model that would have
+          missed least over the past years, with ranges from how far it missed.
+        </p>
+        <NumberField label="Look ahead" unit="years" value={s.forecast_horizon} min={1} max={50} step={1}
+          save={(v) => save({ forecast_horizon: v })} />
+        <Field label="Ranges around a forecast" hint="The band a forecast fell inside 80% (or 95%) of the time in the back-test.">
+          <div className="seg" role="group" aria-label="Ranges around a forecast">
+            {([["80+95", "80% and 95%"], ["80", "80% only"], ["none", "None"]] as const).map(([v, label]) => (
+              <button key={v} className={s.forecast_ranges === v ? "on" : ""} aria-pressed={s.forecast_ranges === v}
+                onClick={() => save({ forecast_ranges: v })}>{label}</button>
+            ))}
+          </div>
+        </Field>
+        <Toggle label="Forecasters' own projections" hint="With Forecast on, single-country charts also draw the IMF's, OECD's and World Bank's latest forecasts."
+          on={s.forecast_official} set={(v) => save({ forecast_official: v })} />
+      </section>
+
+      <section className="card">
         <h2>Storage limits</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
           Warnings show at 80% and 95% on the <Link href="/data">Data status</Link> page, in the refresh report and as a banner.

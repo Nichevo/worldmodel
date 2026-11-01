@@ -158,6 +158,11 @@ def streams() -> list[dict]:
     return _yaml("streams.yaml")
 
 
+def topics() -> list[dict]:
+    """Topic pages: id, name, intro, map (an indicator) and indicators, in reading order."""
+    return _yaml("topics.yaml")
+
+
 def driver_graph() -> dict:
     return _yaml("driver_graph.yaml")
 

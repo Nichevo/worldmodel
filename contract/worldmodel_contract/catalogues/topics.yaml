@@ -1,0 +1,70 @@
+# Topic pages (/topic/<id> in the app): a short introduction and the indicators
+# that tell the story, in reading order. Indicators that are not loaded are left
+# out on the page. `countries` are the lines drawn on each chart besides the world
+# (the key countries by default); `map` is the indicator the topic's map shows.
+
+- id: population
+  name: Population
+  intro: How many people there are, how fast that is changing, and how old they are. Most countries now have fewer children than it takes to replace each generation, so populations are ageing and many will shrink.
+  map: tfr
+  indicators: [pop_total, pop_growth_rate, tfr, life_expectancy, median_age, pop_share_65_plus, old_age_dependency_ratio, net_migration_rate]
+
+- id: economy
+  name: Economy
+  intro: How big economies are, how fast they grow and how rich people are on average. Growth swings with the business cycle; income per person shows living standards more than size does.
+  map: gdp_per_capita_usd
+  indicators: [gdp_growth, gdp_usd, gdp_per_capita_usd, gdp_ppp_per_capita, inflation, unemployment, current_account_gdp]
+
+- id: debt
+  name: Debt
+  intro: What governments, households and companies owe. Debt lets spending run ahead of income; how much is too much depends on interest rates, growth and who holds it.
+  map: govt_debt_gdp
+  indicators: [govt_debt_gdp, central_govt_debt_gdp, imf_household_debt_gdp, imf_corporate_debt_gdp, external_debt_gni]
+
+- id: prices
+  name: Prices and inflation
+  intro: How fast prices rise, and how dear a country is compared with others. Inflation erodes savings and wages that do not keep up; price levels show what money buys in each place.
+  map: inflation
+  indicators: [inflation, price_level_ratio, oecd_house_price_real, oecd_price_to_income_vs_avg]
+
+- id: housing
+  name: Housing
+  intro: House prices against incomes and rents, and household debt. Where prices have run ahead of incomes, homes are harder to afford and households borrow more.
+  map: oecd_price_to_income_vs_avg
+  indicators: [oecd_house_price_real, oecd_price_to_income_vs_avg, oecd_price_to_rent_vs_avg, oecd_household_debt_income, bis_household_credit_gdp]
+
+- id: energy
+  name: Energy and emissions
+  intro: How much energy countries use, where their electricity comes from and what they emit. The shift from coal, oil and gas to clean power is the largest change in energy since electricity itself.
+  map: renewables_share_elec
+  indicators: [energy_use_per_capita, electricity_use_per_capita, renewables_share_elec, renewable_share_final_energy, co2_per_capita, co2_emissions_total]
+
+- id: migration
+  name: Migration
+  intro: People moving between countries, and people forced to flee. Migration adds to the working-age population in rich countries and sends money home to poorer ones.
+  map: migrant_stock_share
+  indicators: [net_migration, net_migration_rate, migrant_stock_share, refugees_hosted, refugees_by_origin, remittances_received_gdp]
+
+- id: education
+  name: Education
+  intro: How much schooling people get, and how much countries spend on it. Years of schooling have risen almost everywhere since 1950, and fastest for women.
+  map: tertiary_enrolment
+  indicators: [literacy_rate, secondary_enrolment, tertiary_enrolment, education_spending_gdp, rd_spending_gdp]
+
+- id: health
+  name: Health
+  intro: How long people live and what they die of. Child deaths have fallen faster than anyone expected fifty years ago; spending on health varies far more than life expectancy does.
+  map: life_expectancy
+  indicators: [life_expectancy, infant_mortality, under5_mortality, health_spending_gdp, physicians_per_1000]
+
+- id: military
+  name: Military
+  intro: What countries spend on their armed forces and how many people serve. Spending as a share of GDP shows the burden; in dollars it shows the might.
+  map: military_spending_gdp
+  indicators: [military_spending_gdp, military_spending_usd, armed_forces, arms_exports, arms_imports]
+
+- id: ai
+  name: AI use
+  intro: How much people and firms use artificial intelligence. The figures come from different angles, firms surveyed by Eurostat, users counted by Microsoft and Claude conversations measured by Anthropic, so each covers different countries and they do not add up to one number. All are new and short, and change fast.
+  map: ai_use_population
+  indicators: [ai_use_population, ai_use_enterprises, ai_claude_use_per_capita_index, ai_claude_use_share, internet_users_share, rd_spending_gdp]

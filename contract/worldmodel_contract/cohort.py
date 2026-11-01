@@ -158,9 +158,11 @@ class Levers:
     migration: float = 1.0        # multiplier on net migration, 0..3
     extra_migrants: float = 0.0   # added to net migration each year (persons)
     phase: int = 10               # years until the changes are in full
+    hold_fertility: bool = False  # fertility stays at its base-year level (the UN's constant-fertility idea), then tfr is added
 
     def is_default(self) -> bool:
-        return self.tfr == 0 and self.e0 == 0 and self.migration == 1 and self.extra_migrants == 0
+        return (self.tfr == 0 and self.e0 == 0 and self.migration == 1 and self.extra_migrants == 0
+                and not self.hold_fertility)
 
     def ramp(self, years_on: float) -> float:
         return 1.0 if self.phase <= 0 else min(1.0, max(0.0, years_on / self.phase))
@@ -239,7 +241,7 @@ def project(base_year: int, male5: list[float], female5: list[float], paths: Pat
         # The step runs from 1 July t to 1 July t+1: half of each calendar year's rates.
         mid = lambda name: (v[name][t] + v[name][t + 1]) / 2  # noqa: E731
         r = lv.ramp(t + 0.5 - base_year)
-        tfr = max(0.0, mid("tfr") + lv.tfr * r)
+        tfr = max(0.0, (v["tfr"][base_year] if lv.hold_fertility else mid("tfr")) + lv.tfr * r)
         srb = mid("srb")
         mig = mid("net_migration") * lv.migration + lv.extra_migrants
         tables = {sex: table_for(max(15.0, min(95.0, mid(f"e0_{sex}") + lv.e0 * r))) for sex in ("male", "female")}
@@ -360,7 +362,8 @@ def _input_paths(paths: Paths, years: list[int], base_year: int, lv: Levers) -> 
     ramp = {y: lv.ramp(y - base_year) for y in years}
     return {
         "tfr": {"baseline": [v["tfr"][y] for y in years],
-                "scenario": [max(0.0, v["tfr"][y] + lv.tfr * ramp[y]) for y in years]},
+                "scenario": [max(0.0, (v["tfr"][base_year] if lv.hold_fertility else v["tfr"][y]) + lv.tfr * ramp[y])
+                             for y in years]},
         "e0": {"baseline": [e0[y] for y in years], "scenario": [e0[y] + lv.e0 * ramp[y] for y in years]},
         "net_migration": {"baseline": [mig[y] for y in years],
                           "scenario": [mig[y] * lv.migration + lv.extra_migrants for y in years]},
