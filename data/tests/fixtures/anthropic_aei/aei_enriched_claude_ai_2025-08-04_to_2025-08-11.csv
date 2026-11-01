@@ -1,0 +1,15 @@
+geo_id,geography,date_start,date_end,platform_and_product,facet,level,variable,cluster_name,value
+USA,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_per_capita_index,,3.62
+USA,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_pct,,21.6
+USA,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),onet_task,1,onet_task_pct,Write code,40
+NZL,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_per_capita_index,,2.1
+NZL,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_pct,,0.5
+NZL,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),onet_task,1,onet_task_pct,Write code,40
+GBR,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_per_capita_index,,2.0
+GBR,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_pct,,3.7
+GBR,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),onet_task,1,onet_task_pct,Write code,40
+IND,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_per_capita_index,,0.27
+IND,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),country,0,usage_pct,,7.2
+IND,country,2025-08-04,2025-08-11,Claude AI (Free and Pro),onet_task,1,onet_task_pct,Write code,40
+US-CA,country-state,2025-08-04,2025-08-11,Claude AI (Free and Pro),country-state,0,usage_per_capita_index,,5
+GLOBAL,global,2025-08-04,2025-08-11,Claude AI (Free and Pro),global,0,usage_pct,,100

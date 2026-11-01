@@ -30,6 +30,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
+from worldmodel_contract import forecast as statforecast
 from worldmodel_api import __version__, layouts, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
@@ -668,6 +669,7 @@ def whatif(entity: str,
            mig: float = Query(1, ge=0, le=3, description="multiplier on net migration"),
            extra: float = Query(0, ge=-5_000_000, le=5_000_000, description="extra net migrants a year"),
            phase: int = Query(10, ge=0, le=50, description="years until the changes are in full"),
+           hold: bool = Query(False, description="fertility stays at its base-year level instead of the UN path"),
            end: int | None = None):
     """The population what-if for one country: the UN medium projection (baseline) and
     the same with the levers moved (scenario), by year, with pyramids, key shares, the
@@ -682,7 +684,7 @@ def whatif(entity: str,
     stop = min(inp.last_year, end) if end else inp.last_year
     if stop <= inp.base_year:
         raise HTTPException(422, f"nothing to project: the data ends in {inp.base_year}")
-    levers = cohort.Levers(tfr=tfr, e0=e0, migration=mig, extra_migrants=extra, phase=phase)
+    levers = cohort.Levers(tfr=tfr, e0=e0, migration=mig, extra_migrants=extra, phase=phase, hold_fertility=hold)
     out = cohort.whatif(inp.base_year, inp.base, inp.raw, stop, levers, inp.un, inp.un_totals)
     years = out["years"]
     for side in ("baseline", "scenario"):
@@ -704,11 +706,101 @@ def whatif(entity: str,
         by.setdefault(r["variant"], {})[r["y"]] = r["value"]
     out["ranges"] = {k: [v.get(y) for y in years] for k, v in by.items()}
     out.update(entity=entity, name=found[0]["short_name"], type=found[0]["type"],
-               levers={"tfr": tfr, "e0": e0, "mig": mig, "extra": extra, "phase": phase})
+               levers={"tfr": tfr, "e0": e0, "mig": mig, "extra": extra, "phase": phase, "hold": int(hold)})
     return out
 
 
+# ----------------------------------------------------------------------------- statistical forecasts
+FORECASTERS = ("imf_weo", "oecd_eo", "wb_gep")
+_fc_cache: dict[tuple, dict] = {}
+
+
+def _indicator_meta(indicator: str) -> dict:
+    found = rows("SELECT name, unit, decimals, bound_min, bound_max FROM indicators WHERE indicator_id = ?", [indicator])
+    if not found:
+        raise HTTPException(404, f"no indicator {indicator}")
+    return found[0]
+
+
+def _stat_forecast(indicator: str, entity: str, source: str | None, horizon: int, model: str | None) -> dict:
+    """The statistical forecast of one country's series, cached per build."""
+    key = (warehouse.current().meta.get("build_id"), indicator, entity, source, horizon, model,
+           json.dumps(userdata.ratios(), sort_keys=True) if indicator.startswith(userdata.RATIO_PREFIX) else "")
+    if key in _fc_cache:
+        return _fc_cache[key]
+    meta = _indicator_meta(indicator)
+    hist = [r for r in _series(indicator, entity, None, None, None, source, "", "central", False, None) if r["freq"] == "A"]
+    if not hist:
+        raise HTTPException(404, f"no yearly figures of {meta['name']} for {entity}")
+    bounds = (meta["bound_min"] if meta["bound_min"] is not None else -1e18,
+              meta["bound_max"] if meta["bound_max"] is not None else 1e18)
+    try:
+        out = statforecast.forecast([r["period_start"].year for r in hist], [r["value"] for r in hist], horizon,
+                                    meta["unit"], bounds, model)
+    except ValueError as exc:
+        raise HTTPException(422, f"{meta['name']} for {entity}: {exc}")
+    out.update(indicator=indicator, entity=entity, unit=meta["unit"], decimals=meta["decimals"],
+               source=hist[0]["source_id"])
+    if len(_fc_cache) > 256:
+        _fc_cache.clear()
+    _fc_cache[key] = out
+    return out
+
+
+def _official(indicator: str, entity: str) -> list[dict]:
+    """Each forecaster's latest projections for a country (status P), with its last
+    estimate first so the line joins the history."""
+    srcs = rows("""SELECT r.source_id, coalesce(s.short_name, r.source_id) AS name FROM indicator_sources r
+        LEFT JOIN sources s USING (source_id) WHERE r.indicator_id = ? AND r.source_id NOT LIKE '%_history'
+        ORDER BY r.rank""", [indicator])
+    out = []
+    for src in srcs:
+        data = rows("""SELECT year(period_start) AS y, value, status, vintage FROM series
+            WHERE indicator_id = ? AND entity_id = ? AND source_id = ? AND breakdown = '' AND variant = 'central'
+                AND freq = 'A' ORDER BY 1""", [indicator, entity, src["source_id"]])
+        proj = [r for r in data if r["status"] == "P"]
+        if not proj:
+            continue
+        before = [r for r in data if r["status"] == "E" and r["y"] < proj[0]["y"]]
+        pts = ([before[-1]] if before else []) + proj
+        out.append({"source_id": src["source_id"], "name": src["name"], "release": proj[0]["vintage"],
+                    "points": [[r["y"], r["value"]] for r in pts]})
+    return out
+
+
+@api.get("/forecast")
+def forecast_view(indicator: str, entity: str, source: str | None = None,
+                  horizon: int = Query(10, ge=1, le=50), model: str | None = None, official: bool = True):
+    """A statistical forecast of one country's yearly series past its last estimate:
+    several simple models scored by a rolling back-test, the best (or a simpler one
+    within 5%) used, with 80% and 95% ranges from its back-test misses. With
+    `official`, each forecaster's own latest projections too (IMF, OECD, World Bank,
+    UN and any other source with projections)."""
+    if model and model not in statforecast.MODELS:
+        raise HTTPException(422, f"model must be one of {', '.join(statforecast.MODELS)}")
+    out = dict(_stat_forecast(indicator, entity, source, horizon, model))
+    out["official"] = _official(indicator, entity) if official else []
+    return out
+
+
+@api.post("/forecast/values")
+def forecast_values(body: dict = Body(..., examples=[{"years": [2000, 2001], "values": [1.0, 2.0], "unit": "",
+                                                       "horizon": 10}])):
+    """The same statistical forecast for figures sent in the request (your own ratios,
+    or anything worked out in the browser)."""
+    try:
+        return statforecast.forecast([int(y) for y in body.get("years", [])], [float(v) for v in body.get("values", [])],
+                                     max(1, min(50, int(body.get("horizon", 10)))), body.get("unit"), None,
+                                     body.get("model"))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(422, str(exc))
+
+
 # ----------------------------------------------------------------------------- forecast track record
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December"]
+
+
 def _errors(pairs: list[dict]) -> dict:
     d = [p["forecast"] - p["actual"] for p in pairs]
     n = len(d)
@@ -716,42 +808,56 @@ def _errors(pairs: list[dict]) -> dict:
         if n else {"n": 0, "bias": None, "mae": None, "rmse": None}
 
 
+def _known_pairs(indicator: str, entity: str | None, source: str, since: int) -> tuple[list[dict], list[dict], str]:
+    sql, params = forecast_pairs_sql(indicator, [entity] if entity else None, countries_only=entity is None,
+                                     source_id=source)
+    pairs = [p for p in rows(sql, params) if int(p["release"][:4]) >= since]
+    # Outcomes come from the latest release, so that release's own figures say nothing.
+    latest = (rows("SELECT max(left(vintage, 7)) AS r FROM vintages WHERE source_id = ? AND is_latest", [source])
+              or [{"r": None}])[0]["r"] or "9999"
+    known = [p for p in pairs if p["actual"] is not None and p["release"] < latest]
+    return pairs, known, latest
+
+
 @api.get("/track-record")
-def track_record(indicator: str = "gdp_growth", entity: str | None = None, since: int = Query(1990, ge=1980)):
-    """How past IMF WEO forecasts compared with what happened: errors (forecast minus
-    outcome) by how far ahead the forecast was made, for the April and October
-    releases. With an entity: its own record plus every release's forecast path.
-    Without: all countries pooled, and each country's record a year ahead."""
-    if indicator not in ("gdp_growth", "inflation"):
-        raise HTTPException(422, "track records exist for gdp_growth and inflation")
+def track_record(indicator: str = "gdp_growth", entity: str | None = None, since: int = Query(1990, ge=1980),
+                 source: str = "imf_weo"):
+    """How a forecaster's past forecasts compared with what happened: errors (forecast
+    minus outcome) by how far ahead the forecast was made, for each month it publishes
+    in (April and October for the IMF, June and December for the OECD, January and
+    June for the World Bank). With an entity: its own record plus every release's
+    forecast path. Without: all countries pooled, and each country's record a year
+    ahead. Any indicator a forecaster covers works; the record grows with each stored
+    release."""
+    if not rows("SELECT 1 FROM indicator_sources WHERE indicator_id = ? AND source_id = ?", [indicator, source]):
+        raise HTTPException(422, f"{source} has no forecasts of {indicator}")
     names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
     if entity and entity not in names:
         raise HTTPException(404, f"no entity {entity}")
-    sql, params = forecast_pairs_sql(indicator, [entity] if entity else None, countries_only=entity is None)
-    pairs = [p for p in rows(sql, params) if int(p["release"][:4]) >= since]
-    # Outcomes come from the latest release, so that release's own figures say nothing.
-    latest = (rows("SELECT max(left(vintage, 7)) AS r FROM vintages WHERE source_id = 'imf_weo' AND is_latest")
-              or [{"r": None}])[0]["r"] or "9999"
-    known = [p for p in pairs if p["actual"] is not None and p["release"] < latest]
+    pairs, known, latest = _known_pairs(indicator, entity, source, since)
     stats = []
-    for month, season in (("04", "April"), ("10", "October")):
+    for month in sorted({p["release"][5:7] for p in pairs}):
+        season = MONTHS[int(month) - 1] if month.isdigit() and 1 <= int(month) <= 12 else month
         for h in range(-1, 6):
-            sel = [p for p in known if p["horizon"] == h and p["release"].endswith(month)]
+            sel = [p for p in known if p["horizon"] == h and p["release"][5:7] == month]
             if sel:
                 stats.append({"season": season, "horizon": h, **_errors(sel)})
     releases = sorted({p["release"] for p in pairs})
-    out = {"indicator": indicator, "entity": entity, "name": names.get(entity) if entity else None,
+    out = {"indicator": indicator, "entity": entity, "name": names.get(entity) if entity else None, "source": source,
+           "source_name": (rows("SELECT short_name FROM sources WHERE source_id = ?", [source]) or [{"short_name": source}])[0]["short_name"],
            "releases": releases, "outcomes_from": latest if latest != "9999" else None, "stats": stats,
+           "seasons": [MONTHS[int(m) - 1] if m.isdigit() and 1 <= int(m) <= 12 else m
+                       for m in sorted({p["release"][5:7] for p in pairs})],
            "sources": sorted({r["source_id"] for r in rows(
-               "SELECT DISTINCT source_id FROM series WHERE indicator_id = ? AND source_id LIKE 'imf_weo%'", [indicator])})}
+               "SELECT DISTINCT source_id FROM series WHERE indicator_id = ? AND source_id LIKE ?", [indicator, f"{source}%"])})}
     if entity:
         by: dict[str, list] = {}
         for p in pairs:
             by.setdefault(p["release"], []).append([p["year"], p["forecast"]])
         out["paths"] = [{"release": r, "points": by[r]} for r in releases]
         out["actual"] = [[r["y"], r["value"]] for r in rows("""SELECT year(period_start) AS y, value FROM series
-            WHERE source_id = 'imf_weo' AND indicator_id = ? AND entity_id = ? AND breakdown = '' AND variant = 'central'
-                AND status = 'E' ORDER BY 1""", [indicator, entity])]
+            WHERE source_id = ? AND indicator_id = ? AND entity_id = ? AND breakdown = '' AND variant = 'central'
+                AND status = 'E' ORDER BY 1""", [source, indicator, entity])]
         out["years"] = [{"year": y, **_errors([p for p in known if p["year"] == y and p["horizon"] == 1])}
                         for y in sorted({p["year"] for p in known})]
     else:
@@ -762,6 +868,48 @@ def track_record(indicator: str = "gdp_growth", entity: str | None = None, since
         out["countries"] = sorted(({"entity_id": e, "name": names.get(e, e), **_errors(v)} for e, v in per.items()),
                                   key=lambda r: r["mae"])
     return out
+
+
+@api.get("/track-record/compare")
+def track_record_compare(indicator: str = "gdp_growth", entity: str | None = None, since: int = Query(1990, ge=1980)):
+    """Who forecasts best: each forecaster's typical miss for the current year and for
+    the next year, over all its scored forecasts and over the years every forecaster
+    scored (the fair comparison). With an entity, the statistical model's own
+    back-test joins in: its forecast one and two years past the last known figure,
+    which is what a forecaster knows when forecasting the current and next year."""
+    out = []
+    for src in FORECASTERS:
+        if not rows("SELECT 1 FROM indicator_sources WHERE indicator_id = ? AND source_id = ?", [indicator, src]):
+            continue
+        _, known, _ = _known_pairs(indicator, entity, src, since)
+        name = (rows("SELECT short_name FROM sources WHERE source_id = ?", [src]) or [{"short_name": src}])[0]["short_name"]
+        out.append({"source_id": src, "name": name, "releases": len({p["release"] for p in known}),
+                    "_pairs": {h: [p for p in known if p["horizon"] == h] for h in (0, 1)}})
+    if entity:
+        try:
+            fc = _stat_forecast(indicator, entity, None, 2, None)
+            pairs = {0: [], 1: []}
+            for b in fc["backtest"]:
+                for ahead, h in ((1, 0), (2, 1)):
+                    if b.get(f"forecast_{ahead}") is not None:
+                        pairs[h].append({"entity_id": entity, "year": b["origin"] + ahead,
+                                         "forecast": b[f"forecast_{ahead}"], "actual": b[f"actual_{ahead}"]})
+            out.append({"source_id": "worldmodel", "name": f"Worldmodel ({fc['model_name'].lower()})",
+                        "releases": None, "_pairs": pairs})
+        except HTTPException:
+            pass
+    for h in (0, 1):
+        sets = [{(p["entity_id"], p["year"]) for p in f["_pairs"][h]} for f in out if f["_pairs"][h]]
+        common = set.intersection(*sets) if sets else set()
+        for f in out:
+            ps = f["_pairs"][h]
+            label = "this_year" if h == 0 else "next_year"
+            f[label] = _errors(ps)
+            f[f"{label}_common"] = _errors([p for p in ps if (p["entity_id"], p["year"]) in common])
+            f[f"{label}_common_years"] = len(common)
+    for f in out:
+        del f["_pairs"]
+    return {"indicator": indicator, "entity": entity, "forecasters": out}
 
 
 # ----------------------------------------------------------------------------- source comparison
@@ -1177,6 +1325,50 @@ def around(
             "mean_diff": mean("diff") if compare != "none" else None, "n": len(out),
             "note": ("Index: the year before each event = 100." if use_index else f"Values in {unit}.")
             + (f" Compared with {compare} over the same years." if compare != "none" else "")}
+
+
+# ----------------------------------------------------------------------------- topics
+@api.get("/topics")
+def topics():
+    """Topic pages: each with its introduction and the indicators that are loaded, in order."""
+    have = {f["indicator_id"] for f in _indicator_rows() if f.get("countries")}
+    return [{**t, "indicators": [i for i in t["indicators"] if i in have],
+             "missing": [i for i in t["indicators"] if i not in have]} for t in catalogue.topics()]
+
+
+@api.get("/topics/{topic_id}")
+def topic(topic_id: str):
+    for t in topics():
+        if t["id"] == topic_id:
+            return t
+    raise HTTPException(404, f"no topic {topic_id}")
+
+
+@api.get("/indicators/{indicator_id}/ranking")
+def indicator_ranking(indicator_id: str, year: int | None = None):
+    """Every country's value in one year (by default the indicator's main year: the latest
+    with good coverage), highest first, with its rank, the change over ten years, and the
+    world value. For the indicator page."""
+    meta = next((f for f in _indicator_rows() if f["indicator_id"] == indicator_id), None)
+    if meta is None:
+        raise HTTPException(404, f"no indicator {indicator_id}")
+    y = year or meta.get("main_year") or meta.get("last_estimate_year")
+    if y is None:
+        return {"indicator": indicator_id, "year": None, "rows": [], "world": None}
+    data = rows("""SELECT s.entity_id, e.short_name AS name, s.value, s.status, s.source_id,
+            (SELECT p.value FROM series p WHERE p.entity_id = s.entity_id AND p.indicator_id = s.indicator_id
+                AND p.source_id = s.source_id AND p.breakdown = '' AND p.variant = 'central'
+                AND year(p.period_start) = ? - 10) AS ten_years_before
+        FROM series s JOIN entities e ON e.entity_id = s.entity_id
+        WHERE s.indicator_id = ? AND year(s.period_start) = ? AND s.breakdown = '' AND s.variant = 'central'
+            AND s.source_id = (SELECT source_id FROM indicator_sources WHERE indicator_id = ? ORDER BY rank LIMIT 1)
+            AND e.type IN ('country', 'world')
+        ORDER BY s.value DESC""", [y, indicator_id, y, indicator_id])
+    world = next((r for r in data if r["entity_id"] == "world"), None)
+    ranked = [r for r in data if r["entity_id"] != "world"]
+    for i, r in enumerate(ranked):
+        r["rank"] = i + 1
+    return {"indicator": indicator_id, "year": y, "rows": ranked, "world": world}
 
 
 # ----------------------------------------------------------------------------- streams

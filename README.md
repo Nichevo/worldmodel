@@ -154,6 +154,11 @@ with identical content is skipped; a revised release becomes a new vintage
 | Wittgenstein Centre Human Capital Data Explorer | Mean years of schooling of adults (all, women, men) from 1950 with projections to 2100, and shares by highest level of education | Two R data files (version 3, middle-of-the-road scenario) from IIASA, or the copy on GitHub; fetched once |
 | UNDP Human Development Report | Human Development Index, expected and mean years of schooling, the gender and inequality-adjusted indices | One CSV, found on UNDP's downloads page |
 | International IDEA Voter Turnout Database | Turnout at parliamentary and presidential elections, of registered voters and of the voting-age population; registered voters and votes cast | IDEA's export, asked for once per refresh. If IDEA answers with a web page instead, export the World table from idea.int and load it with `.\load.bat idea_turnout <file>` |
+| OECD Economic Outlook | GDP growth and consumer price inflation, estimates and forecasts two years ahead, as further sources of `gdp_growth` and `inflation` | OECD Data Explorer SDMX API; each edition (June, December) stored as its own vintage for the track record; checked every two weeks |
+| World Bank Global Economic Prospects | GDP growth, estimates and forecasts, as a further source of `gdp_growth` | World Bank API (source 27); each edition (January, June) stored as its own vintage; checked every two weeks |
+| Eurostat AI use in enterprises | Share of enterprises (10+ employees) using at least one AI technology (`ai_use_enterprises`) | Eurostat SDMX-CSV of `isoc_eb_ai`; every four weeks |
+| Anthropic Economic Index | Claude use per working-age person against the world average, and share of world use (`ai_claude_use_per_capita_index`, `ai_claude_use_share`) | The newest enriched Claude.ai file in the Hugging Face dataset `Anthropic/EconomicIndex`; every four weeks |
+| Microsoft AI Diffusion Report | Share of working-age people using AI (`ai_use_population`) | Loaded by hand: `.\load.bat ms_ai_diffusion <file>` |
 | Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
@@ -267,7 +272,7 @@ and company debt per person (US dollars or local currency) or as % of GDP.
 
 ## Forecasts
 
-The **Forecasts** page (also linked from each country's profile) has two parts:
+The **Forecasts** page (also linked from each country's profile) has three parts:
 
 - **Population what-if.** Move fertility, life expectancy and migration away
   from the UN projection and see the total, the age pyramid and key shares
@@ -277,13 +282,37 @@ The **Forecasts** page (also linked from each country's profile) has two parts:
   difference your changes make, so at the default settings it is the UN's
   exactly. Each build checks the model on its own against the UN projection and
   in a 30-year back-test (`whatif:` rows in the build report).
-- **IMF track record.** Past WEO forecasts of GDP growth and inflation against
-  what happened: typical miss and bias by how far ahead the forecast was, for
-  each country and all countries together. Releases come from the IMF's
-  historical file and from every IMF vintage stored here.
+  Ready-made scenarios sit above the sliders: low and high fertility (the UN's
+  variants, half a child fewer or more), fertility staying at today's level,
+  no migration, double migration and longer lives.
+- **Statistical forecast.** Any indicator for any country, extended past its
+  last figure. Five simple models (last value, recent average change,
+  straight-line trend, fading trend, back towards the long-run average) are
+  each refitted on the figures up to each of the last dozen years and scored on
+  how far they missed; the simplest within 5% of the best is used. The 80% and
+  95% ranges are its own back-test misses at each distance, so a series that
+  is hard to forecast gets wide bands. Levels that are always above zero
+  (population, GDP) are modelled in percentage changes. The same forecast is a
+  **Forecast** button on every chart on the country, indicator and topic pages,
+  and a **Forecast** tick box on chart panels (saved with layouts). On a
+  single-country chart it also draws each forecaster's own latest projections
+  (IMF, OECD, World Bank). Settings → Forecasts sets how far ahead, which ranges
+  and whether the forecasters are drawn.
+- **Track record.** Past forecasts of GDP growth and inflation against what
+  happened, for the IMF, the OECD Economic Outlook and the World Bank's Global
+  Economic Prospects: typical miss and bias by how far ahead the forecast was,
+  for each country and all countries together, and a **who forecasts best**
+  table over the years every forecaster was scored, with the statistical
+  forecast's own back-test alongside. The IMF's record goes back to 1990
+  through its historical file; the OECD's and World Bank's build up from the
+  second edition stored (each refresh after a new edition adds one).
 
-API: `/api/v1/whatif?entity=NZL&tfr=-0.5&e0=2&mig=0.5&extra=0&phase=10` and
-`/api/v1/track-record?indicator=gdp_growth&entity=NZL`. `/series` and streams
+API: `/api/v1/whatif?entity=NZL&tfr=-0.5&e0=2&mig=0.5&extra=0&phase=10&hold=false`,
+`/api/v1/forecast?indicator=gdp_growth&entity=NZL&horizon=10`,
+`/api/v1/track-record?indicator=gdp_growth&entity=NZL&source=oecd_eo` and
+`/api/v1/track-record/compare?indicator=gdp_growth&entity=NZL`. The forecast
+models are in `contract/worldmodel_contract/forecast.py`, so other tools reading
+the data streams can use the same ones. `/series` and streams
 take several variants (`variant=central,lower80,upper80`); the
 `*-forecast` streams carry the UN ranges for forecasting tools.
 
@@ -306,6 +335,28 @@ the build environment could not reach the UN, IMF or World Bank sites. It has no
 Wikidata facts. Its income groups are worked out from GNI per person
 rather than read from the World Bank. The app says so in a banner. See
 [scripts/sample/README.md](scripts/sample/README.md).
+
+## Topics and indicator pages
+
+**Topics** (in the top bar) has a page for each subject: population, economy,
+debt, prices, housing, energy, migration, education, health, military and AI
+use. Each has a short introduction, a map, and the key countries (New Zealand,
+Australia, the United States, the United Kingdom) against the world for every
+indicator, each with the Forecast button. The topics and their indicators are
+listed in `contract/worldmodel_contract/catalogues/topics.yaml`.
+
+Every indicator has its own page (`/indicator/<id>`, linked from the
+Indicators page and topic pages): what it measures, a map for any year, the
+key countries against the world, every country ranked with its value ten years
+before, and its sources with their licences.
+
+**AI use by country** comes from three angles that cover different countries:
+Eurostat's share of enterprises using AI (EU and nearby, yearly, fetched by
+`refresh`), the Anthropic Economic Index's Claude use per person and share of
+world use (fetched from its Hugging Face dataset by `refresh`), and Microsoft's
+AI Diffusion Report share of working-age people using AI. Microsoft publishes
+that table with its report, so download it and load it by hand:
+`.\load.bat ms_ai_diffusion <file.csv or .xlsx>`.
 
 ## Designed now, built later
 

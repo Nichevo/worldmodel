@@ -82,7 +82,7 @@ export default function EntityPage() {
           {entity.valid_to ? ` · existed until ${entity.valid_to}` : ""}
           {!entity.valid_to && (entity.type === "country" || entity.type === "world") && (
             <> · <Link href={`/forecasts?e=${entity.entity_id}`}>Population what-if</Link>
-              {" · "}<Link href={`/forecasts?e=${entity.entity_id}&tab=track`}>IMF track record</Link></>
+              {" · "}<Link href={`/forecasts?e=${entity.entity_id}&tab=track`}>Forecast track record</Link>{" · "}<Link href={`/forecasts?e=${entity.entity_id}&tab=stat`}>Statistical forecast</Link></>
           )}
         </div>
         {entity.description && <p className="ink-2 small">{entity.description}</p>}

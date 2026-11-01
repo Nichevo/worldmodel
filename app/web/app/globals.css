@@ -495,3 +495,19 @@ body.map-focus .ws-grid { height: calc(100vh - 16px); }
 .show-controls { position: fixed; right: 12px; bottom: 12px; z-index: 50; opacity: 0.75; }
 .show-controls:hover, .show-controls:focus-visible { opacity: 1; }
 @media (max-width: 900px) { body.map-focus .ws-grid { height: auto; } }
+
+/* Buttons beside a card's title (Forecast, Save picture). */
+.card-actions { display: inline-flex; gap: 12px; align-items: center; }
+.link.on { font-weight: 600; }
+button.chip { cursor: pointer; color: var(--ink); }
+button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent, #2563eb); color: #fff; }
+
+/* Topics and indicator pages */
+.topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.topic-card { color: inherit; display: block; }
+.topic-card:hover { border-color: var(--accent); }
+.topic-card h3 { color: var(--accent); }
+.ind-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; }
+.ind-facts div { font-size: 0.9rem; }
+.ind-facts b { display: block; font-size: 0.75rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+.map-box { height: 380px; display: flex; flex-direction: column; }

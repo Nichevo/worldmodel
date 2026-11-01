@@ -16,6 +16,9 @@ call scripts\find-conda.bat || exit /b 1
 call "%CONDA_BAT%" activate worldmodel || (echo Run setup.bat first. & exit /b 1)
 echo Fetching the latest code...
 for /f %%i in ('git rev-parse HEAD') do set BEFORE=%%i
+rem npm rewrites the web lock file on some machines; it is generated, so drop that
+rem change rather than let it block the pull.
+git checkout -q -- app/web/package-lock.json 2>nul
 git checkout -q main || goto :fail
 git pull --ff-only origin main || goto :fail
 git diff --quiet %BEFORE% HEAD -- environment.yml || set ENVCHANGED=1
@@ -25,6 +28,7 @@ echo Installing web packages...
 pushd app\web
 call npm install --no-fund --no-audit || (popd & goto :fail)
 popd
+git checkout -q -- app/web/package-lock.json 2>nul
 echo Checking the warehouse format...
 worldmodel-data upgrade || echo The warehouse could not be rebuilt from the stored data; run refresh.bat.
 echo.

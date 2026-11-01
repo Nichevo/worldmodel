@@ -47,12 +47,16 @@ SETTINGS: dict[str, object] = {
     "party_colours": False,          # country page charts coloured by the party in government
     "party_office": "government",    # whose party: the head of "government" (a prime minister) or of "state"
     "ranks_top_n": 10,               # Ranks panels show this many lines unless the panel says otherwise (0 = all)
+    "forecast_horizon": 10,          # years the Forecast button on charts looks ahead
+    "forecast_ranges": "80+95",      # ranges drawn around a forecast: "80+95", "80" or "none"
+    "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
 }
-CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state")}
+CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
+           "forecast_ranges": ("80+95", "80", "none")}
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
-          "ranks_top_n": (0, 300)}
+          "ranks_top_n": (0, 300), "forecast_horizon": (1, 50)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
