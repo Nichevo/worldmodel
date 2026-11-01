@@ -1147,10 +1147,21 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
     const { ranks, counted } = rankTable(values, pool, opts.lowFirst, years.length);
     const best = (id: string) => Math.min(...(ranks.get(id) ?? []).map((r) => r ?? Infinity));
     let lines = ranked.filter((id) => ranks.has(id) && (ranks.get(id) ?? []).some((r) => r !== null));
-    if (who !== "selected" && top > 0) lines = lines.filter((id) => best(id) <= top || selection.includes(id));
+    // With a top N, the chart shows ranks 1 to N; a line leaves the chart when it drops below.
+    // Selected countries that never make the top N are listed under the chart instead.
+    const cut = who !== "selected" && top > 0 ? top : null;
+    const below: { id: string; from: number; to: number }[] = [];
+    if (cut) {
+      for (const id of lines.filter((x) => selection.includes(x) && best(x) > cut)) {
+        const rs = ranks.get(id)!.filter((r): r is number => r !== null);
+        below.push({ id, from: Math.min(...rs), to: Math.max(...rs) });
+      }
+      lines = lines.filter((id) => best(id) <= cut);
+    }
     lines.sort((a, b) => best(a) - best(b));
+    const shown = new Map(lines.map((id) => [id, ranks.get(id)!.map((r) => (r !== null && cut && r > cut ? null : r))]));
     const missing = who === "selected" ? selection.filter((id) => !lines.includes(id)) : [];
-    return { values, ranks, counted, lines, missing };
+    return { values, ranks, shown, counted, lines, missing, below, cut };
   }, [range, own, members, years, who, world, opts.lowFirst, top, selKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nameOf = (id: string) => names.get(id) ?? id;
@@ -1160,10 +1171,10 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
     const series = model.lines.map((id, n) => {
       const sel = selection.indexOf(id);
       const color = sel >= 0 ? seriesColor(sel) : who === "all" ? grey : seriesColor(n);
-      const r = model.ranks.get(id)!;
-      const firstAt = r.findIndex((x) => x !== null);
-      let lastAt = -1;
-      r.forEach((x, i) => { if (x !== null) lastAt = i; });
+      const r = model.shown.get(id)!;
+      // Names at the two ends of the chart only; lines that join or leave in between are named on hover.
+      const firstAt = r[0] !== null ? 0 : -1;
+      const lastAt = r[r.length - 1] !== null ? r.length - 1 : -1;
       return {
         type: "line" as const, id, name: id, smooth: 0.25, connectNulls: false, symbol: "circle", symbolSize: 7,
         color, lineStyle: { width: sel >= 0 || who !== "all" ? 2.5 : 1.25, opacity: sel >= 0 || who !== "all" ? 1 : 0.6 },
@@ -1176,11 +1187,11 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
         })),
       };
     });
-    const maxRank = Math.max(1, ...model.lines.flatMap((id) => model.ranks.get(id)!.filter((x): x is number => x !== null)));
+    const maxRank = model.cut ?? Math.max(1, ...model.lines.flatMap((id) => model.shown.get(id)!.filter((x): x is number => x !== null)));
     return {
       backgroundColor: "transparent",
       textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", color: cssVar("--ink-2") },
-      grid: { left: 120, right: 130, top: 28, bottom: 24 },
+      grid: { left: 140, right: 140, top: 28, bottom: 24 },
       xAxis: { type: "category" as const, data: years.map(String), boundaryGap: false, axisLabel: { color: cssVar("--muted") },
         axisLine: { lineStyle: { color: cssVar("--axis") } } },
       yAxis: { type: "value" as const, inverse: true, min: 1, max: maxRank, minInterval: 1, name: "Rank", nameLocation: "start" as const,
@@ -1297,6 +1308,7 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
         {sourceLine(indicator)}. Rank 1 is the {opts.lowFirst ? "lowest" : "highest"} value.
         {world && model ? ` World ranks count the countries with a figure each year (${Math.min(...model.counted)}–${Math.max(...model.counted)}).` : ""}
         {model?.missing.length ? ` No figures for ${model.missing.map(nameOf).join(", ")}${world ? " (world ranks are among countries)" : ""}.` : ""}
+        {model?.below.length ? ` Below the top ${model.cut}: ${model.below.map((b) => `${nameOf(b.id)} (${b.from === b.to ? b.from : `${b.from}–${b.to}`})`).join(", ")}.` : ""}
         {" "}Hover a point for its value and rank; click a line for its popup.
       </p>
     </>
