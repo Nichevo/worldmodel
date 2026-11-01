@@ -3,6 +3,7 @@
 import type { ECharts } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
+import Help from "@/components/Help";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
@@ -110,6 +111,7 @@ export default function Panel({
             ))}
           </select>
         )}
+        {indicator && panel.view !== "pyramid" && <Help indicator={indicator} />}
         {indicator && year !== null && (
           <label className="year">
             <button className="play" aria-label={playing.on ? "Pause" : "Play through the years"} title={playing.on ? "Pause" : "Play"}

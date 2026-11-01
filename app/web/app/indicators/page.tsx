@@ -28,6 +28,12 @@ export default function IndicatorsPage() {
 
   const load = () => api.indicators().then(setAll).catch((e) => setError(String(e.message || e)));
   useEffect(() => { load(); }, []);
+  // ?ind=<id> (from a chart's "?" note) opens that indicator's row; ?q= searches.
+  useEffect(() => {
+    const u = new URLSearchParams(window.location.search);
+    const ind = u.get("ind");
+    if (ind) { setQ(ind); setOpen(ind); } else if (u.get("q")) setQ(u.get("q")!);
+  }, []);
 
   const domains = useMemo(() => [...new Set((all ?? []).map((i) => i.domain))].sort(), [all]);
   const sources = useMemo(() => [...new Set((all ?? []).flatMap((i) => i.sources.map((s) => s.source_id)))].sort(), [all]);

@@ -143,6 +143,8 @@ function ExploreWorkspace() {
     return () => clearTimeout(t);
   }, [ws, indicators.length]);
 
+  const [focus, setFocus] = useMapFocus();
+
   // Keep the URL in step without a navigation, so the view can be bookmarked.
   useEffect(() => {
     const q = toQuery(ws);
@@ -156,6 +158,9 @@ function ExploreWorkspace() {
         <LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />
         <LayoutsMenu ws={ws} onLoad={(query) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) })} />
         <SelectionBar ws={ws} names={names} dispatch={dispatch} />
+        <button className="small" onClick={() => setFocus(true)} title="Hide the menus and panel toolbars so the panels fill the window (F)">
+          Hide controls
+        </button>
         {settings.side_panel && (
           <button className={`small side-toggle${ws.side ? " on" : ""}`} aria-pressed={ws.side} onClick={() => dispatch({ type: "side", on: !ws.side })}
             title="Cards kept beside the panels; send one from any popup">
@@ -163,6 +168,11 @@ function ExploreWorkspace() {
           </button>
         )}
       </div>
+      {focus && (
+        <button className="small show-controls" onClick={() => setFocus(false)} title="Show the menus and panel toolbars again (F or Esc)">
+          Show controls
+        </button>
+      )}
       {error && <p className="error">{error}</p>}
       {ws.pins.length >= MAX_PINS && open && <p className="caption">Up to {MAX_PINS} popups stay pinned; pinning another unpins the oldest.</p>}
       <div className={`ws-row${settings.side_panel && ws.side ? " with-side" : ""}`}>
@@ -401,4 +411,34 @@ function LayoutsMenu({ ws, onLoad }: { ws: Workspace; onLoad: (query: string) =>
       </div>
     </details>
   );
+}
+
+// Controls hidden or shown, remembered in this browser. F toggles it (not while
+// typing in a box), Esc shows them again. The class lives on <body> only while
+// the map page is open, so other pages keep their menu.
+const FOCUS_KEY = "wm.mapFocus";
+function useMapFocus(): [boolean, (on: boolean) => void] {
+  const [focus, setFocusState] = useState(false);
+  const setFocus = useCallback((on: boolean) => {
+    setFocusState(on);
+    try { window.localStorage.setItem(FOCUS_KEY, on ? "1" : "0"); } catch { /* kept for this visit only */ }
+  }, []);
+  useEffect(() => {
+    try { setFocusState(window.localStorage.getItem(FOCUS_KEY) === "1"); } catch { /* storage blocked */ }
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("map-focus", focus);
+    return () => document.body.classList.remove("map-focus");
+  }, [focus]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.ctrlKey || e.metaKey || e.altKey || (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)))) return;
+      if (e.key === "f" || e.key === "F") { e.preventDefault(); setFocus(!document.body.classList.contains("map-focus")); }
+      else if (e.key === "Escape" && document.body.classList.contains("map-focus")) setFocus(false);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [setFocus]);
+  return [focus, setFocus];
 }
