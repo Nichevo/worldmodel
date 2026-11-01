@@ -33,6 +33,7 @@ API = "https://www.imf.org/external/datamapper/api/v1/"
 
 class IMFWEO(Connector):
     source_id = "imf_weo"
+    fetch_version = 2  # 2: general government gross debt (GGXWDG_NGDP)
     pause_seconds = 1.0  # between requests; the API has no published limit, so stay polite
 
     def default_release(self, fetched_at: datetime) -> str:

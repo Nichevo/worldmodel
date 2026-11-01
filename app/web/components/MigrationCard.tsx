@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
@@ -58,7 +59,7 @@ export default function MigrationCard({ entity, name, indicators }: { entity: st
   return (
     <div className="card" id="migration">
       <div className="card-head">
-        <h3>Migration in and out</h3>
+        <h3>Migration in and out <Help note="migration" /></h3>
         {lines.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${def.label} in and out: ${name}`, def.note, sources, "migration", view, entity)}>Save picture</button>}
       </div>

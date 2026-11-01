@@ -163,6 +163,7 @@ export type Settings = {
   party_office: "government" | "state";
   event_kinds: string;
   disaster_min_deaths: number;
+  ranks_top_n: number; // lines on a Ranks panel unless it sets its own (0 = all)
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.

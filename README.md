@@ -135,7 +135,7 @@ with identical content is skipped; a revised release becomes a new vintage
 | Source | What | Notes |
 | --- | --- | --- |
 | UN World Population Prospects 2024 | Population, growth, births, deaths, fertility, mean age at childbearing, sex ratio at birth, life expectancy, median age, migration, population by age and sex (pyramids), age shares, dependency ratio | Estimates to 2023, medium-variant projections to 2100; the low and high variants and the 80% and 95% prediction intervals as variants `low`, `high`, `lower80` .. `upper95` (from the optional "other variants" file) |
-| IMF World Economic Outlook | Real GDP growth, GDP in US dollars and PPP, GDP per person, inflation | Latest release from the DataMapper API; projections about five years ahead |
+| IMF World Economic Outlook | Real GDP growth, GDP in US dollars and PPP, GDP per person, inflation, general government gross debt | Latest release from the DataMapper API; projections about five years ahead |
 | IMF WEO historical forecasts | What every WEO since 1990 forecast for GDP growth and inflation | One Excel file, linked from the WEO page of the IMF Data Portal; each release kept as breakdown `release=YYYY-MM`, for the track record |
 | World Bank World Development Indicators | Every WDI series (about 1,500): economy, prices and price levels, trade, government, military spending (SIPRI), labour, poverty, health, education, environment and more; income groups | One bulk zip (if the World Bank's download server refuses it, the main series come from its Indicators API instead, and the rest wait for the next refresh). About 120 main series start switched on under plain ids (`unemployment`, `military_spending_gdp`, `price_level_ratio`); the rest are `wdi_<code>`, switched off until you switch them on on the Indicators page. Series the catalogue already has (population, GDP, inflation) become a second source for the comparison |
 | Our World in Data energy dataset | Electricity by source (Ember), primary energy, production and consumption of oil, gas and coal (Energy Institute, EIA), carbon intensity | One CSV from OWID's GitHub. Shares and per-person figures for continents and blocs are recomputed from the amounts |
@@ -244,6 +244,26 @@ have a "Save picture" link too.
 **The map page** holds up to six panels: one, two side by side or stacked,
 one large and two small, three side by side, two by two, one large and four
 small, or three by two.
+**Hide controls** (or the F key) folds away the menus, banners and panel
+toolbars so the panels fill the window; "Show controls", F or Esc brings them
+back. The choice is remembered in the browser.
+
+**Ranks.** A panel's **Ranks** view is a bump chart: how countries' ranks on
+the panel's indicator change over the years (from a start year every few years,
+years you pick, or every year in a span). Rank the selected countries, a group's
+members or all countries (the selected ones in colour), among themselves or in
+the whole world, highest or lowest first, with a top N (default in Settings).
+It is saved with layouts; try the "G20 economies by size (ranks)" starter.
+
+**Help notes.** A small **?** beside each country page card and each panel
+explains what the chart shows, how it is worked out, its units and sources.
+
+**Events on country page charts.** The chips at the top of a country page pick
+which kinds of event show as bands on its charts; the choice is remembered, and
+"As in Settings" goes back to the default set in Settings.
+
+**Debt per person.** The country page's debt card stacks government, household
+and company debt per person (US dollars or local currency) or as % of GDP.
 
 ## Forecasts
 

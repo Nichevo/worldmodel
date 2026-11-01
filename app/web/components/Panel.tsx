@@ -1,8 +1,9 @@
 "use client";
 
-import type { ECharts } from "echarts";
+import type { ECharts, EChartsOption } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
+import Help from "@/components/Help";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
@@ -12,11 +13,12 @@ import { mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
-import { DIVERGING, cssVar, seriesVar } from "@/lib/colors";
+import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, formatValue } from "@/lib/format";
 import {
   CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
+  rankOptions, rankString, rankTable, rankYears, type RankOptions,
   scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View,
 } from "@/lib/workspace";
 
@@ -52,7 +54,7 @@ type Props = {
   sparkline: boolean;
 };
 
-const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter" };
+const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks" };
 
 // The panel's year, held inside the indicator's range; unset means the last estimate.
 export function effectiveYear(panel: PanelState, ind: Indicator | undefined): number | null {
@@ -110,6 +112,7 @@ export default function Panel({
             ))}
           </select>
         )}
+        {indicator && panel.view !== "pyramid" && <Help indicator={indicator} />}
         {indicator && year !== null && (
           <label className="year">
             <button className="play" aria-label={playing.on ? "Pause" : "Play through the years"} title={playing.on ? "Pause" : "Play"}
@@ -159,6 +162,10 @@ export default function Panel({
         {indicator && panel.view === "scatter" && year !== null && (
           <ScatterView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection}
             dispatch={dispatch} hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} playing={playing.on} />
+        )}
+        {indicator && panel.view === "ranks" && (
+          <RanksView panel={panel} indicator={indicator} names={names} selection={selection} dispatch={dispatch}
+            hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
         )}
         {indicator && panel.view === "pyramid" && year !== null && (
           <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} exporter={exporter} />
@@ -1070,6 +1077,256 @@ function useGroupList(): Entity[] {
     return () => { live = false; };
   }, []);
   return list;
+}
+
+// A bump chart: how countries' ranks on the panel's indicator change over the
+// years. Rank the selected countries, a group's members or every country (the
+// selected ones in colour), among themselves or among the whole world; names sit
+// at both ends, and hovering a point gives its value and rank.
+function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHover, clicks, exporter }: {
+  panel: PanelState; indicator: Indicator; names: Map<string, string>; selection: string[]; dispatch: (a: Action) => void;
+  hovered: string | null; onHover: (e: string | null) => void; clicks: Clicks; exporter: React.RefObject<Exporter>;
+}) {
+  const opts = rankOptions(panel.rk);
+  const settings = useSettings();
+  const setOpts = (patch: Partial<RankOptions>) => dispatch({ type: "panel", id: panel.id, patch: { rk: rankString({ ...opts, ...patch }) } });
+  const groupList = useGroupList();
+  const first = indicator.first_year ?? 1950, last = indicator.last_year ?? new Date().getFullYear();
+  const years = useMemo(() => rankYears(opts, first, last, panel.range), [panel.rk, panel.range, first, last]); // eslint-disable-line react-hooks/exhaustive-deps
+  const yearKey = years.join(",");
+  const who = opts.who;
+  const world = who === "all" || opts.world;
+  const top = opts.top ?? settings.ranks_top_n;
+
+  // Every country's values for the span (for world ranks), the group's members, and
+  // the selected entities' own series (they may be regions or blocs).
+  const [range, setRange] = useState<MapRange | null>(null);
+  const [members, setMembers] = useState<string[] | null>(null);
+  const [own, setOwn] = useState<SeriesRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!years.length) { setRange(null); return; }
+    let live = true;
+    api.mapRange(indicator.indicator_id, years[0], years[years.length - 1])
+      .then((r) => live && setRange(r)).catch((e) => live && setError(String(e.message || e)));
+    return () => { live = false; };
+  }, [indicator.indicator_id, yearKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (who === "selected" || who === "all") { setMembers(null); return; }
+    let live = true;
+    api.memberships({ group: who }).then((rows) => live && setMembers([...new Set(rows.map((r) => r.member_id))]))
+      .catch((e) => live && setError(String(e.message || e)));
+    return () => { live = false; };
+  }, [who]);
+  const selKey = selection.join(",");
+  useEffect(() => {
+    if (!selKey || !years.length) { setOwn([]); return; }
+    let live = true;
+    api.series(indicator.indicator_id, selKey.split(","), years[0], years[years.length - 1])
+      .then((r) => live && setOwn(r)).catch(() => live && setOwn([]));
+    return () => { live = false; };
+  }, [indicator.indicator_id, selKey, yearKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const model = useMemo(() => {
+    if (!range || own === null || (who !== "selected" && who !== "all" && !members)) return null;
+    const at = years.map((y) => range.years.indexOf(y));
+    const values = new Map<string, (number | null)[]>();
+    for (const [id, vals] of Object.entries(range.rows)) values.set(id, at.map((i) => (i < 0 ? null : vals[i] ?? null)));
+    const mine = new Map<string, (number | null)[]>();
+    for (const r of own) {
+      const i = years.indexOf(+r.period.slice(0, 4));
+      if (i < 0) continue;
+      const v = mine.get(r.entity_id) ?? Array(years.length).fill(null);
+      if (v[i] === null || r.status === "E") v[i] = r.value;
+      mine.set(r.entity_id, v);
+    }
+    for (const [id, v] of mine) if (!values.has(id)) values.set(id, v);
+    const countries = Object.keys(range.rows);
+    const ranked = who === "selected" ? selection : who === "all" ? countries : members!.filter((m) => values.has(m));
+    const pool = world ? [...new Set([...countries, ...(who === "selected" ? [] : ranked)])] : ranked;
+    const { ranks, counted } = rankTable(values, pool, opts.lowFirst, years.length);
+    const best = (id: string) => Math.min(...(ranks.get(id) ?? []).map((r) => r ?? Infinity));
+    let lines = ranked.filter((id) => ranks.has(id) && (ranks.get(id) ?? []).some((r) => r !== null));
+    // With a top N, the chart shows ranks 1 to N; a line leaves the chart when it drops below.
+    // Selected countries that never make the top N are listed under the chart instead.
+    const cut = who !== "selected" && top > 0 ? top : null;
+    const below: { id: string; from: number; to: number }[] = [];
+    if (cut) {
+      for (const id of lines.filter((x) => selection.includes(x) && best(x) > cut)) {
+        const rs = ranks.get(id)!.filter((r): r is number => r !== null);
+        below.push({ id, from: Math.min(...rs), to: Math.max(...rs) });
+      }
+      lines = lines.filter((id) => best(id) <= cut);
+    }
+    lines.sort((a, b) => best(a) - best(b));
+    const shown = new Map(lines.map((id) => [id, ranks.get(id)!.map((r) => (r !== null && cut && r > cut ? null : r))]));
+    const missing = who === "selected" ? selection.filter((id) => !lines.includes(id)) : [];
+    return { values, ranks, shown, counted, lines, missing, below, cut };
+  }, [range, own, members, years, who, world, opts.lowFirst, top, selKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const nameOf = (id: string) => names.get(id) ?? id;
+  const option = useCallback(() => {
+    if (!model) return {} as EChartsOption;
+    const grey = cssVar("--muted");
+    const series = model.lines.map((id, n) => {
+      const sel = selection.indexOf(id);
+      const color = sel >= 0 ? seriesColor(sel) : who === "all" ? grey : seriesColor(n);
+      const r = model.shown.get(id)!;
+      // Names at the two ends of the chart only; lines that join or leave in between are named on hover.
+      const firstAt = r[0] !== null ? 0 : -1;
+      const lastAt = r[r.length - 1] !== null ? r.length - 1 : -1;
+      return {
+        type: "line" as const, id, name: id, smooth: 0.25, connectNulls: false, symbol: "circle", symbolSize: 7,
+        color, lineStyle: { width: sel >= 0 || who !== "all" ? 2.5 : 1.25, opacity: sel >= 0 || who !== "all" ? 1 : 0.6 },
+        emphasis: { focus: "series" as const, lineStyle: { width: 3.5 } }, z: sel >= 0 ? 3 : 2,
+        data: r.map((rank, i) => ({
+          value: rank, raw: model.values.get(id)?.[i] ?? null,
+          ...(i === firstAt || i === lastAt ? { label: { show: true, position: i === firstAt && i !== lastAt ? "left" : "right",
+            formatter: `${i === lastAt ? `${rank} ` : ""}${nameOf(id)}${i === firstAt && i !== lastAt ? ` ${rank}` : ""}`,
+            color: cssVar("--ink-2"), fontSize: 11 } } : {}),
+        })),
+      };
+    });
+    const maxRank = model.cut ?? Math.max(1, ...model.lines.flatMap((id) => model.shown.get(id)!.filter((x): x is number => x !== null)));
+    return {
+      backgroundColor: "transparent",
+      textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", color: cssVar("--ink-2") },
+      grid: { left: 140, right: 140, top: 28, bottom: 24 },
+      xAxis: { type: "category" as const, data: years.map(String), boundaryGap: false, axisLabel: { color: cssVar("--muted") },
+        axisLine: { lineStyle: { color: cssVar("--axis") } } },
+      yAxis: { type: "value" as const, inverse: true, min: 1, max: maxRank, minInterval: 1, name: "Rank", nameLocation: "start" as const,
+        axisLabel: { color: cssVar("--muted") }, splitLine: { lineStyle: { color: cssVar("--border") } } },
+      tooltip: { trigger: "item" as const, backgroundColor: cssVar("--surface"), borderColor: cssVar("--border"), textStyle: { color: cssVar("--ink") },
+        formatter: (params: unknown) => {
+          const p = params as { seriesName: string; dataIndex: number; data: { value: number | null; raw: number | null } };
+          const n = model.counted[p.dataIndex];
+          return `<b>${nameOf(p.seriesName)}</b> · ${years[p.dataIndex]}<br/>Rank <b>${p.data.value}</b> of ${n}`
+            + (p.data.raw !== null ? `<br/>${formatValue(p.data.raw, indicator.unit, indicator.decimals)}` : "");
+        } },
+      series,
+    } as EChartsOption;
+  }, [model, years, selKey, who, names, indicator]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const chart = useRef<ECharts | null>(null);
+  const hoverRef = useRef(onHover);
+  hoverRef.current = onHover;
+  const handlers = useClickHandlers(clicks);
+  const clickRef = useRef(handlers);
+  clickRef.current = handlers;
+  const onReady = useCallback((c: ECharts) => {
+    chart.current = c;
+    c.on("mouseover", (p) => { if (p.seriesName) hoverRef.current(String(p.seriesName)); });
+    c.on("mouseout", () => hoverRef.current(null));
+    c.on("click", (p) => { const ev = (p.event as { event?: MouseEvent } | undefined)?.event; if (p.seriesName && ev) clickRef.current.click(String(p.seriesName), ev); });
+    c.on("dblclick", (p) => { const ev = (p.event as { event?: MouseEvent } | undefined)?.event; if (p.seriesName && ev) clickRef.current.double(String(p.seriesName), ev); });
+  }, []);
+  useEffect(() => {
+    const c = chart.current;
+    if (!c || !hovered || !model?.lines.includes(hovered)) return;
+    c.dispatchAction({ type: "highlight", seriesId: hovered });
+    return () => { if (!c.isDisposed()) c.dispatchAction({ type: "downplay", seriesId: hovered }); };
+  }, [hovered, model]);
+
+  const groupName = groupList.find((g) => g.entity_id === who)?.short_name ?? who;
+  const whoText = who === "selected" ? "selected countries" : who === "all" ? "all countries" : groupName;
+  const title = `${indicator.name}: ranks of ${whoText}${world && who !== "all" ? " in the world" : ""}`;
+  exporter.current = {
+    name: fileName("ranks", indicator.indicator_id, years[0], years[years.length - 1]),
+    csv: () => csvText(["entity_id", "name", "year", "value", "rank", "ranked_out_of"],
+      (model?.lines ?? []).flatMap((id) => years.map((y, i) => [id, nameOf(id), y, model!.values.get(id)?.[i] ?? "", model!.ranks.get(id)?.[i] ?? "", model!.counted[i]]))),
+    png: () => chartPng(chart.current, title, `${opts.lowFirst ? "Lowest" : "Highest"} first. ${years.length ? `${years[0]}–${years[years.length - 1]}` : ""}.`,
+      credits(sourcesOf(indicator, own ?? []))),
+  };
+
+  const ym = opts.years;
+  const r = parseRange(panel.range);
+  const setPanelRange = (x: string) => dispatch({ type: "panel", id: panel.id, patch: { range: x } });
+  return (
+    <>
+      {error && <p className="error">{error}</p>}
+      <div className="table-tools ranks-tools small">
+        <label>Years{" "}
+          <select value={ym.mode} aria-label="Which years"
+            onChange={(e) => setOpts({ years: e.target.value === "range" ? { mode: "range" } : e.target.value === "list"
+              ? { mode: "list", years: years.length ? years.slice(0, 6) : [last] } : { mode: "step", start: 1980, step: 10 } })}>
+            <option value="step">Every few years</option>
+            <option value="list">Years I pick</option>
+            <option value="range">Every year in a span</option>
+          </select>
+        </label>
+        {ym.mode === "step" && (
+          <>
+            <label>from <input type="number" min={first} max={last} value={ym.start} style={{ width: 72 }}
+              onChange={(e) => +e.target.value >= 1800 && setOpts({ years: { ...ym, start: +e.target.value } })} /></label>
+            <label>every <input type="number" min={1} max={50} value={ym.step} style={{ width: 52 }}
+              onChange={(e) => +e.target.value >= 1 && setOpts({ years: { ...ym, step: +e.target.value } })} /> years</label>
+          </>
+        )}
+        {ym.mode === "list" && <YearPicks years={ym.years} first={first} last={last} set={(ys) => setOpts({ years: { mode: "list", years: ys } })} />}
+        {ym.mode === "range" && (
+          <div className="seg" role="group" aria-label="Years back">
+            {HISTORY_CHOICES.map((h) => (
+              <button key={h} className={!r.custom && r.history === h ? "on" : ""} aria-pressed={!r.custom && r.history === h}
+                onClick={() => setPanelRange(rangeString({ history: h, forecast: r.custom ? "0" : r.forecast }))}>{h === "a" ? "All" : `${h} y`}</button>
+            ))}
+          </div>
+        )}
+        <label>Rank{" "}
+          <select value={who === "selected" || who === "all" ? who : `g:${who}`} aria-label="Who is ranked"
+            onChange={(e) => setOpts({ who: e.target.value.startsWith("g:") ? e.target.value.slice(2) : e.target.value })}>
+            <option value="selected">Selected countries</option>
+            <option value="all">All countries</option>
+            <optgroup label="A group">
+              {groupList.map((g) => <option key={g.entity_id} value={`g:${g.entity_id}`}>{g.short_name}</option>)}
+            </optgroup>
+          </select>
+        </label>
+        <div className="seg" role="group" aria-label="Rank among">
+          <button className={!world ? "on" : ""} aria-pressed={!world} disabled={who === "all"} onClick={() => setOpts({ world: false })}
+            title="Rank only among the countries ranked">Among them</button>
+          <button className={world ? "on" : ""} aria-pressed={world} onClick={() => setOpts({ world: true })}
+            title="Rank among every country with a figure that year">In the world</button>
+        </div>
+        <div className="seg" role="group" aria-label="Order">
+          <button className={!opts.lowFirst ? "on" : ""} aria-pressed={!opts.lowFirst} onClick={() => setOpts({ lowFirst: false })}>Highest first</button>
+          <button className={opts.lowFirst ? "on" : ""} aria-pressed={opts.lowFirst} onClick={() => setOpts({ lowFirst: true })}>Lowest first</button>
+        </div>
+        {who !== "selected" && (
+          <label title="0 shows every country; the default is in Settings">Top{" "}
+            <input type="number" min={0} max={300} value={top} style={{ width: 56 }}
+              onChange={(e) => +e.target.value >= 0 && setOpts({ top: +e.target.value })} />
+          </label>
+        )}
+      </div>
+      {!years.length && <p className="muted">No years with figures in this choice.</p>}
+      {who === "selected" && !selection.length && <p className="muted">Select countries on a map or table, or rank all countries or a group.</p>}
+      {model && model.lines.length > 0 && (
+        <div className="chart-fill"><EChart option={option} height="100%" label={`${indicator.name} ranks`} onReady={onReady} /></div>
+      )}
+      {model && model.lines.length === 0 && (who !== "selected" || selection.length > 0) && <p className="muted">No figures to rank for these years.</p>}
+      <p className="caption">
+        {sourceLine(indicator)}. Rank 1 is the {opts.lowFirst ? "lowest" : "highest"} value.
+        {world && model ? ` World ranks count the countries with a figure each year (${Math.min(...model.counted)}–${Math.max(...model.counted)}).` : ""}
+        {model?.missing.length ? ` No figures for ${model.missing.map(nameOf).join(", ")}${world ? " (world ranks are among countries)" : ""}.` : ""}
+        {model?.below.length ? ` Below the top ${model.cut}: ${model.below.map((b) => `${nameOf(b.id)} (${b.from === b.to ? b.from : `${b.from}–${b.to}`})`).join(", ")}.` : ""}
+        {" "}Hover a point for its value and rank; click a line for its popup.
+      </p>
+    </>
+  );
+}
+
+// Years ticked one by one, as a box of years separated by commas or spaces.
+function YearPicks({ years, first, last, set }: { years: number[]; first: number; last: number; set: (ys: number[]) => void }) {
+  const [text, setText] = useState(years.join(", "));
+  useEffect(() => setText(years.join(", ")), [years.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commit = () => {
+    const ys = [...new Set((text.match(/\d{4}/g) ?? []).map(Number).filter((y) => y >= first && y <= last))].sort((a, b) => a - b).slice(0, 25);
+    if (ys.length) set(ys); else setText(years.join(", "));
+  };
+  return (
+    <input type="text" value={text} aria-label="Years to rank" title="Years separated by commas, up to 25" style={{ width: 180 }}
+      onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()} />
+  );
 }
 
 // One population pyramid, optionally with a second drawn over it as an outline:

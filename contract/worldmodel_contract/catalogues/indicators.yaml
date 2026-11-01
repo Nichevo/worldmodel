@@ -481,6 +481,19 @@
     - {source_id: world_bank_wdi, series: NY.GDP.PCAP.PP.CD, scale: 1,
        notes: "International dollars of the latest ICP round, which can differ from the IMF base year."}
 
+- id: govt_debt_gdp
+  name: Government debt (% of GDP)
+  description: Gross debt of general government (central, state and local government and social security funds) as a share of GDP.
+  synonyms: [public debt, national debt, government debt, sovereign debt]
+  domain: economy
+  unit: "% of GDP"
+  decimals: 1
+  frequency: A
+  aggregation: {method: weighted_mean, weight: gdp_usd}
+  bounds: [0, 1000]
+  sources:
+    - {source_id: imf_weo, series: GGXWDG_NGDP, scale: 1}
+
 - id: inflation
   name: Inflation
   description: Yearly change in average consumer prices, in percent.

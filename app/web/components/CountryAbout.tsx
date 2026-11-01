@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import { useEffect, useState } from "react";
 import { api, type Texts, type WikiImage, type Wikipedia } from "@/lib/api";
 
@@ -32,7 +33,7 @@ export default function CountryAbout({ entity }: { entity: string }) {
   return (
     <div className="card about">
       <div className="about-text">
-        <h3>About{page?.description ? <span className="small ink-2"> · {page.description}</span> : null}</h3>
+        <h3>About{page?.description ? <span className="small ink-2"> · {page.description}</span> : null} <Help note="about" /></h3>
         {page ? (
           <>
             {page.extract.split(/\n+/).filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}

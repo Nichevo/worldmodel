@@ -1,5 +1,6 @@
 "use client";
 
+import Help from "@/components/Help";
 import { useEffect, useMemo, useState } from "react";
 import { api, type TextField, type Texts } from "@/lib/api";
 
@@ -34,7 +35,7 @@ export default function FactbookCard({ entity }: { entity: string }) {
   return (
     <details className="card factbook">
       <summary>
-        <b>CIA World Factbook</b>{" "}
+        <b>CIA World Factbook</b> <Help note="factbook" />{" "}
         <span className="small ink-2">({editions.length} edition{editions.length > 1 ? "s" : ""}, {editions[editions.length - 1]} to {latest})</span>
       </summary>
       <div className="controls" style={{ marginTop: 8 }}>
