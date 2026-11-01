@@ -50,6 +50,7 @@ SETTINGS: dict[str, object] = {
     "forecast_horizon": 10,          # years the Forecast button on charts looks ahead
     "forecast_ranges": "80+95",      # ranges drawn around a forecast: "80+95", "80" or "none"
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
+    "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none")}

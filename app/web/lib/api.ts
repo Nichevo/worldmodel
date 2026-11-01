@@ -167,6 +167,7 @@ export type Settings = {
   forecast_horizon: number; // years the Forecast button looks ahead
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
+  pack_nz: boolean; // refresh fetches the New Zealand pack
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.

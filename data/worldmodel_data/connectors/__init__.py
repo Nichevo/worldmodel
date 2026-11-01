@@ -12,6 +12,7 @@ from worldmodel_data.connectors.imf_weo import IMFWEO
 from worldmodel_data.connectors.imf_weo_history import IMFWEOHistory
 from worldmodel_data.connectors.layers import GEMFaults, GVPVolcanoes, PlatesBird, USGSEarthquakes
 from worldmodel_data.connectors.migration import UNHCR, UNIMS
+from worldmodel_data.connectors.nz import RBNZ, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
 from worldmodel_data.connectors.turnout import IDEATurnout
 from worldmodel_data.connectors.ucdp import UCDPConflicts
@@ -23,6 +24,6 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     UNWPP, IMFWEO, IMFWEOHistory, WorldBankWDI, OWIDEnergy, OWIDGrapher, CIAFactbook, Wikidata,
     Coups, UCDPConflicts, EMDAT, BIS, OECD, DallasFedIHPD, IMFGDD, UNIMS, UNHCR, Wittgenstein, UNDPHDR,
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
-    MicrosoftAIDiffusion)}
+    MicrosoftAIDiffusion, RBNZ, NZCorrections)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]
