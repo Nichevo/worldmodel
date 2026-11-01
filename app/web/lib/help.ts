@@ -20,7 +20,7 @@ export const HELP = {
   sources_differ: {
     title: "Where sources disagree",
     what: "Indicators where two sources give clearly different figures for this country in the same year.",
-    how: "Each indicator's latest year with figures from both sources; flagged when they are more than 5% apart (or the indicator's own threshold).",
+    how: "Each indicator's latest year with figures from both sources; flagged when they are more than 5% apart, or for percentages more than 1 point and 10% apart.",
   },
   factbook: {
     title: "CIA World Factbook",
@@ -80,10 +80,10 @@ export const HELP = {
   debt: {
     title: "Debt per person",
     what: "What the government, households and companies owe, divided by everyone living in the country, so countries of any size compare. The stack adds up to total debt per person.",
-    how: "Each sector's debt as a share of GDP, times GDP in US dollars, divided by population. Government debt is general government where the IMF has it, else central government (World Bank). Local currency uses GDP in local currency instead.",
+    how: "Each sector's debt as a share of GDP, times GDP per person in US dollars (the same as debt divided by population). Government debt is general government where the IMF has it, else central government (World Bank). Local currency uses GDP per person in local currency instead.",
     units: "US dollars per person, local currency per person, or % of GDP",
     sources: [{ label: "IMF Global Debt Database", indicator: "imf_household_debt_gdp" }, { label: "World Bank WDI", indicator: "central_govt_debt_gdp" },
-      { label: "IMF World Economic Outlook", indicator: "gdp_usd" }, { label: "UN World Population Prospects", indicator: "pop_total" }],
+      { label: "IMF World Economic Outlook", indicator: "govt_debt_gdp" }, { label: "GDP per person", indicator: "gdp_per_capita_usd" }],
   },
   members: {
     title: "Members",
