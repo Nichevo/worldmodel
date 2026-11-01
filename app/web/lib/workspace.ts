@@ -6,7 +6,7 @@
 // bookmarked. Countries can also be pinned as popups (up to four, on their
 // panel) and sent to the side panel's pinboard; both are saved with the layout.
 
-export type View = "map" | "chart" | "table" | "pyramid" | "scatter";
+export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks";
 export type Layout = "1" | "2h" | "2v" | "3" | "3h" | "4" | "5" | "6";
 export type Group = "A" | "B";
 export type LinkKey = "camera" | "hover" | "select" | "year" | "indicator" | "scale" | "range";
@@ -26,6 +26,7 @@ export type Panel = {
   xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flags "o" (trim outliers) and "g" (governing party) also apply to charts
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
   layers: string; // map overlays, one letter each (see MAP_LAYERS): "pv" plate boundaries and volcanoes
+  rk: string; // ranks options: "years,who,among+order,top" (see rankOptions)
 };
 
 // A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
@@ -71,7 +72,7 @@ export const CHANGE_COL = "chg10";
 
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true, range: false };
 
-const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter"];
+const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks"];
 export const MAX_PANELS = 6;
 export const MAX_SELECTION = 8; // one categorical colour each
 export const MAX_PINS = 4;
@@ -86,7 +87,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", rk: "", ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -102,7 +103,7 @@ export const DEFAULT: Workspace = {
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers" | "rk">> }
   | { type: "load"; ws: Workspace }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
   | { type: "duplicate"; id: string }
@@ -257,7 +258,7 @@ const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.l
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers];
+    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers, p.rk];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -288,7 +289,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers, rk] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -303,6 +304,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymaog]{0,6}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
         range: range && RANGE_RE.test(range) ? range : "",
         layers: layers ? [...new Set(layers)].filter((c) => MAP_LAYERS.some((m) => m.letter === c)).join("") : "",
+        rk: rk && RANK_RE.test(rk) ? rk : "",
       });
     });
   if (!panels.length) return DEFAULT;
@@ -389,6 +391,65 @@ export function scatterString(o: ScatterOptions): string {
   const s = [o.y, o.size, flags, o.colour];
   while (s.length && s[s.length - 1] === "") s.pop();
   return s.join(",");
+}
+
+// Ranks (bump chart) options, packed as "years,who,among+order,top":
+//   years: "" = from 1980 every 10 years; "1990:5" = from 1990 every 5; "1990+2005+2020" = those years;
+//          "r" = every year in the panel's chart range (Back/Ahead).
+//   who:   "" = the selected countries; "a" = all countries (selected ones in colour); "g:<id>" = a group's members.
+//   among: "" = rank within the countries ranked; "w" = rank among the whole world. order: "l" = lowest first.
+//   top:   how many to show (blank = the default in Settings, 0 = all).
+export type RankYears = { mode: "step"; start: number; step: number } | { mode: "list"; years: number[] } | { mode: "range" };
+export type RankOptions = { years: RankYears; who: "selected" | "all" | string; world: boolean; lowFirst: boolean; top: number | null };
+const RANK_RE = /^(r|\d{4}:\d{1,2}|\d{4}(\+\d{4}){0,24})?(,(a|g:[A-Za-z0-9_-]{1,40})?(,w?l?(,\d{0,3})?)?)?$/;
+
+export function rankOptions(rk: string): RankOptions {
+  const [years = "", who = "", flags = "", top = ""] = rk.split(",");
+  let y: RankYears = { mode: "step", start: 1980, step: 10 };
+  if (years === "r") y = { mode: "range" };
+  else if (/^\d{4}:\d+$/.test(years)) { const [a, b] = years.split(":").map(Number); y = { mode: "step", start: a, step: Math.max(1, b) }; }
+  else if (/^\d{4}(\+\d{4})*$/.test(years)) y = { mode: "list", years: [...new Set(years.split("+").map(Number))].sort((a, b) => a - b) };
+  return { years: y, who: who === "a" ? "all" : who.startsWith("g:") ? who.slice(2) : "selected",
+    world: flags.includes("w"), lowFirst: flags.includes("l"), top: top === "" ? null : +top };
+}
+
+export function rankString(o: RankOptions): string {
+  const y = o.years.mode === "range" ? "r" : o.years.mode === "list" ? o.years.years.join("+")
+    : o.years.start === 1980 && o.years.step === 10 ? "" : `${o.years.start}:${o.years.step}`;
+  const s = [y, o.who === "selected" ? "" : o.who === "all" ? "a" : `g:${o.who}`, `${o.world ? "w" : ""}${o.lowFirst ? "l" : ""}`,
+    o.top === null ? "" : String(o.top)];
+  while (s.length && s[s.length - 1] === "") s.pop();
+  return s.join(",");
+}
+
+// The years a ranks chart uses, inside what the indicator has.
+export function rankYears(o: RankOptions, first: number, last: number, range: string): number[] {
+  if (o.years.mode === "list") return o.years.years.filter((y) => y >= first && y <= last);
+  if (o.years.mode === "range") {
+    const [a, b] = chartSpan(range);
+    const out: number[] = [];
+    for (let y = Math.max(first, a ?? first); y <= Math.min(last, b ?? last); y++) out.push(y);
+    return out;
+  }
+  const out: number[] = [];
+  for (let y = Math.max(o.years.start, first); y <= last; y += o.years.step) out.push(y);
+  return out;
+}
+
+// Ranks per year: values holds each entity's value per year (null = no figure).
+// pool = who counts for the ranking; returns entity -> rank per year (null when no
+// figure) and how many had a figure each year.
+export function rankTable(values: Map<string, (number | null)[]>, pool: string[], lowFirst: boolean, nYears: number) {
+  const ranks = new Map<string, (number | null)[]>();
+  const counted: number[] = [];
+  for (const id of pool) ranks.set(id, Array(nYears).fill(null));
+  for (let i = 0; i < nYears; i++) {
+    const have = pool.filter((id) => values.get(id)?.[i] !== null && values.get(id)?.[i] !== undefined)
+      .sort((a, b) => (lowFirst ? values.get(a)![i]! - values.get(b)![i]! : values.get(b)![i]! - values.get(a)![i]!) || a.localeCompare(b));
+    counted.push(have.length);
+    have.forEach((id, n) => { ranks.get(id)![i] = n + 1; });
+  }
+  return { ranks, counted };
 }
 
 // Starting points offered in the Layouts menu, built from the same parts as the URL.
@@ -490,4 +551,9 @@ export const STARTERS: { name: string; query: string }[] = [
       { view: "map", indicator: "turnout_parliamentary" },
       { view: "chart", indicator: "turnout_parliamentary", range: "h50f0" },
     ], ["NZL", "GBR", "AUS"]) },
+  { name: "G20 economies by size (ranks)",
+    query: starter("2h", [
+      { view: "ranks", indicator: "gdp_usd", rk: "1980:10,g:g20,,0" },
+      { view: "ranks", indicator: "gdp_ppp_per_capita", rk: "1990:5,a,,15" },
+    ], ["NZL", "AUS", "CHN", "IND"]) },
 ];
