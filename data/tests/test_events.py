@@ -108,3 +108,21 @@ def test_refresh_skips_hand_loaded_sources_and_refetches_after_new_queries():
     assert _not_due(CONNECTORS["wikidata"], last) is None  # fetched today, but before the event queries existed
     last.fetch_version = CONNECTORS["wikidata"].fetch_version
     assert "days ago" in _not_due(CONNECTORS["wikidata"], last)
+
+
+def test_refresh_passes_a_hand_loaded_source_with_nothing_stored(tmp_path, monkeypatch):
+    # A refresh stopped at EM-DAT when it had never been loaded; it now notes it and carries on.
+    from typer.testing import CliRunner
+
+    from worldmodel_data import cli
+
+    monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path / "var"))
+    monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
+    monkeypatch.setattr(cli, "CONNECTORS", {"emdat": CONNECTORS["emdat"]})
+    built = []
+    monkeypatch.setattr(cli, "_build_and_log", lambda allow_shrink, record: built.append(record))
+    out = CliRunner().invoke(cli.app, ["refresh"])
+    assert out.exit_code == 0, out.output
+    assert "emdat: skipped" in out.output and "nothing loaded yet" in out.output
+    entry = built[0]["sources"][0]
+    assert entry["status"] == "skipped" and entry["vintage"] is None
