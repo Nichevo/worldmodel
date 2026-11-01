@@ -61,7 +61,7 @@ export default function DebtCard({ entity, name, indicators }: { entity: string;
       backgroundColor: "transparent",
       textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", color: cssVar("--ink-2") },
       grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
-      legend: { top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar("--ink-2") } },
+      legend: { top: 0, right: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, textStyle: { color: cssVar("--ink-2") } },
       xAxis: { type: "category" as const, data: model.years.map(String), axisLabel: { color: cssVar("--muted") },
         axisLine: { lineStyle: { color: cssVar("--axis") } } },
       yAxis: { type: "value" as const, name: valueUnit, nameTextStyle: { color: cssVar("--muted"), align: "left" as const },

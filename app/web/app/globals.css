@@ -492,6 +492,6 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
 body.map-focus .nav, body.map-focus .banner, body.map-focus .ws-bar, body.map-focus .panel-head { display: none; }
 body.map-focus main { padding: 8px; }
 body.map-focus .ws-grid { height: calc(100vh - 16px); }
-.show-controls { position: fixed; right: 12px; top: 10px; z-index: 50; opacity: 0.75; }
+.show-controls { position: fixed; right: 12px; bottom: 12px; z-index: 50; opacity: 0.75; }
 .show-controls:hover, .show-controls:focus-visible { opacity: 1; }
 @media (max-width: 900px) { body.map-focus .ws-grid { height: auto; } }
