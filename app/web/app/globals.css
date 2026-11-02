@@ -609,3 +609,15 @@ button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent,
 .events-filters select { max-width: 180px; }
 .nav-ask { width: 220px; margin-right: 8px; }
 .warn-text { color: var(--series-2); }
+.section-head { font-size: 1.15rem; margin: 18px 0 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.profile-section { display: grid; gap: 16px; }
+.profile-picker { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 50; overflow-y: auto;
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: -6px 0 24px rgba(0,0,0,0.12); padding: 12px 16px; }
+.profile-picker-head { display: flex; align-items: center; gap: 6px; }
+.profile-picker-head h3 { margin: 0; }
+.profile-picker-head .spacer { flex: 1; }
+.profile-picker h4 { margin: 14px 0 4px; }
+.picker-list { display: grid; gap: 2px; }
+.picker-list.scroll { max-height: 45vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+.picker-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.picker-row .grow { flex: 1; }

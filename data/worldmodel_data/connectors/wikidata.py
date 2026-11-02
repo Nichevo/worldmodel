@@ -49,6 +49,7 @@ from urllib.parse import quote, unquote
 import duckdb
 import httpx
 
+from worldmodel_data.connectors import leaders_curated
 from worldmodel_data.connectors.base import Connector, ConnectorError, sql_str
 
 log = logging.getLogger(__name__)
@@ -174,6 +175,7 @@ SELECT ?e ?eLabel ?typeName ?iso3 ?start ?end ?date ?deaths ?damage WHERE {
 class Wikidata(Connector):
     source_id = "wikidata"
     fetch_every_days = FETCH_EVERY_DAYS
+    stage_version = 2  # 2: hand-checked leaders for NZ, Australia, the UK and the US (leaders_curated)
     fetch_version = 4  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties; 4: every holder of the office
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -217,6 +219,7 @@ class Wikidata(Connector):
                     log.warning("wikidata: %s is not a query result; skipped", f.name)
                     continue
                 events += EVENT_READERS[name](found)
+        events = leaders_curated.merge(events)
         log.info("wikidata: %s events", len(events))
         con.execute("CREATE TABLE wd_events (source_code VARCHAR, event_key VARCHAR, kind VARCHAR, subkind VARCHAR, "
                     "title VARCHAR, start_date DATE, end_date DATE, precision VARCHAR, deaths DOUBLE, damage_usd DOUBLE, "

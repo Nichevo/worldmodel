@@ -16,6 +16,7 @@ import FactbookCard from "@/components/FactbookCard";
 import HousingCard from "@/components/HousingCard";
 import MigrationCard from "@/components/MigrationCard";
 import PlacesCard from "@/components/PlacesCard";
+import ProfilePicker from "@/components/ProfilePicker";
 import PricesPayCard from "@/components/PricesPayCard";
 import VotersCard from "@/components/VotersCard";
 import Timeline from "@/components/Timeline";
@@ -42,6 +43,17 @@ const CHARTS: { id: string; kind?: "line" | "bar" }[] = [
   { id: "military_spending_gdp" },
   { id: "renewables_share_elec" },
   { id: "co2_per_capita" },
+];
+
+const CHART_KIND: Record<string, "line" | "bar"> = Object.fromEntries(CHARTS.filter((c) => c.kind).map((c) => [c.id, c.kind!]));
+
+// The country page after the charts, in this order.
+const SECTIONS = [
+  { key: "people", title: "People" },
+  { key: "money", title: "Money, prices and housing" },
+  { key: "places", title: "Cities and places" },
+  { key: "energy", title: "Energy" },
+  { key: "history", title: "History, events and sources" },
 ];
 
 const TYPE_LABEL: Record<string, string> = {
@@ -72,6 +84,7 @@ export default function EntityPage() {
   const byId = useMemo(() => new Map(indicators.map((i) => [i.indicator_id, i])), [indicators]);
   const settings = useSettings();
   const [profileKinds, setProfileKinds] = useProfileKinds();
+  const [picker, setPicker] = useState(false);
   const chartEvents = useChartEvents(entity ? [entity.entity_id] : [], profileKinds ?? undefined);
   const terms = useGovernments(entity?.entity_id ?? null, settings.party_colours, settings.party_office);
 
@@ -84,6 +97,27 @@ export default function EntityPage() {
   const withAverage = (ind: Indicator) => (avg && avg.id !== entity.entity_id && ind.agg_method !== "sum" && ind.agg_method !== "none"
     ? [...named, { id: avg.id, name: `${avg.name} average` }] : named);
   const isGroup = !["country", "historical_country"].includes(entity.type);
+  // The cards below the charts, by section; each hides itself when there is nothing to show,
+  // and the "Choose charts and cards" panel can switch any of them off.
+  const e = entity.entity_id, nm = entity.short_name;
+  const cards: { key: string; title: string; section: string; on: boolean; el: React.ReactNode }[] = [
+    { key: "migration", title: "Migration in and out", section: "people", on: true, el: <MigrationCard entity={e} name={nm} indicators={byId} /> },
+    { key: "education", title: "Education", section: "people", on: true, el: <EducationCard entity={e} name={nm} indicators={byId} /> },
+    { key: "voters", title: "Who votes", section: "people", on: !isGroup, el: <VotersCard entity={e} name={nm} indicators={byId} /> },
+    { key: "debt", title: "Debt", section: "money", on: !isGroup, el: <DebtCard entity={e} name={nm} indicators={byId} /> },
+    { key: "housing", title: "House prices and household debt", section: "money", on: true, el: <HousingCard entity={e} name={nm} indicators={byId} /> },
+    { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
+    { key: "cities", title: "Major cities", section: "places", on: !isGroup, el: <CitiesCard entity={e} name={nm} /> },
+    { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
+    { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
+    { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
+    { key: "timeline", title: "Timeline of events", section: "history", on: true, el: <Timeline entity={e} name={nm} isGroup={isGroup} /> },
+    { key: "factbook", title: "CIA World Factbook", section: "history", on: !isGroup, el: <FactbookCard entity={e} /> },
+    { key: "sources_differ", title: "Where sources disagree", section: "history", on: !isGroup, el: <SourcesDiffer entity={e} /> },
+  ];
+  const hidden = (settings.profile_cards_hidden ?? "").split(",").filter(Boolean);
+  const show = (key: string) => !hidden.includes(key);
+  const chartIds = settings.profile_charts === "none" ? [] : settings.profile_charts ? settings.profile_charts.split(",") : CHARTS.map((c) => c.id);
 
   return (
     <div className="grid">
@@ -174,21 +208,9 @@ export default function EntityPage() {
         </div>
       )}
 
-      {!isGroup && <SourcesDiffer entity={entity.entity_id} />}
-      {!isGroup && <FactbookCard entity={entity.entity_id} />}
-      <Timeline entity={entity.entity_id} name={entity.short_name} isGroup={isGroup} />
-
-      <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
-      {!isGroup && byId.get("energy_balance_pj")?.available && <EnergyFlowCard entity={entity.entity_id} name={entity.short_name} />}
-      {!isGroup && <CitiesCard entity={entity.entity_id} name={entity.short_name} />}
-      {!isGroup && <PlacesCard country={entity.entity_id} name={entity.short_name} />}
-      {!isGroup && <PricesPayCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
-      <HousingCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
-      {!isGroup && <DebtCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
-      <MigrationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
-      <EducationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
-      {!isGroup && <VotersCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
+      <h2 className="section-head" id="charts">Charts</h2>
       <div className="charts-bar small">
+        <button onClick={() => setPicker(true)} title="Tick which charts and cards this page shows">Choose charts and cards…</button>
         <label title="Recession bands, election lines and the other events on these charts (Settings: Events on charts)">
           <input type="checkbox" checked={settings.events_on_charts} onChange={(e) => saveSettings({ events_on_charts: e.target.checked })} />
           {" "}Show events on charts
@@ -228,13 +250,13 @@ export default function EntityPage() {
         <EventChips kinds={profileKinds ?? settings.event_kinds} own={profileKinds !== null} set={setProfileKinds} />
       )}
       <div className="grid two">
-        {CHARTS.map((c) => {
-          const ind = byId.get(c.id);
+        {chartIds.map((id) => {
+          const ind = byId.get(id);
           return ind && ind.available
-            ? <ChartCard key={c.id} indicator={ind} entities={withAverage(ind)} kind={c.kind} events={chartEvents}
+            ? <ChartCard key={id} indicator={ind} entities={withAverage(ind)} kind={CHART_KIND[id]} events={chartEvents}
               parties={isGroup || withAverage(ind).length > 1 ? [] : terms} /> : null;
         })}
-        {byId.get("pop_by_age_sex")?.available && (
+        {show("pyramid") && byId.get("pop_by_age_sex")?.available && (
           <div className="card">
             <h3>Population by age and sex <Help note="pyramid" /></h3>
             <Pyramid entity={entity.entity_id} name={entity.short_name} />
@@ -242,6 +264,22 @@ export default function EntityPage() {
           </div>
         )}
       </div>
+
+      {SECTIONS.map((sec) => {
+        const here = cards.filter((c) => c.section === sec.key && c.on && show(c.key));
+        if (!here.length) return null;
+        return (
+          <section key={sec.key} className="profile-section" id={sec.key}>
+            <h2 className="section-head">{sec.title}</h2>
+            {here.map((c) => <div key={c.key}>{c.el}</div>)}
+          </section>
+        );
+      })}
+
+      <ProfilePicker open={picker} onClose={() => setPicker(false)} indicators={indicators} charts={chartIds}
+        defaults={CHARTS.map((c) => c.id)} setCharts={(ids) => saveSettings({ profile_charts: ids.join(",") || "none" })}
+        cards={[{ key: "pyramid", title: "Population by age and sex" }, ...cards.filter((c) => c.on).map(({ key, title }) => ({ key, title }))]}
+        hidden={hidden} setHidden={(keys) => saveSettings({ profile_cards_hidden: keys.join(",") })} />
     </div>
   );
 }

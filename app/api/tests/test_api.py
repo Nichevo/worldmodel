@@ -110,6 +110,8 @@ def test_settings_are_checked_and_saved(client, tmp_path, monkeypatch):
     assert client.put("/api/v1/settings", json={"click_mode": "wobble"}).json()["settings"]["click_mode"] == "select"
     assert client.put("/api/v1/settings", json={"profile_average": "g20"}).json()["settings"]["profile_average"] == "g20"
     assert client.put("/api/v1/settings", json={"profile_average": "a b;"}).json()["settings"]["profile_average"] == "g20"
+    got = client.put("/api/v1/settings", json={"profile_charts": "tfr, co2_per_capita,bad id,tfr,ratio:a/b"}).json()["settings"]
+    assert got["profile_charts"] == "tfr,co2_per_capita"  # order kept, repeats and bad ids dropped
 
 
 def test_indicator_switches(client, tmp_path, monkeypatch):
