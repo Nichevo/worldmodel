@@ -427,18 +427,18 @@
   name: Microsoft AI Diffusion Report
   short_name: Microsoft AI Diffusion
   publisher: Microsoft AI Economy Institute
-  url: https://www.microsoft.com/en-us/corporate-responsibility/topics/ai-economy-institute
-  licence: Microsoft report terms (free to cite with attribution); loaded by hand
-  licence_url: https://www.microsoft.com/en-us/legal/terms-of-use
-  commercial_use: false
-  cadence: About twice a year; manual import (.\load.bat ms_ai_diffusion <file>)
+  url: https://github.com/microsoft/ai-diffusion-report
+  licence: MIT
+  licence_url: https://github.com/microsoft/ai-diffusion-report/blob/main/LICENSE.md
+  commercial_use: true
+  cadence: Every 3 to 6 months; checked every four weeks
   attribution: "Microsoft AI Economy Institute, AI Diffusion Report."
   status: active
   default_rank: 3
   manual:
-    by_hand: true
-    get: https://www.microsoft.com/en-us/corporate-responsibility/topics/ai-economy-institute
-    what: "Download the country table that comes with the latest AI Diffusion Report."
+    by_hand: false
+    get: https://github.com/microsoft/ai-diffusion-report/tree/main/data
+    what: "Download the newest AI_Diffusion_*.csv from the data folder when the refresh cannot reach GitHub."
 
 - id: rbnz
   name: Reserve Bank of New Zealand statistics
