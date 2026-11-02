@@ -28,6 +28,7 @@ ms_ai_diffusion
 from __future__ import annotations
 
 import csv
+import io
 import logging
 import re
 from datetime import datetime
@@ -199,8 +200,12 @@ COUNTRY_HEADER = re.compile(r"^(country|economy|nation|iso.?3?|iso_?code|country
 def _table(path: Path) -> list[list]:
     if path.suffix.lower() in (".xlsx", ".xlsm"):
         return xlsx_rows(path)
-    with path.open(encoding="utf-8-sig", newline="") as f:
-        return list(csv.reader(f))
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:  # Microsoft's file is not always UTF-8 (Windows-1252 names such as Curaçao)
+        text = raw.decode("cp1252", errors="replace")
+    return list(csv.reader(io.StringIO(text)))
 
 
 MS_REPO_API = "https://api.github.com/repos/microsoft/ai-diffusion-report/contents/data"

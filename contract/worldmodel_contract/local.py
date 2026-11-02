@@ -409,6 +409,8 @@ def problems(root: Path | None = None) -> list[dict]:
                      summary=s.get("error") or "", examples=[])
             if s.get("status") in ("new", "unchanged", "error"):
                 fetches.setdefault(sid, []).append((when, s.get("status") != "error"))
+        if run.get("kind") == "load":  # files loaded by hand: they clear a refused download, but are not a build
+            continue
         if run.get("status") == "ok":
             builds.append((when, set()))
             continue
