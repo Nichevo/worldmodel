@@ -90,3 +90,18 @@ def test_every_manual_folder_says_where_to_get_the_file():
     missing = [s for s in manual.wanted(CONNECTORS) if not (srcs.get(s) and srcs[s].manual)]
     assert not missing, f"add a manual: block in sources.yaml for {missing}"
     assert all(srcs[s].manual.by_hand == bool(CONNECTORS[s].manual) for s in manual.wanted(CONNECTORS))
+
+
+def test_loading_by_hand_closes_a_refused_download(home):
+    from worldmodel_contract import local
+    from worldmodel_data import monitor
+
+    root, _ = home
+    monitor.append(paths(), {"kind": "refresh", "started_at": "2026-11-02T01:00:00+00:00", "status": "ok",
+                             "sources": [{"source_id": "powell_thyne", "status": "error", "error": "HTTP 403"}]})
+    assert next(p for p in local.problems(root) if p["key"] == "fetch:powell_thyne")["open"]
+    manual.folder(paths(), "powell_thyne").mkdir(parents=True)
+    shutil.copy(FIX / "powell_thyne" / "powell_thyne_coups_final.txt", manual.folder(paths(), "powell_thyne"))
+    out = CliRunner().invoke(cli.app, ["load", "powell_thyne"])
+    assert out.exit_code == 0, out.output
+    assert not next(p for p in local.problems(root) if p["key"] == "fetch:powell_thyne")["open"]
