@@ -1,6 +1,7 @@
 """Dated events: coups, conflicts, disasters, Wikidata elections, leaders and sporting
 events, the curated notable episodes, and episodes worked out from the data."""
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pytest
 from worldmodel_data.build import build
 from worldmodel_data.config import Paths
 from worldmodel_data.connectors import CONNECTORS
+from worldmodel_data.connectors.wikidata import leader_events
 from worldmodel_data.vintage_store import VintageStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -63,16 +65,24 @@ def test_wikidata_events(built):
     _, con = built
     elections = events(con, "source_id = 'wikidata' AND kind = 'election'")
     assert {(e["entity_id"], e["subkind"]) for e in elections} == {("NZL", "general"), ("GBR", "referendum")}
+    # Wikidata's own reading of the leaders (party at the start of each term)
+    found = json.loads((FIXTURES / "wikidata" / "wikidata_leaders.json").read_text(encoding="utf-8"))["results"]["bindings"]
+    raw = {(e[0], e[4], e[5].year): e for e in leader_events(found)}
+    assert not any("Q57196" in k[1] for k in raw)  # no English label: left out
+    # A party membership whose dates cover the term wins over one that ended long before.
+    bolger = raw[("NZL", "Jim Bolger (head of government)", 1990)]
+    assert bolger[12] == "New Zealand National Party" and bolger[13] == "#00529F"
+    # In the warehouse, the key countries' heads of government are the hand-checked list.
     leaders = {(e["entity_id"], e["title"], e["start_date"].year): e
                for e in events(con, "source_id = 'wikidata' AND kind = 'leader'")}
-    assert ("NZL", "Jacinda Ardern (head of government)", 2017) in leaders
-    assert not any("Q57196" in t for _, t, _ in leaders)  # no English label: left out
     ardern = leaders[("NZL", "Jacinda Ardern (head of government)", 2017)]
     assert ardern["detail"] == "New Zealand Labour Party" and ardern["color"] == "#D82A20"
-    # A party membership whose dates cover the term wins over one that ended long before.
-    bolger = leaders[("NZL", "Jim Bolger (head of government)", 1990)]
-    assert bolger["detail"] == "New Zealand National Party" and bolger["color"] == "#00529F"
-    assert len([k for k in leaders if k[0] == "GBR"]) == 16
+    nz = sorted((k[2], k[1]) for k in leaders if k[0] == "NZL" and "government" in k[1])
+    assert len(nz) == 20 and nz[0] == (1940, "Peter Fraser (head of government)") and nz[-1][1].startswith("Christopher Luxon")
+    assert all(leaders[("NZL", t, y)]["color"] in ("#D82A20", "#00529F") for y, t in nz)
+    us = [k for k in leaders if k[0] == "USA" and k[2] == 2009]
+    assert {k[1] for k in us} == {"Barack Obama (head of government)", "Barack Obama (head of state)"}
+    assert len([k for k in leaders if k[0] == "GBR" and "government" in k[1]]) == 20
     sport = events(con, "source_id = 'wikidata' AND kind = 'sport'")
     cup = [e for e in sport if e["title"] == "2002 FIFA World Cup"]
     assert {e["entity_id"] for e in cup} == {"KOR", "JPN"}  # co-hosts each get the event

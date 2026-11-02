@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS: Settings = {
   problem_banner: true,
   events_on_charts: true,
   projections_on_charts: true,
+  profile_charts: "",
+  profile_cards_hidden: "",
   profile_average: "",
   party_colours: false,
   party_office: "government",
@@ -64,7 +66,7 @@ function set(next: Settings) {
 
 function subscribe(l: () => void) {
   listeners.add(l);
-  loading ??= api.settings().then((r) => set(r.settings)).catch(() => { loading = null; });
+  loading ??= api.settings().then((r) => set({ ...DEFAULT_SETTINGS, ...r.settings })).catch(() => { loading = null; });
   return () => { listeners.delete(l); };
 }
 
@@ -75,6 +77,6 @@ export function useSettings(): Settings {
 export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
   set({ ...current, ...patch }); // show the change at once; the API's answer is the final word
   const r = await api.saveSettings(patch);
-  set(r.settings);
+  set({ ...DEFAULT_SETTINGS, ...r.settings });
   return r.settings;
 }

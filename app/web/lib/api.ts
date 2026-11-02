@@ -173,6 +173,8 @@ export type Settings = {
   problem_banner: boolean;
   events_on_charts: boolean;
   projections_on_charts: boolean; // projected years (dashed) on charts
+  profile_charts: string; // indicator ids charted on country pages, in order ("" = standard set, "none" = none)
+  profile_cards_hidden: string; // country page cards switched off
   profile_average: string; // a group whose average joins country page charts of rates ("" for none)
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
