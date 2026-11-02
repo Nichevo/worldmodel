@@ -33,6 +33,7 @@ import io
 import json
 import logging
 import re
+import unicodedata
 import zipfile
 from datetime import date, datetime
 from pathlib import Path
@@ -57,23 +58,37 @@ def _values_table(con: duckdb.DuckDBPyConnection, rows: list[tuple], table: str 
 
 
 _NAMES: dict[str, str] | None = None
+_FULL: dict[str, str] | None = None
+
+
+def _full_key(s: str) -> str:
+    """A country name compared loosely but keeping any bracketed part, which can be the
+    only thing telling two countries apart: "Congo (Kinshasa)" and "Congo (Brazzaville)"."""
+    s = unicodedata.normalize("NFKD", s)
+    return re.sub(r"[^a-z0-9]", "", "".join(c for c in s if not unicodedata.combining(c)).lower())
 
 
 def country_by_name(name: str | None) -> str | None:
     """A country's entity id from its name as a source writes it ("New Zealand", "Korea, South", "Türkiye")."""
-    global _NAMES
-    if _NAMES is None:
-        _NAMES = {}
+    global _NAMES, _FULL
+    if _NAMES is None or _FULL is None:
+        _NAMES, _FULL = {}, {}
         for e in catalogue.entities().values():
             if e.is_group:
                 continue
             for n in [e.name, e.short_name, *e.synonyms.split("|")]:
                 if n and (k := norm_name(n)) and (k not in _NAMES or not e.valid_to):
                     _NAMES[k] = e.entity_id
+                if n and (k := _full_key(n)) and (k not in _FULL or not e.valid_to):
+                    _FULL[k] = e.entity_id
         _NAMES.update({"unitedstatesofamerica": "USA", "usa": "USA", "uk": "GBR", "southkorea": "KOR",
                        "korea": "KOR", "czechia": "CZE", "kosovo": _NAMES.get("kosovo", "XKX"),
                        "hongkong": _NAMES.get("hongkong", "HKG"), "taiwan": _NAMES.get("taiwan", "TWN")})
-    return _NAMES.get(norm_name(name)) if name else None
+    if not name:
+        return None
+    if (hit := _FULL.get(_full_key(name))):
+        return hit
+    return _NAMES.get(norm_name(name))
 
 
 # ----------------------------------------------------------------------------------------- GeoNames

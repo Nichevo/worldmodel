@@ -231,6 +231,7 @@ class MicrosoftAIDiffusion(Connector):
     column per period (H1 2025, H2 2025, Q1 2026...); each year takes its latest period."""
     source_id = "ms_ai_diffusion"
     fetch_every_days = 28
+    stage_version = 2  # 2: one value per country and year (two names matched one country)
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")
@@ -265,7 +266,7 @@ class MicrosoftAIDiffusion(Connector):
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".csv", ".xlsx", ".xlsm"))
         if not files:
             raise ConnectorError(f"ms_ai_diffusion: no .csv or .xlsx file in {raw_dir}")
-        rows, unmatched = Rows(), set()
+        rows, unmatched, seen, clashes = Rows(), set(), {}, set()
         for p in files:
             table = _table(p)
             hi = next((i for i, r in enumerate(table[:30]) if any(COUNTRY_HEADER.match(str(c or "").strip()) for c in r)), None)
@@ -306,7 +307,16 @@ class MicrosoftAIDiffusion(Connector):
                     if y is None:
                         y = (year_of(str(r[yi])) if yi is not None else None) or \
                             (int(file_year.group(0)) if file_year else int(release[:4]))
+                    if v is None:
+                        continue
+                    if (ent, y) in seen:
+                        if seen[(ent, y)] != name:
+                            clashes.add(f"{seen[(ent, y)]} / {name}")
+                        continue  # the first row for a country and year wins
+                    seen[(ent, y)] = name
                     rows.add("iso3", ent, "ai_use_population", y, v)
+        if clashes:
+            log.warning("ms_ai_diffusion: names matched to the same country, first kept: %s", "; ".join(sorted(clashes)[:10]))
         if unmatched:
             log.warning("ms_ai_diffusion: names not matched to a country: %s", ", ".join(sorted(unmatched)[:20]))
         if not len(rows):
