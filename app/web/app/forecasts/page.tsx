@@ -7,7 +7,8 @@ import ChartCard from "@/components/ChartCard";
 import EChart from "@/components/EChart";
 import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
   type WhatIfLevers } from "@/lib/api";
-import { inputOption, pyramidCompareOption, trackOption, whatifOption } from "@/lib/charts";
+import { cardLinesOption, inputOption, pyramidCompareOption, trackOption, whatifOption, type CardLine } from "@/lib/charts";
+import { seriesColor } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
@@ -34,6 +35,7 @@ const PRESETS: { label: string; title: string; levers: WhatIfLevers }[] = [
 ];
 const FORECASTERS = [["imf_weo", "IMF"], ["oecd_eo", "OECD"], ["wb_gep", "World Bank"]] as const;
 type Tab = "whatif" | "stat" | "track";
+const MAX_VS = 3; // countries to compare with, besides the main one
 const HELD_LABEL: Record<string, string> = {
   tfr: "fertility", e0_male: "men's life expectancy", e0_female: "women's life expectancy", net_migration: "migration",
 };
@@ -62,6 +64,8 @@ function Forecasts() {
   const [indicator, setIndicator] = useState(params.get("ind") ?? "gdp_growth");
   const [forecaster, setForecaster] = useState(params.get("src") ?? "imf_weo");
   const [countries, setCountries] = useState<Entity[]>([]);
+  // Countries to compare with: kept in the address as vs=AUS,GBR.
+  const [vs, setVs] = useState<string[]>((params.get("vs") ?? "").split(",").filter((x) => /^[A-Za-z0-9_-]{1,60}$/.test(x)).slice(0, MAX_VS));
 
   useEffect(() => {
     Promise.all([api.entities("country"), api.entities()]).then(([c, all]) => {
@@ -73,6 +77,8 @@ function Forecasts() {
   // The page's state lives in its address, so a what-if can be bookmarked or found in History.
   const query = useMemo(() => {
     const q = new URLSearchParams({ e: entity });
+    const others = vs.filter((v) => v !== entity);
+    if (others.length) q.set("vs", others.join(","));
     if (tab === "track") {
       q.set("tab", "track");
       q.set("ind", indicator);
@@ -84,12 +90,14 @@ function Forecasts() {
       for (const [k, v] of Object.entries(levers)) if (v !== DEFAULTS[k as keyof WhatIfLevers]) q.set(k, String(v));
     }
     return q.toString();
-  }, [entity, levers, tab, indicator, forecaster]);
+  }, [entity, vs, levers, tab, indicator, forecaster]);
   useEffect(() => {
     if (query !== window.location.search.slice(1)) window.history.replaceState(null, "", `?${query}`);
   }, [query]);
 
-  const name = countries.find((c) => c.entity_id === entity)?.short_name ?? entity;
+  const nameOf = (id: string) => countries.find((c) => c.entity_id === id)?.short_name ?? id;
+  const name = nameOf(entity);
+  const others = vs.filter((v) => v !== entity).map((id) => ({ id, name: nameOf(id) }));
   useEffect(() => {
     const what = tab === "track" ? "Forecast track record" : tab === "stat" ? "Statistical forecast" : "Population what-if";
     const t = setTimeout(() => logHistory({ kind: "page", title: `${what}: ${name}`,
@@ -121,16 +129,33 @@ function Forecasts() {
           {countries.map((c) => <option key={c.entity_id} value={c.entity_id}>{c.short_name}</option>)}
         </select>
         <Link className="small" href={`/entity/${entity}`}>Profile</Link>
+        <span className="vs-picker small" role="group" aria-label="Compare with">
+          <span className="muted">Compare with</span>
+          {others.map((o, i) => (
+            <span key={o.id} className="chip vs-chip" style={{ borderColor: seriesColor(i + 1) }}>
+              <i className="swatch" style={{ background: seriesColor(i + 1) }} />{o.name}
+              <button className="x" aria-label={`Stop comparing with ${o.name}`} onClick={() => setVs(vs.filter((v) => v !== o.id))}>×</button>
+            </span>
+          ))}
+          {others.length < MAX_VS && (
+            <select value="" onChange={(e) => e.target.value && setVs([...vs.filter((v) => v !== entity), e.target.value])} aria-label="Add a country to compare">
+              <option value="">{others.length ? "Add another…" : "Add a country…"}</option>
+              {countries.filter((c) => c.entity_id !== entity && !vs.includes(c.entity_id)).map((c) => <option key={c.entity_id} value={c.entity_id}>{c.short_name}</option>)}
+            </select>
+          )}
+        </span>
       </div>
-      {tab === "whatif" ? <WhatIfView entity={entity} levers={levers} setLevers={setLevers} />
-        : tab === "stat" ? <StatView entity={entity} name={name} indicator={indicator} setIndicator={setIndicator} />
-        : <TrackView entity={entity} indicator={indicator} setIndicator={setIndicator} source={forecaster} setSource={setForecaster} />}
+      {tab === "whatif" ? <WhatIfView entity={entity} levers={levers} setLevers={setLevers} others={others} />
+        : tab === "stat" ? <StatView entity={entity} name={name} indicator={indicator} setIndicator={setIndicator} others={others} />
+        : <TrackView entity={entity} indicator={indicator} setIndicator={setIndicator} source={forecaster} setSource={setForecaster} others={others} />}
     </div>
   );
 }
 
 // ----------------------------------------------------------------------------- what-if
-function WhatIfView({ entity, levers, setLevers }: { entity: string; levers: WhatIfLevers; setLevers: (l: WhatIfLevers) => void }) {
+type Other = { id: string; name: string };
+
+function WhatIfView({ entity, levers, setLevers, others }: { entity: string; levers: WhatIfLevers; setLevers: (l: WhatIfLevers) => void; others: Other[] }) {
   const [data, setData] = useState<WhatIf | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState<number | null>(2050);
@@ -232,6 +257,7 @@ function WhatIfView({ entity, levers, setLevers }: { entity: string; levers: Wha
               {pyr && <div style={{ height: 300 }}><EChart option={pyramid} height={300} update="merge" label={`Population by age and sex in ${shownYear}`} /></div>}
             </section>
           </div>
+          {others.length > 0 && <WhatIfCompare main={data} levers={levers} others={others} changed={changed} />}
           <div className="grid three">
             <InputChart title="Fertility (children per woman)" years={data.years} s={data.inputs.tfr} unit="" decimals={2} held={heldFrom(["tfr"])} />
             <InputChart title="Life expectancy at birth (years)" years={data.years} s={data.inputs.e0} unit="" decimals={1} held={heldFrom(["e0_male", "e0_female"])} />
@@ -251,6 +277,59 @@ function WhatIfView({ entity, levers, setLevers }: { entity: string; levers: Wha
         </>
       )}
     </>
+  );
+}
+
+// The same changes applied to the comparison countries too; populations as an index
+// (start year = 100) so countries of any size share one chart.
+function WhatIfCompare({ main, levers, others, changed }: { main: WhatIf; levers: WhatIfLevers; others: Other[]; changed: boolean }) {
+  const [more, setMore] = useState<Map<string, WhatIf | string>>(new Map());
+  const key = others.map((o) => o.id).join(",");
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      Promise.all(key.split(",").map((id) => api.whatif(id, levers).then((d) => [id, d] as const)
+        .catch((e) => [id, String(e.message || e)] as const)))
+        .then((xs) => live && setMore(new Map<string, WhatIf | string>(xs)));
+    }, 200);
+    return () => { live = false; clearTimeout(t); };
+  }, [key, levers]);
+  const all: { d: WhatIf; i: number }[] = [{ d: main, i: 0 },
+    ...others.flatMap((o, k) => { const d = more.get(o.id); return d && typeof d !== "string" ? [{ d, i: k + 1 }] : []; })];
+  const failed = others.filter((o) => typeof more.get(o.id) === "string");
+  const option = useCallback(() => {
+    const lines: CardLine[] = all.flatMap(({ d, i }) => {
+      const idx = (v: number[]) => d.years.map((y, j) => [y, (100 * v[j]) / v[0], "E"] as [number, number, string]);
+      const un = idx(d.baseline).map((p) => [p[0], p[1], changed ? "P" : "E"] as [number, number, string]);
+      return [{ key: `${d.entity}-un`, label: changed ? `${d.name}, UN` : d.name, color: seriesColor(i), points: un },
+        ...(changed ? [{ key: `${d.entity}-sc`, label: `${d.name}, your scenario`, color: seriesColor(i), points: idx(d.scenario) }] : [])];
+    });
+    return cardLinesOption(lines, { unit: "", decimals: 0, refY: { value: 100, label: `${main.base_year} = 100` } });
+  }, [all.map((x) => x.d.name).join(), changed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const end = main.years.length - 1;
+  return (
+    <section className="card">
+      <h3>Compared: population, {main.base_year} = 100</h3>
+      <EChart option={option} height={300} label="Population index for the compared countries" />
+      <table className="summary-table">
+        <thead><tr><th>Country</th><th className="num">{main.base_year}</th><th className="num">UN, {main.years[end]}</th>
+          {changed && <><th className="num">Your scenario, {main.years[end]}</th><th className="num">Difference</th></>}</tr></thead>
+        <tbody>{all.map(({ d, i }) => {
+          const e = d.years.length - 1;
+          return (
+            <tr key={i}><td><i className="swatch" style={{ background: seriesColor(i) }} /> {d.name}</td>
+              <td className="num">{formatValue(d.baseline[0], "persons")}</td>
+              <td className="num">{formatValue(d.baseline[e], "persons")} ({pct(d.baseline[e], d.baseline[0])})</td>
+              {changed && <><td className="num">{formatValue(d.scenario[e], "persons")}</td><td className="num">{pct(d.scenario[e], d.baseline[e])}</td></>}
+            </tr>
+          );
+        })}</tbody>
+      </table>
+      <p className="small muted" style={{ marginBottom: 0 }}>
+        The same changes are applied to every country.{changed ? " Dashed lines are the UN projection; solid lines your scenario." : ""}
+        {failed.length > 0 && ` Not available for ${failed.map((o) => o.name).join(", ")}: ${more.get(failed[0].id)}`}
+      </p>
+    </section>
   );
 }
 
@@ -308,7 +387,7 @@ function SummaryTable({ data, changed }: { data: WhatIf; changed: boolean }) {
 const STAT_CHOICES = ["gdp_growth", "inflation", "pop_total", "gdp_per_capita_usd", "life_expectancy", "tfr", "unemployment",
   "co2_per_capita", "govt_debt_gdp", "median_age"];
 
-function StatView({ entity, name, indicator, setIndicator }: { entity: string; name: string; indicator: string; setIndicator: (i: string) => void }) {
+function StatView({ entity, name, indicator, setIndicator, others }: { entity: string; name: string; indicator: string; setIndicator: (i: string) => void; others: Other[] }) {
   const [inds, setInds] = useState<Indicator[]>([]);
   const [fc, setFc] = useState<Forecast | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -338,7 +417,7 @@ function StatView({ entity, name, indicator, setIndicator }: { entity: string; n
         </select>
         <Link className="small" href="/settings">Forecast settings</Link>
       </div>
-      {ind && <ChartCard indicator={ind} entities={[{ id: entity, name }]} height={320} forecast />}
+      {ind && <ChartCard indicator={ind} entities={[{ id: entity, name }, ...others]} height={320} forecast />}
       {error && <p className="error">{error}</p>}
       {fc && (
         <section className="card">
@@ -371,8 +450,8 @@ function StatView({ entity, name, indicator, setIndicator }: { entity: string; n
 // ----------------------------------------------------------------------------- track record
 const HORIZON = ["the year before", "the same year", "the next year", "2 years ahead", "3 years ahead", "4 years ahead", "5 years ahead"];
 
-function TrackView({ entity, indicator, setIndicator, source, setSource }: {
-  entity: string; indicator: string; setIndicator: (i: string) => void; source: string; setSource: (s: string) => void;
+function TrackView({ entity, indicator, setIndicator, source, setSource, others }: {
+  entity: string; indicator: string; setIndicator: (i: string) => void; source: string; setSource: (s: string) => void; others: Other[];
 }) {
   const [one, setOne] = useState<TrackRecord | null>(null);
   const [all, setAll] = useState<TrackRecord | null>(null);
@@ -423,6 +502,7 @@ function TrackView({ entity, indicator, setIndicator, source, setSource }: {
         </p>
       )}
       {best && best.length > 0 && <BestTable rows={best} label={label} />}
+      {others.length > 0 && <TrackCompare entity={entity} others={others} indicator={indicator} label={label} src={src} who={who} all={all} />}
       {one && (
         <div className="grid two">
           <section className="card">
@@ -457,7 +537,7 @@ function TrackView({ entity, indicator, setIndicator, source, setSource }: {
               <thead><tr><th>Country</th><th className="num">Forecasts</th><th className="num">Typical miss</th><th className="num">Bias</th></tr></thead>
               <tbody>
                 {all.countries.map((c) => (
-                  <tr key={c.entity_id} className={c.entity_id === entity ? "selected" : ""}>
+                  <tr key={c.entity_id} className={c.entity_id === entity || others.some((o) => o.id === c.entity_id) ? "selected" : ""}>
                     <td>{c.name}</td><td className="num">{c.n}</td><td className="num">{pts(c.mae)}</td><td className="num">{pts(c.bias, true)}</td>
                   </tr>
                 ))}
@@ -467,6 +547,46 @@ function TrackView({ entity, indicator, setIndicator, source, setSource }: {
         </section>
       )}
     </>
+  );
+}
+
+// The compared countries side by side: each one's record for this forecaster, and who forecasts it best.
+function TrackCompare({ entity, others, indicator, label, src, who, all }: {
+  entity: string; others: Other[]; indicator: string; label: string; src: string; who: string; all: TrackRecord | null;
+}) {
+  const [best, setBest] = useState<Map<string, Forecaster[]>>(new Map());
+  const ids = [entity, ...others.map((o) => o.id)];
+  const key = ids.join(",");
+  useEffect(() => {
+    let live = true;
+    Promise.all(key.split(",").map((id) => api.compareForecasters(indicator, id).then((r) => [id, r.forecasters] as const).catch(() => [id, [] as Forecaster[]] as const)))
+      .then((xs) => live && setBest(new Map(xs)));
+    return () => { live = false; };
+  }, [key, indicator]);
+  const row = (id: string) => all?.countries?.find((c) => c.entity_id === id);
+  const winner = (id: string) => {
+    const c = (best.get(id) ?? []).filter((r) => r.next_year_common.mae !== null);
+    return c.length > 1 ? c.reduce((a, b) => (a.next_year_common.mae! <= b.next_year_common.mae! ? a : b)).name : null;
+  };
+  return (
+    <section className="card">
+      <h3>Compared: next-year {label} forecasts</h3>
+      <table className="summary-table">
+        <thead><tr><th>Country</th><th className="num">{who} forecasts scored</th><th className="num">Typical miss</th><th className="num">Bias</th><th>Best forecaster here</th></tr></thead>
+        <tbody>{ids.map((id, i) => {
+          const r = row(id);
+          return (
+            <tr key={id}><td><i className="swatch" style={{ background: seriesColor(i) }} /> {r?.name ?? others.find((o) => o.id === id)?.name ?? id}</td>
+              <td className="num">{r?.n ?? "–"}</td><td className="num">{pts(r?.mae ?? null)}</td><td className="num">{pts(r?.bias ?? null, true)}</td>
+              <td>{winner(id) ?? "–"}</td></tr>
+          );
+        })}</tbody>
+      </table>
+      <p className="small muted" style={{ marginBottom: 0 }}>
+        Typical miss and bias in percentage points, for forecasts of the next year{src === "imf_weo" ? "" : ` by ${who}`}. Best forecaster is
+        the closest over the years every forecaster was scored.
+      </p>
+    </section>
   );
 }
 

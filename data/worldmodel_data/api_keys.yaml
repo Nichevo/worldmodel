@@ -84,11 +84,21 @@
   status: planned (finance phase)
 
 - source: assistant
-  name: Local LLM for the assistant (Ollama)
-  env: [OLLAMA_BASE_URL, OLLAMA_MODEL]
+  name: Local AI (Ollama)
+  env: []
   needs_key: false
-  limits: Runs on this machine. Default base URL http://localhost:11434/v1 (OpenAI-compatible).
-  status: planned (phase 3)
+  limits: Runs on this PC (or another on the network); its address and default model are app settings
+    (Settings, Local AI). The app's server talks to it.
+  status: active
+
+- source: brave_search
+  name: Brave Search API (web search for the local AI)
+  env: [BRAVE_API_KEY]
+  needs_key: true
+  limits: Paid. $5 of credit a month (about 1,000 searches), then about $5 per 1,000. The app counts every
+    search and holds to the daily and monthly limits in Settings (default 30 a day). SearXNG, run locally, is
+    the free alternative (no key).
+  status: active
 
 - source: assistant_cloud
   name: Optional cloud model for the assistant

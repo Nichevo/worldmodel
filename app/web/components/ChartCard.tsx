@@ -12,6 +12,7 @@ import { withParties, type Term } from "@/lib/parties";
 import { SOURCE_LABEL } from "@/lib/format";
 import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { useSettings } from "@/lib/settings";
+import { chartParts, keep, openAsk, seriesTable, sourcesLine } from "@/lib/ai";
 
 type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; start?: number; end?: number; height?: number;
   events?: EventRow[]; parties?: Term[]; forecast?: boolean };
@@ -50,20 +51,35 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   const chart = useRef<ECharts | null>(null);
   const onReady = useCallback((c: ECharts) => { chart.current = c; }, []);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const savePicture = async () => {
+  const title = `${indicator.name}: ${entities.map((e) => e.name).join(", ")}`;
+  const picture = async (): Promise<string | null> => {
     const c = chart.current;
-    if (!c || c.isDisposed()) return;
+    if (!c || c.isDisposed()) return null;
+    const footer = await credits([...sourcesOf(indicator, rows ?? []), ...inView.map((e) => e.source_id),
+      ...(parties.length ? ["wikidata"] : []),
+      ...(forecasts ? [...forecasts.byEntity.values()].flatMap((f) => f.official.map((x) => x.source_id)) : [])]);
+    return titledPng(c.getDataURL({ type: "svg" }), c.getWidth(), c.getHeight(), title, years ? `${years[0]}–${years[1]}.` : "", footer);
+  };
+  const savePicture = async () => {
     try {
-      const footer = await credits([...sourcesOf(indicator, rows ?? []), ...inView.map((e) => e.source_id),
-        ...(parties.length ? ["wikidata"] : []),
-        ...(forecasts ? [...forecasts.byEntity.values()].flatMap((f) => f.official.map((x) => x.source_id)) : [])]);
-      const url = await titledPng(c.getDataURL({ type: "svg" }), c.getWidth(), c.getHeight(),
-        `${indicator.name}: ${entities.map((e) => e.name).join(", ")}`, years ? `${years[0]}–${years[1]}.` : "", footer);
-      saveUrl(url, `${fileName(indicator.indicator_id, ...entities.map((e) => e.id))}.png`);
+      const url = await picture();
+      if (url) saveUrl(url, `${fileName(indicator.indicator_id, ...entities.map((e) => e.id))}.png`);
       setSaveError(null);
     } catch (e) {
       setSaveError(String((e as Error).message || e));
     }
+  };
+  const names = new Map(entities.map((e) => [e.id, e.name]));
+  const askAI = () => openAsk({ title, parts: chartParts(indicator, rows ?? [], names, inView), indicator: indicator.indicator_id,
+    entity: entities.length === 1 ? entities[0].id : undefined });
+  // Keep: the chart stays live (it reopens on the map page with these settings) and a picture of it as it looks now.
+  const keepChart = async () => {
+    let pic: string | null = null;
+    try { pic = await picture(); } catch { /* kept without a picture */ }
+    const t = seriesTable(rows ?? [], names);
+    await keep({ kind: "chart", title, indicator: indicator.indicator_id, entities: entities.map((e) => e.id),
+      query: `l=1&p=chart.${indicator.indicator_id}&s=${entities.map((e) => e.id).join(",")}`,
+      table: { ...t, unit: indicator.unit }, sources: sourcesLine(rows ?? []), picture: pic ?? undefined });
   };
 
   const vintages = [...new Set((rows ?? []).map((r) => `${SOURCE_LABEL[r.source_id] ?? r.source_id} ${r.vintage}`))];
@@ -80,6 +96,8 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
             {kind === "line" && <button className={`link small${forecastOn ? " on" : ""}`} aria-pressed={forecastOn}
               title="Extend each line with a statistical forecast and its ranges (Settings: Forecasts)"
               onClick={() => setForecastOn(!forecastOn)}>{forecastOn ? "Hide forecast" : "Forecast"}</button>}
+            {settings.ai_enabled && <button className="link small" onClick={askAI} title="Ask the local AI about this chart; its figures go with the question">Ask AI</button>}
+            <button className="link small" onClick={keepChart} title="Keep this chart on the Highlights page">Keep</button>
             <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>
           </span>
         )}

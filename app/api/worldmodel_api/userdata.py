@@ -22,7 +22,7 @@ from pathlib import Path
 from worldmodel_contract import local
 
 _lock = threading.Lock()
-HISTORY_KINDS = ("page", "view", "indicator", "pin", "fetch")
+HISTORY_KINDS = ("page", "view", "indicator", "pin", "fetch", "ai", "highlight")
 MAX_TEXT = 300
 
 

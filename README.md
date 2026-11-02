@@ -380,6 +380,37 @@ need a Stats NZ key come later.
 
 The **New Zealand in detail** topic page gathers the pack's headline series.
 
+## Local AI
+
+Ask questions about what is on screen with a model running on your own PC, through
+[Ollama](https://ollama.com). Nothing leaves the PC unless you tick **Search the web**.
+
+1. Install Ollama for Windows and pull a model, for example `ollama pull qwen3:32b`
+   (or a smaller one such as `qwen3:8b` on a PC with less memory).
+2. In Worldmodel open **Settings, Local AI**: switch it on, check the Ollama address
+   (default `http://localhost:11434`; another PC on your network works too) and pick the
+   default model, and optionally a second model to answer side by side.
+
+Then press **Ask AI** on any chart, a panel's ⤓ menu, a country, indicator or topic page,
+or select text anywhere and pick **Ask AI** from the small menu. The box lists what goes
+with the question (the figures as a table, what the indicator measures, events in those
+years, the highlighted text); untick or edit any of it. Every answer is kept on the
+**AI notes** page with its speed and tokens, a thumbs up or down, tags and a note; its
+**Statistics** tab adds up questions, tokens and speed per model.
+
+**Web search.** With Brave Search, put your key in `.env` as `BRAVE_API_KEY=...` and run
+`.\start.bat` again. Brave gives a monthly credit (about 1,000 searches) and charges past
+it; the daily limit (default 30) and monthly limit are in Settings, with this month's
+searches and estimated cost. Or use SearXNG, free and run by you, for example with Docker:
+`docker run -d -p 8888:8080 searxng/searxng`, then add `json` to `search.formats` in its
+`settings.yml`, and set Settings, Local AI, search engine to SearXNG at `http://localhost:8888`.
+
+**Highlights.** **Keep** on a chart or panel, **Save highlight** on selected text, and
+**Keep** on an AI answer all collect on the **Highlights** page: charts keep their settings
+(they reopen live) and a picture, tables keep their figures, and everything takes tags and
+a note. **Save as Markdown** exports what is shown. Answers and highlights are stored in
+`var\user\`.
+
 ## Designed now, built later
 
 - **Ask the data** assistant (phase 3), on Ollama: [docs/design/assistant.md](docs/design/assistant.md)

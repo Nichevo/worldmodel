@@ -15,8 +15,10 @@ const KINDS: { id: HistoryKind | ""; label: string }[] = [
   { id: "pin", label: "Pins" },
   { id: "indicator", label: "Indicator switches" },
   { id: "fetch", label: "Fetches" },
+  { id: "ai", label: "AI questions" },
+  { id: "highlight", label: "Highlights kept" },
 ];
-const KIND_LABEL: Record<HistoryKind, string> = { page: "Page", view: "Map view", pin: "Pin", indicator: "Indicators", fetch: "Fetch" };
+const KIND_LABEL: Record<HistoryKind, string> = { page: "Page", view: "Map view", pin: "Pin", indicator: "Indicators", fetch: "Fetch", ai: "AI", highlight: "Kept" };
 
 function dayLabel(day: string): string {
   const d = new Date(`${day}T12:00:00`);
