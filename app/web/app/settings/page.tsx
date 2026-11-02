@@ -93,6 +93,16 @@ export default function SettingsPage() {
       </section>
 
       <section className="card">
+        <h2>Country packs</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Extra sources for one country, fetched by <code>.\refresh.bat</code> while switched on. Switching one off keeps
+          what is stored.
+        </p>
+        <Toggle label="New Zealand" hint="Reserve Bank interest and exchange rates, MBIE energy balances, Electoral Commission results and turnout, and justice statistics."
+          on={s.pack_nz} set={(v) => save({ pack_nz: v })} />
+      </section>
+
+      <section className="card">
         <h2>Daily limits for single-page fetches</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
           These sites are never read in bulk. A fetch happens only when you ask for one country (or city), one page at a time,

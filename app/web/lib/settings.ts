@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   forecast_horizon: 10,
   forecast_ranges: "80+95",
   forecast_official: true,
+  pack_nz: true,
 };
 
 let current: Settings = DEFAULT_SETTINGS;
