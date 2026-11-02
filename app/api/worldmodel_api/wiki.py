@@ -83,22 +83,31 @@ def now() -> datetime:
 
 
 # ----------------------------------------------------------------------------- daily limit
-def budget() -> dict:
+# Countries (and other entities) and cities each have their own folder and daily limit.
+KINDS = ("countries", "cities")
+
+
+def budget(kind: str = "countries") -> dict:
     """Fetches made today and the limits: {"day", "used", "limit", "background_limit"}."""
-    limit = int(local.load_settings()["wikipedia_countries_daily"])
+    limit = int(local.load_settings()[f"wikipedia_{kind}_daily"])
     b = _read(root() / "budget.json") or {}
-    used = b.get("countries", 0) if b.get("day") == date.today().isoformat() else 0
+    used = b.get(kind, 0) if b.get("day") == date.today().isoformat() else 0
     return {"day": date.today().isoformat(), "used": used, "limit": limit, "background_limit": limit // 2}
 
 
-def _spend() -> None:
-    b = budget()
-    _write(root() / "budget.json", {"day": b["day"], "countries": b["used"] + 1})
+def _spend(kind: str = "countries") -> None:
+    b = _read(root() / "budget.json") or {}
+    today = date.today().isoformat()
+    counts = {k: (b.get(k, 0) if b.get("day") == today else 0) for k in KINDS}
+    counts[kind] += 1
+    _write(root() / "budget.json", {"day": today, **counts})
 
 
 # ----------------------------------------------------------------------------- the cache
-def cached(entity_id: str) -> dict | None:
-    return _read(root() / "countries" / f"{entity_id}.json")
+def cached(entity_id: str, kind: str = "countries") -> dict | None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", entity_id):
+        return None
+    return _read(root() / kind / f"{entity_id}.json")
 
 
 def is_stale(page: dict | None) -> bool:
@@ -111,13 +120,13 @@ def is_stale(page: dict | None) -> bool:
     return now() - fetched > timedelta(days=REFRESH_DAYS)
 
 
-def page(entity_id: str, target: dict, fetch: bool = True) -> dict:
+def page(entity_id: str, target: dict, fetch: bool = True, kind: str = "countries") -> dict:
     """The stored page for an entity, fetched first when it is missing or a month old
     and today's limit allows. target is from the warehouse (see main.wiki_target).
     status: ok, stale (kept; today's limit is used up or the fetch failed), none, off."""
-    have = cached(entity_id)
+    have = cached(entity_id, kind)
     out = {"page": have, "status": "ok" if have and not is_stale(have) else "stale" if have else "none",
-           "budget": budget(), "message": None}
+           "budget": budget(kind), "message": None}
     if not fetch or not is_stale(have):
         return out
     b = out["budget"]
@@ -128,37 +137,47 @@ def page(entity_id: str, target: dict, fetch: bool = True) -> dict:
     if b["used"] >= b["limit"]:
         out["message"] = f"Today's {b['limit']} Wikipedia fetches are used up; this page is fetched tomorrow."
         return out
-    if failures().get(entity_id) == date.today().isoformat():
+    if failures(kind).get(entity_id) == date.today().isoformat():
         out["message"] = "Wikipedia could not be reached for this page earlier today; it is tried again tomorrow."
         return out
     try:
-        out["page"] = fetch_page(entity_id, target)
+        out["page"] = fetch_page(entity_id, target, kind=kind)
         out["status"] = "ok"
     except (httpx.HTTPError, ValueError, KeyError) as exc:
         log.warning("wikipedia: %s failed: %s", entity_id, exc)
-        _record_failure(entity_id)
+        _record_failure(entity_id, kind)
         out["message"] = f"Could not reach Wikipedia ({exc}); tried again tomorrow."
-    out["budget"] = budget()
+    out["budget"] = budget(kind)
     return out
 
 
-def failures() -> dict[str, str]:
+def _failed_file(kind: str) -> Path:
+    return root() / ("failed.json" if kind == "countries" else f"failed_{kind}.json")
+
+
+def failures(kind: str = "countries") -> dict[str, str]:
     """Pages whose last fetch failed, with the day: not retried that day (or, in the background, that month)."""
-    return _read(root() / "failed.json") or {}
+    return _read(_failed_file(kind)) or {}
 
 
-def _record_failure(entity_id: str) -> None:
-    _write(root() / "failed.json", {**failures(), entity_id: date.today().isoformat()})
+def _record_failure(entity_id: str, kind: str = "countries") -> None:
+    _write(_failed_file(kind), {**failures(kind), entity_id: date.today().isoformat()})
 
 
-def fetch_page(entity_id: str, target: dict, reason: str = "opened") -> dict:
-    """Fetch one article's introduction and pictures and store them. Counts once against today's limit."""
+def fetch_page(entity_id: str, target: dict, reason: str = "opened", kind: str = "countries") -> dict:
+    """Fetch one article's introduction and pictures and store them. Counts once against today's limit.
+    A city with no known article title is looked up with Wikipedia's own search ("<city> <country>")."""
     with _lock:
-        have = cached(entity_id)
+        have = cached(entity_id, kind)
         if have and not is_stale(have):  # fetched by another request meanwhile
             return have
-        _spend()  # a fetch counts whether or not it works, so failures cannot loop
-        title = target.get("article") or target["name"]
+        _spend(kind)  # a fetch counts whether or not it works, so failures cannot loop
+        title = target.get("article")
+        if not title and target.get("search"):
+            hits = _api({"list": "search", "srsearch": target["search"], "srlimit": 1, "srprop": ""})
+            found = hits.get("query", {}).get("search", [])
+            title = found[0]["title"] if found else None
+        title = title or target["name"]
         q = _api({"prop": "extracts|pageimages|info|description", "exintro": 1, "explaintext": 1,
                   "piprop": "name", "inprop": "url", "titles": title})
         pages = q.get("query", {}).get("pages", [])
@@ -174,10 +193,10 @@ def fetch_page(entity_id: str, target: dict, reason: str = "opened") -> dict:
             "fetched_at": now().isoformat(timespec="seconds"), "reason": reason,
             "licence": "Text from Wikipedia, CC BY-SA 4.0",
         }
-        _write(root() / "countries" / f"{entity_id}.json", result)
-        if entity_id in (failed := failures()):
+        _write(root() / kind / f"{entity_id}.json", result)
+        if entity_id in (failed := failures(kind)):
             del failed[entity_id]
-            _write(root() / "failed.json", failed)
+            _write(_failed_file(kind), failed)
         log.info("wikipedia: stored %s (%s, %s pictures)", entity_id, p["title"], len(images))
         return result
 

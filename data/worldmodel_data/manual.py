@@ -17,7 +17,7 @@ from worldmodel_data.config import Paths
 
 # Sources whose sites often block scripted downloads: they get a folder too, and a
 # refresh falls back to it when the download fails.
-FALLBACK = {"rbnz", "mbie_energy", "us_census_voting", "idea_turnout", "powell_thyne", "anthropic_aei"}
+FALLBACK = {"rbnz", "mbie_energy", "us_census_voting", "idea_turnout", "powell_thyne", "anthropic_aei", "ilostat_earnings", "un_wup"}
 ABOUT = "_where to get it.txt"
 OLD = "old"
 _SKIP_SUFFIXES = (".tmp", ".crdownload", ".part", ".partial")
@@ -73,7 +73,9 @@ def prepare(p: Paths, connectors: dict) -> list[str]:
         keep = ("Every file here is loaded together (for example one per election, or the current and history files), "
                 "so keep them all." if cls.keeps_files else "Keep only the newest file here; move older ones to the 'old' folder.")
         (d / ABOUT).write_text(
-            f"{s.name if s else source_id}\r\n\r\nGet it from: {s.url if s and s.url else '(see the Sources page)'}\r\n\r\n"
+            f"{s.name if s else source_id}\r\n\r\nGet it from: "
+            f"{s.manual.get if s and s.manual else s.url if s and s.url else '(see the Sources page)'}\r\n"
+            f"{s.manual.what if s and s.manual else ''}\r\n\r\n"
             f"{how}\r\n{keep}\r\nThen run: .\\load.bat {source_id}\r\n", encoding="utf-8")
     return made
 

@@ -99,6 +99,20 @@ export const HELP = {
     sources: [{ label: "IMF Global Debt Database", indicator: "imf_household_debt_gdp" }, { label: "World Bank WDI", indicator: "central_govt_debt_gdp" },
       { label: "IMF World Economic Outlook", indicator: "govt_debt_gdp" }, { label: "GDP per person", indicator: "gdp_per_capita_usd" }],
   },
+  cities: {
+    title: "Major cities",
+    what: "The country's biggest cities, with how many people live there now and the UN's projection for 2035.",
+    how: "The city list is GeoNames (every place of 15,000 people or more). Where the UN's World Urbanization Prospects has the city, its figure for the whole built-up area (city and suburbs) is used, which is usually larger than the city itself; other sources' cities are matched to GeoNames by name and location.",
+    units: "People",
+    sources: [{ label: "UN World Urbanization Prospects 2018", indicator: "city_population" }, { label: "GeoNames (CC BY)", indicator: "city_population" }],
+  },
+  prices: {
+    title: "Prices and pay",
+    what: "How dear the country is and what people earn: price level against the US, cost of living, average and median pay, the minimum wage, and the gap between women's and men's pay.",
+    how: "Each row is the latest figure. Price level: World Bank (PPP conversion factor over the exchange rate, US = 1). Cost of living and median pay: WhereNext, anchored on World Bank price levels. Earnings and minimum wage: ILOSTAT. Numbeo's everyday prices are fetched only when you press the button (daily limit in Settings).",
+    units: "Mixed; see each row",
+    sources: [{ label: "WhereNext (CC BY)", indicator: "wn_cost_index" }, { label: "ILOSTAT", indicator: "ilo_earnings_ppp" }, { label: "World Bank", indicator: "price_level_ratio" }],
+  },
   members: {
     title: "Members",
     what: "The countries in this group today, and when each joined or left.",

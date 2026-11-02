@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.5.1"
+SCHEMA_VERSION = "1.5.2"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -145,6 +145,19 @@ TABLES: dict[str, Table] = {
             "Map overlays from the latest vintage of their source: plate boundaries, active faults, volcanoes and "
             "earthquakes. kind is line or point; geojson holds the layer's features as one FeatureCollection, with "
             "their properties trimmed to what the map shows."),
+        Table("cities", {
+            "city_id": "VARCHAR", "name": "VARCHAR", "ascii_name": "VARCHAR", "synonyms": "VARCHAR", "country_id": "VARCHAR",
+            "admin1": "VARCHAR", "lat": "DOUBLE", "lon": "DOUBLE", "population": "DOUBLE", "capital": "VARCHAR",
+            "feature_code": "VARCHAR", "timezone": "VARCHAR", "elevation": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("city_id",),
+            "Places of 15,000 people or more (GeoNames). capital is national, regional or empty. Made by the build "
+            "(worldmodel_data.cities); absent in warehouses built before it (the app shows none)."),
+        Table("city_series", {
+            "city_id": "VARCHAR", "indicator_id": "VARCHAR", "period_start": "DATE", "source_id": "VARCHAR",
+            "vintage": "VARCHAR", "value": "DOUBLE", "status": "VARCHAR", "source_name": "VARCHAR",
+        }, ("city_id", "indicator_id", "period_start", "source_id"),
+            "Figures about cities from the latest vintage of each source (indicators in worldmodel_contract.cities), "
+            "each matched to a city; source_name is the name the source used."),
         Table("events", {
             "event_id": "VARCHAR", "entity_id": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
             "kind": "VARCHAR", "subkind": "VARCHAR", "title": "VARCHAR", "start_date": "DATE", "end_date": "DATE",
