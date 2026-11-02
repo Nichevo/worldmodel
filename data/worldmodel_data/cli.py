@@ -219,6 +219,10 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", vintage=last.vintage if last else None, note="country pack switched off")
             typer.echo(f"{source_id}: skipped (the {cls.pack.upper()} pack is switched off in Settings)")
             continue
+        if cls.switch and not settings.get(cls.switch, True):
+            entry.update(status="skipped", vintage=last.vintage if last else None, note="switched off in Settings")
+            typer.echo(f"{source_id}: skipped (switched off in Settings)")
+            continue
         folder = manual.folder(p, source_id)
         if cls.manual and manual.files(folder):
             t0 = time.monotonic()

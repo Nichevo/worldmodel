@@ -15,6 +15,7 @@ import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
 import HousingCard from "@/components/HousingCard";
 import MigrationCard from "@/components/MigrationCard";
+import PlacesCard from "@/components/PlacesCard";
 import PricesPayCard from "@/components/PricesPayCard";
 import VotersCard from "@/components/VotersCard";
 import Timeline from "@/components/Timeline";
@@ -180,6 +181,7 @@ export default function EntityPage() {
       <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && byId.get("energy_balance_pj")?.available && <EnergyFlowCard entity={entity.entity_id} name={entity.short_name} />}
       {!isGroup && <CitiesCard entity={entity.entity_id} name={entity.short_name} />}
+      {!isGroup && <PlacesCard country={entity.entity_id} name={entity.short_name} />}
       {!isGroup && <PricesPayCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
       <HousingCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && <DebtCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}

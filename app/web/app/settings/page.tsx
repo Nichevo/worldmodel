@@ -95,6 +95,12 @@ export default function SettingsPage() {
       </section>
 
       <section className="card">
+        <h2>Places</h2>
+        <Toggle label="Metro and rail, universities and big companies" hint="Five Wikidata queries every four weeks during .\refresh.bat. They fill the Transport, universities and companies card on country and city pages and three map layers. Switching off keeps what is stored."
+          on={s.places_fetch} set={(v) => save({ places_fetch: v })} />
+      </section>
+
+      <section className="card">
         <h2>Country packs</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
           Extra sources for one country, fetched by <code>.\refresh.bat</code> while switched on. Switching one off keeps

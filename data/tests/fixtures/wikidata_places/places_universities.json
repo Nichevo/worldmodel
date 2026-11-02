@@ -1,0 +1,123 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "u": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q21"
+    },
+    "uLabel": {
+     "type": "literal",
+     "value": "University of Auckland"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "public university"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "cityLabel": {
+     "type": "literal",
+     "value": "Auckland"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.768 -36.852)"
+    },
+    "students": {
+     "type": "literal",
+     "value": "40000"
+    },
+    "studentsAt": {
+     "type": "literal",
+     "value": "2023-01-01T00:00:00Z"
+    },
+    "founded": {
+     "type": "literal",
+     "value": "1883-01-01T00:00:00Z"
+    },
+    "links": {
+     "type": "literal",
+     "value": "60"
+    },
+    "article": {
+     "type": "literal",
+     "value": "https://en.wikipedia.org/wiki/University_of_Auckland"
+    }
+   },
+   {
+    "u": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q21"
+    },
+    "uLabel": {
+     "type": "literal",
+     "value": "University of Auckland"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "public university"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.768 -36.852)"
+    },
+    "students": {
+     "type": "literal",
+     "value": "30000"
+    },
+    "studentsAt": {
+     "type": "literal",
+     "value": "2010-01-01T00:00:00Z"
+    },
+    "links": {
+     "type": "literal",
+     "value": "60"
+    }
+   },
+   {
+    "u": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q22"
+    },
+    "uLabel": {
+     "type": "literal",
+     "value": "Columbia University"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "private university"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "cityLabel": {
+     "type": "literal",
+     "value": "Manhattan"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(-73.962 40.807)"
+    },
+    "students": {
+     "type": "literal",
+     "value": "36000"
+    },
+    "links": {
+     "type": "literal",
+     "value": "120"
+    }
+   }
+  ]
+ }
+}

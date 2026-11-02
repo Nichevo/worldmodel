@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   forecast_horizon: 10,
   forecast_ranges: "80+95",
   forecast_official: true,
+  places_fetch: true,
   pack_nz: true,
   ai_enabled: true,
   ollama_url: "http://localhost:11434",

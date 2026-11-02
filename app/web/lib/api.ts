@@ -182,6 +182,7 @@ export type Settings = {
   forecast_horizon: number; // years the Forecast button looks ahead
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
+  places_fetch: boolean; // refresh fetches metro and rail, universities and companies
   pack_nz: boolean; // refresh fetches the New Zealand pack
   ai_enabled: boolean; // Ask AI buttons, AI notes page, highlight menu's Ask AI
   ollama_url: string;
@@ -451,7 +452,17 @@ export type CitySeries = {
 };
 export type CityDetail = {
   city: CityRow & { ascii_name: string; timezone: string | null; elevation: number | null; feature_code: string };
-  series: CitySeries[]; others: CityRow[];
+  series: CitySeries[]; others: CityRow[]; places?: PlaceRow[];
+};
+// Metro and rail systems, universities and big companies (Wikidata), biggest first.
+export type PlaceKind = "transit" | "university" | "company";
+export type PlaceRow = {
+  place_id: string; kind: PlaceKind; subkind: string | null; name: string; country_id: string; country: string | null;
+  city_id: string | null; city: string | null; lat: number | null; lon: number | null; founded: string | null; url: string | null;
+  size: number | null;
+  facts: { length_km?: number; stations?: number; riders?: number; riders_year?: number; students?: number; students_year?: number;
+    revenue?: number; currency?: string; revenue_year?: number; revenue_usd?: number; staff?: number; staff_year?: number;
+    industry?: string; wikidata?: string };
 };
 export type NumbeoCompare = {
   places: { kind: "cities" | "countries"; id: string; name: string; country_id: string | null; url: string | null; fetched_at: string | null;
@@ -474,6 +485,8 @@ export const api = {
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
     get<{ rows: CityRow[]; note: string | null }>("/cities", q),
+  places: (q: { kind?: PlaceKind; country?: string; city?: string; q?: string; limit?: number } = {}) =>
+    get<{ rows: PlaceRow[]; note: string | null }>("/places", q),
   city: (id: string) => get<CityDetail>(`/cities/${encodeURIComponent(id)}`),
   cityWikipedia: (id: string) => get<Wikipedia>(`/cities/${encodeURIComponent(id)}/wikipedia`),
   numbeo: (kind: "cities" | "entities", id: string) => get<NumbeoPrices>(`/${kind}/${encodeURIComponent(id)}/numbeo`),

@@ -1650,7 +1650,46 @@ def city(city_id: str):
         one["points"].append({"year": r["year"], "value": r["value"], "status": r["status"]})
     others = cities(country=c["country_id"], limit=12)["rows"]
     return {"city": c, "series": list(series.values()),
-            "others": [o for o in others if o["city_id"] != city_id][:10]}
+            "others": [o for o in others if o["city_id"] != city_id][:10],
+            "places": places(kind=None, country=None, city=city_id, q=None, limit=60)["rows"]}
+
+
+PLACE_KINDS = Literal["transit", "university", "company"]
+NO_PLACES = "No metro, universities or companies yet: run .\\refresh.bat (Wikidata places, once every four weeks)."
+
+
+def _has_places() -> bool:
+    return bool(rows("SELECT 1 FROM information_schema.tables WHERE table_name = 'places' AND table_schema = 'main'"))
+
+
+@api.get("/places")
+def places(kind: PLACE_KINDS | None = None, country: str | None = Query(None, description="Comma-separated country ids"),
+           city: str | None = None, q: str | None = None, limit: int = Query(200, ge=1, le=5000)):
+    """Metro and rail systems, universities and big companies (Wikidata), biggest first: by
+    riders (else length), students, or revenue in US dollars. Each with its city where matched."""
+    if not _has_places():
+        return {"rows": [], "note": NO_PLACES}
+    where, params = ["1 = 1"], []
+    if kind:
+        where.append("p.kind = ?")
+        params.append(kind)
+    if ids := split(country):
+        where.append(f"p.country_id IN ({', '.join('?' * len(ids))})")
+        params += ids
+    if city:
+        where.append("p.city_id = ?")
+        params.append(city)
+    if q:
+        where.append("p.name ILIKE ?")
+        params.append(f"%{q}%")
+    found = rows(f"""SELECT p.place_id, p.kind, p.subkind, p.name, p.country_id, e.short_name AS country, p.city_id,
+                            coalesce(c.name, p.city_name) AS city, p.lat, p.lon, p.founded, p.url, p.facts, p.size
+                     FROM places p LEFT JOIN entities e ON e.entity_id = p.country_id LEFT JOIN cities c ON c.city_id = p.city_id
+                     WHERE {' AND '.join(where)} ORDER BY p.size DESC NULLS LAST, p.name LIMIT ?""", [*params, limit])
+    for r in found:
+        r["facts"] = json.loads(r["facts"] or "{}")
+        r["founded"] = str(r["founded"])[:4] if r["founded"] else None
+    return {"rows": found, "note": None}
 
 
 @api.get("/cities/{city_id}/wikipedia")
