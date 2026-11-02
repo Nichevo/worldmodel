@@ -78,7 +78,11 @@ def test_ms_ai_diffusion_github_file_one_column_per_period(tmp_path):
     import httpx
 
     csv = ("Economy,H1 2025 AI Diffusion,H2 2025 AI Diffusion,Q1 2026 AI Diffusion,Q2 2026 AI Diffusion\n"
-           "Singapore,58.60%,60.90%,63.40%,64.3%\nNew Zealand,37.60%,40.50%,43.00%,44.1%\n")
+           "Singapore,58.60%,60.90%,63.40%,64.3%\nNew Zealand,37.60%,40.50%,43.00%,44.1%\n"
+           # Bracketed names must not fold into the plain one: "Congo (DRC)" is not the Republic of the Congo.
+           "Congo (DRC),5.0%,5.5%,6.0%,6.5%\nCongo,7.0%,7.5%,8.0%,8.5%\n"
+           # Two spellings of one country: the first is kept rather than failing the build on duplicates.
+           "Congo (Brazzaville),9.0%,9.5%,9.9%,9.9%\n")
     asked = []
 
     def handler(request):
@@ -97,6 +101,8 @@ def test_ms_ai_diffusion_github_file_one_column_per_period(tmp_path):
     c = duckdb.connect(str(build(home).path), read_only=True)
     assert value(c, "NZL", "ai_use_population", 2025, "ms_ai_diffusion")[0] == pytest.approx(40.5)
     assert value(c, "NZL", "ai_use_population", 2026, "ms_ai_diffusion")[0] == pytest.approx(44.1)
+    assert value(c, "COD", "ai_use_population", 2026, "ms_ai_diffusion")[0] == pytest.approx(6.5)
+    assert value(c, "COG", "ai_use_population", 2026, "ms_ai_diffusion")[0] == pytest.approx(8.5)
 
 
 def test_ms_ai_diffusion_file_in_windows_encoding(tmp_path):
