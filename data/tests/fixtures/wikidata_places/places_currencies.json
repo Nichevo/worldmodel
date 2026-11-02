@@ -1,0 +1,39 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "code": {
+     "type": "literal",
+     "value": "NZD"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "code": {
+     "type": "literal",
+     "value": "USD"
+    }
+   },
+   {
+    "iso3": {
+     "type": "literal",
+     "value": "AUS"
+    },
+    "code": {
+     "type": "literal",
+     "value": "AUD"
+    }
+   }
+  ]
+ }
+}

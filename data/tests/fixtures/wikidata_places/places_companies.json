@@ -1,0 +1,145 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "co": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q31"
+    },
+    "coLabel": {
+     "type": "literal",
+     "value": "Fletcher Building"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "revenue": {
+     "type": "literal",
+     "value": "7700000000"
+    },
+    "currency": {
+     "type": "literal",
+     "value": "NZD"
+    },
+    "revAt": {
+     "type": "literal",
+     "value": "2024-01-01T00:00:00Z"
+    },
+    "staff": {
+     "type": "literal",
+     "value": "15000"
+    },
+    "industryLabel": {
+     "type": "literal",
+     "value": "construction"
+    },
+    "hqLabel": {
+     "type": "literal",
+     "value": "Auckland"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.76 -36.85)"
+    },
+    "links": {
+     "type": "literal",
+     "value": "8"
+    }
+   },
+   {
+    "co": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q31"
+    },
+    "coLabel": {
+     "type": "literal",
+     "value": "Fletcher Building"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "revenue": {
+     "type": "literal",
+     "value": "5000000000"
+    },
+    "currency": {
+     "type": "literal",
+     "value": "NZD"
+    },
+    "revAt": {
+     "type": "literal",
+     "value": "2015-01-01T00:00:00Z"
+    },
+    "industryLabel": {
+     "type": "literal",
+     "value": "building materials"
+    },
+    "links": {
+     "type": "literal",
+     "value": "8"
+    }
+   },
+   {
+    "co": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q32"
+    },
+    "coLabel": {
+     "type": "literal",
+     "value": "Pfizer"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "revenue": {
+     "type": "literal",
+     "value": "58500000000"
+    },
+    "currency": {
+     "type": "literal",
+     "value": "USD"
+    },
+    "revAt": {
+     "type": "literal",
+     "value": "2023-01-01T00:00:00Z"
+    },
+    "hqLabel": {
+     "type": "literal",
+     "value": "New York City"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(-74.0 40.75)"
+    },
+    "links": {
+     "type": "literal",
+     "value": "70"
+    }
+   },
+   {
+    "co": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q33"
+    },
+    "coLabel": {
+     "type": "literal",
+     "value": "No Money Ltd"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "links": {
+     "type": "literal",
+     "value": "6"
+    }
+   }
+  ]
+ }
+}

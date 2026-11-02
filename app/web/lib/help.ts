@@ -99,6 +99,13 @@ export const HELP = {
     sources: [{ label: "IMF Global Debt Database", indicator: "imf_household_debt_gdp" }, { label: "World Bank WDI", indicator: "central_govt_debt_gdp" },
       { label: "IMF World Economic Outlook", indicator: "govt_debt_gdp" }, { label: "GDP per person", indicator: "gdp_per_capita_usd" }],
   },
+  places: {
+    title: "Transport, universities and companies",
+    what: "Metro, light rail and commuter rail systems with their length, stations and trips a year; universities with their students; and big companies with their revenue, staff and industry.",
+    how: "Read from Wikidata once every four weeks. A place is matched to the nearest city within 40 km (preferring a much bigger city almost as close, so suburbs count toward the main city). Company revenue is turned into US dollars with the World Bank's exchange rate for the revenue's year (BIS where the World Bank has none). Wikidata is edited by volunteers, so figures can be missing or a few years old; the year of each figure is shown.",
+    units: "Kilometres, trips a year, students, US dollars",
+    sources: [{ label: "Wikidata (CC0)" }, { label: "World Bank and BIS exchange rates", indicator: "exchange_rate_usd" }],
+  },
   cities: {
     title: "Major cities",
     what: "The country's biggest cities, with how many people live there now and the UN's projection for 2035.",
