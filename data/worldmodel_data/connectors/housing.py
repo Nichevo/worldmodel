@@ -324,10 +324,21 @@ class DallasFedIHPD(Connector):
         if not links:
             raise ConnectorError(f"dallas_fed_ihpd: no hpYYMM.xlsx link on {DALLAS_PAGE}; the page may have changed. "
                                  "Download the file by hand and load it with: worldmodel-data fetch dallas_fed_ihpd --from <file>")
-        link = max(links, key=lambda u: re.search(r"hp(\d{4})", u, re.I).group(1))
-        url = link if link.startswith("http") else DALLAS_SITE + link
-        self.get(url, raw_dir / Path(url).name.lower())
-        return url
+        # Newest first; the page sometimes links a release before its file is up (HTTP 404).
+        tried = []
+        for link in sorted(set(links), key=lambda u: re.search(r"hp(\d{4})", u, re.I).group(1), reverse=True)[:3]:
+            url = link if link.startswith("http") else DALLAS_SITE + link
+            try:
+                self.get(url, raw_dir / Path(url).name.lower())
+                if tried:
+                    log.warning("dallas_fed_ihpd: %s not available yet; used %s", ", ".join(tried), Path(url).name)
+                return url
+            except ConnectorError as exc:
+                if "HTTP 404" not in str(exc):
+                    raise
+                tried.append(Path(url).name)
+        raise ConnectorError(f"dallas_fed_ihpd: the files linked on {DALLAS_PAGE} are not there (HTTP 404: "
+                             f"{', '.join(tried)}); the next refresh tries again")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = sorted(raw_dir.glob("*.xlsx"))
