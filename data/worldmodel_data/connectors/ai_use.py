@@ -203,9 +203,29 @@ def _table(path: Path) -> list[list]:
         return list(csv.reader(f))
 
 
+MS_REPO_API = "https://api.github.com/repos/microsoft/ai-diffusion-report/contents/data"
+MS_RAW = "https://raw.githubusercontent.com/microsoft/ai-diffusion-report/main/data/"
+MS_KNOWN = "AI_Diffusion_Q22026_Update.csv"  # used when the folder cannot be listed
+PERIOD = re.compile(r"\b(H[12]|Q[1-4])\s*((?:19|20)\d\d)\b|\b((?:19|20)\d\d)\s*(H[12]|Q[1-4])\b", re.I)
+
+
+def _period_order(header: str) -> tuple[int, int] | None:
+    """(year, part) of a column such as "H2 2025 AI Diffusion" or "Q1 2026"; parts sort H1 < Q1-Q2 < H2 < Q3-Q4."""
+    m = PERIOD.search(header)
+    if not m:
+        return None
+    part, year = (m.group(1), m.group(2)) if m.group(1) else (m.group(4), m.group(3))
+    part = part.upper()
+    rank = {"H1": 2, "H2": 4}.get(part) or int(part[1])  # Q1 1, H1 2, Q2 2, Q3 3, H2 4, Q4 4
+    return int(year), rank
+
+
 class MicrosoftAIDiffusion(Connector):
+    """Microsoft AI Economy Institute's AI Diffusion: the share of people using generative AI,
+    by country, from github.com/microsoft/ai-diffusion-report (MIT). The country file has one
+    column per period (H1 2025, H2 2025, Q1 2026...); each year takes its latest period."""
     source_id = "ms_ai_diffusion"
-    manual = True
+    fetch_every_days = 28
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")
@@ -218,10 +238,23 @@ class MicrosoftAIDiffusion(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        raise ConnectorError("ms_ai_diffusion: the AI Diffusion Report's table is published with the report, so it is "
-                             "loaded by hand. Download the country table from Microsoft's AI Economy Institute "
-                             "(https://www.microsoft.com/en-us/corporate-responsibility/topics/ai-economy-institute) "
-                             r"and run: .\load.bat ms_ai_diffusion <file.csv or .xlsx>")
+        """The newest country CSV in the repository's data folder (the folder is listed through
+        GitHub's API; if that is refused, the last known file name is tried)."""
+        name = MS_KNOWN
+        try:
+            r = self.client.get(MS_REPO_API, headers={"Accept": "application/vnd.github+json"})
+            r.raise_for_status()
+            found = [f["name"] for f in r.json() if f.get("type") == "file" and f["name"].lower().endswith(".csv")
+                     and "diffusion" in f["name"].lower()]
+            if found:
+                def order(n: str):
+                    m = re.search(r"(Q[1-4]|H[12])\s*_?((?:19|20)\d\d)", n, re.I)
+                    return (int(m.group(2)), m.group(1).upper()) if m else (0, n)
+                name = max(found, key=order)
+        except Exception as exc:  # noqa: BLE001 - the known name still works
+            log.warning("ms_ai_diffusion: could not list %s (%s); trying %s", MS_REPO_API, exc, MS_KNOWN)
+        self.get(MS_RAW + name, raw_dir / name)
+        return MS_RAW + name
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".csv", ".xlsx", ".xlsm"))
@@ -240,6 +273,12 @@ class MicrosoftAIDiffusion(Connector):
             if not vals:
                 raise ConnectorError(f"ms_ai_diffusion: no column naming a share or usage in {p.name} "
                                      f"(columns: {', '.join(header)})")
+            # One column per period: each year takes its latest period. Otherwise the first share column.
+            periods = {i: _period_order(header[i]) for i in vals}
+            by_year: dict[int, tuple[tuple[int, int], int]] = {}
+            for i, o in periods.items():
+                if o and (o[0] not in by_year or o > by_year[o[0]][0]):
+                    by_year[o[0]] = (o, i)
             vi = vals[0]
             file_year = re.search(r"(?:19|20)\d\d", p.name)
             for r in table[hi + 1:]:
@@ -252,12 +291,17 @@ class MicrosoftAIDiffusion(Connector):
                 if not ent:
                     unmatched.add(name)
                     continue
-                v = num(r[vi])
-                if v is not None and 0 < v <= 1 and "%" not in str(r[vi]):
-                    v *= 100  # a share given as a fraction
-                y = (year_of(str(r[yi])) if yi is not None else None) or \
-                    (int(file_year.group(0)) if file_year else int(release[:4]))
-                rows.add("iso3", ent, "ai_use_population", y, v)
+                cells = [(y, i) for y, (_, i) in by_year.items()] if by_year else [(None, vi)]
+                for y, i in cells:
+                    if len(r) <= i:
+                        continue
+                    v = num(r[i])
+                    if v is not None and 0 < v <= 1 and "%" not in str(r[i]):
+                        v *= 100  # a share given as a fraction
+                    if y is None:
+                        y = (year_of(str(r[yi])) if yi is not None else None) or \
+                            (int(file_year.group(0)) if file_year else int(release[:4]))
+                    rows.add("iso3", ent, "ai_use_population", y, v)
         if unmatched:
             log.warning("ms_ai_diffusion: names not matched to a country: %s", ", ".join(sorted(unmatched)[:20]))
         if not len(rows):
