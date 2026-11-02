@@ -98,7 +98,7 @@ export const DEFAULT: Workspace = {
   split: [0.5, 0.5],
   pins: [],
   board: [],
-  side: true,
+  side: false,
 };
 
 export type Action =
@@ -253,7 +253,7 @@ export const MAP_LAYERS = [
 // with extra table columns joined by ",";
 // sN holds panel N's own selection while its selection is unlinked;
 // pin=NZL:0:174.8:-41.3,AUS:1 holds pinned popups (country:panel number[:lng:lat]);
-// b=NZL:tfr,AUS:gdp_growth the pinboard; side=0 a hidden pinboard.
+// b=NZL:tfr,AUS:gdp_growth the pinboard; side=1 a shown pinboard (hidden by default).
 const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.letter).join("");
 
 function panelToken(p: Panel): string {
@@ -278,7 +278,7 @@ export function toQuery(ws: Workspace): string {
   }).filter(Boolean);
   if (pins.length) q.set("pin", pins.join(","));
   if (ws.board.length) q.set("b", ws.board.map((b) => `${b.entity}:${b.indicator}`).join(","));
-  if (!ws.side) q.set("side", "0");
+  if (ws.side) q.set("side", "1");
   return q.toString().replace(/%7E/g, "~").replace(/%2C/g, ",").replace(/%3A/g, ":");
 }
 
@@ -332,7 +332,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     split: [frac(split[0]), frac(split[1])],
     pins,
     board,
-    side: q.get("side") !== "0",
+    side: q.get("side") === "1",
   };
 }
 
@@ -402,24 +402,27 @@ export function scatterString(o: ScatterOptions): string {
 //   who:   "" = the selected countries; "a" = all countries (selected ones in colour); "g:<id>" = a group's members.
 //   among: "" = rank within the countries ranked; "w" = rank among the whole world. order: "l" = lowest first.
 //   top:   how many to show (blank = the default in Settings, 0 = all).
-export type RankYears = { mode: "step"; start: number; step: number } | { mode: "list"; years: number[] } | { mode: "range" };
-export type RankOptions = { years: RankYears; who: "selected" | "all" | string; world: boolean; lowFirst: boolean; top: number | null };
-const RANK_RE = /^(r|\d{4}:\d{1,2}|\d{4}(\+\d{4}){0,24})?(,(a|g:[A-Za-z0-9_-]{1,40})?(,w?l?(,\d{0,3})?)?)?$/;
+export type RankYears = { mode: "step"; start: number; step: number; end?: number } | { mode: "list"; years: number[] } | { mode: "range" };
+export type RankOptions = { years: RankYears; who: "selected" | "all" | string; world: boolean; lowFirst: boolean; top: number | null; values: boolean };
+const RANK_RE = /^(r|\d{4}:\d{1,2}(:\d{4})?|\d{4}(\+\d{4}){0,24})?(,(a|g:[A-Za-z0-9_-]{1,40})?(,w?l?h?(,\d{0,3})?)?)?$/;
 
 export function rankOptions(rk: string): RankOptions {
   const [years = "", who = "", flags = "", top = ""] = rk.split(",");
   let y: RankYears = { mode: "step", start: 1980, step: 10 };
   if (years === "r") y = { mode: "range" };
-  else if (/^\d{4}:\d+$/.test(years)) { const [a, b] = years.split(":").map(Number); y = { mode: "step", start: a, step: Math.max(1, b) }; }
+  else if (/^\d{4}:\d+(:\d{4})?$/.test(years)) {
+    const [a, b, c] = years.split(":").map(Number);
+    y = { mode: "step", start: a, step: Math.max(1, b), ...(c ? { end: c } : {}) };
+  }
   else if (/^\d{4}(\+\d{4})*$/.test(years)) y = { mode: "list", years: [...new Set(years.split("+").map(Number))].sort((a, b) => a - b) };
   return { years: y, who: who === "a" ? "all" : who.startsWith("g:") ? who.slice(2) : "selected",
-    world: flags.includes("w"), lowFirst: flags.includes("l"), top: top === "" ? null : +top };
+    world: flags.includes("w"), lowFirst: flags.includes("l"), top: top === "" ? null : +top, values: !flags.includes("h") };
 }
 
 export function rankString(o: RankOptions): string {
   const y = o.years.mode === "range" ? "r" : o.years.mode === "list" ? o.years.years.join("+")
-    : o.years.start === 1980 && o.years.step === 10 ? "" : `${o.years.start}:${o.years.step}`;
-  const s = [y, o.who === "selected" ? "" : o.who === "all" ? "a" : `g:${o.who}`, `${o.world ? "w" : ""}${o.lowFirst ? "l" : ""}`,
+    : o.years.start === 1980 && o.years.step === 10 && !o.years.end ? "" : `${o.years.start}:${o.years.step}${o.years.end ? `:${o.years.end}` : ""}`;
+  const s = [y, o.who === "selected" ? "" : o.who === "all" ? "a" : `g:${o.who}`, `${o.world ? "w" : ""}${o.lowFirst ? "l" : ""}${o.values ? "" : "h"}`,
     o.top === null ? "" : String(o.top)];
   while (s.length && s[s.length - 1] === "") s.pop();
   return s.join(",");
@@ -435,7 +438,10 @@ export function rankYears(o: RankOptions, first: number, last: number, range: st
     return out;
   }
   const out: number[] = [];
-  for (let y = Math.max(o.years.start, first); y <= last; y += o.years.step) out.push(y);
+  const stop = Math.min(last, o.years.end ?? last);
+  for (let y = Math.max(o.years.start, first); y <= stop; y += o.years.step) out.push(y);
+  // With a "to" year, it is shown even when the steps would skip it.
+  if (o.years.end && o.years.end <= last && out.length && out[out.length - 1] !== o.years.end && o.years.end > out[out.length - 1]) out.push(o.years.end);
   return out;
 }
 

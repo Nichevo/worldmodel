@@ -1242,6 +1242,44 @@ def refresh_log():
     return local.read_refresh_log()
 
 
+@api.get("/manual-files")
+def manual_files():
+    """Files you save by hand: each source that needs one always (by_hand) or when its site
+    refuses a refresh, with where to get it, what is in its var/manual folder, when it was
+    last loaded, and whether anything needs doing now."""
+    from datetime import datetime, timezone
+    folder_root = local.home() / "manual"
+    loaded = {r["source_id"]: r["retrieved_at"] for r in rows(
+        "SELECT source_id, max(retrieved_at) AS retrieved_at FROM vintages GROUP BY source_id")}
+    failing = {p["source_id"]: p for p in local.problems() if p.get("kind") == "fetch" and p.get("open")}
+    out = []
+    for s in catalogue.sources().values():
+        if not s.manual:
+            continue
+        folder = folder_root / s.id
+        files = sorted((f for f in folder.iterdir() if f.is_file() and not f.name.startswith(("_", ".", "~$"))),
+                       key=lambda f: f.stat().st_mtime, reverse=True) if folder.is_dir() else []
+        last = loaded.get(s.id)
+        last_dt = datetime.fromisoformat(str(last)) if last else None
+        if last_dt and last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        newest = datetime.fromtimestamp(files[0].stat().st_mtime, timezone.utc) if files else None
+        if newest and (last_dt is None or newest > last_dt):
+            todo, why = "load", f"{files[0].name} is in the folder but not loaded yet"
+        elif s.manual.by_hand and last is None:
+            todo, why = "download", "Not loaded yet"
+        elif s.id in failing:
+            todo, why = "download", f"The last refresh could not download it ({failing[s.id].get('summary') or 'refused'})"
+        else:
+            todo, why = None, ""
+        out.append({"source_id": s.id, "name": s.name, "by_hand": s.manual.by_hand, "get": s.manual.get,
+                    "what": s.manual.what, "cadence": s.cadence, "folder": f"var\\manual\\{s.id}",
+                    "files": [f.name for f in files[:5]], "last_loaded": str(last) if last else None,
+                    "todo": todo, "why": why, "command": f".\\load.bat {s.id}"})
+    out.sort(key=lambda r: (r["todo"] is None, not r["by_hand"], r["name"]))
+    return out
+
+
 @api.get("/problems")
 def problems():
     """Each distinct failure in the refresh log, with how often it happened and whether it is still open."""

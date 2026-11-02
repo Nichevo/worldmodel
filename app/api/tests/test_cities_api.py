@@ -90,3 +90,13 @@ def test_numbeo_button_fetches_once_within_the_limit(client, monkeypatch):
     client.put("/api/v1/settings", json={"numbeo_daily": 2})
     res = client.post("/api/v1/entities/NZL/numbeo", json={})
     assert res.status_code == 409 and "used up" in res.json()["detail"]
+
+
+def test_manual_files_say_what_to_do(client, tmp_path):
+    rows = {r["source_id"]: r for r in client.get("/api/v1/manual-files").json()}
+    assert rows["emdat"]["todo"] == "download" and rows["emdat"]["get"].startswith("https://")
+    assert rows["emdat"]["command"] == ".\\load.bat emdat"
+    (tmp_path / "manual" / "rbnz").mkdir(parents=True)
+    (tmp_path / "manual" / "rbnz" / "hb2-daily.xlsx").write_bytes(b"x")
+    rows = {r["source_id"]: r for r in client.get("/api/v1/manual-files").json()}
+    assert rows["rbnz"]["todo"] == "load" and rows["rbnz"]["files"] == ["hb2-daily.xlsx"]
