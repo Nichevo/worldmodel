@@ -92,11 +92,18 @@ def load(
         if file.is_file():
             kept = manual.keep_copy(p, source, file, CONNECTORS[source].keeps_files)
             typer.echo(f"Copied to {kept}")
+        record = {"kind": "load", "started_at": now_utc().isoformat(), "status": "ok", "sources": []}
         manifest, is_new = CONNECTORS[source]().ingest(store, file)
         typer.echo(f"{source}: {'stored new vintage' if is_new else 'unchanged, already have'} {manifest.vintage}")
+        record["sources"].append({"source_id": source, "status": "new" if is_new else "unchanged",
+                                  "vintage": manifest.vintage, "note": "loaded by hand"})
+        _log(p, record)
         return
     sources = [source] if source else sorted(d.name for d in manual.root(p).iterdir() if d.is_dir() and d.name in CONNECTORS)
     loaded, failed = 0, []
+    # Logged so that a source the refresh could not download, and you then loaded by hand,
+    # no longer shows as an open problem.
+    record = {"kind": "load", "started_at": now_utc().isoformat(), "status": "ok", "sources": []}
     for s_id in sources:
         d = manual.folder(p, s_id)
         if not manual.files(d):
@@ -112,6 +119,10 @@ def load(
             continue
         loaded += 1
         typer.echo(f"{s_id}: {'stored new vintage' if is_new else 'unchanged'} {manifest.vintage}")
+        record["sources"].append({"source_id": s_id, "status": "new" if is_new else "unchanged",
+                                  "vintage": manifest.vintage, "note": "loaded by hand"})
+    if record["sources"]:
+        _log(p, record)
     if not loaded and not failed:
         typer.echo(f"No files found in {manual.root(p)}. Save each file in its source's folder there.")
     if failed:

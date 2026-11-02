@@ -330,8 +330,10 @@ def _year(stamp, release: str) -> int:
 
 # ----------------------------------------------------------------------------------------- ILOSTAT
 ILO_SERIES = ("EAR_4MTH_SEX_CUR_NB_A", "EAR_4MMN_CUR_NB_A")
-# Tried in order; ILOSTAT has moved its bulk files before.
-ILO_URLS = ("https://rplumber.ilo.org/data/indicator/?id={id}&type=code&format=.csv.gz",
+# Tried in order; ILOSTAT has moved its bulk files before. The first is what ILO's own R
+# package (Rilostat) uses since 2025: an R data file (.rds).
+ILO_URLS = ("https://rplumber.ilo.org/files/indicator/{id}.rds",
+            "https://rplumber.ilo.org/data/indicator/?id={id}&type=code&format=.csv.gz",
             "https://rplumber.ilo.org/files/website/bulk/indicator/{id}.csv.gz",
             "https://www.ilo.org/ilostat-files/WEB_bulk_download/indicator/{id}.csv.gz")
 ILO_CURRENCY = {"CUR_TYPE_PPP": "ppp", "CUR_TYPE_USD": "usd", "CUR_TYPE_LCU": "lcu"}
@@ -356,7 +358,7 @@ class ILOEarnings(Connector):
             for pattern in ILO_URLS:
                 url = pattern.format(id=sid)
                 try:
-                    self.get(url, raw_dir / f"{sid}.csv.gz")
+                    self.get(url, raw_dir / (f"{sid}.rds" if url.endswith(".rds") else f"{sid}.csv.gz"))
                     got.append(url)
                     break
                 except ConnectorError as exc:
@@ -368,7 +370,7 @@ class ILOEarnings(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows = Rows()
         for f in sorted(raw_dir.iterdir()):
-            if f.suffix.lower() not in (".csv", ".gz", ".xlsx"):
+            if f.suffix.lower() not in (".csv", ".gz", ".xlsx", ".rds"):
                 continue
             named = next((s for s in ILO_SERIES if f.name.upper().startswith(s)), None)
             for r in _ilo_rows(f):
@@ -435,6 +437,13 @@ def _ilo_sex(v: str) -> str | None:
 def _ilo_rows(path: Path) -> list[dict]:
     """Rows of an ILOSTAT bulk file (.csv.gz or .csv, code columns) or a file saved from its data
     explorer (CSV or Excel, possibly with ".label" columns instead of codes)."""
+    if path.suffix.lower() == ".rds":
+        import rdata  # reads R's .rds files; only needed here
+
+        frame = rdata.read_rds(str(path))
+        cols = [str(c) for c in frame.columns]
+        return [{c: ("" if v is None or (isinstance(v, float) and v != v) else str(v)) for c, v in zip(cols, r)}
+                for r in frame.itertuples(index=False, name=None)]
     if path.suffix.lower() == ".xlsx":
         table = xlsx_rows(path, 0)
         hi = next((i for i, r in enumerate(table[:10]) if any(str(c or "").startswith("ref_area") for c in r)), 0)

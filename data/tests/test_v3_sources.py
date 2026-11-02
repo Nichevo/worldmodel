@@ -97,3 +97,11 @@ def test_ms_ai_diffusion_github_file_one_column_per_period(tmp_path):
     c = duckdb.connect(str(build(home).path), read_only=True)
     assert value(c, "NZL", "ai_use_population", 2025, "ms_ai_diffusion")[0] == pytest.approx(40.5)
     assert value(c, "NZL", "ai_use_population", 2026, "ms_ai_diffusion")[0] == pytest.approx(44.1)
+
+
+def test_ms_ai_diffusion_file_in_windows_encoding(tmp_path):
+    from worldmodel_data.connectors.ai_use import _table
+
+    f = tmp_path / "AI_Diffusion.csv"
+    f.write_bytes("Economy,Q2 2026 AI Diffusion\nCuraçao,30.1%\nCôte d’Ivoire,5%\n".encode("cp1252"))
+    assert _table(f)[1][0] == "Curaçao" and _table(f)[2][0] == "Côte d’Ivoire"
