@@ -172,6 +172,7 @@ export type Settings = {
   history_retention_days: number;
   problem_banner: boolean;
   events_on_charts: boolean;
+  projections_on_charts: boolean; // projected years (dashed) on charts
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;

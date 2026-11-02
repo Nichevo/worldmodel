@@ -2,7 +2,7 @@
 
 import Help from "@/components/Help";
 import type { ECharts } from "echarts";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
 import { api, type EventRow, type Indicator, type SeriesRow } from "@/lib/api";
 import { barOption, lineOption, type Named } from "@/lib/charts";
@@ -21,7 +21,7 @@ type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; s
 // dated events (Settings: Events on charts) as bands and lines, optionally coloured
 // by the party in government, and a button to save it as a picture.
 export default function ChartCard({ indicator, entities, kind = "line", start, end, height = 260, events = [], parties = [], forecast = false }: Props) {
-  const [rows, setRows] = useState<SeriesRow[] | null>(null);
+  const [allRows, setRows] = useState<SeriesRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ids = entities.map((e) => e.id).join(",");
   const [forecastOn, setForecastOn] = useState(forecast);
@@ -33,6 +33,9 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
     api.series(indicator.indicator_id, ids.split(","), start, end).then(setRows).catch((e) => setError(String(e.message || e)));
   }, [indicator.indicator_id, ids, start, end]);
 
+  // Projected years (UN population projections and the like) can be left off.
+  const rows = useMemo(() => (allRows && !settings.projections_on_charts ? allRows.filter((r) => r.status !== "P") : allRows),
+    [allRows, settings.projections_on_charts]);
   const ys = (rows ?? []).map((r) => +r.period);
   const years: [number, number] | null = ys.length ? [Math.min(...ys), Math.max(...ys)] : null;
   const lo = years?.[0], hi = years ? years[1] + 1 : undefined;
