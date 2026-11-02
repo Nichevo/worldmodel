@@ -55,9 +55,22 @@ def columns(header: list) -> dict[str, int]:
     return out
 
 
+def pct(v) -> float | None:
+    """A percentage cell: "64.26", "64.26%", or with a decimal comma, "64,26" (IDEA's export has both)."""
+    if isinstance(v, str) and re.fullmatch(r"\s*\d{1,3},\d{1,3}\s*%?\s*", v):
+        v = v.replace(",", ".")
+    return num(v)
+
+
+# Turnout above this is a reporting artefact (voters counted against a population estimate
+# that is too low, or inflated official figures); such values are left out with a note.
+MAX_TURNOUT = 150
+
+
 class IDEATurnout(Connector):
     source_id = "idea_turnout"
     fetch_every_days = 90
+    stage_version = 2  # 2: decimal commas read as such; values over 150% left out
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")
@@ -110,13 +123,19 @@ class IDEATurnout(Connector):
                 latest[k] = (when, {f: get(r, f) for f in ("turnout", "vap_turnout", "registration", "total_vote")})
         if unmatched:
             log.warning("idea_turnout: %s country names not matched: %s", len(unmatched), ", ".join(sorted(unmatched)[:30]))
-        rows = Rows()
+        rows, dropped = Rows(), []
         for (entity, kind, y), (_, v) in latest.items():
-            rows.add("iso3", entity, f"turnout_{kind}", y, num(v["turnout"]))
-            rows.add("iso3", entity, f"vap_turnout_{kind}", y, num(v["vap_turnout"]))
+            for ind, val in ((f"turnout_{kind}", pct(v["turnout"])), (f"vap_turnout_{kind}", pct(v["vap_turnout"]))):
+                if val is not None and not 0 <= val <= MAX_TURNOUT:
+                    dropped.append(f"{entity} {y} {ind} {val:g}")
+                    continue
+                rows.add("iso3", entity, ind, y, val)
             if kind == "parliamentary":
                 rows.add("iso3", entity, "registered_voters", y, num(v["registration"]))
                 rows.add("iso3", entity, "votes_cast", y, num(v["total_vote"]))
+        if dropped:
+            log.warning("idea_turnout: %s values over %s%% left out as implausible: %s", len(dropped), MAX_TURNOUT,
+                        "; ".join(dropped[:20]))
         if not len(rows):
             raise ConnectorError(f"idea_turnout: no elections read from {files[0].name}")
         self.listed_indicators = INDICATORS

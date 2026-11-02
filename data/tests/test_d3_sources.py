@@ -106,6 +106,10 @@ def test_turnout(con):
     # EU Parliament elections are left out; a blank turnout gives no value.
     assert value(con, "GBR", "turnout_parliamentary", 2019) == pytest.approx(67.55)
     assert value(con, "USA", "turnout_parliamentary", 2022) is None
+    # A decimal comma ("64,26%") is a decimal point; turnout over 150% is left out as implausible.
+    assert value(con, "HRV", "vap_turnout_parliamentary", 2024) == pytest.approx(64.26)
+    assert value(con, "HRV", "turnout_parliamentary", 2024) == pytest.approx(62.31)
+    assert value(con, "GAB", "vap_turnout_presidential", 1986) is None
 
 
 def test_map_layers(con):
@@ -123,6 +127,7 @@ def test_map_layers(con):
     assert volcano["Etna"]["properties"]["url"].endswith("vn=211060")
     quakes = {f["properties"]["mag"]: f["properties"] for f in json.loads(layers["earthquakes"][3])["features"]}
     assert quakes[7.8]["date"] == "2016-11-13" and quakes[7.8]["depth"] == 15 and quakes[7.8]["tsunami"] == 1
+    assert quakes[9.5]["date"] == "1960-05-22"  # before 1970: no fromtimestamp (fails on Windows)
     assert layers["earthquakes"][1] == "point" and layers["earthquakes"][4] == "usgs_earthquakes"
 
 
