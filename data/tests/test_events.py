@@ -126,3 +126,14 @@ def test_refresh_passes_a_hand_loaded_source_with_nothing_stored(tmp_path, monke
     assert "emdat: skipped" in out.output and "nothing loaded yet" in out.output
     entry = built[0]["sources"][0]
     assert entry["status"] == "skipped" and entry["vintage"] is None
+
+
+def test_powell_thyne_csv_from_the_authors_new_page():
+    from worldmodel_data.connectors.coups import CSV_LINK, read
+
+    rows, _ = read("country,ccode,ccode_gw,ccode_polity,year,month,day,coup,version\n"
+                   "Thailand,800,,,2006,9,19,2,V2026.08.29\nThailand,800,,,2014,5,22,1,V2026.08.29\n")
+    assert [(r[0], r[3], str(r[5])) for r in rows] == [("THA", "successful", "2006-09-19"), ("THA", "failed", "2014-05-22")]
+    page = ('<a href="https://jonathanmpowell.com/wp-content/uploads/2026/08/pt_20260708-1.xlsx">x</a>'
+            '<a href="https://jonathanmpowell.com/wp-content/uploads/2026/08/pt_20260829.csv">csv</a>')
+    assert CSV_LINK.findall(page)[0][1] == "20260829"
