@@ -244,6 +244,37 @@ def _prompt(question: str, context: list[dict], web: dict | None) -> str:
     return (f"{head}\n\n## Question\n{question}" if head else question)
 
 
+MAX_IMAGE_BYTES = 6_000_000
+
+
+def _images(found) -> list[str]:
+    """Pictures sent with a question, as Ollama wants them: base64 without the data URL prefix."""
+    out = []
+    for v in (found or [])[:2] if isinstance(found, list) else []:
+        if isinstance(v, str) and v.startswith("data:image/") and "," in v:
+            v = v.split(",", 1)[1]
+        if isinstance(v, str) and 0 < len(v) <= MAX_IMAGE_BYTES:
+            out.append(v)
+    return out
+
+
+_SEES: dict[tuple[str, str], bool] = {}
+
+
+def can_see(model: str, settings: dict) -> bool:
+    """Whether a model takes pictures (Ollama lists "vision" among its capabilities)."""
+    key = (ollama_url(settings), model)
+    if key not in _SEES:
+        try:
+            with _client(10) as c:
+                r = c.post(f"{ollama_url(settings)}/api/show", json={"model": model})
+                caps = r.json().get("capabilities") or [] if r.status_code == 200 else []
+        except (httpx.HTTPError, ValueError):
+            return False
+        _SEES[key] = "vision" in caps
+    return _SEES[key]
+
+
 def ask(req: dict, settings: dict | None = None) -> Iterator[dict]:
     """Stream one answer: events start, token (text), done (the saved record) or error.
 
@@ -273,7 +304,15 @@ def ask(req: dict, settings: dict | None = None) -> Iterator[dict]:
            "entity": str(req.get("entity") or "")[:60] or None, "indicator": str(req.get("indicator") or "")[:80] or None,
            "group": str(req.get("group") or "")[:20] or None, "rating": 0, "tags": [], "note": ""}
     yield {"type": "start", "id": rec["id"], "model": model}
-    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": _prompt(question, context, web)}]
+    images = _images(req.get("images"))
+    user = {"role": "user", "content": _prompt(question, context, web)}
+    if images:
+        if can_see(model, s):
+            user["images"] = images
+            rec["picture"] = "sent"
+        else:
+            rec["picture"] = "not sent: this model cannot see pictures"
+    messages = [{"role": "system", "content": SYSTEM}, user]
     started, first, final = time.monotonic(), None, {}
     try:
         with _client(600) as c, c.stream("POST", f"{ollama_url(s)}/api/chat", json={
@@ -353,7 +392,7 @@ def status(settings: dict | None = None) -> dict:
     out = {"enabled": s["ai_enabled"], "ollama": {"url": ollama_url(s), "ok": False, "error": None, "version": None},
            "models": [], "default_model": None, "compare_model": s["ai_model_compare"] or None}
     try:
-        out["models"] = models(s)
+        out["models"] = [{**m, "vision": can_see(m["name"], s)} for m in models(s)]
         out["ollama"]["ok"] = True
         with _client(5) as c:
             v = c.get(f"{ollama_url(s)}/api/version")

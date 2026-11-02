@@ -76,6 +76,12 @@ export default function EntityPage() {
 
   if (error) return <p className="error">{error}</p>;
   if (!entity) return <p className="muted">Loading…</p>;
+  // The chosen group's average beside the country, on charts of rates and shares only: a group's
+  // total (its population, say) would flatten the country's line.
+  const avg = !["country", "historical_country"].includes(entity.type) ? null
+    : averageChoices(entity).find((g) => g.id === settings.profile_average) ?? null;
+  const withAverage = (ind: Indicator) => (avg && avg.id !== entity.entity_id && ind.agg_method !== "sum" && ind.agg_method !== "none"
+    ? [...named, { id: avg.id, name: `${avg.name} average` }] : named);
   const isGroup = !["country", "historical_country"].includes(entity.type);
 
   return (
@@ -203,6 +209,15 @@ export default function EntityPage() {
               onClick={() => saveSettings({ party_office: "state" })}>Head of state</button>
           </span>
         )}
+        {!isGroup && (
+          <label title="Add a group's average to the charts of rates and shares (totals such as population are left alone)">
+            Add the average of{" "}
+            <select value={settings.profile_average} onChange={(e) => saveSettings({ profile_average: e.target.value })}>
+              <option value="">no group</option>
+              {averageChoices(entity).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+        )}
         {!isGroup && settings.party_colours && !terms.length && <span className="muted">No leaders stored for {entity.short_name} yet; a refresh loads them from Wikidata.</span>}
         {!isGroup && settings.party_colours && terms.length > 0 && !terms.some((t) => t.party !== "No party") &&
           <span className="muted">Wikidata gives no party for these leaders{settings.party_office === "state" ? " (heads of state are often non-party)" : ""}.</span>}
@@ -214,7 +229,8 @@ export default function EntityPage() {
         {CHARTS.map((c) => {
           const ind = byId.get(c.id);
           return ind && ind.available
-            ? <ChartCard key={c.id} indicator={ind} entities={named} kind={c.kind} events={chartEvents} parties={isGroup ? [] : terms} /> : null;
+            ? <ChartCard key={c.id} indicator={ind} entities={withAverage(ind)} kind={c.kind} events={chartEvents}
+              parties={isGroup || withAverage(ind).length > 1 ? [] : terms} /> : null;
         })}
         {byId.get("pop_by_age_sex")?.available && (
           <div className="card">
@@ -281,4 +297,12 @@ function EventChips({ kinds, own, set }: { kinds: string; own: boolean; set: (k:
       {own && <button className="link" onClick={() => set(null)} title="Use the kinds ticked in Settings">As in Settings</button>}
     </div>
   );
+}
+
+// Groups whose average a country page can show: the world, the OECD and G20, and the
+// country's own regions, blocs and income group.
+const AVERAGE_FIRST = [{ id: "world", name: "World" }, { id: "oecd", name: "OECD" }, { id: "g20", name: "G20" }];
+function averageChoices(entity: EntityDetail): { id: string; name: string }[] {
+  const own = entity.groups.filter((g) => !AVERAGE_FIRST.some((f) => f.id === g.entity_id)).map((g) => ({ id: g.entity_id, name: g.short_name }));
+  return [...AVERAGE_FIRST, ...own];
 }

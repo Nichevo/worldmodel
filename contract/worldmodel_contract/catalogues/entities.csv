@@ -38,6 +38,8 @@ usmca,USMCA,USMCA,bloc,,,,,,CUSMA|T-MEC|United States-Mexico-Canada Agreement,"U
 mercosur,Mercosur,Mercosur,bloc,,,,,,Mercosul|Southern Common Market,Southern Common Market full members. Venezuela has been suspended since 2016-12-01 but not expelled.
 opec,OPEC,OPEC,bloc,,,,,,Organization of the Petroleum Exporting Countries,"Organization of the Petroleum Exporting Countries, with suspensions and exits."
 g7,G7,G7,group,,,,,,Group of Seven,Group of Seven. The EU attends but is not counted as a member here.
+oecd,OECD,OECD,group,,,,,,Organisation for Economic Co-operation and Development|OCDE,"Organisation for Economic Co-operation and Development members, by the date each joined."
+cptpp,CPTPP,CPTPP,bloc,,,,,,Comprehensive and Progressive Agreement for Trans-Pacific Partnership|TPP-11,"CPTPP trade agreement members, from the date it came into force for each."
 g20,G20,G20,group,,,,,,Group of Twenty,Group of Twenty country members. The EU and African Union are members but are left out of aggregates to avoid double counting.
 brics,BRICS,BRICS,group,,,,,,BRIC|BRICS+,"BRICS full members. Saudi Arabia was invited in 2024 but has not confirmed, so it is left out."
 income-high,High-income countries,High income,income_group,,,,,,HIC|high income|rich countries|advanced,"World Bank income group: gross national income per person above the high-income threshold (USD 13,935 for fiscal year 2026). Members are the latest classification from WDI, applied to every year, as the World Bank does for its own aggregates."

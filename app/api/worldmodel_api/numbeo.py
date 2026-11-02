@@ -92,6 +92,19 @@ def cached(kind: str, item_id: str) -> dict | None:
     return _read(root() / kind / f"{item_id}.json")
 
 
+def all_cached() -> list[dict]:
+    """Every page fetched so far (cities and countries), newest first, for comparing them."""
+    out = []
+    for kind in ("cities", "countries"):
+        d = root() / kind
+        if d.is_dir():
+            for f in d.glob("*.json"):
+                data = _read(f)
+                if isinstance(data, dict) and data.get("items"):
+                    out.append(data)
+    return sorted(out, key=lambda x: x.get("fetched_at") or "", reverse=True)
+
+
 def fetch(kind: str, item_id: str, country: str, city: str | None, client: httpx.Client | None = None) -> dict:
     """Fetch and store one page's prices. Raises ValueError with a message for the page when it cannot."""
     with _lock:

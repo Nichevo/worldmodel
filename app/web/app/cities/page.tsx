@@ -68,7 +68,8 @@ function Cities() {
       <p className="ink-2" style={{ marginTop: 0 }}>
         Population is the UN&apos;s figure for the city and its suburbs (World Urbanization Prospects) where there is one, otherwise
         GeoNames&apos; figure for the city itself. Cost of living comes from WhereNext (about 370 cities) and Numbeo&apos;s rankings
-        (saved by hand, see the README). Click a city for its page.
+        (saved by hand, see the README). Click a city for its page; prices you fetch from Numbeo there can be
+        set side by side on <Link href="/prices">Compare prices</Link>.
       </p>
       <div className="chips-row small">
         <select value={country} onChange={(e) => set("country", e.target.value)} aria-label="Country">

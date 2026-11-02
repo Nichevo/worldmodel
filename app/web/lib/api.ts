@@ -173,6 +173,7 @@ export type Settings = {
   problem_banner: boolean;
   events_on_charts: boolean;
   projections_on_charts: boolean; // projected years (dashed) on charts
+  profile_average: string; // a group whose average joins country page charts of rates ("" for none)
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;
@@ -347,7 +348,8 @@ export type Divergence = {
 };
 
 // Local AI (Ollama) and web search; see app/api/worldmodel_api/ai.py.
-export type AIModel = { name: string; size: number | null; parameters: string | null; family: string | null; quantization: string | null };
+export type AIModel = { name: string; size: number | null; parameters: string | null; family: string | null; quantization: string | null;
+  vision?: boolean }; // can take pictures
 export type SearchUsage = {
   engine: string; today: number; month: number; daily_limit: number | null; monthly_limit: number | null;
   free_monthly: number; price_per_1000: number; estimated_cost_usd: number; by_day: Record<string, number>;
@@ -368,6 +370,7 @@ export type AIAnswer = {
   id: string; created_at: string; question: string; context: ContextPart[]; model: string; temperature: number;
   web: WebSearch | null; answer: string; stats: AIStats; title: string; page: string; entity: string | null;
   indicator: string | null; group: string | null; rating: -1 | 0 | 1; tags: string[]; note: string;
+  picture?: string; // "sent", or why the chart picture was not sent
 };
 export type AIUsage = {
   models: { model: string; questions: number; prompt_tokens: number; answer_tokens: number; tokens_per_s: number | null;
@@ -450,6 +453,11 @@ export type CityDetail = {
   city: CityRow & { ascii_name: string; timezone: string | null; elevation: number | null; feature_code: string };
   series: CitySeries[]; others: CityRow[];
 };
+export type NumbeoCompare = {
+  places: { kind: "cities" | "countries"; id: string; name: string; country_id: string | null; url: string | null; fetched_at: string | null;
+    summary: { single_without_rent?: number; family_without_rent?: number }; values: Record<string, number> }[];
+  items: { item: string; section: string }[];
+};
 export type NumbeoPrices = {
   name: string; budget: { day: string; used: number; limit: number };
   prices: { url: string; fetched_at: string; currency: string; city: string | null; country: string;
@@ -529,6 +537,7 @@ export const api = {
   events: (q: EventQuery) => get<EventRow[]>("/events", {
     entities: q.entities?.join(","), members: q.members ? "true" : undefined, kinds: q.kinds?.join(","),
     sources: q.sources?.join(","), start: q.start, end: q.end, min_size: q.min_size, q: q.q, limit: q.limit }),
+  numbeoCompare: () => get<NumbeoCompare>("/numbeo/compare"),
   eventKinds: () => get<EventKind[]>("/events/kinds"),
   milestones: () => get<Milestone[]>("/milestones"),
   addMilestone: (m: Partial<Milestone>) => send<Milestone>("POST", "/milestones", m),
