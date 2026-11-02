@@ -16,7 +16,7 @@ import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
-import { SOURCE_SHORT, formatValue } from "@/lib/format";
+import { SOURCE_SHORT, compact, formatValue, shortUnit } from "@/lib/format";
 import {
   CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
   rankOptions, rankString, rankTable, rankYears, type RankOptions,
@@ -1133,6 +1133,26 @@ function useGroupList(): Entity[] {
   return list;
 }
 
+// A year box that only applies a whole year: on Enter, on leaving the box, or with the
+// arrows. Empty gives null (for "to": the latest year).
+function YearInput({ value, min, max, placeholder, onSet }: {
+  value: number | null; min: number; max: number; placeholder?: string; onSet: (v: number | null) => void;
+}) {
+  const [text, setText] = useState(value === null ? "" : String(value));
+  useEffect(() => { setText(value === null ? "" : String(value)); }, [value]);
+  const commit = (t: string) => {
+    if (t.trim() === "") return onSet(null);
+    const v = Math.round(+t);
+    if (Number.isFinite(v) && v >= 1800 && v <= 2200) onSet(Math.min(max, Math.max(min, v)));
+    else setText(value === null ? "" : String(value));
+  };
+  return (
+    <input type="number" min={min} max={max} value={text} placeholder={placeholder} style={{ width: 72 }}
+      onChange={(e) => { setText(e.target.value); if ((e.nativeEvent as InputEvent).inputType === undefined) commit(e.target.value); }}
+      onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") commit((e.target as HTMLInputElement).value); }} />
+  );
+}
+
 // A bump chart: how countries' ranks on the panel's indicator change over the
 // years. Rank the selected countries, a group's members or every country (the
 // selected ones in colour), among themselves or among the whole world; names sit
@@ -1233,19 +1253,28 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
         type: "line" as const, id, name: id, smooth: 0.25, connectNulls: false, symbol: "circle", symbolSize: 7,
         color, lineStyle: { width: sel >= 0 || who !== "all" ? 2.5 : 1.25, opacity: sel >= 0 || who !== "all" ? 1 : 0.6 },
         emphasis: { focus: "series" as const, lineStyle: { width: 3.5 } }, z: sel >= 0 ? 3 : 2,
-        data: r.map((rank, i) => ({
-          value: rank, raw: model.values.get(id)?.[i] ?? null,
-          ...(i === firstAt || i === lastAt ? { label: { show: true, position: i === firstAt && i !== lastAt ? "left" : "right",
-            formatter: `${i === lastAt ? `${rank} ` : ""}${nameOf(id)}${i === firstAt && i !== lastAt ? ` ${rank}` : ""}`,
-            color: cssVar("--ink-2"), fontSize: 11 } } : {}),
-        })),
+        data: r.map((rank, i) => {
+          const raw = model.values.get(id)?.[i] ?? null;
+          const val = raw === null ? "" : compact(raw);
+          const end = i === firstAt || i === lastAt;
+          // Names (and values, when shown) at the two ends; with values on, every other point carries its value above it.
+          return {
+            value: rank, raw,
+            ...(end ? { label: { show: true, position: i === firstAt && i !== lastAt ? "left" : "right",
+              formatter: i === lastAt
+                ? `${rank} ${nameOf(id)}${opts.values && val ? `  ${val}` : ""}`
+                : `${opts.values && val ? `${val}  ` : ""}${nameOf(id)} ${rank}`,
+              color: cssVar("--ink-2"), fontSize: 11 } }
+              : opts.values && val ? { label: { show: true, position: "top", formatter: val, color: cssVar("--muted"), fontSize: 10 } } : {}),
+          };
+        }),
       };
     });
     const maxRank = model.cut ?? Math.max(1, ...model.lines.flatMap((id) => model.shown.get(id)!.filter((x): x is number => x !== null)));
     return {
       backgroundColor: "transparent",
       textStyle: { fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", color: cssVar("--ink-2") },
-      grid: { left: 140, right: 140, top: 28, bottom: 24 },
+      grid: { left: opts.values ? 180 : 140, right: opts.values ? 180 : 140, top: 28, bottom: 24 },
       xAxis: { type: "category" as const, data: years.map(String), boundaryGap: false, axisLabel: { color: cssVar("--muted") },
         axisLine: { lineStyle: { color: cssVar("--axis") } } },
       yAxis: { type: "value" as const, inverse: true, min: 1, max: maxRank, minInterval: 1, name: "Rank", nameLocation: "start" as const,
@@ -1259,7 +1288,7 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
         } },
       series,
     } as EChartsOption;
-  }, [model, years, selKey, who, names, indicator]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [model, years, selKey, who, names, indicator, opts.values]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chart = useRef<ECharts | null>(null);
   const hoverRef = useRef(onHover);
@@ -1310,10 +1339,11 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
         </label>
         {ym.mode === "step" && (
           <>
-            <label>from <input type="number" min={first} max={last} value={ym.start} style={{ width: 72 }}
-              onChange={(e) => +e.target.value >= 1800 && setOpts({ years: { ...ym, start: +e.target.value } })} /></label>
+            <label>from <YearInput value={ym.start} min={first} max={last} onSet={(v) => v !== null && setOpts({ years: { ...ym, start: v } })} /></label>
             <label>every <input type="number" min={1} max={50} value={ym.step} style={{ width: 52 }}
               onChange={(e) => +e.target.value >= 1 && setOpts({ years: { ...ym, step: +e.target.value } })} /> years</label>
+            <label title="Leave empty for the latest year">to <YearInput value={ym.end ?? null} min={first} max={last} placeholder={String(last)}
+              onSet={(v) => setOpts({ years: v === null ? { mode: "step", start: ym.start, step: ym.step } : { ...ym, end: v } })} /></label>
           </>
         )}
         {ym.mode === "list" && <YearPicks years={ym.years} first={first} last={last} set={(ys) => setOpts({ years: { mode: "list", years: ys } })} />}
@@ -1324,6 +1354,14 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
                 onClick={() => setPanelRange(rangeString({ history: h, forecast: r.custom ? "0" : r.forecast }))}>{h === "a" ? "All" : `${h} y`}</button>
             ))}
           </div>
+        )}
+        {ym.mode === "range" && (
+          <>
+            <label>from <YearInput value={r.custom?.[0] ?? years[0] ?? null} min={first} max={last}
+              onSet={(v) => v !== null && setPanelRange(`${v}-${r.custom?.[1] ?? years[years.length - 1] ?? last}`)} /></label>
+            <label>to <YearInput value={r.custom?.[1] ?? years[years.length - 1] ?? null} min={first} max={last}
+              onSet={(v) => v !== null && setPanelRange(`${r.custom?.[0] ?? years[0] ?? first}-${v}`)} /></label>
+          </>
         )}
         <label>Rank{" "}
           <select value={who === "selected" || who === "all" ? who : `g:${who}`} aria-label="Who is ranked"
@@ -1345,6 +1383,9 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
           <button className={!opts.lowFirst ? "on" : ""} aria-pressed={!opts.lowFirst} onClick={() => setOpts({ lowFirst: false })}>Highest first</button>
           <button className={opts.lowFirst ? "on" : ""} aria-pressed={opts.lowFirst} onClick={() => setOpts({ lowFirst: true })}>Lowest first</button>
         </div>
+        <label title="Write each country's value beside its points, as well as its rank">
+          <input type="checkbox" checked={opts.values} onChange={(e) => setOpts({ values: e.target.checked })} /> Values{indicator.unit ? ` (${shortUnit(indicator.unit)})` : ""}
+        </label>
         {who !== "selected" && (
           <label title="0 shows every country; the default is in Settings">Top{" "}
             <input type="number" min={0} max={300} value={top} style={{ width: 56 }}

@@ -58,6 +58,13 @@ class Indicator(BaseModel):
     default_on: bool = True  # shown in the map page's menus until switched off on the Indicators page
 
 
+class ManualFile(BaseModel):
+    """A file saved by hand into var/manual/<source>: always (by_hand), or when the site refuses a refresh."""
+    by_hand: bool
+    get: str  # where to download it
+    what: str  # which file, and how
+
+
 class Source(BaseModel):
     id: str
     name: str
@@ -71,6 +78,7 @@ class Source(BaseModel):
     attribution: str
     status: Literal["active", "planned"]
     default_rank: int
+    manual: ManualFile | None = None
 
 
 class Entity(BaseModel):

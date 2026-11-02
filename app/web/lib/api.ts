@@ -456,7 +456,13 @@ export type NumbeoPrices = {
     summary: { single_without_rent?: number; family_without_rent?: number } } | null;
 };
 
+export type ManualFile = {
+  source_id: string; name: string; by_hand: boolean; get: string; what: string; cadence: string; folder: string;
+  files: string[]; last_loaded: string | null; todo: "download" | "load" | null; why: string; command: string;
+};
+
 export const api = {
+  manualFiles: () => get<ManualFile[]>("/manual-files"),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
     get<{ rows: CityRow[]; note: string | null }>("/cities", q),
   city: (id: string) => get<CityDetail>(`/cities/${encodeURIComponent(id)}`),
