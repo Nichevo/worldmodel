@@ -128,9 +128,6 @@ export default function EntityPage() {
         </p>
       </div>
 
-      <EventChips kinds={profileKinds ?? settings.event_kinds} own={profileKinds !== null} on={settings.events_on_charts}
-        set={setProfileKinds} />
-
       <CountryAbout entity={entity.entity_id} />
 
       {profile.length > 0 && (
@@ -183,14 +180,35 @@ export default function EntityPage() {
       <MigrationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       <EducationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && <VotersCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
-      {!isGroup && (
-        <div className="charts-bar small">
-          <label title="Colour these charts by the party of the head of government (Settings: Governing party)">
+      <div className="charts-bar small">
+        <label title="Recession bands, election lines and the other events on these charts (Settings: Events on charts)">
+          <input type="checkbox" checked={settings.events_on_charts} onChange={(e) => saveSettings({ events_on_charts: e.target.checked })} />
+          {" "}Show events on charts
+        </label>
+        <label title="Years after the latest estimate, drawn dashed (Settings: Events on charts)">
+          <input type="checkbox" checked={settings.projections_on_charts} onChange={(e) => saveSettings({ projections_on_charts: e.target.checked })} />
+          {" "}Show projected years
+        </label>
+        {!isGroup && (
+          <label title="Colour these charts by the party in office (Settings: Governing party)">
             <input type="checkbox" checked={settings.party_colours} onChange={(e) => saveSettings({ party_colours: e.target.checked })} />
-            {" "}Colour charts by governing party
+            {" "}Colour by governing party
           </label>
-          {settings.party_colours && !terms.length && <span className="muted">No leaders stored for {entity.short_name} yet; a refresh loads them from Wikidata.</span>}
-        </div>
+        )}
+        {!isGroup && settings.party_colours && (
+          <span className="seg" role="group" aria-label="Whose party">
+            <button className={settings.party_office === "government" ? "on" : ""} aria-pressed={settings.party_office === "government"}
+              onClick={() => saveSettings({ party_office: "government" })}>Head of government</button>
+            <button className={settings.party_office === "state" ? "on" : ""} aria-pressed={settings.party_office === "state"}
+              onClick={() => saveSettings({ party_office: "state" })}>Head of state</button>
+          </span>
+        )}
+        {!isGroup && settings.party_colours && !terms.length && <span className="muted">No leaders stored for {entity.short_name} yet; a refresh loads them from Wikidata.</span>}
+        {!isGroup && settings.party_colours && terms.length > 0 && !terms.some((t) => t.party !== "No party") &&
+          <span className="muted">Wikidata gives no party for these leaders{settings.party_office === "state" ? " (heads of state are often non-party)" : ""}.</span>}
+      </div>
+      {settings.events_on_charts && (
+        <EventChips kinds={profileKinds ?? settings.event_kinds} own={profileKinds !== null} set={setProfileKinds} />
       )}
       <div className="grid two">
         {CHARTS.map((c) => {
@@ -244,18 +262,11 @@ function SourcesDiffer({ entity }: { entity: string }) {
 
 // Which kinds of event show as bands on this page's charts. The choice is kept in
 // this browser for every country page; "As in Settings" goes back to the default.
-function EventChips({ kinds, own, on, set }: { kinds: string; own: boolean; on: boolean; set: (k: string | null) => void }) {
+function EventChips({ kinds, own, set }: { kinds: string; own: boolean; set: (k: string | null) => void }) {
   const picked = kinds.split(",").filter(Boolean);
-  if (!on) {
-    return (
-      <p className="small muted" style={{ margin: 0 }}>
-        Events on charts are off. <Link href="/settings#events">Switch them on in Settings</Link>.
-      </p>
-    );
-  }
   return (
     <div className="chips-row small event-chips" role="group" aria-label="Events shown on charts">
-      <span className="ink-2">Events on charts:</span>
+      <span className="ink-2">Which events:</span>
       {KINDS.map((k) => {
         const lit = picked.includes(k.kind);
         const next = (lit ? picked.filter((x) => x !== k.kind) : [...picked, k.kind]).join(",");

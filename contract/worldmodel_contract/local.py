@@ -42,6 +42,7 @@ SETTINGS: dict[str, object] = {
     "history_retention_days": 0,     # 0 keeps history forever
     "problem_banner": True,          # a banner on every page while a refresh problem is open
     "events_on_charts": True,        # dated events as lines and bands on line charts of up to three countries
+    "projections_on_charts": True,   # years after the last estimate (UN projections and the like) on charts
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
     "party_colours": False,          # country page charts coloured by the party in government
