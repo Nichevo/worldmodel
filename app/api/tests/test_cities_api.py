@@ -87,6 +87,10 @@ def test_numbeo_button_fetches_once_within_the_limit(client, monkeypatch):
     assert dict(seen[0].url.params)["city"] == "Auckland"
     client.post("/api/v1/cities/gn5746545/numbeo", json={})
     assert dict(seen[1].url.params)["city"] == "Portland, OR"
+    both = client.get("/api/v1/numbeo/compare").json()
+    assert {p["id"] for p in both["places"]} == {"gn2193733", "gn5746545"}
+    assert both["places"][0]["values"]["Meal, Inexpensive Restaurant"] == 17.5
+    assert {"item": "Meal, Inexpensive Restaurant", "section": "Restaurants"} in both["items"]
     client.put("/api/v1/settings", json={"numbeo_daily": 2})
     res = client.post("/api/v1/entities/NZL/numbeo", json={})
     assert res.status_code == 409 and "used up" in res.json()["detail"]

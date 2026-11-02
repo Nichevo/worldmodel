@@ -74,7 +74,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   };
   const names = new Map(entities.map((e) => [e.id, e.name]));
   const askAI = () => openAsk({ title, parts: chartParts(indicator, rows ?? [], names, inView), indicator: indicator.indicator_id,
-    entity: entities.length === 1 ? entities[0].id : undefined });
+    entity: entities.length === 1 ? entities[0].id : undefined, picture });
   // Keep: the chart stays live (it reopens on the map page with these settings) and a picture of it as it looks now.
   const keepChart = async () => {
     let pic: string | null = null;

@@ -108,6 +108,8 @@ def test_settings_are_checked_and_saved(client, tmp_path, monkeypatch):
     assert s["click_mode"] == "select" and s["numbeo_daily"] == 200 and s["disk_limit_gb"] == 250
     assert "nonsense" not in s
     assert client.put("/api/v1/settings", json={"click_mode": "wobble"}).json()["settings"]["click_mode"] == "select"
+    assert client.put("/api/v1/settings", json={"profile_average": "g20"}).json()["settings"]["profile_average"] == "g20"
+    assert client.put("/api/v1/settings", json={"profile_average": "a b;"}).json()["settings"]["profile_average"] == "g20"
 
 
 def test_indicator_switches(client, tmp_path, monkeypatch):

@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { pageEntity } from "@/components/AIHost";
 import Search from "@/components/Search";
+import { openAsk } from "@/lib/ai";
+import { useSettings } from "@/lib/settings";
 
 const LINKS = [
   { href: "/", label: "Map" },
@@ -23,6 +27,16 @@ const LINKS = [
 export default function Nav() {
   const path = usePathname();
   const router = useRouter();
+  const s = useSettings();
+  const [q, setQ] = useState("");
+  // A question not about any one chart: opens the Ask AI box and asks at once. On a country
+  // page, the country goes with it so the answer can use what the app knows.
+  const ask = () => {
+    const question = q.trim();
+    if (!question) return;
+    openAsk({ title: document.querySelector("h1")?.textContent?.trim() || "a general question", parts: [], entity: pageEntity(), question, send: true });
+    setQ("");
+  };
   return (
     <nav className="nav">
       <Link href="/" className="brand">Worldmodel</Link>
@@ -30,6 +44,11 @@ export default function Nav() {
         <Link key={l.href} href={l.href} className={path === l.href ? "active" : ""}>{l.label}</Link>
       ))}
       <span className="spacer" />
+      {s.ai_enabled && (
+        <input className="nav-ask" type="search" value={q} placeholder="Ask AI…" aria-label="Ask the local AI"
+          title="Ask the local AI anything; press Enter" onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") ask(); }} />
+      )}
       <div style={{ width: 280 }}>
         <Search
           placeholder="Find a country, region or bloc"

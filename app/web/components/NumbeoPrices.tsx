@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, type NumbeoPrices as Prices } from "@/lib/api";
 
@@ -11,7 +12,6 @@ export default function NumbeoPrices({ kind, id, place }: { kind: "cities" | "en
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
     setData(null); setError(null);
@@ -53,17 +53,16 @@ export default function NumbeoPrices({ kind, id, place }: { kind: "cities" | "en
           )}
           <div className="numbeo-sections">
             {sections.map(([section, items]) => (
-              <details key={section} open={open === section || (open === null && /restaurant|rent/i.test(section))}
-                onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) setOpen(section); }}>
-                <summary>{section || "Prices"} <span className="muted small">({items.length})</span></summary>
+              <section key={section}>
+                <h4>{section || "Prices"}</h4>
                 <table className="summary-table">
                   <tbody>{items.map((it) => <tr key={it.item}><td>{it.item}</td><td className="num">{usd(it.value)}</td></tr>)}</tbody>
                 </table>
-              </details>
+              </section>
             ))}
           </div>
           <p className="caption">
-            Numbeo, prices in US dollars, crowd-sourced; <a href={p.url} target="_blank" rel="noreferrer">page</a> fetched {p.fetched_at.slice(0, 10)}.
+            Numbeo, prices in US dollars, crowd-sourced; <a href={p.url} target="_blank" rel="noreferrer">page</a> fetched {p.fetched_at.slice(0, 10)}. <Link href="/prices">Compare with other places you have fetched</Link>.
           </p>
         </>
       ) : (

@@ -202,6 +202,8 @@ function AISettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>)
   const [status, setStatus] = useState<AIStatus | null>(null);
   useEffect(() => { api.aiStatus().then(setStatus).catch(() => setStatus(null)); }, [s.ollama_url, s.ai_search_engine, s.searxng_url]);
   const names = status?.models.map((m) => m.name) ?? [];
+  const sees = new Set(status?.models.filter((m) => m.vision).map((m) => m.name) ?? []);
+  const tag = (n: string) => (sees.has(n) ? `${n} (sees pictures)` : n);
   const parts = s.ai_context_default.split(",").filter(Boolean);
   const u = status?.search.usage;
   return (
@@ -213,19 +215,19 @@ function AISettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>)
       </p>
       <Toggle label="Local AI" hint="Ask AI buttons, the AI notes page, and Ask AI in the highlight menu." on={s.ai_enabled} set={(v) => save({ ai_enabled: v })} />
       <TextField label="Ollama address" value={s.ollama_url} placeholder="http://localhost:11434"
-        note={status ? (status.ollama.ok ? `Connected${status.ollama.version ? `, Ollama ${status.ollama.version}` : ""}; ${names.length} model${names.length === 1 ? "" : "s"} installed.` : status.ollama.error ?? "Not reachable.") : "Checking…"}
+        note={status ? (status.ollama.ok ? `Connected${status.ollama.version ? `, Ollama ${status.ollama.version}` : ""}; ${names.length} model${names.length === 1 ? "" : "s"} installed${names.length ? (sees.size ? `; ${sees.size} can see pictures (charts are sent to them as pictures as well as numbers): ${[...sees].join(", ")}` : "; none can see pictures, so charts go as numbers only") : ""}.` : status.ollama.error ?? "Not reachable.") : "Checking…"}
         save={(v) => save({ ollama_url: v })} />
       <Field label="Default model" hint={names.length ? "Largest first. Pull more with: ollama pull <name>" : "No models found yet."}>
         <select value={s.ai_model} onChange={(e) => save({ ai_model: e.target.value })} aria-label="Default model">
           <option value="">First installed{names[0] ? ` (${names[0]})` : ""}</option>
-          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          {names.map((n) => <option key={n} value={n}>{tag(n)}</option>)}
           {s.ai_model && !names.includes(s.ai_model) && <option value={s.ai_model}>{s.ai_model} (not installed)</option>}
         </select>
       </Field>
       <Field label="Second model, side by side" hint="Each question also goes to this model, its answer beside the first. None to ask one model.">
         <select value={s.ai_model_compare} onChange={(e) => save({ ai_model_compare: e.target.value })} aria-label="Second model">
           <option value="">None</option>
-          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          {names.map((n) => <option key={n} value={n}>{tag(n)}</option>)}
         </select>
       </Field>
       <NumberField label="Temperature" value={s.ai_temperature} min={0} max={2} step={0.1}

@@ -1,5 +1,6 @@
 "use client";
 
+import CardAsk from "@/components/CardAsk";
 import Help from "@/components/Help";
 import type { EChartsOption } from "echarts";
 import { useCallback, useMemo, useState } from "react";
@@ -76,7 +77,7 @@ export default function VotersCard({ entity, name, indicators }: { entity: strin
   const prefix = country?.measures?.[measure]?.prefix ?? "";
   const all = useMemo(() => (country ? country.sets.flatMap((s) => s.lines.map(([id]) => prefix + id)) : []), [country, prefix]);
   const { data, error } = useSeries(entity, all, indicators);
-  const { onReady, save } = useSavePicture();
+  const { onReady, save, ask } = useSavePicture();
   const has = (s: Set) => s.lines.some(([id]) => data?.get(prefix + id)?.length);
   const sets = country?.sets.filter(has) ?? [];
   const set = sets.find((s) => s.key === pick) ?? sets[0];
@@ -118,6 +119,7 @@ export default function VotersCard({ entity, name, indicators }: { entity: strin
     <div className="card" id="voters">
       <div className="card-head">
         <h3>Who votes <Help note="voters" /></h3>
+        <CardAsk onAsk={() => ask(`${title}: ${name}`, country.note, sources, entity)} />
         <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${title}: ${name}`, country.note, sources, "voters", set.key, entity)}>Save picture</button>
       </div>

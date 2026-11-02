@@ -25,6 +25,9 @@ export default function AskAI() {
   const [search, setSearch] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
+  const [pic, setPic] = useState<string | null>(null);
+  const [picOn, setPicOn] = useState(true);
+  const pending = useRef(false); // asked from the top bar: ask once a model is known
   const abort = useRef<AbortController | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -34,6 +37,9 @@ export default function AskAI() {
     setParts(r.parts.map((p) => ({ ...p, on: p.kind === "page" || p.kind === "notes" || ticked.includes(p.kind), open: false })));
     setQuestion(r.question ?? "");
     setTurns([]);
+    setPic(null);
+    pending.current = !!(r.send && r.question);
+    r.picture?.().then(setPic).catch(() => setPic(null));
     api.aiStatus().then((st) => {
       setStatus(st);
       setModel((m) => m || st.default_model || "");
@@ -49,8 +55,14 @@ export default function AskAI() {
     return () => window.removeEventListener("keydown", esc);
   }, [req, busy]);
 
+  useEffect(() => {
+    if (pending.current && req && model && !busy) { pending.current = false; void askRef.current?.(); }
+  }, [req, model, busy]);
+  const askRef = useRef<(() => Promise<void>) | null>(null);
+
   if (!req || !s.ai_enabled) return null;
   const models = status?.models.map((m) => m.name) ?? [];
+  const sees = new Set(status?.models.filter((m) => m.vision).map((m) => m.name) ?? []);
   const usage = status?.search.usage;
   const searchNote = !status ? "" : !status.search.ready ? status.search.why ?? "Web search is not available."
     : status.search.engine === "brave" && usage
@@ -86,6 +98,7 @@ export default function AskAI() {
       ...(before.length ? [{ label: "Earlier in this conversation", text: before.join("\n\n") }] : [])];
     await Promise.all(ms.map((m, i) => askStream({
       question: q, model: m, context, web, title: req.title, page: req.page, entity: req.entity, indicator: req.indicator,
+      images: pic && picOn ? [pic] : undefined,
       group: ms.length > 1 ? id : undefined,
     }, (ev) => {
       if (ev.type === "thinking") updateRun(id, i, (r) => ({ ...r, thinking: true }));
@@ -99,6 +112,8 @@ export default function AskAI() {
     abort.current = null;
   };
 
+  askRef.current = ask;
+
   return (
     <aside className="ask-ai" aria-label="Ask AI">
       <div className="ask-head">
@@ -111,7 +126,16 @@ export default function AskAI() {
       {status?.ollama.ok && !models.length && <p className="error small">No models installed in Ollama. Install one, for example: <code>ollama pull qwen3:32b</code></p>}
 
       <details className="ask-context" open={turns.length === 0}>
-        <summary className="small">Sent with the question ({parts.filter((p) => p.on).length} of {parts.length})</summary>
+        <summary className="small">Sent with the question ({parts.filter((p) => p.on).length + (pic && picOn ? 1 : 0)} of {parts.length + (pic ? 1 : 0)})</summary>
+        {pic && (
+          <div className="ask-part">
+            <label className="small" title="Models that can see pictures (such as gemma3, qwen2.5vl, llama3.2-vision) read the chart itself; others get the numbers only">
+              <input type="checkbox" checked={picOn} onChange={(e) => setPicOn(e.target.checked)} />
+              {" "}Picture of the chart <span className="muted">({sees.has(model) ? `${model} can see pictures` : sees.size
+                ? `${model} can't see pictures; ${[...sees].join(", ")} can` : "none of your models can see pictures; they get the numbers"})</span>
+            </label>
+          </div>
+        )}
         {parts.map((p, i) => (
           <div key={p.key} className="ask-part">
             <label className="small">
@@ -145,7 +169,7 @@ export default function AskAI() {
         <div className="ask-controls small">
           <select value={model} onChange={(e) => setModel(e.target.value)} aria-label="Model">
             {!models.length && <option value="">No models</option>}
-            {models.map((m) => <option key={m} value={m}>{m}</option>)}
+            {models.map((m) => <option key={m} value={m}>{m}{sees.has(m) ? " (sees pictures)" : ""}</option>)}
           </select>
           <select value={second} onChange={(e) => setSecond(e.target.value)} aria-label="Second model, side by side">
             <option value="">No second model</option>
@@ -189,7 +213,7 @@ function RunView({ run, web, question, title, entity, indicator }: { run: Run; w
   };
   return (
     <div className="ask-run">
-      <div className="small muted">{run.model}</div>
+      <div className="small muted">{run.model}{run.answer?.picture ? ` · picture ${run.answer.picture}` : ""}</div>
       {run.thinking && !visible(run.text) && <p className="muted small">Thinking…</p>}
       {!run.text && !run.thinking && !run.error && <p className="muted small">Waiting for the model…</p>}
       <AnswerText text={run.text} results={web?.results ?? []} />
