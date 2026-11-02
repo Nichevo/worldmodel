@@ -8,10 +8,12 @@ import ChartCard from "@/components/ChartCard";
 import CountryAbout from "@/components/CountryAbout";
 import DebtCard from "@/components/DebtCard";
 import EducationCard from "@/components/EducationCard";
+import EnergyFlowCard from "@/components/EnergyFlowCard";
 import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
 import HousingCard from "@/components/HousingCard";
 import MigrationCard from "@/components/MigrationCard";
+import VotersCard from "@/components/VotersCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -157,10 +159,12 @@ export default function EntityPage() {
       <Timeline entity={entity.entity_id} name={entity.short_name} isGroup={isGroup} />
 
       <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      {!isGroup && byId.get("energy_balance_pj")?.available && <EnergyFlowCard entity={entity.entity_id} name={entity.short_name} />}
       <HousingCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && <DebtCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
       <MigrationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       <EducationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
+      {!isGroup && <VotersCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
       {!isGroup && (
         <div className="charts-bar small">
           <label title="Colour these charts by the party of the head of government (Settings: Governing party)">

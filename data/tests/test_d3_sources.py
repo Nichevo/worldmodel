@@ -124,3 +124,10 @@ def test_map_layers(con):
     quakes = {f["properties"]["mag"]: f["properties"] for f in json.loads(layers["earthquakes"][3])["features"]}
     assert quakes[7.8]["date"] == "2016-11-13" and quakes[7.8]["depth"] == 15 and quakes[7.8]["tsunami"] == 1
     assert layers["earthquakes"][1] == "point" and layers["earthquakes"][4] == "usgs_earthquakes"
+
+
+def test_policy_and_exchange_rates(con):
+    assert value(con, "NZL", "bis_policy_rate", 2023) == pytest.approx((5 * 4.75 + 7 * 5.5) / 12)
+    assert value(con, "NZL", "bis_policy_rate_end", 2024) == pytest.approx(4.25)
+    assert value(con, "USA", "bis_policy_rate", 2024) == pytest.approx(5.375)
+    assert value(con, "NZL", "bis_usd_exchange_rate", 2024) == pytest.approx(1.65)  # averages only, not end of period

@@ -146,6 +146,7 @@ def refresh(allow_shrink: bool = typer.Option(False)):
     for name in _restage_stale(store):
         typer.echo(f"{name}: staged again with the fixed loader")
     failed = []
+    settings = local.load_settings(p.home)
     for source_id, cls in CONNECTORS.items():
         last = store.latest(source_id)
         size = sum(f.get("bytes", 0) for f in last.files) if last else 0
@@ -154,6 +155,10 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         if full and size > LARGE_DOWNLOAD:
             entry.update(status="skipped", note=f"limit reached; last download {size / 1024 ** 2:.0f} MB")
             typer.echo(f"{source_id}: skipped (data folder at its limit)")
+            continue
+        if cls.pack and not settings.get(f"pack_{cls.pack}", True):
+            entry.update(status="skipped", vintage=last.vintage if last else None, note="country pack switched off")
+            typer.echo(f"{source_id}: skipped (the {cls.pack.upper()} pack is switched off in Settings)")
             continue
         wait = _not_due(cls, last)
         if wait:

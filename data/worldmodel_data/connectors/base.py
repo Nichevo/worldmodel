@@ -92,7 +92,10 @@ class HttpCache:
 class Connector(ABC):
     source_id: str = ""
     frozen = False                     # True: a refresh skips the source once it has a vintage (a closed archive)
+    pack: str | None = None            # a country pack ("nz"): fetched only while Settings switches it on (pack_<x>)
     manual = False                     # True: never downloaded; loaded with `fetch <source> --from FILE` only
+    keeps_files = False                # True: files of the last vintage that this fetch did not bring again are
+                                       # carried into the new one (files loaded by hand one at a time add up)
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
     # Raise when stage() changes in a way that alters stored output: vintages staged by an
     # older version are staged again from their raw files (by `upgrade`, or the next fetch).
@@ -170,6 +173,9 @@ class Connector(ABC):
             files = [p for p in staging.iterdir() if p.is_file()]
             if not files:
                 raise ConnectorError(f"{self.source_id}: no files fetched")
+            if self.keeps_files:
+                self._carry_files(store, staging)
+                files = [p for p in staging.iterdir() if p.is_file()]
             sha, file_info = sha256_files(files)
             existing = store.find_by_hash(self.source_id, sha)
             if existing:
@@ -262,6 +268,17 @@ class Connector(ABC):
         manifest.row_count, manifest.stage_version = rows, self.stage_version
         manifest.text_count, manifest.event_count, manifest.layer_count = texts, events, len(self.layers)
         manifest.write(out_dir / "manifest.json")
+
+    def _carry_files(self, store: VintageStore, staging: Path) -> None:
+        """Copy into `staging` the last vintage's files whose names it does not have."""
+        last = store.latest(self.source_id)
+        if not last:
+            return
+        have = {p.name.lower() for p in staging.iterdir()}
+        old = store.paths.home / last.raw_dir
+        for f in sorted(old.iterdir()) if old.is_dir() else []:
+            if f.is_file() and f.name.lower() not in have and f.name != "http_cache.json":
+                shutil.copy2(f, staging / f.name)
 
     def _copy_local(self, from_path: Path, dest: Path) -> str:
         from_path = Path(from_path)
