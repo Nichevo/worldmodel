@@ -1,0 +1,145 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Sydney Metro"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "rapid transit"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "AUS"
+    },
+    "cityLabel": {
+     "type": "literal",
+     "value": "Sydney"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(151.0 -33.8)"
+    },
+    "length": {
+     "type": "literal",
+     "value": "66000"
+    },
+    "opened": {
+     "type": "literal",
+     "value": "2019-05-26T00:00:00Z"
+    },
+    "riders": {
+     "type": "literal",
+     "value": "20000000"
+    },
+    "ridersAt": {
+     "type": "literal",
+     "value": "2022-01-01T00:00:00Z"
+    },
+    "article": {
+     "type": "literal",
+     "value": "https://en.wikipedia.org/wiki/Sydney_Metro"
+    }
+   },
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Sydney Metro"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "rapid transit"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "AUS"
+    },
+    "cityLabel": {
+     "type": "literal",
+     "value": "Sydney"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(151.0 -33.8)"
+    },
+    "length": {
+     "type": "literal",
+     "value": "66000"
+    },
+    "opened": {
+     "type": "literal",
+     "value": "2019-05-26T00:00:00Z"
+    },
+    "riders": {
+     "type": "literal",
+     "value": "30000000"
+    },
+    "ridersAt": {
+     "type": "literal",
+     "value": "2024-01-01T00:00:00Z"
+    }
+   },
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q2"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Auckland rail network"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "commuter rail"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "cityLabel": {
+     "type": "literal",
+     "value": "Auckland"
+    },
+    "length": {
+     "type": "literal",
+     "value": "113000"
+    },
+    "inception": {
+     "type": "literal",
+     "value": "1873-01-01T00:00:00Z"
+    }
+   },
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q3"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Q3"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "light rail"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    }
+   }
+  ]
+ }
+}

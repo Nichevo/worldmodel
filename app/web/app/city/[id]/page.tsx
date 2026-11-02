@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import PlacesCard from "@/components/PlacesCard";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
@@ -120,6 +121,8 @@ export default function CityPage() {
         <h3>Everyday prices</h3>
         <NumbeoPrices kind="cities" id={c.city_id} place={c.name} />
       </section>
+
+      {d.places && d.places.length > 0 && <PlacesCard city={c.city_id} rows={d.places} name={c.name} />}
 
       {d.others.length > 0 && (
         <section className="card">

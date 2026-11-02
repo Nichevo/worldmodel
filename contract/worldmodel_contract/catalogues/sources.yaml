@@ -108,6 +108,19 @@
   status: active
   default_rank: 5
 
+- id: wikidata_places
+  name: Wikidata places (metro and rail systems and stations, universities, large companies)
+  short_name: Wikidata places
+  publisher: Wikimedia Foundation and Wikidata contributors
+  url: https://www.wikidata.org/
+  licence: CC0 1.0 (data)
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: Live; fetched once every four weeks in five queries
+  attribution: "Wikidata (CC0)."
+  status: active
+  default_rank: 5
+
 - id: wikipedia
   name: Wikipedia article introductions and pictures (fetched by the app, on demand)
   short_name: Wikipedia

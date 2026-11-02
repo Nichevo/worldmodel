@@ -62,6 +62,28 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 1.1,
     }),
   },
+  transit_stations: {
+    legend: "Metro and rail station", swatch: () => cssVar("--series-3"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-3"), "circle-opacity": 0.85, "circle-radius": zoomWidth(1.2, 3.5),
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4,
+    }),
+  },
+  universities: {
+    legend: "University, sized by students", swatch: () => cssVar("--series-5"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-5"), "circle-opacity": 0.75,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "students"], 5000]], 0, 2, 100, 3, 300, 8],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+    }),
+  },
+  companies: {
+    legend: "Big company head office", swatch: () => cssVar("--series-6"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-6"), "circle-opacity": 0.75, "circle-radius": zoomWidth(2.2, 5),
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+    }),
+  },
 };
 
 // The text shown when the pointer is over one of a layer's features.
@@ -79,6 +101,14 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "major_cities") {
     const pop = typeof p.population === "number" ? `${(p.population / 1e6).toFixed(p.population >= 1e7 ? 0 : 1)} million people` : "";
     return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}<br/>${pop}<br/><span class="muted">Click for the city page</span>`;
+  }
+  if (layer === "transit_stations") return `<b>${esc(p.name)}</b> (station)${p.system ? `<br/>${esc(p.system)}` : ""}`;
+  if (layer === "universities") {
+    return `<b>${esc(p.name)}</b> (university)${typeof p.students === "number" ? `<br/>${Math.round(p.students).toLocaleString()} students` : ""}`;
+  }
+  if (layer === "companies") {
+    const rev = typeof p.revenue === "number" ? `<br/>Revenue ${esc(p.currency)} ${(p.revenue / 1e9).toFixed(1)} billion${p.revenue_year ? ` (${p.revenue_year})` : ""}` : "";
+    return `<b>${esc(p.name)}</b> (company)${rev}${p.industry ? `<br/>${esc(p.industry)}` : ""}`;
   }
   if (layer === "points") {
     return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}${p.text ? `<br/>${esc(p.text)}` : ""}`;
