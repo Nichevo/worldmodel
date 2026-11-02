@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api, askStream, type AIAnswer, type AIStatus, type WebResult, type WebSearch } from "@/lib/api";
-import { keep, onAsk, type AskPart, type AskRequest } from "@/lib/ai";
+import { keep, onAsk, pageCharts, type AskPart, type AskRequest, type PageChart } from "@/lib/ai";
 import { useSettings } from "@/lib/settings";
 
 // The Ask AI box: a panel down the right of the page, opened by any Ask AI button or
 // by the highlight menu. It lists what will go with the question, each part with a
-// tick box and editable; asks one model, or two side by side (Settings: Local AI);
-// with Search the web ticked, one search (Brave or SearXNG) feeds both. Answers
-// stream in and are kept on the AI notes page.
+// tick box and editable. "Add a chart from this page" brings in another chart's figures
+// and picture. Asks one model, or two side by side when you add a second; with Search
+// the web ticked (the default, Settings: Local AI), one search (Brave or SearXNG) feeds
+// both. Answers stream in and are kept on the AI notes page.
 type Run = { model: string; text: string; thinking: boolean; answer: AIAnswer | null; error: string | null };
+type Pic = { key: string; title: string; url: string; on: boolean };
 type Turn = { id: string; question: string; web: WebSearch | null; webError: string | null; searching: boolean; runs: Run[] };
 
 export default function AskAI() {
@@ -25,8 +27,9 @@ export default function AskAI() {
   const [search, setSearch] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
-  const [pic, setPic] = useState<string | null>(null);
-  const [picOn, setPicOn] = useState(true);
+  const [pics, setPics] = useState<Pic[]>([]);
+  const [charts, setCharts] = useState<PageChart[]>([]);
+  const [adding, setAdding] = useState<string | null>(null);
   const pending = useRef(false); // asked from the top bar: ask once a model is known
   const abort = useRef<AbortController | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -37,16 +40,20 @@ export default function AskAI() {
     setParts(r.parts.map((p) => ({ ...p, on: p.kind === "page" || p.kind === "notes" || ticked.includes(p.kind), open: false })));
     setQuestion(r.question ?? "");
     setTurns([]);
-    setPic(null);
+    setPics([]);
+    setCharts(pageCharts().filter((c) => c.title !== r.title));
+    setSearch(s.ai_search_default);
+    setSecond("");
+    setStatus(null); // a question from the top bar waits for the models, then asks
     pending.current = !!(r.send && r.question);
-    r.picture?.().then(setPic).catch(() => setPic(null));
+    r.picture?.().then((url) => { if (url) setPics([{ key: "this", title: "the chart", url, on: true }]); }).catch(() => undefined);
     api.aiStatus().then((st) => {
       setStatus(st);
       setModel((m) => m || st.default_model || "");
-      setSecond(s.ai_model_compare && st.models.some((x) => x.name === s.ai_model_compare) ? s.ai_model_compare : "");
+      setSecond(s.ai_compare_default ? compareModel(st, s.ai_model_compare, st.default_model ?? "") : "");
     }).catch(() => setStatus(null));
     setTimeout(() => box.current?.focus(), 50);
-  }), [s.ai_context_default, s.ai_model_compare]);
+  }), [s.ai_context_default, s.ai_model_compare, s.ai_compare_default, s.ai_search_default]);
 
   useEffect(() => {
     if (!req) return;
@@ -56,8 +63,8 @@ export default function AskAI() {
   }, [req, busy]);
 
   useEffect(() => {
-    if (pending.current && req && model && !busy) { pending.current = false; void askRef.current?.(); }
-  }, [req, model, busy]);
+    if (pending.current && req && model && status && !busy) { pending.current = false; void askRef.current?.(); }
+  }, [req, model, status, busy]);
   const askRef = useRef<(() => Promise<void>) | null>(null);
 
   if (!req || !s.ai_enabled) return null;
@@ -69,6 +76,26 @@ export default function AskAI() {
       ? `Brave: ${usage.today}${usage.daily_limit ? ` of ${usage.daily_limit}` : ""} today, ${usage.month} this month${usage.estimated_cost_usd ? ` (about $${usage.estimated_cost_usd.toFixed(2)} past the credit)` : ""}`
       : `SearXNG at ${s.searxng_url}`;
 
+  const searchReady = !status || status.search.ready; // tickable before the status is in
+  const picsOn = pics.filter((p) => p.on);
+
+  // Another chart on the page: its figures join the parts, its picture the pictures.
+  const addChart = async (i: number) => {
+    const c = charts[i];
+    if (!c) return;
+    const key = `chart${Date.now()}`;
+    setAdding(c.title);
+    let more: AskPart[] = [];
+    try { more = c.parts(); } catch { /* no figures yet */ }
+    setParts((ps) => [...ps, ...more.map((p) => ({ ...p, key: `${key}-${p.key}`, label: `${c.title}: ${p.label}`, on: true, open: false }))]);
+    try {
+      const url = await c.picture?.();
+      if (url) setPics((ps) => [...ps, { key, title: c.title, url, on: true }]);
+    } catch { /* figures only */ }
+    setCharts((cs) => cs.filter((x) => x !== c));
+    setAdding(null);
+  };
+
   const update = (id: string, f: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? f(t) : t)));
   const updateRun = (id: string, i: number, f: (r: Run) => Run) => update(id, (t) => ({ ...t, runs: t.runs.map((r, j) => (j === i ? f(r) : r)) }));
 
@@ -77,13 +104,13 @@ export default function AskAI() {
     if (!q || busy || !model) return;
     const id = Math.random().toString(36).slice(2, 10);
     const ms = [model, ...(second && second !== model ? [second] : [])];
-    setTurns((ts) => [...ts, { id, question: q, web: null, webError: null, searching: search, runs: ms.map((m) => ({ model: m, text: "", thinking: false, answer: null, error: null })) }]);
+    setTurns((ts) => [...ts, { id, question: q, web: null, webError: null, searching: search && searchReady, runs: ms.map((m) => ({ model: m, text: "", thinking: false, answer: null, error: null })) }]);
     setQuestion("");
     setBusy(true);
     const ctl = new AbortController();
     abort.current = ctl;
     let web: WebSearch | null = null;
-    if (search) {
+    if (search && searchReady) {
       try {
         web = await api.aiSearch(q, model);
         update(id, (t) => ({ ...t, web, searching: false }));
@@ -98,7 +125,7 @@ export default function AskAI() {
       ...(before.length ? [{ label: "Earlier in this conversation", text: before.join("\n\n") }] : [])];
     await Promise.all(ms.map((m, i) => askStream({
       question: q, model: m, context, web, title: req.title, page: req.page, entity: req.entity, indicator: req.indicator,
-      images: pic && picOn ? [pic] : undefined,
+      images: picsOn.length ? picsOn.map((p) => p.url) : undefined,
       group: ms.length > 1 ? id : undefined,
     }, (ev) => {
       if (ev.type === "thinking") updateRun(id, i, (r) => ({ ...r, thinking: true }));
@@ -126,16 +153,16 @@ export default function AskAI() {
       {status?.ollama.ok && !models.length && <p className="error small">No models installed in Ollama. Install one, for example: <code>ollama pull qwen3:32b</code></p>}
 
       <details className="ask-context" open={turns.length === 0}>
-        <summary className="small">Sent with the question ({parts.filter((p) => p.on).length + (pic && picOn ? 1 : 0)} of {parts.length + (pic ? 1 : 0)})</summary>
-        {pic && (
-          <div className="ask-part">
+        <summary className="small">Sent with the question ({parts.filter((p) => p.on).length + picsOn.length} of {parts.length + pics.length})</summary>
+        {pics.map((p, i) => (
+          <div key={p.key} className="ask-part">
             <label className="small" title="Models that can see pictures (such as gemma3, qwen2.5vl, llama3.2-vision) read the chart itself; others get the numbers only">
-              <input type="checkbox" checked={picOn} onChange={(e) => setPicOn(e.target.checked)} />
-              {" "}Picture of the chart <span className="muted">({sees.has(model) ? `${model} can see pictures` : sees.size
+              <input type="checkbox" checked={p.on} onChange={(e) => setPics(pics.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} />
+              {" "}Picture of {p.title} <span className="muted">({sees.has(model) ? `${model} can see pictures` : sees.size
                 ? `${model} can't see pictures; ${[...sees].join(", ")} can` : "none of your models can see pictures; they get the numbers"})</span>
             </label>
           </div>
-        )}
+        ))}
         {parts.map((p, i) => (
           <div key={p.key} className="ask-part">
             <label className="small">
@@ -147,6 +174,15 @@ export default function AskAI() {
               onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />}
           </div>
         ))}
+        {charts.length > 0 && (
+          <div className="ask-part">
+            <select className="small" value="" disabled={!!adding} aria-label="Add a chart from this page"
+              onChange={(e) => { if (e.target.value !== "") void addChart(+e.target.value); }}>
+              <option value="">{adding ? `Getting ${adding}…` : `Add a chart from this page (${charts.length})…`}</option>
+              {charts.map((c, i) => <option key={i} value={i}>{c.title}</option>)}
+            </select>
+          </div>
+        )}
       </details>
 
       <div className="ask-turns">
@@ -171,12 +207,19 @@ export default function AskAI() {
             {!models.length && <option value="">No models</option>}
             {models.map((m) => <option key={m} value={m}>{m}{sees.has(m) ? " (sees pictures)" : ""}</option>)}
           </select>
-          <select value={second} onChange={(e) => setSecond(e.target.value)} aria-label="Second model, side by side">
-            <option value="">No second model</option>
-            {models.filter((m) => m !== model).map((m) => <option key={m} value={m}>Also {m}</option>)}
-          </select>
+          {second ? (
+            <span className="ask-second">
+              <select value={second} onChange={(e) => setSecond(e.target.value)} aria-label="Second model, side by side">
+                {models.filter((m) => m !== model).map((m) => <option key={m} value={m}>Also {m}</option>)}
+              </select>
+              <button className="link small" onClick={() => setSecond("")} title="Ask one model" aria-label="Take the second model off">×</button>
+            </span>
+          ) : models.length > 1 && (
+            <button className="link small" title="Ask a second model too, its answer beside the first"
+              onClick={() => status && setSecond(compareModel(status, s.ai_model_compare, model))}>Compare with a second model</button>
+          )}
           <label title={searchNote}>
-            <input type="checkbox" checked={search} disabled={!status?.search.ready} onChange={(e) => setSearch(e.target.checked)} />
+            <input type="checkbox" checked={search && searchReady} disabled={!searchReady} onChange={(e) => setSearch(e.target.checked)} />
             {" "}Search the web
           </label>
           <button className="primary" onClick={ask} disabled={busy || !question.trim() || !model}>{busy ? "Answering…" : "Ask"}</button>
@@ -186,6 +229,13 @@ export default function AskAI() {
       </div>
     </aside>
   );
+}
+
+// The second model: the one chosen in Settings if installed, else the first other model.
+function compareModel(st: AIStatus, preferred: string, first: string): string {
+  const names = st.models.map((m) => m.name);
+  if (preferred && names.includes(preferred) && preferred !== first) return preferred;
+  return names.find((n) => n !== first) ?? "";
 }
 
 function WebList({ web }: { web: WebSearch }) {

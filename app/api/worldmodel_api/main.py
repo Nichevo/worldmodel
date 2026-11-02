@@ -1107,7 +1107,7 @@ def ai_search(question: str = Body(..., max_length=20_000), model: str | None = 
     if not q:
         try:
             q = ai.write_query(question, model or ai.default_model(s, ai.models(s)) or "", s)
-        except httpx.HTTPError:
+        except (httpx.HTTPError, ValueError):  # the model could not write a query: search the question itself
             q = question[:200]
     try:
         results = ai.web_search(q, s)

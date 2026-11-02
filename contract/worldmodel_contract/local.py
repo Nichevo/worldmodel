@@ -65,13 +65,15 @@ SETTINGS: dict[str, object] = {
     "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
     "ollama_url": "http://localhost:11434",
     "ai_model": "",                  # default model; "" = the first one installed
-    "ai_model_compare": "",          # second model for side-by-side answers; "" = none
+    "ai_model_compare": "",          # the model offered for side-by-side answers; "" = none
+    "ai_compare_default": False,     # each question goes to both models unless you take the second off
     "ai_temperature": 0.3,
     "ai_context_tokens": 16384,      # Ollama num_ctx: how much text the model reads at once
     "ai_context_default": "data,description,events,highlight",  # context parts ticked by default
     "ai_search_engine": "brave",     # "brave" (needs BRAVE_API_KEY; can cost money), "searxng" (free, local) or "off"
     "searxng_url": "http://localhost:8080",
     "ai_search_results": 5,          # web results given to the model per question
+    "ai_search_default": True,       # Search the web is ticked when the Ask AI box opens
     "brave_daily_limit": 30,         # Brave searches a day; 0 = no limit
     "brave_monthly_limit": 0,        # Brave searches a month; 0 = no limit
     "brave_free_monthly": 1000,      # searches the monthly credit covers ($5 at $5 per 1,000)

@@ -236,12 +236,14 @@ function AISettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>)
           {s.ai_model && !names.includes(s.ai_model) && <option value={s.ai_model}>{s.ai_model} (not installed)</option>}
         </select>
       </Field>
-      <Field label="Second model, side by side" hint="Each question also goes to this model, its answer beside the first. None to ask one model.">
+      <Field label="Model to compare with" hint="Offered by “Compare with a second model” in the Ask AI box, which puts its answer beside the first.">
         <select value={s.ai_model_compare} onChange={(e) => save({ ai_model_compare: e.target.value })} aria-label="Second model">
-          <option value="">None</option>
+          <option value="">Choose each time</option>
           {names.map((n) => <option key={n} value={n}>{tag(n)}</option>)}
         </select>
       </Field>
+      <Toggle label="Side by side from the start" hint="Off: each question goes to one model, and you add the second in the box when you want it."
+        on={s.ai_compare_default} set={(v) => save({ ai_compare_default: v })} />
       <NumberField label="Temperature" value={s.ai_temperature} min={0} max={2} step={0.1}
         note="0 keeps answers steady and literal; higher is more varied." save={(v) => save({ ai_temperature: v })} />
       <NumberField label="Context length" unit="tokens" value={s.ai_context_tokens} min={1024} max={1048576} step={1024}
@@ -286,6 +288,8 @@ function AISettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>)
         <TextField label="SearXNG address" value={s.searxng_url} placeholder="http://localhost:8080"
           note="Run it with Docker (see the README); its settings.yml must allow the json format." save={(v) => save({ searxng_url: v })} />
       )}
+      <Toggle label="Search the web by default" hint="Search the web starts ticked in the Ask AI box (and for questions typed in the top bar). Untick it for one question in the box."
+        on={s.ai_search_default} set={(v) => save({ ai_search_default: v })} />
       <NumberField label="Web results per question" value={s.ai_search_results} min={1} max={20} step={1} save={(v) => save({ ai_search_results: v })} />
     </section>
   );
