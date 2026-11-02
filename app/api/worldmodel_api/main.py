@@ -34,7 +34,7 @@ from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, highlights, layouts, numbeo, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1310,6 +1310,51 @@ def _milestone_rows() -> list[dict]:
              "precision": "day", "size": None, "size_unit": None, "deaths": None, "affected": None, "damage_usd": None,
              "place": None, "url": m.get("url"), "detail": m.get("note") or None, "color": None, "milestone_id": m["id"]}
             for m in userdata.milestones()]
+
+
+@api.get("/basemap")
+def basemap_status():
+    """The local map files, whether the tool and fonts are in, and what a refresh is doing."""
+    return basemap.status()
+
+
+@api.post("/basemap/estimate")
+def basemap_estimate():
+    """How big the map files for the current Settings would be (nothing is downloaded but the tool)."""
+    try:
+        return basemap.estimate()
+    except Exception as exc:  # the site, the tool or the network: say which
+        raise HTTPException(502, basemap._explain(exc))
+
+
+@api.post("/basemap/make")
+def basemap_make():
+    """Make (or remake) the map files in the background; GET /basemap shows how it is going."""
+    return basemap.start()
+
+
+@api.delete("/basemap/files/{name}")
+def basemap_delete(name: str):
+    if not basemap.remove(name):
+        raise HTTPException(404, f"no map file {name}")
+    return {"ok": True}
+
+
+@api.get("/basemap/files/{name}")
+def basemap_file(name: str):
+    """One map file, read by the map in pieces (HTTP range requests)."""
+    p = basemap.root() / name
+    if not name.endswith(".pmtiles") or p.parent != basemap.root() or not p.is_file():
+        raise HTTPException(404, f"no map file {name}: make the map files in Settings > Map")
+    return FileResponse(p, media_type="application/vnd.pmtiles")
+
+
+@api.get("/basemap/fonts/{stack}/{part}")
+def basemap_font(stack: str, part: str):
+    p = basemap.root() / "fonts" / stack / part
+    if not re.fullmatch(r"\d+-\d+\.pbf", part) or p.parent.parent != basemap.root() / "fonts" or not p.is_file():
+        raise HTTPException(404, "no such font range")
+    return FileResponse(p, media_type="application/x-protobuf", headers={"Cache-Control": "max-age=604800"})
 
 
 @api.get("/layers")
