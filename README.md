@@ -176,7 +176,7 @@ with identical content is skipped; a revised release becomes a new vintage
 | World Bank Global Economic Prospects | GDP growth, estimates and forecasts, as a further source of `gdp_growth` | World Bank API (source 27); each edition (January, June) stored as its own vintage; checked every two weeks |
 | Eurostat AI use in enterprises | Share of enterprises (10+ employees) using at least one AI technology (`ai_use_enterprises`) | Eurostat SDMX-CSV of `isoc_eb_ai`; every four weeks |
 | Anthropic Economic Index | Claude use per working-age person against the world average, and share of world use (`ai_claude_use_per_capita_index`, `ai_claude_use_share`) | The newest enriched Claude.ai file in the Hugging Face dataset `Anthropic/EconomicIndex`; every four weeks |
-| Microsoft AI Diffusion Report | Share of working-age people using AI (`ai_use_population`) | Loaded by hand: `.\load.bat ms_ai_diffusion <file>` |
+| Microsoft AI Diffusion Report | Share of working-age people using AI (`ai_use_population`), each year's latest half-year or quarter | From github.com/microsoft/ai-diffusion-report every four weeks |
 | BIS policy rates and exchange rates | Central bank policy rates (yearly average and December), and each currency's US dollar rate | BIS statistics API (`WS_CBPOL`, `WS_XRU`) |
 | US Census Bureau voting tables | Who voted and who registered at every November election since 1964: by age group, by sex (also within age groups), and for White non-Hispanic, Black, Asian and Hispanic Americans; citizens and all residents | Table A-1 (`hst_vote01.xlsx`), checked every three months. If the Census site refuses it, download it from the voting historical time series page and run `.\load.bat us_census_voting <file>` |
 | Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
@@ -374,9 +374,8 @@ before, and its sources with their licences.
 Eurostat's share of enterprises using AI (EU and nearby, yearly, fetched by
 `refresh`), the Anthropic Economic Index's Claude use per person and share of
 world use (fetched from its Hugging Face dataset by `refresh`), and Microsoft's
-AI Diffusion Report share of working-age people using AI. Microsoft publishes
-that table with its report, so download it and load it by hand:
-`.\load.bat ms_ai_diffusion <file.csv or .xlsx>`.
+AI Diffusion Report share of working-age people using AI (fetched by `refresh`
+from Microsoft's GitHub repository; each year shows its latest period).
 
 **Voting** is a topic page too, and country pages for the US and New Zealand
 have a **Who votes** card: turnout by age group (young to old, light to dark),

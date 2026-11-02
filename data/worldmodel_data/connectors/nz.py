@@ -300,6 +300,7 @@ class NZCorrections(Connector):
 
     source_id = "nz_corrections"
     pack = "nz"
+    keeps_files = True  # quarterly pages saved by hand add to the ones before
     fetch_every_days = 28
     BACKFILL = 20
 
@@ -338,12 +339,23 @@ class NZCorrections(Connector):
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows, latest = Rows(), {}
-        for p in sorted(raw_dir.glob("prisons_*.html")):
-            m = re.search(r"(\d{4})-(\d{2})", p.name)
-            if not m:
+        for p in sorted(raw_dir.iterdir()):
+            if p.suffix.lower() not in (".html", ".htm"):
                 continue
-            got = read_prison_page(p.read_text(encoding="utf-8", errors="replace"))
-            y, mo = int(m.group(1)), int(m.group(2))
+            text = p.read_text(encoding="utf-8", errors="replace")
+            # Fetched pages are named prisons_YYYY-MM.html; a page saved by hand is dated by its
+            # title ("Prison facts and statistics - December 2024") or its file name.
+            m = re.search(r"prisons_(\d{4})-(\d{2})", p.name)
+            if m:
+                y, mo = int(m.group(1)), int(m.group(2))
+            else:
+                title = re.search(r"<title[^>]*>(.*?)</title>", text, re.S | re.I)
+                found = re.search(r"(march|june|september|december)\W*(\d{4})", (title.group(1) if title else "") + " " + p.name, re.I)
+                if not found:
+                    log.warning("nz_corrections: %s has no quarter in its title or name; skipped", p.name)
+                    continue
+                y, mo = int(found.group(2)), MONTHS[found.group(1).lower()]
+            got = read_prison_page(text)
             if got and (y not in latest or mo > latest[y][0]):
                 latest[y] = (mo, got)
         for y, (_, got) in latest.items():

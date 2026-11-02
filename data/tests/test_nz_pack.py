@@ -156,3 +156,20 @@ def test_mbie_energy_balance_and_flow(tmp_path):
     got = TestClient(main.app).get("/api/v1/energy-flow", params={"entity": "NZL", "year": 2030}).json()
     assert got["years"] == [2024, 2025] and got["year"] == 2025 and got["totals"]["primary_supply"] == pytest.approx(827.053, abs=0.01)
     assert TestClient(main.app).get("/api/v1/energy-flow", params={"entity": "AUS"}).json()["years"] == []
+
+
+def test_corrections_page_saved_by_hand_is_dated_by_its_title(tmp_path):
+    fixtures = Path(__file__).parent / "fixtures" / "nz_corrections"
+    saved = tmp_path / "saved"
+    saved.mkdir()
+    page = (fixtures / "prisons_2025-12.html").read_text()
+    (saved / "Prison facts and statistics.html").write_text(
+        "<title>Prison facts and statistics - March 2026</title>" + page.replace("10,860", "11,000").replace("10860", "11000"))
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    CONNECTORS["imf_weo"]().ingest(store, Path(__file__).parent / "fixtures" / "imf_weo")
+    CONNECTORS["nz_corrections"]().ingest(store, saved)
+    con = duckdb.connect(str(build(home).path), read_only=True)
+    vals = dict(con.execute("SELECT year(period_start), value FROM series WHERE entity_id = 'NZL' "
+                            "AND indicator_id = 'nz_prisoners_total'").fetchall())
+    assert 2026 in vals

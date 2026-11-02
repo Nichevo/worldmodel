@@ -26,7 +26,7 @@ def test_prepare_makes_a_folder_per_hand_loaded_or_often_blocked_source(home):
     made = manual.prepare(paths(), CONNECTORS)
     assert {"emdat", "rbnz", "powell_thyne", "nz_election_turnout"} <= set(made)
     note = (manual.folder(paths(), "powell_thyne") / manual.ABOUT).read_text(encoding="utf-8")
-    assert "uky.edu" in note and "load.bat powell_thyne" in note
+    assert "jonathanmpowell.com" in note and "load.bat powell_thyne" in note
     assert manual.prepare(paths(), CONNECTORS) == []  # already there
     assert manual.files(manual.folder(paths(), "powell_thyne")) == []  # the note is not a file to load
 
