@@ -1,5 +1,6 @@
 "use client";
 
+import CardAsk from "@/components/CardAsk";
 import Help from "@/components/Help";
 import { useCallback, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
@@ -58,7 +59,7 @@ export default function HousingCard({ entity, name, indicators }: { entity: stri
   const [pick, setPick] = useState<string | null>(null);
   const [baseChoice, setBaseChoice] = useState<number | null>(null);
   const [debtPick, setDebtPick] = useState<string | null>(null);
-  const { onReady, save } = useSavePicture();
+  const { onReady, save, ask } = useSavePicture();
 
   const options = (t: "nominal" | "real") => PAIRS[t].filter((h) => data?.get(h.id)?.length)
     .map((h) => ({ ...h, inc: h.income.find((i) => data?.get(i.id)?.length) ?? null }));
@@ -120,6 +121,7 @@ export default function HousingCard({ entity, name, indicators }: { entity: stri
     <div className="card" id="housing">
       <div className="card-head">
         <h3>House prices and incomes <Help note="housing" /></h3>
+        {lines.length > 0 && <CardAsk onAsk={() => ask(`${title}: ${name}`, note, sources, entity)} />}
         {lines.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${title}: ${name}`, note, sources, "housing", view, entity)}>Save picture</button>}
       </div>

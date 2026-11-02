@@ -37,6 +37,8 @@ def test_bloc_membership_dates():
     assert len(members("eu", "1990-07-01")) == 12
     assert len(members("eu", "2024-07-01")) == 27
     assert "FIN" in members("nato", "2024-01-01") and "SWE" not in members("nato", "2024-01-01")
+    assert len(members("oecd", "2024-01-01")) == 38 and "COL" not in members("oecd", "2019-12-31")
+    assert "GBR" in members("cptpp", "2025-01-01") and "GBR" not in members("cptpp", "2024-01-01")
     assert members("usmca", "2019-07-01") == set() and members("nafta", "2019-07-01") == {"USA", "CAN", "MEX"}
 
 

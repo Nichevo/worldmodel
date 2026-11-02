@@ -1693,6 +1693,36 @@ def _country(entity_id: str) -> dict:
     return found[0]
 
 
+@api.get("/numbeo/compare")
+def numbeo_compare():
+    """Every Numbeo price page fetched so far, side by side: one column per city or country,
+    one row per item (US dollars), with each page's name and date."""
+    pages = numbeo.all_cached()
+    names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+    city_names = {}
+    if _has_cities():
+        ids = [p["id"] for p in pages if p.get("kind") == "cities"]
+        if ids:
+            city_names = {r["city_id"]: r for r in rows(
+                "SELECT c.city_id, c.name, c.country_id FROM cities c WHERE c.city_id IN (SELECT unnest(?))", [ids])}
+    places, order, sections = [], [], {}
+    for p in pages:
+        if p.get("kind") == "cities":
+            c = city_names.get(p["id"])
+            label = f"{c['name']}, {names.get(c['country_id'], c['country_id'])}" if c else (p.get("city") or p["id"])
+            country = c["country_id"] if c else None
+        else:
+            label, country = names.get(p["id"], p.get("country") or p["id"]), p["id"]
+        places.append({"kind": p["kind"], "id": p["id"], "name": label, "country_id": country, "url": p.get("url"),
+                       "fetched_at": p.get("fetched_at"), "summary": p.get("summary") or {},
+                       "values": {it["item"]: it["value"] for it in p["items"]}})
+        for it in p["items"]:
+            if it["item"] not in sections:
+                sections[it["item"]] = it["section"]
+                order.append(it["item"])
+    return {"places": places, "items": [{"item": i, "section": sections[i]} for i in order]}
+
+
 @api.get("/entities/{entity_id}/numbeo")
 def country_numbeo(entity_id: str):
     return _numbeo_answer("countries", entity_id, _country(entity_id)["short_name"])

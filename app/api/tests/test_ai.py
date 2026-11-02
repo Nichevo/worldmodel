@@ -19,6 +19,9 @@ def fake(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"models": [
             {"name": "small:8b", "size": 5e9, "details": {"parameter_size": "8B", "family": "qwen3"}},
             {"name": "big:70b", "size": 4e10, "details": {"parameter_size": "70B", "family": "llama"}}]})
+    if url.endswith("/api/show"):
+        model = json.loads(request.content)["model"]
+        return httpx.Response(200, json={"capabilities": ["completion", "vision"] if model == "big:70b" else ["completion"]})
     if url.endswith("/api/version"):
         return httpx.Response(200, json={"version": "0.12.0"})
     if url.endswith("/api/chat"):
@@ -52,6 +55,7 @@ def test_status_lists_models(client):
     st = client.get("/api/v1/ai/status").json()
     assert st["ollama"]["ok"] and st["ollama"]["version"] == "0.12.0"
     assert [m["name"] for m in st["models"]] == ["big:70b", "small:8b"] and st["default_model"] == "big:70b"
+    assert [m["vision"] for m in st["models"]] == [True, False]
     assert st["search"]["ready"] and st["search"]["usage"]["today"] == 0
 
 
@@ -120,3 +124,18 @@ def test_highlights(client):
     assert "| 2023 | 1.56 |" in md and "**Note:** Compare with Japan" in md
     assert client.delete(f"/api/v1/highlights/{b['id']}").status_code == 200
     assert client.get(f"/api/v1/highlights/{b['id']}/picture").status_code == 404
+
+
+def test_chart_picture_goes_only_to_models_that_see(client):
+    ai._SEES.clear()
+    pic = "data:image/png;base64,iVBORw0KGgo="
+    for model, sent in (("big:70b", True), ("small:8b", False)):
+        with client.stream("POST", "/api/v1/ai/ask", json={"question": "What does this chart show?", "model": model,
+                                                            "images": [pic]}) as r:
+            events = [json.loads(line) for line in r.iter_lines() if line]
+        user = CALLS[-1]["body"]["messages"][1]
+        assert ("images" in user) is sent
+        if sent:
+            assert user["images"] == ["iVBORw0KGgo="] and events[-1]["answer"]["picture"] == "sent"
+        else:
+            assert "cannot see pictures" in events[-1]["answer"]["picture"]

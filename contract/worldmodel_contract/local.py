@@ -42,6 +42,7 @@ SETTINGS: dict[str, object] = {
     "history_retention_days": 0,     # 0 keeps history forever
     "problem_banner": True,          # a banner on every page while a refresh problem is open
     "events_on_charts": True,        # dated events as lines and bands on line charts of up to three countries
+    "profile_average": "",           # a group (oecd, g20, world...) whose average joins a country page's rate charts
     "projections_on_charts": True,   # years after the last estimate (UN projections and the like) on charts
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
@@ -74,6 +75,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}
+IDS = {"profile_average"}
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
@@ -123,6 +125,10 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v
+        elif key in IDS:  # one entity id such as g20 or NZL, or "" for none
+            t = str(v or "").strip()
+            if re.fullmatch(r"[A-Za-z0-9_]{0,40}", t):
+                out[key] = t
         elif key in TEXTS:
             t = " ".join(str(v or "").split())[:200]
             if key in URLS:
