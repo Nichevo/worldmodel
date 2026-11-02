@@ -150,7 +150,10 @@ export default function WorldMap({
         id: "selected", type: "line", source: "countries", filter: ["in", ["get", "iso3"], ["literal", []]],
         paint: { "line-color": cssVar("--ink"), "line-width": 2.2 },
       });
-      onLoad.current.splice(0).forEach((f) => f());
+      if (map.current !== m) return; // removed while the shapes loaded
+      onLoad.current.splice(0).forEach((f) => {
+        try { f(); } catch (e) { console.warn("map update skipped", e); }
+      });
     });
     // MapLibre only tracks window resizes; panels resize on their own.
     const ro = new ResizeObserver(() => m.resize());
@@ -232,6 +235,9 @@ export default function WorldMap({
       clearTimeout(pending);
       ro.disconnect();
       onMap?.(null);
+      // Work queued for this map must not run on the next one (React mounts twice in development).
+      onLoad.current = [];
+      if (map.current === m) map.current = null;
       m.remove();
     };
   }, []);
@@ -400,7 +406,7 @@ export default function WorldMap({
   useEffect(() => {
     const m = map.current;
     if (!m) return;
-    const apply = () => m.setFilter("selected", ["in", ["get", "iso3"], ["literal", selectedKey ? selectedKey.split(",") : []]]);
+    const apply = () => m.getLayer("selected") && m.setFilter("selected", ["in", ["get", "iso3"], ["literal", selectedKey ? selectedKey.split(",") : []]]);
     if (m.getLayer("selected")) apply();
     else onLoad.current.push(apply);
   }, [selectedKey]);

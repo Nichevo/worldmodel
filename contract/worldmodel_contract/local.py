@@ -42,6 +42,7 @@ SETTINGS: dict[str, object] = {
     "history_retention_days": 0,     # 0 keeps history forever
     "problem_banner": True,          # a banner on every page while a refresh problem is open
     "events_on_charts": True,        # dated events as lines and bands on line charts of up to three countries
+    "projections_on_charts": True,   # years after the last estimate (UN projections and the like) on charts
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
     "party_colours": False,          # country page charts coloured by the party in government
@@ -409,6 +410,8 @@ def problems(root: Path | None = None) -> list[dict]:
                      summary=s.get("error") or "", examples=[])
             if s.get("status") in ("new", "unchanged", "error"):
                 fetches.setdefault(sid, []).append((when, s.get("status") != "error"))
+        if run.get("kind") == "load":  # files loaded by hand: they clear a refused download, but are not a build
+            continue
         if run.get("status") == "ok":
             builds.append((when, set()))
             continue

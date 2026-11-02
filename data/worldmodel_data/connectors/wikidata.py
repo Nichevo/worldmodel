@@ -17,7 +17,8 @@ Four more queries fetch dated events for the milestones (events.parquet):
 
 * elections: national presidential, general, legislative and parliamentary
   elections and referendums since 1945, past and scheduled (date P585);
-* leaders: heads of state (P35) and government (P6) with their start and end
+* leaders: heads of state (P35) and government (P6), and everyone who held the
+  country's head-of-state (P1906) or head-of-government (P1313) office (P39), with their start and end
   dates, as periods, and the party (P102) each belonged to when the term began
   with the party's colour (P465), for charts coloured by governing party;
 * sport: editions of the major championships in SPORT_COMPETITIONS, with host
@@ -123,9 +124,13 @@ SELECT ?e ?eLabel ?iso3 ?date ?kindName WHERE {
 }""" % _names(ELECTION_TYPES),
     "leaders": """
 SELECT ?iso3 ?office ?person ?personLabel ?start ?end ?party ?partyLabel ?partyStart ?partyEnd ?colour WHERE {
-  VALUES (?p ?ps ?office) { (p:P35 ps:P35 "head of state") (p:P6 ps:P6 "head of government") }
-  ?c wdt:P298 ?iso3 ; ?p ?st .
-  ?st ?ps ?person ; pq:P580 ?start .
+  VALUES (?p ?ps ?held ?office) { (p:P35 ps:P35 wdt:P1906 "head of state") (p:P6 ps:P6 wdt:P1313 "head of government") }
+  ?c wdt:P298 ?iso3 .
+  # Many countries list only the current leader on the country item, so the full
+  # history comes from everyone whose "position held" is the country's office.
+  { ?c ?p ?st . ?st ?ps ?person ; pq:P580 ?start . }
+  UNION
+  { ?c ?held ?post . ?person p:P39 ?st . ?st ps:P39 ?post ; pq:P580 ?start . }
   OPTIONAL { ?st pq:P582 ?end }
   OPTIONAL {
     ?person p:P102 ?ms . ?ms ps:P102 ?party .
@@ -169,7 +174,7 @@ SELECT ?e ?eLabel ?typeName ?iso3 ?start ?end ?date ?deaths ?damage WHERE {
 class Wikidata(Connector):
     source_id = "wikidata"
     fetch_every_days = FETCH_EVERY_DAYS
-    fetch_version = 3  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties
+    fetch_version = 4  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties; 4: every holder of the office
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
