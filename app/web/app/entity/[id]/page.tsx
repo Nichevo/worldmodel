@@ -4,6 +4,7 @@ import Help from "@/components/Help";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import AskButton from "@/components/AskButton";
 import ChartCard from "@/components/ChartCard";
 import CountryAbout from "@/components/CountryAbout";
 import DebtCard from "@/components/DebtCard";
@@ -22,6 +23,7 @@ import { KINDS, kindVar, useChartEvents, useProfileKinds } from "@/lib/events";
 import { useGovernments } from "@/lib/parties";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { logHistory } from "@/lib/history";
+import { eventsText, type AskPart } from "@/lib/ai";
 
 const CHARTS: { id: string; kind?: "line" | "bar" }[] = [
   { id: "pop_total" },
@@ -77,7 +79,19 @@ export default function EntityPage() {
   return (
     <div className="grid">
       <div>
-        <h1>{entity.short_name}</h1>
+        <div className="title-row">
+          <h1>{entity.short_name}</h1>
+          <AskButton title={entity.short_name} entity={entity.entity_id} parts={() => {
+            const parts: AskPart[] = [{ key: "data", kind: "data", label: "Key figures (latest of each)",
+              text: ["Indicator,Value,Unit,Year,Source", ...profile.map((p) => `"${p.name}",${+p.value.toPrecision(6)},"${p.unit}",${p.period},${SOURCE_LABEL[p.source_id] ?? p.source_id}`)].join("\n") }];
+            parts.push({ key: "description", kind: "description", label: `About ${entity.short_name}`,
+              text: [`${entity.name} (${TYPE_LABEL[entity.type] ?? entity.type}).`, entity.description ?? "",
+                entity.groups.length ? `Member of: ${entity.groups.map((g) => g.short_name).join(", ")}.` : "",
+                entity.members.length ? `Members: ${entity.members.map((m) => m.short_name).join(", ")}.` : ""].filter(Boolean).join("\n") });
+            if (chartEvents.length) parts.push({ key: "events", kind: "events", label: "Events", text: eventsText(chartEvents) });
+            return parts;
+          }} />
+        </div>
         <div className="ink-2">
           {TYPE_LABEL[entity.type] ?? entity.type}
           {entity.name !== entity.short_name ? ` · ${entity.name}` : ""}

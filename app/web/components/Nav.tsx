@@ -13,6 +13,8 @@ const LINKS = [
   { href: "/indicators", label: "Indicators" },
   { href: "/sources", label: "Sources" },
   { href: "/data", label: "Data status" },
+  { href: "/ai", label: "AI notes" },
+  { href: "/highlights", label: "Highlights" },
   { href: "/history", label: "History" },
   { href: "/settings", label: "Settings" },
 ];

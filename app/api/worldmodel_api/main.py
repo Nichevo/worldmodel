@@ -22,17 +22,18 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
 from worldmodel_contract import forecast as statforecast
-from worldmodel_api import __version__, layouts, userdata, wiki
+from worldmodel_api import __version__, ai, highlights, layouts, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1083,6 +1084,142 @@ def delete_history(keep_starred: bool = True, before: str | None = Query(None, d
 def history_interest(limit: int = 50):
     """Countries by how often and how recently they were opened; on-demand fetches go in this order."""
     return userdata.entity_interest(limit)
+
+
+# ----------------------------------------------------------------------------- local AI
+@api.get("/ai/status")
+def ai_status():
+    """Is Ollama reachable, which models it has, the default model, and the web search engine with its usage."""
+    return ai.status()
+
+
+@api.post("/ai/search")
+def ai_search(question: str = Body(..., max_length=20_000), model: str | None = Body(None),
+              query: str | None = Body(None, max_length=300)):
+    """One web search for a question: the model writes the query (unless one is given), the engine in
+    Settings answers. Brave searches count against the limits in Settings."""
+    s = userdata.settings()
+    ready, why = ai.search_ready(s)
+    if not ready:
+        raise HTTPException(409, why)
+    q = query
+    if not q:
+        try:
+            q = ai.write_query(question, model or ai.default_model(s, ai.models(s)) or "", s)
+        except httpx.HTTPError:
+            q = question[:200]
+    try:
+        results = ai.web_search(q, s)
+    except ai.SearchLimit as e:
+        raise HTTPException(409, str(e))
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(502, f"{s['ai_search_engine']} search failed: HTTP {e.response.status_code}")
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"{s['ai_search_engine']} search failed: {e}")
+    return {"query": q, "results": results, "engine": s["ai_search_engine"], "usage": ai.search_usage(s)}
+
+
+@api.post("/ai/ask")
+def ai_ask(req: dict = Body(...)):
+    """Ask a model in Ollama; streams one JSON object a line: start, token {text}, done {answer} or error {message}.
+    Body: question, context [{label, text}], model?, web? {query, results}, title?, page?, entity?, indicator?, group?"""
+    if not userdata.settings()["ai_enabled"]:
+        raise HTTPException(409, "Local AI is switched off (Settings: Local AI).")
+
+    def lines():
+        for event in ai.ask(req):
+            yield json.dumps(event, ensure_ascii=False) + "\n"
+    return StreamingResponse(lines(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+
+
+@api.get("/ai/answers")
+def ai_answers(q: str | None = None, entity: str | None = None, indicator: str | None = None, model: str | None = None,
+               limit: int = Query(200, le=5000)):
+    """Saved answers, newest first."""
+    words = [w for w in (q or "").lower().split() if w]
+    out = []
+    for a in reversed(ai.answers()):
+        if entity and a.get("entity") != entity or indicator and a.get("indicator") != indicator or model and a["model"] != model:
+            continue
+        hay = f"{a['question']} {a['answer']} {a.get('title', '')} {a.get('note', '')} {' '.join(a.get('tags', []))}".lower()
+        if all(w in hay for w in words):
+            out.append(a)
+        if len(out) >= limit:
+            break
+    return out
+
+
+@api.patch("/ai/answers/{answer_id}")
+def ai_patch_answer(answer_id: str, patch: dict = Body(...)):
+    """Rate an answer (rating 1, -1 or 0), or set its tags or note."""
+    try:
+        return ai.update_answer(answer_id, patch)
+    except KeyError:
+        raise HTTPException(404, f"no answer {answer_id}")
+
+
+@api.delete("/ai/answers/{answer_id}")
+def ai_delete_answer(answer_id: str):
+    if not ai.delete_answer(answer_id):
+        raise HTTPException(404, f"no answer {answer_id}")
+    return {"deleted": answer_id}
+
+
+@api.get("/ai/stats")
+def ai_stats():
+    """Your own AI use: per model questions, tokens, speed, time to first word and ratings; web searches."""
+    return ai.stats()
+
+
+# ----------------------------------------------------------------------------- highlights
+@api.get("/highlights")
+def get_highlights(q: str | None = None, kind: str | None = None, tag: str | None = None, entity: str | None = None):
+    """Everything kept, newest first, with the tags in use."""
+    return {"items": highlights.search(q, kind, tag, entity), "tags": highlights.tags()}
+
+
+@api.post("/highlights")
+def post_highlight(item: dict = Body(...)):
+    """Keep something: {kind: text|chart|table|answer, title?, text?, page_url?, page_title?, entities?, indicator?,
+    query? (chart settings), table? {columns, rows, unit?}, picture? (PNG data URL), answer_id?, question?, model?,
+    sources?, tags?, note?}."""
+    try:
+        return highlights.add(item)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.patch("/highlights/{item_id}")
+def patch_highlight(item_id: str, patch: dict = Body(...)):
+    try:
+        return highlights.update(item_id, patch)
+    except KeyError:
+        raise HTTPException(404, f"no highlight {item_id}")
+
+
+@api.delete("/highlights/{item_id}")
+def delete_highlight(item_id: str):
+    if not highlights.delete(item_id):
+        raise HTTPException(404, f"no highlight {item_id}")
+    return {"deleted": item_id}
+
+
+@api.get("/highlights/{item_id}/picture")
+def highlight_picture(item_id: str):
+    p = highlights.picture_path(item_id)
+    if not p:
+        raise HTTPException(404, "no picture")
+    return FileResponse(p, media_type="image/png")
+
+
+@api.get("/highlights-export.md")
+def export_highlights(q: str | None = None, kind: str | None = None, tag: str | None = None, entity: str | None = None,
+                      base: str = Query("", max_length=200)):
+    """The highlights shown (same filters) as one Markdown file."""
+    text = highlights.markdown(highlights.search(q, kind, tag, entity), base.rstrip("/"))
+    return Response(text, media_type="text/markdown; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="highlights.md"'})
 
 
 # ----------------------------------------------------------------------------- storage, refresh log
