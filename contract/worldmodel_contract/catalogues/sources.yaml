@@ -469,6 +469,10 @@
   attribution: "Department of Corrections, Prison facts and statistics (quarterly)."
   status: active
   default_rank: 3
+  manual:
+    by_hand: false
+    get: https://www.corrections.govt.nz/resources/statistics/quarterly_prison_statistics
+    what: "When Corrections refuses the refresh, open each quarter's page you want (for example the last five Decembers) and save it (Ctrl+S, Web page, HTML only)."
 
 - id: mbie_energy
   name: MBIE energy balance tables

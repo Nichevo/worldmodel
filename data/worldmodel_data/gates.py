@@ -130,16 +130,32 @@ def unmapped(con) -> list[Check]:
 
 
 def implausible_variants(con) -> list[Check]:
-    """Values of high/low variants or prediction intervals left out as meaningless."""
-    rows = con.execute("""SELECT source_id, indicator_id, entity_id, variant, rows, first_year, last_year
+    """Values left out as implausible: central values outside the indicator's bounds (a
+    warning, with what to look at), and high/low variant or interval values (info)."""
+    rows = con.execute("""SELECT source_id, indicator_id, entity_id, variant, rows, first_year, last_year,
+            min_value, max_value, bound_min, bound_max
         FROM implausible_variant_values ORDER BY rows DESC, 1, 2, 3""").fetchall()
-    if not rows:
-        return [Check("implausible_variants", "variants", "pass", "every variant value is within reach of the bounds")]
-    total = sum(r[4] for r in rows)
-    return [Check("implausible_variants", "variants", "info",
-                  f"{total} variant value(s) left out as implausible (outside the room given around the "
-                  f"indicator's bounds, or infinite)",
-                  [f"{s} {i} {e} {v}: {n} row(s), {a}-{b}" for s, i, e, v, n, a, b in rows[:10]])]
+    central = [r for r in rows if r[3] == "central"]
+    variants = [r for r in rows if r[3] != "central"]
+    out = []
+    if central:
+        total = sum(r[4] for r in central)
+        out.append(Check("out_of_bounds", "plausible range", "warn",
+                         f"{total} value(s) outside the plausible range left out (the rest of the build is unaffected); "
+                         "usually a slip in one release of a source",
+                         [f"{s} {i} {e}: {n} row(s), {a}-{b}, values {lo:g} to {hi:g} (plausible {bmin:g} to {bmax:g})"
+                          for s, i, e, _, n, a, b, lo, hi, bmin, bmax in central[:15]]))
+    else:
+        out.append(Check("out_of_bounds", "plausible range", "pass", "every value is inside its indicator's plausible range"))
+    if not variants:
+        out.append(Check("implausible_variants", "variants", "pass", "every variant value is within reach of the bounds"))
+    else:
+        total = sum(r[4] for r in variants)
+        out.append(Check("implausible_variants", "variants", "info",
+                         f"{total} variant value(s) left out as implausible (outside the room given around the "
+                         f"indicator's bounds, or infinite)",
+                         [f"{s} {i} {e} {v}: {n} row(s), {a}-{b}" for s, i, e, v, n, a, b, *_ in variants[:10]]))
+    return out
 
 
 def divergence(con) -> list[Check]:
