@@ -138,7 +138,7 @@
   name: Coups d'etat since 1950 (Powell and Thyne)
   short_name: Coups
   publisher: Jonathan Powell and Clayton Thyne, University of Kentucky
-  url: https://www.uky.edu/~clthyn2/coup_data/home.htm
+  url: https://jonathanmpowell.com/coups
   licence: Free to use with citation
   licence_url: https://www.uky.edu/~clthyn2/coup_data/home.htm
   commercial_use: true
@@ -148,8 +148,8 @@
   default_rank: 5
   manual:
     by_hand: false
-    get: https://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt
-    what: "Open the link and save the text file when uky.edu refuses the refresh."
+    get: https://jonathanmpowell.com/coups
+    what: "Download the newest 'List of coups by country' CSV (pt_YYYYMMDD.csv) when the refresh cannot reach it."
 
 - id: ucdp_acd
   name: UCDP/PRIO Armed Conflict Dataset
