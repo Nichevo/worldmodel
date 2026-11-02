@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import AskButton from "@/components/AskButton";
 import ChartCard from "@/components/ChartCard";
 import IndicatorMap from "@/components/IndicatorMap";
 import { api, type Indicator, type Ranking, type Topic } from "@/lib/api";
@@ -55,7 +56,17 @@ export default function IndicatorPage() {
           <Link href="/indicators">Indicators</Link> · {ind.domain}
           {topics.map((t) => <span key={t.id}> · <Link href={`/topic/${t.id}`}>{t.name}</Link></span>)}
         </p>
-        <h1 style={{ marginBottom: 4 }}>{ind.name}</h1>
+        <div className="title-row">
+          <h1 style={{ marginBottom: 4 }}>{ind.name}</h1>
+          <AskButton title={ind.name} indicator={ind.indicator_id} parts={() => [
+            { key: "data", kind: "data", label: `Every country${ranking?.year ? `, ${ranking.year}` : ""} (${ind.unit})`,
+              text: [`Rank,Country,Value (${ind.unit}),Ten years before`, ...(ranking?.rows ?? []).map((r) =>
+                `${r.rank},"${r.name}",${+r.value.toPrecision(6)},${r.ten_years_before === null ? "" : +r.ten_years_before.toPrecision(6)}`),
+                ...(ranking?.world ? [`,World,${+ranking.world.value.toPrecision(6)},`] : [])].join("\n") },
+            { key: "description", kind: "description", label: `What "${ind.name}" measures`,
+              text: `${ind.description || ""}\nUnit: ${ind.unit}. Years ${ind.first_year ?? "?"}–${ind.last_year ?? "?"}. Sources: ${ind.sources.map((x) => x.source_name ?? x.source_id).join("; ")}.` },
+          ]} />
+        </div>
         <p className="ink-2" style={{ marginTop: 0 }}>{ind.description || "No description in the catalogue yet."}</p>
         <div className="ind-facts">
           <div><b>Unit</b>{ind.unit || "–"}</div>

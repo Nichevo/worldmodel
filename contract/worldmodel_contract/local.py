@@ -51,13 +51,34 @@ SETTINGS: dict[str, object] = {
     "forecast_ranges": "80+95",      # ranges drawn around a forecast: "80+95", "80" or "none"
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
+    # Local AI (Ollama on this PC or another; the app's server talks to it)
+    "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
+    "ollama_url": "http://localhost:11434",
+    "ai_model": "",                  # default model; "" = the first one installed
+    "ai_model_compare": "",          # second model for side-by-side answers; "" = none
+    "ai_temperature": 0.3,
+    "ai_context_tokens": 16384,      # Ollama num_ctx: how much text the model reads at once
+    "ai_context_default": "data,description,events,highlight",  # context parts ticked by default
+    "ai_search_engine": "brave",     # "brave" (needs BRAVE_API_KEY; can cost money), "searxng" (free, local) or "off"
+    "searxng_url": "http://localhost:8080",
+    "ai_search_results": 5,          # web results given to the model per question
+    "brave_daily_limit": 30,         # Brave searches a day; 0 = no limit
+    "brave_monthly_limit": 0,        # Brave searches a month; 0 = no limit
+    "brave_free_monthly": 1000,      # searches the monthly credit covers ($5 at $5 per 1,000)
+    "brave_price_per_1000": 5.0,     # US dollars per 1,000 searches past the credit
+    "highlight_menu": True,          # selecting text on a page shows Ask AI / Save highlight
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
-           "forecast_ranges": ("80+95", "80", "none")}
+           "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off")}
+# Free text settings (addresses and model names), kept to one line.
+TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
+URLS = {"ollama_url", "searxng_url"}
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
-          "ranks_top_n": (0, 300), "forecast_horizon": (1, 50)}
+          "ranks_top_n": (0, 300), "forecast_horizon": (1, 50), "ai_temperature": (0, 2),
+          "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
+          "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
@@ -101,6 +122,13 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v
+        elif key in TEXTS:
+            t = " ".join(str(v or "").split())[:200]
+            if key in URLS:
+                t = t.rstrip("/")
+                if not re.fullmatch(r"https?://[^\s/$.?#][^\s]*", t):
+                    continue
+            out[key] = t
         elif isinstance(default, str):  # a comma-separated list of words
             out[key] = ",".join(w for w in (x.strip().lower() for x in str(v).split(",")) if re.fullmatch(r"[a-z_]{1,30}", w))[:400]
         elif isinstance(default, (int, float)):

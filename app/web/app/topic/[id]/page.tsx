@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import AskButton from "@/components/AskButton";
 import ChartCard from "@/components/ChartCard";
 import IndicatorMap from "@/components/IndicatorMap";
 import { api, type Indicator, type Topic } from "@/lib/api";
 import { logHistory } from "@/lib/history";
+import { latestTable } from "@/lib/ai";
 import { KEY_COUNTRIES, WORLD } from "@/lib/topics";
 
 // A topic: its introduction, a map of one of its indicators, and a chart of each
@@ -33,7 +35,19 @@ export default function TopicPage() {
     <div className="grid">
       <div>
         <p className="small muted" style={{ margin: 0 }}><Link href="/topics">Topics</Link></p>
-        <h1 style={{ marginBottom: 4 }}>{topic.name}</h1>
+        <div className="title-row">
+          <h1 style={{ marginBottom: 4 }}>{topic.name}</h1>
+          <AskButton title={`Topic: ${topic.name}`} parts={async () => {
+            const list = topic.indicators.map((i) => inds.get(i)).filter((i): i is Indicator => !!i);
+            const who = [WORLD, ...KEY_COUNTRIES];
+            return [
+              { key: "data", kind: "data", label: "Latest figures, key countries and the world",
+                text: await latestTable(list, who.map((e) => e.id), new Map(who.map((e) => [e.id, e.name]))) },
+              { key: "description", kind: "description", label: "The topic and its indicators",
+                text: `${topic.intro}\n\n${list.map((i) => `${i.name} (${i.unit}): ${i.description}`).join("\n")}` },
+            ];
+          }} />
+        </div>
         <p className="ink-2" style={{ marginTop: 0, maxWidth: 820 }}>{topic.intro}</p>
         {topic.missing.length > 0 && (
           <p className="small warn-note">

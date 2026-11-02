@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { KINDS, kindVar } from "@/lib/events";
 import { useEffect, useState } from "react";
-import { api, type Settings, type Storage } from "@/lib/api";
+import { api, type AIStatus, type Settings, type Storage } from "@/lib/api";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
 
 // Switches for how the app behaves, and the limits the data side keeps to.
@@ -76,6 +76,8 @@ export default function SettingsPage() {
         <Toggle label="Forecasters' own projections" hint="With Forecast on, single-country charts also draw the IMF's, OECD's and World Bank's latest forecasts."
           on={s.forecast_official} set={(v) => save({ forecast_official: v })} />
       </section>
+
+      <AISettings s={s} save={save} />
 
       <section className="card">
         <h2>Storage limits</h2>
@@ -191,6 +193,99 @@ export default function SettingsPage() {
         </button>
       </p>
     </div>
+  );
+}
+
+// Local AI: where Ollama is, which model, and web search with its limits.
+function AISettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
+  const [status, setStatus] = useState<AIStatus | null>(null);
+  useEffect(() => { api.aiStatus().then(setStatus).catch(() => setStatus(null)); }, [s.ollama_url, s.ai_search_engine, s.searxng_url]);
+  const names = status?.models.map((m) => m.name) ?? [];
+  const parts = s.ai_context_default.split(",").filter(Boolean);
+  const u = status?.search.usage;
+  return (
+    <section className="card" id="ai">
+      <h2>Local AI</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        Ask AI sends a question, with what is on screen, to a model in Ollama on this PC (or another on your network). The
+        app&apos;s server talks to Ollama, so asking from another PC works too. Answers are kept on the <Link href="/ai">AI notes</Link> page.
+      </p>
+      <Toggle label="Local AI" hint="Ask AI buttons, the AI notes page, and Ask AI in the highlight menu." on={s.ai_enabled} set={(v) => save({ ai_enabled: v })} />
+      <TextField label="Ollama address" value={s.ollama_url} placeholder="http://localhost:11434"
+        note={status ? (status.ollama.ok ? `Connected${status.ollama.version ? `, Ollama ${status.ollama.version}` : ""}; ${names.length} model${names.length === 1 ? "" : "s"} installed.` : status.ollama.error ?? "Not reachable.") : "Checking…"}
+        save={(v) => save({ ollama_url: v })} />
+      <Field label="Default model" hint={names.length ? "Largest first. Pull more with: ollama pull <name>" : "No models found yet."}>
+        <select value={s.ai_model} onChange={(e) => save({ ai_model: e.target.value })} aria-label="Default model">
+          <option value="">First installed{names[0] ? ` (${names[0]})` : ""}</option>
+          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+          {s.ai_model && !names.includes(s.ai_model) && <option value={s.ai_model}>{s.ai_model} (not installed)</option>}
+        </select>
+      </Field>
+      <Field label="Second model, side by side" hint="Each question also goes to this model, its answer beside the first. None to ask one model.">
+        <select value={s.ai_model_compare} onChange={(e) => save({ ai_model_compare: e.target.value })} aria-label="Second model">
+          <option value="">None</option>
+          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </Field>
+      <NumberField label="Temperature" value={s.ai_temperature} min={0} max={2} step={0.1}
+        note="0 keeps answers steady and literal; higher is more varied." save={(v) => save({ ai_temperature: v })} />
+      <NumberField label="Context length" unit="tokens" value={s.ai_context_tokens} min={1024} max={1048576} step={1024}
+        note="How much text the model reads at once (Ollama num_ctx). Long tables need more; more uses more graphics memory." save={(v) => save({ ai_context_tokens: v })} />
+      <Field label="Ticked by default" hint="What goes with a question unless you untick it.">
+        <div className="chips-row">
+          {([["data", "Chart data"], ["description", "Descriptions"], ["events", "Events"], ["highlight", "Highlighted text"]] as const).map(([k, label]) => {
+            const on = parts.includes(k);
+            return <button key={k} className={`chip${on ? " on" : ""}`} aria-pressed={on}
+              onClick={() => save({ ai_context_default: (on ? parts.filter((x) => x !== k) : [...parts, k]).join(",") })}>{label}</button>;
+          })}
+        </div>
+      </Field>
+      <Toggle label="Menu when you select text" hint="Select text on a page to Ask AI about it or Save highlight." on={s.highlight_menu} set={(v) => save({ highlight_menu: v })} />
+
+      <h3>Web search</h3>
+      <Field label="Search engine" hint="Used when you tick Search the web on a question.">
+        <div className="seg" role="group" aria-label="Search engine">
+          {([["brave", "Brave"], ["searxng", "SearXNG (free)"], ["off", "Off"]] as const).map(([v, label]) => (
+            <button key={v} className={s.ai_search_engine === v ? "on" : ""} aria-pressed={s.ai_search_engine === v}
+              onClick={() => save({ ai_search_engine: v })}>{label}</button>
+          ))}
+        </div>
+      </Field>
+      {status && !status.search.ready && status.search.why && <p className="small error">{status.search.why}</p>}
+      {s.ai_search_engine === "brave" && (
+        <>
+          <p className="small"><b>Brave can cost money.</b> Its $5 monthly credit covers about 1,000 searches; past that it bills
+            your card. Each question with Search the web ticked uses one search, whichever models answer.</p>
+          <NumberField label="Searches a day" unit="(0 = no limit)" value={s.brave_daily_limit} min={0} max={1000000} step={1}
+            note={u ? `${u.today} used today` : undefined} save={(v) => save({ brave_daily_limit: v })} />
+          <NumberField label="Searches a month" unit="(0 = no limit)" value={s.brave_monthly_limit} min={0} max={10000000} step={10}
+            note={u ? `${u.month} used this month; estimated cost past the credit $${u.estimated_cost_usd.toFixed(2)}` : undefined}
+            save={(v) => save({ brave_monthly_limit: v })} />
+          <NumberField label="Searches the credit covers" unit="a month" value={s.brave_free_monthly} min={0} max={10000000} step={100}
+            save={(v) => save({ brave_free_monthly: v })} />
+          <NumberField label="Price past the credit" unit="US$ per 1,000" value={s.brave_price_per_1000} min={0} max={1000} step={0.5}
+            save={(v) => save({ brave_price_per_1000: v })} />
+        </>
+      )}
+      {s.ai_search_engine === "searxng" && (
+        <TextField label="SearXNG address" value={s.searxng_url} placeholder="http://localhost:8080"
+          note="Run it with Docker (see the README); its settings.yml must allow the json format." save={(v) => save({ searxng_url: v })} />
+      )}
+      <NumberField label="Web results per question" value={s.ai_search_results} min={1} max={20} step={1} save={(v) => save({ ai_search_results: v })} />
+    </section>
+  );
+}
+
+// A line of text that saves when you leave the box or press Enter.
+function TextField({ label, value, placeholder, note, save }: { label: string; value: string; placeholder?: string; note?: string; save: (v: string) => void }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const commit = () => { if (text.trim() !== value) save(text.trim()); };
+  return (
+    <Field label={label} hint={note}>
+      <input type="text" value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && commit()} aria-label={label} style={{ width: 260 }} />
+    </Field>
   );
 }
 

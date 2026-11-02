@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import time
 from abc import ABC, abstractmethod
@@ -28,6 +29,10 @@ class ConnectorError(RuntimeError):
     pass
 
 
+# A connection that drops part way through a download.
+CUT_OFF = (httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTimeout)
+
+
 def tls_context():
     """Certificates checked against the computer's own trust store (Windows, macOS or
     Linux) where truststore is installed. The Windows store fetches an intermediate
@@ -40,6 +45,43 @@ def tls_context():
         return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     except Exception:  # noqa: BLE001 - fall back to httpx's own certificate bundle
         return True
+
+
+def aia_context(host: str, port: int = 443):
+    """A certificate check that also trusts the intermediate certificates a site should
+    have sent but did not, fetched from the addresses its certificate names (Authority
+    Information Access). The chain is still checked against the usual trusted roots."""
+    import ssl
+
+    import certifi
+
+    pems: list[str] = []
+    try:
+        der = ssl.PEM_cert_to_DER_cert(ssl.get_server_certificate((host, port), timeout=20))
+        for _ in range(3):  # leaf -> intermediate -> (another intermediate)
+            urls = re.findall(rb"(https?://[\x21-\x7e]+?\.(?:crt|cer|der))", der)
+            if not urls:
+                break
+            r = httpx.get(urls[0].decode(), timeout=20, follow_redirects=True)
+            if r.status_code != 200:
+                break
+            if r.content.startswith(b"-----BEGIN"):
+                pem = r.text
+                der = ssl.PEM_cert_to_DER_cert(pem)
+            else:
+                der = r.content
+                pem = ssl.DER_cert_to_PEM_cert(der)
+            pems.append(pem)
+    except (OSError, ValueError, httpx.HTTPError) as exc:
+        log.info("could not fetch the missing certificate for %s: %s", host, exc)
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    try:
+        ctx.load_default_certs()
+    except OSError:
+        pass
+    if pems:
+        ctx.load_verify_locations(cadata="\n".join(pems))
+    return ctx
 
 
 class HttpCache:
@@ -282,26 +324,85 @@ class Connector(ABC):
 
     def _copy_local(self, from_path: Path, dest: Path) -> str:
         from_path = Path(from_path)
-        files = [from_path] if from_path.is_file() else sorted(p for p in from_path.iterdir() if p.is_file())
+        if from_path.is_file():
+            files = [from_path]
+        else:
+            from worldmodel_data.manual import files as folder_files  # skips notes, part downloads, subfolders
+            files = folder_files(from_path)
+            if not files:
+                raise FileNotFoundError(f"no files to load in {from_path}")
         for f in files:
             shutil.copy2(f, dest / f.name)
         return f"file:{from_path.as_posix()}"
 
     def get(self, url: str, dest: Path) -> None:
-        """Download url to dest, unless the server says our stored copy is still current."""
+        """Download url to dest, unless the server says our stored copy is still current.
+        A download cut off part way is resumed where it stopped (HTTP Range); a site that
+        does not send its intermediate certificate gets it fetched from the address its
+        own certificate names (AIA), then the download is tried again."""
         cache = self._cache
         headers = cache.conditional_headers(url) if cache else {}
         log.info("GET %s%s", url, " (if changed)" if headers else "")
-        for attempt in range(len(RETRY_WAITS) + 1):
-            with self.client.stream("GET", url, headers=headers) as r:
-                if r.status_code in (429, 503) and attempt < len(RETRY_WAITS):
-                    wait = _retry_after(r.headers.get("retry-after"), RETRY_WAITS[attempt])
-                    log.info("HTTP %s (server busy or asking us to slow down); trying again in %ss",
-                             r.status_code, wait)
-                    time.sleep(wait)
-                    continue
-                self._save(r, url, dest, cache)
+        fixed_chain = False
+        attempt = 0
+        while True:
+            try:
+                with self.client.stream("GET", url, headers=headers) as r:
+                    if r.status_code in (429, 503) and attempt < len(RETRY_WAITS):
+                        wait = _retry_after(r.headers.get("retry-after"), RETRY_WAITS[attempt])
+                        log.info("HTTP %s (server busy or asking us to slow down); trying again in %ss",
+                                 r.status_code, wait)
+                        attempt += 1
+                        time.sleep(wait)
+                        continue
+                    try:
+                        self._save(r, url, dest, cache)
+                        return
+                    except CUT_OFF as exc:
+                        cut, first = exc, r.headers
+                self._resume(url, dest, cut)
+                if cache:
+                    cache.note(url, dest.name, first.get("etag"), first.get("last-modified"))
                 return
+            except httpx.ConnectError as exc:
+                if fixed_chain or "certificate verify failed" not in str(exc).lower():
+                    raise
+                fixed_chain = True
+                self._client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=120, follow_redirects=True,
+                                            verify=aia_context(httpx.URL(url).host))
+                log.info("%s did not send its full certificate chain; fetched the missing certificate and trying again",
+                         httpx.URL(url).host)
+
+    def _resume(self, url: str, dest: Path, exc: Exception, tries: int = 6) -> None:
+        """Carry on a download that was cut off, from the bytes already in dest."""
+        total = None
+        for i in range(tries):
+            have = dest.stat().st_size if dest.exists() else 0
+            if total is not None and have >= total:
+                return
+            log.warning("download of %s cut off after %.0f MB (%s); resuming", url, have / 1e6, exc)
+            time.sleep(2 * (i + 1))
+            try:
+                with self.client.stream("GET", url, headers={"Range": f"bytes={have}-"}) as r:
+                    if r.status_code == 416:  # nothing left to send
+                        return
+                    if r.status_code not in (200, 206):
+                        raise ConnectorError(f"GET {url} returned HTTP {r.status_code} while resuming")
+                    if r.status_code == 206:
+                        m = re.search(r"/(\d+)$", r.headers.get("content-range", ""))
+                        total = int(m.group(1)) if m else None
+                    else:  # the server ignores ranges: start again
+                        have, total = 0, int(r.headers["content-length"]) if r.headers.get("content-length") else None
+                    with dest.open("ab" if r.status_code == 206 else "wb") as fh:
+                        for chunk in r.iter_bytes():
+                            fh.write(chunk)
+                            self.downloaded_bytes += len(chunk)
+                if total is None or dest.stat().st_size >= total:
+                    return
+            except CUT_OFF as e:
+                exc = e
+        raise ConnectorError(f"GET {url}: the download was cut off {tries + 1} times (last: {exc}); "
+                             "the next refresh tries again")
 
     def _save(self, r: httpx.Response, url: str, dest: Path, cache: HttpCache | None) -> None:
         """Store a response, or reuse the stored copy on 304 Not Modified."""
