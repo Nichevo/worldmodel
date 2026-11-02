@@ -10,6 +10,8 @@ import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
 import { countryShapes } from "@/lib/geo";
 import { LAYER_STYLE, layerData, layerLabel } from "@/lib/layers";
+import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
+import { useSettings } from "@/lib/settings";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -99,6 +101,7 @@ export default function WorldMap({
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
+  const { base_map: baseMap } = useSettings();
   const hover = useRef(onHover);
   hover.current = onHover;
   const dbl = useRef(doubleClick);
@@ -298,6 +301,24 @@ export default function WorldMap({
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
   }, [byIso, scale, unit, decimals]);
+
+  // Map detail under the colours (Settings > Map): online tiles, the local map files, or none.
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    let gone = false;
+    const apply = () => {
+      const files = baseMap === "local" ? baseMapStatus().then((st) => st.files.length).catch(() => 0) : Promise.resolve(0);
+      files.then((n) => {
+        if (gone || map.current !== m) return;
+        m.setMaxZoom(maxZoomFor(baseMap, n));
+        addDetail(m, baseMap).catch((e) => console.warn("map detail skipped", e));
+      });
+    };
+    if (m.getSource("countries")) apply();
+    else onLoad.current.push(apply);
+    return () => { gone = true; if (map.current === m && m.getLayer("fill")) removeDetail(m); };
+  }, [baseMap]);
 
   // Overlays: add the ones asked for (fetched once per page), remove the rest.
   const layersKey = layers.join(",");

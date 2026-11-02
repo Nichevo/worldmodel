@@ -1,0 +1,81 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q11"
+    },
+    "stLabel": {
+     "type": "literal",
+     "value": "Chatswood"
+    },
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(151.18 -33.797)"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12"
+    },
+    "stLabel": {
+     "type": "literal",
+     "value": "Tallawong"
+    },
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(150.906 -33.692)"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13"
+    },
+    "stLabel": {
+     "type": "literal",
+     "value": "Britomart"
+    },
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q2"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.767 -36.844)"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13"
+    },
+    "stLabel": {
+     "type": "literal",
+     "value": "Britomart"
+    },
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q2"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.767 -36.844)"
+    }
+   }
+  ]
+ }
+}

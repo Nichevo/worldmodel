@@ -44,6 +44,16 @@ def client(tmp_path, monkeypatch):
         ('gn2193733', 'city_population', '2025-01-01', 'un_wup', 'v1', 1700000, 'P', 'Auckland'),
         ('gn2193733', 'city_population', '2035-01-01', 'un_wup', 'v1', 1900000, 'P', 'Auckland'),
         ('gn2193733', 'wn_city_cost_index', '2026-01-01', 'wherenext', 'v1', 72, 'E', 'Auckland')""")
+    con.execute("""CREATE OR REPLACE TABLE places (place_id VARCHAR, kind VARCHAR, subkind VARCHAR, name VARCHAR, country_id VARCHAR,
+        city_id VARCHAR, city_name VARCHAR, lat DOUBLE, lon DOUBLE, founded DATE, url VARCHAR, facts VARCHAR, size DOUBLE,
+        source_id VARCHAR, vintage VARCHAR)""")
+    con.execute("""INSERT INTO places VALUES
+        ('w:university:Q1', 'university', 'public', 'University of Auckland', 'NZL', 'gn2193733', 'Auckland', -36.85, 174.77,
+         '1883-01-01', 'https://en.wikipedia.org/wiki/University_of_Auckland', '{"students": 40000}', 40000, 'wikidata_places', 'v1'),
+        ('w:company:Q2', 'company', NULL, 'Fletcher Building', 'NZL', 'gn2193733', 'Auckland', -36.85, 174.76,
+         NULL, NULL, '{"revenue_usd": 4600000000}', 4600000000, 'wikidata_places', 'v1'),
+        ('w:transit:Q3', 'transit', 'metro', 'Portland Streetcar', 'USA', NULL, 'Portland', NULL, NULL,
+         NULL, NULL, '{}', NULL, 'wikidata_places', 'v1')""")
     con.close()
     main.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
@@ -61,6 +71,14 @@ def test_city_list_and_page(client):
     assert len(pop["points"]) == 3 and pop["unit"] == "persons"
     assert [o["name"] for o in page["others"]] == ["Wellington"]
     assert client.get("/api/v1/cities/gn0").status_code == 404
+    assert [p["name"] for p in page["places"]] == ["Fletcher Building", "University of Auckland"]
+
+
+def test_places_by_kind_and_country(client):
+    got = client.get("/api/v1/places", params={"kind": "university"}).json()["rows"]
+    assert len(got) == 1 and got[0]["facts"]["students"] == 40000 and got[0]["founded"] == "1883" and got[0]["city"] == "Auckland"
+    usa = client.get("/api/v1/places", params={"country": "USA"}).json()["rows"]
+    assert usa[0]["city"] == "Portland" and usa[0]["city_id"] is None
 
 
 def test_no_cities_table_is_not_an_error(monkeypatch):
@@ -91,6 +109,18 @@ def test_numbeo_button_fetches_once_within_the_limit(client, monkeypatch):
     assert {p["id"] for p in both["places"]} == {"gn2193733", "gn5746545"}
     assert both["places"][0]["values"]["Meal, Inexpensive Restaurant"] == 17.5
     assert {"item": "Meal, Inexpensive Restaurant", "section": "Restaurants"} in both["items"]
+    # each fetch is also kept under its year; an older year's page compares against it
+    this_year = int(both["places"][0]["fetched_at"][:4])
+    assert both["years"] == [this_year]
+    old = numbeo.cached("cities", "gn2193733") | {"fetched_at": "2024-06-01T00:00:00+00:00",
+                                                 "items": [{"section": "Restaurants", "item": "Meal, Inexpensive Restaurant", "value": 15.0}]}
+    numbeo._write(numbeo._year_file("cities", "gn2193733", 2024), old)
+    then = client.get("/api/v1/numbeo/compare", params={"year": 2024}).json()
+    assert [p["id"] for p in then["places"]] == ["gn2193733"] and then["years"] == [this_year, 2024]
+    change = client.get("/api/v1/numbeo/compare", params={"since": 2024}).json()
+    auck = next(p for p in change["places"] if p["id"] == "gn2193733")
+    assert auck["before"] == {"Meal, Inexpensive Restaurant": 15.0} and auck["before_fetched_at"].startswith("2024")
+    assert next(p for p in change["places"] if p["id"] == "gn5746545")["before"] is None
     client.put("/api/v1/settings", json={"numbeo_daily": 2})
     res = client.post("/api/v1/entities/NZL/numbeo", json={})
     assert res.status_code == 409 and "used up" in res.json()["detail"]

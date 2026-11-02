@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.5.2"
+SCHEMA_VERSION = "1.6.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -158,6 +158,17 @@ TABLES: dict[str, Table] = {
         }, ("city_id", "indicator_id", "period_start", "source_id"),
             "Figures about cities from the latest vintage of each source (indicators in worldmodel_contract.cities), "
             "each matched to a city; source_name is the name the source used."),
+        Table("places", {
+            "place_id": "VARCHAR", "kind": "VARCHAR", "subkind": "VARCHAR", "name": "VARCHAR", "country_id": "VARCHAR",
+            "city_id": "VARCHAR", "city_name": "VARCHAR", "lat": "DOUBLE", "lon": "DOUBLE", "founded": "DATE", "url": "VARCHAR",
+            "facts": "VARCHAR", "size": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("place_id",),
+            "Things with a location in a country, from the latest vintage of their source: metro and rail systems "
+            "(kind transit), universities and companies. city_id is the nearest city of the same country within "
+            "40 km (or the one named city_name); facts is a JSON object of the kind's figures; size is what the app "
+            "sorts by: yearly passengers or length for a system, students for a university, revenue in US dollars "
+            "for a company (worked out by the build from the World Bank's exchange rate). Absent in warehouses built "
+            "before 1.6.0."),
         Table("events", {
             "event_id": "VARCHAR", "entity_id": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
             "kind": "VARCHAR", "subkind": "VARCHAR", "title": "VARCHAR", "start_date": "DATE", "end_date": "DATE",

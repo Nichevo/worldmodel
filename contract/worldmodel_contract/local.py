@@ -34,6 +34,11 @@ SETTINGS: dict[str, object] = {
     "side_panel": True,              # the pinboard down the right of the map page
     "disk_limit_gb": 100.0,          # the whole data folder
     "pictures_limit_gb": 2.0,        # media/ (pictures, cached pages)
+    "basemap_limit_gb": 20.0,        # basemap/ (the local map files)
+    "base_map": "online",            # map detail under the colours: "online" (OpenFreeMap), "local" (map files on this PC) or "plain"
+    "basemap_regions": "nzl",        # countries the local map file holds in full detail (street level)
+    "basemap_world_zoom": 8,         # how far the local world file goes (6 big towns and motorways ... 10 small towns and most roads)
+    "basemap_region_zoom": 15,       # how far the full-detail countries go (15 = every street and building)
     "numbeo_daily": 20,              # single-page Numbeo fetches per day, all countries together
     "wikipedia_countries_daily": 20,
     "wikipedia_cities_daily": 10,
@@ -52,6 +57,7 @@ SETTINGS: dict[str, object] = {
     "forecast_horizon": 10,          # years the Forecast button on charts looks ahead
     "forecast_ranges": "80+95",      # ranges drawn around a forecast: "80+95", "80" or "none"
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
+    "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
     # Local AI (Ollama on this PC or another; the app's server talks to it)
     "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
@@ -71,12 +77,14 @@ SETTINGS: dict[str, object] = {
     "highlight_menu": True,          # selecting text on a page shows Ask AI / Save highlight
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
-           "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off")}
+           "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
+           "base_map": ("online", "local", "plain")}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "numbeo_daily": (0, 200),
+RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
+          "basemap_world_zoom": (4, 12), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "ranks_top_n": (0, 300), "forecast_horizon": (1, 50), "ai_temperature": (0, 2),
@@ -86,7 +94,7 @@ WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
 CATEGORIES = [("raw", "Raw downloads"), ("vintages", "Vintages (Parquet)"), ("builds", "Warehouse builds"),
-              ("reports", "Reports and logs"), ("pictures", "Pictures and pages"), ("user", "Your files"),
+              ("reports", "Reports and logs"), ("pictures", "Pictures and pages"), ("basemap", "Map files"), ("user", "Your files"),
               ("other", "Other")]
 
 
@@ -209,6 +217,8 @@ def storage(root: Path | None = None) -> dict:
         {"key": "disk", "label": "Whole data folder", "used": use["total"], "limit": disk, "level": level(use["total"], disk)},
         {"key": "pictures", "label": "Pictures and pages", "used": use["pictures"], "limit": pics,
          "level": level(use["pictures"], pics)},
+        {"key": "basemap", "label": "Map files", "used": use["basemap"], "limit": s["basemap_limit_gb"] * GB,
+         "level": level(use["basemap"], s["basemap_limit_gb"] * GB)},
     ]
     order = ["ok", "warn", "critical", "full"]
     worst = max((lim["level"] for lim in limits), key=order.index)

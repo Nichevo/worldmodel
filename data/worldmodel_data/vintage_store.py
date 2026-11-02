@@ -110,6 +110,26 @@ CITY_COLUMNS = {
     "elevation": "DOUBLE",
 }
 
+# places.parquet beside a vintage: things with a location in a country (metro and rail
+# systems, universities, companies' head offices). facts is a JSON object of the kind's
+# figures (length_km, stations, students, revenue with currency and year...); the build
+# matches each place to its nearest city and works out revenue in US dollars.
+PLACE_COLUMNS = {
+    "source_id": "VARCHAR",
+    "vintage": "VARCHAR",
+    "place_key": "VARCHAR",
+    "kind": "VARCHAR",
+    "subkind": "VARCHAR",
+    "name": "VARCHAR",
+    "country_id": "VARCHAR",
+    "lat": "DOUBLE",
+    "lon": "DOUBLE",
+    "city_name": "VARCHAR",
+    "founded": "DATE",
+    "url": "VARCHAR",
+    "facts": "VARCHAR",
+}
+
 # city_values.parquet beside a vintage: figures about cities as the source names them
 # (with its country's entity id and, where known, location). The build matches each to a city.
 CITY_VALUE_COLUMNS = {
@@ -144,6 +164,7 @@ class Manifest:
     layer_count: int = 0    # map layers in layers.parquet, if any
     city_count: int = 0     # rows in cities.parquet, if any
     city_value_count: int = 0  # rows in city_values.parquet, if any
+    place_count: int = 0    # rows in places.parquet, if any
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2))

@@ -34,7 +34,7 @@ from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, highlights, layouts, numbeo, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1312,6 +1312,51 @@ def _milestone_rows() -> list[dict]:
             for m in userdata.milestones()]
 
 
+@api.get("/basemap")
+def basemap_status():
+    """The local map files, whether the tool and fonts are in, and what a refresh is doing."""
+    return basemap.status()
+
+
+@api.post("/basemap/estimate")
+def basemap_estimate():
+    """How big the map files for the current Settings would be (nothing is downloaded but the tool)."""
+    try:
+        return basemap.estimate()
+    except Exception as exc:  # the site, the tool or the network: say which
+        raise HTTPException(502, basemap._explain(exc))
+
+
+@api.post("/basemap/make")
+def basemap_make():
+    """Make (or remake) the map files in the background; GET /basemap shows how it is going."""
+    return basemap.start()
+
+
+@api.delete("/basemap/files/{name}")
+def basemap_delete(name: str):
+    if not basemap.remove(name):
+        raise HTTPException(404, f"no map file {name}")
+    return {"ok": True}
+
+
+@api.get("/basemap/files/{name}")
+def basemap_file(name: str):
+    """One map file, read by the map in pieces (HTTP range requests)."""
+    p = basemap.root() / name
+    if not name.endswith(".pmtiles") or p.parent != basemap.root() or not p.is_file():
+        raise HTTPException(404, f"no map file {name}: make the map files in Settings > Map")
+    return FileResponse(p, media_type="application/vnd.pmtiles")
+
+
+@api.get("/basemap/fonts/{stack}/{part}")
+def basemap_font(stack: str, part: str):
+    p = basemap.root() / "fonts" / stack / part
+    if not re.fullmatch(r"\d+-\d+\.pbf", part) or p.parent.parent != basemap.root() / "fonts" or not p.is_file():
+        raise HTTPException(404, "no such font range")
+    return FileResponse(p, media_type="application/x-protobuf", headers={"Cache-Control": "max-age=604800"})
+
+
 @api.get("/layers")
 def layers():
     """The map overlays the warehouse holds (plate boundaries, faults, volcanoes, earthquakes), without their features."""
@@ -1650,7 +1695,46 @@ def city(city_id: str):
         one["points"].append({"year": r["year"], "value": r["value"], "status": r["status"]})
     others = cities(country=c["country_id"], limit=12)["rows"]
     return {"city": c, "series": list(series.values()),
-            "others": [o for o in others if o["city_id"] != city_id][:10]}
+            "others": [o for o in others if o["city_id"] != city_id][:10],
+            "places": places(kind=None, country=None, city=city_id, q=None, limit=60)["rows"]}
+
+
+PLACE_KINDS = Literal["transit", "university", "company"]
+NO_PLACES = "No metro, universities or companies yet: run .\\refresh.bat (Wikidata places, once every four weeks)."
+
+
+def _has_places() -> bool:
+    return bool(rows("SELECT 1 FROM information_schema.tables WHERE table_name = 'places' AND table_schema = 'main'"))
+
+
+@api.get("/places")
+def places(kind: PLACE_KINDS | None = None, country: str | None = Query(None, description="Comma-separated country ids"),
+           city: str | None = None, q: str | None = None, limit: int = Query(200, ge=1, le=5000)):
+    """Metro and rail systems, universities and big companies (Wikidata), biggest first: by
+    riders (else length), students, or revenue in US dollars. Each with its city where matched."""
+    if not _has_places():
+        return {"rows": [], "note": NO_PLACES}
+    where, params = ["1 = 1"], []
+    if kind:
+        where.append("p.kind = ?")
+        params.append(kind)
+    if ids := split(country):
+        where.append(f"p.country_id IN ({', '.join('?' * len(ids))})")
+        params += ids
+    if city:
+        where.append("p.city_id = ?")
+        params.append(city)
+    if q:
+        where.append("p.name ILIKE ?")
+        params.append(f"%{q}%")
+    found = rows(f"""SELECT p.place_id, p.kind, p.subkind, p.name, p.country_id, e.short_name AS country, p.city_id,
+                            coalesce(c.name, p.city_name) AS city, p.lat, p.lon, p.founded, p.url, p.facts, p.size
+                     FROM places p LEFT JOIN entities e ON e.entity_id = p.country_id LEFT JOIN cities c ON c.city_id = p.city_id
+                     WHERE {' AND '.join(where)} ORDER BY p.size DESC NULLS LAST, p.name LIMIT ?""", [*params, limit])
+    for r in found:
+        r["facts"] = json.loads(r["facts"] or "{}")
+        r["founded"] = str(r["founded"])[:4] if r["founded"] else None
+    return {"rows": found, "note": None}
 
 
 @api.get("/cities/{city_id}/wikipedia")
@@ -1694,10 +1778,13 @@ def _country(entity_id: str) -> dict:
 
 
 @api.get("/numbeo/compare")
-def numbeo_compare():
+def numbeo_compare(year: int | None = Query(None, description="The pages kept for this year (default: the latest of each)"),
+                   since: int | None = Query(None, description="Also give each place's prices from this year, to show the change")):
     """Every Numbeo price page fetched so far, side by side: one column per city or country,
-    one row per item (US dollars), with each page's name and date."""
-    pages = numbeo.all_cached()
+    one row per item (US dollars), with each page's name and date. Each fetch is kept under
+    its year, so years can be compared."""
+    pages = numbeo.all_cached(year)
+    before = {(p["kind"], p["id"]): p for p in numbeo.all_cached(since)} if since else {}
     names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
     city_names = {}
     if _has_cities():
@@ -1715,12 +1802,15 @@ def numbeo_compare():
             label, country = names.get(p["id"], p.get("country") or p["id"]), p["id"]
         places.append({"kind": p["kind"], "id": p["id"], "name": label, "country_id": country, "url": p.get("url"),
                        "fetched_at": p.get("fetched_at"), "summary": p.get("summary") or {},
-                       "values": {it["item"]: it["value"] for it in p["items"]}})
+                       "values": {it["item"]: it["value"] for it in p["items"]},
+                       "before": ({it["item"]: it["value"] for it in b["items"]} if (b := before.get((p["kind"], p["id"]))) else None),
+                       "before_fetched_at": b.get("fetched_at") if b else None})
         for it in p["items"]:
             if it["item"] not in sections:
                 sections[it["item"]] = it["section"]
                 order.append(it["item"])
-    return {"places": places, "items": [{"item": i, "section": sections[i]} for i in order]}
+    return {"places": places, "items": [{"item": i, "section": sections[i]} for i in order], "years": numbeo.years(),
+            "year": year, "since": since}
 
 
 @api.get("/entities/{entity_id}/numbeo")

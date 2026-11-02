@@ -15,6 +15,7 @@ Figures that match nothing are counted in the build report, with examples.
 
 from __future__ import annotations
 
+import json
 import math
 from collections import defaultdict
 
@@ -92,3 +93,70 @@ def compute(con: duckdb.DuckDBPyConnection) -> tuple[int, int, int, list[str]]:
     matched = con.execute("SELECT count(*) FROM city_series").fetchone()[0]
     missed = [f"{n} ({c})" for (n, c, _, _), v in found.items() if v is None]
     return len(cities), matched, len(missed), sorted(missed)[:12]
+
+
+PLACE_KM = 40
+PLACES_DDL = """CREATE TABLE places (
+    place_id VARCHAR PRIMARY KEY, kind VARCHAR, subkind VARCHAR, name VARCHAR, country_id VARCHAR, city_id VARCHAR,
+    city_name VARCHAR, lat DOUBLE, lon DOUBLE, founded DATE, url VARCHAR, facts VARCHAR, size DOUBLE,
+    source_id VARCHAR, vintage VARCHAR)"""
+RATE_INDICATORS = ("exchange_rate_usd", "bis_usd_exchange_rate")  # local currency per US dollar
+
+
+def compute_places(con: duckdb.DuckDBPyConnection) -> tuple[int, int]:
+    """Create places from src.raw_places: each matched to its nearest city in the same country
+    (or the one with the name its source gives), and companies' revenue turned into US dollars
+    with the exchange rate of the revenue's year (or the nearest year with one).
+    Returns (places, places matched to a city)."""
+    con.execute(PLACES_DDL)
+    rows = con.execute("""SELECT place_key, kind, subkind, name, country_id, lat, lon, city_name, founded, url, facts,
+            source_id, vintage FROM src.raw_places
+        QUALIFY row_number() OVER (PARTITION BY kind, place_key ORDER BY vintage DESC) = 1""").fetchall()
+    if not rows:
+        return 0, 0
+    cities = con.execute("SELECT city_id, name, ascii_name, country_id, lat, lon, population FROM cities").fetchall()
+    by_country: dict[str, list[tuple]] = defaultdict(list)
+    for c in cities:
+        by_country[c[3]].append(c)
+    rates: dict[str, dict[int, float]] = defaultdict(dict)
+    have = {r[0] for r in con.execute("SELECT table_name FROM information_schema.tables").fetchall()}
+    if "series" in have:
+        for ind in reversed(RATE_INDICATORS):  # the first one wins where both have a year
+            for ent, year, value in con.execute(
+                    "SELECT entity_id, year(period_start), value FROM series WHERE indicator_id = ? AND variant = 'central' "
+                    "AND freq = 'A' AND value > 0", [ind]).fetchall():
+                rates[ent][year] = value
+
+    def rate(country: str | None, year: int | None) -> float | None:
+        found = rates.get(country or "")
+        if not found:
+            return None
+        y = year or max(found)
+        return found.get(y) or found[min(found, key=lambda k: abs(k - y))]
+
+    out, matched = [], 0
+    for key, kind, sub, name, country, lat, lon, city_name, founded, url, facts, src, vintage in rows:
+        city = None
+        cands = by_country.get(country, [])
+        if lat is not None and lon is not None:
+            near = [(km(lat, lon, c[4], c[5]), c) for c in cands if c[4] is not None]
+            near = [x for x in near if x[0] <= PLACE_KM]
+            if near:  # the closest, unless a much bigger city is almost as close (suburbs of a capital)
+                near.sort(key=lambda x: x[0])
+                city = max((x for x in near if x[0] <= near[0][0] + 10), key=lambda x: x[1][6] or 0)[1][0]
+        if city is None and city_name:
+            k = norm_name(city_name)
+            named = [c for c in cands if k in (norm_name(c[1]), norm_name(c[2]))]
+            city = max(named, key=lambda c: c[6] or 0)[0] if named else None
+        matched += city is not None
+        f = json.loads(facts or "{}")
+        if kind == "company" and f.get("revenue"):
+            r = 1.0 if f.get("currency") == "USD" else rate(f.get("rate_country"), f.get("revenue_year"))
+            if r:
+                f["revenue_usd"] = round(f["revenue"] / r)
+        size = (f.get("revenue_usd") if kind == "company" else f.get("students") if kind == "university"
+                else f.get("riders") or (f.get("length_km") or 0) * 1e6 or None)
+        out.append((f"{src}:{kind}:{key}", kind, sub, name, country, city, city_name, lat, lon, founded, url,
+                    json.dumps(f), size, src, vintage))
+    con.executemany(f"INSERT INTO places VALUES ({', '.join('?' * 15)})", out)
+    return len(out), matched
