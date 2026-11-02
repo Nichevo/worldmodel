@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   problem_banner: true,
   events_on_charts: true,
   projections_on_charts: true,
+  profile_average: "",
   party_colours: false,
   party_office: "government",
   event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,user",

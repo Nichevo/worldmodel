@@ -1,5 +1,6 @@
 "use client";
 
+import CardAsk from "@/components/CardAsk";
 import Help from "@/components/Help";
 import { useCallback, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
@@ -30,7 +31,7 @@ type View = "years" | "levels";
 export default function EducationCard({ entity, name, indicators }: { entity: string; name: string; indicators: Map<string, Indicator> }) {
   const { data, error } = useSeries(entity, ALL, indicators);
   const [pick, setPick] = useState<View>("years");
-  const { onReady, save } = useSavePicture();
+  const { onReady, save, ask } = useSavePicture();
   const yearsSet = YEARS.find((y) => data?.get(y.sets[0][0])?.length);
   const hasLevels = LEVELS.some((l) => l.ids.some((id) => data?.get(id)?.length));
   const view: View = pick === "levels" && hasLevels ? "levels" : yearsSet ? "years" : "levels";
@@ -68,6 +69,7 @@ export default function EducationCard({ entity, name, indicators }: { entity: st
     <div className="card" id="education">
       <div className="card-head">
         <h3>Education <Help note="education" /></h3>
+        {lines.length > 0 && <CardAsk onAsk={() => ask(`${title}: ${name}`, hasProjection ? "Dashed or paler: projection (middle-of-the-road scenario)." : "", sources, entity)} />}
         {lines.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${title}: ${name}`, hasProjection ? "Dashed or paler: projection (middle-of-the-road scenario)." : "", sources, "education", view, entity)}>Save picture</button>}
       </div>

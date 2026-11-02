@@ -1,5 +1,6 @@
 "use client";
 
+import CardAsk from "@/components/CardAsk";
 import Help from "@/components/Help";
 import type { EChartsOption } from "echarts";
 import { useCallback, useEffect, useState } from "react";
@@ -59,7 +60,7 @@ export default function EnergyFlowCard({ entity, name }: { entity: string; name:
   const [flow, setFlow] = useState<EnergyFlow | null>(null);
   const [year, setYear] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
-  const { onReady, save } = useSavePicture();
+  const { onReady, save, ask } = useSavePicture();
   useEffect(() => {
     let live = true;
     api.energyFlow(entity, year).then((f) => { if (live) { setFlow(f); setError(null); } })
@@ -77,6 +78,7 @@ export default function EnergyFlowCard({ entity, name }: { entity: string; name:
     <div className="card" id="energy-flow">
       <div className="card-head">
         <h3>Where energy comes from and goes <Help note="energyflow" /></h3>
+        <CardAsk onAsk={() => ask(`${title}: ${name}`, "Petajoules (PJ), gross calorific value.", [flow.source_id], entity)} />
         <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${title}: ${name}`, "Petajoules (PJ), gross calorific value.", [flow.source_id], "energy-flow", String(flow.year), entity)}>Save picture</button>
       </div>

@@ -15,6 +15,8 @@ export type AskRequest = {
   indicator?: string;
   page?: string;
   question?: string;
+  picture?: () => Promise<string | null>; // a PNG data URL of the chart, for models that can see pictures
+  send?: boolean; // ask straight away (the question box in the top bar)
 };
 
 const ASK = "worldmodel:ask";

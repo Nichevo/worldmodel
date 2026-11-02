@@ -1,5 +1,6 @@
 "use client";
 
+import CardAsk from "@/components/CardAsk";
 import Help from "@/components/Help";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -42,7 +43,7 @@ const ALL = Object.values(VIEWS).flatMap((v) => v.lines.map((l) => l.id));
 export default function MigrationCard({ entity, name, indicators }: { entity: string; name: string; indicators: Map<string, Indicator> }) {
   const { data, error } = useSeries(entity, ALL, indicators);
   const [pick, setPick] = useState<View | null>(null);
-  const { onReady, save } = useSavePicture();
+  const { onReady, save, ask } = useSavePicture();
   const has = (v: View) => VIEWS[v].lines.some((l) => data?.get(l.id)?.length);
   const view: View = pick && has(pick) ? pick : has("migrants") ? "migrants" : "refugees";
   const def = VIEWS[view];
@@ -60,6 +61,7 @@ export default function MigrationCard({ entity, name, indicators }: { entity: st
     <div className="card" id="migration">
       <div className="card-head">
         <h3>Migration in and out <Help note="migration" /></h3>
+        {lines.length > 0 && <CardAsk onAsk={() => ask(`${def.label} in and out: ${name}`, def.note, sources, entity)} />}
         {lines.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`${def.label} in and out: ${name}`, def.note, sources, "migration", view, entity)}>Save picture</button>}
       </div>

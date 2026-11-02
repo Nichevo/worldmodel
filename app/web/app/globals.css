@@ -571,7 +571,10 @@ button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent,
 
 /* Cities */
 .numbeo-sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; }
-.numbeo-sections summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.numbeo-sections h4 { margin: 8px 0 2px; font-size: 0.9rem; }
+.price-compare td.num, .price-compare th.num { white-space: nowrap; }
+.price-compare .cheaper { color: var(--div-pos-3, #2a7); }
+.price-compare .dearer { color: var(--div-neg-3, #c33); }
 .city-table td.name { white-space: nowrap; }
 .city-tag { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
 .city-map { height: 460px; display: flex; flex-direction: column; }
@@ -594,3 +597,4 @@ button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent,
 .place-option.on { background: var(--hover, rgba(127, 127, 127, 0.15)); }
 .events-map { height: 480px; display: flex; flex-direction: column; }
 .events-filters select { max-width: 180px; }
+.nav-ask { width: 220px; margin-right: 8px; }

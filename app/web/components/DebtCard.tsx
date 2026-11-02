@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
+import CardAsk from "@/components/CardAsk";
 import Help from "@/components/Help";
 import type { Indicator, SeriesRow } from "@/lib/api";
 import { useSavePicture, useSeries } from "@/lib/cards";
@@ -34,7 +35,7 @@ function yearly(data: Map<string, SeriesRow[]> | null, ids: readonly string[]): 
 export default function DebtCard({ entity, name, indicators }: { entity: string; name: string; indicators: Map<string, Indicator> }) {
   const { data, error } = useSeries(entity, ALL, indicators);
   const [unit, setUnit] = useState<Unit>("usd");
-  const { onReady, save } = useSavePicture();
+  const { onReady, save, ask } = useSavePicture();
 
   const model = useMemo(() => {
     const sectors = SECTORS.map((s) => ({ ...s, found: yearly(data, s.ids) })).filter((s) => s.found);
@@ -93,6 +94,7 @@ export default function DebtCard({ entity, name, indicators }: { entity: string;
     <div className="card" id="debt">
       <div className="card-head">
         <h3>Debt per person <Help note="debt" /></h3>
+        {model.years.length > 0 && <CardAsk onAsk={() => ask(`Debt by sector: ${name}`, `${valueUnit}.`, sources, entity)} />}
         {model.years.length > 0 && <button className="link small" title="Save this chart as a picture, with its sources"
           onClick={() => save(`Debt by sector: ${name}`, `${valueUnit}.`, sources, "debt", unit, entity)}>Save picture</button>}
       </div>
