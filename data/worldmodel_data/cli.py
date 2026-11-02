@@ -32,7 +32,7 @@ import yaml
 from worldmodel_contract import catalogue, local
 from worldmodel_contract.queries import series_sql, stream_query
 from worldmodel_data import build as build_mod
-from worldmodel_data import gates, monitor
+from worldmodel_data import gates, manual, monitor
 from worldmodel_data.config import load_env, paths
 from worldmodel_data.connectors import CONNECTORS
 from worldmodel_data.vintage_store import VintageStore, now_utc
@@ -64,11 +64,58 @@ def fetch(
     """Fetch one source and store it as a new vintage."""
     if source not in CONNECTORS:
         raise typer.BadParameter(f"unknown source {source}; choose from {', '.join(CONNECTORS)}")
+    if from_path is None and CONNECTORS[source].manual and manual.files(manual.folder(paths(), source)):
+        from_path = manual.folder(paths(), source)
     manifest, is_new = CONNECTORS[source]().ingest(VintageStore(paths()), from_path, release)
     word = "stored new vintage" if is_new else "unchanged, already have vintage"
     counts = [f"{manifest.row_count:,} rows"] + [f"{n:,} {what}" for n, what in
                                                  ((manifest.text_count, "texts"), (manifest.event_count, "events")) if n]
     typer.echo(f"{source}: {word} {manifest.vintage} ({', '.join(counts)})")
+
+
+@app.command()
+def load(
+    source: Optional[str] = typer.Argument(None, help="A source; leave out to load every folder in the manual downloads folder."),
+    file: Optional[Path] = typer.Argument(None, help="A file or folder from elsewhere; it is copied into the source's folder."),
+):
+    """Load files you downloaded yourself, from the manual downloads folder (<home>/manual/<source>/).
+    Does not build; load.bat builds afterwards."""
+    p = paths()
+    manual.prepare(p, CONNECTORS)
+    store = VintageStore(p)
+    if source is not None and source not in CONNECTORS:
+        raise typer.BadParameter(f"unknown source {source}; choose from {', '.join(CONNECTORS)}")
+    if source and file:
+        file = file.expanduser()
+        if not file.exists():
+            raise typer.BadParameter(f"{file} does not exist")
+        if file.is_file():
+            kept = manual.keep_copy(p, source, file, CONNECTORS[source].keeps_files)
+            typer.echo(f"Copied to {kept}")
+        manifest, is_new = CONNECTORS[source]().ingest(store, file)
+        typer.echo(f"{source}: {'stored new vintage' if is_new else 'unchanged, already have'} {manifest.vintage}")
+        return
+    sources = [source] if source else sorted(d.name for d in manual.root(p).iterdir() if d.is_dir() and d.name in CONNECTORS)
+    loaded, failed = 0, []
+    for s_id in sources:
+        d = manual.folder(p, s_id)
+        if not manual.files(d):
+            if source:
+                typer.echo(f"Nothing to load: save the file in {d} first (see the note there on where to get it).", err=True)
+                raise typer.Exit(1)
+            continue
+        try:
+            manifest, is_new = CONNECTORS[s_id]().ingest(store, d)
+        except Exception as exc:  # one bad file should not stop the other folders
+            typer.echo(f"{s_id}: FAILED {exc}", err=True)
+            failed.append(s_id)
+            continue
+        loaded += 1
+        typer.echo(f"{s_id}: {'stored new vintage' if is_new else 'unchanged'} {manifest.vintage}")
+    if not loaded and not failed:
+        typer.echo(f"No files found in {manual.root(p)}. Save each file in its source's folder there.")
+    if failed:
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -139,6 +186,7 @@ def refresh(allow_shrink: bool = typer.Option(False)):
     p = paths()
     store = VintageStore(p)
     record = {"kind": "refresh", "started_at": now_utc().isoformat(), "sources": []}
+    manual.prepare(p, CONNECTORS)
     full = local.storage(p.home)["limits"][0]["level"] == "full"
     if full:
         typer.echo("The data folder is at its size limit: sources with large downloads are skipped this time. "
@@ -160,6 +208,20 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", vintage=last.vintage if last else None, note="country pack switched off")
             typer.echo(f"{source_id}: skipped (the {cls.pack.upper()} pack is switched off in Settings)")
             continue
+        folder = manual.folder(p, source_id)
+        if cls.manual and manual.files(folder):
+            t0 = time.monotonic()
+            try:
+                manifest, is_new = cls().ingest(store, folder)
+            except Exception as exc:
+                entry.update(status="error", error=f"file in {folder}: {exc}", seconds=round(time.monotonic() - t0, 1))
+                typer.echo(f"{source_id}: FAILED reading {folder}: {exc}", err=True)
+                failed.append(source_id)
+                continue
+            entry.update(status="new" if is_new else "unchanged", vintage=manifest.vintage, note="from the manual downloads folder",
+                         seconds=round(time.monotonic() - t0, 1), vintage_rows=manifest.row_count)
+            typer.echo(f"{source_id}: {'new vintage' if is_new else 'unchanged'} {manifest.vintage} (manual downloads folder)")
+            continue
         wait = _not_due(cls, last)
         if wait:
             entry.update(status="skipped", vintage=last.vintage if last else None, note=wait)
@@ -170,9 +232,21 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         try:
             manifest, is_new = conn.ingest(store)
         except Exception as exc:  # one source failing should not stop the others
-            entry.update(status="error", error=str(exc), seconds=round(time.monotonic() - t0, 1),
+            if manual.files(folder):  # the site blocked us: use the file saved by hand
+                try:
+                    manifest, is_new = cls().ingest(store, folder)
+                    entry.update(status="new" if is_new else "unchanged", vintage=manifest.vintage,
+                                 note=f"download failed ({str(exc)[:200]}); loaded from the manual downloads folder",
+                                 seconds=round(time.monotonic() - t0, 1), vintage_rows=manifest.row_count)
+                    typer.echo(f"{source_id}: download failed; {'new vintage' if is_new else 'unchanged'} {manifest.vintage} "
+                               f"from {folder}")
+                    continue
+                except Exception as exc2:
+                    exc = RuntimeError(f"{exc}; the file in {folder} did not load either: {exc2}")
+            hint = (f" Save the file in {folder} and run .\\load.bat {source_id}." if folder.is_dir() else "")
+            entry.update(status="error", error=str(exc) + hint, seconds=round(time.monotonic() - t0, 1),
                          download_bytes=conn.downloaded_bytes)
-            typer.echo(f"{source_id}: FAILED {exc}", err=True)
+            typer.echo(f"{source_id}: FAILED {exc}{hint}", err=True)
             failed.append(source_id)
             continue
         entry.update(status="new" if is_new else "unchanged", vintage=manifest.vintage,
@@ -191,7 +265,7 @@ def _not_due(cls, last) -> str | None:
     download yourself, a closed archive already stored, or one fetched on a schedule
     (monthly, say) whose time has not come."""
     if cls.manual:
-        return (f"loaded by hand: worldmodel-data fetch {cls.source_id} --from FILE"
+        return (f"loaded by hand: save the file in manual\\{cls.source_id} and run .\\load.bat"
                 + (f"; stored as {last.vintage}" if last else "; nothing loaded yet"))
     if last is None or last.fetch_version < cls.fetch_version:
         return None
@@ -211,6 +285,9 @@ def upgrade():
     reads, build it again from the data already downloaded (nothing is fetched)."""
     from worldmodel_contract import SCHEMA_VERSION, is_compatible
 
+    made = manual.prepare(paths(), CONNECTORS)
+    if made:
+        typer.echo(f"Folders for files you download yourself are in {manual.root(paths())}: {', '.join(made)}")
     restaged = _restage_stale(VintageStore(paths()))
     if restaged:
         typer.echo(f"Staged again with fixed loaders: {', '.join(restaged)}")

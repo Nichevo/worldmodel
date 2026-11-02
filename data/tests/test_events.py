@@ -102,7 +102,7 @@ def test_refresh_skips_hand_loaded_sources_and_refetches_after_new_queries():
     from worldmodel_data.cli import _not_due
     from worldmodel_data.vintage_store import Manifest, now_utc
 
-    assert "fetch emdat --from" in _not_due(CONNECTORS["emdat"], None)
+    assert "manual\\emdat" in _not_due(CONNECTORS["emdat"], None)
     last = Manifest(source_id="wikidata", vintage="2026-10", release="2026-10", retrieved_at=now_utc().isoformat(),
                     origin="", sha256="", raw_dir="")
     assert _not_due(CONNECTORS["wikidata"], last) is None  # fetched today, but before the event queries existed

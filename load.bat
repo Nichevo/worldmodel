@@ -1,17 +1,25 @@
 @echo off
-rem Load a file you downloaded yourself into a source, then build and check a new
-rem warehouse. For sources that cannot be downloaded for you, such as EM-DAT
-rem (it needs a free sign-in). Run from this folder, for example in PowerShell:
-rem   .\load.bat emdat "D:\Downloads\public_emdat_custom_request_2025-06-01.xlsx"
+rem Load files you downloaded yourself (sites that block scripts, or need a sign-in),
+rem then build and check a new warehouse. Save each file in its source's folder in
+rem var\manual\ (each folder has a note on where to get the file), then in PowerShell:
+rem   .\load.bat                 load every folder in var\manual that has a file
+rem   .\load.bat rbnz            load one source's folder
+rem   .\load.bat emdat "D:\Downloads\emdat.xlsx"   load a file from elsewhere; it is copied into var\manual\emdat
 rem Loading the same file twice changes nothing.
 cd /d "%~dp0"
-if "%~2"=="" (
-  echo Usage: load.bat SOURCE FILE   ^(for example: load.bat emdat D:\Downloads\emdat.xlsx^)
-  exit /b 1
-)
 call "%~dp0scripts\find-conda.bat" || exit /b 1
 call "%CONDA_BAT%" activate worldmodel || (echo Run setup.bat first. & exit /b 1)
-worldmodel-data fetch %1 --from "%~f2" || exit /b 1
+if "%~1"=="" (
+  worldmodel-data load
+) else if "%~2"=="" (
+  worldmodel-data load %1
+) else (
+  worldmodel-data load %1 "%~f2"
+)
+if errorlevel 1 (
+  echo.
+  echo Some files did not load; see above. Building with what did.
+)
 worldmodel-data build
 if errorlevel 1 (
   echo.
