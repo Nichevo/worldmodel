@@ -12,7 +12,7 @@ import { withParties, type Term } from "@/lib/parties";
 import { SOURCE_LABEL } from "@/lib/format";
 import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { useSettings } from "@/lib/settings";
-import { chartParts, keep, openAsk, seriesTable, sourcesLine } from "@/lib/ai";
+import { chartParts, keep, openAsk, seriesTable, sourcesLine, useRegisterChart } from "@/lib/ai";
 
 type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; start?: number; end?: number; height?: number;
   events?: EventRow[]; parties?: Term[]; forecast?: boolean };
@@ -73,6 +73,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
     }
   };
   const names = new Map(entities.map((e) => [e.id, e.name]));
+  useRegisterChart(() => ({ title, parts: () => chartParts(indicator, rows ?? [], names, inView), picture }));
   const askAI = () => openAsk({ title, parts: chartParts(indicator, rows ?? [], names, inView), indicator: indicator.indicator_id,
     entity: entities.length === 1 ? entities[0].id : undefined, picture });
   // Keep: the chart stays live (it reopens on the map page with these settings) and a picture of it as it looks now.
