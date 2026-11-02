@@ -71,3 +71,29 @@ def test_ai_use(con):
     assert value(con, "USA", "ai_claude_use_share", 2025, "anthropic_aei")[0] == pytest.approx(21.6)
     assert value(con, "SGP", "ai_use_population", 2025, "ms_ai_diffusion")[0] == pytest.approx(60.9)
     assert value(con, "NZL", "ai_use_population", 2025, "ms_ai_diffusion")[0] == pytest.approx(38)  # a fraction
+
+
+def test_ms_ai_diffusion_github_file_one_column_per_period(tmp_path):
+    """The repository's file has a column per half-year or quarter; each year takes its latest."""
+    import httpx
+
+    csv = ("Economy,H1 2025 AI Diffusion,H2 2025 AI Diffusion,Q1 2026 AI Diffusion,Q2 2026 AI Diffusion\n"
+           "Singapore,58.60%,60.90%,63.40%,64.3%\nNew Zealand,37.60%,40.50%,43.00%,44.1%\n")
+    asked = []
+
+    def handler(request):
+        asked.append(str(request.url))
+        if "api.github.com" in str(request.url):
+            return httpx.Response(200, json=[{"type": "file", "name": "AI_Diffusion_Q12026_Update.csv"},
+                                             {"type": "file", "name": "AI_Diffusion_Q22026_Update.csv"},
+                                             {"type": "dir", "name": "US"}])
+        return httpx.Response(200, text=csv)
+
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    CONNECTORS["imf_weo"]().ingest(store, FIXTURES / "imf_weo")
+    CONNECTORS["ms_ai_diffusion"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
+    assert asked[1].endswith("/data/AI_Diffusion_Q22026_Update.csv")
+    c = duckdb.connect(str(build(home).path), read_only=True)
+    assert value(c, "NZL", "ai_use_population", 2025, "ms_ai_diffusion")[0] == pytest.approx(40.5)
+    assert value(c, "NZL", "ai_use_population", 2026, "ms_ai_diffusion")[0] == pytest.approx(44.1)

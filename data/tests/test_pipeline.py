@@ -207,3 +207,23 @@ def test_upgrade_rebuilds_an_older_format_only(home, monkeypatch):
     out = runner.invoke(app, ["upgrade"])
     assert out.exit_code == 0 and "rebuilding" in out.output, out.output
     assert home.current_build() != first
+
+
+def test_value_outside_the_bounds_is_left_out_not_fatal(home, tmp_path):
+    """One slip in a source (here NZ fertility of 166.7 instead of 1.667) is left out and
+    reported as a warning; the rest of the build goes live."""
+    slipped = tmp_path / "slipped_wpp"
+    slipped.mkdir()
+    for f in (FIXTURES / "un_wpp").iterdir():
+        with gzip.open(f, "rt") as src, gzip.open(slipped / f.name, "wt") as dst:
+            for line in src:
+                dst.write(line.replace(",2023,5172.836,2569.512,2603.323,0.83,59.236,11.451,1.66712,",
+                                       ",2023,5172.836,2569.512,2603.323,0.83,59.236,11.451,166.712,"))
+    fetch_all(home, slipped)
+    result = build(home)
+    con = duckdb.connect(str(result.path), read_only=True)
+    assert con.execute("SELECT count(*) FROM series WHERE entity_id = 'NZL' AND indicator_id = 'tfr' "
+                       "AND year(period_start) = 2023").fetchone()[0] == 0
+    assert con.execute("SELECT count(*) FROM series WHERE entity_id = 'NZL' AND indicator_id = 'tfr'").fetchone()[0] > 0
+    status, examples = next((c.status, c.examples) for c in result.checks if c.check_id == "out_of_bounds")
+    assert status == "warn" and "un_wpp tfr NZL" in examples[0]

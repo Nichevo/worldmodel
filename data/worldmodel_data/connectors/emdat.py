@@ -106,14 +106,10 @@ def table(path: Path) -> list[list]:
     """All rows of the first sheet (or the CSV), header first."""
     if path.suffix.lower() == ".csv":
         return list(csv.reader(io.StringIO(path.read_text(encoding="utf-8-sig", errors="replace"))))
-    from openpyxl import load_workbook  # only needed here
+    from worldmodel_data.connectors.tabular import xlsx_rows
 
-    with path.open("rb") as fh:
-        wb = load_workbook(fh, read_only=True, data_only=True)
-        try:
-            return [list(r) for r in wb.worksheets[0].iter_rows(values_only=True)]
-        finally:
-            wb.close()
+    # EM-DAT's own export says its sheet is one cell (A1); xlsx_rows reads past that.
+    return xlsx_rows(path, 0)
 
 
 def _num(v) -> float | None:

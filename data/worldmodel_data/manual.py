@@ -17,7 +17,7 @@ from worldmodel_data.config import Paths
 
 # Sources whose sites often block scripted downloads: they get a folder too, and a
 # refresh falls back to it when the download fails.
-FALLBACK = {"rbnz", "mbie_energy", "us_census_voting", "idea_turnout", "powell_thyne", "anthropic_aei", "ilostat_earnings", "un_wup"}
+FALLBACK = {"rbnz", "mbie_energy", "us_census_voting", "idea_turnout", "powell_thyne", "anthropic_aei", "ilostat_earnings", "un_wup", "nz_corrections", "ms_ai_diffusion"}
 ABOUT = "_where to get it.txt"
 OLD = "old"
 _SKIP_SUFFIXES = (".tmp", ".crdownload", ".part", ".partial")

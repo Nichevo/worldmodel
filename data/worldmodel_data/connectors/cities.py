@@ -368,22 +368,29 @@ class ILOEarnings(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows = Rows()
         for f in sorted(raw_dir.iterdir()):
-            sid = next((s for s in ILO_SERIES if f.name.upper().startswith(s)), None)
-            if not sid:
+            if f.suffix.lower() not in (".csv", ".gz", ".xlsx"):
                 continue
+            named = next((s for s in ILO_SERIES if f.name.upper().startswith(s)), None)
             for r in _ilo_rows(f):
-                cur = ILO_CURRENCY.get(r.get("classif1", ""))
-                y = re.match(r"(\d{4})", r.get("time", ""))
-                if not cur or not y:
+                sid = named or _ilo_series(r)
+                cur = _ilo_currency(r.get("classif1", "") or r.get("classif1.label", ""))
+                y = re.match(r"(\d{4})", str(r.get("time", "")))
+                if not sid or not cur or not y:
                     continue
                 if sid.startswith("EAR_4MTH"):
-                    sex = {"SEX_T": "", "SEX_F": "_women", "SEX_M": "_men"}.get(r.get("sex", ""))
+                    sex = _ilo_sex(r.get("sex", "") or r.get("sex.label", ""))
                     if sex is None:
                         continue
                     ind = f"ilo_earnings_{cur}{sex}"
                 else:
                     ind = f"ilo_min_wage_{cur}"
-                rows.add("iso3", r.get("ref_area"), ind, int(y.group(1)), num(r.get("obs_value")))
+                area = str(r.get("ref_area", "") or "").strip()
+                if re.fullmatch(r"[A-Z]{3}", area):
+                    rows.add("iso3", area, ind, int(y.group(1)), num(r.get("obs_value")))
+                else:
+                    ent = country_by_name(area or str(r.get("ref_area.label", "")))
+                    if ent:
+                        rows.add("iso3", ent, ind, int(y.group(1)), num(r.get("obs_value")))
         if not len(rows):
             raise ConnectorError(f"ilostat: nothing read from {raw_dir}")
         listed = []
@@ -403,7 +410,36 @@ class ILOEarnings(Connector):
         return rows.stage(con, self.source_id, vintage)
 
 
+def _ilo_series(r: dict) -> str | None:
+    """The series of a row from a file saved from ILOSTAT's data explorer (named any way)."""
+    ind = str(r.get("indicator", "") or "") + " " + str(r.get("indicator.label", "") or "")
+    if "EAR_4MTH" in ind or re.search(r"average monthly earnings", ind, re.I):
+        return "EAR_4MTH_SEX_CUR_NB_A"
+    if "EAR_4MMN" in ind or re.search(r"minimum wage", ind, re.I):
+        return "EAR_4MMN_CUR_NB_A"
+    return None
+
+
+def _ilo_currency(v: str) -> str | None:
+    if v in ILO_CURRENCY:
+        return ILO_CURRENCY[v]
+    v = v.lower()
+    return "ppp" if "ppp" in v else "usd" if "u.s. dollar" in v or "us dollar" in v else "lcu" if "local currency" in v else None
+
+
+def _ilo_sex(v: str) -> str | None:
+    return {"SEX_T": "", "SEX_F": "_women", "SEX_M": "_men"}.get(v) if v.startswith("SEX_") else \
+        {"total": "", "female": "_women", "male": "_men"}.get(v.lower().split(":")[-1].strip())
+
+
 def _ilo_rows(path: Path) -> list[dict]:
+    """Rows of an ILOSTAT bulk file (.csv.gz or .csv, code columns) or a file saved from its data
+    explorer (CSV or Excel, possibly with ".label" columns instead of codes)."""
+    if path.suffix.lower() == ".xlsx":
+        table = xlsx_rows(path, 0)
+        hi = next((i for i, r in enumerate(table[:10]) if any(str(c or "").startswith("ref_area") for c in r)), 0)
+        head = [str(c or "").strip() for c in table[hi]]
+        return [dict(zip(head, ["" if c is None else str(c) for c in r])) for r in table[hi + 1:]]
     raw = path.read_bytes()
     if raw[:2] == b"\x1f\x8b":
         raw = gzip.decompress(raw)

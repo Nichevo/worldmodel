@@ -87,3 +87,16 @@ def test_numbeo_by_city_and_country(built):
     assert value(con, "NZL", "numbeo_rent", 2025) == pytest.approx(27.4)
     check = next(c for c in result.checks if c.check_id == "cities:matched")
     assert "matched no city" in check.detail and any("Lyonville" in e for e in check.examples)
+
+
+def test_ilostat_file_saved_from_the_data_explorer(tmp_path):
+    from worldmodel_data.connectors.cities import _ilo_currency, _ilo_rows, _ilo_series, _ilo_sex
+
+    f = tmp_path / "ILOSTAT data 2026-11-02.csv"
+    f.write_text('ref_area.label,indicator.label,source.label,sex.label,classif1.label,time,obs_value\n'
+                 '"New Zealand","Average monthly earnings of employees by sex (local currency)","LFS","Sex: Female",'
+                 '"Currency: U.S. dollars",2023,3500\n', encoding="utf-8")
+    r = _ilo_rows(f)[0]
+    assert _ilo_series(r) == "EAR_4MTH_SEX_CUR_NB_A"
+    assert _ilo_sex(r["sex.label"]) == "_women" and _ilo_currency(r["classif1.label"]) == "usd"
+    assert _ilo_currency("Currency: 2021 PPP $") == "ppp" and _ilo_sex("SEX_T") == ""
