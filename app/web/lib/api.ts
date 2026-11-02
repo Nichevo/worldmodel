@@ -182,6 +182,11 @@ export type Settings = {
   forecast_horizon: number; // years the Forecast button looks ahead
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
+  base_map: "online" | "local" | "plain"; // map detail under the colours
+  basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
+  basemap_world_zoom: number;
+  basemap_region_zoom: number;
+  basemap_limit_gb: number;
   places_fetch: boolean; // refresh fetches metro and rail, universities and companies
   pack_nz: boolean; // refresh fetches the New Zealand pack
   ai_enabled: boolean; // Ask AI buttons, AI notes page, highlight menu's Ask AI
@@ -466,8 +471,10 @@ export type PlaceRow = {
 };
 export type NumbeoCompare = {
   places: { kind: "cities" | "countries"; id: string; name: string; country_id: string | null; url: string | null; fetched_at: string | null;
-    summary: { single_without_rent?: number; family_without_rent?: number }; values: Record<string, number> }[];
+    summary: { single_without_rent?: number; family_without_rent?: number }; values: Record<string, number>;
+    before: Record<string, number> | null; before_fetched_at: string | null }[];
   items: { item: string; section: string }[];
+  years: number[]; year: number | null; since: number | null;
 };
 export type NumbeoPrices = {
   name: string; budget: { day: string; used: number; limit: number };
@@ -550,7 +557,7 @@ export const api = {
   events: (q: EventQuery) => get<EventRow[]>("/events", {
     entities: q.entities?.join(","), members: q.members ? "true" : undefined, kinds: q.kinds?.join(","),
     sources: q.sources?.join(","), start: q.start, end: q.end, min_size: q.min_size, q: q.q, limit: q.limit }),
-  numbeoCompare: () => get<NumbeoCompare>("/numbeo/compare"),
+  numbeoCompare: (q: { year?: number; since?: number } = {}) => get<NumbeoCompare>("/numbeo/compare", q),
   eventKinds: () => get<EventKind[]>("/events/kinds"),
   milestones: () => get<Milestone[]>("/milestones"),
   addMilestone: (m: Partial<Milestone>) => send<Milestone>("POST", "/milestones", m),

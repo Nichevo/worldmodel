@@ -109,6 +109,18 @@ def test_numbeo_button_fetches_once_within_the_limit(client, monkeypatch):
     assert {p["id"] for p in both["places"]} == {"gn2193733", "gn5746545"}
     assert both["places"][0]["values"]["Meal, Inexpensive Restaurant"] == 17.5
     assert {"item": "Meal, Inexpensive Restaurant", "section": "Restaurants"} in both["items"]
+    # each fetch is also kept under its year; an older year's page compares against it
+    this_year = int(both["places"][0]["fetched_at"][:4])
+    assert both["years"] == [this_year]
+    old = numbeo.cached("cities", "gn2193733") | {"fetched_at": "2024-06-01T00:00:00+00:00",
+                                                 "items": [{"section": "Restaurants", "item": "Meal, Inexpensive Restaurant", "value": 15.0}]}
+    numbeo._write(numbeo._year_file("cities", "gn2193733", 2024), old)
+    then = client.get("/api/v1/numbeo/compare", params={"year": 2024}).json()
+    assert [p["id"] for p in then["places"]] == ["gn2193733"] and then["years"] == [this_year, 2024]
+    change = client.get("/api/v1/numbeo/compare", params={"since": 2024}).json()
+    auck = next(p for p in change["places"] if p["id"] == "gn2193733")
+    assert auck["before"] == {"Meal, Inexpensive Restaurant": 15.0} and auck["before_fetched_at"].startswith("2024")
+    assert next(p for p in change["places"] if p["id"] == "gn5746545")["before"] is None
     client.put("/api/v1/settings", json={"numbeo_daily": 2})
     res = client.post("/api/v1/entities/NZL/numbeo", json={})
     assert res.status_code == 409 and "used up" in res.json()["detail"]

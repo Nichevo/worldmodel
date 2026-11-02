@@ -17,14 +17,16 @@ export default function PricesPage() {
   const [picked, setPicked] = useState<string[] | null>(null);
   const [item, setItem] = useState<string>("");
   const [section, setSection] = useState("");
+  const [year, setYear] = useState<number | undefined>();
+  const [since, setSince] = useState<number | undefined>();
   useEffect(() => {
-    api.numbeoCompare().then((d) => {
+    api.numbeoCompare({ year, since }).then((d) => {
       setData(d);
       setPicked((p) => p ?? d.places.slice(0, 6).map((x) => `${x.kind}:${x.id}`));
       setItem((i) => i || d.items.find((x) => /meal.*inexpensive/i.test(x.item))?.item || d.items[0]?.item || "");
     }).catch((e) => setError(String(e.message || e)));
-    logHistory({ kind: "page", title: "Compare prices", url: "/prices" });
-  }, []);
+  }, [year, since]);
+  useEffect(() => { logHistory({ kind: "page", title: "Compare prices", url: "/prices" }); }, []);
   const key = (p: NumbeoCompare["places"][number]) => `${p.kind}:${p.id}`;
   const shown = useMemo(() => (data && picked ? picked.map((k) => data.places.find((p) => key(p) === k)).filter(Boolean) : []) as NumbeoCompare["places"], [data, picked]);
   const sections = useMemo(() => [...new Set((data?.items ?? []).map((i) => i.section))], [data]);
@@ -59,8 +61,20 @@ export default function PricesPage() {
       </div>
       <p className="ink-2" style={{ marginTop: 0 }}>
         Every city and country whose Numbeo prices you have fetched (the &quot;Get Numbeo prices&quot; button on a city or country page).
-        Prices in US dollars, crowd-sourced, as of the date each page was fetched.
+        Prices in US dollars, crowd-sourced, as of the date each page was fetched. Every fetch is kept under its year
+        (the last one in a year stands for it), so you can look back or see how prices moved.
       </p>
+      <div className="chips-row small">
+        <label>Prices from <select value={year ?? ""} onChange={(e) => setYear(e.target.value ? Number(e.target.value) : undefined)}>
+          <option value="">the latest fetch of each place</option>
+          {data.years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select></label>
+        <label>Show the change since <select value={since ?? ""} onChange={(e) => setSince(e.target.value ? Number(e.target.value) : undefined)}>
+          <option value="">(no change; compare places)</option>
+          {data.years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select></label>
+        {data.years.length < 2 && <span className="muted">Fetch a place again next year to compare years.</span>}
+      </div>
       {data.places.length === 0 && <p className="muted">No Numbeo pages fetched yet. Open a city from <Link href="/cities">Cities</Link> and press &quot;Get Numbeo prices&quot;.</p>}
       {data.places.length > 0 && (
         <>
@@ -87,7 +101,8 @@ export default function PricesPage() {
                   <option value="">All</option>
                   {sections.map((x) => <option key={x} value={x}>{x}</option>)}
                 </select></label>
-                {shown.length > 1 && <span className="muted">Percentages compare each place with {base.name}.</span>}
+                {since ? <span className="muted">Percentages show each price&apos;s change since {since} (none where that place was not fetched in {since}).</span>
+                  : shown.length > 1 && <span className="muted">Percentages compare each place with {base.name}.</span>}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table className="summary-table price-compare">
@@ -99,8 +114,9 @@ export default function PricesPage() {
                         <tr>
                           <td>{i.item}</td>
                           {shown.map((p, j) => {
-                            const v = p.values[i.item], b = base.values[i.item];
-                            const d = j > 0 && v !== undefined && b ? (v / b - 1) * 100 : null;
+                            const v = p.values[i.item];
+                            const b = since ? p.before?.[i.item] : j > 0 ? base.values[i.item] : undefined;
+                            const d = v !== undefined && b ? (v / b - 1) * 100 : null;
                             return <td key={key(p)} className="num">{usd(v)}{d !== null && Math.abs(d) >= 1 &&
                               <span className={`small ${d < 0 ? "cheaper" : "dearer"}`}> {d > 0 ? "+" : ""}{d.toFixed(0)}%</span>}</td>;
                           })}

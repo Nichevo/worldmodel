@@ -25,7 +25,7 @@ const yr = (y: number | undefined) => (y ? ` (${y})` : "");
 function Facts({ p }: { p: PlaceRow }) {
   const f = p.facts;
   if (p.kind === "transit") {
-    return <>{[f.length_km ? `${f.length_km} km` : null, f.stations ? `${f.stations} stations` : null,
+    return <>{[f.length_km ? `${f.length_km} km` : null, f.stations ? `${f.stations} station${f.stations === 1 ? "" : "s"}` : null,
       f.riders ? `${big(f.riders)} trips a year${yr(f.riders_year)}` : null].filter(Boolean).join(" · ") || "–"}</>;
   }
   if (p.kind === "university") return <>{f.students ? `${big(f.students)} students${yr(f.students_year)}` : "–"}</>;

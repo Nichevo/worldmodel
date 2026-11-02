@@ -11,6 +11,11 @@
   --border: rgba(11, 11, 11, 0.1);
   --accent: #2a78d6;
   --no-data: #e6e5e0;
+  --map-water: #b9d3ea;
+  --map-road: #8f8b80;
+  --map-road-major: #c98a3a;
+  --map-rail: #6b5f8f;
+  --map-building: #cfccc2;
   --warn-bg: #fff4dc;
   --warn-ink: #6b4a00;
 
@@ -54,6 +59,11 @@
     --border: rgba(255, 255, 255, 0.1);
     --accent: #3987e5;
     --no-data: #2c2c2a;
+    --map-water: #1d3550;
+    --map-road: #77746c;
+    --map-road-major: #b8843f;
+    --map-rail: #9c90c9;
+    --map-building: #3a3936;
     --warn-bg: #3a2f12;
     --warn-ink: #f5d48a;
 
@@ -598,3 +608,4 @@ button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent,
 .events-map { height: 480px; display: flex; flex-direction: column; }
 .events-filters select { max-width: 180px; }
 .nav-ask { width: 220px; margin-right: 8px; }
+.warn-text { color: var(--series-2); }

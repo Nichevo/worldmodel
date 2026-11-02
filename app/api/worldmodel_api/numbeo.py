@@ -92,13 +92,45 @@ def cached(kind: str, item_id: str) -> dict | None:
     return _read(root() / kind / f"{item_id}.json")
 
 
-def all_cached() -> list[dict]:
-    """Every page fetched so far (cities and countries), newest first, for comparing them."""
+def _year_file(kind: str, item_id: str, year: int | str) -> Path:
+    return root() / kind / "years" / item_id / f"{year}.json"
+
+
+def _keep_year(data: dict) -> None:
+    """Keep a copy of a page under its year, so a later fetch does not lose it (the last
+    fetch in a year stands for that year)."""
+    year = (data.get("fetched_at") or "")[:4]
+    if year.isdigit() and data.get("kind") in ("cities", "countries") and data.get("id"):
+        _write(_year_file(data["kind"], data["id"], year), data)
+
+
+def years() -> list[int]:
+    """The years with at least one page kept, newest first."""
+    found = set()
+    for kind in ("cities", "countries"):
+        for f in (root() / kind / "years").glob("*/*.json"):
+            if f.stem.isdigit():
+                found.add(int(f.stem))
+    return sorted(found, reverse=True)
+
+
+def all_cached(year: int | None = None) -> list[dict]:
+    """Every page fetched so far (cities and countries), newest first, for comparing them;
+    with a year, the pages kept for that year."""
     out = []
     for kind in ("cities", "countries"):
         d = root() / kind
-        if d.is_dir():
-            for f in d.glob("*.json"):
+        if not d.is_dir():
+            continue
+        for f in d.glob("*.json"):
+            data = _read(f)
+            if isinstance(data, dict) and data.get("items"):
+                if not _year_file(kind, f.stem, (data.get("fetched_at") or "x")[:4]).exists():
+                    _keep_year(data)  # pages fetched before years were kept
+                if year is None:
+                    out.append(data)
+        if year is not None:
+            for f in (d / "years").glob(f"*/{year}.json"):
                 data = _read(f)
                 if isinstance(data, dict) and data.get("items"):
                     out.append(data)
@@ -132,6 +164,7 @@ def fetch(kind: str, item_id: str, country: str, city: str | None, client: httpx
         out = {"kind": kind, "id": item_id, "country": country, "city": city, "url": url, "currency": "USD",
                "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **data}
         _write(root() / kind / f"{item_id}.json", out)
+        _keep_year(out)
         return out
 
 
