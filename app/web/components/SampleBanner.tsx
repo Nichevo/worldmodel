@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { api, type Meta } from "@/lib/api";
 
 // Says plainly when the app is showing the bundled sample rather than a local refresh,
-// and when the API cannot be reached.
+// when the API cannot be reached, and when the stored warehouse is in an older format.
 export default function SampleBanner() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +14,15 @@ export default function SampleBanner() {
     api.meta().then(setMeta).catch((e) => setError(String(e.message || e)));
   }, []);
 
+  if (error && /has schema|older format/.test(error))
+    return (
+      <div className="banner">
+        The stored data is in an older format than this version of the app reads, so most pages can&apos;t load
+        yet. Nothing is lost: close the app, run <code>.\update.bat</code> (it rebuilds the warehouse from the
+        data already downloaded, which takes a few minutes), then <code>.\start.bat</code>. If update.bat says the
+        warehouse could not be rebuilt, run <code>.\refresh.bat</code>. <span className="muted small">({error})</span>
+      </div>
+    );
   if (error)
     return (
       <div className="banner">

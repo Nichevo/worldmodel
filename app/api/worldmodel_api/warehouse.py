@@ -73,7 +73,7 @@ class Warehouse:
         if not is_compatible(found, SCHEMA_VERSION):
             con.close()
             raise WarehouseError(f"{path} has schema {found}; this app reads {SCHEMA_VERSION}. "
-                                 "Rebuild the warehouse or update the app.")
+                                 "Close the app and run update.bat, which rebuilds it from the data already downloaded.")
         return Opened(path, path.stat().st_mtime, con, meta)
 
     def current(self) -> Opened:
