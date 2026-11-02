@@ -1778,10 +1778,13 @@ def _country(entity_id: str) -> dict:
 
 
 @api.get("/numbeo/compare")
-def numbeo_compare():
+def numbeo_compare(year: int | None = Query(None, description="The pages kept for this year (default: the latest of each)"),
+                   since: int | None = Query(None, description="Also give each place's prices from this year, to show the change")):
     """Every Numbeo price page fetched so far, side by side: one column per city or country,
-    one row per item (US dollars), with each page's name and date."""
-    pages = numbeo.all_cached()
+    one row per item (US dollars), with each page's name and date. Each fetch is kept under
+    its year, so years can be compared."""
+    pages = numbeo.all_cached(year)
+    before = {(p["kind"], p["id"]): p for p in numbeo.all_cached(since)} if since else {}
     names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
     city_names = {}
     if _has_cities():
@@ -1799,12 +1802,15 @@ def numbeo_compare():
             label, country = names.get(p["id"], p.get("country") or p["id"]), p["id"]
         places.append({"kind": p["kind"], "id": p["id"], "name": label, "country_id": country, "url": p.get("url"),
                        "fetched_at": p.get("fetched_at"), "summary": p.get("summary") or {},
-                       "values": {it["item"]: it["value"] for it in p["items"]}})
+                       "values": {it["item"]: it["value"] for it in p["items"]},
+                       "before": ({it["item"]: it["value"] for it in b["items"]} if (b := before.get((p["kind"], p["id"]))) else None),
+                       "before_fetched_at": b.get("fetched_at") if b else None})
         for it in p["items"]:
             if it["item"] not in sections:
                 sections[it["item"]] = it["section"]
                 order.append(it["item"])
-    return {"places": places, "items": [{"item": i, "section": sections[i]} for i in order]}
+    return {"places": places, "items": [{"item": i, "section": sections[i]} for i in order], "years": numbeo.years(),
+            "year": year, "since": since}
 
 
 @api.get("/entities/{entity_id}/numbeo")

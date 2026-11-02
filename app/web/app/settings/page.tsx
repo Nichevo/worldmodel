@@ -5,6 +5,8 @@ import { KINDS, kindVar } from "@/lib/events";
 import { useEffect, useState } from "react";
 import { api, type AIStatus, type Settings, type Storage } from "@/lib/api";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
+import PlacePicker, { type Place } from "@/components/PlacePicker";
+import { baseMapStatus, type BaseMapEstimate, type BaseMapStatus } from "@/lib/basemap";
 
 // Switches for how the app behaves, and the limits the data side keeps to.
 // Saved in the user folder beside the data, so they survive updates.
@@ -89,10 +91,14 @@ export default function SettingsPage() {
           note={used("disk") ? `${gb(used("disk")!.used)} used now` : undefined} save={(v) => save({ disk_limit_gb: v })} />
         <NumberField label="Pictures and cached pages" unit="GB" value={s.pictures_limit_gb} min={0.1} max={1000} step={0.5}
           note={used("pictures") ? `${gb(used("pictures")!.used)} used now` : undefined} save={(v) => save({ pictures_limit_gb: v })} />
+        <NumberField label="Map files" unit="GB" value={s.basemap_limit_gb} min={0.1} max={5000} step={1}
+          note={used("basemap") ? `${gb(used("basemap")!.used)} used now` : undefined} save={(v) => save({ basemap_limit_gb: v })} />
         <Toggle label="Banner while a refresh problem is open"
           hint="Shows the latest failed check or download at the top of every page, with how often it has happened, until a later refresh passes. The Problems list on Data status is always there."
           on={s.problem_banner} set={(v) => save({ problem_banner: v })} />
       </section>
+
+      <MapDetail s={s} save={save} />
 
       <section className="card">
         <h2>Places</h2>
@@ -354,5 +360,124 @@ function ClearHistory() {
       <button onClick={clear}>Clear history</button>
       {msg && <span className="small muted"> {msg}</span>}
     </>
+  );
+}
+
+// Map detail under the colours, and the local map files (made here from the Protomaps
+// planet build: the world to town level, chosen countries to street level).
+function MapDetail({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
+  const [st, setSt] = useState<BaseMapStatus | null>(null);
+  const [est, setEst] = useState<BaseMapEstimate | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const refresh = () => baseMapStatus(true).then(setSt).catch((e) => setErr(String(e.message || e)));
+  useEffect(() => { refresh(); api.entities().then((es) => setNames(Object.fromEntries(es.map((e) => [e.entity_id, e.short_name])))).catch(() => {}); }, []);
+  useEffect(() => { // while files are being made, check how it is going
+    if (st?.job.state !== "running") return;
+    const t = setInterval(refresh, 3000);
+    return () => clearInterval(t);
+  }, [st?.job.state]);
+  useEffect(() => { setEst(null); }, [s.basemap_regions, s.basemap_world_zoom, s.basemap_region_zoom]);
+  const regions: Place[] = s.basemap_regions.split(",").filter(Boolean)
+    .map((r) => ({ id: r.toUpperCase(), name: names[r.toUpperCase()] ?? r.toUpperCase(), group: false }));
+  const size = (b: number) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`);
+  const check = async () => {
+    setBusy("Checking the size (this reads only the build's index, a minute or so)…"); setErr(null);
+    try { setEst(await fetch("/api/v1/basemap/estimate", { method: "POST" }).then(async (r) => { if (!r.ok) throw new Error((await r.json()).detail); return r.json(); })); }
+    catch (e) { setErr((e as Error).message); }
+    setBusy(null);
+  };
+  const make = async () => {
+    setErr(null);
+    await fetch("/api/v1/basemap/make", { method: "POST" });
+    refresh();
+  };
+  const drop = async (name: string) => {
+    if (!confirm(`Delete the map file ${name}? You can make it again later.`)) return;
+    await fetch(`/api/v1/basemap/files/${encodeURIComponent(name)}`, { method: "DELETE" });
+    refresh();
+  };
+  const job = st?.job;
+  const have = st?.files ?? [];
+  return (
+    <section className="card">
+      <h2>Map detail</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        Water, roads, rail, buildings and place names under the country colours. They show faintly at world view and
+        more as you zoom in, while the colours fade.
+      </p>
+      <Field label="Where the detail comes from">
+        <div className="seg" role="group" aria-label="Map detail">
+          {([["online", "Online (OpenFreeMap)"], ["local", "Map files on this PC"], ["plain", "None (country shapes only)"]] as const).map(([v, t]) => (
+            <button key={v} className={s.base_map === v ? "on" : ""} aria-pressed={s.base_map === v} onClick={() => save({ base_map: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <p className="small muted">
+        Online needs the internet and stores nothing. Map files work offline and on every PC that opens the app; they are
+        made once from OpenStreetMap data (Protomaps build) and remade with Refresh map files whenever you like.
+        {s.base_map === "local" && !have.length && " No map files yet: the maps stay plain until you make them below."}
+      </p>
+
+      <h3 style={{ marginBottom: 4 }}>Map files</h3>
+      <Field label="Countries in full detail (every street)" hint="Everywhere else goes down to the world level below.">
+        <div style={{ minWidth: 260 }}>
+          <PlacePicker value={regions} placeholder="None" onChange={(ps) => save({ basemap_regions: ps.filter((p) => !p.group).map((p) => p.id.toLowerCase()).join(",") })} />
+        </div>
+      </Field>
+      <Field label="World detail" hint="How far the world file goes. Each step roughly doubles or triples its size.">
+        <select value={s.basemap_world_zoom} onChange={(e) => save({ basemap_world_zoom: Number(e.target.value) })}>
+          {[[6, "6: cities and motorways"], [7, "7: towns and main roads"], [8, "8: towns, main roads and rail (suggested)"],
+            [9, "9: small towns and most roads"], [10, "10: villages and local roads"]].map(([z, t]) => <option key={z} value={z}>{t}</option>)}
+        </select>
+      </Field>
+      <Field label="Full-detail countries go to">
+        <select value={s.basemap_region_zoom} onChange={(e) => save({ basemap_region_zoom: Number(e.target.value) })}>
+          {[[12, "12: suburbs and streets"], [14, "14: every street"], [15, "15: every street and building (suggested)"]].map(([z, t]) =>
+            <option key={z} value={z}>{t}</option>)}
+        </select>
+      </Field>
+      <p className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button onClick={check} disabled={!!busy || job?.state === "running"}>Check size</button>
+        <button onClick={make} disabled={!!busy || job?.state === "running" || (!!est && !est.fits)}>
+          {have.length ? "Refresh map files" : "Make map files"}
+        </button>
+        {busy && <span className="muted small">{busy}</span>}
+      </p>
+      {est && (
+        <div className="small">
+          <b>{est.size}</b> in all, from the {est.build.slice(0, 4)}-{est.build.slice(4, 6)}-{est.build.slice(6, 8)} build:{" "}
+          {est.items.map((i) => `${i.region === "world" ? "world" : names[i.region] ?? i.region} ${i.bytes ? size(i.bytes) : "size unknown"}`).join(", ")}.
+          {!est.fits && <span className="warn-text"> {est.why}.</span>}
+          {est.fits && " This fits within the map files limit (Storage limits below)."}
+        </div>
+      )}
+      {job?.state === "running" && <p className="small"><b>Working:</b> {job.step}. You can leave this page; it carries on.</p>}
+      {job?.state === "failed" && <p className="small warn-text"><b>The map files were not made:</b> {job.error}</p>}
+      {job?.state === "done" && <p className="small">Map files ready. Maps use them when “Map files on this PC” is chosen above.</p>}
+      {err && <p className="small warn-text">{err}</p>}
+      {have.length > 0 && (
+        <table className="summary-table" style={{ marginTop: 8 }}>
+          <thead><tr><th>File</th><th className="num">Size</th><th>Detail to</th><th>Made</th><th /></tr></thead>
+          <tbody>
+            {have.map((f) => (
+              <tr key={f.name}>
+                <td>{f.region === "world" ? "World" : names[f.region] ?? f.region}</td>
+                <td className="num">{size(f.bytes)}</td>
+                <td>{f.maxzoom ?? "–"}</td>
+                <td className="small">{f.made ? f.made.slice(0, 10) : "–"}{f.build ? ` (build ${f.build.slice(0, 8)})` : ""}</td>
+                <td><button className="link" onClick={() => drop(f.name)}>Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="caption">
+        The first time, the app also fetches the small go-pmtiles tool (from GitHub) and the fonts for place names. Making
+        the files reads only the needed parts of the 120 GB planet build, so it takes minutes, not hours, on a normal
+        connection. Files are kept in the data folder under basemap and count toward its size limit.
+      </p>
+    </section>
   );
 }
