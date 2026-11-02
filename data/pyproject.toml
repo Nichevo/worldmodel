@@ -14,6 +14,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6",
     "openpyxl>=3.1",
+    "xlrd>=2.0",
     "rdata>=0.11",
     "truststore>=0.10",
 ]

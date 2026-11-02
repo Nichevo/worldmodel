@@ -244,6 +244,7 @@ export const MAP_LAYERS = [
   { letter: "f", id: "active_faults", label: "Active faults" },
   { letter: "v", id: "volcanoes", label: "Volcanoes" },
   { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)" },
+  { letter: "c", id: "major_cities", label: "Major cities" },
 ] as const;
 
 // URL form, kept readable:

@@ -33,6 +33,12 @@
   map: inflation
   indicators: [inflation, price_level_ratio, oecd_house_price_real, oecd_price_to_income_vs_avg]
 
+- id: living
+  name: Cost of living and pay
+  intro: What things cost and what people earn. Price levels and cost indices show how dear a country is; earnings, the minimum wage and take-home pay show what people have to spend. Pay in PPP dollars buys the same everywhere, so it compares living standards; city figures are on the Cities page.
+  map: wn_cost_index
+  indicators: [price_level_ratio, wn_cost_index, wn_monthly_cost_usd, ilo_earnings_ppp, ilo_min_wage_ppp, wn_median_net_ppp, wn_take_home_share, wn_rent_index]
+
 - id: housing
   name: Housing
   intro: House prices against incomes and rents, and household debt. Where prices have run ahead of incomes, homes are harder to afford and households borrow more.

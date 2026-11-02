@@ -568,3 +568,13 @@ button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent,
 .vs-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .vs-chip { gap: 5px; }
 @media (max-width: 700px) { .ask-runs.two { grid-template-columns: 1fr; } }
+
+/* Cities */
+.numbeo-sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; }
+.numbeo-sections summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.city-table td.name { white-space: nowrap; }
+.city-tag { font-size: 0.7rem; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
+.city-map { height: 460px; display: flex; flex-direction: column; }
+.city-map.small { height: 300px; }
+.cities-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .cities-grid { grid-template-columns: 1fr; } }

@@ -91,6 +91,41 @@ LAYER_COLUMNS = {
 }
 
 
+# cities.parquet beside a vintage, for a source of places (GeoNames): one row per city.
+# city_key is the source's own id; synonyms are other names (lower case, "|" between).
+CITY_COLUMNS = {
+    "source_id": "VARCHAR",
+    "vintage": "VARCHAR",
+    "city_key": "VARCHAR",
+    "name": "VARCHAR",
+    "ascii_name": "VARCHAR",
+    "synonyms": "VARCHAR",
+    "country_id": "VARCHAR",
+    "admin1": "VARCHAR",
+    "lat": "DOUBLE",
+    "lon": "DOUBLE",
+    "population": "DOUBLE",
+    "feature_code": "VARCHAR",
+    "timezone": "VARCHAR",
+    "elevation": "DOUBLE",
+}
+
+# city_values.parquet beside a vintage: figures about cities as the source names them
+# (with its country's entity id and, where known, location). The build matches each to a city.
+CITY_VALUE_COLUMNS = {
+    "source_id": "VARCHAR",
+    "vintage": "VARCHAR",
+    "city_name": "VARCHAR",
+    "country_id": "VARCHAR",
+    "lat": "DOUBLE",
+    "lon": "DOUBLE",
+    "indicator_id": "VARCHAR",
+    "period_start": "DATE",
+    "status": "VARCHAR",
+    "value": "DOUBLE",
+}
+
+
 @dataclass
 class Manifest:
     source_id: str
@@ -107,6 +142,8 @@ class Manifest:
     text_count: int = 0     # rows in texts.parquet, if any
     event_count: int = 0    # rows in events.parquet, if any
     layer_count: int = 0    # map layers in layers.parquet, if any
+    city_count: int = 0     # rows in cities.parquet, if any
+    city_value_count: int = 0  # rows in city_values.parquet, if any
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2))

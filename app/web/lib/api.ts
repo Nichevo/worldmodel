@@ -434,7 +434,36 @@ async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string
   return res.json() as Promise<T>;
 }
 
+// Cities (GeoNames list; populations from UN WUP; costs from WhereNext and Numbeo).
+export type CityRow = {
+  city_id: string; name: string; country_id: string; country: string | null; admin1: string | null; lat: number; lon: number;
+  capital: "national" | "regional" | ""; geonames_population: number | null; population: number | null;
+  population_year: number | null; population_2035: number | null; wn_cost_index: number | null;
+  wn_monthly_cost_usd: number | null; numbeo_cost_index: number | null; numbeo_purchasing_power: number | null;
+};
+export type CitySeries = {
+  indicator_id: string; name: string; unit: string; decimals: number; description: string; source: string;
+  source_name: string | null; points: { year: number; value: number; status: string }[];
+};
+export type CityDetail = {
+  city: CityRow & { ascii_name: string; timezone: string | null; elevation: number | null; feature_code: string };
+  series: CitySeries[]; others: CityRow[];
+};
+export type NumbeoPrices = {
+  name: string; budget: { day: string; used: number; limit: number };
+  prices: { url: string; fetched_at: string; currency: string; city: string | null; country: string;
+    items: { section: string; item: string; value: number }[];
+    summary: { single_without_rent?: number; family_without_rent?: number } } | null;
+};
+
 export const api = {
+  cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
+    get<{ rows: CityRow[]; note: string | null }>("/cities", q),
+  city: (id: string) => get<CityDetail>(`/cities/${encodeURIComponent(id)}`),
+  cityWikipedia: (id: string) => get<Wikipedia>(`/cities/${encodeURIComponent(id)}/wikipedia`),
+  numbeo: (kind: "cities" | "entities", id: string) => get<NumbeoPrices>(`/${kind}/${encodeURIComponent(id)}/numbeo`),
+  fetchNumbeo: (kind: "cities" | "entities", id: string, name?: string) =>
+    send<NumbeoPrices>("POST", `/${kind}/${encodeURIComponent(id)}/numbeo`, { name: name || null }),
   meta: () => get<Meta>("/meta"),
   aiStatus: () => get<AIStatus>("/ai/status"),
   aiSearch: (question: string, model?: string, query?: string) => send<WebSearch>("POST", "/ai/search", { question, model, query }),
