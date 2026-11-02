@@ -33,7 +33,8 @@ from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pa
 from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
 from worldmodel_contract import forecast as statforecast
-from worldmodel_api import __version__, ai, highlights, layouts, userdata, wiki
+from worldmodel_contract.cities import CITY_INDICATORS
+from worldmodel_api import __version__, ai, highlights, layouts, numbeo, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1241,6 +1242,44 @@ def refresh_log():
     return local.read_refresh_log()
 
 
+@api.get("/manual-files")
+def manual_files():
+    """Files you save by hand: each source that needs one always (by_hand) or when its site
+    refuses a refresh, with where to get it, what is in its var/manual folder, when it was
+    last loaded, and whether anything needs doing now."""
+    from datetime import datetime, timezone
+    folder_root = local.home() / "manual"
+    loaded = {r["source_id"]: r["retrieved_at"] for r in rows(
+        "SELECT source_id, max(retrieved_at) AS retrieved_at FROM vintages GROUP BY source_id")}
+    failing = {p["source_id"]: p for p in local.problems() if p.get("kind") == "fetch" and p.get("open")}
+    out = []
+    for s in catalogue.sources().values():
+        if not s.manual:
+            continue
+        folder = folder_root / s.id
+        files = sorted((f for f in folder.iterdir() if f.is_file() and not f.name.startswith(("_", ".", "~$"))),
+                       key=lambda f: f.stat().st_mtime, reverse=True) if folder.is_dir() else []
+        last = loaded.get(s.id)
+        last_dt = datetime.fromisoformat(str(last)) if last else None
+        if last_dt and last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        newest = datetime.fromtimestamp(files[0].stat().st_mtime, timezone.utc) if files else None
+        if newest and (last_dt is None or newest > last_dt):
+            todo, why = "load", f"{files[0].name} is in the folder but not loaded yet"
+        elif s.manual.by_hand and last is None:
+            todo, why = "download", "Not loaded yet"
+        elif s.id in failing:
+            todo, why = "download", f"The last refresh could not download it ({failing[s.id].get('summary') or 'refused'})"
+        else:
+            todo, why = None, ""
+        out.append({"source_id": s.id, "name": s.name, "by_hand": s.manual.by_hand, "get": s.manual.get,
+                    "what": s.manual.what, "cadence": s.cadence, "folder": f"var\\manual\\{s.id}",
+                    "files": [f.name for f in files[:5]], "last_loaded": str(last) if last else None,
+                    "todo": todo, "why": why, "command": f".\\load.bat {s.id}"})
+    out.sort(key=lambda r: (r["todo"] is None, not r["by_hand"], r["name"]))
+    return out
+
+
 @api.get("/problems")
 def problems():
     """Each distinct failure in the refresh log, with how often it happened and whether it is still open."""
@@ -1527,6 +1566,147 @@ def indicator_ranking(indicator_id: str, year: int | None = None):
     for i, r in enumerate(ranked):
         r["rank"] = i + 1
     return {"indicator": indicator_id, "year": y, "rows": ranked, "world": world}
+
+
+# ----------------------------------------------------------------------------- cities
+def _has_cities() -> bool:
+    return bool(rows("SELECT 1 FROM information_schema.tables WHERE table_name = 'cities' AND table_schema = 'main'"))
+
+
+NO_CITIES = "No cities yet: run .\\refresh.bat (GeoNames gives the city list)."
+CITY_COLS = """c.city_id, c.name, c.country_id, e.short_name AS country, c.admin1, c.lat, c.lon, c.capital,
+    c.population AS geonames_population,
+    (SELECT max_by(value, period_start) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'city_population' AND year(s.period_start) <= year(current_date)) AS population,
+    (SELECT year(max(period_start)) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'city_population' AND year(s.period_start) <= year(current_date)) AS population_year,
+    (SELECT max_by(value, period_start) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'city_population' AND year(s.period_start) = 2035) AS population_2035,
+    (SELECT max_by(value, period_start) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'wn_city_cost_index') AS wn_cost_index,
+    (SELECT max_by(value, period_start) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'wn_city_monthly_cost_usd') AS wn_monthly_cost_usd,
+    (SELECT max_by(value, period_start) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'numbeo_cost_of_living') AS numbeo_cost_index,
+    (SELECT max_by(value, period_start) FROM city_series s WHERE s.city_id = c.city_id
+        AND s.indicator_id = 'numbeo_purchasing_power') AS numbeo_purchasing_power"""
+
+
+@api.get("/cities")
+def cities(country: str | None = Query(None, description="Comma-separated country ids"), q: str | None = None,
+           min_population: float = 0, limit: int = Query(300, ge=1, le=5000),
+           sort: Literal["population", "name", "cost", "growth"] = "population"):
+    """Cities with their latest population (UN agglomeration where there is one, else GeoNames),
+    growth to 2035 and cost of living figures. For the Cities page and the country page."""
+    if not _has_cities():
+        return {"rows": [], "note": NO_CITIES}
+    where, params = ["1 = 1"], []
+    if ids := split(country):
+        where.append(f"c.country_id IN ({', '.join('?' * len(ids))})")
+        params += ids
+    if q:
+        where.append("(c.name ILIKE ? OR c.ascii_name ILIKE ? OR c.synonyms ILIKE ?)")
+        params += [f"%{q}%", f"%{q}%", f"%{q.lower()}%"]
+    order = {"population": "coalesce(population, geonames_population) DESC NULLS LAST", "name": "name",
+             "cost": "coalesce(wn_cost_index, numbeo_cost_index) DESC NULLS LAST",
+             "growth": "population_2035 / population DESC NULLS LAST"}[sort]
+    found = rows(f"""SELECT * FROM (SELECT {CITY_COLS} FROM cities c LEFT JOIN entities e ON e.entity_id = c.country_id
+                     WHERE {' AND '.join(where)})
+                     WHERE coalesce(population, geonames_population, 0) >= ?
+                     ORDER BY {order} LIMIT ?""", [*params, min_population, limit])
+    return {"rows": found, "note": None}
+
+
+def _city(city_id: str) -> dict:
+    if not _has_cities():
+        raise HTTPException(404, NO_CITIES)
+    found = rows(f"""SELECT {CITY_COLS}, c.ascii_name, c.timezone, c.elevation, c.feature_code
+                     FROM cities c LEFT JOIN entities e ON e.entity_id = c.country_id WHERE c.city_id = ?""", [city_id])
+    if not found:
+        raise HTTPException(404, f"no city {city_id}")
+    return found[0]
+
+
+@api.get("/city-indicators")
+def city_indicators():
+    return [{"indicator_id": k, "name": v[0], "unit": v[1], "decimals": v[2], "description": v[3], "source_id": v[4]}
+            for k, v in CITY_INDICATORS.items()]
+
+
+@api.get("/cities/{city_id}")
+def city(city_id: str):
+    """One city: its facts, every figure kept about it by indicator, and the country's other big cities."""
+    c = _city(city_id)
+    data = rows("""SELECT s.indicator_id, year(s.period_start) AS year, s.value, s.status, s.source_id, s.source_name,
+                          src.short_name AS source
+                   FROM city_series s LEFT JOIN sources src USING (source_id)
+                   WHERE s.city_id = ? ORDER BY s.indicator_id, s.period_start""", [city_id])
+    series: dict[str, dict] = {}
+    for r in data:
+        meta = CITY_INDICATORS.get(r["indicator_id"], (r["indicator_id"], "", 1, "", r["source_id"]))
+        one = series.setdefault(r["indicator_id"], {
+            "indicator_id": r["indicator_id"], "name": meta[0], "unit": meta[1], "decimals": meta[2],
+            "description": meta[3], "source": r["source"] or r["source_id"], "source_name": r["source_name"], "points": []})
+        one["points"].append({"year": r["year"], "value": r["value"], "status": r["status"]})
+    others = cities(country=c["country_id"], limit=12)["rows"]
+    return {"city": c, "series": list(series.values()),
+            "others": [o for o in others if o["city_id"] != city_id][:10]}
+
+
+@api.get("/cities/{city_id}/wikipedia")
+def city_wikipedia(city_id: str, fetch: bool = True):
+    """The Wikipedia introduction and pictures for a city (its own daily limit in Settings)."""
+    c = _city(city_id)
+    target = {"name": c["name"], "type": "city", "search": f"{c['name']} {c['country'] or ''}".strip()}
+    res = wiki.page(city_id, target, fetch, kind="cities")
+    return {**res, "page": _with_image_urls(res["page"])}
+
+
+def _numbeo_answer(kind: str, item_id: str, name: str) -> dict:
+    return {"name": name, "prices": numbeo.cached(kind, item_id), "budget": numbeo.budget()}
+
+
+@api.get("/cities/{city_id}/numbeo")
+def city_numbeo(city_id: str):
+    """Numbeo prices fetched earlier for this city, and today's fetches against the limit."""
+    c = _city(city_id)
+    return _numbeo_answer("cities", city_id, numbeo.city_name(c["name"], c["country_id"], c["admin1"]))
+
+
+@api.post("/cities/{city_id}/numbeo")
+def fetch_city_numbeo(city_id: str, name: str | None = Body(None, embed=True, max_length=120)):
+    """Fetch this city's Numbeo prices page now (one of today's Numbeo fetches). name is
+    Numbeo's name for the city when it differs from ours."""
+    c = _city(city_id)
+    city_name = name or numbeo.city_name(c["name"], c["country_id"], c["admin1"])
+    try:
+        numbeo.fetch("cities", city_id, c["country"] or c["country_id"], city_name)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return _numbeo_answer("cities", city_id, city_name)
+
+
+def _country(entity_id: str) -> dict:
+    found = rows("SELECT entity_id, short_name FROM entities WHERE entity_id = ? AND type = 'country'", [entity_id])
+    if not found:
+        raise HTTPException(404, f"no country {entity_id}")
+    return found[0]
+
+
+@api.get("/entities/{entity_id}/numbeo")
+def country_numbeo(entity_id: str):
+    return _numbeo_answer("countries", entity_id, _country(entity_id)["short_name"])
+
+
+@api.post("/entities/{entity_id}/numbeo")
+def fetch_country_numbeo(entity_id: str, name: str | None = Body(None, embed=True, max_length=120)):
+    """Fetch the country's Numbeo prices page now (one of today's Numbeo fetches)."""
+    country = name or _country(entity_id)["short_name"]
+    try:
+        numbeo.fetch("countries", entity_id, country, None)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return _numbeo_answer("countries", entity_id, country)
 
 
 # ----------------------------------------------------------------------------- streams

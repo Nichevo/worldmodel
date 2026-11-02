@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import ManualFilesCard from "@/components/ManualFiles";
 import ProblemsCard from "@/components/Problems";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
 import { api, type Dataset, type Meta, type Source } from "@/lib/api";
@@ -70,6 +71,7 @@ export default function DataPage() {
       </div>
 
       <ProblemsCard />
+      <ManualFilesCard />
 
       <div className="card">
         <h2>Datasets</h2>

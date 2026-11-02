@@ -146,6 +146,10 @@
   attribution: "Powell, Jonathan M. and Clayton L. Thyne (2011), Global instances of coups from 1950 to 2010: A new dataset, Journal of Peace Research 48(2): 249-259."
   status: active
   default_rank: 5
+  manual:
+    by_hand: false
+    get: https://www.uky.edu/~clthyn2/coup_data/powell_thyne_coups_final.txt
+    what: "Open the link and save the text file when uky.edu refuses the refresh."
 
 - id: ucdp_acd
   name: UCDP/PRIO Armed Conflict Dataset
@@ -172,6 +176,10 @@
   attribution: "EM-DAT, CRED / UCLouvain, Brussels, Belgium - www.emdat.be"
   status: active
   default_rank: 5
+  manual:
+    by_hand: true
+    get: https://public.emdat.be/
+    what: "Sign in (free), Data, choose all disaster types and every country, and download the Excel table."
 
 - id: bis
   name: BIS residential property prices and credit to households
@@ -289,6 +297,10 @@
   attribution: "International IDEA, Voter Turnout Database, www.idea.int."
   status: active
   default_rank: 3
+  manual:
+    by_hand: false
+    get: https://www.idea.int/data-tools/data/voter-turnout-database
+    what: "Export the whole database (Excel) when IDEA refuses the refresh."
 
 - id: plates_bird
   name: Plate boundaries (Bird 2003, PB2002)
@@ -406,6 +418,10 @@
   attribution: "Anthropic Economic Index (Hugging Face dataset Anthropic/EconomicIndex)."
   status: active
   default_rank: 3
+  manual:
+    by_hand: false
+    get: https://huggingface.co/datasets/Anthropic/EconomicIndex
+    what: "Download the latest release's country CSV when the refresh cannot reach it."
 
 - id: ms_ai_diffusion
   name: Microsoft AI Diffusion Report
@@ -419,6 +435,10 @@
   attribution: "Microsoft AI Economy Institute, AI Diffusion Report."
   status: active
   default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.microsoft.com/en-us/corporate-responsibility/topics/ai-economy-institute
+    what: "Download the country table that comes with the latest AI Diffusion Report."
 
 - id: rbnz
   name: Reserve Bank of New Zealand statistics
@@ -432,6 +452,10 @@
   attribution: "Reserve Bank of New Zealand, statistics tables B1, B2, B3 and B20."
   status: active
   default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.rbnz.govt.nz/statistics
+    what: "Download tables B1, B2, B3 and B20 (Excel) when the RBNZ site refuses the refresh."
 
 - id: nz_corrections
   name: Department of Corrections quarterly prison statistics
@@ -458,6 +482,10 @@
   attribution: "Ministry of Business, Innovation and Employment, Energy balance tables."
   status: active
   default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.mbie.govt.nz/building-and-energy/energy-and-natural-resources/energy-statistics-and-modelling/energy-statistics/energy-balances
+    what: "Download 'Energy balance tables' (Excel) when MBIE refuses the refresh."
 
 - id: us_census_voting
   name: US Census Bureau, Voting and Registration historical tables (CPS November supplement)
@@ -471,6 +499,10 @@
   attribution: "U.S. Census Bureau, Current Population Survey, November supplement, table A-1."
   status: active
   default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.census.gov/data/tables/time-series/demo/voting-and-registration/voting-historical-time-series.html
+    what: "Download table A-1 (hst_vote01.xlsx) when the Census Bureau refuses the refresh."
 
 - id: nz_election_turnout
   name: Electoral Commission general election turnout statistics
@@ -484,3 +516,84 @@
   attribution: "Electoral Commission, general election voter turnout statistics."
   status: active
   default_rank: 2
+  manual:
+    by_hand: true
+    get: https://elections.nz/stats-and-research/
+    what: "Download '<year> General Election voter turnout by age' for each election you want; keep them all."
+
+- id: geonames
+  name: GeoNames cities of 15,000 people or more
+  short_name: GeoNames
+  publisher: GeoNames
+  url: https://www.geonames.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Updated daily; checked every three months
+  attribution: "GeoNames (geonames.org), cities15000, CC BY 4.0."
+  status: active
+  default_rank: 5
+
+- id: un_wup
+  name: UN World Urbanization Prospects 2018, cities of 300,000 or more
+  short_name: UN WUP
+  publisher: United Nations, Department of Economic and Social Affairs, Population Division
+  url: https://population.un.org/wup/Download/
+  licence: CC BY 3.0 IGO
+  licence_url: https://creativecommons.org/licenses/by/3.0/igo/
+  commercial_use: true
+  cadence: The 2018 revision does not change
+  attribution: "United Nations, DESA, Population Division (2018). World Urbanization Prospects: The 2018 Revision, File 12."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://population.un.org/wup/Download/Files/WUP2018-F12-Cities_Over_300K.xls
+    what: "Open the link and save the Excel file when the UN site refuses the refresh."
+
+- id: wherenext
+  name: WhereNext cost of living, city and pay data
+  short_name: WhereNext
+  publisher: WhereNext (getwherenext.com)
+  url: https://getwherenext.com/data
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Updated through the year; checked monthly
+  attribution: "WhereNext (getwherenext.com), Cost of Living, Best Value Cities and Median Salaries datasets, CC BY 4.0."
+  status: active
+  default_rank: 4
+
+- id: ilostat_earnings
+  name: ILOSTAT earnings and minimum wages
+  short_name: ILOSTAT
+  publisher: International Labour Organization
+  url: https://ilostat.ilo.org/topics/wages/
+  licence: CC BY 4.0
+  licence_url: https://ilostat.ilo.org/about/terms-of-use/
+  commercial_use: true
+  cadence: Updated through the year; checked monthly
+  attribution: "ILO, ILOSTAT: mean monthly earnings of employees (EAR_4MTH_SEX_CUR_NB_A) and statutory minimum wage (EAR_4MMN_CUR_NB_A)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://ilostat.ilo.org/topics/wages/
+    what: "Download the bulk CSV files EAR_4MTH_SEX_CUR_NB_A and EAR_4MMN_CUR_NB_A when ILOSTAT refuses the refresh."
+
+- id: numbeo
+  name: Numbeo cost of living indices
+  short_name: Numbeo
+  publisher: Numbeo
+  url: https://www.numbeo.com/cost-of-living/rankings.jsp
+  licence: Numbeo terms of use; for personal use, loaded by hand
+  licence_url: https://www.numbeo.com/common/terms_of_use.jsp
+  commercial_use: false
+  cadence: Twice a year; saved by hand (var\manual\numbeo, then .\load.bat numbeo)
+  attribution: "Numbeo, Cost of Living Index by City, crowd-sourced prices."
+  status: active
+  default_rank: 6
+  manual:
+    by_hand: true
+    get: https://www.numbeo.com/cost-of-living/rankings.jsp
+    what: "Pick the year, then save the page (Ctrl+S, Web page, HTML only). Rankings by Country can go in too. Once or twice a year; keep every year's files."

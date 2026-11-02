@@ -383,6 +383,36 @@ have a **Who votes** card: turnout by age group (young to old, light to dark),
 and by sex, group or Māori descent. With three or more elections it shows lines
 over time; with fewer, bars for the latest election.
 
+## Cities and cost of living
+
+The **Cities** page lists the world's cities (or one country's) with a map: people now
+and the UN's projection for 2035, and the cost of living where WhereNext or Numbeo have
+the city. Each city has a page with its Wikipedia introduction and photo, population since
+1950, cost of living and quality scores, Numbeo's everyday prices and the country's other
+cities. Country pages get a **Major cities** card and a **Prices and pay** card, and maps
+get a **Major cities** layer (Layers menu; click a dot to open the city).
+
+| Source | What | How it is fetched |
+| --- | --- | --- |
+| GeoNames (CC BY) | Every place of 15,000 people or more: name, other names, region, location, population; the city list everything else is matched to | `cities15000.zip`, every three months |
+| UN World Urbanization Prospects 2018 | People in each city of 300,000 or more and its suburbs, 1950 to 2035 (projections after 2015) | Once; if the UN site refuses, download *WUP2018-F12-Cities_Over_300K.xls* and run `.\load.bat un_wup <file>` |
+| WhereNext (CC BY) | Cost of living index and monthly costs for about 370 cities and every country; median pay before and after tax; quality of life and value for money | Monthly |
+| ILOSTAT | Average monthly earnings (all, women, men) and the minimum wage, in local currency, US dollars and PPP dollars | Monthly; if refused, save the files from ilostat.ilo.org in `var\manual\ilostat_earnings` |
+| Numbeo rankings | Cost of living, rent, groceries, restaurant and purchasing power indices by city and country (New York = 100) | By hand, once or twice a year (below) |
+| Numbeo prices | Everyday prices for one city or country (a meal out, rent, a transport pass, salary) | Only when you press **Get Numbeo prices** on a city or country page, at most 20 pages a day (Settings) |
+
+**Numbeo rankings by hand.** Open numbeo.com, *Cost of Living*, *Rankings by City*,
+pick the period (for example *2025*), and save the page (Ctrl+S, "Web page, HTML only")
+into `var\manual\numbeo`. The *Rankings by Country* page can go in the same folder. Keep
+the year in the file name if the page title lacks it, then run `.\load.bat numbeo`. Each
+year's files add to the ones before, so keep them all.
+
+How cities are matched: each source's city is matched to a GeoNames city in the same
+country by name (including other names and spellings), or for the UN by location too, so
+*New York-Newark* becomes New York City and *Hamilton* in New Zealand is not the one in
+Canada. Figures that match no city are counted on the **Data status** page with examples.
+Wikipedia pages for cities have their own daily limit in Settings (10 by default).
+
 ## New Zealand pack
 
 Extra New Zealand sources, switched on or off together in Settings, Country

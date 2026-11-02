@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
 import ChartCard from "@/components/ChartCard";
+import CitiesCard from "@/components/CitiesCard";
 import CountryAbout from "@/components/CountryAbout";
 import DebtCard from "@/components/DebtCard";
 import EducationCard from "@/components/EducationCard";
@@ -14,6 +15,7 @@ import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
 import HousingCard from "@/components/HousingCard";
 import MigrationCard from "@/components/MigrationCard";
+import PricesPayCard from "@/components/PricesPayCard";
 import VotersCard from "@/components/VotersCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
@@ -174,6 +176,8 @@ export default function EntityPage() {
 
       <EnergyMix entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && byId.get("energy_balance_pj")?.available && <EnergyFlowCard entity={entity.entity_id} name={entity.short_name} />}
+      {!isGroup && <CitiesCard entity={entity.entity_id} name={entity.short_name} />}
+      {!isGroup && <PricesPayCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
       <HousingCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />
       {!isGroup && <DebtCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />}
       <MigrationCard entity={entity.entity_id} name={entity.short_name} indicators={byId} />

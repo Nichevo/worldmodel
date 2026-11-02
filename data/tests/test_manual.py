@@ -80,3 +80,13 @@ def test_refresh_falls_back_to_the_folder_when_the_download_is_blocked(home, mon
     assert out.exit_code == 0, out.output
     e = built[1]["sources"][0]
     assert e["status"] == "new" and "403" in e["note"] and "manual downloads folder" in e["note"]
+
+
+def test_every_manual_folder_says_where_to_get_the_file():
+    from worldmodel_contract import catalogue
+    from worldmodel_data.connectors import CONNECTORS
+    from worldmodel_data import manual
+    srcs = catalogue.sources()
+    missing = [s for s in manual.wanted(CONNECTORS) if not (srcs.get(s) and srcs[s].manual)]
+    assert not missing, f"add a manual: block in sources.yaml for {missing}"
+    assert all(srcs[s].manual.by_hand == bool(CONNECTORS[s].manual) for s in manual.wanted(CONNECTORS))

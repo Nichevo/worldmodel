@@ -1,0 +1,29 @@
+{
+ "@type": "Dataset",
+ "name": "Median Salaries",
+ "dateModified": "2026-10-08",
+ "countries": [
+  {
+   "code": "NZ",
+   "name": "New Zealand",
+   "currency": "NZD",
+   "dataYear": 2024,
+   "medianGrossLocal": 69000,
+   "medianNetLocal": 55400,
+   "medianGrossUSD": 42300,
+   "medianNetUSD": 33960,
+   "medianNetUSDPPP": 38700
+  },
+  {
+   "code": "GB",
+   "name": "United Kingdom",
+   "currency": "GBP",
+   "dataYear": 2024,
+   "medianGrossLocal": 37430,
+   "medianNetLocal": 30200,
+   "medianGrossUSD": 47800,
+   "medianNetUSD": 38570,
+   "medianNetUSDPPP": 43000
+  }
+ ]
+}

@@ -39,7 +39,13 @@ type Props = {
   onHover?: (iso3: string | null) => void;
   camera?: { bus: CameraBus; id: string; group: string } | null; // linked map position
   layers?: string[]; // overlays to draw over the countries (ids in the layers table)
+  points?: MapPoint[]; // places to mark (cities on the Cities page), sized by size
+  fitPoints?: boolean; // zoom to the points whenever they change
+  // A click on a city dot (the points, or the "Major cities" layer); default: open the city's page.
+  onCity?: (cityId: string) => void;
 };
+
+export type MapPoint = { id: string; name: string; lng: number; lat: number; size: number; text?: string; capital?: boolean; color?: string };
 
 export type Scale = { breaks: number[]; colors: string[] };
 
@@ -83,8 +89,10 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
-  doubleClick = false, overlays = [], spark = null, onMap, layers = [],
+  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity,
 }: Props) {
+  const cityPick = useRef(onCity);
+  cityPick.current = onCity;
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const onLoad = useRef<(() => void)[]>([]); // work waiting for the country layers
@@ -150,11 +158,25 @@ export default function WorldMap({
 
     // The overlay feature under the pointer, if any (a few pixels' slack for thin lines and small dots).
     const overlayAt = (pt: maplibregl.Point) => {
-      const ids = Object.keys(LAYER_STYLE).map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      const ids = [...Object.keys(LAYER_STYLE), "points"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (!ids.length) return null;
       const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
       return f ? layerLabel(f.layer.id.slice(3), f.properties as Record<string, unknown>) : null;
     };
+    // The city dot under the pointer, if any: its city id.
+    const cityAt = (pt: maplibregl.Point): string | null => {
+      const ids = ["ov-points", "ov-major_cities"].filter((id) => m.getLayer(id));
+      if (!ids.length) return null;
+      const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
+      const id = f?.properties?.city;
+      return typeof id === "string" ? id : null;
+    };
+    m.on("click", (e) => {
+      const id = cityAt(e.point);
+      if (!id) return;
+      if (cityPick.current) cityPick.current(id);
+      else window.location.assign(`/city/${encodeURIComponent(id)}`);
+    });
     let onOverlay = false;
     m.on("mousemove", (e) => {
       const label = overlayAt(e.point);
@@ -170,7 +192,7 @@ export default function WorldMap({
     let hovered: string | number | undefined;
     m.on("mousemove", "fill", (e) => {
       const f = e.features?.[0];
-      if (!f || overlayAt(e.point)) return;
+      if (!f || overlayAt(e.point)) { if (f && cityAt(e.point)) m.getCanvas().style.cursor = "pointer"; return; }
       if (f.id !== hovered) hover.current?.(f.id === undefined ? null : String(f.id));
       if (hovered !== undefined) m.setFeatureState({ source: "countries", id: hovered }, { hover: false });
       hovered = f.id;
@@ -193,7 +215,7 @@ export default function WorldMap({
     let pending: ReturnType<typeof setTimeout> | undefined;
     m.on("click", "fill", (e) => {
       const iso = e.features?.[0]?.properties?.iso3;
-      if (!iso) return;
+      if (!iso || cityAt(e.point)) return;
       const ev: PickEvent = { shift: e.originalEvent.shiftKey, double: false, lngLat: [e.lngLat.lng, e.lngLat.lat] };
       if (!dbl.current || ev.shift) return pick.current(iso, ev);
       clearTimeout(pending);
@@ -292,7 +314,7 @@ export default function WorldMap({
           if (!m.getSource(lid)) m.addSource(lid, { type: "geojson", data });
           const style = LAYER_STYLE[id];
           // Lines go under the dots; both under the hover and selection outlines.
-          const before = style.dot ? "hover" : (["ov-volcanoes", "ov-earthquakes"].find((x) => m.getLayer(x)) ?? "hover");
+          const before = style.dot ? "hover" : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
           m.addLayer(style.dot
             ? { id: lid, type: "circle", source: lid, paint: style.paint() as maplibregl.CircleLayerSpecification["paint"] }
             : { id: lid, type: "line", source: lid, paint: style.paint() as maplibregl.LineLayerSpecification["paint"],
@@ -304,6 +326,43 @@ export default function WorldMap({
     else onLoad.current.push(apply);
     return () => { live = false; };
   }, [layersKey]);
+
+  // Places to mark: a dot each, sized by its size (square root, so area follows it).
+  const pointsKey = points ? points.map((p) => `${p.id}:${p.size}:${p.color ?? ""}`).join(",") : null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || pointsKey === null) return;
+    const apply = () => {
+      const pts = points ?? [];
+      const top = Math.max(1, ...pts.map((p) => p.size));
+      const data: GeoJSON.FeatureCollection = {
+        type: "FeatureCollection",
+        features: [...pts].sort((a, b) => b.size - a.size).map((p) => ({
+          type: "Feature", geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+          properties: { city: p.id, name: p.name, text: p.text ?? "", r: 2.5 + 11 * Math.sqrt(Math.max(0, p.size) / top),
+            capital: p.capital ? 1 : 0, color: p.color ?? cssVar("--series-1") },
+        })),
+      };
+      const src = m.getSource("ov-points") as GeoJSONSource | undefined;
+      if (src) src.setData(data);
+      else {
+        m.addSource("ov-points", { type: "geojson", data });
+        m.addLayer({ id: "ov-points", type: "circle", source: "ov-points", paint: {
+          "circle-color": ["get", "color"], "circle-opacity": 0.75, "circle-radius": ["get", "r"],
+          "circle-stroke-color": ["case", ["==", ["get", "capital"], 1], cssVar("--ink"), cssVar("--surface")],
+          "circle-stroke-width": ["case", ["==", ["get", "capital"], 1], 1.6, 0.8],
+        } });
+      }
+      if (fitPoints && pts.length) {
+        const lngs = pts.map((p) => p.lng), lats = pts.map((p) => p.lat);
+        const pad = pts.length === 1 ? 2 : 0.5;
+        m.fitBounds([[Math.min(...lngs) - pad, Math.min(...lats) - pad], [Math.max(...lngs) + pad, Math.max(...lats) + pad]],
+          { padding: 30, maxZoom: 6, duration: 0 });
+      }
+    };
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+  }, [pointsKey, fitPoints]);
 
   // Outline the country hovered in a linked panel.
   useEffect(() => {
