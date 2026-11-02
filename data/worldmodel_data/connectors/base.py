@@ -324,7 +324,13 @@ class Connector(ABC):
 
     def _copy_local(self, from_path: Path, dest: Path) -> str:
         from_path = Path(from_path)
-        files = [from_path] if from_path.is_file() else sorted(p for p in from_path.iterdir() if p.is_file())
+        if from_path.is_file():
+            files = [from_path]
+        else:
+            from worldmodel_data.manual import files as folder_files  # skips notes, part downloads, subfolders
+            files = folder_files(from_path)
+            if not files:
+                raise FileNotFoundError(f"no files to load in {from_path}")
         for f in files:
             shutil.copy2(f, dest / f.name)
         return f"file:{from_path.as_posix()}"

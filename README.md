@@ -97,6 +97,24 @@ make update       # macOS / Linux
 Updates only touch code and packages; `var/` (your downloads and builds) is
 never changed. If an update says `environment.yml` changed, run `setup.bat` again.
 
+### Files you download yourself
+
+Some sites need a sign-in (EM-DAT) or turn programs away (RBNZ, MBIE, sometimes
+IDEA, the US Census Bureau and uky.edu). Their files go in `var\manual\`, one folder
+per source; `update.bat` makes the folders, each with a note saying where to get the
+file. Save the file in its folder, keeping the name the site gives it, then run:
+
+```bat
+.\load.bat              :: load every folder that has a new file, then build
+.\load.bat rbnz         :: load one folder
+.\load.bat emdat D:\Downloads\emdat.xlsx   :: a file from elsewhere: copied into var\manual\emdat first
+```
+
+`.\refresh.bat` reads these folders too: sources that are only loaded by hand are loaded
+from their folder, and when a download is refused, the file in that source's folder is
+used instead. Loading the same file again changes nothing. For sources that load one file
+at a time, older files move to the folder's `old` folder; nothing is deleted.
+
 ## The data side
 
 ```sh
