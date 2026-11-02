@@ -484,3 +484,68 @@
   attribution: "Electoral Commission, general election voter turnout statistics."
   status: active
   default_rank: 2
+
+- id: geonames
+  name: GeoNames cities of 15,000 people or more
+  short_name: GeoNames
+  publisher: GeoNames
+  url: https://www.geonames.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Updated daily; checked every three months
+  attribution: "GeoNames (geonames.org), cities15000, CC BY 4.0."
+  status: active
+  default_rank: 5
+
+- id: un_wup
+  name: UN World Urbanization Prospects 2018, cities of 300,000 or more
+  short_name: UN WUP
+  publisher: United Nations, Department of Economic and Social Affairs, Population Division
+  url: https://population.un.org/wup/Download/
+  licence: CC BY 3.0 IGO
+  licence_url: https://creativecommons.org/licenses/by/3.0/igo/
+  commercial_use: true
+  cadence: The 2018 revision does not change
+  attribution: "United Nations, DESA, Population Division (2018). World Urbanization Prospects: The 2018 Revision, File 12."
+  status: active
+  default_rank: 2
+
+- id: wherenext
+  name: WhereNext cost of living, city and pay data
+  short_name: WhereNext
+  publisher: WhereNext (getwherenext.com)
+  url: https://getwherenext.com/data
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Updated through the year; checked monthly
+  attribution: "WhereNext (getwherenext.com), Cost of Living, Best Value Cities and Median Salaries datasets, CC BY 4.0."
+  status: active
+  default_rank: 4
+
+- id: ilostat_earnings
+  name: ILOSTAT earnings and minimum wages
+  short_name: ILOSTAT
+  publisher: International Labour Organization
+  url: https://ilostat.ilo.org/topics/wages/
+  licence: CC BY 4.0
+  licence_url: https://ilostat.ilo.org/about/terms-of-use/
+  commercial_use: true
+  cadence: Updated through the year; checked monthly
+  attribution: "ILO, ILOSTAT: mean monthly earnings of employees (EAR_4MTH_SEX_CUR_NB_A) and statutory minimum wage (EAR_4MMN_CUR_NB_A)."
+  status: active
+  default_rank: 2
+
+- id: numbeo
+  name: Numbeo cost of living indices
+  short_name: Numbeo
+  publisher: Numbeo
+  url: https://www.numbeo.com/cost-of-living/rankings.jsp
+  licence: Numbeo terms of use; for personal use, loaded by hand
+  licence_url: https://www.numbeo.com/common/terms_of_use.jsp
+  commercial_use: false
+  cadence: Twice a year; saved by hand (var\manual\numbeo, then .\load.bat numbeo)
+  attribution: "Numbeo, Cost of Living Index by City, crowd-sourced prices."
+  status: active
+  default_rank: 6

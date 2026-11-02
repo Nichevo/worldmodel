@@ -73,7 +73,7 @@ export default function CountryAbout({ entity }: { entity: string }) {
 
 const ROLE: Record<string, string> = { photo: "", flag: "Flag", map: "Location" };
 
-function Picture({ img, wide }: { img: WikiImage; wide?: boolean }) {
+export function Picture({ img, wide }: { img: WikiImage; wide?: boolean }) {
   const credit = [img.artist, img.licence].filter(Boolean).join(" · ");
   return (
     <figure className={wide ? "about-photo" : "about-thumb"}>

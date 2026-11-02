@@ -1,0 +1,92 @@
+"""City endpoints and the Numbeo prices button, against a copy of the sample warehouse
+with a few cities added (the sample itself has none)."""
+
+import shutil
+
+import duckdb
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from worldmodel_api import main, numbeo
+from worldmodel_api.warehouse import SAMPLE, Warehouse
+
+NUMBEO_PAGE = """<html><body>
+<div>Summary of cost of living in Auckland: A single person estimated monthly costs are <span class="emp_number">1,234.5$</span>
+(without rent). Family of four estimated monthly costs are <span>4,321.0$</span> (without rent).</div>
+<table class="data_wide_table new_bar_table">
+<tr><th class="highlighted_th prices">Restaurants <span>Edit</span></th><th>Avg.</th></tr>
+<tr><td>Meal, Inexpensive Restaurant </td><td style="text-align: right" class="priceValue ">17.50&nbsp;$</td></tr>
+<tr><td>Cappuccino (regular)</td><td class="priceValue">3.40&nbsp;$</td></tr>
+<tr><th class="highlighted_th prices">Rent Per Month</th></tr>
+<tr><td>Apartment (1 bedroom) in City Centre</td><td class="priceValue">1,450.00&nbsp;$</td></tr>
+</table></body></html>"""
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
+    db = tmp_path / "w.duckdb"
+    shutil.copy(SAMPLE, db)
+    con = duckdb.connect(str(db))
+    con.execute("""CREATE TABLE cities (city_id VARCHAR, name VARCHAR, ascii_name VARCHAR, synonyms VARCHAR, country_id VARCHAR,
+        admin1 VARCHAR, lat DOUBLE, lon DOUBLE, population DOUBLE, capital VARCHAR, feature_code VARCHAR, timezone VARCHAR,
+        elevation DOUBLE, source_id VARCHAR, vintage VARCHAR)""")
+    con.execute("""INSERT INTO cities VALUES
+        ('gn2193733', 'Auckland', 'Auckland', 'tamakimakaurau', 'NZL', 'Auckland', -36.85, 174.76, 417910, '', 'PPLA', 'Pacific/Auckland', 26, 'geonames', 'v1'),
+        ('gn2179537', 'Wellington', 'Wellington', '', 'NZL', 'Wellington', -41.29, 174.78, 215400, 'national', 'PPLC', 'Pacific/Auckland', 10, 'geonames', 'v1'),
+        ('gn5746545', 'Portland', 'Portland', '', 'USA', 'Oregon', 45.52, -122.68, 652503, '', 'PPL', 'America/Los_Angeles', 15, 'geonames', 'v1')""")
+    con.execute("""CREATE TABLE city_series (city_id VARCHAR, indicator_id VARCHAR, period_start DATE, source_id VARCHAR,
+        vintage VARCHAR, value DOUBLE, status VARCHAR, source_name VARCHAR)""")
+    con.execute("""INSERT INTO city_series VALUES
+        ('gn2193733', 'city_population', '2015-01-01', 'un_wup', 'v1', 1500000, 'E', 'Auckland'),
+        ('gn2193733', 'city_population', '2025-01-01', 'un_wup', 'v1', 1700000, 'P', 'Auckland'),
+        ('gn2193733', 'city_population', '2035-01-01', 'un_wup', 'v1', 1900000, 'P', 'Auckland'),
+        ('gn2193733', 'wn_city_cost_index', '2026-01-01', 'wherenext', 'v1', 72, 'E', 'Auckland')""")
+    con.close()
+    main.warehouse = Warehouse(str(db))
+    yield TestClient(main.app)
+    main.warehouse = Warehouse(str(SAMPLE))
+
+
+def test_city_list_and_page(client):
+    rows = client.get("/api/v1/cities", params={"country": "NZL"}).json()["rows"]
+    assert [r["name"] for r in rows] == ["Auckland", "Wellington"]
+    assert rows[0]["population"] == 1700000 and rows[0]["population_2035"] == 1900000
+    assert rows[1]["population"] is None and rows[1]["geonames_population"] == 215400
+    assert client.get("/api/v1/cities", params={"q": "tamaki"}).json()["rows"][0]["city_id"] == "gn2193733"
+    page = client.get("/api/v1/cities/gn2193733").json()
+    pop = next(s for s in page["series"] if s["indicator_id"] == "city_population")
+    assert len(pop["points"]) == 3 and pop["unit"] == "persons"
+    assert [o["name"] for o in page["others"]] == ["Wellington"]
+    assert client.get("/api/v1/cities/gn0").status_code == 404
+
+
+def test_no_cities_table_is_not_an_error(monkeypatch):
+    main.warehouse = Warehouse(str(SAMPLE))
+    res = TestClient(main.app).get("/api/v1/cities").json()
+    assert res["rows"] == [] and "refresh" in res["note"]
+
+
+def test_numbeo_button_fetches_once_within_the_limit(client, monkeypatch):
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(200, text=NUMBEO_PAGE)
+
+    real = httpx.Client
+    monkeypatch.setattr(numbeo.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler)))
+    assert client.get("/api/v1/cities/gn2193733/numbeo").json()["prices"] is None
+    got = client.post("/api/v1/cities/gn2193733/numbeo", json={}).json()
+    assert got["prices"]["summary"] == {"single_without_rent": 1234.5, "family_without_rent": 4321.0}
+    assert {"section": "Restaurants", "item": "Meal, Inexpensive Restaurant", "value": 17.5} in got["prices"]["items"]
+    assert got["prices"]["items"][-1]["section"] == "Rent Per Month"
+    assert got["budget"]["used"] == 1
+    assert dict(seen[0].url.params)["city"] == "Auckland"
+    client.post("/api/v1/cities/gn5746545/numbeo", json={})
+    assert dict(seen[1].url.params)["city"] == "Portland, OR"
+    client.put("/api/v1/settings", json={"numbeo_daily": 2})
+    res = client.post("/api/v1/entities/NZL/numbeo", json={})
+    assert res.status_code == 409 and "used up" in res.json()["detail"]

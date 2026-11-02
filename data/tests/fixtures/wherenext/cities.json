@@ -1,0 +1,76 @@
+{
+ "meta": {
+  "title": "Best Value Cities 2026",
+  "updated": "2026-08-16",
+  "cities": 5,
+  "license": "CC BY 4.0"
+ },
+ "quadrantCounts": {},
+ "data": [
+  {
+   "countryCode": "NZ",
+   "country": "New Zealand",
+   "name": "Auckland",
+   "region": "Oceania",
+   "costIndex": 66,
+   "qualityScore": 78.2,
+   "costPercentile": 70.1,
+   "qualityPercentile": 75.3,
+   "valueScore": 5.2,
+   "monthlyCostEstimate": 2400,
+   "quadrant": "Premium"
+  },
+  {
+   "countryCode": "NZ",
+   "country": "New Zealand",
+   "name": "Wellington",
+   "region": "Oceania",
+   "costIndex": 62,
+   "qualityScore": 79.0,
+   "costPercentile": 65.0,
+   "qualityPercentile": 77.0,
+   "valueScore": 12.0,
+   "monthlyCostEstimate": 2250,
+   "quadrant": "Premium"
+  },
+  {
+   "countryCode": "GB",
+   "country": "United Kingdom",
+   "name": "London",
+   "region": "Europe",
+   "costIndex": 81,
+   "qualityScore": 80.1,
+   "costPercentile": 90.0,
+   "qualityPercentile": 80.0,
+   "valueScore": -10.0,
+   "monthlyCostEstimate": 3100,
+   "quadrant": "Premium"
+  },
+  {
+   "countryCode": "US",
+   "country": "United States",
+   "name": "New York",
+   "region": "Americas",
+   "costIndex": 95,
+   "qualityScore": 76.0,
+   "costPercentile": 98.0,
+   "qualityPercentile": 70.0,
+   "valueScore": -28.0,
+   "monthlyCostEstimate": 3900,
+   "quadrant": "Premium"
+  },
+  {
+   "countryCode": "FR",
+   "country": "France",
+   "name": "Lyonville",
+   "region": "Europe",
+   "costIndex": 50,
+   "qualityScore": 70.0,
+   "costPercentile": 50.0,
+   "qualityPercentile": 60.0,
+   "valueScore": 10.0,
+   "monthlyCostEstimate": 1800,
+   "quadrant": "Value"
+  }
+ ]
+}

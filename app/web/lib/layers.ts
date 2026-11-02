@@ -54,6 +54,14 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--series-8"), "circle-stroke-width": 0.6, "circle-stroke-opacity": 0.8,
     }),
   },
+  major_cities: {
+    legend: "City of a million or more (capitals filled dark)", swatch: () => cssVar("--ink"), dot: true,
+    paint: () => ({
+      "circle-color": ["case", ["has", "capital"], cssVar("--ink"), cssVar("--surface")], "circle-opacity": 0.85,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "population"], 0]], 0, 2, 1000, 3.5, 6000, 11],
+      "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 1.1,
+    }),
+  },
 };
 
 // The text shown when the pointer is over one of a layer's features.
@@ -67,6 +75,13 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "earthquakes") {
     return `<b>Magnitude ${esc(p.mag)}</b> · ${esc(p.date)}<br/>${esc(p.name)}`
       + (typeof p.depth === "number" ? `<br/>Depth ${p.depth} km` : "") + (p.tsunami ? " · tsunami" : "");
+  }
+  if (layer === "major_cities") {
+    const pop = typeof p.population === "number" ? `${(p.population / 1e6).toFixed(p.population >= 1e7 ? 0 : 1)} million people` : "";
+    return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}<br/>${pop}<br/><span class="muted">Click for the city page</span>`;
+  }
+  if (layer === "points") {
+    return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}${p.text ? `<br/>${esc(p.text)}` : ""}`;
   }
   if (layer === "active_faults") {
     return `<b>${esc(p.name)}</b> (fault)${p.slip ? `<br/>${esc(p.slip)}` : ""}${typeof p.rate === "number" ? ` · ${p.rate} mm a year` : ""}`;

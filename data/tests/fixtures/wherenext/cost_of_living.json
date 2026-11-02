@@ -1,0 +1,44 @@
+{
+ "meta": {
+  "title": "Cost of Living Index 2026",
+  "updated": "2026-07-01"
+ },
+ "data": [
+  {
+   "rank": 60,
+   "country_code": "NZ",
+   "country": "New Zealand",
+   "region": "Oceania",
+   "cost_index": 71,
+   "monthly_estimate_usd": 2200,
+   "grocery_index": 110,
+   "rent_index": 105,
+   "utilities_index": 98,
+   "transport_index": 104
+  },
+  {
+   "rank": 70,
+   "country_code": "AU",
+   "country": "Australia",
+   "region": "Oceania",
+   "cost_index": 75,
+   "monthly_estimate_usd": 2400,
+   "grocery_index": 108,
+   "rent_index": 112,
+   "utilities_index": 95,
+   "transport_index": 101
+  },
+  {
+   "rank": 80,
+   "country_code": "US",
+   "country": "United States",
+   "region": "Americas",
+   "cost_index": 82,
+   "monthly_estimate_usd": 2900,
+   "grocery_index": 115,
+   "rent_index": 130,
+   "utilities_index": 100,
+   "transport_index": 110
+  }
+ ]
+}

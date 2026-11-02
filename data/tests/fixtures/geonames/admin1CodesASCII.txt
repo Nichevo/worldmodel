@@ -1,0 +1,7 @@
+NZ.E7	Auckland	Auckland	2193734
+NZ.G2	Wellington	Wellington	2179538
+NZ.E9	Canterbury	Canterbury	2192628
+NZ.E8	Waikato	Waikato	2181872
+AU.02	New South Wales	New South Wales	2155400
+GB.ENG	England	England	6269131
+US.NY	New York	New York	5128638
