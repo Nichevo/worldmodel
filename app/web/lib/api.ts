@@ -181,6 +181,21 @@ export type Settings = {
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
   pack_nz: boolean; // refresh fetches the New Zealand pack
+  ai_enabled: boolean; // Ask AI buttons, AI notes page, highlight menu's Ask AI
+  ollama_url: string;
+  ai_model: string; // "" = the first model installed
+  ai_model_compare: string; // "" = no side-by-side model
+  ai_temperature: number;
+  ai_context_tokens: number;
+  ai_context_default: string; // context parts ticked by default: data,description,events,highlight
+  ai_search_engine: "brave" | "searxng" | "off";
+  searxng_url: string;
+  ai_search_results: number;
+  brave_daily_limit: number; // 0 = no limit
+  brave_monthly_limit: number; // 0 = no limit
+  brave_free_monthly: number;
+  brave_price_per_1000: number;
+  highlight_menu: boolean; // selecting text shows Ask AI / Save highlight
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.
@@ -203,7 +218,7 @@ export type Wikipedia = {
   } | null;
 };
 
-export type HistoryKind = "page" | "view" | "indicator" | "pin" | "fetch";
+export type HistoryKind = "page" | "view" | "indicator" | "pin" | "fetch" | "ai" | "highlight";
 export type HistoryEntry = {
   id: string; at: string; kind: HistoryKind; title: string; url?: string; entity?: string; indicator?: string;
   detail?: string; star: boolean; note: string;
@@ -330,6 +345,78 @@ export type Divergence = {
   diff: number; rel: number | null; flagged: boolean;
 };
 
+// Local AI (Ollama) and web search; see app/api/worldmodel_api/ai.py.
+export type AIModel = { name: string; size: number | null; parameters: string | null; family: string | null; quantization: string | null };
+export type SearchUsage = {
+  engine: string; today: number; month: number; daily_limit: number | null; monthly_limit: number | null;
+  free_monthly: number; price_per_1000: number; estimated_cost_usd: number; by_day: Record<string, number>;
+};
+export type AIStatus = {
+  enabled: boolean; ollama: { url: string; ok: boolean; error: string | null; version: string | null };
+  models: AIModel[]; default_model: string | null; compare_model: string | null;
+  search: { engine: string; ready: boolean; why: string | null; brave_key: boolean; usage: SearchUsage };
+};
+export type WebResult = { title: string; url: string; snippet: string };
+export type WebSearch = { query: string; results: WebResult[]; engine?: string; usage?: SearchUsage };
+export type ContextPart = { label: string; text: string };
+export type AIStats = {
+  prompt_tokens: number | null; answer_tokens: number | null; tokens_per_s: number | null; first_token_s: number | null;
+  load_s: number | null; total_s: number | null; error?: string;
+};
+export type AIAnswer = {
+  id: string; created_at: string; question: string; context: ContextPart[]; model: string; temperature: number;
+  web: WebSearch | null; answer: string; stats: AIStats; title: string; page: string; entity: string | null;
+  indicator: string | null; group: string | null; rating: -1 | 0 | 1; tags: string[]; note: string;
+};
+export type AIUsage = {
+  models: { model: string; questions: number; prompt_tokens: number; answer_tokens: number; tokens_per_s: number | null;
+    first_token_s: number | null; thumbs_up: number; thumbs_down: number; with_web: number }[];
+  questions_by_day: Record<string, number>; search: SearchUsage;
+};
+export type AskEvent =
+  | { type: "start"; id: string; model: string }
+  | { type: "thinking" }
+  | { type: "token"; text: string }
+  | { type: "done"; answer: AIAnswer }
+  | { type: "error"; message: string; id?: string };
+
+// Highlights: things kept, see app/api/worldmodel_api/highlights.py.
+export type HighlightKind = "text" | "chart" | "table" | "answer";
+export type HighlightTable = { columns: string[]; rows: (string | number | null)[][]; unit?: string | null };
+export type Highlight = {
+  id: string; kind: HighlightKind; created_at: string; updated_at: string | null; title: string; text: string;
+  page_url: string; page_title: string; entities: string[]; indicator: string | null; query: string | null;
+  table: HighlightTable | null; answer_id: string | null; question: string | null; model: string | null;
+  sources: string | null; tags: string[]; note: string; picture: boolean;
+};
+export type NewHighlight = Partial<Omit<Highlight, "id" | "created_at" | "updated_at" | "picture">> & { kind: HighlightKind; picture?: string };
+
+// Streams one answer: calls onEvent for each line the API sends.
+export async function askStream(body: Record<string, unknown>, onEvent: (e: AskEvent) => void, signal?: AbortSignal): Promise<void> {
+  const res = await fetch("/api/v1/ai/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
+  if (!res.ok || !res.body) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail ?? detail; } catch {}
+    onEvent({ type: "error", message: detail });
+    return;
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (line) onEvent(JSON.parse(line) as AskEvent);
+    }
+  }
+  if (buf.trim()) onEvent(JSON.parse(buf) as AskEvent);
+}
+
 async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
@@ -349,6 +436,17 @@ async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string
 
 export const api = {
   meta: () => get<Meta>("/meta"),
+  aiStatus: () => get<AIStatus>("/ai/status"),
+  aiSearch: (question: string, model?: string, query?: string) => send<WebSearch>("POST", "/ai/search", { question, model, query }),
+  aiAnswers: (q: { q?: string; entity?: string; indicator?: string; model?: string; limit?: number } = {}) => get<AIAnswer[]>("/ai/answers", q),
+  aiPatchAnswer: (id: string, patch: { rating?: -1 | 0 | 1; tags?: string[] | string; note?: string }) => send<AIAnswer>("PATCH", `/ai/answers/${id}`, patch),
+  aiDeleteAnswer: (id: string) => send<{ deleted: string }>("DELETE", `/ai/answers/${id}`),
+  aiStats: () => get<AIUsage>("/ai/stats"),
+  highlights: (q: { q?: string; kind?: string; tag?: string; entity?: string } = {}) =>
+    get<{ items: Highlight[]; tags: { tag: string; count: number }[] }>("/highlights", q),
+  addHighlight: (item: NewHighlight) => send<Highlight>("POST", "/highlights", item),
+  patchHighlight: (id: string, patch: { title?: string; note?: string; tags?: string[] | string }) => send<Highlight>("PATCH", `/highlights/${id}`, patch),
+  deleteHighlight: (id: string) => send<{ deleted: string }>("DELETE", `/highlights/${id}`),
   sources: () => get<Source[]>("/sources"),
   datasets: () => get<Dataset[]>("/datasets"),
   checks: () => get<{ check_id: string; kind: string; status: string; detail: string }[]>("/build-checks"),

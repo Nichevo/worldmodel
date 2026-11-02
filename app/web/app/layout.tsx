@@ -1,6 +1,7 @@
 import "./globals.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Metadata } from "next";
+import AIHost from "@/components/AIHost";
 import Nav from "@/components/Nav";
 import { ProblemBanner } from "@/components/Problems";
 import SampleBanner from "@/components/SampleBanner";
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <StorageBanner />
         <ProblemBanner />
         <main>{children}</main>
+        <AIHost />
       </body>
     </html>
   );

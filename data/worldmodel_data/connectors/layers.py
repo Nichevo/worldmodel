@@ -25,7 +25,7 @@ import csv
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
@@ -35,6 +35,7 @@ from worldmodel_data.connectors.events_common import EMPTY_OBSERVATIONS
 from worldmodel_data.connectors.tabular import key, num
 
 log = logging.getLogger(__name__)
+EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 def _round(coords, places: int = 3):
@@ -190,7 +191,8 @@ class USGSEarthquakes(_Layer):
             p = f.get("properties") or {}
             coords = f["geometry"]["coordinates"]
             t = p.get("time")
-            when = datetime.fromtimestamp(t / 1000, tz=timezone.utc).date().isoformat() if isinstance(t, (int, float)) else None
+            # Not fromtimestamp: on Windows it fails (Errno 22) for times before 1970.
+            when = (EPOCH + timedelta(milliseconds=t)).date().isoformat() if isinstance(t, (int, float)) else None
             out.append(feature({"type": "Point", "coordinates": coords[:2]}, {
                 "name": p.get("title") or p.get("place") or "Earthquake", "mag": p.get("mag"), "date": when,
                 "depth": round(coords[2]) if len(coords) > 2 and coords[2] is not None else None,

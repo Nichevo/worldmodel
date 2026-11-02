@@ -20,8 +20,9 @@ import { SOURCE_SHORT, formatValue } from "@/lib/format";
 import {
   CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
   rankOptions, rankString, rankTable, rankYears, type RankOptions,
-  scatterOptions, scatterString, type Action, type Group, type Panel as PanelState, type View,
+  scatterOptions, scatterString, toQuery, DEFAULT as DEFAULT_WORKSPACE, type Action, type Group, type Panel as PanelState, type View,
 } from "@/lib/workspace";
+import { csvTable, keep, openAsk, type AskPart } from "@/lib/ai";
 
 export type Value = { entity_id: string; value: number; status: string };
 
@@ -134,7 +135,7 @@ export default function Panel({
         )}
         <span className="spacer" />
         {panel.view === "map" && <LayersMenu panel={panel} dispatch={dispatch} />}
-        <DownloadMenu exporter={exporter} />
+        <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />
         <LinksMenu panel={panel} dispatch={dispatch} />
         <div className="panel-actions">
           <button title="Duplicate panel" aria-label="Duplicate panel" disabled={!canDuplicate}
@@ -145,6 +146,16 @@ export default function Panel({
             onClick={() => dispatch({ type: "close", id: panel.id })}>×</button>
         </div>
       </header>
+      {/* Shown only with the controls hidden (F): what the panel shows and for whom. */}
+      <div className="panel-caption">
+        <b>{panel.view === "pyramid" ? "Population by age and sex" : indicator?.name ?? panel.indicator}</b>
+        {panel.view === "scatter" && indicator ? <> (across) and <b>{scatterY(scatterOptions(panel.xy).y, indicator, indicators.filter((i) => i.available)).name}</b> (up)</> : null}
+        {year !== null && panel.view !== "chart" && panel.view !== "ranks" ? <> · {year}</> : null}
+        {indicator?.unit && panel.view !== "pyramid" ? <span className="muted"> · {indicator.unit}</span> : null}
+        {selection.length > 0 && <> · {selection.map((id, i) => (
+          <span key={id} className="cap-entity"><i className="swatch" style={{ background: seriesVar(i) }} />{names.get(id) ?? id}</span>
+        ))}</>}
+      </div>
       <div className="panel-body" ref={body}>
         {!indicator && <p className="muted">Loading…</p>}
         {indicator && panel.view === "map" && year !== null && (
@@ -240,10 +251,36 @@ function useOutsideClose(box: React.RefObject<HTMLDetailsElement | null>) {
 }
 
 // CSV of the panel's data and a PNG picture, from whatever the view registered.
-function DownloadMenu({ exporter }: { exporter: React.RefObject<Exporter> }) {
+function DownloadMenu({ exporter, panel, indicator, year, selection, names }: {
+  exporter: React.RefObject<Exporter>; panel: PanelState; indicator?: Indicator; year: number | null; selection: string[]; names: Map<string, string>;
+}) {
   const box = useRef<HTMLDetailsElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const settings = useSettings();
   useOutsideClose(box);
+  const close = () => { if (box.current) box.current.open = false; };
+  const shown = selection.map((id) => names.get(id) ?? id);
+  const title = `${indicator?.name ?? "Population pyramid"} (${VIEW_LABEL[panel.view].toLowerCase()}${year ? `, ${year}` : ""})`
+    + (shown.length ? `: ${shown.slice(0, 6).join(", ")}${shown.length > 6 ? ` and ${shown.length - 6} more` : ""}` : "");
+  const ask = () => {
+    const csv = exporter.current.csv?.() ?? "";
+    const parts: AskPart[] = [
+      { key: "data", kind: "data", label: `The panel's figures${indicator ? ` (${indicator.unit})` : ""}`,
+        text: `${indicator ? `${indicator.name}, unit: ${indicator.unit}.\n` : ""}${csv.slice(0, 60_000)}` },
+    ];
+    if (indicator?.description) parts.push({ key: "description", kind: "description", label: `What "${indicator.name}" measures`, text: indicator.description });
+    openAsk({ title, parts, indicator: indicator?.indicator_id, entity: selection.length === 1 ? selection[0] : undefined });
+    close();
+  };
+  const keepIt = async () => {
+    let pic: string | undefined;
+    try { pic = (await exporter.current.png?.()) ?? undefined; } catch { /* kept without a picture */ }
+    const csv = exporter.current.csv?.();
+    const query = toQuery({ ...DEFAULT_WORKSPACE, layout: "1", panels: [{ ...panel, id: "p0" }], selection, maximised: null, pins: [], board: [] });
+    await keep({ kind: "chart", title, indicator: indicator?.indicator_id ?? null, entities: selection, query,
+      table: csv ? { ...csvTable(csv), unit: indicator?.unit ?? null } : null, picture: pic });
+    close();
+  };
   const csv = () => {
     const text = exporter.current.csv?.();
     if (text) saveText(text, `${exporter.current.name ?? "worldmodel"}.csv`);
@@ -254,7 +291,7 @@ function DownloadMenu({ exporter }: { exporter: React.RefObject<Exporter> }) {
       const url = await exporter.current.png?.();
       if (url) saveUrl(url, `${exporter.current.name ?? "worldmodel"}.png`);
       setMsg(null);
-      if (box.current) box.current.open = false;
+      close();
     } catch (e) {
       setMsg(String((e as Error).message || e));
     }
@@ -265,6 +302,8 @@ function DownloadMenu({ exporter }: { exporter: React.RefObject<Exporter> }) {
       <div className="links-menu">
         <button className="link" onClick={csv}>Data (CSV)</button>
         <button className="link" onClick={png}>Picture (PNG)</button>
+        <button className="link" onClick={keepIt} title="Keep this panel on the Highlights page: it reopens with these settings">Keep in Highlights</button>
+        {settings.ai_enabled && <button className="link" onClick={ask} title="Ask the local AI about what this panel shows">Ask AI about this</button>}
         {msg && <p className="caption error">{msg}</p>}
       </div>
     </details>
@@ -864,6 +903,13 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
 // One dot per country: the panel's indicator across, a second one up, and
 // optionally a third as bubble size. Dots can be coloured by region or group
 // and labelled. Click a dot to select the country.
+// The scatter's up axis: the one chosen, or life expectancy (fertility when across is life expectancy).
+function scatterY(y: string, across: Indicator, usable: Indicator[]): Indicator {
+  return usable.find((i) => i.indicator_id === y && i.indicator_id !== across.indicator_id)
+    ?? usable.find((i) => i.indicator_id === (across.indicator_id === "life_expectancy" ? "tfr" : "life_expectancy"))
+    ?? usable.find((i) => i.indicator_id !== across.indicator_id) ?? across;
+}
+
 function ScatterView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter, playing }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
@@ -871,9 +917,7 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
 }) {
   const opts = scatterOptions(panel.xy);
   const usable = indicators.filter((i) => i.available);
-  const yInd = usable.find((i) => i.indicator_id === opts.y && i.indicator_id !== indicator.indicator_id)
-    ?? usable.find((i) => i.indicator_id === (indicator.indicator_id === "life_expectancy" ? "tfr" : "life_expectancy"))
-    ?? usable.find((i) => i.indicator_id !== indicator.indicator_id) ?? indicator;
+  const yInd = scatterY(opts.y, indicator, usable);
   const sizeInd = usable.find((i) => i.indicator_id === opts.size) ?? null;
   const setOpts = (o: Partial<typeof opts>) =>
     dispatch({ type: "panel", id: panel.id, patch: { xy: scatterString({ ...opts, y: yInd.indicator_id, ...o }) } });
