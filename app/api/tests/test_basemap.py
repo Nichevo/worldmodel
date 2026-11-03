@@ -99,3 +99,10 @@ def test_a_failure_is_explained(client, monkeypatch):
         time.sleep(0.05)
     assert st["job"]["state"] == "failed" and "404" in st["job"]["error"]
     assert st["files"] == []
+
+
+def test_world_as_deep_as_the_countries_needs_no_country_files():
+    from worldmodel_api import basemap
+    base = {"basemap_regions": "nzl,aus", "basemap_region_zoom": 15}
+    assert [i["name"] for i in basemap.plan({**base, "basemap_world_zoom": 10})] == ["world.pmtiles", "NZL.pmtiles", "AUS.pmtiles"]
+    assert [i["name"] for i in basemap.plan({**base, "basemap_world_zoom": 15})] == ["world.pmtiles"]
