@@ -206,7 +206,8 @@ def plan(settings: dict | None = None) -> list[dict]:
     """The files to make: the world, then each full-detail country."""
     s = settings or local.load_settings()
     out = [{"name": "world.pmtiles", "region": "world", "maxzoom": int(s["basemap_world_zoom"])}]
-    out += [{"name": f"{r}.pmtiles", "region": r, "maxzoom": int(s["basemap_region_zoom"])} for r in regions(s)]
+    if int(s["basemap_region_zoom"]) > int(s["basemap_world_zoom"]):  # else the world file already has their detail
+        out += [{"name": f"{r}.pmtiles", "region": r, "maxzoom": int(s["basemap_region_zoom"])} for r in regions(s)]
     return out
 
 
