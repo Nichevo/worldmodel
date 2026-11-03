@@ -195,12 +195,14 @@ export type Settings = {
   ollama_url: string;
   ai_model: string; // "" = the first model installed
   ai_model_compare: string; // "" = no side-by-side model
+  ai_compare_default: boolean; // side by side from the start
   ai_temperature: number;
   ai_context_tokens: number;
   ai_context_default: string; // context parts ticked by default: data,description,events,highlight
   ai_search_engine: "brave" | "searxng" | "off";
   searxng_url: string;
   ai_search_results: number;
+  ai_search_default: boolean; // Search the web ticked when the box opens
   brave_daily_limit: number; // 0 = no limit
   brave_monthly_limit: number; // 0 = no limit
   brave_free_monthly: number;

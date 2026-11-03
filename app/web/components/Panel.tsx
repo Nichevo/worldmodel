@@ -22,7 +22,7 @@ import {
   rankOptions, rankString, rankTable, rankYears, type RankOptions,
   scatterOptions, scatterString, toQuery, DEFAULT as DEFAULT_WORKSPACE, type Action, type Group, type Panel as PanelState, type View,
 } from "@/lib/workspace";
-import { csvTable, keep, openAsk, type AskPart } from "@/lib/ai";
+import { csvTable, keep, openAsk, useRegisterChart, type AskPart } from "@/lib/ai";
 
 export type Value = { entity_id: string; value: number; status: string };
 
@@ -262,14 +262,20 @@ function DownloadMenu({ exporter, panel, indicator, year, selection, names }: {
   const shown = selection.map((id) => names.get(id) ?? id);
   const title = `${indicator?.name ?? "Population pyramid"} (${VIEW_LABEL[panel.view].toLowerCase()}${year ? `, ${year}` : ""})`
     + (shown.length ? `: ${shown.slice(0, 6).join(", ")}${shown.length > 6 ? ` and ${shown.length - 6} more` : ""}` : "");
-  const ask = () => {
-    const csv = exporter.current.csv?.() ?? "";
+  const askParts = (): AskPart[] => {
+    let csv = "";
+    try { csv = exporter.current.csv?.() ?? ""; } catch { /* nothing drawn yet */ }
     const parts: AskPart[] = [
       { key: "data", kind: "data", label: `The panel's figures${indicator ? ` (${indicator.unit})` : ""}`,
         text: `${indicator ? `${indicator.name}, unit: ${indicator.unit}.\n` : ""}${csv.slice(0, 60_000)}` },
     ];
     if (indicator?.description) parts.push({ key: "description", kind: "description", label: `What "${indicator.name}" measures`, text: indicator.description });
-    openAsk({ title, parts, indicator: indicator?.indicator_id, entity: selection.length === 1 ? selection[0] : undefined });
+    return parts;
+  };
+  const picture = async () => (await exporter.current.png?.()) ?? null;
+  useRegisterChart(() => ({ title, parts: askParts, picture }));
+  const ask = () => {
+    openAsk({ title, parts: askParts(), indicator: indicator?.indicator_id, entity: selection.length === 1 ? selection[0] : undefined, picture });
     close();
   };
   const keepIt = async () => {

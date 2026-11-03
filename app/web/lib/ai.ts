@@ -3,6 +3,7 @@
 // Ask AI from anywhere: a component builds the context it can see (its figures as a
 // table, descriptions, events, highlighted text) and opens the Ask AI box, which
 // lives once in the page layout. Keep: send something to the Highlights page.
+import { useEffect, useRef } from "react";
 import { api, type EventRow, type Indicator, type NewHighlight, type SeriesRow } from "@/lib/api";
 import { SOURCE_LABEL } from "@/lib/format";
 
@@ -18,6 +19,30 @@ export type AskRequest = {
   picture?: () => Promise<string | null>; // a PNG data URL of the chart, for models that can see pictures
   send?: boolean; // ask straight away (the question box in the top bar)
 };
+
+// The charts on the page now, so a question can bring one in by name ("Add a chart from
+// this page" in the Ask AI box): its figures go as text, and a picture to models that see.
+export type PageChart = { title: string; parts: () => AskPart[]; picture?: () => Promise<string | null> };
+const pageChartGetters = new Map<number, () => PageChart>();
+let chartSeq = 0;
+export function registerChart(get: () => PageChart): () => void {
+  const id = ++chartSeq;
+  pageChartGetters.set(id, get);
+  return () => { pageChartGetters.delete(id); };
+}
+export function pageCharts(): PageChart[] {
+  const out: PageChart[] = [];
+  for (const g of pageChartGetters.values()) {
+    try { out.push(g()); } catch { /* a chart going away */ }
+  }
+  return out;
+}
+// For a component with a chart: stays listed while it is on the page, always with its latest figures.
+export function useRegisterChart(get: () => PageChart) {
+  const latest = useRef(get);
+  latest.current = get;
+  useEffect(() => registerChart(() => latest.current()), []);
+}
 
 const ASK = "worldmodel:ask";
 const TOAST = "worldmodel:toast";
