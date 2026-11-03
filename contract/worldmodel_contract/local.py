@@ -89,7 +89,7 @@ URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"profile_charts", "profile_cards_hidden"}  # comma-separated ids, order kept
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
-          "basemap_world_zoom": (4, 12), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
+          "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "ranks_top_n": (0, 300), "forecast_horizon": (1, 50), "ai_temperature": (0, 2),

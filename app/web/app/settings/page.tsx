@@ -430,10 +430,13 @@ function MapDetail({ s, save }: { s: Settings; save: (patch: Partial<Settings>) 
           <PlacePicker value={regions} placeholder="None" onChange={(ps) => save({ basemap_regions: ps.filter((p) => !p.group).map((p) => p.id.toLowerCase()).join(",") })} />
         </div>
       </Field>
-      <Field label="World detail" hint="How far the world file goes. Each step roughly doubles or triples its size.">
+      <Field label="World detail" hint="How far the world file goes. Each step roughly doubles its size; sizes are rough, so use Check size. Past 12, raise the Map files limit under Storage first.">
         <select value={s.basemap_world_zoom} onChange={(e) => save({ basemap_world_zoom: Number(e.target.value) })}>
           {[[6, "6: cities and motorways"], [7, "7: towns and main roads"], [8, "8: towns, main roads and rail (suggested)"],
-            [9, "9: small towns and most roads"], [10, "10: villages and local roads"]].map(([z, t]) => <option key={z} value={z}>{t}</option>)}
+            [9, "9: small towns and most roads"], [10, "10: villages and local roads (about 4 GB)"],
+            [11, "11: suburbs and most streets in towns (about 8 GB)"], [12, "12: suburbs and streets (about 15 GB)"],
+            [13, "13: nearly every street (about 30 GB)"], [14, "14: every street (about 60 GB)"],
+            [15, "15: every street and building, the whole planet (about 120 GB)"]].map(([z, t]) => <option key={z} value={z}>{t}</option>)}
         </select>
       </Field>
       <Field label="Full-detail countries go to">
