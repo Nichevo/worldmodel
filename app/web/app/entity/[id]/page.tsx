@@ -22,6 +22,9 @@ import VotersCard from "@/components/VotersCard";
 import VotingCard from "@/components/VotingCard";
 import BetweenCard from "@/components/BetweenCard";
 import CrisisWatchCard from "@/components/CrisisWatchCard";
+import LawsCard from "@/components/LawsCard";
+import HolidaysCard from "@/components/HolidaysCard";
+import CrimeCard from "@/components/CrimeCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -57,6 +60,7 @@ const SECTIONS = [
   { key: "places", title: "Cities and places" },
   { key: "energy", title: "Energy" },
   { key: "world", title: "In the world: votes, dealings and conflict watch" },
+  { key: "laws", title: "Laws, holidays and crime" },
   { key: "history", title: "History, events and sources" },
 ];
 
@@ -119,6 +123,9 @@ export default function EntityPage() {
     { key: "voting", title: "UN voting", section: "world", on: !isGroup, el: <VotingCard entity={e} name={nm} /> },
     { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
+    { key: "laws", title: "Laws and rules", section: "laws", on: !isGroup, el: <LawsCard entity={e} name={nm} /> },
+    { key: "holidays", title: "Public holidays", section: "laws", on: !isGroup, el: <HolidaysCard entity={e} name={nm} /> },
+    { key: "crime", title: "Crime and prisons", section: "laws", on: !isGroup, el: <CrimeCard entity={e} name={nm} indicators={byId} /> },
     { key: "timeline", title: "Timeline of events", section: "history", on: true, el: <Timeline entity={e} name={nm} isGroup={isGroup} /> },
     { key: "factbook", title: "CIA World Factbook", section: "history", on: !isGroup, el: <FactbookCard entity={e} /> },
     { key: "sources_differ", title: "Where sources disagree", section: "history", on: !isGroup, el: <SourcesDiffer entity={e} /> },

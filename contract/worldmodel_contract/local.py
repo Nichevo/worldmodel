@@ -62,6 +62,7 @@ SETTINGS: dict[str, object] = {
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
     "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
+    "holidays_fetch": True,          # refresh reads public holidays from Nager.Date (about 240 small requests every 90 days)
     "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
     "crisiswatch_backfill": 12,      # older CrisisWatch months filled in per refresh, back to 2003 (0 = only the latest)
     "voting_compare": "USA,CHN,RUS,eu",  # who a country's UN votes are compared with on its Voting card

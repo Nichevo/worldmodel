@@ -767,3 +767,118 @@
     by_hand: false
     get: https://celestrak.org/pub/satcat.csv
     what: "When the refresh is refused, download satcat.csv and save it here."
+
+- id: nager_holidays
+  name: Nager.Date public holidays
+  short_name: Holidays (Nager.Date)
+  publisher: Nager.Date (open source project)
+  url: https://date.nager.at/
+  licence: MIT
+  licence_url: https://github.com/nager/Nager.Date/blob/main/LICENSE.md
+  commercial_use: true
+  cadence: Holidays for this year and next, read every 90 days
+  attribution: "Public holidays from Nager.Date (date.nager.at)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://date.nager.at/api/v3/PublicHolidays/2026/NZ
+    what: "When the refresh is refused, open the address (change the year and two-letter country code as needed) and save each page as holidays_<year>_<CC>.json."
+
+- id: wbl
+  name: World Bank Women, Business and the Law
+  short_name: Women, Business and the Law
+  publisher: World Bank
+  url: https://wbl.worldbank.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Yearly report; read every 90 days
+  attribution: "World Bank, Women, Business and the Law (historical panel data)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://wbl.worldbank.org/en/wbl-data
+    what: "When the refresh is refused, download the historical panel data (Excel, all years) and save it here."
+
+- id: unodc_crime
+  name: UNODC crime and criminal justice statistics
+  short_name: Crime and prisons (UNODC)
+  publisher: United Nations Office on Drugs and Crime
+  url: https://dataunodc.un.org/
+  licence: Free to use with attribution (UNODC terms)
+  licence_url: https://www.unodc.org/unodc/en/terms-of-use.html
+  commercial_use: true
+  cadence: Yearly; read every 90 days
+  attribution: "UNODC, crime and criminal justice statistics (dataunodc.un.org)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://dataunodc.un.org/
+    what: "When the refresh is refused, download the Excel files under Crime and criminal justice (intentional homicide, violent and sexual crime, corruption and economic crime, prisons) and save them here."
+
+- id: rules_curated
+  name: Hand-checked law changes
+  short_name: Hand-checked laws
+  publisher: Worldmodel (typed from official sources and news reports)
+  url: https://github.com/Nichevo/worldmodel
+  licence: CC0
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: Updated with the code
+  attribution: "Hand-checked list of the year same-sex marriage became legal nationwide."
+  status: active
+  default_rank: 3
+
+- id: world_policy
+  name: WORLD Policy Analysis Center
+  short_name: WORLD Policy
+  publisher: UCLA Fielding School of Public Health
+  url: https://www.worldpolicycenter.org/
+  licence: Free after registration; non-commercial use
+  licence_url: https://www.worldpolicycenter.org/data-and-methods
+  commercial_use: false
+  cadence: Load new tables when you download them
+  attribution: "WORLD Policy Analysis Center, UCLA."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.worldpolicycenter.org/
+    what: "Register (free), then download any data table (paid leave, minimum wage, working hours...) as Excel or CSV with a country column and save it here."
+
+- id: gunpolicy
+  name: GunPolicy.org
+  short_name: GunPolicy.org
+  publisher: Sydney School of Public Health (Alpers and others)
+  url: https://www.gunpolicy.org/
+  licence: Free to read; no download, so tables are copied by hand
+  licence_url: https://www.gunpolicy.org/
+  commercial_use: false
+  cadence: Load new tables when you make them
+  attribution: "Alpers, Philip and others, GunPolicy.org, Sydney School of Public Health, The University of Sydney."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.gunpolicy.org/
+    what: "Copy the figures you want into a spreadsheet with a Country column, a Year column and one column per measure (guns per 100 people, licence needed Yes/No...), and save it as .xlsx or .csv here."
+
+- id: world_prison_brief
+  name: World Prison Brief
+  short_name: World Prison Brief
+  publisher: Institute for Crime and Justice Policy Research, Birkbeck
+  url: https://www.prisonstudies.org/
+  licence: Free to read; no download, so tables are copied by hand
+  licence_url: https://www.prisonstudies.org/
+  commercial_use: false
+  cadence: Load new tables when you make them
+  attribution: "World Prison Brief, Institute for Crime and Justice Policy Research."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.prisonstudies.org/highest-to-lowest/prison_population_rate
+    what: "Copy a table (prison population rate, occupancy level...) into a spreadsheet with a Country column, a Year column and value columns, and save it as .xlsx or .csv here."

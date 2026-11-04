@@ -97,6 +97,26 @@ export const HELP = {
     units: "Ratings, one per month",
     sources: [{ label: "International Crisis Group, CrisisWatch" }],
   },
+  laws: {
+    title: "Laws and rules",
+    what: "The country's rules as they stand in the latest year stored, with the year each one took its current form, and every change found over the years.",
+    how: "Women, Business and the Law gives the laws in force on 1 October each year since 1970 (paid leave, retirement ages, women's rights at work, in marriage and over property). Same-sex marriage is a hand-checked list. Tables you load yourself (WORLD Policy, GunPolicy.org) add their own rules. A change is the first year a value differs from the year before.",
+    units: "Yes or no; days of leave; years of age",
+    sources: [{ label: "World Bank, Women, Business and the Law", indicator: "wbl_index" }, { label: "Hand-checked list", indicator: "law_same_sex_marriage" }],
+  },
+  holidays: {
+    title: "Public holidays",
+    what: "This year's public holidays, month by month. Holidays kept only in some states or regions are marked.",
+    how: "From Nager.Date's free holiday list, read every 90 days for this year and next (Settings: Public holidays). Countries it does not cover show nothing.",
+    sources: [{ label: "Nager.Date", indicator: "public_holidays" }],
+  },
+  crime: {
+    title: "Crime and prisons",
+    what: "Recorded crime by broad type and the number of people in prison, per 100,000 people.",
+    how: "UNODC collects what each country's police and prisons report. Offence types are grouped into broad kinds (violent, sexual, property, fraud and corruption, drugs) by adding the top-level types UNODC lists. Countries define and record crimes differently, so compare a country with itself over time rather than levels across countries.",
+    units: "Per 100,000 people",
+    sources: [{ label: "UNODC crime and criminal justice statistics", indicator: "homicide_rate" }],
+  },
   voters: {
     title: "Who votes",
     what: "Turnout by age group, and by sex or by group where the country reports it, at national elections.",

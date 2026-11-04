@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/topics", label: "Topics" },
   { href: "/events", label: "Events" },
   { href: "/zones", label: "Beyond borders" },
+  { href: "/laws", label: "Laws" },
   { href: "/indicators", label: "Indicators" },
   { href: "/sources", label: "Sources" },
   { href: "/data", label: "Data status" },
