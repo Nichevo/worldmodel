@@ -106,6 +106,19 @@ export default function SettingsPage() {
           on={s.places_fetch} set={(v) => save({ places_fetch: v })} />
       </section>
 
+      <section className="card" id="world">
+        <h2>The world beyond borders, laws and holidays</h2>
+        <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."
+          on={s.crisiswatch_fetch} set={(v) => save({ crisiswatch_fetch: v })} />
+        <Toggle label="Public holidays" hint="Nager.Date's holiday list for about 120 countries, this year and next, read every 90 days (small requests, a moment apart). Fills the holidays calendar on country pages. Switching off keeps what is stored."
+          on={s.holidays_fetch} set={(v) => save({ holidays_fetch: v })} />
+        <NumberField label="Older CrisisWatch months per refresh" value={s.crisiswatch_backfill} min={0} max={300} step={1}
+          save={(v) => save({ crisiswatch_backfill: v })} />
+        <TextField label="UN voting compared with" value={s.voting_compare} placeholder="USA,CHN,RUS,eu"
+          note="Country codes or group ids, comma-separated. A group (eu, nato, oecd, asean) shows the average over its members of each year. Used on every country's UN voting card."
+          save={(v) => save({ voting_compare: v })} />
+      </section>
+
       <section className="card">
         <h2>Country packs</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>

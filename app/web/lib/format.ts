@@ -2,6 +2,7 @@
 
 export function formatValue(value: number | null | undefined, unit: string, decimals = 1): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "no data";
+  if (unit === "yes/no") return value >= 0.5 ? "Yes" : "No";
   const abs = Math.abs(value);
   if (unit === "persons" || unit.includes("dollars")) {
     const money = unit.includes("dollars") && !unit.includes("per person");

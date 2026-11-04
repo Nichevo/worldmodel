@@ -1,0 +1,4 @@
+[{"date":"2026-01-01","localName":"New Year's Day","name":"New Year's Day","countryCode":"NZ","fixed":false,"global":true,"counties":null,"launchYear":null,"types":["Public"]},
+ {"date":"2026-02-06","localName":"Waitangi Day","name":"Waitangi Day","countryCode":"NZ","fixed":false,"global":true,"counties":null,"launchYear":null,"types":["Public"]},
+ {"date":"2026-07-10","localName":"Matariki","name":"Matariki","countryCode":"NZ","fixed":false,"global":true,"counties":null,"launchYear":2022,"types":["Public"]},
+ {"date":"2026-01-26","localName":"Auckland Anniversary Day","name":"Auckland Anniversary Day","countryCode":"NZ","fixed":false,"global":false,"counties":["NZ-AUK","NZ-NTL"],"launchYear":null,"types":["Public"]}]

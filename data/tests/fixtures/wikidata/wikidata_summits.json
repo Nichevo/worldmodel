@@ -1,0 +1,65 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "e": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q1"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "2018 APEC summit"
+    },
+    "seriesName": {
+     "type": "literal",
+     "value": "APEC summit"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "PNG"
+    },
+    "start": {
+     "type": "literal",
+     "value": "2018-11-17T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "value": "2018-11-18T00:00:00Z"
+    },
+    "placeLabel": {
+     "type": "literal",
+     "value": "Port Moresby"
+    }
+   },
+   {
+    "e": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q2"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "1999 APEC summit"
+    },
+    "seriesName": {
+     "type": "literal",
+     "value": "APEC summit"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "date": {
+     "type": "literal",
+     "value": "1999-09-12T00:00:00Z"
+    },
+    "placeLabel": {
+     "type": "literal",
+     "value": "Auckland"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "case": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q10"
+    },
+    "caseLabel": {
+     "type": "literal",
+     "value": "Whaling in the Antarctic"
+    },
+    "courtName": {
+     "type": "literal",
+     "value": "International Court of Justice"
+    },
+    "role": {
+     "type": "literal",
+     "value": "plaintiff"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "AUS"
+    },
+    "date": {
+     "type": "literal",
+     "value": "2010-05-31T00:00:00Z"
+    },
+    "end": {
+     "type": "literal",
+     "value": "2014-03-31T00:00:00Z"
+    }
+   },
+   {
+    "case": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q10"
+    },
+    "caseLabel": {
+     "type": "literal",
+     "value": "Whaling in the Antarctic"
+    },
+    "courtName": {
+     "type": "literal",
+     "value": "International Court of Justice"
+    },
+    "role": {
+     "type": "literal",
+     "value": "defendant"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "JPN"
+    },
+    "date": {
+     "type": "literal",
+     "value": "2010-05-31T00:00:00Z"
+    }
+   }
+  ]
+ }
+}

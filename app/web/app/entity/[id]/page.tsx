@@ -19,6 +19,12 @@ import PlacesCard from "@/components/PlacesCard";
 import ProfilePicker from "@/components/ProfilePicker";
 import PricesPayCard from "@/components/PricesPayCard";
 import VotersCard from "@/components/VotersCard";
+import VotingCard from "@/components/VotingCard";
+import BetweenCard from "@/components/BetweenCard";
+import CrisisWatchCard from "@/components/CrisisWatchCard";
+import LawsCard from "@/components/LawsCard";
+import HolidaysCard from "@/components/HolidaysCard";
+import CrimeCard from "@/components/CrimeCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -53,12 +59,15 @@ const SECTIONS = [
   { key: "money", title: "Money, prices and housing" },
   { key: "places", title: "Cities and places" },
   { key: "energy", title: "Energy" },
+  { key: "world", title: "In the world: votes, dealings and conflict watch" },
+  { key: "laws", title: "Laws, holidays and crime" },
   { key: "history", title: "History, events and sources" },
 ];
 
 const TYPE_LABEL: Record<string, string> = {
   country: "Country or area", historical_country: "Former state", world: "World", continent: "Continent",
   subregion: "UN sub-region", intermediate_region: "UN region", bloc: "Bloc", alliance: "Alliance", group: "Group", income_group: "Income group",
+  zone: "Beyond borders",
 };
 
 export default function EntityPage() {
@@ -111,6 +120,12 @@ export default function EntityPage() {
     { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
     { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
+    { key: "voting", title: "UN voting", section: "world", on: !isGroup, el: <VotingCard entity={e} name={nm} /> },
+    { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
+    { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
+    { key: "laws", title: "Laws and rules", section: "laws", on: !isGroup, el: <LawsCard entity={e} name={nm} /> },
+    { key: "holidays", title: "Public holidays", section: "laws", on: !isGroup, el: <HolidaysCard entity={e} name={nm} /> },
+    { key: "crime", title: "Crime and prisons", section: "laws", on: !isGroup, el: <CrimeCard entity={e} name={nm} indicators={byId} /> },
     { key: "timeline", title: "Timeline of events", section: "history", on: true, el: <Timeline entity={e} name={nm} isGroup={isGroup} /> },
     { key: "factbook", title: "CIA World Factbook", section: "history", on: !isGroup, el: <FactbookCard entity={e} /> },
     { key: "sources_differ", title: "Where sources disagree", section: "history", on: !isGroup, el: <SourcesDiffer entity={e} /> },

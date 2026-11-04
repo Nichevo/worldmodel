@@ -57,10 +57,11 @@ class Rows:
 
 def indicator(id: str, name: str, description: str, unit: str, domain: str, source_id: str, series: str, *,
               decimals: int = 1, aggregation: dict | None = None, default_on: bool = True, notes: str = "",
-              breakdowns: list[str] | None = None, bounds: tuple[float, float] = (-1e18, 1e18)) -> dict:
+              breakdowns: list[str] | None = None, bounds: tuple[float, float] = (-1e18, 1e18), frequency: str = "A") -> dict:
     """An indicator a source lists itself (indicators.json), catalogue-shaped."""
     return {
         "id": id, "name": name, "description": description, "domain": domain, "unit": unit, "decimals": decimals,
+        "frequency": frequency,
         "aggregation": aggregation or {"method": "none"}, "bounds": list(bounds), "breakdowns": breakdowns or [],
         "sources": [{"source_id": source_id, "series": series, "scale": 1.0, "notes": notes}],
         "default_on": default_on,
