@@ -1,0 +1,27 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "r": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q20"
+    },
+    "rLabel": {
+     "type": "literal",
+     "value": "United Nations Security Council Resolution 2231"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "IRN"
+    },
+    "date": {
+     "type": "literal",
+     "value": "2015-07-20T00:00:00Z"
+    }
+   }
+  ]
+ }
+}

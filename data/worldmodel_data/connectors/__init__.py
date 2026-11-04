@@ -5,6 +5,7 @@ from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.cia_factbook import CIAFactbook
 from worldmodel_data.connectors.cities import UNWUP, GeoNames, ILOEarnings, Numbeo, WhereNext
 from worldmodel_data.connectors.coups import Coups
+from worldmodel_data.connectors.crisiswatch import CrisisWatch
 from worldmodel_data.connectors.education import UNDPHDR, Wittgenstein
 from worldmodel_data.connectors.emdat import EMDAT
 from worldmodel_data.connectors.forecasters import OECDEO, WorldBankGEP
@@ -22,12 +23,15 @@ from worldmodel_data.connectors.voters import NZElectionTurnout, USCensusVoting
 from worldmodel_data.connectors.wikidata import Wikidata
 from worldmodel_data.connectors.places import WikidataPlaces
 from worldmodel_data.connectors.world_bank_wdi import WorldBankWDI
+from worldmodel_data.connectors.world_bodies import GlobalSanctions, IMFMona, UNGAVotes, UNTreaties, UNVetoes, WTODisputes
+from worldmodel_data.connectors.zones import CelesTrakSatcat, NSIDCSeaIce
 
 CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     UNWPP, IMFWEO, IMFWEOHistory, WorldBankWDI, OWIDEnergy, OWIDGrapher, CIAFactbook, Wikidata,
     Coups, UCDPConflicts, EMDAT, BIS, OECD, DallasFedIHPD, IMFGDD, UNIMS, UNHCR, Wittgenstein, UNDPHDR,
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
-    GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WikidataPlaces)}
+    GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WikidataPlaces,
+    UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

@@ -40,6 +40,7 @@ function Events() {
         <p className="ink-2" style={{ marginTop: 0 }}>
           Elections, coups, conflicts, sporting events, disasters and the recessions, booms and inflation spikes worked out from the
           data, plus your own milestones. They also show as bands and lines on the charts (<Link href="/settings#events">Settings</Link>).
+          {" "}Conflict ratings month by month: <Link href="/crisiswatch">CrisisWatch map</Link>. Places no country owns: <Link href="/zones">Beyond borders</Link>.
         </p>
         <div className="tabs" role="tablist">
           {([["year", "Year at a glance"], ["around", "Around an event"], ["mine", "Your milestones"]] as [Tab, string][]).map(([t, l]) => (
@@ -383,7 +384,7 @@ function AroundView({ event, entity }: { event: string | null; entity: string | 
   const subkinds = kinds.find((k) => k.kind === pick.kind)?.subkinds ?? [];
   const option = useCallback(() => aroundOption(data!.offsets,
     data!.events.map((e) => ({ label: `${e.entity_name ?? e.entity_id} ${e.year}: ${e.title}`, values: e.values })),
-    data!.mean, data!.mean_compare, compare, data!.mode === "index" ? "index" : data!.indicator.unit), [data, compare]);
+    data!.mean, data!.mean_compare, compare === "region" ? "each one's region" : compare === "income" ? "each one's income group" : compare, data!.mode === "index" ? "index" : data!.indicator.unit), [data, compare]);
   const at = (k: number) => data ? data.offsets.indexOf(k) : -1;
   const fmt = (v: number | null | undefined) => (v === null || v === undefined ? "–" : data?.mode === "index" ? v.toFixed(1) : formatValue(v, data!.indicator.unit, 1));
 
@@ -416,7 +417,8 @@ function AroundView({ event, entity }: { event: string | null; entity: string | 
         <label className="small">Years before <select value={before} onChange={(e) => setBefore(+e.target.value)}>{[3, 5, 10].map((n) => <option key={n}>{n}</option>)}</select></label>
         <label className="small">after <select value={after} onChange={(e) => setAfter(+e.target.value)}>{[3, 5, 10].map((n) => <option key={n}>{n}</option>)}</select></label>
         <label className="small">Compare with <select value={compare} onChange={(e) => setCompare(e.target.value)}>
-          <option value="world">the world</option><option value="none">nothing</option></select></label>
+          <option value="world">the world</option><option value="region">its own region</option><option value="income">its income group</option>
+          <option value="oecd">the OECD</option><option value="none">nothing</option></select></label>
       </div>
       {error && <p className="error">{error}</p>}
       {data && (
@@ -430,7 +432,7 @@ function AroundView({ event, entity }: { event: string | null; entity: string | 
           <div className="table-scroll">
             <table className="small">
               <thead><tr><th>Event</th><th>Country</th><th className="num">Year</th><th className="num">Year before</th><th className="num">Year 0</th>
-                <th className="num">+1</th><th className="num">+2</th>{compare !== "none" && <th className="num">Year 0 vs {compare}</th>}</tr></thead>
+                <th className="num">+1</th><th className="num">+2</th>{compare !== "none" && <th className="num">Year 0 vs {compare === "region" ? "its region" : compare === "income" ? "its income group" : compare}</th>}</tr></thead>
               <tbody>
                 {data.events.map((e) => (
                   <tr key={`${e.event_id}|${e.entity_id}`}>

@@ -77,6 +77,17 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
     }),
   },
+  antarctic_claims: {
+    legend: "Antarctic claim (frozen by the 1959 treaty)", swatch: () => cssVar("--series-4"),
+    paint: () => ({ "line-color": cssVar("--series-4"), "line-width": zoomWidth(1.2, 2.5), "line-opacity": 0.85, "line-dasharray": [3, 2] }),
+  },
+  antarctic_stations: {
+    legend: "Antarctic research station", swatch: () => cssVar("--series-1"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-1"), "circle-opacity": 0.9, "circle-radius": zoomWidth(2.5, 6),
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.8,
+    }),
+  },
   companies: {
     legend: "Big company head office", swatch: () => cssVar("--series-6"), dot: true,
     paint: () => ({
@@ -110,6 +121,11 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     const rev = typeof p.revenue === "number" ? `<br/>Revenue ${esc(p.currency)} ${(p.revenue / 1e9).toFixed(1)} billion${p.revenue_year ? ` (${p.revenue_year})` : ""}` : "";
     return `<b>${esc(p.name)}</b> (company)${rev}${p.industry ? `<br/>${esc(p.industry)}` : ""}`;
   }
+  if (layer === "antarctic_stations") {
+    return `<b>${esc(p.name)}</b> (research station)${p.operator ? `<br/>${esc(p.operator)}` : ""}${p.country ? ` · ${esc(p.country)}` : ""}`
+      + (p.opened ? `<br/>Opened ${esc(p.opened)}` : "");
+  }
+  if (layer === "antarctic_claims") return `<b>${esc(p.name)}</b>${p.overlap ? "<br/>Overlaps another claim" : ""}`;
   if (layer === "points") {
     return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}${p.text ? `<br/>${esc(p.text)}` : ""}`;
   }

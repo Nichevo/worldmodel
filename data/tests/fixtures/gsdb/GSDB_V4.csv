@@ -1,0 +1,4 @@
+case_id,sanctioned_state,sanctioned_state_iso3,sanctioning_state,sanctioning_state_iso3,begin,end,trade,arms,military,financial,travel,other,objective
+1,Iran,IRN,United States,USA,1979,2023,1,1,0,1,0,0,policy_change
+2,Russia,RUS,New Zealand,NZL,2022,2023,1,0,0,1,1,0,end_war
+3,South Africa,ZAF,United Kingdom,GBR,1985,1991,1,1,0,0,0,0,democracy

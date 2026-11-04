@@ -621,3 +621,15 @@ button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent,
 .picker-list.scroll { max-height: 45vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
 .picker-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
 .picker-row .grow { flex: 1; }
+
+/* CrisisWatch: a cell per month, a row per year */
+i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: baseline; }
+.cw-strip { display: flex; flex-direction: column; gap: 2px; margin: 8px 0; }
+.cw-year { display: flex; gap: 2px; align-items: center; }
+.cw-y { width: 36px; flex: none; }
+.cw-cell { width: 18px; height: 12px; padding: 0; border: 1px solid var(--grid); border-radius: 2px; cursor: pointer; }
+.cw-cell:disabled { cursor: default; opacity: 0.5; }
+.cw-cell.on { outline: 2px solid var(--ink); }
+.cw-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.zone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+@media (max-width: 700px) { .zone-grid { grid-template-columns: 1fr; } .cw-cell { width: 12px; } }
