@@ -49,6 +49,7 @@ SETTINGS: dict[str, object] = {
     "events_on_charts": True,        # dated events as lines and bands on line charts of up to three countries
     "profile_charts": "",            # indicator ids charted on country pages, in order ("" = the standard set)
     "profile_cards_hidden": "",      # country page cards switched off (debt, housing, cities...)
+    "profile_saved": {},             # named country page set-ups: name -> {charts, hidden}
     "profile_average": "",           # a group (oecd, g20, world...) whose average joins a country page's rate charts
     "projections_on_charts": True,   # years after the last estimate (UN projections and the like) on charts
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
@@ -61,6 +62,10 @@ SETTINGS: dict[str, object] = {
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
     "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
+    "holidays_fetch": True,          # refresh reads public holidays from Nager.Date (about 240 small requests every 90 days)
+    "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
+    "crisiswatch_backfill": 12,      # older CrisisWatch months filled in per refresh, back to 2003 (0 = only the latest)
+    "voting_compare": "USA,CHN,RUS,eu",  # who a country's UN votes are compared with on its Voting card
     # Local AI (Ollama on this PC or another; the app's server talks to it)
     "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
     "ollama_url": "http://localhost:11434",
@@ -87,12 +92,13 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"profile_charts", "profile_cards_hidden"}  # comma-separated ids, order kept
+IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare"}  # comma-separated ids, order kept
+PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
-          "ranks_top_n": (0, 300), "forecast_horizon": (1, 50), "ai_temperature": (0, 2),
+          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "forecast_horizon": (1, 50), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
@@ -125,6 +131,12 @@ def refresh_log_path(root: Path | None = None) -> Path:
 
 
 # ----------------------------------------------------------------------------- settings
+def _idlist(v) -> str:
+    """Comma-separated ids, each checked, repeats dropped, order kept."""
+    ids = [w.strip() for w in str(v or "").split(",")]
+    return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
+
+
 def clean_settings(data: dict, base: dict | None = None) -> dict:
     """The known settings from data, each checked and held to its range; the rest
     (and anything invalid) come from base, else the defaults."""
@@ -135,12 +147,21 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
         v = data[key]
         if isinstance(default, bool):
             out[key] = bool(v)
+        elif key in PROFILES:
+            if isinstance(v, str):
+                try:
+                    v = json.loads(v or "{}")
+                except ValueError:
+                    continue
+            if not isinstance(v, dict):
+                continue
+            out[key] = {" ".join(str(name).split())[:40]: {f: _idlist(p.get(f)) for f in ("charts", "hidden")}
+                        for name, p in list(v.items())[:30] if str(name).strip() and isinstance(p, dict)}
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v
         elif key in IDLISTS:
-            ids = [w.strip() for w in str(v or "").split(",")]
-            out[key] = ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
+            out[key] = _idlist(v)
         elif key in IDS:  # one entity id such as g20 or NZL, or "" for none
             t = str(v or "").strip()
             if re.fullmatch(r"[A-Za-z0-9_]{0,40}", t):

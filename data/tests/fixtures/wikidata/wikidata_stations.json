@@ -1,0 +1,57 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "s": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q30"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Scott Base"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(166.7683 -77.8494)"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "opLabel": {
+     "type": "literal",
+     "value": "Antarctica New Zealand"
+    },
+    "start": {
+     "type": "literal",
+     "value": "1957-01-20T00:00:00Z"
+    }
+   },
+   {
+    "s": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q31"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "McMurdo Station"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(166.6667 -77.85)"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "USA"
+    },
+    "opLabel": {
+     "type": "literal",
+     "value": "United States Antarctic Program"
+    }
+   }
+  ]
+ }
+}

@@ -614,3 +614,271 @@
     by_hand: true
     get: https://www.numbeo.com/cost-of-living/rankings.jsp
     what: "Pick the year, then save the page (Ctrl+S, Web page, HTML only). Rankings by Country can go in too. Once or twice a year; keep every year's files."
+
+- id: unga_votes
+  name: United Nations General Assembly voting data (Voeten)
+  short_name: UN votes
+  publisher: Erik Voeten, Anton Strezhnev and Michael Bailey (Harvard Dataverse)
+  url: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/LEJUQZ
+  licence: CC0 1.0
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: Once a year, after each Assembly session; checked monthly
+  attribution: "Voeten, Erik; Strezhnev, Anton; Bailey, Michael (2009), United Nations General Assembly Voting Data, Harvard Dataverse, doi:10.7910/DVN/LEJUQZ."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/LEJUQZ
+    what: "When the refresh cannot reach Dataverse, download the agreement scores file (AgreementScores...csv) and the ideal points file (Idealpoint...csv) from the page."
+
+- id: un_vetoes
+  name: UN Security Council vetoes and elected members
+  short_name: UN Security Council
+  publisher: United Nations, Dag Hammarskjöld Library and the Security Council
+  url: https://research.un.org/en/docs/sc/quick/veto
+  licence: Free to use (United Nations terms of use)
+  licence_url: https://www.un.org/en/about-us/terms-of-use
+  commercial_use: true
+  cadence: When a veto is cast or members are elected; checked monthly
+  attribution: "United Nations, Dag Hammarskjöld Library: Security Council veto list; Security Council: countries elected members."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://research.un.org/en/docs/sc/quick/veto
+    what: "When the refresh is refused, save the veto list page and the 'Countries elected members of the Security Council' page (Ctrl+S, Web page, HTML only)."
+
+- id: gsdb
+  name: Global Sanctions Database
+  short_name: Sanctions (GSDB)
+  publisher: Drexel University, ifo Institute and Kiel Institute (Felbermayr, Kirilakha, Syropoulos, Yalcin, Yotov)
+  url: https://www.globalsanctionsdatabase.com/
+  licence: Free for research after a short request form; a file you download and load yourself
+  licence_url: https://www.globalsanctionsdatabase.com/
+  commercial_use: false
+  cadence: A new release every year or two; load it when it comes out
+  attribution: "Global Sanctions Database (GSDB): Felbermayr, G., A. Kirilakha, C. Syropoulos, E. Yalcin and Y.V. Yotov (2020), The Global Sanctions Data Base, European Economic Review 129."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.globalsanctionsdatabase.com/
+    what: "Fill in the request form (free), then save the dataset you are sent (the Excel or CSV file with one row per sanction case)."
+
+- id: imf_mona
+  name: IMF Monitoring of Fund Arrangements (MONA)
+  short_name: IMF programmes
+  publisher: International Monetary Fund
+  url: https://www.imf.org/external/np/pdr/mona/index.aspx
+  licence: IMF copyright and usage terms (free use with attribution)
+  licence_url: https://www.imf.org/external/terms.htm
+  commercial_use: true
+  cadence: Updated as programmes are approved and reviewed; checked monthly
+  attribution: "International Monetary Fund, Monitoring of Fund Arrangements (MONA) database."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://www.imf.org/external/np/pdr/mona/index.aspx
+    what: "When the refresh is refused, open 'Download the MONA database' and save the arrangements Excel file."
+
+- id: wto_disputes
+  name: WTO dispute settlement cases
+  short_name: WTO disputes
+  publisher: World Trade Organization
+  url: https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm
+  licence: Free to use with attribution (WTO terms)
+  licence_url: https://www.wto.org/english/info_e/cprght_e.htm
+  commercial_use: true
+  cadence: As cases are filed; checked monthly
+  attribution: "World Trade Organization, dispute settlement: chronological list of disputes cases."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm
+    what: "When the refresh is refused, save the 'Chronological list of disputes cases' page (Ctrl+S, Web page, HTML only)."
+
+- id: un_treaties
+  name: "UN Treaty Collection: status of key treaties"
+  short_name: UN treaties
+  publisher: United Nations Office of Legal Affairs
+  url: https://treaties.un.org/
+  licence: Free to use (United Nations terms of use)
+  licence_url: https://www.un.org/en/about-us/terms-of-use
+  commercial_use: true
+  cadence: As countries sign and ratify; checked monthly
+  attribution: "United Nations Treaty Collection, Multilateral Treaties Deposited with the Secretary-General."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://treaties.un.org/Pages/ParticipationStatus.aspx?clang=_en
+    what: "When the refresh is refused, open each treaty's status page and save it (Ctrl+S, Web page, HTML only)."
+
+- id: crisiswatch
+  name: International Crisis Group CrisisWatch
+  short_name: CrisisWatch
+  publisher: International Crisis Group
+  url: https://www.crisisgroup.org/crisiswatch/database
+  licence: Free to read; for personal use, one month's page at a time
+  licence_url: https://www.crisisgroup.org/terms-use
+  commercial_use: false
+  cadence: Monthly; each refresh reads the latest months and fills in a few older ones back to 2003
+  attribution: "International Crisis Group, CrisisWatch."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://www.crisisgroup.org/crisiswatch/database
+    what: "When the refresh is refused, pick a month and save the page (Ctrl+S, Web page, HTML only). Save as many months as you like."
+
+- id: nsidc_sea_ice
+  name: NSIDC Sea Ice Index
+  short_name: Sea ice (NSIDC)
+  publisher: National Snow and Ice Data Center (NOAA/NSIDC)
+  url: https://nsidc.org/data/g02135
+  licence: Free to use with citation
+  licence_url: https://nsidc.org/data/user-resources/use-and-copyright
+  commercial_use: true
+  cadence: Monthly; checked every four weeks
+  attribution: "Fetterer, F., K. Knowles, W. N. Meier, M. Savoie and A. K. Windnagel, Sea Ice Index (G02135), NSIDC."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/
+    what: "When the refresh is refused, download the monthly files (N_01_extent_v4.0.csv ... and the same from the south folder) and save them here."
+
+- id: celestrak_satcat
+  name: CelesTrak satellite catalogue
+  short_name: Satellites (CelesTrak)
+  publisher: CelesTrak (T.S. Kelso), from the US Space Force catalogue
+  url: https://celestrak.org/satcat/
+  licence: Free to use with attribution
+  licence_url: https://celestrak.org/
+  commercial_use: true
+  cadence: Daily; read every four weeks
+  attribution: "CelesTrak SATCAT, celestrak.org."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://celestrak.org/pub/satcat.csv
+    what: "When the refresh is refused, download satcat.csv and save it here."
+
+- id: nager_holidays
+  name: Nager.Date public holidays
+  short_name: Holidays (Nager.Date)
+  publisher: Nager.Date (open source project)
+  url: https://date.nager.at/
+  licence: MIT
+  licence_url: https://github.com/nager/Nager.Date/blob/main/LICENSE.md
+  commercial_use: true
+  cadence: Holidays for this year and next, read every 90 days
+  attribution: "Public holidays from Nager.Date (date.nager.at)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://date.nager.at/api/v3/PublicHolidays/2026/NZ
+    what: "When the refresh is refused, open the address (change the year and two-letter country code as needed) and save each page as holidays_<year>_<CC>.json."
+
+- id: wbl
+  name: World Bank Women, Business and the Law
+  short_name: Women, Business and the Law
+  publisher: World Bank
+  url: https://wbl.worldbank.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Yearly report; read every 90 days
+  attribution: "World Bank, Women, Business and the Law (historical panel data)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://wbl.worldbank.org/en/wbl-data
+    what: "When the refresh is refused, download the historical panel data (Excel, all years) and save it here."
+
+- id: unodc_crime
+  name: UNODC crime and criminal justice statistics
+  short_name: Crime and prisons (UNODC)
+  publisher: United Nations Office on Drugs and Crime
+  url: https://dataunodc.un.org/
+  licence: Free to use with attribution (UNODC terms)
+  licence_url: https://www.unodc.org/unodc/en/terms-of-use.html
+  commercial_use: true
+  cadence: Yearly; read every 90 days
+  attribution: "UNODC, crime and criminal justice statistics (dataunodc.un.org)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://dataunodc.un.org/
+    what: "When the refresh is refused, download the Excel files under Crime and criminal justice (intentional homicide, violent and sexual crime, corruption and economic crime, prisons) and save them here."
+
+- id: rules_curated
+  name: Hand-checked law changes
+  short_name: Hand-checked laws
+  publisher: Worldmodel (typed from official sources and news reports)
+  url: https://github.com/Nichevo/worldmodel
+  licence: CC0
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: Updated with the code
+  attribution: "Hand-checked list of the year same-sex marriage became legal nationwide."
+  status: active
+  default_rank: 3
+
+- id: world_policy
+  name: WORLD Policy Analysis Center
+  short_name: WORLD Policy
+  publisher: UCLA Fielding School of Public Health
+  url: https://www.worldpolicycenter.org/
+  licence: Free after registration; non-commercial use
+  licence_url: https://www.worldpolicycenter.org/data-and-methods
+  commercial_use: false
+  cadence: Load new tables when you download them
+  attribution: "WORLD Policy Analysis Center, UCLA."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.worldpolicycenter.org/
+    what: "Register (free), then download any data table (paid leave, minimum wage, working hours...) as Excel or CSV with a country column and save it here."
+
+- id: gunpolicy
+  name: GunPolicy.org
+  short_name: GunPolicy.org
+  publisher: Sydney School of Public Health (Alpers and others)
+  url: https://www.gunpolicy.org/
+  licence: Free to read; no download, so tables are copied by hand
+  licence_url: https://www.gunpolicy.org/
+  commercial_use: false
+  cadence: Load new tables when you make them
+  attribution: "Alpers, Philip and others, GunPolicy.org, Sydney School of Public Health, The University of Sydney."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.gunpolicy.org/
+    what: "Copy the figures you want into a spreadsheet with a Country column, a Year column and one column per measure (guns per 100 people, licence needed Yes/No...), and save it as .xlsx or .csv here."
+
+- id: world_prison_brief
+  name: World Prison Brief
+  short_name: World Prison Brief
+  publisher: Institute for Crime and Justice Policy Research, Birkbeck
+  url: https://www.prisonstudies.org/
+  licence: Free to read; no download, so tables are copied by hand
+  licence_url: https://www.prisonstudies.org/
+  commercial_use: false
+  cadence: Load new tables when you make them
+  attribution: "World Prison Brief, Institute for Crime and Justice Policy Research."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: true
+    get: https://www.prisonstudies.org/highest-to-lowest/prison_population_rate
+    what: "Copy a table (prison population rate, occupancy level...) into a spreadsheet with a Country column, a Year column and value columns, and save it as .xlsx or .csv here."

@@ -1,0 +1,11 @@
+UNODC crime and criminal justice statistics,,,,,,,,,,,,
+Iso3_code,Country,Region,Subregion,Indicator,Dimension,Category,Sex,Age,Year,Unit of measurement,VALUE,Source
+NZL,New Zealand,Oceania,Australia and New Zealand,Victims of intentional homicide,Total,Total,Total,Total,2020,Counts,52,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Victims of intentional homicide,Total,Total,Total,Total,2020,Rate per 100000 population,1.03,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Offences,by type of offence,Burglary,Total,Total,2020,Counts,40000,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Offences,by type of offence,Theft,Total,Total,2020,Counts,100000,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Offences,by type of offence,Theft: of a Motorized Land Vehicle,Total,Total,2020,Counts,20000,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Offences,by type of offence,Sexual violence,Total,Total,2020,Counts,5000,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Persons held,Total,Total,Total,Total,2020,Counts,9500,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Persons held,by sentencing status,Unsentenced,Total,Total,2020,Counts,3500,CTS
+NZL,New Zealand,Oceania,Australia and New Zealand,Persons held,Total,Total,Female,Total,2020,Counts,600,CTS

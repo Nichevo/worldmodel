@@ -176,6 +176,11 @@ export type Settings = {
   profile_charts: string; // indicator ids charted on country pages, in order ("" = standard set, "none" = none)
   profile_cards_hidden: string; // country page cards switched off
   profile_average: string; // a group whose average joins country page charts of rates ("" for none)
+  profile_saved: Record<string, { charts: string; hidden: string }>; // named country page set-ups
+  voting_compare: string; // who a country's UN votes are compared with (ids; eu = EU members' average)
+  crisiswatch_fetch: boolean;
+  holidays_fetch: boolean; // refresh reads public holidays (Nager.Date) // refresh reads CrisisWatch, one month's page at a time
+  crisiswatch_backfill: number; // older months filled in per refresh
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;
@@ -291,9 +296,32 @@ export type EventQuery = { entities?: string[]; members?: boolean; kinds?: strin
 export type Around = {
   indicator: { indicator_id: string; name: string; unit: string }; mode: "value" | "index"; compare: string; offsets: number[];
   events: { event_id: string; entity_id: string; entity_name: string | null; title: string; kind: string; subkind: string | null;
-    year: number; start_date: string; values: (number | null)[]; compare: (number | null)[] | null; diff: (number | null)[] | null }[];
+    year: number; start_date: string; values: (number | null)[]; compare: (number | null)[] | null; compare_id?: string | null; diff: (number | null)[] | null }[];
   mean: (number | null)[]; mean_compare: (number | null)[] | null; mean_diff: (number | null)[] | null; n: number; note: string;
 };
+
+// The world beyond borders: UN voting, CrisisWatch, and places beyond any one country.
+export type Voting = {
+  entity: string; name: string; lines: { id: string; name: string; points: [number, number][] }[];
+  ideal: [number, number][]; closest: { entity_id: string; name: string; value: number }[];
+  furthest: { entity_id: string; name: string; value: number }[]; closest_year: number | null; council: EventRow[];
+};
+export type CrisisWatchMonth = {
+  months: string[]; month: string | null;
+  rows: { entity_id: string; name: string; subkind: string; title: string; detail: string | null; place: string | null; url: string | null; score: number }[];
+};
+export type Zone = {
+  entity_id: string; short_name: string; name: string; description: string | null; indicators: string[]; by_country: string[];
+  layers: string[]; treaties: { treaty: string; joined: number; signed_only: number; title: string | null }[];
+};
+
+// Laws and rules as values by year.
+export type LawRule = { indicator_id: string; name: string; description: string; unit: string; decimals: number; domain: string;
+  countries: number; first: number; last: number };
+export type LawMap = { indicator: { indicator_id: string; name: string; description: string; unit: string; decimals: number };
+  years: number[]; year: number | null; rows: { entity_id: string; name: string; value: number; since: number | null }[] };
+export type EntityLaws = { entity: string; rules: { indicator_id: string; name: string; unit: string; decimals: number; year: number;
+  value: number; source_id: string; since: number | null; changed: boolean }[]; changes: EventRow[] };
 
 export type WhatIfLevers = { tfr: number; e0: number; mig: number; extra: number; phase: number; hold: number }; // hold: 1 = fertility stays as in the base year
 export type WhatIfSide = { male: number[]; female: number[] };
@@ -571,6 +599,12 @@ export const api = {
   addRatio: (r: Partial<Ratio>) => send<Ratio>("POST", "/ratios", r),
   changeRatio: (id: string, r: Partial<Ratio>) => send<Ratio>("PUT", `/ratios/${id}`, r),
   deleteRatio: (id: string) => send<{ deleted: string }>("DELETE", `/ratios/${id}`),
+  voting: (entity: string, compare?: string) => get<Voting>(`/entities/${encodeURIComponent(entity)}/voting`, { compare }),
+  crisiswatch: (month?: string) => get<CrisisWatchMonth>("/crisiswatch", { month }),
+  zones: () => get<Zone[]>("/zones"),
+  laws: () => get<LawRule[]>("/laws"),
+  lawMap: (indicator: string, year?: number) => get<LawMap>(`/laws/${encodeURIComponent(indicator)}`, { year }),
+  entityLaws: (entity: string) => get<EntityLaws>(`/entities/${encodeURIComponent(entity)}/laws`),
   around: (q: { indicator: string; event_id?: string; entity?: string; kind?: string; subkind?: string; q?: string;
     before?: number; after?: number; compare?: string; mode?: string; min_size?: number }) => get<Around>("/around", q),
   whatif: (entity: string, l: WhatIfLevers) => get<WhatIf>("/whatif", { entity, ...l }),
