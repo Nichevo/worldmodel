@@ -1682,6 +1682,62 @@ def zones():
     return out
 
 
+# ----------------------------------------------------------------------------- laws and society
+LAW_DOMAINS = ("laws", "crime")
+
+
+@api.get("/laws")
+def laws():
+    """The rules and crime figures stored: one row per indicator, with how many countries and which years."""
+    return rows("""SELECT i.indicator_id, i.name, i.description, i.unit, i.decimals, i.domain,
+            count(DISTINCT s.entity_id) AS countries, min(year(s.period_start)) AS first, max(year(s.period_start)) AS last
+        FROM indicators i JOIN series s ON s.indicator_id = i.indicator_id AND s.breakdown = '' AND s.variant = 'central'
+          AND NOT s.is_aggregate
+        WHERE i.domain IN (SELECT unnest(?)) GROUP BY ALL ORDER BY i.domain DESC, i.name""", [list(LAW_DOMAINS)])
+
+
+@api.get("/laws/{indicator_id}")
+def law_map(indicator_id: str, year: int | None = Query(None, description="Default: the latest year")):
+    """One rule in one year for every country, with the year its current value began (since)."""
+    ind = rows("SELECT indicator_id, name, description, unit, decimals FROM indicators WHERE indicator_id = ?", [indicator_id])
+    if not ind:
+        raise HTTPException(404, f"no indicator {indicator_id}")
+    years = [r["y"] for r in rows("""SELECT DISTINCT year(period_start) AS y FROM series WHERE indicator_id = ?
+        AND breakdown = '' AND variant = 'central' AND NOT is_aggregate ORDER BY 1""", [indicator_id])]
+    if not years:
+        return {"indicator": ind[0], "years": [], "year": None, "rows": []}
+    if year not in years:
+        year = max((y for y in years if y <= (year or years[-1])), default=years[-1])
+    data = rows("""WITH s AS (SELECT entity_id, year(period_start) AS y, value FROM series WHERE indicator_id = ?
+            AND breakdown = '' AND variant = 'central' AND NOT is_aggregate AND year(period_start) <= ?
+            QUALIFY row_number() OVER (PARTITION BY entity_id, period_start ORDER BY source_id) = 1),
+        cur AS (SELECT entity_id, value FROM s WHERE y = ?),
+        changed AS (SELECT s.entity_id, max(s.y) AS last_other FROM s JOIN cur USING (entity_id) WHERE s.value <> cur.value GROUP BY 1)
+        SELECT cur.entity_id, coalesce(e.short_name, cur.entity_id) AS name, cur.value,
+            (SELECT min(y) FROM s WHERE s.entity_id = cur.entity_id AND s.y > coalesce(c.last_other, -9999)) AS since
+        FROM cur LEFT JOIN changed c USING (entity_id) LEFT JOIN entities e USING (entity_id)
+        ORDER BY cur.value DESC, name""", [indicator_id, year, year])
+    return {"indicator": ind[0], "years": years, "year": year, "rows": data}
+
+
+@api.get("/entities/{entity_id}/laws")
+def entity_laws(entity_id: str):
+    """The country's rules: the latest value of each, the year it began, and the changes over time."""
+    data = rows("""WITH s AS (SELECT i.indicator_id, i.name, i.unit, i.decimals, i.domain, year(s.period_start) AS y, s.value, s.source_id
+            FROM series s JOIN indicators i USING (indicator_id)
+            WHERE s.entity_id = ? AND i.domain = 'laws' AND s.breakdown = '' AND s.variant = 'central'),
+        latest AS (SELECT * FROM s QUALIFY row_number() OVER (PARTITION BY indicator_id ORDER BY y DESC) = 1),
+        other AS (SELECT s.indicator_id, max(s.y) AS last_other FROM s JOIN latest l USING (indicator_id)
+            WHERE s.value <> l.value GROUP BY 1)
+        SELECT l.indicator_id, l.name, l.unit, l.decimals, l.y AS year, l.value, l.source_id,
+            (SELECT min(y) FROM s WHERE s.indicator_id = l.indicator_id AND s.y > coalesce(o.last_other, -9999)) AS since,
+            o.last_other IS NOT NULL AS changed
+        FROM latest l LEFT JOIN other o USING (indicator_id) ORDER BY l.name""", [entity_id])
+    changes = events(entities=entity_id, members=False, kinds="law", sources=None, start=None, end=None, min_size=None,
+                     q=None, limit=2000)
+    return {"entity": entity_id, "rules": data, "changes": changes}
+
+
 # ----------------------------------------------------------------------------- topics
 @api.get("/topics")
 def topics():

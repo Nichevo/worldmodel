@@ -12,6 +12,7 @@ from worldmodel_data.connectors.forecasters import OECDEO, WorldBankGEP
 from worldmodel_data.connectors.housing import BIS, OECD, DallasFedIHPD, IMFGDD
 from worldmodel_data.connectors.imf_weo import IMFWEO
 from worldmodel_data.connectors.imf_weo_history import IMFWEOHistory
+from worldmodel_data.connectors.laws import WBL, GunPolicy, NagerHolidays, RulesCurated, UNODCCrime, WorldPolicy, WorldPrisonBrief
 from worldmodel_data.connectors.layers import GEMFaults, GVPVolcanoes, PlatesBird, USGSEarthquakes
 from worldmodel_data.connectors.migration import UNHCR, UNIMS
 from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
@@ -32,6 +33,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
     GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WikidataPlaces,
-    UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat)}
+    UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat,
+    NagerHolidays, WBL, UNODCCrime, RulesCurated, WorldPolicy, GunPolicy, WorldPrisonBrief)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

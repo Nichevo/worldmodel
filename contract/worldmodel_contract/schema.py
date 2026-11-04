@@ -47,6 +47,8 @@ EVENT_KINDS = {
     "court": "International court cases",
     "summit": "Summits hosted",
     "crisiswatch": "CrisisWatch monthly ratings",
+    "holiday": "Public holidays",
+    "law": "Laws and rules changed",
     "user": "Your milestones",
 }
 # How exact an event's dates are: a year-only date is stored as 1 January (start) or 31 December (end).

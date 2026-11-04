@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   profile_saved: {},
   voting_compare: "USA,CHN,RUS,eu",
   crisiswatch_fetch: true,
+  holidays_fetch: true,
   crisiswatch_backfill: 12,
   party_colours: false,
   party_office: "government",
