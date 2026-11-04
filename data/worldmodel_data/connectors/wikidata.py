@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import quote, unquote
@@ -51,6 +52,7 @@ import httpx
 
 from worldmodel_data.connectors import leaders_curated
 from worldmodel_data.connectors.base import Connector, ConnectorError, sql_str
+from worldmodel_data.connectors.layers import collection
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +108,12 @@ DISASTER_TYPES = {  # English class name -> (kind, subkind)
     "heat wave": ("disaster", "heatwave"), "cold wave": ("disaster", "cold wave"), "drought": ("disaster", "drought"),
     "famine": ("disaster", "famine"), "epidemic": ("epidemic", "epidemic"), "pandemic": ("epidemic", "pandemic"),
 }
+
+
+SUMMIT_SERIES = ("G7 summit", "G8 summit", "G20 summit", "NATO summit", "APEC summit", "BRICS summit",
+                 "East Asia Summit", "ASEAN Summit", "Commonwealth Heads of Government Meeting", "European Council meeting",
+                 "Summit of the Americas", "African Union summit", "Pacific Islands Forum", "Shanghai Cooperation Organisation summit",
+                 "United Nations Climate Change Conference")
 
 
 def _names(names) -> str:
@@ -169,6 +177,53 @@ SELECT ?e ?eLabel ?typeName ?iso3 ?start ?end ?date ?deaths ?damage WHERE {
   FILTER(BOUND(?start) || BOUND(?date))
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }""" % _names(DISASTER_TYPES),
+    "summits": """
+SELECT ?e ?eLabel ?seriesName ?iso3 ?start ?end ?date ?placeLabel WHERE {
+  VALUES ?seriesName { %s }
+  ?series rdfs:label ?seriesName .
+  { ?e wdt:P31 ?series } UNION { ?e wdt:P179 ?series }
+  { ?e wdt:P17 ?c } UNION { ?e wdt:P276/wdt:P17 ?c }
+  ?c wdt:P298 ?iso3 .
+  OPTIONAL { ?e wdt:P580 ?start }
+  OPTIONAL { ?e wdt:P582 ?end }
+  OPTIONAL { ?e wdt:P585 ?date }
+  OPTIONAL { ?e wdt:P276 ?place }
+  FILTER(BOUND(?start) || BOUND(?date))
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""" % _names(SUMMIT_SERIES),
+    "courts": """
+SELECT ?case ?caseLabel ?courtName ?role ?iso3 ?start ?date ?end WHERE {
+  VALUES ?courtName { "International Court of Justice"@en "International Criminal Court"@en
+                      "Permanent Court of Arbitration"@en "International Tribunal for the Law of the Sea"@en }
+  ?court rdfs:label ?courtName .
+  ?case wdt:P4884 ?court .
+  { ?case wdt:P1620 ?c . BIND("plaintiff" AS ?role) } UNION { ?case wdt:P1591 ?c . BIND("defendant" AS ?role) }
+  ?c wdt:P298 ?iso3 .
+  OPTIONAL { ?case wdt:P580 ?start }
+  OPTIONAL { ?case wdt:P585 ?date }
+  OPTIONAL { ?case wdt:P577 ?date }
+  OPTIONAL { ?case wdt:P582 ?end }
+  FILTER(BOUND(?start) || BOUND(?date))
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""",
+    "resolutions": """
+SELECT ?r ?rLabel ?iso3 ?date WHERE {
+  ?type rdfs:label "United Nations Security Council resolution"@en .
+  ?r wdt:P31 ?type ; wdt:P921 ?c .
+  ?c wdt:P298 ?iso3 .
+  { ?r wdt:P585 ?date } UNION { ?r wdt:P577 ?date }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""",
+    "stations": """
+SELECT ?s ?sLabel ?coord ?iso3 ?opLabel ?start WHERE {
+  ?s wdt:P30 wd:Q51 ; wdt:P625 ?coord ; wdt:P31/wdt:P279* ?t .
+  ?t rdfs:label "research station"@en .
+  OPTIONAL { ?s wdt:P137 ?op . OPTIONAL { ?op wdt:P298 ?opIso } OPTIONAL { ?op wdt:P17/wdt:P298 ?opCountry } }
+  OPTIONAL { ?s wdt:P17/wdt:P298 ?ownIso }
+  BIND(COALESCE(?opIso, ?opCountry, ?ownIso) AS ?iso3)
+  OPTIONAL { ?s wdt:P571 ?start }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""",
 }
 
 
@@ -176,7 +231,7 @@ class Wikidata(Connector):
     source_id = "wikidata"
     fetch_every_days = FETCH_EVERY_DAYS
     stage_version = 2  # 2: hand-checked leaders for NZ, Australia, the UK and the US (leaders_curated)
-    fetch_version = 4  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties; 4: every holder of the office
+    fetch_version = 5  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties; 4: every holder of the office; 5: summits, court cases, Security Council resolutions, Antarctic stations
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -218,7 +273,15 @@ class Wikidata(Connector):
                 except (json.JSONDecodeError, KeyError):
                     log.warning("wikidata: %s is not a query result; skipped", f.name)
                     continue
+                if name == "stations":
+                    stations = station_features(found)
+                    if stations:
+                        self.layers.append({"layer_id": "antarctic_stations", "name": "Antarctic research stations",
+                                            "description": "Research stations in Antarctica and the country that runs each (Wikidata).",
+                                            "kind": "point", "feature_count": len(stations), "geojson": collection(stations)})
+                    continue
                 events += EVENT_READERS[name](found)
+        self.layers.append(antarctic_claims())
         events = leaders_curated.merge(events)
         log.info("wikidata: %s events", len(events))
         con.execute("CREATE TABLE wd_events (source_code VARCHAR, event_key VARCHAR, kind VARCHAR, subkind VARCHAR, "
@@ -418,5 +481,109 @@ def disaster_events(bindings: list[dict]) -> list[tuple]:
     return list(out.values())
 
 
+def summit_events(bindings: list[dict]) -> list[tuple]:
+    out = {}
+    for b in bindings:
+        start, prec = _day(_val(b, "start") or _val(b, "date"))
+        end, _ = _day(_val(b, "end"))
+        iso3, q = (_val(b, "iso3") or "").upper(), _qid(_val(b, "e"))
+        if not start or not iso3 or not q:
+            continue
+        series = _val(b, "seriesName") or "summit"
+        sub = re.sub(r"\s+(summit|meeting)$", "", series, flags=re.I) or series
+        out[(iso3, q)] = (iso3, f"summit:{q}", "summit", sub, _val(b, "eLabel") or series, start, end, prec, None, None,
+                          _val(b, "placeLabel"), f"https://www.wikidata.org/wiki/{q}", f"Host of the {series}")
+    return list(out.values())
+
+
+COURTS = {"International Court of Justice": "ICJ", "International Criminal Court": "ICC",
+          "Permanent Court of Arbitration": "PCA", "International Tribunal for the Law of the Sea": "ITLOS"}
+
+
+def court_events(bindings: list[dict]) -> list[tuple]:
+    """A case before an international court, on each country that brought it or answers it."""
+    out = {}
+    for b in bindings:
+        start, prec = _day(_val(b, "start") or _val(b, "date"))
+        end, _ = _day(_val(b, "end"))
+        iso3, q = (_val(b, "iso3") or "").upper(), _qid(_val(b, "case"))
+        if not start or not iso3 or not q:
+            continue
+        court = COURTS.get(_val(b, "courtName") or "", "court")
+        role = _val(b, "role") or ""
+        have = out.get((iso3, q))
+        if have and have[5] <= start:
+            continue
+        out[(iso3, q)] = (iso3, f"court:{q}:{iso3}", "court", court, _val(b, "caseLabel") or f"{court} case", start, end,
+                          prec, None, None, None, f"https://www.wikidata.org/wiki/{q}",
+                          f"{_val(b, 'courtName')}: the country is the {role}" if role else _val(b, "courtName"))
+    return list(out.values())
+
+
+def resolution_events(bindings: list[dict]) -> list[tuple]:
+    """UN Security Council resolutions whose main subject is a country."""
+    out = {}
+    for b in bindings:
+        d, _ = _day(_val(b, "date"))
+        iso3, q = (_val(b, "iso3") or "").upper(), _qid(_val(b, "r"))
+        if not d or not iso3 or not q:
+            continue
+        out[(iso3, q)] = (iso3, f"unsc:{q}:{iso3}", "un", "resolution", _val(b, "rLabel") or "Security Council resolution",
+                          d, None, "day", None, None, None, f"https://www.wikidata.org/wiki/{q}")
+    return list(out.values())
+
+
+def station_features(bindings: list[dict]) -> list[dict]:
+    feats = {}
+    for b in bindings:
+        m = re.match(r"Point\(([-\d.]+) ([-\d.]+)\)", _val(b, "coord") or "")
+        q = _qid(_val(b, "s"))
+        if not m or not q or q in feats:
+            continue
+        lon, lat = float(m.group(1)), float(m.group(2))
+        if lat > -55:
+            continue
+        start, _ = _day(_val(b, "start"))
+        props = {"name": _val(b, "sLabel") or q, "country": (_val(b, "iso3") or "").upper(),
+                 "operator": _val(b, "opLabel") or "", "id": q}
+        if start:
+            props["opened"] = start.year
+        feats[q] = {"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 4), round(lat, 4)]},
+                    "properties": props}
+    return list(feats.values())
+
+
+# Territorial claims in Antarctica (frozen by the Antarctic Treaty, 1959): sectors from 60°S
+# to the pole between two meridians. Hand-entered; the Norwegian claim has no stated
+# northern and southern limits, and Marie Byrd Land is unclaimed.
+CLAIMS = (
+    ("NZL", "Ross Dependency (New Zealand)", 160.0, -150.0),
+    ("AUS", "Australian Antarctic Territory", 44.633, 136.183),
+    ("AUS", "Australian Antarctic Territory", 142.033, 160.0),
+    ("FRA", "Adélie Land (France)", 136.183, 142.033),
+    ("NOR", "Queen Maud Land (Norway)", -20.0, 44.633),
+    ("GBR", "British Antarctic Territory", -80.0, -20.0),
+    ("ARG", "Argentine Antarctica", -74.0, -25.0),
+    ("CHL", "Chilean Antarctic Territory", -90.0, -53.0),
+    (None, "Marie Byrd Land (unclaimed)", -150.0, -90.0),
+)
+
+
+def antarctic_claims() -> dict:
+    feats = []
+    for iso3, name, west, east in CLAIMS:
+        span = (east - west) % 360
+        # longitudes past 180 are kept as they are, so the Ross Dependency is drawn in one piece
+        arc = [[round(west + span * i / 24, 3), -60.0] for i in range(25)]
+        ring = arc + [[arc[-1][0], -85.0], [arc[0][0], -85.0], arc[0]]
+        feats.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": ring},
+                      "properties": {"name": name, "country": iso3 or "", "overlap": iso3 in ("ARG", "CHL", "GBR")}})
+    return {"layer_id": "antarctic_claims", "name": "Antarctic territorial claims",
+            "description": "The seven claims to parts of Antarctica, frozen by the Antarctic Treaty of 1959. The "
+                           "Argentine, British and Chilean claims overlap; Marie Byrd Land is unclaimed.",
+            "kind": "line", "feature_count": len(feats), "geojson": collection(feats)}
+
+
 EVENT_READERS = {"elections": election_events, "leaders": leader_events, "sport": sport_events,
-                 "disasters": disaster_events}
+                 "disasters": disaster_events, "summits": summit_events, "courts": court_events,
+                 "resolutions": resolution_events}

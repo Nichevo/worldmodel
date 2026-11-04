@@ -12,7 +12,7 @@ models:
         tests:
           - accepted_values:
               arguments:
-                values: [country, historical_country, world, continent, subregion, intermediate_region, bloc, alliance, group, income_group, custom]
+                values: [country, historical_country, world, continent, subregion, intermediate_region, bloc, alliance, group, income_group, custom, zone]
 
   - name: entity_codes
     tests:
@@ -80,7 +80,8 @@ models:
           - accepted_values:
               arguments:
                 values: [independence, election, leader, coup, conflict, crisis, recession, boom, inflation, debt,
-                         sport, disaster, epidemic, notable, user]
+                         sport, disaster, epidemic, notable, user, un, sanction, imf, trade_dispute, treaty,
+                         court, summit, crisiswatch]
       - name: start_date
         tests: [not_null]
       - name: title

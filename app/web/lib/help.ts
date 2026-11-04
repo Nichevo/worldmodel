@@ -77,6 +77,26 @@ export const HELP = {
     units: "Petajoules (PJ), gross calorific value. 1 PJ is about 278 GWh.",
     sources: [{ label: "MBIE energy balance tables (New Zealand pack)", indicator: "nz_energy_primary_supply" }],
   },
+  voting: {
+    title: "UN voting",
+    what: "How often this country voted the same way as others in the UN General Assembly each year, where its votes place it on one scale (the ideal point), and its Security Council seats and vetoes.",
+    how: "Agreement is the share of the year's recorded votes on which both countries voted the same way (yes, no or abstain). A group's line (EU members, say) is the average of the agreement with each of its members that year. The ideal point comes from all of a country's votes: higher means closer to the United States and the Western order. Vetoes are the permanent members' negative votes on Security Council drafts.",
+    units: "% of votes alike; ideal point on a scale of about -3 to 3",
+    sources: [{ label: "Voeten, Strezhnev and Bailey, UN General Assembly Voting Data", indicator: "unga_agreement" }, { label: "UN Dag Hammarskjöld Library, veto list" }],
+  },
+  between: {
+    title: "Between countries",
+    what: "The country's dealings with others and with world bodies: sanctions on it, IMF programmes, WTO trade disputes, treaties joined, cases at international courts, summits hosted and Security Council resolutions about it.",
+    how: "Each line is an event from its own source. Sanctions are cases in the Global Sanctions Data Base (a file you download yourself); IMF programmes come from the IMF's MONA database, sized at the amount agreed; WTO disputes from the WTO's list of cases; treaties from the UN Treaty Collection for a fixed list of major treaties; court cases, summits and resolutions from Wikidata.",
+    sources: [{ label: "Global Sanctions Data Base", indicator: "sanctions_active" }, { label: "IMF MONA" }, { label: "WTO dispute settlement" }, { label: "UN Treaty Collection", indicator: "treaties_joined" }, { label: "Wikidata" }],
+  },
+  crisiswatch: {
+    title: "CrisisWatch",
+    what: "International Crisis Group's monthly rating of the country's conflict situation since 2003, with what happened that month.",
+    how: "Each month Crisis Group marks a situation as deteriorated, improved or unchanged, and flags a conflict risk alert or resolution opportunity for the month ahead. The strip shows every month stored: red worse, blue better, grey unchanged, blank not rated. Refresh reads one month's page at a time, a few seconds apart, and fills in older months a few each time (Settings: CrisisWatch).",
+    units: "Ratings, one per month",
+    sources: [{ label: "International Crisis Group, CrisisWatch" }],
+  },
   voters: {
     title: "Who votes",
     what: "Turnout by age group, and by sex or by group where the country reports it, at national elections.",

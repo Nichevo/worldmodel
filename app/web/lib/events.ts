@@ -23,6 +23,14 @@ export const KINDS: { kind: string; label: string; color: string }[] = [
   { kind: "disaster", label: "Disasters", color: "--series-1" },
   { kind: "epidemic", label: "Epidemics", color: "--series-1" },
   { kind: "notable", label: "Notable episodes", color: "--series-7" },
+  { kind: "crisiswatch", label: "CrisisWatch ratings", color: "--div-neg-2" },
+  { kind: "un", label: "UN Security Council", color: "--series-2" },
+  { kind: "sanction", label: "Sanctions", color: "--series-4" },
+  { kind: "imf", label: "IMF programmes", color: "--series-8" },
+  { kind: "trade_dispute", label: "WTO disputes", color: "--series-6" },
+  { kind: "treaty", label: "Treaties", color: "--series-3" },
+  { kind: "court", label: "International court cases", color: "--series-5" },
+  { kind: "summit", label: "Summits hosted", color: "--series-7" },
   { kind: "user", label: "Your milestones", color: "--ink-2" },
 ];
 const BY_KIND = new Map(KINDS.map((k) => [k.kind, k]));

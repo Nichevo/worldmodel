@@ -304,3 +304,6 @@ DDR,East Germany,East Germany,historical_country,DDR,,278,1949-10-07,1990-10-02,
 YMD,South Yemen,South Yemen,historical_country,YMD,,720,1967-11-30,1990-05-21,People's Democratic Republic of Yemen,
 YAR,North Yemen,North Yemen,historical_country,YAR,,886,1918-11-01,1990-05-21,Yemen Arab Republic,
 ANT,Netherlands Antilles,Netherlands Antilles,historical_country,ANT,,530,1954-12-15,2010-10-09,,
+arctic,Arctic,Arctic,zone,,,,,,Arctic Ocean|North Pole|High North,"The Arctic: the ocean and lands around the North Pole, shared by the eight Arctic Council states."
+space,Outer space,Space,zone,,,,,,Outer space|Earth orbit|satellites,"Space beyond Earth's atmosphere, which no country owns (Outer Space Treaty, 1967)."
+high_seas,High seas,High seas,zone,,,,,,International waters|open ocean|areas beyond national jurisdiction,"Ocean beyond any country's 200-nautical-mile exclusive economic zone: about two-thirds of the ocean."
