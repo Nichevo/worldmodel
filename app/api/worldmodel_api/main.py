@@ -35,7 +35,7 @@ from worldmodel_contract import energy_flow
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, relationships, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1778,6 +1778,36 @@ def keys_list():
     """The API keys the app can use: what each unlocks, where to get it, and whether it
     is set in the .env file (never the key itself)."""
     return relationships.keys()
+
+
+# ----------------------------------------------------------------------------- sectors
+@api.get("/sectors")
+def sectors_list():
+    """Every sector (one industry followed stage by stage: ore, refined, metal, products),
+    grouped, with each stage's latest world exports and production and who leads them.
+    Sectors hidden in Settings carry hidden: true."""
+    hidden = split(userdata.settings().get("sectors_hidden"))
+    return sectors.listing(rows, hidden)
+
+
+@api.get("/sectors/by-country")
+def sectors_by_country(country: str = "NZL", year: int | None = None, since: int | None = None):
+    """One country's goods trade by HS chapter (exports, imports, balance, change since a
+    year, top five partners each way), its place in every sector stage, and its economy
+    by broad sector (value added, % of GDP)."""
+    return sectors.by_country(rows, country, year, since)
+
+
+@api.get("/sectors/{sector_id}")
+def sector_page(sector_id: str, year: int | None = None, country: str = "NZL"):
+    """One sector: for each stage, production and exports by country (ranking, world
+    total and concentration each year), imports, reserves, import reliance, the biggest
+    routes, and one country's figures; prices, key companies, and for cars the shift to
+    electric, for EV batteries the materials and how concentrated their supply is."""
+    out = sectors.page(rows, sector_id, year, country)
+    if out is None:
+        raise HTTPException(404, f"no sector {sector_id}")
+    return out
 
 
 # ----------------------------------------------------------------------------- laws and society

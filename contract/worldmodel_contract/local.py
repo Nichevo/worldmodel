@@ -73,6 +73,10 @@ SETTINGS: dict[str, object] = {
     "relations_min_years": 10,       # and this many years of changes in each of those countries
     "relations_max_minutes": 15,     # stop and keep what is done after this long
     "relations_fdr": 0.05,           # share of reported pairs allowed to be chance finds (false discovery rate)
+    # Sectors: one industry across the globe (trade from CEPII BACI, about 2 GB a year)
+    "sectors_trade_fetch": True,     # refresh downloads BACI trade by product (every four months)
+    "sectors_trade_from": 2005,      # first year of trade kept (BACI starts in 1995; earlier years make the warehouse bigger)
+    "sectors_hidden": "",            # sectors left off the Sectors page, comma-separated ids
     # Local AI (Ollama on this PC or another; the app's server talks to it)
     "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
     "ollama_url": "http://localhost:11434",
@@ -100,7 +104,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare"}  # comma-separated ids, order kept
+IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden"}  # comma-separated ids, order kept
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
@@ -108,7 +112,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
-          "relations_fdr": (0.001, 0.25), "ai_temperature": (0, 2),
+          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95

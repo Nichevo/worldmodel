@@ -187,6 +187,9 @@ export type Settings = {
   relations_min_years: number;
   relations_max_minutes: number;
   relations_fdr: number; // share of reported pairs allowed to be chance finds
+  sectors_trade_fetch: boolean; // refresh downloads BACI trade by product
+  sectors_trade_from: number; // first year of trade kept
+  sectors_hidden: string; // sectors left off the Sectors page, comma-separated ids
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;
@@ -551,6 +554,56 @@ export type ManualFile = {
   files: string[]; last_loaded: string | null; todo: "download" | "load" | null; why: string; command: string;
 };
 
+// ----------------------------------------------------------------------------- sectors
+export type SectorRank = { entity_id: string; name: string; value: number; share: number | null };
+export type SectorMeasure = {
+  year: number; years: number[]; rows: SectorRank[]; total: [number, number][];
+  concentration: [number, number | null, number | null, number][]; countries: number;
+};
+export type SectorLead = { year: number; total: number; top: string; top_name: string; top_share: number } | null;
+export type SectorCard = {
+  id: string; name: string; group: string; kind: string; feeds: string; hidden: boolean; nz: boolean;
+  stages: { id: string; name: string; unit: string; exports: SectorLead; production: SectorLead }[];
+};
+export type SectorList = { groups: Record<string, string>; sectors: SectorCard[]; has_trade: boolean };
+export type SectorRoute = { from: string; from_name: string; to: string; to_name: string; value: number };
+export type SectorReliance = { entity_id: string; name: string; production: number; imports: number; exports: number; use: number; reliance: number };
+export type SectorStage = {
+  id: string; name: string; unit: string; hs: string[]; production_indicator: string | null; production_unit: string;
+  how: { inputs?: string; energy?: string; time?: string; waste?: string } | null;
+  exports: SectorMeasure | null; imports: SectorMeasure | null; production: SectorMeasure | null; reserves: SectorMeasure | null;
+  exports_tonnes: [number, number][]; unit_value: [number, number][]; reliance: SectorReliance[]; routes: SectorRoute[];
+  country: { entity_id: string; name: string; series: Record<string, [number, number][]>;
+    rank: Record<string, { rank: number | null; of: number; listed: boolean }> };
+};
+export type SectorCompany = { name: string; country: string; country_name: string; step: string; step_name: string; note: string; nz: boolean };
+export type SectorPrice = { id: string; name: string; unit: string; points: [string, number][] };
+export type SectorDetail = {
+  id: string; name: string; group: string; group_name: string; kind: string; feeds: string; sources: string;
+  stages: SectorStage[]; prices: SectorPrice[]; companies: SectorCompany[]; high_hhi: number;
+  electric?: { sales_share: Record<string, [number, number][]>; stock_share: Record<string, [number, number][]>;
+    names: Record<string, string>; ranking: { entity_id: string; name: string; year: number; value: number }[] };
+  battery?: {
+    chemistries: Record<string, string | number>[]; high_hhi: number;
+    materials: { material: string; sector: string; name: string;
+      steps: { stage: string; name: string; year: number; top: SectorRank[]; top3: number | null; hhi: number | null; high: boolean }[] }[];
+    rules: { country: string; name: string; year: number; text: string }[];
+  };
+};
+export type ChapterRow = {
+  chapter: string; name: string; exports: number | null; imports: number | null; balance: number;
+  exports_since: number | null; imports_since: number | null; exports_change: number | null; imports_change: number | null;
+  export_partners: { entity_id: string; name: string; value: number }[]; import_partners: { entity_id: string; name: string; value: number }[];
+};
+export type StandPart = { year: number; value: number; rank: number; of: number; share: number | null };
+export type CountryStage = { sector: string; sector_name: string; group: string; stage: string; name: string; unit: string;
+  exports?: StandPart; imports?: StandPart; production?: StandPart };
+export type SectorsByCountry = {
+  country: string; name: string; year: number | null; since: number | null; years: number[];
+  chapters: ChapterRow[]; totals: [number, number, number][]; stages: CountryStage[];
+  economy: { id: string; name: string; points: [number, number][] }[];
+};
+
 export const api = {
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
@@ -637,6 +690,9 @@ export const api = {
     hide_same?: boolean; first?: boolean; hide_same_source?: boolean; limit?: number; offset?: number }) =>
     get<RelationList>("/relationships", { ...q, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
       hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
+  sectors: () => get<SectorList>("/sectors"),
+  sector: (id: string, q: { year?: number; country?: string } = {}) => get<SectorDetail>(`/sectors/${encodeURIComponent(id)}`, q),
+  sectorsByCountry: (q: { country?: string; year?: number; since?: number }) => get<SectorsByCountry>("/sectors/by-country", q),
   relationPair: (x: string, y: string) => get<RelationDetail>("/relationships/pair", { x, y }),
   eventLinks: (q: { kind?: string; indicator?: string; built_in?: boolean; diverging?: boolean }) =>
     get<{ scan: RelationScan | null; total: number; rows: EventLink[] }>("/relationships/events",
