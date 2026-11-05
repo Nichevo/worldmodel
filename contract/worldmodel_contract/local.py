@@ -68,6 +68,7 @@ SETTINGS: dict[str, object] = {
     "voting_compare": "USA,CHN,RUS,eu",  # who a country's UN votes are compared with on its Voting card
     # Relationship scan (after each refresh): which figures move together, which comes first
     "relations_scan": True,          # look for relationships after each refresh (and once after update.bat)
+    "relations_only_new": True,      # skip the scan when no figure it reads has changed since the last one
     "relations_indicators": "on",    # "on": the indicators switched on (about 120, some 7,000 pairs); "all": every one (overnight)
     "relations_min_countries": 30,   # a pair needs this many countries with data for both
     "relations_min_years": 10,       # and this many years of changes in each of those countries

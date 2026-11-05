@@ -28,6 +28,7 @@ Plain numpy; results go to <home>/warehouse/relationships/ (see the contract mod
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -346,9 +347,27 @@ def pair(x: Series, y: Series, panel: Panel, min_countries: int, min_years: int,
 
 
 # ----------------------------------------------------------------------------- the scan
+SETTING_KEYS = ("relations_indicators", "relations_min_countries", "relations_min_years", "relations_max_minutes", "relations_fdr")
+
+
+def fingerprint(panel: Panel, events: list[tuple], settings: dict) -> str:
+    """A short hash of everything a scan reads: the figures, the events and the scan's own
+    settings. The same hash means a new scan would find exactly what the last one did."""
+    h = hashlib.sha256()
+    h.update(json.dumps({k: settings[k] for k in SETTING_KEYS}, sort_keys=True, default=str).encode())
+    h.update(json.dumps(panel.entities).encode())
+    for sid in sorted(panel.series):
+        h.update(sid.encode())
+        h.update(np.ascontiguousarray(panel.series[sid].level).tobytes())
+    h.update(json.dumps(sorted(events, key=lambda e: tuple(str(x) for x in e)), default=str).encode())
+    return h.hexdigest()[:20]
+
+
 def scan(warehouse: Path, home: Path, build_id: str | None = None, settings: dict | None = None,
-         log_line=print) -> dict:
-    """Scan the warehouse and write the results; returns the summary written."""
+         log_line=print, force: bool = False) -> dict:
+    """Scan the warehouse and write the results; returns the summary written. Unless force
+    is set (or Settings says otherwise), a scan whose inputs match the last finished scan's
+    is skipped: the last scan stays on the Relationships page."""
     s = settings or local.load_settings(home)
     started = time.monotonic()
     budget = float(s["relations_max_minutes"]) * 60
@@ -365,6 +384,12 @@ def scan(warehouse: Path, home: Path, build_id: str | None = None, settings: dic
             WHERE e.type = 'country' AND ev.start_date IS NOT NULL""").fetchall()
     finally:
         con.close()
+    inputs = fingerprint(panel, events, s)
+    last = rel.latest(home)
+    if (not force and s.get("relations_only_new", True) and last and last.get("inputs") == inputs
+            and not last.get("partial")):
+        log_line(f"Relationship scan: no new figures since the last scan ({last.get('finished_at', '')[:10]}); keeping it")
+        return {**last, "skipped": True}
     control = panel.series.get(rel.CONTROL)
     usable = [sid for sid, sr in panel.series.items()
               if (np.isfinite(sr.change).sum(1) >= s["relations_min_years"]).sum() >= s["relations_min_countries"]]
@@ -403,14 +428,13 @@ def scan(warehouse: Path, home: Path, build_id: str | None = None, settings: dic
     seconds = round(time.monotonic() - started, 1)
     kept = [r for r in results if r["labels"]]
     summary = {
-        "build_id": build_id, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "build_id": build_id, "inputs": inputs, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "seconds": seconds, "partial": partial, "indicators": len(usable), "indicators_chosen": len(ids),
         "pairs_possible": total, "pairs_tested": tested, "pairs_thin": thin, "pairs_scored": len(results),
         "pairs_kept": len(kept), "label_counts": {k: sum(k in r["labels"] for r in kept) for k in rel.LABELS},
         "events_tested": len(event_rows),
         "events_kept": sum(e["significant"] and not e["built_in"] and not e["diverging_before"] for e in event_rows),
-        "settings": {k: s[k] for k in ("relations_indicators", "relations_min_countries", "relations_min_years",
-                                       "relations_max_minutes", "relations_fdr")},
+        "settings": {k: s[k] for k in SETTING_KEYS},
         "names": {sid: {"name": sr.name, "domain": sr.domain, "unit": sr.unit, "kind": sr.kind, "source": sr.source}
                   for sid, sr in panel.series.items()},
     }

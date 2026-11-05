@@ -115,6 +115,8 @@ export default function SettingsPage() {
         </p>
         <Toggle label="Look for relationships after each refresh" hint="About two minutes with the indicators switched on. Switching off keeps the last scan."
           on={s.relations_scan} set={(v) => save({ relations_scan: v })} />
+        <Toggle label="Only when there are new figures" hint="Skips the scan when no figure or event it reads has changed since the last scan, and the scan settings are the same. Run worldmodel-data scan --force to scan anyway."
+          on={s.relations_only_new} set={(v) => save({ relations_only_new: v })} />
         <Field label="Indicators scanned" hint="Every indicator means about 1,400 and some million pairs: hours of work, so raise the time limit and leave it overnight.">
           <div className="seg" role="group" aria-label="Indicators scanned">
             {([["on", "Those switched on (about 7,000 pairs)"], ["all", "Every indicator (overnight)"]] as const).map(([v, label]) => (
