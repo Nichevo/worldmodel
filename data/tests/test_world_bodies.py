@@ -166,11 +166,14 @@ def test_sanctions_release_5_lists_several_countries_in_one_cell():
               "trade", "financial", "objective"],
              ["318", "New Zealand", "France", "1986", "February", "1986", "July", "1", "0", "other"],
              ["900", "Korea, North", "EU, Australia, New Zealand", "2006", "October", "2025", "NA", "1", "1", "policy_change"],
-             ["901", "Ceylon, Malaya", "United Kingdom", "1960", "NA", "1961", "NA", "1", "0", ""]]
+             ["901", "Ceylon, Malaya", "United Kingdom", "1960", "NA", "1961", "NA", "1", "0", ""],
+             ["902", "ISIL/Al-Qaeda", "UN", "2015", "December", "2025", "NA", "0", "1", "fight_terror"],
+             ["903", "Comecon", "CoCom", "1950", "NA", "1990", "NA", "1", "0", ""]]
     events, values, unmatched = sanction_rows(table, 2026)
     by = {e[1]: e for e in events}
     assert by["gsdb:318:NZL"][5:7] == (date(1986, 2, 1), date(1986, 7, 31))
     assert by["gsdb:900:PRK"][6] is None  # still in force when the database ends
-    assert {"gsdb:901:LKA", "gsdb:901:MYS"} <= set(by) and not unmatched
+    assert {"gsdb:901:LKA", "gsdb:901:MYS", "gsdb:902:isil", "gsdb:902:al-qaeda", "gsdb:903:comecon"} <= set(by)
+    assert not unmatched
     imposed = {(r[1], r[3].year if hasattr(r[3], "year") else r[3]) for r in values.rows if r[2] == "sanctions_imposed"}
-    assert {("eu", 2010), ("AUS", 2010), ("NZL", 2010)} <= imposed
+    assert {("eu", 2010), ("AUS", 2010), ("NZL", 2010), ("un", 2020), ("cocom", 1960)} <= imposed

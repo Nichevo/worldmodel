@@ -70,7 +70,7 @@ const SECTIONS = [
 const TYPE_LABEL: Record<string, string> = {
   country: "Country or area", historical_country: "Former state", world: "World", continent: "Continent",
   subregion: "UN sub-region", intermediate_region: "UN region", bloc: "Bloc", alliance: "Alliance", group: "Group", income_group: "Income group",
-  zone: "Beyond borders",
+  zone: "Beyond borders", organisation: "International organisation", armed_group: "Armed group",
 };
 
 export default function EntityPage() {
