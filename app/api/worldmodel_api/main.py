@@ -1714,6 +1714,22 @@ def zones():
     return out
 
 
+@api.get("/beyond/others")
+def beyond_others():
+    """International organisations (the UN, Comecon, the Arab League, and the blocs and alliances
+    such as the EU and NATO) and armed groups (Al-Qaeda, ISIL), with how many sanctions are on
+    each and the most each imposed in one year."""
+    return rows("""
+        SELECT e.entity_id, e.short_name, e.name, e.type, e.description, e.valid_from, e.valid_to,
+               (SELECT count(*) FROM events v WHERE v.entity_id = e.entity_id AND v.kind = 'sanction') AS sanctions_on,
+               (SELECT min(year(v.start_date)) FROM events v WHERE v.entity_id = e.entity_id) AS first_year,
+               (SELECT max(s.value) FROM series s WHERE s.entity_id = e.entity_id AND s.indicator_id = 'sanctions_imposed'
+                  AND s.status = 'E') AS most_imposed,
+               (SELECT count(*) FROM events v WHERE v.entity_id = e.entity_id) AS events
+        FROM entities e WHERE e.type IN ('organisation', 'bloc', 'alliance', 'armed_group')
+        ORDER BY e.type = 'armed_group', sanctions_on DESC, most_imposed DESC NULLS LAST, e.short_name""")
+
+
 # ----------------------------------------------------------------------------- relationship scan
 def _build_id() -> str:
     return warehouse.current().path.stem
