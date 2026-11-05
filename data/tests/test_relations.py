@@ -134,3 +134,25 @@ def test_two_way_and_cluster_helpers():
     a = rng.normal(size=500)
     r, p, g = relations.corr_cluster(a - a.mean(), (a + rng.normal(size=500)) - a.mean(), np.repeat(np.arange(50), 10))
     assert r > 0.5 and p < 0.001 and g == 50
+
+
+def test_scan_skipped_when_nothing_new(tmp_path):
+    wh = tmp_path / "w.duckdb"
+    _warehouse(wh, n=25)
+    s = dict(local.SETTINGS)
+    s.update(relations_min_countries=20, relations_min_years=10)
+    first = relations.scan(wh, tmp_path, "b1", s, log_line=lambda *_: None)
+    lines = []
+    again = relations.scan(wh, tmp_path, "b2", s, log_line=lines.append)
+    assert again["skipped"] and again["build_id"] == "b1" and "no new figures" in lines[0]
+    assert not (rel.results_dir(tmp_path) / "b2.json").exists() and rel.latest(tmp_path, "b2")["build_id"] == "b1"
+    forced = relations.scan(wh, tmp_path, "b3", s, log_line=lambda *_: None, force=True)
+    assert not forced.get("skipped") and forced["inputs"] == first["inputs"]
+    s.update(relations_fdr=0.1)  # a changed setting scans again
+    assert not relations.scan(wh, tmp_path, "b4", s, log_line=lambda *_: None).get("skipped")
+    con = duckdb.connect(str(wh))
+    con.execute("UPDATE series SET value = value + 1 WHERE indicator_id = 'ind_z' AND entity_id = (SELECT min(entity_id) FROM series)")
+    con.close()
+    assert not relations.scan(wh, tmp_path, "b5", s, log_line=lambda *_: None).get("skipped")
+    s.update(relations_only_new=False)
+    assert not relations.scan(wh, tmp_path, "b6", s, log_line=lambda *_: None).get("skipped")

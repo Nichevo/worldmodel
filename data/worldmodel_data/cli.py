@@ -416,7 +416,7 @@ def validate():
 
 
 @app.command()
-def scan():
+def scan(force: bool = typer.Option(False, "--force", help="Scan even when no figure has changed since the last scan.")):
     """Look for relationships between figures in the live warehouse (also run after each refresh)."""
     from worldmodel_data import relations
 
@@ -424,7 +424,7 @@ def scan():
     current = p.current_build()
     if current is None:
         raise typer.BadParameter("no live build; run `worldmodel-data refresh` first")
-    relations.scan(current, p.home, current.stem, local.load_settings(p.home), log_line=typer.echo)
+    relations.scan(current, p.home, current.stem, local.load_settings(p.home), log_line=typer.echo, force=force)
 
 
 @app.command()
