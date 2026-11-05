@@ -866,7 +866,7 @@
   short_name: WORLD Policy
   publisher: UCLA Fielding School of Public Health
   url: https://www.worldpolicycenter.org/
-  licence: Free after registration; non-commercial use
+  licence: Free public use data; non-commercial use
   licence_url: https://www.worldpolicycenter.org/data-and-methods
   commercial_use: false
   cadence: Load new tables when you download them
@@ -875,8 +875,9 @@
   default_rank: 3
   manual:
     by_hand: true
-    get: https://www.worldpolicycenter.org/
-    what: "Register (free), then download any data table (paid leave, minimum wage, working hours...) as Excel or CSV with a country column and save it here."
+    optional: true
+    get: https://dataverse.harvard.edu/dataverse/WORLD
+    what: "Optional. WORLD's tables are now on Harvard Dataverse (no sign-in): open a dataset (paid leave, minimum wage, working hours, education, constitutions...), download its data file (Excel or CSV, one row per country) and save it here."
 
 - id: gunpolicy
   name: GunPolicy.org
@@ -892,8 +893,9 @@
   default_rank: 3
   manual:
     by_hand: true
+    optional: true
     get: https://www.gunpolicy.org/
-    what: "Copy the figures you want into a spreadsheet with a Country column, a Year column and one column per measure (guns per 100 people, licence needed Yes/No...), and save it as .xlsx or .csv here."
+    what: "Optional: the site now needs a free sign-in to see its tables. If you want it, copy the figures you want into a spreadsheet with a Country column, a Year column and one column per measure (guns per 100 people, licence needed Yes/No...), and save it as .xlsx or .csv here."
 
 - id: world_prison_brief
   name: World Prison Brief
