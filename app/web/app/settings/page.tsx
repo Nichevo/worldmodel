@@ -148,6 +148,20 @@ export default function SettingsPage() {
           save={(v) => save({ sectors_trade_from: v })} />
       </section>
 
+      <section className="card" id="climate">
+        <h2>Climate</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <a href="/climate">Climate</a> page and the Climate section on country pages. Most sources are small files read at each refresh.
+        </p>
+        <Toggle label="Download climate data" hint="Our World in Data emissions and climate charts, NOAA gases and El Niño, NASA temperatures, storm tracks (about 30 MB), disaster alerts and the World Bank projections. Switching off keeps what is stored."
+          on={s.climate_fetch} set={(v) => save({ climate_fetch: v })} />
+        <NumberField label="Storm tracks kept from" unit="year" value={s.climate_storms_from} min={1980} max={2030} step={1}
+          note="Earlier years make the map slower. The change shows at the next refresh."
+          save={(v) => save({ climate_storms_from: v })} />
+        <Toggle label="Live disaster alerts on the Storms tab" hint="Reads the alerts out now from GDACS when the tab opens, at most every 15 minutes."
+          on={s.climate_live_map} set={(v) => save({ climate_live_map: v })} />
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."

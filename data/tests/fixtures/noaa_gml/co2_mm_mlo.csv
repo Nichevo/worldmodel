@@ -1,0 +1,6 @@
+# comment
+# more
+year,month,decimal date,average,deseasonalized,ndays,sdev,unc
+1958,3,1958.2027,315.71,314.44,-1,-9.99,-0.99
+2024,5,2024.375,426.90,423.15,30,0.6,0.2
+2024,6,2024.458,-99.99,422.6,0,0,0

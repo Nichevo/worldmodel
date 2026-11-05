@@ -20,7 +20,8 @@ from worldmodel_data.config import Paths
 FALLBACK = {"rbnz", "mbie_energy", "us_census_voting", "idea_turnout", "powell_thyne", "anthropic_aei", "ilostat_earnings", "un_wup", "nz_corrections", "ms_ai_diffusion",
             "unga_votes", "un_vetoes", "imf_mona", "wto_disputes", "un_treaties", "crisiswatch", "nsidc_sea_ice",
             "celestrak_satcat", "nager_holidays", "wbl", "unodc_crime",
-            "baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "iea_ev"}
+            "baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "iea_ev",
+            "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp"}
 ABOUT = "_where to get it.txt"
 OLD = "old"
 _SKIP_SUFFIXES = (".tmp", ".crdownload", ".part", ".partial")

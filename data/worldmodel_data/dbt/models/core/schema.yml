@@ -81,7 +81,7 @@ models:
               arguments:
                 values: [independence, election, leader, coup, conflict, crisis, recession, boom, inflation, debt,
                          sport, disaster, epidemic, notable, user, un, sanction, imf, trade_dispute, treaty,
-                         court, summit, crisiswatch, holiday, law]
+                         court, summit, crisiswatch, holiday, law, enso]
       - name: start_date
         tests: [not_null]
       - name: title
