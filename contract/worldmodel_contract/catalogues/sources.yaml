@@ -683,7 +683,7 @@
   manual:
     by_hand: true
     get: https://www.globalsanctionsdatabase.com/
-    what: "Fill in the request form (free), then save the dataset you are sent (the Excel or CSV file with one row per sanction case)."
+    what: "Fill in the request form (free). From the e-mail, unzip the GSDB release (for example GSDB_R5) and save its CSV file (one row per sanction case) here. The financial-sanctions file (GSDB-FS) is not needed; if it is here too, the main release is read."
 
 - id: imf_mona
   name: IMF Monitoring of Fund Arrangements (MONA)
