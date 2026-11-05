@@ -106,11 +106,16 @@ SETTINGS: dict[str, object] = {
     "brave_free_monthly": 1000,      # searches the monthly credit covers ($5 at $5 per 1,000)
     "brave_price_per_1000": 5.0,     # US dollars per 1,000 searches past the credit
     "highlight_menu": True,          # selecting text on a page shows Ask AI / Save highlight
+    # Indicator quality (grades A to D; see worldmodel_contract.quality)
+    "quality_show": "B",             # indicator drop-downs list grades up to this: "A", "B", "C", "all" or "starred" (starred ones always show)
+    "quality_type": "",              # and only this measure type ("" = all): level, per_person, rate, index, money, count, projection
+    "quality_on_titles": False,      # the grade beside each chart's title
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"), "map_centre": ("pacific", "atlantic"),
-           "relations_indicators": ("on", "all")}
+           "relations_indicators": ("on", "all"), "quality_show": ("A", "B", "C", "all", "starred"),
+           "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection")}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}

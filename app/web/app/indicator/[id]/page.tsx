@@ -6,7 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
 import ChartCard from "@/components/ChartCard";
 import IndicatorMap from "@/components/IndicatorMap";
-import { api, type Indicator, type Ranking, type Topic } from "@/lib/api";
+import { QualityCard } from "@/components/Quality";
+import { api, type Indicator, type IndicatorQuality, type Ranking, type Topic } from "@/lib/api";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
 import { KEY_COUNTRIES, WORLD } from "@/lib/topics";
@@ -22,6 +23,7 @@ export default function IndicatorPage() {
   const [show, setShow] = useState<"top" | "bottom" | "all">("top");
   const [q, setQ] = useState("");
   const [year, setYear] = useState<number | null>(null);
+  const [quality, setQuality] = useState<IndicatorQuality | undefined>(undefined);
 
   useEffect(() => {
     setInd(null); setError(null); setYear(null);
@@ -32,6 +34,8 @@ export default function IndicatorPage() {
       logHistory({ kind: "page", title: found.name, url: `/indicator/${id}`, indicator: id, detail: "indicator" });
     }).catch((e) => setError(String(e.message || e)));
     api.topics().then((t) => setTopics(t.filter((x) => x.indicators.includes(id)))).catch(() => {});
+    setQuality(undefined);
+    api.quality().then((q) => setQuality(q.indicators[id])).catch(() => {});
   }, [id]);
   useEffect(() => {
     setRanking(null);
@@ -138,6 +142,7 @@ export default function IndicatorPage() {
             <Link href="/sources">Sources</Link> page. Forecasts and their track records are on the <Link href="/forecasts">Forecasts</Link> page.
           </p>
         </section>
+        {quality && <QualityCard key={id} id={id} q={quality} />}
       </div>
     </div>
   );

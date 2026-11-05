@@ -59,6 +59,9 @@ class Indicator(BaseModel):
     bounds: tuple[float, float]
     sources: list[IndicatorSource]
     default_on: bool = True  # shown in the map page's menus until switched off on the Indicators page
+    # standard (an agreed definition), established (a widely used index) or exploratory (new, pilot, rough);
+    # None takes the source's (see quality.py)
+    definition: Literal["standard", "established", "exploratory"] | None = None
 
 
 class ManualFile(BaseModel):
@@ -91,6 +94,11 @@ class Source(BaseModel):
     default_rank: int
     manual: ManualFile | None = None
     scraper: Scraper | None = None
+    # How far the source is trusted, 1 to 5 (5: national statistics offices and the UN, World Bank, IMF,
+    # OECD; 4: long-running research sets; 3: NGO and think-tank indices; 2: crowd-sourced or scraped).
+    # None: figures this app works out itself.
+    standing: int | None = Field(default=None, ge=1, le=5)
+    definition: Literal["standard", "established", "exploratory"] = "standard"  # the default for its indicators
 
 
 class Entity(BaseModel):

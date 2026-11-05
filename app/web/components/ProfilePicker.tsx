@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Indicator } from "@/lib/api";
+import { TYPE_TEXT, type Indicator, type MeasureType, type QualityShow } from "@/lib/api";
+import { isStarred, passes, SHOW_TEXT, setStar, useStars } from "@/lib/quality";
 import { saveSettings, useSettings } from "@/lib/settings";
 
 // The pop-out panel on the country page: tick which charts and cards show. Saved in
@@ -27,18 +28,24 @@ export default function ProfilePicker({ open, onClose, indicators, charts, defau
 }) {
   const [q, setQ] = useState("");
   const [all, setAll] = useState(false);
+  const { quality_show: show, quality_type: type } = useSettings();
+  const local = useStars();
   const picked = new Set(charts);
   const groups = useMemo(() => {
     const t = q.trim().toLowerCase();
     const hit = (i: Indicator) => !t || i.name.toLowerCase().includes(t) || i.indicator_id.toLowerCase().includes(t)
       || i.synonyms.some((s) => s.toLowerCase().includes(t)) || i.domain.toLowerCase().includes(t);
-    const shown = indicators.filter((i) => i.available && (all || t || i.enabled || picked.has(i.indicator_id)) && hit(i)
+    // The drop-downs' Show and Type filters apply here too; typing finds everything, and starred
+    // and already-ticked indicators always show.
+    const keep = (i: Indicator) => t || picked.has(i.indicator_id) || isStarred(i, local)
+      || (passes(i, show, false) && (!type || !i.type || i.type === type));
+    const shown = indicators.filter((i) => i.available && (all || t || i.enabled || picked.has(i.indicator_id)) && hit(i) && keep(i)
       && !i.breakdowns.includes("age")); // age-by-sex tables have their own card (the pyramid)
     const by = new Map<string, Indicator[]>();
     for (const i of shown) by.set(i.domain || "Other", [...(by.get(i.domain || "Other") ?? []), i]);
     return [...by.entries()].sort(([a], [b]) => a.localeCompare(b))
       .map(([d, xs]) => [d, xs.sort((a, b) => a.name.localeCompare(b.name))] as const);
-  }, [indicators, q, all, charts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [indicators, q, all, charts, show, type, local]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null;
   const toggle = (id: string) => setCharts(picked.has(id) ? charts.filter((x) => x !== id) : [...charts, id]);
   const move = (id: string, by: number) => {
@@ -97,6 +104,15 @@ export default function ProfilePicker({ open, onClose, indicators, charts, defau
       <h4>Add charts</h4>
       <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search indicators (e.g. debt, wages, CO2)"
         aria-label="Search indicators" style={{ width: "100%" }} />
+      <div className="chips-row small" style={{ margin: "6px 0" }}>
+        <label>Show <select value={show} onChange={(e) => saveSettings({ quality_show: e.target.value as QualityShow })}>
+          {(Object.keys(SHOW_TEXT) as QualityShow[]).map((k) => <option key={k} value={k}>{SHOW_TEXT[k]}</option>)}
+        </select></label>
+        <label>Type <select value={type} onChange={(e) => saveSettings({ quality_type: e.target.value as "" | MeasureType })}>
+          <option value="">All types</option>
+          {(Object.keys(TYPE_TEXT) as MeasureType[]).map((k) => <option key={k} value={k}>{TYPE_TEXT[k]}</option>)}
+        </select></label>
+      </div>
       <label className="small" style={{ display: "block", margin: "6px 0" }}>
         <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Include indicators switched off on the Indicators page
       </label>
@@ -109,6 +125,9 @@ export default function ProfilePicker({ open, onClose, indicators, charts, defau
                 <input type="checkbox" checked={picked.has(i.indicator_id)} onChange={() => toggle(i.indicator_id)} />
                 <span className="grow">{i.name}</span>
                 <span className="muted small">{i.unit === "percent" ? "%" : i.unit}</span>
+                {i.grade && <span className={`grade grade-${i.grade}`}>{i.grade}</span>}
+                <button className="isel-star" aria-pressed={isStarred(i, local)} aria-label={isStarred(i, local) ? "Unstar" : "Star"}
+                  onClick={(e) => { e.preventDefault(); setStar(i.indicator_id, !isStarred(i, local)); }}>{isStarred(i, local) ? "★" : "☆"}</button>
               </label>
             ))}
           </details>

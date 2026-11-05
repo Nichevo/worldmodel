@@ -41,7 +41,27 @@ export type Indicator = {
   enabled: boolean; // switched on in the Indicators page, so it appears in panel menus
   sources: { source_id: string; series: string; rank: number; notes: string; source_name: string | null; licence: string | null }[];
   ratio?: { numerator: string; denominator: string; multiplier: number }; // one of your ratios
+  grade?: Grade | null; // A core, B good, C usable, D exploratory (yours when you set one)
+  type?: MeasureType; // level, per person, rate or share...
+  starred?: boolean; // kept in every drop-down whatever its grade
 };
+
+export type Grade = "A" | "B" | "C" | "D";
+export type QualityShow = "A" | "B" | "C" | "all" | "starred";
+export type MeasureType = "level" | "per_person" | "rate" | "index" | "money" | "count" | "projection";
+export type QualityScore = "history" | "up_to_date" | "coverage" | "standing" | "health" | "definition";
+export type IndicatorQuality = { scores: Record<QualityScore, number>; notes: Record<QualityScore, string>; definition: string;
+  source_id: string; grade: Grade; worked_grade: Grade; overridden?: boolean; starred: boolean; type: MeasureType };
+export type QualityList = { scores: Record<QualityScore, string>; grades: Record<Grade, string>; types: Record<MeasureType, string>;
+  weights: Record<QualityScore, number>; indicators: Record<string, IndicatorQuality> };
+export type QualityChange = { indicator_id: string; name: string; from?: Grade; to?: Grade; note?: string };
+export type QualitySummary = { totals: Record<Grade, number>; by_domain: Record<string, Record<Grade, number>>;
+  by_source: Record<string, Record<Grade, number>>; since: string | null;
+  changes: { lost: QualityChange[]; gained: QualityChange[]; stale: QualityChange[]; flagged: QualityChange[]; starred_fell: QualityChange[] } | null;
+  starred: { indicator_id: string; name: string; grade: Grade | null }[] };
+export const GRADE_TEXT: Record<Grade, string> = { A: "Core", B: "Good", C: "Usable", D: "Exploratory" };
+export const TYPE_TEXT: Record<MeasureType, string> = { level: "Level", per_person: "Per person", rate: "Rate or share",
+  index: "Index or score", money: "Money", count: "Count", projection: "Projection" };
 
 export type Ratio = { id: string; name: string; numerator: string; denominator: string; multiplier: number; unit: string;
   decimals: number; description: string };
@@ -208,6 +228,9 @@ export type Settings = {
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
   base_map: "online" | "local" | "plain"; // map detail under the colours
   map_centre: "pacific" | "atlantic"; // where world maps open centred
+  quality_show: QualityShow; // indicator drop-downs list grades up to this (starred ones always)
+  quality_type: "" | MeasureType; // and only this measure type
+  quality_on_titles: boolean; // the grade beside chart titles
   basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
   basemap_world_zoom: number;
   basemap_region_zoom: number;
@@ -691,6 +714,10 @@ export const api = {
     get<{ edition: number; field: string; content: string }[]>(`/entities/${encodeURIComponent(id)}/texts/history`, { key, source }),
   wikipedia: (id: string) => get<Wikipedia>(`/entities/${encodeURIComponent(id)}/wikipedia`),
   indicators: () => get<Indicator[]>("/indicators"),
+  quality: () => get<QualityList>("/quality"),
+  qualitySummary: () => get<QualitySummary>("/quality/summary"),
+  setQuality: (id: string, change: { starred?: boolean; grade?: Grade | null }) =>
+    send<IndicatorQuality>("PUT", `/quality/${encodeURIComponent(id)}`, change),
   search: (q: string) => get<SearchHit[]>("/search", { q }),
   series: (indicator: string, entities: string[], start?: number, end?: number) =>
     get<{ rows: SeriesRow[] }>("/series", { indicator, entities: entities.join(","), start, end }).then((r) => r.rows),
