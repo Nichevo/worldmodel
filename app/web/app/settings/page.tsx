@@ -188,6 +188,9 @@ export default function SettingsPage() {
           on={s.holidays_fetch} set={(v) => save({ holidays_fetch: v })} />
         <NumberField label="Older CrisisWatch months per refresh" value={s.crisiswatch_backfill} min={0} max={300} step={1}
           save={(v) => save({ crisiswatch_backfill: v })} />
+        <NumberField label="Gap between web pages" unit="seconds" value={s.scrape_gap_seconds} min={2} max={120} step={1}
+          note="For every source read from web pages (CrisisWatch, UN vetoes, WTO, treaties, Corrections, Electoral Commission, prisons.bat). Doubled on runs of more than 5 pages and tripled past 20, with a longer rest every 10 pages. A run stops at the first refused or odd page; Data status says why."
+          save={(v) => save({ scrape_gap_seconds: v })} />
         <TextField label="UN voting compared with" value={s.voting_compare} placeholder="USA,CHN,RUS,eu"
           note="Country codes or group ids, comma-separated. A group (eu, nato, oecd, asean) shows the average over its members of each year. Used on every country's UN voting card."
           save={(v) => save({ voting_compare: v })} />

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import re
-import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -95,7 +94,6 @@ class CrisisWatch(Connector):
     switch = "crisiswatch_fetch"
     keeps_files = True
     fetch_every_days = 7
-    pause_seconds = 4.0
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -129,20 +127,19 @@ class CrisisWatch(Connector):
         older = [m for m in months_back(today, (today.year - FIRST.year + 1) * 12) if m >= FIRST and m not in have
                  and m not in wanted]
         wanted += older[: self.backfill()]
+        from worldmodel_data.scrape import PageReader
+
         got = []
-        for i, m in enumerate(wanted):
-            if i:
-                time.sleep(self.pause_seconds)
-            dest = raw_dir / f"{month_slug(m)}.html"
-            try:
-                self.get(BASE + month_slug(m), dest)
-            except ConnectorError:
-                try:
-                    self.get(f"{BASE}database?date={MONTH_NAMES[m.month - 1].capitalize()}%20{m.year}", dest)
-                except ConnectorError as exc:
-                    log.warning("crisiswatch: %s skipped (%s)", month_slug(m), exc)
-                    continue
-            got.append(month_slug(m))
+        with PageReader(self, planned=len(wanted)) as pages:
+            for m in wanted:
+                dest = raw_dir / f"{month_slug(m)}.html"
+                text = pages.read(BASE + month_slug(m), dest, missing_ok=True, what=month_slug(m),
+                                  expect=r"crisiswatch")
+                if text is None:  # no page by that name: the database view of the month
+                    text = pages.read(f"{BASE}database?date={MONTH_NAMES[m.month - 1].capitalize()}%20{m.year}", dest,
+                                      missing_ok=True, what=f"{month_slug(m)} (database view)", expect=r"crisiswatch")
+                if text is not None:
+                    got.append(month_slug(m))
         if not got:
             raise ConnectorError("crisiswatch: no month's page could be read")
         return f"{BASE} ({', '.join(got)})"

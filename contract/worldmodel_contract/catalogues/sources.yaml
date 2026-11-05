@@ -133,6 +133,10 @@
   attribution: "Wikipedia (CC BY-SA 4.0); pictures from Wikimedia Commons, credited on each page."
   status: active
   default_rank: 6
+  scraper:
+    run: "Opening a country or city page, and a few an hour in the background"
+    reads: "One article per country or city, kept and read again when stale"
+    setting: wikipedia_countries_daily
 
 - id: worldmodel
   name: Worldmodel aggregates
@@ -486,6 +490,10 @@
     by_hand: false
     get: https://www.corrections.govt.nz/resources/statistics/quarterly_prison_statistics
     what: "When Corrections refuses the refresh, open each quarter's page you want (for example the last five Decembers) and save it (Ctrl+S, Web page, HTML only)."
+  scraper:
+    run: "Refresh, every 28 days"
+    reads: "The statistics index, then the quarterly workbook (or up to 20 quarterly pages when no workbook is linked)"
+    setting: pack_nz
 
 - id: mbie_energy
   name: MBIE energy balance tables
@@ -529,14 +537,18 @@
   licence: CC BY 4.0 (New Zealand Government)
   licence_url: https://elections.nz/about-us/copyright/
   commercial_use: true
-  cadence: After each general election; loaded by hand (.\load.bat nz_election_turnout <file>)
+  cadence: After each general election; a refresh looks for new spreadsheets every 90 days
   attribution: "Electoral Commission, general election voter turnout statistics."
   status: active
   default_rank: 2
   manual:
-    by_hand: true
+    by_hand: false
     get: https://elections.nz/stats-and-research/
-    what: "Download '<year> General Election voter turnout by age' for each election you want; keep them all."
+    what: "When the site refuses the refresh: download '<year> General Election voter turnout by age' for each election you want; keep them all."
+  scraper:
+    run: "Refresh, every 90 days"
+    reads: "The Statistics page, up to 12 election pages it links to, and their turnout spreadsheets"
+    setting: pack_nz
 
 - id: geonames
   name: GeoNames cities of 15,000 people or more
@@ -614,6 +626,10 @@
     by_hand: true
     get: https://www.numbeo.com/cost-of-living/rankings.jsp
     what: "Pick the year, then save the page (Ctrl+S, Web page, HTML only). Rankings by Country can go in too. Once or twice a year; keep every year's files."
+  scraper:
+    run: "The Numbeo button on country and city pages"
+    reads: "One page per click"
+    setting: numbeo_daily
 
 - id: unga_votes
   name: United Nations General Assembly voting data (Voeten)
@@ -648,6 +664,9 @@
     by_hand: false
     get: https://research.un.org/en/docs/sc/quick/veto
     what: "When the refresh is refused, save the veto list page and the 'Countries elected members of the Security Council' page (Ctrl+S, Web page, HTML only)."
+  scraper:
+    run: "Refresh, every 28 days"
+    reads: "Two pages: the UN vetoes list and the elected Security Council members list"
 
 - id: gsdb
   name: Global Sanctions Database
@@ -699,6 +718,9 @@
     by_hand: false
     get: https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm
     what: "When the refresh is refused, save the 'Chronological list of disputes cases' page (Ctrl+S, Web page, HTML only)."
+  scraper:
+    run: "Refresh, every 28 days"
+    reads: "One page: the WTO disputes list"
 
 - id: un_treaties
   name: "UN Treaty Collection: status of key treaties"
@@ -716,6 +738,9 @@
     by_hand: false
     get: https://treaties.un.org/Pages/ParticipationStatus.aspx?clang=_en
     what: "When the refresh is refused, open each treaty's status page and save it (Ctrl+S, Web page, HTML only)."
+  scraper:
+    run: "Refresh, every 28 days"
+    reads: "One status page per treaty followed (about 20)"
 
 - id: crisiswatch
   name: International Crisis Group CrisisWatch
@@ -733,6 +758,10 @@
     by_hand: false
     get: https://www.crisisgroup.org/crisiswatch/database
     what: "When the refresh is refused, pick a month and save the page (Ctrl+S, Web page, HTML only). Save as many months as you like."
+  scraper:
+    run: "Refresh, every 7 days"
+    reads: "One month's page at a time: the latest months plus older ones to fill in"
+    setting: crisiswatch_backfill
 
 - id: nsidc_sea_ice
   name: NSIDC Sea Ice Index
@@ -882,6 +911,9 @@
     by_hand: true
     get: https://www.prisonstudies.org/world-prison-data/highest-lowest/highest-lowest-prison-population-total
     what: "Run .\\prisons.bat to fetch it, or save the Highest to Lowest page from your browser (Ctrl+S, Webpage, HTML only) here. A spreadsheet with a Country column, a Year column and value columns also works."
+  scraper:
+    run: ".\\prisons.bat (you run it)"
+    reads: "The Highest to Lowest page, latest figures plus once per year back to 2000 the first time (about 27 pages), later runs the latest only"
 
 - id: baci
   name: CEPII BACI world trade by product (HS 1992)
