@@ -199,6 +199,22 @@ class Connector(ABC):
                     out[s.series] = (ind.id, s.scale)
         return out
 
+    def earlier_copy(self, raw_dir: Path, name: str) -> Path | None:
+        """The newest copy of `name` in this source's other stored vintages, for a file this
+        vintage lacks because one of several downloads failed that day: one bad day should
+        not wipe a whole series out of the warehouse (the build's shrinkage gate stops it)."""
+        root = Path(raw_dir).parent.parent  # raw/<source>/<release>/<fetched>
+        if root.name != self.source_id:
+            return None
+        here = Path(raw_dir).resolve()
+        found = [p for p in root.glob(f"*/*/{name}") if p.is_file() and p.parent.resolve() != here
+                 and p.parent.parent.name != "_incoming"]
+        if not found:
+            return None
+        best = max(found, key=lambda p: (p.parent.name, p.parent.parent.name))
+        log.info("%s: %s missing from this vintage; using the copy from %s", self.source_id, name, best.parent.name)
+        return best
+
     def known_codes(self, scheme: str) -> set[str]:
         return {c["code"] for c in catalogue.entity_codes() if c["scheme"] == scheme}
 
