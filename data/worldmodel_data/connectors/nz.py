@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date, datetime
+from html import unescape as html_unescape
 from pathlib import Path
 
 import duckdb
@@ -225,6 +226,18 @@ CORRECTIONS_INDEX = "https://www.corrections.govt.nz/resources/statistics/quarte
 CORRECTIONS_SITE = "https://www.corrections.govt.nz"
 MONTHS = {m: i for i, m in enumerate(("january", "february", "march", "april", "may", "june", "july", "august",
                                       "september", "october", "november", "december"), 1)}
+WORKBOOK_LINK = re.compile(r"""href=["']([^"']*prison[^"']*\.xlsx[^"']*)["']""", re.I)
+
+
+def _workbook_link(page: str) -> str | None:
+    """The quarterly statistics workbook a Corrections page links to, as a full address."""
+    m = WORKBOOK_LINK.search(page or "")
+    if not m:
+        return None
+    url = html_unescape(m.group(1))
+    return url if url.startswith("http") else CORRECTIONS_SITE + ("" if url.startswith("/") else "/") + url
+
+
 QUARTER_LINK = re.compile(r"""href=["']([^"']*quarterly_prison_statistics/[^"']*?(march|june|september|december)[_-]?(\d{4})[^"']*)["']""",
                           re.I)
 # Row label (start, lower case) -> indicator; columns found by their headings.
@@ -322,10 +335,11 @@ def read_prison_workbook(path: Path) -> dict[tuple[int, int], dict[str, float]]:
 class NZCorrections(Connector):
     """Department of Corrections quarterly prison statistics: people in prison at the
     end of each quarter by custody status (remand accused, remand convicted,
-    sentenced) and sex. Each fetch (every four weeks) reads the index and the newest
-    20 quarterly pages it links to (five years), a second apart; pages that have not
-    changed since the last fetch are not downloaded again (the server is asked "changed
-    since?"). A year's figure is its latest quarter (usually 31 December)."""
+    sentenced) and sex. Each fetch (every four weeks) reads the index and, when it or the
+    newest quarterly page links one, the quarterly workbook (Prison_Stats_*.xlsx, every
+    quarter since 2018); otherwise the quarterly pages not already held (up to 20). Pages
+    are read politely and the fetch stops at the first problem (worldmodel_data.scrape).
+    A year's figure is its latest quarter (usually 31 December)."""
 
     source_id = "nz_corrections"
     pack = "nz"
@@ -339,31 +353,42 @@ class NZCorrections(Connector):
     def release_from_files(self, files: list[Path]) -> str | None:
         return None
 
-    def quarter_links(self) -> list[tuple[date, str]]:
-        r = self.client.get(CORRECTIONS_INDEX)
-        r.raise_for_status()
+    def quarter_links(self, index: str) -> list[tuple[date, str]]:
         found = {}
-        for url, month, year in QUARTER_LINK.findall(r.text):
+        for url, month, year in QUARTER_LINK.findall(index):
             d = date(int(year), MONTHS[month.lower()], 1)
             found.setdefault(d, url if url.startswith("http") else CORRECTIONS_SITE + url)
         return sorted(found.items(), reverse=True)
 
     def download(self, raw_dir: Path, release: str) -> str:
-        import time
+        """The index page, then the quarterly workbook (Prison_Stats_*.xlsx, every quarter since
+        2018) when a page links to it; otherwise the newest 20 quarterly pages. Read politely
+        (worldmodel_data.scrape): long gaps, and a stop at the first refused or odd page."""
+        from worldmodel_data.scrape import PageReader
 
-        try:
-            links = self.quarter_links()
-        except Exception as exc:  # noqa: BLE001
-            raise ConnectorError(f"nz_corrections: the quarterly statistics index could not be read ({exc})")
-        if not links:
-            raise ConnectorError(f"nz_corrections: no quarterly pages linked from {CORRECTIONS_INDEX}")
-        for i, (d, url) in enumerate(links[: self.BACKFILL]):
-            if i:
-                time.sleep(1)
-            try:
-                self.get(url, raw_dir / f"prisons_{d.isoformat()[:7]}.html")
-            except ConnectorError as exc:
-                log.warning("nz_corrections: %s not read (%s)", url, exc)
+        with PageReader(self, planned=2) as pages:
+            index = pages.read(CORRECTIONS_INDEX, raw_dir / "_index.html", expect=r"prison", what="statistics index")
+            links = self.quarter_links(index)
+            if not links:
+                pages.stop(f"no quarterly pages linked from {CORRECTIONS_INDEX}; the page's layout may have changed")
+            book = _workbook_link(index)
+            if not book:
+                newest = pages.read(links[0][1], raw_dir / f"prisons_{links[0][0].isoformat()[:7]}.html",
+                                    expect=r"prison", what=f"{links[0][0]:%B %Y} page")
+                book = _workbook_link(newest)
+            if book:
+                name = re.sub(r"[^A-Za-z0-9_.-]", "_", book.rsplit("/", 1)[-1].split("?")[0]) or "Prison_Stats.xlsx"
+                pages.read(book, raw_dir / name, what=f"workbook {name}")
+                (raw_dir / "_index.html").unlink(missing_ok=True)
+                return book
+        # no workbook linked: the quarterly pages themselves
+        todo = links[: self.BACKFILL]
+        with PageReader(self, planned=len(todo)) as pages:
+            for d, url in todo:
+                dest = raw_dir / f"prisons_{d.isoformat()[:7]}.html"
+                if not dest.exists():
+                    pages.read(url, dest, expect=r"prison", what=f"{d:%B %Y} page", missing_ok=True)
+        (raw_dir / "_index.html").unlink(missing_ok=True)
         return CORRECTIONS_INDEX
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:

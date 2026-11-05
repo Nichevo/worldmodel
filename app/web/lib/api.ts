@@ -181,6 +181,7 @@ export type Settings = {
   crisiswatch_fetch: boolean;
   holidays_fetch: boolean; // refresh reads public holidays (Nager.Date) // refresh reads CrisisWatch, one month's page at a time
   crisiswatch_backfill: number; // older months filled in per refresh
+  scrape_gap_seconds: number; // seconds between pages read by the scraping tools
   relations_scan: boolean; // look for relationships after each refresh
   relations_indicators: "on" | "all"; // the indicators switched on, or every one (overnight)
   relations_min_countries: number;
@@ -561,6 +562,14 @@ export type ManualFile = {
   files: string[]; last_loaded: string | null; todo: "download" | "load" | null; why: string; command: string;
 };
 
+export type ScraperRun = { at: string; planned: number; read: number; stopped: string | null; url: string; gap_seconds: number };
+export type Scraper = {
+  source_id: string; name: string; run: string; reads: string; setting: string | null;
+  setting_value: number | boolean | string | null; last_run: ScraperRun | null; last_loaded: string | null;
+  today: string | null; problem: string | null;
+};
+export type Scrapers = { gap_seconds: number; sources: Scraper[] };
+
 // ----------------------------------------------------------------------------- climate
 export type IndName = Record<string, { name: string; unit: string; decimals: number }>;
 export type EnsoPhase = { name: string; strength: string; value: number; month: string } | null;
@@ -642,6 +651,7 @@ export type SectorsByCountry = {
 
 export const api = {
   manualFiles: () => get<ManualFile[]>("/manual-files"),
+  scrapers: () => get<Scrapers>("/scrapers"),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
     get<{ rows: CityRow[]; note: string | null }>("/cities", q),
   places: (q: { kind?: PlaceKind; country?: string; city?: string; q?: string; limit?: number } = {}) =>
