@@ -21,3 +21,4 @@ app/web/next-env.d.ts
 
 # copied from node_modules by app/web/scripts/copy-maplibre-worker.mjs
 app/web/public/maplibre/
+.env.example.mine
