@@ -1,0 +1,812 @@
+# Sectors: one industry across the globe, followed stage by stage.
+#
+# Each sector is a chain of stages (ore -> refined -> metal -> products). A stage has
+#   hs          HS 1992 codes (2, 4 or 6 digits; a shorter code takes every code under it)
+#               whose trade is summed from CEPII BACI for that stage
+#   production  where its production by country comes from, best first:
+#                 fao: FAOSTAT item (and element, default Production)
+#                 wmd: World Mining Data sheet name (matched loosely)
+#                 usgs: "COMMODITY|type words" in USGS Mineral Commodity Summaries
+#                 indicator: an indicator already in the catalogue (OWID energy and so on)
+#   unit        unit of production (tonnes unless said)
+#   how         hand-written notes on how the step works: inputs per tonne, energy,
+#               time, by-products and waste. Rough figures, rounded, with sources in
+#               the sector's `sources`; checked by hand like the leaders list.
+# A sector also lists what it feeds into, its price series (World Bank Pink Sheet ids,
+# see sector_prices below), and key companies (hand-checked once a year; nz: true marks
+# New Zealand's own players). Adding a sector is adding an entry here.
+#
+# HS codes are the 1992 edition so that trade lines up from 1995 on: some newer
+# products (lithium-ion cells, electric cars) sit inside wider 1992 codes.
+
+groups:
+  metals: Metals
+  battery: Battery and critical minerals
+  energy: Energy
+  fertilizer: Fertilizer
+  food: Food and farming
+  forestry: Forestry
+  made: Made goods
+
+sector_prices:
+  aluminium: Aluminum
+  copper: Copper
+  iron_ore: Iron ore
+  nickel: Nickel
+  zinc: Zinc
+  lead: Lead
+  tin: Tin
+  gold: Gold
+  silver: Silver
+  platinum: Platinum
+  crude_oil: Crude oil, average
+  natural_gas_eu: Natural gas, Europe
+  natural_gas_us: Natural gas, US
+  lng_japan: Liquefied natural gas, Japan
+  coal_au: Coal, Australian
+  urea: Urea
+  dap: DAP
+  tsp: TSP
+  potash: Potassium chloride
+  phosphate_rock: Phosphate rock
+  wheat: Wheat, US HRW
+  rice: Rice, Thai 5%
+  maize: Maize
+  soybeans: Soybeans
+  soybean_oil: Soybean oil
+  palm_oil: Palm oil
+  sugar: Sugar, world
+  coffee: Coffee, Arabica
+  cocoa: Cocoa
+  beef: Beef
+  logs: Logs, Malaysian
+  sawnwood: Sawnwood, Malaysian
+
+sectors:
+  - id: aluminium
+    name: Aluminium
+    group: metals
+    feeds: Cars, trucks and planes; packaging (cans, foil); building (windows, cladding); power lines; machinery and consumer goods.
+    sources: International Aluminium Institute; USGS Mineral Commodity Summaries; EU reference document on best available techniques for non-ferrous metals.
+    prices: [aluminium]
+    stages:
+      - id: bauxite
+        name: Bauxite (ore)
+        hs: ["2606"]
+        production: {wmd: Bauxite, usgs: "bauxite|mine"}
+        how:
+          inputs: Mined from open pits, mostly in the tropics (Australia, Guinea, China, Brazil, Indonesia).
+          energy: Diesel for digging and hauling; little else.
+          time: Weeks from mine to ship.
+          waste: Overburden and mine rehabilitation; dust and water run-off.
+      - id: alumina
+        name: Alumina (aluminium oxide)
+        hs: ["281820"]
+        production: {wmd: Alumina, usgs: "bauxite|refinery"}
+        how:
+          inputs: About 2.5 to 3 tonnes of bauxite and caustic soda per tonne of alumina (the Bayer process).
+          energy: Mostly heat for digesting the ore at 150 to 250 °C, from gas, coal or oil; about 8 to 12 GJ per tonne.
+          time: About a day through a refinery.
+          waste: About 1 to 1.5 tonnes of red mud (bauxite residue) per tonne, stored in large ponds; a little is used in cement and bricks.
+      - id: aluminium
+        name: Primary aluminium
+        hs: ["7601"]
+        production: {wmd: Aluminium, usgs: "aluminum|smelter"}
+        how:
+          inputs: About 1.9 to 2 tonnes of alumina and 0.4 to 0.45 tonnes of carbon anodes per tonne of aluminium (the Hall-Héroult process).
+          energy: About 13 to 15 MWh of electricity per tonne, so the power source decides most of the emissions, from about 4 tonnes of CO2 per tonne with hydro (as at Tiwai Point) to 15 to 20 with coal power.
+          time: Smelting runs day and night; a pot line cannot be stopped and restarted cheaply.
+          waste: CO2 from the anodes, perfluorocarbons (strong greenhouse gases) during upsets, spent pot lining (hazardous), and dross.
+      - id: aluminium_products
+        name: Aluminium products (sheet, foil, extrusions, wire)
+        hs: ["7603", "7604", "7605", "7606", "7607", "7608", "7609", "7610", "7611", "7612", "7613", "7614", "7615", "7616"]
+        how:
+          inputs: Primary metal and scrap; recycled aluminium needs about 5% of the energy of new metal.
+          energy: Gas for remelting and reheating; electricity for rolling and extruding.
+          time: Days to weeks.
+          waste: Offcuts go back as scrap; dross from melting.
+    companies:
+      - {name: Chalco (Aluminum Corporation of China), country: CHN, step: alumina, note: "Bauxite, alumina and aluminium"}
+      - {name: China Hongqiao, country: CHN, step: aluminium}
+      - {name: Rusal, country: RUS, step: aluminium}
+      - {name: Rio Tinto, country: AUS, step: aluminium, note: "Bauxite in Australia and Guinea, alumina and smelters; majority owner of Tiwai Point"}
+      - {name: Alcoa, country: USA, step: alumina}
+      - {name: Emirates Global Aluminium, country: ARE, step: aluminium}
+      - {name: Norsk Hydro, country: NOR, step: aluminium}
+      - {name: New Zealand Aluminium Smelters (Tiwai Point), country: NZL, step: aluminium, note: "Owned by Rio Tinto (79.36%) and Sumitomo Chemical (20.64%); hydro power from Manapōuri", nz: true}
+
+  - id: steel
+    name: Iron and steel
+    group: metals
+    feeds: Building and infrastructure (about half), machinery, cars and ships, appliances, tools and packaging.
+    sources: worldsteel; USGS Mineral Commodity Summaries; EU reference document on best available techniques for iron and steel; IEA Iron and Steel Technology Roadmap.
+    prices: [iron_ore]
+    stages:
+      - id: iron_ore
+        name: Iron ore
+        hs: ["2601"]
+        production: {wmd: Iron, usgs: "iron ore|mine"}
+        how:
+          inputs: Mined from open pits (Australia, Brazil, China, India); some is concentrated and made into pellets.
+          energy: Diesel and electricity for mining, crushing and pelletising.
+          time: Weeks from mine to ship.
+          waste: Tailings from concentrating lower-grade ore; overburden.
+      - id: pig_iron
+        name: Pig iron and direct reduced iron
+        hs: ["7201", "7203"]
+        production: {usgs: "iron and steel|pig iron"}
+        how:
+          inputs: About 1.5 to 1.6 tonnes of iron ore and 0.4 to 0.5 tonnes of coke (from coking coal) per tonne of iron in a blast furnace; or gas (or coal, as at Glenbrook from ironsand) in direct reduction.
+          energy: Coal and coke supply both heat and the carbon that strips oxygen from the ore.
+          time: Hours through a blast furnace, which runs for 15 to 20 years between relinings.
+          waste: About 0.25 to 0.3 tonnes of slag per tonne, mostly used in cement and roads; CO2 is the main emission.
+      - id: crude_steel
+        name: Crude and semi-finished steel
+        hs: ["7206", "7207", "7218", "7224"]
+        production: {wmd: Steel, usgs: "iron and steel|raw steel"}
+        how:
+          inputs: Iron plus scrap in a basic oxygen furnace (about 80% iron, 20% scrap), or mostly scrap (or direct reduced iron) in an electric arc furnace.
+          energy: The blast furnace and oxygen route gives about 2 tonnes of CO2 per tonne of steel; the scrap and electric arc route about 0.4 to 0.7 tonnes, depending on the power.
+          time: A heat of steel takes about 40 minutes in a converter, about an hour in an arc furnace.
+          waste: Steel slag, dust (with zinc from coated scrap), mill scale.
+      - id: steel_products
+        name: Steel products (flat, long, tubes)
+        hs: ["7208", "7209", "7210", "7211", "7212", "7213", "7214", "7215", "7216", "7217", "7219", "7220", "7221", "7222", "7225", "7226", "7227", "7228", "7304", "7305", "7306", "7308"]
+        how:
+          inputs: Slabs, billets and blooms rolled hot and cold, then coated or formed.
+          energy: Gas for reheating, electricity for rolling.
+          time: Days.
+          waste: Offcuts back to the furnace as scrap; mill scale; pickling acids.
+    companies:
+      - {name: China Baowu Steel, country: CHN, step: crude_steel}
+      - {name: ArcelorMittal, country: LUX, step: crude_steel}
+      - {name: Nippon Steel, country: JPN, step: crude_steel}
+      - {name: HBIS Group, country: CHN, step: crude_steel}
+      - {name: POSCO, country: KOR, step: crude_steel}
+      - {name: Vale, country: BRA, step: iron_ore}
+      - {name: BHP, country: AUS, step: iron_ore}
+      - {name: Fortescue, country: AUS, step: iron_ore}
+      - {name: NZ Steel (BlueScope), country: NZL, step: crude_steel, note: "Glenbrook mill makes iron from Waikato North Head ironsand; an electric arc furnace co-funded with the government is due to replace part of it", nz: true}
+
+  - id: copper
+    name: Copper
+    group: metals
+    feeds: Power cables and wiring, motors and transformers, electronics, plumbing, electric cars (about four times the copper of a petrol car).
+    sources: USGS Mineral Commodity Summaries; International Copper Study Group.
+    prices: [copper]
+    stages:
+      - {id: copper_ore, name: "Copper ore and concentrate", hs: ["2603"], production: {wmd: Copper, usgs: "copper|mine"}}
+      - {id: copper_refined, name: "Refined copper", hs: ["7402", "7403"], production: {usgs: "copper|refinery"}}
+      - {id: copper_products, name: "Copper wire and products", hs: ["7407", "7408", "7409", "7410", "7411", "7412", "8544"]}
+    companies:
+      - {name: Codelco, country: CHL, step: copper_ore}
+      - {name: Freeport-McMoRan, country: USA, step: copper_ore}
+      - {name: BHP, country: AUS, step: copper_ore, note: "Escondida in Chile"}
+      - {name: Zijin Mining, country: CHN, step: copper_ore}
+      - {name: Jiangxi Copper, country: CHN, step: copper_refined}
+
+  - id: nickel
+    name: Nickel
+    group: battery
+    feeds: Stainless steel (about two thirds), batteries (nickel-rich cells), alloys and plating.
+    sources: USGS Mineral Commodity Summaries; International Nickel Study Group; IEA Critical Minerals Data Explorer.
+    prices: [nickel]
+    stages:
+      - {id: nickel_ore, name: "Nickel ore", hs: ["2604"], production: {wmd: Nickel, usgs: "nickel|mine"}}
+      - {id: nickel_refined, name: "Nickel matte and unwrought nickel", hs: ["7501", "7502"], production: {usgs: "nickel|refinery"}}
+    companies:
+      - {name: Tsingshan Holding, country: CHN, step: nickel_refined, note: "Large plants in Indonesia"}
+      - {name: Norilsk Nickel, country: RUS, step: nickel_refined}
+      - {name: Vale, country: BRA, step: nickel_ore}
+
+  - id: zinc
+    name: Zinc
+    group: metals
+    feeds: Galvanising steel against rust (about half), brass, die-casting, fertilizer and animal feed.
+    sources: USGS Mineral Commodity Summaries; International Lead and Zinc Study Group.
+    prices: [zinc]
+    stages:
+      - {id: zinc_ore, name: "Zinc ore", hs: ["2608"], production: {wmd: Zinc, usgs: "zinc|mine"}}
+      - {id: zinc_metal, name: "Unwrought zinc", hs: ["7901"], production: {usgs: "zinc|smelter"}}
+
+  - id: lead
+    name: Lead
+    group: metals
+    feeds: Car batteries (most of it, much recycled), cable sheathing, radiation shielding.
+    sources: USGS Mineral Commodity Summaries; International Lead and Zinc Study Group.
+    prices: [lead]
+    stages:
+      - {id: lead_ore, name: "Lead ore", hs: ["2607"], production: {wmd: Lead, usgs: "lead|mine"}}
+      - {id: lead_metal, name: "Unwrought lead", hs: ["7801"], production: {usgs: "lead|refinery"}}
+
+  - id: tin
+    name: Tin
+    group: metals
+    feeds: Solder for electronics (about half), tinplate cans, chemicals.
+    sources: USGS Mineral Commodity Summaries; International Tin Association.
+    prices: [tin]
+    stages:
+      - {id: tin_ore, name: "Tin ore", hs: ["2609"], production: {wmd: Tin, usgs: "tin|mine"}}
+      - {id: tin_metal, name: "Unwrought tin", hs: ["8001"], production: {usgs: "tin|smelter"}}
+
+  - id: gold
+    name: Gold
+    group: metals
+    feeds: Jewellery, central bank and investment holdings, electronics.
+    sources: USGS Mineral Commodity Summaries; World Gold Council.
+    prices: [gold]
+    stages:
+      - {id: gold, name: "Gold (non-monetary)", hs: ["7108"], production: {wmd: Gold, usgs: "gold|mine"}, unit: kilograms}
+    companies:
+      - {name: Newmont, country: USA, step: gold}
+      - {name: Barrick, country: CAN, step: gold}
+      - {name: Zijin Mining, country: CHN, step: gold}
+      - {name: OceanaGold, country: AUS, step: gold, note: "Macraes and Waihi mines", nz: true}
+
+  - id: silver
+    name: Silver
+    group: metals
+    feeds: Solar panels, electronics, jewellery and silverware, investment.
+    sources: USGS Mineral Commodity Summaries; The Silver Institute.
+    prices: [silver]
+    stages:
+      - {id: silver, name: "Silver", hs: ["7106"], production: {wmd: Silver, usgs: "silver|mine"}, unit: kilograms}
+
+  - id: lithium
+    name: Lithium
+    group: battery
+    feeds: Batteries (most of it now), glass and ceramics, greases.
+    sources: USGS Mineral Commodity Summaries; IEA Critical Minerals Data Explorer.
+    stages:
+      - id: lithium_raw
+        name: Lithium mined (content)
+        hs: ["253090"]
+        production: {wmd: Lithium, usgs: "lithium|mine"}
+        how:
+          inputs: Hard rock (spodumene, mostly Australia) or brine pumped into evaporation ponds (Chile, Argentina).
+          energy: Brine uses sun for evaporation over 12 to 18 months; hard rock needs heat for roasting, often from coal in China.
+          time: 1 to 2 years for brine; weeks for rock.
+          waste: Water use in dry places (brine); tailings (rock).
+      - id: lithium_chemicals
+        name: Lithium carbonate and hydroxide
+        hs: ["283691", "282520"]
+        how:
+          inputs: Spodumene concentrate or brine, plus acids and soda ash.
+          energy: Heat and electricity; most refining is in China.
+          time: Days.
+          waste: Sodium sulfate and leach residue.
+    companies:
+      - {name: Albemarle, country: USA, step: lithium_chemicals}
+      - {name: SQM, country: CHL, step: lithium_raw}
+      - {name: Ganfeng Lithium, country: CHN, step: lithium_chemicals}
+      - {name: Tianqi Lithium, country: CHN, step: lithium_chemicals}
+      - {name: Pilbara Minerals, country: AUS, step: lithium_raw}
+
+  - id: cobalt
+    name: Cobalt
+    group: battery
+    feeds: Batteries, superalloys for jet engines, hard metals, catalysts.
+    sources: USGS Mineral Commodity Summaries; IEA Critical Minerals Data Explorer; Cobalt Institute.
+    stages:
+      - {id: cobalt_ore, name: "Cobalt ore", hs: ["2605"], production: {wmd: Cobalt, usgs: "cobalt|mine"}}
+      - {id: cobalt_refined, name: "Cobalt mattes and metal", hs: ["8105"], production: {usgs: "cobalt|refinery"}}
+    companies:
+      - {name: CMOC, country: CHN, step: cobalt_ore, note: "Mines in DR Congo"}
+      - {name: Glencore, country: CHE, step: cobalt_ore, note: "Mines in DR Congo"}
+      - {name: Huayou Cobalt, country: CHN, step: cobalt_refined}
+
+  - id: graphite
+    name: Graphite
+    group: battery
+    feeds: Battery anodes (the biggest single material in a lithium-ion cell by weight), refractories, steelmaking electrodes, lubricants.
+    sources: USGS Mineral Commodity Summaries; IEA Critical Minerals Data Explorer.
+    stages:
+      - {id: graphite_natural, name: "Natural graphite", hs: ["2504"], production: {wmd: Graphite, usgs: "graphite|mine"}}
+      - {id: graphite_synthetic, name: "Synthetic graphite and carbon electrodes", hs: ["380110", "8545"]}
+
+  - id: manganese
+    name: Manganese
+    group: battery
+    feeds: Steel (most of it), batteries, aluminium alloys.
+    sources: USGS Mineral Commodity Summaries.
+    stages:
+      - {id: manganese_ore, name: "Manganese ore", hs: ["2602"], production: {wmd: Manganese, usgs: "manganese|mine"}}
+      - {id: ferromanganese, name: "Ferromanganese and silicomanganese", hs: ["720211", "720219", "720230"]}
+
+  - id: rare_earths
+    name: Rare earths
+    group: battery
+    feeds: Permanent magnets for electric motors and wind turbines, catalysts, polishing, phosphors.
+    sources: USGS Mineral Commodity Summaries; IEA Critical Minerals Data Explorer.
+    stages:
+      - {id: rare_earths, name: "Rare-earth metals and compounds", hs: ["280530", "2846"], production: {wmd: Rare Earth, usgs: "rare earths|mine"}}
+
+  - id: silicon_solar
+    name: Silicon and solar panels
+    group: battery
+    feeds: Solar power; silicon also goes into aluminium alloys, silicones and chips.
+    sources: USGS Mineral Commodity Summaries; IEA Solar PV Global Supply Chains.
+    stages:
+      - {id: silicon, name: "Silicon and polysilicon", hs: ["280461", "280469"], production: {usgs: "silicon|"}}
+      - {id: solar_cells, name: "Solar cells and modules (with other semiconductor devices)", hs: ["854140"]}
+
+  - id: oil
+    name: Crude oil and refined products
+    group: energy
+    feeds: Transport fuels, plastics and chemicals, heating, power in some places, asphalt.
+    sources: Energy Institute Statistical Review (via Our World in Data); IEA.
+    prices: [crude_oil]
+    stages:
+      - {id: crude_oil, name: "Crude oil", hs: ["2709"], production: {indicator: oil_production}, unit: TWh}
+      - id: refined_products
+        name: Refined products (petrol, diesel, jet fuel)
+        hs: ["2710"]
+        how:
+          inputs: Crude oil; a refinery splits it by boiling point and cracks heavy parts into lighter fuels.
+          energy: About 5 to 8% of the oil's energy is used in refining.
+          time: Hours through the units; crude is shipped weeks ahead.
+          waste: CO2, sulfur (recovered and sold), sour water and spent catalysts.
+    companies:
+      - {name: Saudi Aramco, country: SAU, step: crude_oil}
+      - {name: ExxonMobil, country: USA, step: refined_products}
+      - {name: Sinopec, country: CHN, step: refined_products}
+      - {name: Channel Infrastructure (Marsden Point), country: NZL, step: refined_products, note: "New Zealand's only refinery stopped refining in 2022 and became a fuel import terminal", nz: true}
+
+  - id: gas
+    name: Natural gas and LNG
+    group: energy
+    feeds: Power stations, heating, industry (and the hydrogen in ammonia fertilizer), chemicals.
+    sources: Energy Institute Statistical Review (via Our World in Data); IEA; International Group of LNG Importers.
+    prices: [natural_gas_eu, natural_gas_us, lng_japan]
+    stages:
+      - {id: natural_gas, name: "Natural gas (pipeline and liquefied)", hs: ["2711"], production: {indicator: gas_production}, unit: TWh}
+
+  - id: coal
+    name: Coal
+    group: energy
+    feeds: Power stations, steelmaking (coking coal), cement, chemicals in China.
+    sources: Energy Institute Statistical Review (via Our World in Data); IEA Coal report.
+    prices: [coal_au]
+    stages:
+      - {id: coal, name: "Coal", hs: ["2701"], production: {indicator: coal_production}, unit: TWh}
+      - {id: coke, name: "Coke", hs: ["2704"]}
+    companies:
+      - {name: China Energy Investment, country: CHN, step: coal}
+      - {name: Coal India, country: IND, step: coal}
+      - {name: Bathurst Resources, country: NZL, step: coal, note: "Coking coal from the West Coast", nz: true}
+
+  - id: uranium
+    name: Uranium
+    group: energy
+    feeds: Nuclear power.
+    sources: World Nuclear Association; USGS.
+    stages:
+      - {id: uranium, name: "Uranium ores and concentrates", hs: ["2612"], production: {wmd: Uranium}}
+
+  - id: fertilizer_n
+    name: Nitrogen fertilizer
+    group: fertilizer
+    feeds: Crops, above all cereals; also explosives and industrial chemicals.
+    sources: International Fertilizer Association; FAOSTAT; IEA Ammonia Technology Roadmap.
+    prices: [urea]
+    stages:
+      - id: ammonia
+        name: Ammonia
+        hs: ["281410"]
+        production: {usgs: "nitrogen|plant"}
+        how:
+          inputs: Hydrogen from natural gas (or coal in China) and nitrogen from the air, combined at high pressure (the Haber-Bosch process).
+          energy: About 28 to 36 GJ of gas per tonne of ammonia; making it is roughly 1 to 2% of the world's energy use.
+          time: Continuous; plants run for years between major stops.
+          waste: About 1.8 to 2.4 tonnes of CO2 per tonne from gas (much more from coal); some CO2 is reused to make urea.
+      - id: urea
+        name: Urea and other nitrogen fertilizers
+        hs: ["310210", "310221", "310230", "310280", "310290"]
+        production: {fao: "Nutrient nitrogen N (total)"}
+        unit: tonnes of nitrogen
+        how:
+          inputs: About 0.57 tonnes of ammonia and 0.73 tonnes of CO2 per tonne of urea.
+          energy: Steam and electricity at the same site as the ammonia.
+          time: Hours.
+          waste: Ammonia and dust; nitrous oxide on farms after spreading.
+    companies:
+      - {name: Yara, country: NOR, step: ammonia}
+      - {name: CF Industries, country: USA, step: ammonia}
+      - {name: Nutrien, country: CAN, step: ammonia}
+      - {name: Ballance Agri-Nutrients, country: NZL, step: urea, note: "Kapuni ammonia-urea plant in Taranaki", nz: true}
+      - {name: Ravensdown, country: NZL, step: urea, note: "Imports and distributes fertilizer", nz: true}
+
+  - id: fertilizer_p
+    name: Phosphate fertilizer
+    group: fertilizer
+    feeds: Crops and pasture; also animal feed and detergents.
+    sources: International Fertilizer Association; FAOSTAT; USGS.
+    prices: [phosphate_rock, dap, tsp]
+    stages:
+      - {id: phosphate_rock, name: "Phosphate rock", hs: ["2510"], production: {wmd: Phosphate, usgs: "phosphate rock|mine"}}
+      - id: phosphate_fertilizer
+        name: Phosphate fertilizers (DAP, MAP, superphosphate)
+        hs: ["310310", "310390", "310530", "310540"]
+        production: {fao: "Nutrient phosphate P2O5 (total)"}
+        unit: tonnes of P2O5
+        how:
+          inputs: Phosphate rock dissolved in sulfuric acid to make phosphoric acid, then mixed with ammonia (DAP, MAP); superphosphate (common in New Zealand) is rock treated with acid directly.
+          energy: The sulfuric acid plant makes more heat than it uses.
+          time: Days.
+          waste: About 4.5 to 5 tonnes of phosphogypsum per tonne of P2O5, mostly stacked; fluorine compounds; cadmium in some rock.
+    companies:
+      - {name: OCP Group, country: MAR, step: phosphate_rock}
+      - {name: Mosaic, country: USA, step: phosphate_fertilizer}
+      - {name: PhosAgro, country: RUS, step: phosphate_fertilizer}
+      - {name: Ballance Agri-Nutrients, country: NZL, step: phosphate_fertilizer, note: "Superphosphate works at Awarua and Mount Maunganui", nz: true}
+      - {name: Ravensdown, country: NZL, step: phosphate_fertilizer, note: "Superphosphate works at Napier, Christchurch and Dunedin", nz: true}
+
+  - id: fertilizer_k
+    name: Potash fertilizer
+    group: fertilizer
+    feeds: Crops, especially fruit, vegetables and oilseeds.
+    sources: International Fertilizer Association; FAOSTAT; USGS.
+    prices: [potash]
+    stages:
+      - id: potash
+        name: Potash (potassium chloride and other potassic fertilizers)
+        hs: ["3104"]
+        production: {fao: "Nutrient potash K2O (total)", wmd: Potash, usgs: "potash|mine"}
+        unit: tonnes of K2O
+        how:
+          inputs: Mined from old sea beds deep underground (Canada, Russia, Belarus) or pumped out as brine and separated from salt.
+          energy: Electricity and gas for mining, crushing and drying.
+          time: Days.
+          waste: Salt tailings piles and brine.
+    companies:
+      - {name: Nutrien, country: CAN, step: potash}
+      - {name: Uralkali, country: RUS, step: potash}
+      - {name: Belaruskali, country: BLR, step: potash}
+      - {name: Mosaic, country: USA, step: potash}
+
+  - id: wheat
+    name: Wheat
+    group: food
+    feeds: Bread, noodles and pasta; animal feed.
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [wheat]
+    stages:
+      - {id: wheat, name: "Wheat", hs: ["1001"], production: {fao: Wheat}}
+      - {id: wheat_flour, name: "Wheat flour", hs: ["1101"]}
+
+  - id: rice
+    name: Rice
+    group: food
+    feeds: Staple food for about half the world.
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [rice]
+    stages:
+      - {id: rice, name: "Rice", hs: ["1006"], production: {fao: "Rice"}}
+
+  - id: maize
+    name: Maize
+    group: food
+    feeds: Animal feed (most of it), food, ethanol fuel, starch and sweeteners.
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [maize]
+    stages:
+      - {id: maize, name: "Maize (corn)", hs: ["1005"], production: {fao: "Maize (corn)"}}
+
+  - id: soybeans
+    name: Soybeans
+    group: food
+    feeds: Animal feed (soybean meal), cooking oil, food, biodiesel.
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [soybeans, soybean_oil]
+    stages:
+      - {id: soybeans, name: "Soybeans", hs: ["1201"], production: {fao: "Soya beans"}}
+      - {id: soy_products, name: "Soybean oil and meal", hs: ["1507", "2304"]}
+
+  - id: palm_oil
+    name: Palm oil
+    group: food
+    feeds: Cooking oil, processed food, soap and cosmetics, biodiesel; palm kernel expeller is fed to New Zealand dairy cows.
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [palm_oil]
+    stages:
+      - {id: palm_oil, name: "Palm oil", hs: ["1511"], production: {fao: "Palm oil"}}
+      - {id: palm_kernel, name: "Palm kernel oil and expeller", hs: ["151321", "151329", "230660"]}
+
+  - id: sugar
+    name: Sugar
+    group: food
+    feeds: Food and drink, ethanol fuel (Brazil).
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [sugar]
+    stages:
+      - {id: sugar_cane, name: "Sugar cane", hs: ["121292"], production: {fao: "Sugar cane"}}
+      - {id: sugar, name: "Sugar", hs: ["1701"], production: {fao: "Raw cane or beet sugar (centrifugal only)"}}
+
+  - id: coffee
+    name: Coffee
+    group: food
+    feeds: Drink.
+    sources: FAOSTAT; World Bank Pink Sheet; International Coffee Organization.
+    prices: [coffee]
+    stages:
+      - {id: coffee, name: "Coffee", hs: ["0901"], production: {fao: "Coffee, green"}}
+
+  - id: cocoa
+    name: Cocoa
+    group: food
+    feeds: Chocolate and confectionery.
+    sources: FAOSTAT; World Bank Pink Sheet; International Cocoa Organization.
+    prices: [cocoa]
+    stages:
+      - {id: cocoa_beans, name: "Cocoa beans", hs: ["1801"], production: {fao: "Cocoa beans"}}
+      - {id: cocoa_products, name: "Cocoa paste, butter, powder and chocolate", hs: ["1803", "1804", "1805", "1806"]}
+
+  - id: beef
+    name: Beef
+    group: food
+    feeds: Food; hides go to leather.
+    sources: FAOSTAT; World Bank Pink Sheet.
+    prices: [beef]
+    stages:
+      - {id: cattle, name: "Live cattle", hs: ["0102"]}
+      - {id: beef, name: "Beef", hs: ["0201", "0202"], production: {fao: "Meat of cattle with the bone, fresh or chilled"}}
+    companies:
+      - {name: JBS, country: BRA, step: beef}
+      - {name: Silver Fern Farms, country: NZL, step: beef, nz: true}
+      - {name: ANZCO Foods, country: NZL, step: beef, nz: true}
+
+  - id: sheep
+    name: Lamb, mutton and wool
+    group: food
+    feeds: Meat; wool for clothing, carpets and insulation.
+    sources: FAOSTAT.
+    stages:
+      - {id: sheep_meat, name: "Lamb and mutton", hs: ["0204"], production: {fao: "Meat of sheep, fresh or chilled"}}
+      - {id: wool, name: "Wool", hs: ["5101"], production: {fao: "Shorn wool, greasy, including fleece-washed shorn wool"}}
+    companies:
+      - {name: Alliance Group, country: NZL, step: sheep_meat, nz: true}
+      - {name: Silver Fern Farms, country: NZL, step: sheep_meat, nz: true}
+
+  - id: dairy
+    name: Dairy
+    group: food
+    feeds: Food (milk powder, butter, cheese, infant formula, whey and casein for food makers).
+    sources: FAOSTAT.
+    stages:
+      - {id: milk, name: "Raw milk", hs: ["0401"], production: {fao: "Raw milk of cattle"}}
+      - {id: milk_powder, name: "Milk powder", hs: ["0402"]}
+      - {id: butter_cheese, name: "Butter and cheese", hs: ["0405", "0406"]}
+    companies:
+      - {name: Fonterra, country: NZL, step: milk_powder, note: "The world's biggest dairy exporter", nz: true}
+      - {name: Lactalis, country: FRA, step: butter_cheese}
+      - {name: Nestlé, country: CHE, step: milk_powder}
+
+  - id: fish
+    name: Fish and seafood
+    group: food
+    feeds: Food; fishmeal for fish farms and animal feed.
+    sources: FAOSTAT.
+    stages:
+      - {id: fish, name: "Fish and seafood", hs: ["03"]}
+    companies:
+      - {name: Sanford, country: NZL, step: fish, nz: true}
+      - {name: Moana New Zealand, country: NZL, step: fish, nz: true}
+
+  - id: fruit
+    name: Fruit, with kiwifruit
+    group: food
+    feeds: Food.
+    sources: FAOSTAT.
+    stages:
+      - {id: kiwifruit, name: "Kiwifruit", hs: ["081050"], production: {fao: "Kiwi fruit"}}
+      - {id: apples, name: "Apples", hs: ["080810"], production: {fao: "Apples"}}
+    companies:
+      - {name: Zespri, country: NZL, step: kiwifruit, note: "Markets New Zealand's kiwifruit worldwide", nz: true}
+
+  - id: forestry
+    name: Logs, timber, pulp and paper
+    group: forestry
+    feeds: Building (framing, plywood), packaging, paper, furniture; logs are New Zealand's biggest forestry export, mostly to China.
+    sources: FAOSTAT forestry; World Bank Pink Sheet.
+    prices: [logs, sawnwood]
+    stages:
+      - {id: logs, name: "Logs (industrial roundwood)", hs: ["4403"], production: {fao: "Industrial roundwood"}, unit: cubic metres}
+      - {id: sawnwood, name: "Sawn timber", hs: ["4407"], production: {fao: "Sawnwood"}, unit: cubic metres}
+      - {id: pulp, name: "Wood pulp", hs: ["4701", "4702", "4703", "4704", "4705", "4706"], production: {fao: "Wood pulp"}}
+      - {id: paper, name: "Paper and paperboard", hs: ["4801", "4802", "4803", "4804", "4805", "4806", "4807", "4808", "4809", "4810", "4811", "4812", "4813"], production: {fao: "Paper and paperboard"}}
+    companies:
+      - {name: Oji Fibre Solutions, country: NZL, step: pulp, nz: true}
+      - {name: Suzano, country: BRA, step: pulp}
+      - {name: International Paper, country: USA, step: paper}
+
+  - id: cars
+    name: Cars
+    group: made
+    kind: made
+    feeds: Personal transport; the car industry is one of the biggest buyers of steel, aluminium, plastics, glass, rubber and chips, and now of battery metals.
+    sources: OICA; IEA Global EV Outlook; ACEA; BACI.
+    stages:
+      - {id: car_parts, name: "Car parts and bodies", hs: ["8706", "8707", "8708"]}
+      - id: cars
+        name: Passenger cars
+        hs: ["8703"]
+        how:
+          inputs: An average new car weighs about 1.4 to 1.5 tonnes, about 0.8 to 0.9 tonnes of it steel, 0.15 to 0.2 tonnes aluminium and about as much plastic; an electric car adds a battery pack of 300 to 500 kg.
+          energy: Making the car (without battery) gives roughly 5 to 10 tonnes of CO2; a battery adds roughly 60 to 100 kg per kWh, depending on the power used to make the cells.
+          time: About 20 to 30 hours of assembly work per car; weeks by ship to New Zealand.
+          waste: Paint shop solvents and sludge; at end of life about 75 to 85% of a car's weight is recycled.
+    companies:
+      - {name: Toyota, country: JPN, step: cars}
+      - {name: Volkswagen Group, country: DEU, step: cars}
+      - {name: Hyundai Motor Group, country: KOR, step: cars}
+      - {name: BYD, country: CHN, step: cars}
+      - {name: Stellantis, country: NLD, step: cars}
+      - {name: General Motors, country: USA, step: cars}
+      - {name: Tesla, country: USA, step: cars}
+
+  - id: semiconductors
+    name: Semiconductors (chips)
+    group: made
+    feeds: Phones and computers, data centres and AI, cars (a modern car has over a thousand chips), power electronics, telecoms and defence.
+    sources: BACI; Semiconductor Industry Association; company annual reports; US and EU export-control notices.
+    stages:
+      - id: wafers
+        name: Silicon wafers
+        hs: ["381800"]
+        how:
+          inputs: Polysilicon over 99.9999999% pure, grown into single-crystal ingots and sliced into wafers 300 mm across.
+          energy: Crystal growing and purifying silicon use a lot of electricity, much of it in China.
+          time: Days for an ingot.
+          waste: Silicon dust and slurry from slicing; chlorosilanes from purifying.
+      - id: chips
+        name: Integrated circuits (chips)
+        hs: ["8542"]
+        how:
+          inputs: Wafers, ultra-pure water and gases, photoresists and other chemicals; the most advanced chips need extreme-ultraviolet lithography machines that only ASML makes.
+          energy: A large fab uses as much electricity as a small city, and much water.
+          time: About three months from bare wafer to finished chip, with hundreds of steps; then testing and packaging, mostly in Asia.
+          waste: Fluorinated greenhouse gases, used acids and solvents, wastewater.
+      - {id: discrete_semis, name: "Transistors, diodes and other discrete devices (with LEDs)", hs: ["854110", "854121", "854129", "854130", "854150", "854160", "854190"]}
+    companies:
+      - {name: TSMC, country: TWN, step: chips, note: "The biggest contract chip maker, and most of the world's most advanced chips"}
+      - {name: Samsung Electronics, country: KOR, step: chips, note: "Memory and contract manufacturing"}
+      - {name: SK hynix, country: KOR, step: chips, note: "Memory, including high-bandwidth memory for AI"}
+      - {name: Intel, country: USA, step: chips}
+      - {name: Micron, country: USA, step: chips, note: "Memory"}
+      - {name: SMIC, country: CHN, step: chips}
+      - {name: Nvidia, country: USA, step: chips, note: "Designs AI chips; TSMC makes them"}
+      - {name: ASML, country: NLD, step: chips, note: "The only maker of extreme-ultraviolet lithography machines"}
+      - {name: Shin-Etsu Chemical, country: JPN, step: wafers}
+      - {name: SUMCO, country: JPN, step: wafers}
+
+  - id: ev_batteries
+    name: EV batteries
+    group: made
+    kind: batteries
+    feeds: Electric cars, buses and trucks; grid storage.
+    sources: IEA Global EV Outlook and Critical Minerals Data Explorer; Argonne GREET; BACI; USGS.
+    stages:
+      - {id: battery_cells, name: "Batteries and cells (other accumulators, with lithium-ion)", hs: ["850780"]}
+    companies:
+      - {name: CATL, country: CHN, step: battery_cells}
+      - {name: BYD, country: CHN, step: battery_cells}
+      - {name: LG Energy Solution, country: KOR, step: battery_cells}
+      - {name: Panasonic, country: JPN, step: battery_cells}
+      - {name: SK On, country: KOR, step: battery_cells}
+      - {name: Samsung SDI, country: KOR, step: battery_cells}
+
+# Rough materials in a battery pack, kg per kWh of capacity, by chemistry. Approximate,
+# rounded from IEA and Argonne estimates; they vary by cell design.
+battery_materials:
+  - {chemistry: NMC 811, lithium: 0.1, nickel: 0.75, cobalt: 0.09, manganese: 0.09, graphite: 1.0}
+  - {chemistry: NMC 622, lithium: 0.12, nickel: 0.6, cobalt: 0.2, manganese: 0.19, graphite: 1.0}
+  - {chemistry: LFP, lithium: 0.1, nickel: 0, cobalt: 0, manganese: 0, graphite: 1.1}
+battery_material_sectors: {lithium: lithium, nickel: nickel, cobalt: cobalt, manganese: manganese, graphite: graphite}
+
+# Export limits and rules on battery materials (hand-checked; dates are when they took effect).
+battery_rules:
+  - {country: IDN, year: 2020, text: "Indonesia bans exports of nickel ore, to build refining at home."}
+  - {country: CHN, year: 2023, text: "China requires export licences for some graphite products (from December 2023)."}
+  - {country: COD, year: 2025, text: "DR Congo suspends cobalt exports for four months (February 2025), then sets quotas."}
+  - {country: USA, year: 2024, text: "The US raises its tariff on Chinese electric cars to 100% and on Chinese lithium-ion EV batteries to 25%."}
+  - {country: eu, year: 2024, text: "The EU adds duties of up to 35.3% on electric cars made in China."}
+
+# HS chapters (two digits), for the By country view: every product falls in one.
+chapters:
+  "01": Live animals
+  "02": Meat
+  "03": Fish and seafood
+  "04": Dairy, eggs and honey
+  "05": Other animal products
+  "06": Plants and flowers
+  "07": Vegetables
+  "08": Fruit and nuts
+  "09": Coffee, tea and spices
+  "10": Cereals
+  "11": Flour and malt
+  "12": Oilseeds
+  "13": Gums and resins
+  "14": Other plant materials
+  "15": Fats and oils
+  "16": Prepared meat and fish
+  "17": Sugar
+  "18": Cocoa
+  "19": Cereal foods and bakery
+  "20": Prepared fruit and vegetables
+  "21": Other food preparations
+  "22": Drinks
+  "23": Animal feed and food waste
+  "24": Tobacco
+  "25": Salt, stone and cement
+  "26": Ores
+  "27": Fuels (oil, gas, coal, power)
+  "28": Inorganic chemicals
+  "29": Organic chemicals
+  "30": Medicines
+  "31": Fertilizers
+  "32": Paints and dyes
+  "33": Perfumes and cosmetics
+  "34": Soaps and waxes
+  "35": Proteins and glues
+  "36": Explosives
+  "37": Photographic goods
+  "38": Other chemicals
+  "39": Plastics
+  "40": Rubber
+  "41": Hides and leather
+  "42": Leather goods
+  "43": Furs
+  "44": Wood
+  "45": Cork
+  "46": Basketware
+  "47": Wood pulp
+  "48": Paper
+  "49": Books and printing
+  "50": Silk
+  "51": Wool
+  "52": Cotton
+  "53": Other plant fibres
+  "54": Man-made filaments
+  "55": Man-made fibres
+  "56": Wadding and rope
+  "57": Carpets
+  "58": Special fabrics
+  "59": Coated fabrics
+  "60": Knitted fabrics
+  "61": Knitted clothing
+  "62": Other clothing
+  "63": Other textile goods
+  "64": Footwear
+  "65": Hats
+  "66": Umbrellas
+  "67": Feathers and artificial flowers
+  "68": Stone and plaster articles
+  "69": Ceramics
+  "70": Glass
+  "71": Gold, gems and jewellery
+  "72": Iron and steel
+  "73": Iron and steel articles
+  "74": Copper
+  "75": Nickel
+  "76": Aluminium
+  "78": Lead
+  "79": Zinc
+  "80": Tin
+  "81": Other base metals
+  "82": Tools
+  "83": Metal articles
+  "84": Machinery and computers
+  "85": Electrical and electronics
+  "86": Railway equipment
+  "87": Vehicles
+  "88": Aircraft
+  "89": Ships and boats
+  "90": Instruments and medical devices
+  "91": Clocks and watches
+  "92": Musical instruments
+  "93": Arms
+  "94": Furniture and lighting
+  "95": Toys and sports goods
+  "96": Other manufactures
+  "97": Art and antiques
+  "99": Other

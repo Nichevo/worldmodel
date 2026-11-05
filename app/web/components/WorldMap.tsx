@@ -8,7 +8,7 @@ import { sparklineSvg } from "@/lib/charts";
 import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
-import { countryShapes } from "@/lib/geo";
+import { arc, countryCentres, countryShapes } from "@/lib/geo";
 import { LAYER_STYLE, layerData, layerLabel } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
 import { useSettings } from "@/lib/settings";
@@ -45,7 +45,10 @@ type Props = {
   fitPoints?: boolean; // zoom to the points whenever they change
   // A click on a city dot (the points, or the "Major cities" layer); default: open the city's page.
   onCity?: (cityId: string) => void;
+  lines?: MapLine[]; // routes between countries (trade on the Sectors page), width by value
 };
+
+export type MapLine = { from: string; to: string; value: number; text?: string };
 
 export type MapPoint = { id: string; name: string; lng: number; lat: number; size: number; text?: string; capital?: boolean; color?: string };
 
@@ -91,7 +94,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
-  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity,
+  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines,
 }: Props) {
   const cityPick = useRef(onCity);
   cityPick.current = onCity;
@@ -164,9 +167,10 @@ export default function WorldMap({
 
     // The overlay feature under the pointer, if any (a few pixels' slack for thin lines and small dots).
     const overlayAt = (pt: maplibregl.Point) => {
-      const ids = [...Object.keys(LAYER_STYLE), "points"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      const ids = [...Object.keys(LAYER_STYLE), "points", "lines"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (!ids.length) return null;
       const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
+      if (f && f.layer.id === "ov-lines") return String((f.properties as { label?: string }).label || "") || null;
       return f ? layerLabel(f.layer.id.slice(3), f.properties as Record<string, unknown>) : null;
     };
     // The city dot under the pointer, if any: its city id.
@@ -390,6 +394,37 @@ export default function WorldMap({
     if (m.getLayer("hover")) apply();
     else onLoad.current.push(apply);
   }, [pointsKey, fitPoints]);
+
+  // Routes between countries: curved lines from each exporter to its buyer, wider for more.
+  const linesKey = lines ? lines.map((l) => `${l.from}>${l.to}:${l.value}`).join(",") : null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || linesKey === null) return;
+    let live = true;
+    const apply = () => countryCentres().then((c) => {
+      if (!live || !map.current) return;
+      const ls = (lines ?? []).filter((l) => c[l.from] && c[l.to]);
+      const top = Math.max(1, ...ls.map((l) => l.value));
+      const data: GeoJSON.FeatureCollection = {
+        type: "FeatureCollection",
+        features: [...ls].sort((a, b) => a.value - b.value).map((l) => ({
+          type: "Feature", geometry: { type: "LineString", coordinates: arc(c[l.from], c[l.to]) },
+          properties: { w: 0.8 + 7 * Math.sqrt(l.value / top), label: l.text ?? "" },
+        })),
+      };
+      const src = m.getSource("ov-lines") as GeoJSONSource | undefined;
+      if (src) src.setData(data);
+      else {
+        m.addSource("ov-lines", { type: "geojson", data });
+        m.addLayer({ id: "ov-lines", type: "line", source: "ov-lines", layout: { "line-cap": "round" }, paint: {
+          "line-color": cssVar("--accent") || cssVar("--series-1"), "line-opacity": 0.55, "line-width": ["get", "w"],
+        } }, m.getLayer("hover") ? "hover" : undefined);
+      }
+    });
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+    return () => { live = false; };
+  }, [linesKey]);
 
   // Outline the country hovered in a linked panel.
   useEffect(() => {

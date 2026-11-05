@@ -135,6 +135,19 @@ export default function SettingsPage() {
           save={(v) => save({ relations_fdr: v })} />
       </section>
 
+      <section className="card" id="sectors">
+        <h2>Sectors</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <a href="/sectors">Sectors</a> page follows one industry across the globe: who mines or grows it, who
+          processes it, where it is shipped and what it sells for. Trade comes from CEPII BACI, one large download.
+        </p>
+        <Toggle label="Download trade by product (BACI)" hint="About 2 GB, checked every four months during .\refresh.bat; only the years you keep are stored (about 1 GB in the warehouse from 2005). Switching off keeps what is stored."
+          on={s.sectors_trade_fetch} set={(v) => save({ sectors_trade_fetch: v })} />
+        <NumberField label="Trade kept from" unit="year" value={s.sectors_trade_from} min={1995} max={2030} step={1}
+          note="BACI starts in 1995. Earlier years make the warehouse bigger; the change shows at the next refresh."
+          save={(v) => save({ sectors_trade_from: v })} />
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."

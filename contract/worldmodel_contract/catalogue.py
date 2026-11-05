@@ -259,6 +259,9 @@ def validate() -> list[str]:
         for k in ("from", "to"):
             if link[k] not in node_ids:
                 problems.append(f"driver graph: link refers to unknown node {link[k]}")
+    from worldmodel_contract import sectors  # sectors.yaml refers back to entities
+
+    problems += sectors.validate()
     return problems
 
 
