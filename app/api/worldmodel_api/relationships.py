@@ -22,6 +22,15 @@ _lock = threading.Lock()
 _cache: dict = {"key": None, "pairs": [], "events": [], "meta": None}
 
 
+def _ratios() -> dict[str, tuple[str, str]]:
+    """Indicators the catalogue builds as a ratio of two others: id -> (numerator, denominator)."""
+    try:
+        return {k: (i.aggregation.numerator, i.aggregation.denominator) for k, i in catalogue.indicators().items()
+                if i.aggregation and i.aggregation.method == "ratio"}
+    except Exception:  # noqa: BLE001 - a catalogue problem must not hide the scan
+        return {}
+
+
 def _load(build_id: str | None) -> dict:
     meta = rel.latest(local.home(), build_id)
     if meta is None:
@@ -43,12 +52,15 @@ def _load(build_id: str | None) -> dict:
             finally:
                 con.close()
             names = meta.get("names", {})
+            ratios = _ratios()
             for row in out[0]:
                 for side in ("x", "y"):
                     n = names.get(row[side], {})
                     row[f"{side}_name"], row[f"{side}_domain"] = n.get("name", row[side]), n.get("domain", "")
                     row[f"{side}_unit"] = rel.change_unit(n.get("unit"), n.get("kind", "diff"))
                 row["groups"] = json.loads(row["groups"] or "{}")
+                # Worked out here, not in the scan, so scans made before this still get it.
+                row["built_from"] = rel.built_from(row["x"], row["x_name"], row["y"], row["y_name"], ratios)
             for row in out[1]:
                 n = names.get(row["indicator_id"], {})
                 row["name"], row["domain"] = n.get("name", row["indicator_id"]), n.get("domain", "")
@@ -63,12 +75,16 @@ def summary(meta: dict | None, build_id: str | None) -> dict | None:
     out["stale"] = bool(build_id) and meta["build_id"] != build_id
     out["domains"] = sorted({n.get("domain", "") for n in meta.get("names", {}).values()} - {""})
     out["labels"], out["groups"], out["event_kinds"] = rel.LABELS, rel.GROUPS, list(rel.EVENT_KINDS)
+    out["built_from_label"] = rel.BUILT_FROM
     return out
 
 
 def pairs(build_id: str | None, label: str | None = None, domain: str | None = None, group: str | None = None,
           q: str | None = None, indicator: str | None = None, drivers_only: bool = False, hide_same: bool = True,
-          first_only: bool = False, hide_same_source: bool = False, limit: int = 100, offset: int = 0) -> dict:
+          first_only: bool = False, hide_same_source: bool = False, limit: int = 100, offset: int = 0,
+          built: str = "last") -> dict:
+    """built: "last" lists pairs that are one figure made from the other after the rest,
+    "hide" leaves them out, "only" lists just them, "mixed" ranks them with the rest."""
     data = _load(build_id)
     found = data["pairs"]
     words = [w for w in (q or "").lower().split() if w]
@@ -86,6 +102,10 @@ def pairs(build_id: str | None, label: str | None = None, domain: str | None = N
             continue
         if hide_same_source and r.get("same_source"):
             continue
+        if built == "hide" and r.get("built_from"):
+            continue
+        if built == "only" and not r.get("built_from"):
+            continue
         if first_only and not r["first"]:
             continue
         if words:
@@ -97,10 +117,11 @@ def pairs(build_id: str | None, label: str | None = None, domain: str | None = N
             if not g or abs(g[0]) < 0.1 or g[2] >= 0.05:
                 continue
         out.append(r)
+    last = (lambda r: bool(r.get("built_from"))) if built == "last" else (lambda r: False)
     if group:
-        out.sort(key=lambda r: -abs(r["groups"][group][0]))
+        out.sort(key=lambda r: (last(r), -abs(r["groups"][group][0])))
     else:
-        out.sort(key=lambda r: -r["score"])
+        out.sort(key=lambda r: (last(r), -r["score"]))
     return {"scan": summary(data["meta"], build_id), "total": len(out), "rows": out[offset:offset + limit]}
 
 

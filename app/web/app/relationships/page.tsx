@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
 import Help from "@/components/Help";
-import { api, type EventLink, type RelationDetail, type RelationLabel, type RelationList, type RelationPair, type RelationScan } from "@/lib/api";
+import { api, type BuiltFilter, type EventLink, type RelationDetail, type RelationLabel, type RelationList, type RelationPair, type RelationScan } from "@/lib/api";
 import { openAsk } from "@/lib/ai";
 import { eventPathOption, lagOption, relationScatterOption } from "@/lib/charts";
 
@@ -22,8 +22,13 @@ const KIND_TEXT: Record<string, string> = {
 };
 const PAGE = 100;
 
-function Chips({ labels }: { labels: RelationLabel[] }) {
-  return <span className="rel-chips">{labels.map((l) => <span key={l} className={`rel-chip rel-${l}`}>{LABEL_TEXT[l]}</span>)}</span>;
+function Chips({ labels, builtFrom }: { labels: RelationLabel[]; builtFrom?: string | null }) {
+  return (
+    <span className="rel-chips">
+      {builtFrom && <span className="rel-chip rel-built" title={`One figure is made from the other (${builtFrom}), so they move together by arithmetic`}>Built from each other</span>}
+      {labels.map((l) => <span key={l} className={`rel-chip rel-${l}`}>{LABEL_TEXT[l]}</span>)}
+    </span>
+  );
 }
 
 function firstText(p: RelationPair): string {
@@ -46,6 +51,7 @@ function RelationshipsPage() {
   const [drivers, setDrivers] = useState(false);
   const [showSame, setShowSame] = useState(false);
   const [hideSource, setHideSource] = useState(false);
+  const [built, setBuilt] = useState<BuiltFilter>("last");
   const [limit, setLimit] = useState(PAGE);
   const [list, setList] = useState<RelationList | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,11 +61,11 @@ function RelationshipsPage() {
     let live = true;
     const t = setTimeout(() => {
       api.relationships({ label: label || undefined, domain: domain || undefined, group: group || undefined, q: q || undefined,
-        indicator: indicator || undefined, first, drivers, hide_same: !showSame, hide_same_source: hideSource, limit })
+        indicator: indicator || undefined, first, drivers, hide_same: !showSame, hide_same_source: hideSource, built, limit })
         .then((r) => { if (live) { setList(r); setError(null); } }).catch((e) => live && setError(String(e.message || e)));
     }, q ? 250 : 0);
     return () => { live = false; clearTimeout(t); };
-  }, [label, domain, group, q, indicator, first, drivers, showSame, hideSource, limit]);
+  }, [label, domain, group, q, indicator, first, drivers, showSame, hideSource, built, limit]);
 
   const open = (p: { x: string; y: string } | null) => {
     setPick(p);
@@ -105,6 +111,13 @@ function RelationshipsPage() {
                   <option value="">All</option>
                   {Object.entries(scan.groups).map(([g, n]) => <option key={g} value={g}>{n}</option>)}
                 </select></label>
+                <label title="Pairs where one figure is made from the other: a total and the same per person, a figure and its growth, the same thing in other units, a ratio and its parts">
+                  Built from each other <select value={built} onChange={(e) => { setBuilt(e.target.value as BuiltFilter); setLimit(PAGE); }}>
+                    <option value="last">Listed last</option>
+                    <option value="hide">Hidden</option>
+                    <option value="only">Only these</option>
+                    <option value="mixed">Mixed in</option>
+                  </select></label>
                 <input type="search" placeholder="Find a figure" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} aria-label="Find a figure" />
               </div>
               <div className="chips-row small">
@@ -128,7 +141,7 @@ function RelationshipsPage() {
                           onClick={() => open({ x: p.x, y: p.y })} style={{ cursor: "pointer" }}>
                           <td>{p.x_name}{p.in_drivers && <span title="In the forecast model's driver list"> ◆</span>}</td>
                           <td>{p.y_name}{p.saved_driver && <span title="Kept as a what-if driver"> ★</span>}</td>
-                          <td><Chips labels={p.labels} /></td>
+                          <td><Chips labels={p.labels} builtFrom={p.built_from} /></td>
                           <td className="num">{(group ? p.groups[group]?.[0] ?? p.r : p.r).toFixed(2)}</td>
                           <td>{firstText(p)}</td>
                           <td className="num">{group ? p.groups[group]?.[1] : p.n_countries}</td>
@@ -199,7 +212,9 @@ function PairDetail({ x, y, close }: { x: string; y: string; close: () => void }
         <CardAsk onAsk={() => openAsk({ title, parts: [{ key: "data", kind: "data", label: "What the scan found", text: askText }] })} />
         <button className="link small" onClick={close}>Close</button>
       </div>
-      <Chips labels={p.labels} />
+      <Chips labels={p.labels} builtFrom={p.built_from} />
+      {p.built_from && <p className="small muted">These two are built from each other ({p.built_from}), so they move together by arithmetic.
+        Useful to know, but not a link between two separately measured things.</p>}
       <ul className="small rel-facts">
         <li>Yearly changes go together with a correlation of <b>{p.r.toFixed(2)}</b> over {p.n_countries} countries, {p.year_from}–{p.year_to}
           {" "}({p.r_two_way.toFixed(2)} once world-wide swings in each year are taken out).</li>

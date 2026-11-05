@@ -1723,17 +1723,21 @@ def _build_id() -> str:
 def relationships_list(label: str | None = None, domain: str | None = None, group: str | None = None,
                        q: str | None = None, indicator: str | None = None, drivers: bool = False,
                        hide_same: bool = True, first: bool = False, hide_same_source: bool = False,
+                       built: str = Query("last", pattern="^(last|hide|only|mixed)$"),
                        limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
     """Pairs of indicators the relationship scan found worth a look, best first. Each
     carries its evidence labels (move together, one tends to come first, holds after
     allowing for income and time); nothing is called cause and effect. Filters: label,
     topic (domain), country group (pairs whose link also shows within that group),
-    words, one indicator, pairs in the forecast model's driver list. `scan` is null
+    words, one indicator, pairs in the forecast model's driver list. Pairs where one
+    figure is made from the other (a total and the same per person, a level and its
+    growth, a ratio and its parts) carry `built_from` with the reason; `built` lists
+    them last (default), hides them, shows only them, or mixes them in. `scan` is null
     until the first scan has run (after a refresh)."""
     if label and label not in relterms.LABELS:
         raise HTTPException(422, f"label must be one of {', '.join(relterms.LABELS)}")
     out = relationships.pairs(_build_id(), label, domain, group, q, indicator, drivers, hide_same, first,
-                              hide_same_source, limit, offset)
+                              hide_same_source, limit, offset, built)
     mine = {d["id"] for d in userdata.drivers()}
     for r in out["rows"]:
         r["saved_driver"] = f"{r['x']}__{r['y']}" in mine or f"{r['y']}__{r['x']}" in mine
