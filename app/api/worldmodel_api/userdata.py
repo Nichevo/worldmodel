@@ -13,6 +13,7 @@ warehouse, and are written atomically so a crash never leaves half a file.
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import threading
 from collections import Counter
@@ -353,4 +354,46 @@ def delete_ratio(ratio_id: str) -> bool:
         if len(kept) == len(items):
             return False
         _write_json("ratios.json", kept)
+        return True
+
+
+# ----------------------------------------------------------------------------- what-if drivers (from the relationship scan)
+MAX_DRIVERS = 200
+
+
+def drivers() -> list[dict]:
+    items = _read_json("drivers.json", [])
+    return items if isinstance(items, list) else []
+
+
+def add_driver(d: dict) -> dict:
+    """Keep a pair from the Relationships page as a what-if driver on the Forecasts
+    page: {driver, target, slope, lag, driver_unit, target_unit, names...}."""
+    for k in ("driver", "target"):
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,79}", str(d.get(k) or "")):
+            raise ValueError(f"{k} must be an indicator id")
+    if d["driver"] == d["target"]:
+        raise ValueError("a figure cannot drive itself")
+    try:
+        slope = float(d.get("slope"))
+    except (TypeError, ValueError):
+        raise ValueError("the pair has no estimated size (it did not hold after allowing for income and time)")
+    item = {"id": f"{d['driver']}__{d['target']}", "driver": d["driver"], "target": d["target"], "slope": slope,
+            "lag": max(0, min(10, int(d.get("lag") or 0))), "driver_name": str(d.get("driver_name") or d["driver"])[:200],
+            "target_name": str(d.get("target_name") or d["target"])[:200],
+            "driver_unit": str(d.get("driver_unit") or "")[:80], "target_unit": str(d.get("target_unit") or "")[:80],
+            "target_kind": "pct" if d.get("target_kind") == "pct" else "diff", "added_at": now()}
+    with _lock:
+        items = [x for x in drivers() if x.get("id") != item["id"]] + [item]
+        _write_json("drivers.json", items[-MAX_DRIVERS:])
+    return item
+
+
+def delete_driver(driver_id: str) -> bool:
+    with _lock:
+        items = drivers()
+        kept = [x for x in items if x.get("id") != driver_id]
+        if len(kept) == len(items):
+            return False
+        _write_json("drivers.json", kept)
         return True

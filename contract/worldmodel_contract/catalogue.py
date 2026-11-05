@@ -172,6 +172,11 @@ def topics() -> list[dict]:
     return _yaml("topics.yaml")
 
 
+def api_keys() -> list[dict]:
+    """The API key register: which sources need a key, where to get it, what it unlocks."""
+    return _yaml("api_keys.yaml")
+
+
 def driver_graph() -> dict:
     return _yaml("driver_graph.yaml")
 

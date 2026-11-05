@@ -32,9 +32,10 @@ from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
+from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, relationships, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1680,6 +1681,103 @@ def zones():
                     "by_country": [i for i in z.get("by_country", []) if i in have_inds],
                     "layers": [l for l in z["layers"] if l in have_layers], "treaties": treaties})
     return out
+
+
+# ----------------------------------------------------------------------------- relationship scan
+def _build_id() -> str:
+    return warehouse.current().path.stem
+
+
+@api.get("/relationships")
+def relationships_list(label: str | None = None, domain: str | None = None, group: str | None = None,
+                       q: str | None = None, indicator: str | None = None, drivers: bool = False,
+                       hide_same: bool = True, first: bool = False, hide_same_source: bool = False,
+                       limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
+    """Pairs of indicators the relationship scan found worth a look, best first. Each
+    carries its evidence labels (move together, one tends to come first, holds after
+    allowing for income and time); nothing is called cause and effect. Filters: label,
+    topic (domain), country group (pairs whose link also shows within that group),
+    words, one indicator, pairs in the forecast model's driver list. `scan` is null
+    until the first scan has run (after a refresh)."""
+    if label and label not in relterms.LABELS:
+        raise HTTPException(422, f"label must be one of {', '.join(relterms.LABELS)}")
+    out = relationships.pairs(_build_id(), label, domain, group, q, indicator, drivers, hide_same, first,
+                              hide_same_source, limit, offset)
+    mine = {d["id"] for d in userdata.drivers()}
+    for r in out["rows"]:
+        r["saved_driver"] = f"{r['x']}__{r['y']}" in mine or f"{r['y']}__{r['x']}" in mine
+    return out
+
+
+@api.get("/relationships/pair")
+def relationships_pair(x: str, y: str):
+    """One pair: the scan's figures (lag chart, per-group correlations, note) and every
+    country-year's changes of both, for the scatter chart."""
+    bid = _build_id()
+    found = relationships.one(bid, x, y)
+    kx, ky = relationships.kind_of(bid, x), relationships.kind_of(bid, y)
+    if kx is None or ky is None:
+        raise HTTPException(404, "the last scan did not include both indicators")
+    pts = rows(relationships.scatter_sql(kx, ky), [x, y, x, y])
+    names = {r["entity_id"]: r["name"] for r in rows("SELECT entity_id, name FROM entities WHERE type = 'country'")}
+    return {"pair": found, "x": x, "y": y, "kind_x": kx, "kind_y": ky,
+            "points": [[p["entity_id"], p["y"], round(p["dx"], 4), round(p["dy"], 4)] for p in pts
+                       if p["dx"] is not None and p["dy"] is not None],
+            "names": names}
+
+
+@api.get("/relationships/events")
+def relationships_events(kind: str | None = None, indicator: str | None = None, significant: bool = True,
+                         built_in: bool = False, diverging: bool = False):
+    """Before and after events: how each indicator changed in countries after an event
+    of a kind (from the year before to 3 years after, and the path from 3 years before
+    to 5 after), less the change in countries of the same income group without one.
+    `built_in` also lists links that hold by definition (a recession lowering GDP);
+    `diverging` also lists those where the countries were already moving apart before."""
+    return relationships.events(_build_id(), kind, indicator, significant, not built_in, not diverging)
+
+
+@api.get("/drivers")
+def drivers_list():
+    """Pairs you kept from the Relationships page as what-if drivers for the Forecasts page."""
+    return userdata.drivers()
+
+
+@api.post("/drivers")
+def drivers_add(body: dict = Body(..., examples=[{"driver": "urban_share", "target": "gdp_per_capita_growth"}])):
+    """Keep a scanned pair as a what-if driver: the driver's extra change moves the
+    target by the size the scan estimated (after income and time), after its lag."""
+    driver, target = str(body.get("driver") or ""), str(body.get("target") or "")
+    found = relationships.one(_build_id(), driver, target)
+    if found is None:
+        raise HTTPException(404, "the last scan has no such pair")
+    if found["slope"] is None or "holds" not in found["labels"]:
+        raise HTTPException(422, "only pairs that hold after allowing for income and time have a size to use")
+    # the scan's slope is y on x; for the other way round, invert it (a rough reading)
+    slope = found["slope"] if not found["flipped"] else (1 / found["slope"] if found["slope"] else None)
+    lag = found["best_lag"] if found["first"] in ("x" if not found["flipped"] else "y", "both") else 0
+    side_d, side_t = ("x", "y") if not found["flipped"] else ("y", "x")
+    try:
+        return userdata.add_driver({"driver": driver, "target": target, "slope": slope, "lag": lag,
+                                    "driver_name": found[f"{side_d}_name"], "target_name": found[f"{side_t}_name"],
+                                    "driver_unit": found[f"{side_d}_unit"], "target_unit": found[f"{side_t}_unit"],
+                                    "target_kind": relationships.kind_of(_build_id(), target)})
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.delete("/drivers/{driver_id}")
+def drivers_delete(driver_id: str):
+    if not userdata.delete_driver(driver_id):
+        raise HTTPException(404, "no such driver")
+    return {"deleted": driver_id}
+
+
+@api.get("/keys")
+def keys_list():
+    """The API keys the app can use: what each unlocks, where to get it, and whether it
+    is set in the .env file (never the key itself)."""
+    return relationships.keys()
 
 
 # ----------------------------------------------------------------------------- laws and society

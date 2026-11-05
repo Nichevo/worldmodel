@@ -104,6 +104,18 @@ export const HELP = {
     units: "Yes or no; days of leave; years of age",
     sources: [{ label: "World Bank, Women, Business and the Law", indicator: "wbl_index" }, { label: "Hand-checked list", indicator: "law_same_sex_marriage" }],
   },
+  relationships: {
+    title: "Relationships",
+    what: "Pairs of figures that move together, where one tends to move first, or where the link holds after allowing for income and time. Nothing here proves cause and effect: each pair shows how strong its evidence is, and a note on what else could explain it.",
+    how: "After each refresh the scan takes every pair of the indicators switched on and compares their yearly changes (not levels: two figures that both grow look related even when they are not), country by country, with each country's own average change taken out. Move together: the changes go together across countries and years. One tends to come first: one figure's changes one to three years earlier help predict the other's, beyond what its own past says (a Granger test pooled over countries, with country and year effects taken out), and for the strongest pairs the same test is run in each country on its own. Holds after allowing for income and time: the same-year link survives taking out growth of GDP per person, the year (world-wide swings such as 2009) and fixed differences between countries. Standard errors allow for each country's years being alike, and with thousands of pairs some will look related by chance, so each test is corrected for that (false discovery rate, Settings: Relationship scan).",
+    units: "Correlation from -1 to 1; size: how much the second figure changes for one unit of change in the first, same year",
+  },
+  events_link: {
+    title: "Before and after events",
+    what: "How a figure changed in countries after an event (a recession, coup, election, law change and so on) compared with countries in the same income group that had no such event in those years.",
+    how: "For each event, the change from the year before it to each year after, less the average change over the same years in countries of the same income group with no event of that kind from 3 years before to 5 years after. The line before year 0 shows whether the countries were already different beforehand. Links that hold by definition (a recession lowering GDP) are hidden unless you ask for them.",
+    units: "Percent change for levels; points for rates and shares",
+  },
   holidays: {
     title: "Public holidays",
     what: "This year's public holidays, month by month. Holidays kept only in some states or regions are marked.",

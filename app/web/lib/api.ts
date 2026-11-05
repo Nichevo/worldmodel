@@ -181,6 +181,12 @@ export type Settings = {
   crisiswatch_fetch: boolean;
   holidays_fetch: boolean; // refresh reads public holidays (Nager.Date) // refresh reads CrisisWatch, one month's page at a time
   crisiswatch_backfill: number; // older months filled in per refresh
+  relations_scan: boolean; // look for relationships after each refresh
+  relations_indicators: "on" | "all"; // the indicators switched on, or every one (overnight)
+  relations_min_countries: number;
+  relations_min_years: number;
+  relations_max_minutes: number;
+  relations_fdr: number; // share of reported pairs allowed to be chance finds
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;
@@ -316,6 +322,31 @@ export type Zone = {
 };
 
 // Laws and rules as values by year.
+// The relationship scan (run after each refresh): pairs of figures worth a look.
+export type RelationLabel = "together" | "first" | "holds";
+export type RelationScan = { build_id: string; finished_at: string; seconds: number; partial: boolean; stale: boolean;
+  indicators: number; pairs_possible: number; pairs_tested: number; pairs_thin: number; pairs_kept: number;
+  label_counts: Record<RelationLabel, number>; events_tested: number; events_kept: number;
+  settings: Record<string, number | string>; domains: string[]; labels: Record<RelationLabel, string>;
+  groups: Record<string, string>; event_kinds: string[] };
+export type RelationPair = { x: string; y: string; x_name: string; y_name: string; x_domain: string; y_domain: string;
+  x_unit: string; y_unit: string; labels: RelationLabel[]; score: number; n_obs: number; n_countries: number;
+  year_from: number; year_to: number; r: number; r_two_way: number; q_together: number; beta: number | null;
+  slope: number | null; q_holds: number | null; control_used: boolean; first: "x" | "y" | "both" | null; best_lag: number | null;
+  q_x_first: number; q_y_first: number; countries_x_first: number | null; countries_y_first: number | null;
+  countries_tested: number | null; lags: (number | null)[]; groups: Record<string, [number, number, number]>;
+  in_drivers: boolean; near_same: boolean; same_source: boolean; note: string; saved_driver?: boolean; flipped?: boolean };
+export type RelationList = { scan: RelationScan | null; total: number; rows: RelationPair[] };
+export type RelationDetail = { pair: RelationPair | null; x: string; y: string; kind_x: string; kind_y: string;
+  points: [string, number, number, number][]; names: Record<string, string> };
+export type EventLink = { kind: string; indicator_id: string; name: string; domain: string; n_events: number; h: number[];
+  effect: (number | null)[]; se: (number | null)[]; n: number[]; effect_3: number; p: number; q: number;
+  significant: boolean; built_in: boolean; diverging_before: boolean; pre_trend: number | null; unit: string };
+export type Driver = { id: string; driver: string; target: string; slope: number; lag: number; driver_name: string;
+  target_name: string; driver_unit: string; target_unit: string; target_kind: "pct" | "diff"; added_at: string };
+export type ApiKey = { source: string; name: string; signup: string | null; how: string | null; unlocks: string | null;
+  limits: string | null; status: string; active: boolean; env: { name: string; set: boolean }[] };
+
 export type LawRule = { indicator_id: string; name: string; description: string; unit: string; decimals: number; domain: string;
   countries: number; first: number; last: number };
 export type LawMap = { indicator: { indicator_id: string; name: string; description: string; unit: string; decimals: number };
@@ -602,6 +633,18 @@ export const api = {
   voting: (entity: string, compare?: string) => get<Voting>(`/entities/${encodeURIComponent(entity)}/voting`, { compare }),
   crisiswatch: (month?: string) => get<CrisisWatchMonth>("/crisiswatch", { month }),
   zones: () => get<Zone[]>("/zones"),
+  relationships: (q: { label?: string; domain?: string; group?: string; q?: string; indicator?: string; drivers?: boolean;
+    hide_same?: boolean; first?: boolean; hide_same_source?: boolean; limit?: number; offset?: number }) =>
+    get<RelationList>("/relationships", { ...q, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
+      hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
+  relationPair: (x: string, y: string) => get<RelationDetail>("/relationships/pair", { x, y }),
+  eventLinks: (q: { kind?: string; indicator?: string; built_in?: boolean; diverging?: boolean }) =>
+    get<{ scan: RelationScan | null; total: number; rows: EventLink[] }>("/relationships/events",
+      { ...q, built_in: q.built_in ? "true" : undefined, diverging: q.diverging ? "true" : undefined }),
+  drivers: () => get<Driver[]>("/drivers"),
+  addDriver: (driver: string, target: string) => send<Driver>("POST", "/drivers", { driver, target }),
+  deleteDriver: (id: string) => send<{ deleted: string }>("DELETE", `/drivers/${encodeURIComponent(id)}`),
+  keys: () => get<ApiKey[]>("/keys"),
   laws: () => get<LawRule[]>("/laws"),
   lawMap: (indicator: string, year?: number) => get<LawMap>(`/laws/${encodeURIComponent(indicator)}`, { year }),
   entityLaws: (entity: string) => get<EntityLaws>(`/entities/${encodeURIComponent(entity)}/laws`),

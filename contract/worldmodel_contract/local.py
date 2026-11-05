@@ -66,6 +66,13 @@ SETTINGS: dict[str, object] = {
     "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
     "crisiswatch_backfill": 12,      # older CrisisWatch months filled in per refresh, back to 2003 (0 = only the latest)
     "voting_compare": "USA,CHN,RUS,eu",  # who a country's UN votes are compared with on its Voting card
+    # Relationship scan (after each refresh): which figures move together, which comes first
+    "relations_scan": True,          # look for relationships after each refresh (and once after update.bat)
+    "relations_indicators": "on",    # "on": the indicators switched on (about 120, some 7,000 pairs); "all": every one (overnight)
+    "relations_min_countries": 30,   # a pair needs this many countries with data for both
+    "relations_min_years": 10,       # and this many years of changes in each of those countries
+    "relations_max_minutes": 15,     # stop and keep what is done after this long
+    "relations_fdr": 0.05,           # share of reported pairs allowed to be chance finds (false discovery rate)
     # Local AI (Ollama on this PC or another; the app's server talks to it)
     "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
     "ollama_url": "http://localhost:11434",
@@ -87,7 +94,8 @@ SETTINGS: dict[str, object] = {
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
-           "base_map": ("online", "local", "plain")}
+           "base_map": ("online", "local", "plain"),
+           "relations_indicators": ("on", "all")}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}
@@ -98,7 +106,9 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
-          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "forecast_horizon": (1, 50), "ai_temperature": (0, 2),
+          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "forecast_horizon": (1, 50),
+          "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
+          "relations_fdr": (0.001, 0.25), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
@@ -182,7 +192,7 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
                 continue
             lo, hi = RANGES[key]
             num = min(hi, max(lo, num))
-            out[key] = int(num) if isinstance(default, int) else round(num, 2)
+            out[key] = int(num) if isinstance(default, int) else round(num, 4)
     return out
 
 

@@ -810,3 +810,88 @@ export function cardLinesOption(lines: CardLine[], o: CardOptions): EChartsOptio
     } },
   };
 }
+
+// ----------------------------------------------------------------------------- relationships
+const num = (v: number, d = 1) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(d));
+
+// Every country-year's change of X (across) against Y (up), faint; one chosen country on top.
+export function relationScatterOption(points: [string, number, number, number][], names: Record<string, string>,
+  o: { xName: string; yName: string; xUnit: string; yUnit: string; highlight?: string }): EChartsOption {
+  const base = chrome();
+  const all = points.filter((p) => p[0] !== o.highlight);
+  const mine = points.filter((p) => p[0] === o.highlight);
+  // trim the far tails so a few extreme years do not squash the cloud
+  const q = (vals: number[], f: number) => { const s = [...vals].sort((a, b) => a - b); return s[Math.floor(f * (s.length - 1))] ?? 0; };
+  const xs = points.map((p) => p[2]), ys = points.map((p) => p[3]);
+  const nice = (v: number, up: boolean) => { const m = Math.abs(v) >= 5 ? 1 : 0.1; return (up ? Math.ceil(v / m) : Math.floor(v / m)) * m; };
+  const [x0, x1, y0, y1] = [nice(q(xs, 0.005), false), nice(q(xs, 0.995), true), nice(q(ys, 0.005), false), nice(q(ys, 0.995), true)];
+  return {
+    ...base,
+    grid: { left: 8, right: 24, top: 28, bottom: 28, containLabel: true },
+    xAxis: { ...(base.xAxis as object), min: x0, max: x1, name: o.xUnit, nameLocation: "middle", nameGap: 26,
+      nameTextStyle: { color: cssVar("--muted") }, axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) } },
+    yAxis: { type: "value", min: y0, max: y1, name: o.yUnit, nameTextStyle: { color: cssVar("--muted"), align: "left" },
+      axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    tooltip: { ...(base.tooltip as object), trigger: "item", confine: true,
+      formatter: (p: unknown) => {
+        const v = (p as { value: [number, number, string, number] }).value;
+        return `<b>${names[v[2]] ?? v[2]} ${v[3]}</b><br/>${o.xName}: ${num(v[0])} (${o.xUnit})<br/>${o.yName}: ${num(v[1])} (${o.yUnit})`;
+      } },
+    series: [
+      { type: "scatter", name: "All countries", symbolSize: 4, itemStyle: { color: seriesColor(0), opacity: 0.25 },
+        data: all.map((p) => [p[2], p[3], p[0], p[1]]), large: all.length > 4000 },
+      ...(mine.length ? [{ type: "scatter" as const, name: names[o.highlight!] ?? o.highlight, symbolSize: 7,
+        itemStyle: { color: seriesColor(1), opacity: 1 }, data: mine.map((p) => [p[2], p[3], p[0], p[1]]) }] : []),
+    ],
+  };
+}
+
+// The correlation of X's change k years earlier with Y's change, k from -5 to 5.
+export function lagOption(lags: (number | null)[], xName: string, yName: string): EChartsOption {
+  const base = chrome();
+  const half = (lags.length - 1) / 2;
+  const labels = lags.map((_, i) => i - half);
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: 24, bottom: 30, containLabel: true },
+    xAxis: { type: "category", data: labels.map(String), name: "years", nameLocation: "middle", nameGap: 24,
+      nameTextStyle: { color: cssVar("--muted") }, axisLabel: { color: cssVar("--muted"),
+        formatter: (v: string) => (v === "0" ? "same year" : +v > 0 ? `+${v}` : v) },
+      axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    yAxis: { type: "value", min: -1, max: 1, axisLabel: { color: cssVar("--muted") }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    tooltip: { ...(base.tooltip as object), trigger: "axis", axisPointer: { type: "shadow" }, formatter: (p: unknown) => {
+      const it = (p as { dataIndex: number; value: number | null }[])[0];
+      const k = labels[it.dataIndex];
+      const when = k === 0 ? "in the same year" : k > 0 ? `${k} year${k > 1 ? "s" : ""} after ${xName}` : `${-k} year${k < -1 ? "s" : ""} before ${xName}`;
+      return `Change in ${yName} ${when}<br/>correlation <b>${it.value === null ? "–" : it.value.toFixed(2)}</b>`;
+    } },
+    series: [{ type: "bar", data: lags.map((v) => ({ value: v, itemStyle: { color: (v ?? 0) >= 0 ? cssVar("--div-pos-2") : cssVar("--div-neg-2") } })) }],
+  };
+}
+
+// Before and after an event: the gap to comparable countries, year by year, with a ±2 standard error band.
+export function eventPathOption(h: number[], effect: (number | null)[], se: (number | null)[], unit: string, label: string): EChartsOption {
+  const base = chrome();
+  const lo = effect.map((v, i) => (v === null || se[i] === null ? null : v - 2 * se[i]!));
+  const band = effect.map((v, i) => (v === null || se[i] === null ? null : 4 * se[i]!));
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: 28, bottom: 28, containLabel: true },
+    xAxis: { type: "category", data: h.map((v) => (v === 0 ? "event" : v > 0 ? `+${v}` : String(v))), boundaryGap: false,
+      axisLabel: { color: cssVar("--muted") }, axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    yAxis: { type: "value", name: unit, nameTextStyle: { color: cssVar("--muted"), align: "left" },
+      axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    tooltip: { ...(base.tooltip as object), trigger: "axis", formatter: (p: unknown) => {
+      const it = (p as { dataIndex: number }[])[0];
+      const v = effect[it.dataIndex], s = se[it.dataIndex];
+      return `${h[it.dataIndex] === 0 ? "Event year" : `${h[it.dataIndex]} years`}<br/>${label}: <b>${v === null ? "–" : num(v, 2)}</b>${s ? ` ± ${num(2 * s, 2)}` : ""} (${unit})`;
+    } },
+    series: [
+      { type: "line", stack: "band", stackStrategy: "all", data: lo, symbol: "none", lineStyle: { opacity: 0 }, silent: true },
+      { type: "line", stack: "band", stackStrategy: "all", data: band, symbol: "none", lineStyle: { opacity: 0 }, silent: true,
+        areaStyle: { color: seriesColor(0), opacity: 0.15 } },
+      { type: "line", name: label, data: effect, symbol: "circle", symbolSize: 5, color: seriesColor(0), lineStyle: { width: 2 },
+        markLine: { symbol: "none", silent: true, data: [{ yAxis: 0 }, { xAxis: "event" }], lineStyle: { color: cssVar("--axis"), type: "dashed" }, label: { show: false } } },
+    ],
+  };
+}
