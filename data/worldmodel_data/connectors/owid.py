@@ -101,6 +101,7 @@ class _OWID(Connector):
 
 class OWIDEnergy(_OWID):
     source_id = "owid_energy"
+    fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
 
     def download(self, raw_dir: Path, release: str) -> str:
         for name in ENERGY_FILES:
@@ -179,6 +180,7 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
+    fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
     stage_version = 2  # 2: long column names no longer cut to the same indicator id
     pause_seconds = 1.0
 

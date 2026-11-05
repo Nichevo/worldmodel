@@ -61,6 +61,7 @@ ISO_HEADER = re.compile(r"iso.*(3|alpha)|^iso$|^iso_?code$|^country_?code$", re.
 
 class IMFWEOHistory(Connector):
     source_id = "imf_weo_history"
+    fetch_every_days = 90  # checked at most this often; the site answering "not changed" also skips the download
     stage_version = 2  # 2: values outside the indicator's bounds left out
 
     def default_release(self, fetched_at: datetime) -> str:

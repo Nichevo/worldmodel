@@ -983,7 +983,7 @@
   manual:
     by_hand: false
     get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
-    what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv) and save it here."
+    what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv), or save the yearly Excel file ('EV data by country 2026.xlsx', from the Global EV Outlook data page), here."
 
 - id: owid_co2
   name: Our World in Data CO2 and greenhouse gas emissions
