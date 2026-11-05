@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
+import DriversCard from "@/components/DriversCard";
 import EChart from "@/components/EChart";
 import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
   type WhatIfLevers } from "@/lib/api";
@@ -419,6 +420,7 @@ function StatView({ entity, name, indicator, setIndicator, others }: { entity: s
       </div>
       {ind && <ChartCard indicator={ind} entities={[{ id: entity, name }, ...others]} height={320} forecast />}
       {error && <p className="error">{error}</p>}
+      <DriversCard indicator={indicator} name={`${ind?.name ?? indicator}, ${name}`} fc={fc} />
       {fc && (
         <section className="card">
           <h3>Models tried for {name}</h3>

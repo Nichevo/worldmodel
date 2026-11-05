@@ -106,6 +106,35 @@ export default function SettingsPage() {
           on={s.places_fetch} set={(v) => save({ places_fetch: v })} />
       </section>
 
+      <section className="card" id="relationships">
+        <h2>Relationship scan</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          After each refresh the scan tests pairs of figures for moving together, which comes first, and whether the link
+          holds after allowing for income and time. Results are on the <a href="/relationships">Relationships</a> page.
+          Changes here take effect at the next refresh (or run <code>worldmodel-data scan</code>).
+        </p>
+        <Toggle label="Look for relationships after each refresh" hint="About two minutes with the indicators switched on. Switching off keeps the last scan."
+          on={s.relations_scan} set={(v) => save({ relations_scan: v })} />
+        <Field label="Indicators scanned" hint="Every indicator means about 1,400 and some million pairs: hours of work, so raise the time limit and leave it overnight.">
+          <div className="seg" role="group" aria-label="Indicators scanned">
+            {([["on", "Those switched on (about 7,000 pairs)"], ["all", "Every indicator (overnight)"]] as const).map(([v, label]) => (
+              <button key={v} className={s.relations_indicators === v ? "on" : ""} aria-pressed={s.relations_indicators === v}
+                onClick={() => save({ relations_indicators: v })}>{label}</button>
+            ))}
+          </div>
+        </Field>
+        <NumberField label="Countries a pair needs" value={s.relations_min_countries} min={5} max={200} step={1}
+          save={(v) => save({ relations_min_countries: v })} />
+        <NumberField label="Years of data per country" value={s.relations_min_years} min={5} max={60} step={1}
+          save={(v) => save({ relations_min_years: v })} />
+        <NumberField label="Time limit" unit="minutes" value={s.relations_max_minutes} min={1} max={1440} step={1}
+          note="The scan stops here and keeps what it has done."
+          save={(v) => save({ relations_max_minutes: v })} />
+        <NumberField label="Chance finds allowed" unit="share" value={s.relations_fdr} min={0.001} max={0.25} step={0.01}
+          note="The false discovery rate: 0.05 means about 1 in 20 reported links may be chance. Lower is stricter."
+          save={(v) => save({ relations_fdr: v })} />
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."

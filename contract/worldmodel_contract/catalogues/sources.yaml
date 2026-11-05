@@ -1,5 +1,5 @@
 # Data sources. `status: active` sources have a connector; `planned` ones are
-# listed so licences and keys are known up front (see data/api_keys.yaml).
+# listed so licences and keys are known up front (see api_keys.yaml).
 # Licence notes need a check against each provider's current terms. Worldmodel
 # is a personal tool, so non-commercial terms are fine; `commercial_use` marks
 # what would need swapping if that ever changes.

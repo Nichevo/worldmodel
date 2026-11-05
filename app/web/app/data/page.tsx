@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
+import KeysCard from "@/components/KeysCard";
 import ManualFilesCard from "@/components/ManualFiles";
 import ProblemsCard from "@/components/Problems";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
@@ -72,6 +73,7 @@ export default function DataPage() {
 
       <ProblemsCard />
       <ManualFilesCard />
+      <KeysCard />
 
       <div className="card">
         <h2>Datasets</h2>

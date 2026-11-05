@@ -1,7 +1,10 @@
 # API key and rate-limit register.
 #
 # Keys live in a local .env file at the repo root (copy .env.example), never in
-# git. `worldmodel-data keys` shows which are set without printing them.
+# git. `worldmodel-data keys` and the app's Data status page ("Keys you can add")
+# show which are set without printing them. `unlocks` says, in plain words, what
+# the key adds to the app; `status` is active (used now) or planned (used once the
+# connector is built; get it ahead if you like).
 # Limits are from each provider's documentation as last known; check them when
 # a connector is built, and keep connectors under them so a refresh does not
 # fail halfway.
@@ -43,45 +46,83 @@
   limits: No key. One CSV and one metadata file per chart, a few charts, with a pause between them.
   status: active
 
-- source: un_comtrade
-  name: UN Comtrade API
-  env: [COMTRADE_API_KEY]
+- source: statsnz
+  name: Stats NZ Aotearoa Data Explorer API
+  env: [STATSNZ_API_KEY]
   needs_key: true
-  signup: https://comtradedeveloper.un.org/
-  limits: Free tier about 500 calls a day and 100,000 records per call; bulk files need a subscription.
-  status: planned (phase 2)
+  signup: https://portal.apis.stats.govt.nz/
+  how: Sign up on the API portal, subscribe to the Aotearoa Data Explorer product, and copy the subscription key.
+  unlocks: New Zealand regions and census (2013, 2018, 2023) on the NZ pages.
+  limits: Free; per-key rate limits on the portal.
+  status: wanted next (NZ regions and census)
 
-- source: acled
-  name: ACLED API
-  env: [ACLED_API_KEY, ACLED_EMAIL]
+- source: gie_agsi
+  name: GIE gas storage (AGSI+) and LNG (ALSI) API
+  env: [GIE_API_KEY]
   needs_key: true
-  signup: https://developer.acleddata.com/
-  limits: Registration required; terms restrict commercial use and redistribution.
-  status: planned (phase 2)
+  signup: https://agsi.gie.eu/
+  how: Register on the site; the key is on your account page.
+  unlocks: European gas storage levels, filling the storage "clock" charts on the markets pages.
+  limits: Free; about 60 requests a minute.
+  status: wanted next (markets and commodities)
 
 - source: eia
   name: US EIA Open Data API
   env: [EIA_API_KEY]
   needs_key: true
   signup: https://www.eia.gov/opendata/register.php
+  how: Fill in the form; the key arrives by email.
+  unlocks: US and world oil, gas and coal prices, stocks and output, month by month, on the markets pages.
   limits: Free key; about 5,000 rows per request.
-  status: planned (phase 2)
+  status: wanted next (markets and commodities)
+
+
+- source: un_comtrade
+  name: UN Comtrade API
+  env: [COMTRADE_API_KEY]
+  needs_key: true
+  signup: https://comtradedeveloper.un.org/
+  how: Sign in, subscribe to the free "comtrade - v1" product, and copy the primary key.
+  unlocks: Recent monthly trade between countries (optional; yearly trade comes from BACI without a key).
+  limits: Free tier about 500 calls a day and 100,000 records per call; bulk files need a subscription.
+  status: optional, not used yet
+
+- source: acled
+  name: ACLED API
+  env: [ACLED_API_KEY, ACLED_EMAIL]
+  needs_key: true
+  signup: https://developer.acleddata.com/
+  unlocks: Conflict events week by week (optional; UCDP covers conflicts without a key).
+  limits: Registration required; terms restrict commercial use and redistribution.
+  status: optional, not used yet
+
+- source: eia
+  name: US EIA Open Data API
+  env: [EIA_API_KEY]
+  needs_key: true
+  signup: https://www.eia.gov/opendata/register.php
+  how: Fill in the form; the key arrives by email.
+  unlocks: US and world oil, gas and coal prices, stocks and output, month by month, on the markets pages.
+  limits: Free key; about 5,000 rows per request.
+  status: optional, not used yet
 
 - source: ember
   name: Ember API
   env: [EMBER_API_KEY]
   needs_key: true
   signup: https://ember-energy.org/data/api/
+  unlocks: Monthly electricity generation by fuel (optional; yearly figures come from Our World in Data).
   limits: Free key.
-  status: planned (phase 2)
+  status: optional, not used yet
 
 - source: fred
   name: FRED API (St. Louis Fed)
   env: [FRED_API_KEY]
   needs_key: true
   signup: https://fred.stlouisfed.org/docs/api/api_key.html
+  unlocks: US interest rates, markets and money figures (optional).
   limits: About 120 requests a minute.
-  status: planned (finance phase)
+  status: optional, not used yet
 
 - source: assistant
   name: Local AI (Ollama)
@@ -95,6 +136,8 @@
   name: Brave Search API (web search for the local AI)
   env: [BRAVE_API_KEY]
   needs_key: true
+  signup: https://brave.com/search/api/
+  unlocks: Web search for Ask AI (SearXNG on this PC is the free alternative).
   limits: Paid. $5 of credit a month (about 1,000 searches), then about $5 per 1,000. The app counts every
     search and holds to the daily and monthly limits in Settings (default 30 a day). SearXNG, run locally, is
     the free alternative (no key).
@@ -104,5 +147,7 @@
   name: Optional cloud model for the assistant
   env: [ANTHROPIC_API_KEY]
   needs_key: true
+  signup: https://console.anthropic.com/
+  unlocks: A cloud model for Ask AI (optional; the local Ollama models need no key).
   limits: Pay per use; only if a cloud model is switched on.
-  status: planned (phase 3, optional)
+  status: optional, not used yet
