@@ -67,7 +67,6 @@ function World({ o }: { o: ClimateOverview }) {
         <Vital title="World CO2 emissions" points={o.world.co2_gcp} unit="million t" decimals={0} note="Fossil fuels and industry (Global Carbon Project)." />
         <Vital title="Sea level" points={o.world.sea_level} unit={o.names.sea_level?.unit ?? "mm"} zero decimals={0} />
         <Vital title="Heat in the top 700 m of the oceans" points={o.world.ocean_heat} unit={o.names.ocean_heat?.unit ?? ""} zero decimals={1} />
-        <Vital title="Glaciers' mass balance" points={o.world.glacier_mass_balance} unit={o.names.glacier_mass_balance?.unit ?? "m"} zero decimals={1} />
       </div>
       <div className="grid two">
         {ice.length ? <div className="card"><h3>Sea ice at its yearly low</h3><EChart option={iceOpt} height={220} label="Sea ice minimum" /><p className="caption">NSIDC Sea Ice Index.</p></div> : null}

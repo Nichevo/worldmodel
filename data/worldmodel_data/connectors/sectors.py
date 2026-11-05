@@ -555,7 +555,10 @@ def pink_prices(table: list[list]) -> tuple[list[tuple], dict[str, str]]:
 
 
 # ----------------------------------------------------------------------------- electric cars
-IEA_EV_URL = "https://api.iea.org/evs?parameter={}&mode=Cars&category=Historical&csv=true"
+# The IEA moved the explorer's route from /evs to /electric-vehicles in October 2026; the old one is tried second.
+IEA_EV_URLS = ["https://api.iea.org/electric-vehicles?parameter={}&mode=Cars&category=Historical&csv=true",
+               "https://api.iea.org/evs?parameter={}&mode=Cars&category=Historical&csv=true"]
+IEA_EV_URL = IEA_EV_URLS[0]
 IEA_EV_PARAMS = ("EV sales share", "EV stock share", "EV sales", "EV stock")
 
 
@@ -575,7 +578,14 @@ class IEAEV(Connector):
 
     def download(self, raw_dir: Path, release: str) -> str:
         for p in IEA_EV_PARAMS:
-            self.get(IEA_EV_URL.format(p.replace(" ", "%20")), raw_dir / f"iea_ev_{p.replace(' ', '_').lower()}.csv")
+            dest = raw_dir / f"iea_ev_{p.replace(' ', '_').lower()}.csv"
+            for i, url in enumerate(IEA_EV_URLS):
+                try:
+                    self.get(url.format(p.replace(" ", "%20")), dest)
+                    break
+                except ConnectorError:
+                    if i == len(IEA_EV_URLS) - 1:
+                        raise
         return IEA_EV_URL.format("...")
 
     PARAMS = {  # (parameter, powertrain) -> (indicator, name, unit)

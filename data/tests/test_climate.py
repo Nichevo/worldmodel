@@ -123,3 +123,27 @@ def test_new_zealand_series(con):
     assert value(con, "NZL", "nz_temp_7station", "1909-01-01") == pytest.approx(11.9)
     assert value(con, "NZL", "nz_ghg_agriculture", "2022-01-01") == pytest.approx(39.2)  # all gases only, kt to Mt
     assert value(con, "NZL", "nz_ghg_forestry", "2022-01-01") == pytest.approx(-21.0)
+
+
+def test_dated_chart_as_yearly_means(con):
+    assert value(con, "world", "sea_level", "2020-01-01") == pytest.approx(82.0)  # the mean of the year's readings
+    assert value(con, "world", "sea_level_uhslc", "2021-01-01") == pytest.approx(86.0)
+
+
+def test_file_missing_from_a_vintage_taken_from_the_last_one(tmp_path):
+    """One failed download among several must not wipe a series out (BIS household credit)."""
+    import shutil
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    bis = CONNECTORS["bis"]()
+    bis.ingest(store, FIXTURES / "bis")
+    part = tmp_path / "bis_part"
+    shutil.copytree(FIXTURES / "bis", part)
+    (part / "tc_households.csv").unlink()
+    (part / "spp.csv").write_text((FIXTURES / "bis" / "spp.csv").read_text(encoding="utf-8") + "\n", encoding="utf-8")  # new content
+    m, new = bis.ingest(store, part)
+    assert new
+    con = duckdb.connect()
+    sql = bis.stage(con, home.home / m.raw_dir, m.release, m.vintage)
+    n = con.execute(f"SELECT count(*) FROM ({sql}) WHERE indicator_id = 'bis_household_credit_gdp'").fetchone()[0]
+    assert n > 0

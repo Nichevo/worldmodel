@@ -84,7 +84,8 @@ BIS_XRU = BIS_API + "WS_XRU/1.0/M...A?format=csv"
 
 class BIS(Connector):
     source_id = "bis"
-    stage_version = 2  # 2: central bank policy rates and exchange rates against the US dollar
+    stage_version = 3  # 2: central bank policy rates and exchange rates against the US dollar; 3: a file missing
+                       # from a vintage (one download failed) is taken from the last vintage that has it
     fetch_version = 2  # 2: downloads WS_CBPOL and WS_XRU too
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -144,6 +145,8 @@ class BIS(Connector):
                     if y := year_of(r.get("date")):
                         rows.add_period("iso2", r.get("country_code", ""), ind, y, num(r.get("price")))
         tc = raw_dir / "tc_households.csv"
+        if not tc.exists():
+            tc = self.earlier_copy(raw_dir, tc.name) or tc
         if tc.exists():
             data = read_csv(tc)
             if data:
@@ -157,6 +160,8 @@ class BIS(Connector):
         # latest month of the current year). Exchange rates: the yearly average.
         for name, ind in (("cbpol.csv", "bis_policy_rate"), ("xru.csv", "bis_usd_exchange_rate")):
             p = raw_dir / name
+            if not p.exists():
+                p = self.earlier_copy(raw_dir, name) or p
             data = read_csv(p) if p.exists() else []
             if not data:
                 continue
