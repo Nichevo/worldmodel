@@ -453,7 +453,7 @@ class GlobalSanctions(Connector):
 
     def release_from_files(self, files: list[Path]) -> str | None:
         for f in files:
-            m = re.search(r"(?:v|_)(\d)(?:[._]|$)", f.stem, re.I)
+            m = re.search(r"(?:v|_|r)(\d)(?:[._]|$)", f.stem, re.I)
             if m:
                 return f"V{m.group(1)}"
         return None
@@ -466,7 +466,9 @@ class GlobalSanctions(Connector):
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv"))
         if not files:
             raise ConnectorError(f"gsdb: no .xlsx or .csv file in {raw_dir} (save an .xls or .dta file as .xlsx first)")
-        f = files[-1]
+        # The financial-sanctions companion file (GSDB-FS) can sit beside the main release; read the main one.
+        main = [p for p in files if not re.search(r"(^|[^a-z])fs([^a-z]|$)|financial", p.stem, re.I)]
+        f = (main or files)[-1]
         table = (list(csv.reader(io.StringIO(f.read_text(encoding="utf-8-sig", errors="replace"))))
                  if f.suffix.lower() == ".csv" else xlsx_rows(f))
         events, values, unmatched = sanction_rows(table, datetime.now().year)

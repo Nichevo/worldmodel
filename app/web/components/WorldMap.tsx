@@ -105,7 +105,7 @@ export default function WorldMap({
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
-  const { base_map: baseMap } = useSettings();
+  const { base_map: baseMap, map_centre: mapCentre } = useSettings();
   const hover = useRef(onHover);
   hover.current = onHover;
   const dbl = useRef(doubleClick);
@@ -126,12 +126,13 @@ export default function WorldMap({
         sources: {},
         layers: [{ id: "bg", type: "background", paint: { "background-color": cssVar("--surface") } }],
       },
-      // Fit the inhabited world to whatever size the map's box is.
-      bounds: [[-170, -56], [180, 78]],
+      // Fit the inhabited world to whatever size the map's box is: Europe and Africa in the
+      // middle, or the Pacific (the same span moved half way round, New Zealand near the middle).
+      bounds: mapCentre === "atlantic" ? [[-170, -56], [180, 78]] : [[10, -56], [360, 78]],
       minZoom: 0.5,
       maxZoom: 7,
       attributionControl: { compact: true, customAttribution: "Borders: Natural Earth" },
-      renderWorldCopies: false,
+      renderWorldCopies: true, // drag round the globe without running off the edge
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.current = m;
@@ -249,6 +250,15 @@ export default function WorldMap({
       m.remove();
     };
   }, []);
+
+  // Settings arrive after the map is made: open on the chosen centre (unless the map fits its own points).
+  const firstCentre = useRef(mapCentre);
+  useEffect(() => {
+    const m = map.current;
+    if (!m || fitPoints || mapCentre === firstCentre.current) return; // the map was made with this centre
+    firstCentre.current = mapCentre;
+    m.fitBounds(mapCentre === "atlantic" ? [[-170, -56], [180, 78]] : [[10, -56], [360, 78]], { duration: 0 });
+  }, [mapCentre, fitPoints]);
 
   // Popups: each overlay gets a MapLibre marker whose element React draws into.
   const [els, setEls] = useState<Map<string, HTMLDivElement>>(new Map());

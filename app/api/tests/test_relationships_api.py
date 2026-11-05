@@ -71,6 +71,20 @@ def test_list_and_filters(client):
     assert client.get("/api/v1/relationships?group=income-high").json()["total"] == 1
     assert client.get("/api/v1/relationships?q=inflat").json()["total"] == 1
     assert client.get("/api/v1/relationships?label=nonsense").status_code == 422
+    assert r["rows"][0]["built_from"] is None and r["scan"]["built_from_label"] == "Built from each other"
+    assert client.get("/api/v1/relationships?built=only&hide_same=false").json()["total"] == 0
+    assert client.get("/api/v1/relationships?built=hide").json()["total"] == 1
+    assert client.get("/api/v1/relationships?built=nonsense").status_code == 422
+
+
+def test_pairs_built_from_each_other_are_tagged_and_listed_last(client, monkeypatch):
+    from worldmodel_api import relationships
+    monkeypatch.setattr(relationships, "_ratios", lambda: {"pop_male": ("pop_male", "pop_total")})
+    monkeypatch.setitem(relationships._cache, "key", None)  # read again, and again after the test
+    r = client.get("/api/v1/relationships?hide_same=false").json()
+    assert [(p["x"], p["built_from"]) for p in r["rows"]] == [("gdp_growth", None), ("pop_total", "a ratio and what it is made from")]
+    assert [p["x"] for p in client.get("/api/v1/relationships?hide_same=false&built=only").json()["rows"]] == ["pop_total"]
+    assert client.get("/api/v1/relationships?hide_same=false&built=hide").json()["total"] == 1
 
 
 def test_pair_with_points(client):

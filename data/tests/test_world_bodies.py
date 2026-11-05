@@ -67,6 +67,7 @@ def test_vetoes_and_council_seats(con):
 
 
 def test_sanctions_events_and_counts(con):
+    assert events(con, "gsdb", "CHL") == []  # the financial-sanctions file beside it (GSDB_V4_FS.csv) is not read
     got = events(con, "gsdb", "RUS")
     assert len(got) == 1 and got[0][3] == "Sanctions by New Zealand" and "financial" in got[0][2]
     assert value(con, "IRN", "sanctions_active", "2000-01-01") == 1

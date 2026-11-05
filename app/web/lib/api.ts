@@ -207,6 +207,7 @@ export type Settings = {
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
   base_map: "online" | "local" | "plain"; // map detail under the colours
+  map_centre: "pacific" | "atlantic"; // where world maps open centred
   basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
   basemap_world_zoom: number;
   basemap_region_zoom: number;
@@ -346,7 +347,9 @@ export type RelationPair = { x: string; y: string; x_name: string; y_name: strin
   slope: number | null; q_holds: number | null; control_used: boolean; first: "x" | "y" | "both" | null; best_lag: number | null;
   q_x_first: number; q_y_first: number; countries_x_first: number | null; countries_y_first: number | null;
   countries_tested: number | null; lags: (number | null)[]; groups: Record<string, [number, number, number]>;
-  in_drivers: boolean; near_same: boolean; same_source: boolean; note: string; saved_driver?: boolean; flipped?: boolean };
+  in_drivers: boolean; near_same: boolean; same_source: boolean; note: string; saved_driver?: boolean; flipped?: boolean;
+  built_from?: string | null };
+export type BuiltFilter = "last" | "hide" | "only" | "mixed";
 export type RelationList = { scan: RelationScan | null; total: number; rows: RelationPair[] };
 export type RelationDetail = { pair: RelationPair | null; x: string; y: string; kind_x: string; kind_y: string;
   points: [string, number, number, number][]; names: Record<string, string> };
@@ -733,8 +736,8 @@ export const api = {
   crisiswatch: (month?: string) => get<CrisisWatchMonth>("/crisiswatch", { month }),
   zones: () => get<Zone[]>("/zones"),
   relationships: (q: { label?: string; domain?: string; group?: string; q?: string; indicator?: string; drivers?: boolean;
-    hide_same?: boolean; first?: boolean; hide_same_source?: boolean; limit?: number; offset?: number }) =>
-    get<RelationList>("/relationships", { ...q, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
+    hide_same?: boolean; first?: boolean; hide_same_source?: boolean; built?: BuiltFilter; limit?: number; offset?: number }) =>
+    get<RelationList>("/relationships", { ...q, built: q.built && q.built !== "last" ? q.built : undefined, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
       hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
   climate: () => get<ClimateOverview>("/climate"),
   climateCountry: (id: string) => get<ClimateCountry>(`/climate/country/${encodeURIComponent(id)}`),
