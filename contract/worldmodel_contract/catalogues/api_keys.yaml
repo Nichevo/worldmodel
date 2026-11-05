@@ -91,7 +91,8 @@
   name: ACLED API
   env: [ACLED_API_KEY, ACLED_EMAIL]
   needs_key: true
-  signup: https://developer.acleddata.com/
+  signup: https://acleddata.com/
+  how: Not needed now. ACLED closed its old developer site (developer.acleddata.com); its newer API signs in with your account password, which the app does not store, so nothing uses ACLED yet.
   unlocks: Conflict events week by week (optional; UCDP covers conflicts without a key).
   limits: Registration required; terms restrict commercial use and redistribution.
   status: optional, not used yet
