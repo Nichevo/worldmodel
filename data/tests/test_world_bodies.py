@@ -155,3 +155,22 @@ def test_dates_in_many_shapes():
     assert parse_day("December 16, 1966")[0] == date(1966, 12, 16)
     assert parse_day("1966-12-16")[0] == date(1966, 12, 16)
     assert parse_day("")[0] is None
+
+
+def test_sanctions_release_5_lists_several_countries_in_one_cell():
+    from worldmodel_data.connectors.world_bodies import gsdb_names, sanction_rows
+    assert gsdb_names("United States, United Kingdom, France", date(1956, 1, 1)) == ["United States", "United Kingdom", "France"]
+    assert gsdb_names("Korea, North", date(2000, 1, 1)) == ["Korea, North"]
+    assert gsdb_names("Gambia, The, Russia", date(2020, 1, 1)) == ["Gambia, The", "Russia"]
+    table = [["case_id", "sanctioned_state", "sanctioning_state", "begin_year", "begin_month", "end_year", "end_month",
+              "trade", "financial", "objective"],
+             ["318", "New Zealand", "France", "1986", "February", "1986", "July", "1", "0", "other"],
+             ["900", "Korea, North", "EU, Australia, New Zealand", "2006", "October", "2025", "NA", "1", "1", "policy_change"],
+             ["901", "Ceylon, Malaya", "United Kingdom", "1960", "NA", "1961", "NA", "1", "0", ""]]
+    events, values, unmatched = sanction_rows(table, 2026)
+    by = {e[1]: e for e in events}
+    assert by["gsdb:318:NZL"][5:7] == (date(1986, 2, 1), date(1986, 7, 31))
+    assert by["gsdb:900:PRK"][6] is None  # still in force when the database ends
+    assert {"gsdb:901:LKA", "gsdb:901:MYS"} <= set(by) and not unmatched
+    imposed = {(r[1], r[3].year if hasattr(r[3], "year") else r[3]) for r in values.rows if r[2] == "sanctions_imposed"}
+    assert {("eu", 2010), ("AUS", 2010), ("NZL", 2010)} <= imposed
