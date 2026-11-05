@@ -46,6 +46,7 @@ un_treaties
 
 from __future__ import annotations
 
+import calendar
 import csv
 import html
 import io
@@ -437,9 +438,44 @@ GSDB_FIELDS = {
     "sender_iso": ("sanctioningstateiso3", "sanctioningiso3", "senderiso3"),
     "begin": ("begin", "start", "beginyear", "startyear"),
     "end": ("end", "endyear"),
+    "begin_month": ("beginmonth", "startmonth"),
+    "end_month": ("endmonth",),
     "objective": ("objective", "objectives"),
     "descr": ("descrtrade",),
 }
+# Names in the database that the country list does not know: older names, and the
+# blocs and alliances that impose (or are under) sanctions.
+GSDB_NAMES = {"ceylon": "LKA", "malaya": "MYS", "malagasy republic": "MDG", "transjordan": "JOR", "rhodesia": "ZWE",
+              "north vietnam": "VNM", "fry": "YUG", "eu": "eu", "eec": "eu", "european union": "eu", "nato": "nato",
+              "g7": "g7", "nafta": "nafta", "mercosur": "mercosur", "opec": "opec", "asean": "asean"}
+# The second half of a name written with a comma ("Korea, North", "Gambia, The").
+NAME_TAILS = {"the", "north", "south", "arab rep.", "rep.", "islamic rep.", "dem. rep.", "dem. people's rep.",
+              "democratic republic of the", "republic of the", "federated states of", "bolivarian rep."}
+
+
+def _gsdb_one(name: str, when: date) -> str | None:
+    return GSDB_NAMES.get(name.lower()) or catalogue.country_by_name(name, when)
+
+
+def gsdb_names(cell: str, when: date) -> list[str]:
+    """The countries in one cell: "United States, United Kingdom, France" is three, while
+    "Korea, North" and "Congo, Democratic Republic of the" are one each."""
+    out: list[str] = []
+    for part in (p.strip() for p in str(cell or "").split(",")):
+        if not part:
+            continue
+        if out and (part.lower() in NAME_TAILS
+                    or (not _gsdb_one(part, when) and _gsdb_one(f"{out[-1]}, {part}", when))):
+            out[-1] = f"{out[-1]}, {part}"
+        else:
+            out.append(part)
+    return out
+
+
+def _month(v) -> int:
+    return MONTHS.get(str(v or "").strip().lower()[:3], 1)
+
+
 MEASURES = (("trade", "trade"), ("arms", "arms"), ("military", "military aid"), ("financial", "financial"),
             ("travel", "travel"), ("other", "other"))
 
@@ -447,6 +483,7 @@ MEASURES = (("trade", "trade"), ("arms", "arms"), ("military", "military aid"), 
 class GlobalSanctions(Connector):
     source_id = "gsdb"
     manual = True
+    stage_version = 2  # 2: several countries in one cell (release 5), months, cases still in force
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -500,31 +537,49 @@ def sanction_rows(table: list[list], this_year: int) -> tuple[list[tuple], Rows,
     events, unmatched = [], set()
     active: dict[tuple[str, int], int] = defaultdict(int)
     imposed: dict[tuple[str, int], int] = defaultdict(int)
+    # The last year the database covers: a case ending then is still in force, not ended.
+    last = max((int(v) for r in table[start + 1:] if (v := num(get(r, "end"))) is not None), default=this_year)
+    last = min(last, this_year)
     for i, r in enumerate(table[start + 1:]):
         y0, y1 = num(get(r, "begin")), num(get(r, "end"))
         if y0 is None:
             continue
         y0 = int(y0)
         y1 = int(y1) if y1 is not None and y1 >= y0 else None
-        target_name = str(get(r, "target") or "").strip()
-        when = date(y0, 1, 1)
-        target = entity_for("iso3", str(get(r, "target_iso") or "").strip().upper()) or country(target_name, when, unmatched)
-        if not target:
+        when = date(y0, _month(get(r, "begin_month")), 1)
+        targets = []
+        iso = entity_for("iso3", str(get(r, "target_iso") or "").strip().upper())
+        for name in ([] if iso else gsdb_names(get(r, "target"), when)):
+            found = _gsdb_one(name, when)
+            if found is None:
+                unmatched.add(name)
+            elif found not in targets:
+                targets.append(found)
+        if iso:
+            targets = [iso]
+        if not targets:
             continue
         sender_name = str(get(r, "sender") or "").strip()
-        sender = entity_for("iso3", str(get(r, "sender_iso") or "").strip().upper()) or catalogue.country_by_name(sender_name, when)
+        sender_iso = entity_for("iso3", str(get(r, "sender_iso") or "").strip().upper())
+        senders = [sender_iso] if sender_iso else list(dict.fromkeys(
+            f for f in (_gsdb_one(n, when) for n in gsdb_names(sender_name, when)) if f))
         kinds = [label for j, label in measure_cols if j < len(r) and num(r[j])]
         case = str(get(r, "case") or i + 1).strip()
         why = str(get(r, "objective") or "").replace("_", " ").strip()
         detail = "; ".join(filter(None, [f"Measures: {', '.join(kinds)}" if kinds else "",
                                         f"Aims: {why}" if why else "", f"Case {case} in the Global Sanctions Database"]))
-        end = date(y1, 12, 31) if y1 is not None and y1 < this_year else None
-        events.append((target, f"gsdb:{case}:{target}", "sanction", ", ".join(kinds) or None,
-                       f"Sanctions by {sender_name or 'another country'}", when, end, "year", None, None, None, None,
-                       None, sender_name or None, None, detail))
-        for y in range(y0, (y1 if y1 is not None else this_year) + 1):
-            active[(target, y)] += 1
-            if sender:
+        end = None
+        if y1 is not None and y1 < last:
+            m = MONTHS.get(str(get(r, "end_month") or "").strip().lower()[:3], 12)  # no month: the year's end
+            end = date(y1, m, calendar.monthrange(y1, m)[1])
+        for target in targets:
+            events.append((target, f"gsdb:{case}:{target}", "sanction", ", ".join(kinds) or None,
+                           f"Sanctions by {sender_name or 'another country'}", when, end, "year", None, None, None, None,
+                           None, sender_name or None, None, detail))
+            for y in range(y0, (y1 if y1 is not None else this_year) + 1):
+                active[(target, y)] += 1
+        for sender in senders:
+            for y in range(y0, (y1 if y1 is not None else this_year) + 1):
                 imposed[(sender, y)] += 1
     values = Rows()
     for (e, y), n in active.items():
