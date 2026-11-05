@@ -501,6 +501,13 @@ function MapDetail({ s, save }: { s: Settings; save: (patch: Partial<Settings>) 
         Water, roads, rail, buildings and place names under the country colours. They show faintly at world view and
         more as you zoom in, while the colours fade.
       </p>
+      <Field label="World maps open centred on" hint="You can also drag a map round the globe as far as you like; it wraps.">
+        <div className="seg" role="group" aria-label="Map centre">
+          {([["pacific", "The Pacific (New Zealand near the middle)"], ["atlantic", "The Atlantic (Europe and Africa)"]] as const).map(([v, t]) => (
+            <button key={v} className={s.map_centre === v ? "on" : ""} aria-pressed={s.map_centre === v} onClick={() => save({ map_centre: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
       <Field label="Where the detail comes from">
         <div className="seg" role="group" aria-label="Map detail">
           {([["online", "Online (OpenFreeMap)"], ["local", "Map files on this PC"], ["plain", "None (country shapes only)"]] as const).map(([v, t]) => (
