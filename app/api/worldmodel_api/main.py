@@ -1281,6 +1281,37 @@ def manual_files():
     return out
 
 
+@api.get("/scrapers")
+def scrapers():
+    """Sources read from web pages (the scraping tools): how each runs, what it reads, the
+    setting that governs it, when it last ran, how far it got and why it stopped, if it did."""
+    settings = local.load_settings()
+    runs = local.read_scrape_log()
+    loaded = {r["source_id"]: r["retrieved_at"] for r in rows(
+        "SELECT source_id, max(retrieved_at) AS retrieved_at FROM vintages GROUP BY source_id")}
+    failing = {p["source_id"]: p for p in local.problems() if p.get("kind") == "fetch" and p.get("open")}
+    out = []
+    for s in catalogue.sources().values():
+        if not s.scraper:
+            continue
+        today = None
+        if s.id == "numbeo":
+            b = numbeo.budget()
+            today = f"{b['used']} of {b['limit']} pages today"
+        elif s.id == "wikipedia":
+            c, t = wiki.budget("countries"), wiki.budget("cities")
+            today = f"{c['used']} of {c['limit']} countries and {t['used']} of {t['limit']} cities today"
+        last = loaded.get(s.id)
+        prob = failing.get(s.id)
+        out.append({"source_id": s.id, "name": s.name, "run": s.scraper.run, "reads": s.scraper.reads,
+                    "setting": s.scraper.setting or None,
+                    "setting_value": settings.get(s.scraper.setting) if s.scraper.setting else None,
+                    "last_run": runs.get(s.id), "last_loaded": str(last) if last else None, "today": today,
+                    "problem": (prob.get("summary") or "the last refresh failed") if prob else None})
+    out.sort(key=lambda r: (r["problem"] is None and not (r["last_run"] or {}).get("stopped"), r["name"]))
+    return {"gap_seconds": settings.get("scrape_gap_seconds"), "sources": out}
+
+
 @api.get("/problems")
 def problems():
     """Each distinct failure in the refresh log, with how often it happened and whether it is still open."""

@@ -135,3 +135,18 @@ def test_manual_files_say_what_to_do(client, tmp_path):
     (tmp_path / "manual" / "rbnz" / "hb2-daily.xlsx").write_bytes(b"x")
     rows = {r["source_id"]: r for r in client.get("/api/v1/manual-files").json()}
     assert rows["rbnz"]["todo"] == "load" and rows["rbnz"]["files"] == ["hb2-daily.xlsx"]
+
+
+def test_scrapers_listed_with_their_last_run(client, tmp_path):
+    import json
+
+    (tmp_path / "warehouse").mkdir(exist_ok=True)
+    (tmp_path / "warehouse" / "scrape_log.json").write_text(json.dumps({"crisiswatch": {
+        "at": "2026-11-05T20:00:00+00:00", "planned": 13, "read": 4, "stopped": "crisiswatch: stopped after 4 of 13",
+        "url": "x", "gap_seconds": 6}}))
+    data = client.get("/api/v1/scrapers").json()
+    rows = {r["source_id"]: r for r in data["sources"]}
+    assert {"world_prison_brief", "crisiswatch", "numbeo", "wikipedia", "nz_election_turnout"} <= set(rows)
+    assert data["sources"][0]["source_id"] == "crisiswatch"  # stopped runs first
+    assert rows["crisiswatch"]["last_run"]["read"] == 4 and rows["crisiswatch"]["setting_value"] == 12
+    assert "of 20 pages today" in rows["numbeo"]["today"] and data["gap_seconds"] == 6

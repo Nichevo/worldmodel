@@ -66,6 +66,13 @@ class ManualFile(BaseModel):
     what: str  # which file, and how
 
 
+class Scraper(BaseModel):
+    """A source read from web pages rather than files or an API (listed on Data status)."""
+    run: str  # how it runs: on refresh, from a button, or a .bat tool
+    reads: str  # which pages and how many, and how far apart
+    setting: str = ""  # the Settings switch or limit that governs it, if any
+
+
 class Source(BaseModel):
     id: str
     name: str
@@ -80,6 +87,7 @@ class Source(BaseModel):
     status: Literal["active", "planned"]
     default_rank: int
     manual: ManualFile | None = None
+    scraper: Scraper | None = None
 
 
 class Entity(BaseModel):

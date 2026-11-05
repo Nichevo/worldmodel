@@ -28,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   crisiswatch_fetch: true,
   holidays_fetch: true,
   crisiswatch_backfill: 12,
+  scrape_gap_seconds: 6,
   relations_scan: true,
   relations_indicators: "on",
   relations_min_countries: 30,

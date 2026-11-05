@@ -19,11 +19,16 @@ nz_election_turnout (New Zealand pack)
     and by age band and descent). Loaded by hand; files add up, so load each
     election's file once: `.\\load.bat nz_election_turnout <file>`. National figures
     (the "All electorates" rows) for now; electorates come with the regions work.
-    Shares are of people enrolled.
+    Shares are of people enrolled. A refresh (every 90 days) also looks for the
+    spreadsheets itself: the Statistics page, the election statistics pages it links to
+    (at most 12), and each turnout spreadsheet they link to, read politely
+    (worldmodel_data.scrape) and stopping at the first problem; files saved by hand
+    still load as before.
 """
 
 from __future__ import annotations
 
+import html
 import logging
 import re
 import unicodedata
@@ -258,11 +263,35 @@ def _nz_label(ind: str) -> str:
     return ", ".join(bits)
 
 
+NZ_SITE = "https://elections.nz"
+NZ_HREF = re.compile(r"""href=["']([^"'#]+)["']""", re.I)
+NZ_MAX_PAGES = 12
+NZ_MAX_FILES = 12
+
+
+def _nz_links(page: str) -> tuple[list[str], list[str]]:
+    """(election statistics pages, turnout spreadsheets) linked from an elections.nz page."""
+    pages, files = [], []
+    for href in NZ_HREF.findall(page or ""):
+        url = html.unescape(href).strip()
+        url = url if url.startswith("http") else NZ_SITE + ("" if url.startswith("/") else "/") + url
+        low = url.lower()
+        if "elections.nz" not in low:
+            continue
+        if re.search(r"\.xlsx?(\?|$)", low):
+            if "turnout" in low and url not in files:
+                files.append(url)
+        elif "/stats-and-research/" in low and re.search(r"(19|20)\d\d|turnout|general-election", low) \
+                and url.rstrip("/") != NZ_PAGE.rstrip("/") and url not in pages:
+            pages.append(url)
+    return pages, files
+
+
 class NZElectionTurnout(Connector):
     source_id = "nz_election_turnout"
     pack = "nz"
-    manual = True
     keeps_files = True  # each election's file is loaded once; earlier ones stay
+    fetch_every_days = 90
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")
@@ -271,9 +300,28 @@ class NZElectionTurnout(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        raise ConnectorError("nz_election_turnout: the Electoral Commission's turnout spreadsheets are loaded by "
-                             f"hand. Download '<year> General Election voter turnout by age' from {NZ_PAGE} and "
-                             r"run: .\load.bat nz_election_turnout <file>")
+        from worldmodel_data.scrape import PageReader
+
+        with PageReader(self, planned=1) as pages:
+            front = pages.read(NZ_PAGE, raw_dir / "_stats.html", expect=r"elect", what="Statistics page")
+            subpages, files = _nz_links(front)
+            subpages = subpages[:NZ_MAX_PAGES]
+            pages.planned = 1 + len(subpages)
+            for i, url in enumerate(subpages):
+                text = pages.read(url, raw_dir / f"_page{i}.html", missing_ok=True, what=url.rsplit("/", 2)[-2] or url)
+                files += [f for f in _nz_links(text or "")[1] if f not in files]
+            files = files[:NZ_MAX_FILES]
+            if not files:
+                pages.stop(f"no turnout spreadsheets linked from {NZ_PAGE} or the {len(subpages)} statistics pages it "
+                           "links to; the site's layout may have changed. Save a file by hand instead: "
+                           r".\load.bat nz_election_turnout <file>")
+            pages.planned += len(files)
+            for f in files:
+                name = re.sub(r"[^A-Za-z0-9_.-]", "_", f.rsplit("/", 1)[-1].split("?")[0])
+                pages.read(f, raw_dir / name, what=name, missing_ok=True)
+        for p in raw_dir.glob("_*.html"):
+            p.unlink(missing_ok=True)
+        return f"{len(files)} turnout spreadsheet(s) linked from {NZ_PAGE}"
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".xlsm"))
