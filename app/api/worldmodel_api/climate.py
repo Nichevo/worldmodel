@@ -15,7 +15,7 @@ from worldmodel_contract import catalogue
 
 Q = Callable[[str, list], list[dict]]
 SSPS = {"ssp126": "SSP1-2.6 (low emissions)", "ssp245": "SSP2-4.5 (middle)", "ssp370": "SSP3-7.0 (high)", "ssp585": "SSP5-8.5 (very high)"}
-WORLD = ["temp_anomaly_world", "co2_ppm", "ch4_ppb", "n2o_ppb", "sea_level", "ocean_heat", "glacier_mass_balance", "co2_gcp", "ghg_total_gcp"]
+WORLD = ["temp_anomaly_world", "co2_ppm", "ch4_ppb", "n2o_ppb", "sea_level", "ocean_heat", "co2_gcp", "ghg_total_gcp"]
 GASES = ["co2_gcp", "methane_emissions", "n2o_emissions"]
 LIVE_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP"
 _live: dict = {"at": 0.0, "data": None}
