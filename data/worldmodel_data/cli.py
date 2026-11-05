@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -238,7 +238,14 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             typer.echo(f"{source_id}: skipped (switched off in Settings)")
             continue
         folder = manual.folder(p, source_id)
-        if cls.manual and manual.files(folder):
+        hand = _hand_loaded_wait(source_id, cls, last, folder)
+        if hand == "load":  # a file saved since the last load: read it instead of trying the site
+            pass
+        elif hand:
+            entry.update(status="skipped", vintage=last.vintage, note=hand)
+            typer.echo(f"{source_id}: skipped ({hand})")
+            continue
+        if (cls.manual or hand == "load") and manual.files(folder):
             t0 = time.monotonic()
             try:
                 manifest, is_new = cls().ingest(store, folder)
@@ -287,6 +294,26 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         _echo_problems(p)
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
         raise typer.Exit(1)
+
+
+def _hand_loaded_wait(source_id: str, cls, last, folder: Path) -> str | None:
+    """For a source the site keeps refusing, whose stored data came from a file you saved:
+    "load" when a newer file is in its folder; otherwise why the site is left alone until
+    that file is due to be out of date (the source's own schedule, or 30 days); None to try."""
+    if cls.manual or source_id not in manual.FALLBACK or last is None or not last.origin.startswith("file:"):
+        return None
+    if last.fetch_version < cls.fetch_version:
+        return None
+    loaded = datetime.fromisoformat(last.retrieved_at)
+    newest = max((f.stat().st_mtime for f in manual.files(folder)), default=0.0)
+    if newest > loaded.timestamp():
+        return "load"
+    every = cls.fetch_every_days or 30
+    age = now_utc() - loaded
+    if age.days >= every:
+        return None
+    nxt = (loaded + timedelta(days=every)).date().isoformat()
+    return f"using your file loaded {loaded.date().isoformat()}; the site is tried again from {nxt}"
 
 
 def _not_due(cls, last) -> str | None:

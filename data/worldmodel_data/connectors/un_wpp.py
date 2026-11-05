@@ -60,6 +60,7 @@ SEX_COLUMNS = {"PopTotal": "total", "PopMale": "male", "PopFemale": "female"}
 
 class UNWPP(Connector):
     source_id = "un_wpp"
+    fetch_every_days = 90  # checked at most this often; the site answering "not changed" also skips the download
 
     def default_release(self, fetched_at: datetime) -> str:
         return LATEST_RELEASE

@@ -75,7 +75,7 @@ def test_refresh_leaves_frozen_and_recent_sources_alone(built):
     home, _ = built
     last = VintageStore(home).latest("cia_factbook")
     assert "no longer changes" in _not_due(CONNECTORS["cia_factbook"], last)
-    assert _not_due(CONNECTORS["un_wpp"], VintageStore(home).latest("un_wpp")) is None
+    assert "every 90 days" in _not_due(CONNECTORS["un_wpp"], VintageStore(home).latest("un_wpp"))  # big sources checked every few weeks or months
 
     class Monthly(Connector):  # only the scheduling attributes matter here
         frozen, fetch_every_days = False, 28

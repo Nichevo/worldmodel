@@ -597,14 +597,33 @@ class IEAEV(Connector):
         ("ev stock", "phev"): ("ev_stock_phev", "Plug-in hybrid cars on the road", "cars"),
     }
 
+    @staticmethod
+    def _records(f: Path):
+        """Rows as dicts: the Data Explorer CSV, or the long table in the yearly Excel file
+        ("EV data by country 2026.xlsx", sheet GEVO_EV_2026: region_country, category,
+        parameter, mode, powertrain, year, unit, value). Other files yield nothing."""
+        if f.suffix.lower() == ".csv":
+            yield from csv.DictReader(io.StringIO(f.read_text(encoding="utf-8-sig", errors="replace")))
+            return
+        sheets = [n for n in xlsx_sheet_names(f) if n.upper().startswith("GEVO_EV")]
+        for sheet in sheets[:1]:
+            data = xlsx_rows(f, sheet)
+            head = next((n for n, r in enumerate(data[:10]) if r and "parameter" in [str(c).strip().lower() for c in r if c]), None)
+            if head is None:
+                continue
+            cols = ["region" if str(c).strip().lower() == "region_country" else (str(c).strip() if c is not None else "")
+                    for c in data[head]]
+            for r in data[head + 1:]:
+                yield dict(zip(cols, r))
+
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
-        files = sorted(raw_dir.glob("*.csv"))
+        files = sorted(raw_dir.glob("*.csv")) + sorted(f for f in raw_dir.iterdir() if f.suffix.lower() in (".xlsx", ".xlsm"))
         if not files:
-            raise ConnectorError(f"iea_ev: no CSV in {raw_dir}")
+            raise ConnectorError(f"iea_ev: no CSV or Excel file in {raw_dir}")
         rows, found = Rows(), set()
         for f in files:
-            for r in csv.DictReader(io.StringIO(f.read_text(encoding="utf-8-sig", errors="replace"))):
-                k = {key(a): (b or "").strip() for a, b in r.items() if a}
+            for r in self._records(f):
+                k = {key(a): ("" if b is None else str(b)).strip() for a, b in r.items() if a}
                 if k.get("mode", "cars").lower() != "cars" or k.get("category", "historical").lower() != "historical":
                     continue
                 hit = self.PARAMS.get((k.get("parameter", "").lower(), k.get("powertrain", "").lower()))
