@@ -35,6 +35,7 @@ SETTINGS: dict[str, object] = {
     "disk_limit_gb": 100.0,          # the whole data folder
     "pictures_limit_gb": 2.0,        # media/ (pictures, cached pages)
     "basemap_limit_gb": 20.0,        # basemap/ (the local map files)
+    "map_centre": "pacific",         # world maps open centred on the Pacific (New Zealand near the middle) or on "atlantic" (Europe and Africa)
     "base_map": "online",            # map detail under the colours: "online" (OpenFreeMap), "local" (map files on this PC) or "plain"
     "basemap_regions": "nzl",        # countries the local map file holds in full detail (street level)
     "basemap_world_zoom": 8,         # how far the local world file goes (6 big towns and motorways ... 10 small towns and most roads)
@@ -108,7 +109,7 @@ SETTINGS: dict[str, object] = {
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
-           "base_map": ("online", "local", "plain"),
+           "base_map": ("online", "local", "plain"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all")}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}

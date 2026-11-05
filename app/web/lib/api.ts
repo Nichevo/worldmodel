@@ -207,6 +207,7 @@ export type Settings = {
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
   base_map: "online" | "local" | "plain"; // map detail under the colours
+  map_centre: "pacific" | "atlantic"; // where world maps open centred
   basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
   basemap_world_zoom: number;
   basemap_region_zoom: number;

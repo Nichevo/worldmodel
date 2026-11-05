@@ -54,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   forecast_ranges: "80+95",
   forecast_official: true,
   base_map: "online",
+  map_centre: "pacific",
   basemap_regions: "nzl",
   basemap_world_zoom: 8,
   basemap_region_zoom: 15,
