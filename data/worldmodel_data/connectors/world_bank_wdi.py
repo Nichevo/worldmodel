@@ -200,6 +200,7 @@ MAIN: dict[str, tuple[str, ...]] = {
     "electricity_access": ("EG.ELC.ACCS.ZS",),
     "internet_users_share": ("IT.NET.USER.ZS",),
     "mobile_subscriptions_per_100": ("IT.CEL.SETS.P2",),
+    "broadband_subscriptions_per_100": ("IT.NET.BBND.P2",),
     "air_passengers": ("IS.AIR.PSGR",),
     # land, environment and energy
     "land_area": ("AG.LND.TOTL.K2",),
@@ -248,7 +249,7 @@ def indicator_id(code: str) -> str:
 
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
-    stage_version = 2  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu)
+    stage_version = 3  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")  # the file has no release name of its own

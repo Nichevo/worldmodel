@@ -193,6 +193,9 @@ export type Settings = {
   climate_fetch: boolean; // refresh fetches the climate sources
   climate_storms_from: number; // first year of storm tracks kept
   climate_live_map: boolean; // the storms map asks GDACS for what is happening now
+  internet_speeds_fetch: boolean; // refresh reads Ookla's open Speedtest files
+  internet_speeds_from: number; // first year of internet speeds kept
+  internet_speeds_per_refresh: number; // Ookla files read in one refresh at most
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;
