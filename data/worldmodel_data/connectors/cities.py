@@ -345,6 +345,9 @@ def _year(stamp, release: str) -> int:
 
 # ----------------------------------------------------------------------------------------- ILOSTAT
 ILO_SERIES = ("EAR_4MTH_SEX_CUR_NB_A", "EAR_4MMN_CUR_NB_A")
+# Newer ILOSTAT names for the same figures, as files saved from its data explorer are called
+# (EAR_EMTA: mean monthly earnings of employees). Hourly earnings (EAR_EHRA) are not used.
+ILO_ALIASES = {"EAR_EMTA_SEX_CUR_NB_A": "EAR_4MTH_SEX_CUR_NB_A"}
 # Tried in order; ILOSTAT has moved its bulk files before. The first is what ILO's own R
 # package (Rilostat) uses since 2025: an R data file (.rds).
 ILO_URLS = ("https://rplumber.ilo.org/files/indicator/{id}.rds",
@@ -370,10 +373,11 @@ class ILOEarnings(Connector):
         got = []
         for sid in ILO_SERIES:
             last = None
-            for pattern in ILO_URLS:
-                url = pattern.format(id=sid)
+            ids = [sid] + [k for k, v in ILO_ALIASES.items() if v == sid]
+            tries = [(i, pattern.format(id=i)) for i in ids for pattern in ILO_URLS]
+            for i, url in tries:
                 try:
-                    self.get(url, raw_dir / (f"{sid}.rds" if url.endswith(".rds") else f"{sid}.csv.gz"))
+                    self.get(url, raw_dir / (f"{i}.rds" if url.endswith(".rds") else f"{i}.csv.gz"))
                     got.append(url)
                     break
                 except ConnectorError as exc:
@@ -387,7 +391,10 @@ class ILOEarnings(Connector):
         for f in sorted(raw_dir.iterdir()):
             if f.suffix.lower() not in (".csv", ".gz", ".xlsx", ".rds"):
                 continue
-            named = next((s for s in ILO_SERIES if f.name.upper().startswith(s)), None)
+            named = next((s for s in ILO_SERIES if f.name.upper().startswith(s)), None) or \
+                next((v for k, v in ILO_ALIASES.items() if f.name.upper().startswith(k)), None)
+            if named is None and f.name.upper().startswith("EAR_EHRA"):
+                continue
             for r in _ilo_rows(f):
                 sid = named or _ilo_series(r)
                 cur = _ilo_currency(r.get("classif1", "") or r.get("classif1.label", ""))
@@ -468,7 +475,28 @@ def _ilo_rows(path: Path) -> list[dict]:
     if raw[:2] == b"\x1f\x8b":
         raw = gzip.decompress(raw)
     text = raw.decode("utf-8-sig", errors="replace")
-    return list(csv.DictReader(io.StringIO(text)))
+    rows = list(csv.DictReader(io.StringIO(text)))
+    if rows and "obs_value" not in rows[0] and {"Area", "Year"} <= set(rows[0]):
+        return _ilo_wide(rows, path.name)
+    return rows
+
+
+def _ilo_wide(rows: list[dict], name: str) -> list[dict]:
+    """A table saved from ILOSTAT's newer data explorer: Area, Year, Total, Male, Female (one
+    currency, chosen on the site and not written in the file). The currency comes from the file
+    name when it says (PPP, USD, LCU or local); otherwise it is taken as PPP dollars, the
+    explorer's usual choice for comparing countries."""
+    up = name.upper()
+    cur = ("CUR_TYPE_USD" if "USD" in up else "CUR_TYPE_LCU" if "LCU" in up or "LOCAL" in up else "CUR_TYPE_PPP")
+    if cur == "CUR_TYPE_PPP" and "PPP" not in up:
+        log.info("ilostat: %s does not name its currency; read as PPP dollars", name)
+    out = []
+    for r in rows:
+        for col, sex in (("Total", "SEX_T"), ("Male", "SEX_M"), ("Female", "SEX_F")):
+            if col in r and str(r[col] or "").strip():
+                out.append({"ref_area": "", "ref_area.label": r["Area"], "time": r["Year"], "sex": sex,
+                            "classif1": cur, "obs_value": r[col]})
+    return out
 
 
 # ----------------------------------------------------------------------------------------- Numbeo

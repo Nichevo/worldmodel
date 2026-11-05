@@ -880,8 +880,8 @@
   default_rank: 3
   manual:
     by_hand: true
-    get: https://www.prisonstudies.org/highest-to-lowest/prison_population_rate
-    what: "Copy a table (prison population rate, occupancy level...) into a spreadsheet with a Country column, a Year column and value columns, and save it as .xlsx or .csv here."
+    get: https://www.prisonstudies.org/world-prison-data/highest-lowest/highest-lowest-prison-population-total
+    what: "Run .\\prisons.bat to fetch it, or save the Highest to Lowest page from your browser (Ctrl+S, Webpage, HTML only) here. A spreadsheet with a Country column, a Year column and value columns also works."
 
 - id: baci
   name: CEPII BACI world trade by product (HS 1992)

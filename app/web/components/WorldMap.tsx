@@ -400,9 +400,13 @@ export default function WorldMap({
         } });
       }
       if (fitPoints && pts.length) {
-        const lngs = pts.map((p) => p.lng), lats = pts.map((p) => p.lat);
-        const pad = pts.length === 1 ? 2 : 0.5;
-        m.fitBounds([[Math.min(...lngs) - pad, Math.min(...lats) - pad], [Math.max(...lngs) + pad, Math.max(...lats) + pad]],
+        // Kept inside what the map can show: a point at the South Pole (Antarctic stations)
+        // plus the padding would be below -90 and stop the page.
+        const ok = pts.filter((p) => Number.isFinite(p.lng) && Number.isFinite(p.lat));
+        const lngs = ok.map((p) => p.lng), lats = ok.map((p) => p.lat);
+        const pad = ok.length === 1 ? 2 : 0.5;
+        const lat = (v: number) => Math.max(-85, Math.min(85, v)), lng = (v: number) => Math.max(-180, Math.min(180, v));
+        if (ok.length) m.fitBounds([[lng(Math.min(...lngs) - pad), lat(Math.min(...lats) - pad)], [lng(Math.max(...lngs) + pad), lat(Math.max(...lats) + pad)]],
           { padding: 30, maxZoom: 6, duration: 0 });
       }
     };
