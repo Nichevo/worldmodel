@@ -646,6 +646,7 @@ i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vert
 .rel-chip.rel-together { background: color-mix(in srgb, var(--series-1) 14%, transparent); }
 .rel-chip.rel-first { background: color-mix(in srgb, var(--series-2) 16%, transparent); }
 .rel-chip.rel-holds { background: color-mix(in srgb, var(--div-pos-2) 22%, transparent); font-weight: 600; }
+.rel-chip.rel-built { background: var(--surface-2, transparent); border-style: dashed; color: var(--ink-3, var(--ink-2)); }
 .rel-table tr.selected td { background: var(--surface-2, color-mix(in srgb, var(--ink) 6%, transparent)); }
 .rel-facts { margin: 8px 0; padding-left: 18px; }
 .rel-facts li { margin: 3px 0; }
