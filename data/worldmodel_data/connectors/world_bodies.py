@@ -51,7 +51,6 @@ import html
 import io
 import logging
 import re
-import time
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
@@ -357,11 +356,11 @@ class UNVetoes(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        self.get(VETO_PAGE, raw_dir / "vetoes.html")
-        try:
-            self.get(MEMBERS_PAGE, raw_dir / "elected_members.html")
-        except ConnectorError as exc:  # the vetoes are the main part
-            log.warning("un_vetoes: elected members page skipped (%s)", exc)
+        from worldmodel_data.scrape import PageReader
+
+        with PageReader(self, planned=2) as pages:
+            pages.read(VETO_PAGE, raw_dir / "vetoes.html", expect=r"veto", what="vetoes list")
+            pages.read(MEMBERS_PAGE, raw_dir / "elected_members.html", expect=r"elected", what="elected members list")
         return f"{VETO_PAGE} {MEMBERS_PAGE}"
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
@@ -655,7 +654,10 @@ class WTODisputes(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        self.get(WTO_PAGE, raw_dir / "disputes.html")
+        from worldmodel_data.scrape import PageReader
+
+        with PageReader(self, planned=1) as pages:
+            pages.read(WTO_PAGE, raw_dir / "disputes.html", expect=r"DS\s?\d", what="disputes list")
         return WTO_PAGE
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
@@ -750,7 +752,6 @@ TREATY_NAMES = {k: n for k, n, _, _ in TREATIES}
 class UNTreaties(Connector):
     source_id = "un_treaties"
     fetch_every_days = 28
-    pause_seconds = 1.0
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -759,15 +760,14 @@ class UNTreaties(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
+        from worldmodel_data.scrape import PageReader
+
         got = []
-        for i, (k, _, no, ch) in enumerate(TREATIES):
-            if i:
-                time.sleep(self.pause_seconds)
-            try:
-                self.get(UNTC.format(no=no, ch=ch), raw_dir / f"treaty_{k}.html")
-                got.append(k)
-            except ConnectorError as exc:
-                log.warning("un_treaties: %s skipped (%s)", k, exc)
+        with PageReader(self, planned=len(TREATIES)) as pages:
+            for k, _, no, ch in TREATIES:
+                if pages.read(UNTC.format(no=no, ch=ch), raw_dir / f"treaty_{k}.html", missing_ok=True, what=k,
+                              expect=r"participant") is not None:
+                    got.append(k)
         if not got:
             raise ConnectorError("un_treaties: none of the treaty pages could be downloaded")
         return f"{len(got)} treaty pages from treaties.un.org"

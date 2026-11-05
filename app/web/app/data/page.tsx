@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 import KeysCard from "@/components/KeysCard";
 import ManualFilesCard from "@/components/ManualFiles";
+import ScrapersCard from "@/components/ScrapersCard";
 import ProblemsCard from "@/components/Problems";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
 import { api, type Dataset, type Meta, type Source } from "@/lib/api";
@@ -73,6 +74,7 @@ export default function DataPage() {
 
       <ProblemsCard />
       <ManualFilesCard />
+      <ScrapersCard />
       <KeysCard />
 
       <div className="card">

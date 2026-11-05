@@ -65,6 +65,7 @@ SETTINGS: dict[str, object] = {
     "holidays_fetch": True,          # refresh reads public holidays from Nager.Date (about 240 small requests every 90 days)
     "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
     "crisiswatch_backfill": 12,      # older CrisisWatch months filled in per refresh, back to 2003 (0 = only the latest)
+    "scrape_gap_seconds": 6,         # seconds between web pages read by the scraping tools; longer runs wait longer (see worldmodel_data.scrape)
     "voting_compare": "USA,CHN,RUS,eu",  # who a country's UN votes are compared with on its Voting card
     # Relationship scan (after each refresh): which figures move together, which comes first
     "relations_scan": True,          # look for relationships after each refresh (and once after update.bat)
@@ -119,7 +120,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
-          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "forecast_horizon": (1, 50),
+          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
@@ -151,6 +152,20 @@ def user_dir() -> Path:
 
 def refresh_log_path(root: Path | None = None) -> Path:
     return (root or home()) / "warehouse" / "refresh_log.jsonl"
+
+
+def scrape_log_path(root: Path | None = None) -> Path:
+    return (root or home()) / "warehouse" / "scrape_log.json"
+
+
+def read_scrape_log(root: Path | None = None) -> dict[str, dict]:
+    """The last run of each source that reads web pages: source_id -> {at, planned, read,
+    stopped (why it stopped early, or None), url, gap_seconds}. Written by worldmodel_data.scrape."""
+    try:
+        data = json.loads(scrape_log_path(root).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
 
 
 # ----------------------------------------------------------------------------- settings

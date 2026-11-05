@@ -456,13 +456,14 @@ def scan(force: bool = typer.Option(False, "--force", help="Scan even when no fi
 
 @app.command()
 def prisons(since: int = typer.Option(2000, "--since", help="First year to fetch (once; later runs fetch only the latest)."),
-            pause: float = typer.Option(5.0, "--pause", help="Seconds between pages.")):
+            pause: Optional[float] = typer.Option(None, "--pause", help="Seconds between pages (default: Settings, scrape gap).")):
     """Fetch World Prison Brief's Highest to Lowest page (every country, all seven measures)
     for the latest figures and, the first time, once for each year back to --since. Pages go
-    into manual\\world_prison_brief, then that folder is loaded. Run by .\\prisons.bat."""
-    import time as _time
-
+    into manual\\world_prison_brief, then that folder is loaded. Run by .\\prisons.bat.
+    Pages are read politely (worldmodel_data.scrape): longer gaps on a long run, and the run
+    stops at the first refused or odd page, keeping what it already saved."""
     from worldmodel_data.connectors.laws import wpb_url
+    from worldmodel_data.scrape import PageReader, ScrapeStopped
 
     p = paths()
     store = VintageStore(p)
@@ -473,26 +474,28 @@ def prisons(since: int = typer.Option(2000, "--since", help="First year to fetch
     this_year = date.today().year
     years = [y for y in range(max(1990, since), this_year) if not (folder / f"wpb_{y}.html").exists()]
     todo = [(this_year, wpb_url())] + [(y, wpb_url(y)) for y in reversed(years)]
-    typer.echo(f"World Prison Brief: {len(todo)} page(s), {pause:g} s apart")
-    got = failed = 0
-    for i, (y, url) in enumerate(todo):
-        if i:
-            _time.sleep(pause)
-        try:
-            conn.get(url, folder / f"wpb_{y}.html.part")
-            (folder / f"wpb_{y}.html.part").replace(folder / f"wpb_{y}.html")
-            got += 1
-            typer.echo(f"  {y}: saved")
-        except Exception as exc:  # noqa: BLE001 - one year failing should not stop the rest
-            failed += 1
-            typer.echo(f"  {y}: not fetched ({exc})", err=True)
-            if got == 0 and i == 0:
-                typer.echo("The site refused the first page. Save it from your browser (Ctrl+S) into "
-                           f"{folder} instead, then run .\\load.bat world_prison_brief.", err=True)
-                raise typer.Exit(1)
+    stopped = None
+    with PageReader(conn, planned=len(todo), gap=pause, echo=typer.echo) as pages:
+        typer.echo(f"World Prison Brief: {len(todo)} page(s), at least {pages.base:g} s apart "
+                   f"(longer on a long run); stops at the first problem")
+        for y, url in todo:
+            part = folder / f"wpb_{y}.html.part"
+            try:
+                pages.read(url, part, expect=r"views-row", what=f"{y}" + (" (latest)" if y == this_year else ""))
+            except ScrapeStopped as exc:
+                stopped = str(exc)
+                break
+            part.replace(folder / f"wpb_{y}.html")
+    if stopped:
+        typer.echo(stopped, err=True)
+        if pages.read_count == 0:
+            typer.echo(f"Nothing was fetched. Save the page from your browser (Ctrl+S) into {folder} instead, "
+                       "then run .\\load.bat world_prison_brief.", err=True)
+            raise typer.Exit(1)
+        typer.echo("Loading the pages saved so far; run .\\prisons.bat again later for the rest.", err=True)
     manifest, is_new = conn.ingest(store, folder)
     typer.echo(f"world_prison_brief: {'stored new vintage' if is_new else 'unchanged'} {manifest.vintage} "
-               f"({manifest.row_count:,} figures; {got} page(s) fetched, {failed} failed)")
+               f"({manifest.row_count:,} figures; {pages.read_count} of {len(todo)} page(s) fetched)")
 
 
 @app.command()
