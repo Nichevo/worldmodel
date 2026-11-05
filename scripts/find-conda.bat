@@ -11,5 +11,8 @@ set "ROOTS="%USERPROFILE%\anaconda3" "%USERPROFILE%\miniconda3" "%USERPROFILE%\m
 for %%r in (%ROOTS%) do if not defined CONDA_BAT if exist "%%~r\condabin\conda.bat" set "CONDA_BAT=%%~r\condabin\conda.bat"
 set "ROOTS="
 if defined CONDA_BAT exit /b 0
+rem A home folder moved to another drive (D:\Users\<name>\miniconda3 and the like)
+for %%v in (C D E F) do for %%n in (miniconda3 anaconda3 miniforge3) do if not defined CONDA_BAT if exist "%%v:\Users\%USERNAME%\%%n\condabin\conda.bat" set "CONDA_BAT=%%v:\Users\%USERNAME%\%%n\condabin\conda.bat"
+if defined CONDA_BAT exit /b 0
 echo Conda not found. Install Miniconda or Anaconda, or run this from an Anaconda Prompt.
 exit /b 1

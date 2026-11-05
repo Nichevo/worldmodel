@@ -70,3 +70,27 @@ def test_corrections_quarterly_workbook(tmp_path):
 def test_ilostat_explorer_tables(tmp_path):
     manifest = _staged(tmp_path, "ilostat_earnings", FIX / "ilostat_explorer")
     assert manifest.row_count > 400  # monthly earnings by sex; the hourly file is skipped
+
+
+def test_scrape_command_names_and_prisons(tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path / "var"))
+    monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
+    page = (FIX / "wpb_page" / "wpb_2026.htm").read_bytes()
+    monkeypatch.setattr(CONNECTORS["world_prison_brief"], "get", lambda self, url, dest: dest.write_bytes(page))
+    out = CliRunner().invoke(cli.app, ["scrape", "nonsense"])
+    assert out.exit_code == 2 and "Choose from" in out.output
+    out = CliRunner().invoke(cli.app, ["scrape", "prisons", "--since", "2025", "--pause", "0"])
+    assert out.exit_code == 0, out.output
+    assert "[1/1] world_prison_brief" in out.output and "stored new vintage" in out.output
+
+
+def test_prison_brief_hand_saved_copy_adds_no_repeats(tmp_path):
+    import shutil
+
+    one = _staged(tmp_path / "a", "world_prison_brief", FIX / "wpb_page")
+    folder = tmp_path / "both"
+    folder.mkdir()
+    shutil.copy(FIX / "wpb_page" / "wpb_2026.htm", folder / "wpb_2026.html")  # fetched by the scraper
+    shutil.copy(FIX / "wpb_page" / "wpb_2026.htm", folder / "Highest to Lowest - prison population total.htm")
+    both = _staged(tmp_path / "b", "world_prison_brief", folder)
+    assert both.row_count == one.row_count
