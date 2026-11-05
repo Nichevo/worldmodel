@@ -491,7 +491,7 @@
     get: https://www.corrections.govt.nz/resources/statistics/quarterly_prison_statistics
     what: "When Corrections refuses the refresh, open each quarter's page you want (for example the last five Decembers) and save it (Ctrl+S, Web page, HTML only)."
   scraper:
-    run: "Refresh, every 28 days"
+    run: "Refresh, every 28 days, or now with .\\scrape.bat"
     reads: "The statistics index, then the quarterly workbook (or up to 20 quarterly pages when no workbook is linked)"
     setting: pack_nz
 
@@ -546,7 +546,7 @@
     get: https://elections.nz/stats-and-research/
     what: "When the site refuses the refresh: download '<year> General Election voter turnout by age' for each election you want; keep them all."
   scraper:
-    run: "Refresh, every 90 days"
+    run: "Refresh, every 90 days, or now with .\\scrape.bat"
     reads: "The Statistics page, up to 12 election pages it links to, and their turnout spreadsheets"
     setting: pack_nz
 
@@ -665,7 +665,7 @@
     get: https://research.un.org/en/docs/sc/quick/veto
     what: "When the refresh is refused, save the veto list page and the 'Countries elected members of the Security Council' page (Ctrl+S, Web page, HTML only)."
   scraper:
-    run: "Refresh, every 28 days"
+    run: "Refresh, every 28 days, or now with .\\scrape.bat"
     reads: "Two pages: the UN vetoes list and the elected Security Council members list"
 
 - id: gsdb
@@ -719,7 +719,7 @@
     get: https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm
     what: "When the refresh is refused, save the 'Chronological list of disputes cases' page (Ctrl+S, Web page, HTML only)."
   scraper:
-    run: "Refresh, every 28 days"
+    run: "Refresh, every 28 days, or now with .\\scrape.bat"
     reads: "One page: the WTO disputes list"
 
 - id: un_treaties
@@ -739,7 +739,7 @@
     get: https://treaties.un.org/Pages/ParticipationStatus.aspx?clang=_en
     what: "When the refresh is refused, open each treaty's status page and save it (Ctrl+S, Web page, HTML only)."
   scraper:
-    run: "Refresh, every 28 days"
+    run: "Refresh, every 28 days, or now with .\\scrape.bat"
     reads: "One status page per treaty followed (about 20)"
 
 - id: crisiswatch
@@ -759,7 +759,7 @@
     get: https://www.crisisgroup.org/crisiswatch/database
     what: "When the refresh is refused, pick a month and save the page (Ctrl+S, Web page, HTML only). Save as many months as you like."
   scraper:
-    run: "Refresh, every 7 days"
+    run: "Refresh, every 7 days, or now with .\\scrape.bat"
     reads: "One month's page at a time: the latest months plus older ones to fill in"
     setting: crisiswatch_backfill
 
@@ -910,9 +910,9 @@
   manual:
     by_hand: true
     get: https://www.prisonstudies.org/world-prison-data/highest-lowest/highest-lowest-prison-population-total
-    what: "Run .\\prisons.bat to fetch it, or save the Highest to Lowest page from your browser (Ctrl+S, Webpage, HTML only) here. A spreadsheet with a Country column, a Year column and value columns also works."
+    what: "Run .\\scrape.bat prisons to fetch it, or save the Highest to Lowest page from your browser (Ctrl+S, Webpage, HTML only) here. A spreadsheet with a Country column, a Year column and value columns also works."
   scraper:
-    run: ".\\prisons.bat (you run it)"
+    run: ".\\scrape.bat prisons (or .\\scrape.bat for every site)"
     reads: "The Highest to Lowest page, latest figures plus once per year back to 2000 the first time (about 27 pages), later runs the latest only"
 
 - id: baci
