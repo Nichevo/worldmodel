@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   relations_min_years: 10,
   relations_max_minutes: 15,
   relations_fdr: 0.05,
+  relations_only_new: true,
   sectors_trade_fetch: true,
   sectors_trade_from: 2005,
   sectors_hidden: "",
