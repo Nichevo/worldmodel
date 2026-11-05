@@ -1,0 +1,3 @@
+iso3,tests,devices,down_mbps,up_mbps,latency_ms
+NZL,100,50,50.0,10.0,20.0
+AUS,200,90,40.0,8.0,25.0

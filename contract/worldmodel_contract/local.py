@@ -81,6 +81,10 @@ SETTINGS: dict[str, object] = {
     "climate_fetch": True,           # refresh fetches the climate sources (temperatures, gases, storms, alerts, projections)
     "climate_storms_from": 1980,     # first year of storm tracks kept on the map (IBTrACS starts in 1980 in this file)
     "climate_live_map": True,        # the Climate page's storms map asks GDACS for the storms, floods and fires happening now
+    # Internet speeds
+    "internet_speeds_fetch": True,     # refresh fetches Ookla's open Speedtest files (quarterly, 200-400 MB each, summed by country then deleted)
+    "internet_speeds_from": 2019,      # first year of internet speeds kept (Ookla's open data starts in 2019)
+    "internet_speeds_per_refresh": 8,  # Ookla files read in one refresh at most (newest first; older quarters follow at later refreshes)
     # Local AI (Ollama on this PC or another; the app's server talks to it)
     "ai_enabled": True,              # Ask AI buttons, the AI notes page and the highlight menu's Ask AI
     "ollama_url": "http://localhost:11434",
@@ -116,7 +120,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
-          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "ai_temperature": (0, 2),
+          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95

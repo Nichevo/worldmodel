@@ -148,6 +148,22 @@ export default function SettingsPage() {
           save={(v) => save({ sectors_trade_from: v })} />
       </section>
 
+      <section className="card" id="internet">
+        <h2>Internet speeds</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Speeds come from Ookla&apos;s open Speedtest files, one for fixed broadband and one for mobile each quarter since 2019.
+          Each is 200 to 400 MB; it is read, summed by country and deleted, so only a few kilobytes are kept.
+        </p>
+        <Toggle label="Download internet speeds (Ookla)" hint="Read every four weeks during .\refresh.bat, newest quarters first. Switching off keeps what is stored."
+          on={s.internet_speeds_fetch} set={(v) => save({ internet_speeds_fetch: v })} />
+        <NumberField label="Speeds kept from" unit="year" value={s.internet_speeds_from} min={2019} max={2030} step={1}
+          note="Ookla's open data starts in 2019. Older quarters are read at later refreshes."
+          save={(v) => save({ internet_speeds_from: v })} />
+        <NumberField label="Files read in one refresh" value={s.internet_speeds_per_refresh} min={1} max={60} step={1}
+          note="All of 2019 to now is about 55 files (about 15 GB to download once). 8 a refresh is about 2.5 GB."
+          save={(v) => save({ internet_speeds_per_refresh: v })} />
+      </section>
+
       <section className="card" id="climate">
         <h2>Climate</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
