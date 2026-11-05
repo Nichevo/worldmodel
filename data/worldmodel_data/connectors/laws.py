@@ -661,7 +661,7 @@ def wpb_year(path: Path, text: str) -> int:
 class WorldPrisonBrief(_RuleTable):
     """World Prison Brief: tables saved by hand (a spreadsheet with Country, Year and value
     columns), or its Highest to Lowest page, saved from the browser or fetched by
-    .\\prisons.bat (one page a year, a few seconds apart)."""
+    .\\scrape.bat prisons (one page a year, a few seconds apart)."""
     source_id, prefix, label, domain = "world_prison_brief", "wpb", "World Prison Brief", "crime"
     keeps_files = True  # one page per year; each adds to the ones before
 

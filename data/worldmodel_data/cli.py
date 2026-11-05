@@ -454,14 +454,10 @@ def scan(force: bool = typer.Option(False, "--force", help="Scan even when no fi
     relations.scan(current, p.home, current.stem, local.load_settings(p.home), log_line=typer.echo, force=force)
 
 
-@app.command()
-def prisons(since: int = typer.Option(2000, "--since", help="First year to fetch (once; later runs fetch only the latest)."),
-            pause: Optional[float] = typer.Option(None, "--pause", help="Seconds between pages (default: Settings, scrape gap).")):
-    """Fetch World Prison Brief's Highest to Lowest page (every country, all seven measures)
-    for the latest figures and, the first time, once for each year back to --since. Pages go
-    into manual\\world_prison_brief, then that folder is loaded. Run by .\\prisons.bat.
-    Pages are read politely (worldmodel_data.scrape): longer gaps on a long run, and the run
-    stops at the first refused or odd page, keeping what it already saved."""
+def _scrape_prisons(since: int, pause: float | None) -> bool:
+    """World Prison Brief's Highest to Lowest page (every country, all seven measures) for the
+    latest figures and, the first time, once for each year back to `since`, into
+    manual\\world_prison_brief, then that folder is loaded. False when nothing could be fetched."""
     from worldmodel_data.connectors.laws import wpb_url
     from worldmodel_data.scrape import PageReader, ScrapeStopped
 
@@ -488,14 +484,74 @@ def prisons(since: int = typer.Option(2000, "--since", help="First year to fetch
             part.replace(folder / f"wpb_{y}.html")
     if stopped:
         typer.echo(stopped, err=True)
-        if pages.read_count == 0:
+        if pages.read_count == 0 and not manual.files(folder):
             typer.echo(f"Nothing was fetched. Save the page from your browser (Ctrl+S) into {folder} instead, "
                        "then run .\\load.bat world_prison_brief.", err=True)
-            raise typer.Exit(1)
-        typer.echo("Loading the pages saved so far; run .\\prisons.bat again later for the rest.", err=True)
+            return False
+        typer.echo("Loading the pages saved so far; run .\\scrape.bat prisons again later for the rest.", err=True)
     manifest, is_new = conn.ingest(store, folder)
     typer.echo(f"world_prison_brief: {'stored new vintage' if is_new else 'unchanged'} {manifest.vintage} "
                f"({manifest.row_count:,} figures; {pages.read_count} of {len(todo)} page(s) fetched)")
+    return pages.read_count > 0
+
+
+# Sources `scrape` runs (in this order) when none are named; short names people may type.
+SCRAPE_ORDER = ("world_prison_brief", "crisiswatch", "un_vetoes", "wto_disputes", "un_treaties", "nz_corrections",
+                "nz_election_turnout")
+SCRAPE_ALIASES = {"prisons": "world_prison_brief", "wpb": "world_prison_brief", "vetoes": "un_vetoes",
+                  "wto": "wto_disputes", "treaties": "un_treaties", "corrections": "nz_corrections",
+                  "elections": "nz_election_turnout", "turnout": "nz_election_turnout"}
+
+
+@app.command()
+def scrape(names: Optional[list[str]] = typer.Argument(None, help="Sources to read (default: all of them): "
+                                                         "prisons, crisiswatch, vetoes, wto, treaties, corrections, elections."),
+           since: int = typer.Option(2000, "--since", help="Prisons: first year to fetch (once; later runs fetch only the latest)."),
+           pause: Optional[float] = typer.Option(None, "--pause", help="Seconds between pages (default: Settings, scrape gap).")):
+    """Read the sources that come from web pages now, one site after another, whatever their
+    refresh schedule. Each is read politely (worldmodel_data.scrape) and stops at its first
+    problem; the next site still runs. Run by .\\scrape.bat, which then builds."""
+    wanted = [SCRAPE_ALIASES.get(n.lower(), n.lower()) for n in (names or [])] or list(SCRAPE_ORDER)
+    unknown = [n for n in wanted if n not in SCRAPE_ORDER]
+    if unknown:
+        typer.echo(f"Not a scraping source: {', '.join(unknown)}. Choose from: prisons, crisiswatch, vetoes, wto, "
+                   "treaties, corrections, elections.", err=True)
+        raise typer.Exit(2)
+    p = paths()
+    store = VintageStore(p)
+    settings = local.load_settings(p.home)
+    failed = []
+    for i, source_id in enumerate(wanted, 1):
+        typer.echo(f"[{i}/{len(wanted)}] {source_id}")
+        if source_id == "world_prison_brief":
+            if not _scrape_prisons(since, pause):
+                failed.append(source_id)
+            continue
+        cls = CONNECTORS[source_id]
+        if cls.pack and not settings.get(f"pack_{cls.pack}", True):
+            typer.echo(f"  skipped (the {cls.pack.upper()} pack is switched off in Settings)")
+            continue
+        if cls.switch and not settings.get(cls.switch, True):
+            typer.echo("  skipped (switched off in Settings)")
+            continue
+        try:
+            manifest, is_new = cls().ingest(store)
+        except Exception as exc:  # noqa: BLE001 - one site stopping does not stop the next
+            typer.echo(f"  STOPPED: {exc}", err=True)
+            failed.append(source_id)
+            continue
+        typer.echo(f"  {'new vintage' if is_new else 'unchanged'} {manifest.vintage} ({manifest.row_count:,} figures)")
+    if failed:
+        typer.echo(f"Stopped early or failed: {', '.join(failed)} (the Data status page lists why). "
+                   "Building with what was read.", err=True)
+        raise typer.Exit(3)
+
+
+@app.command(hidden=True)
+def prisons(since: int = typer.Option(2000, "--since"), pause: Optional[float] = typer.Option(None, "--pause")):
+    """Old name of `scrape prisons`."""
+    if not _scrape_prisons(since, pause):
+        raise typer.Exit(1)
 
 
 @app.command()
