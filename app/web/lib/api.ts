@@ -187,6 +187,7 @@ export type Settings = {
   relations_min_years: number;
   relations_max_minutes: number;
   relations_fdr: number; // share of reported pairs allowed to be chance finds
+  relations_only_new: boolean; // skip the scan when nothing it reads has changed
   sectors_trade_fetch: boolean; // refresh downloads BACI trade by product
   sectors_trade_from: number; // first year of trade kept
   sectors_hidden: string; // sectors left off the Sectors page, comma-separated ids
