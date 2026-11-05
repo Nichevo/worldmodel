@@ -102,6 +102,7 @@ def test_failed_build_is_logged_with_its_checks_and_repeats(home, tmp_path, monk
     out = runner.invoke(app, ["build"])
     assert out.exit_code == 1
     assert "Totals do not add up" in out.output and "2 times since" in out.output
+    assert "| Check | Kind |" not in out.output and len(out.output.splitlines()) < 60  # a summary, not the report
     p = next(p for p in local.problems(home.home) if p.get("check_id") == "dbt:assert_world_population_matches_countries")
     assert p["open"] and p["times"] == p["in_a_row"] == 2
 
@@ -227,3 +228,19 @@ def test_value_outside_the_bounds_is_left_out_not_fatal(home, tmp_path):
     assert con.execute("SELECT count(*) FROM series WHERE entity_id = 'NZL' AND indicator_id = 'tfr'").fetchone()[0] > 0
     status, examples = next((c.status, c.examples) for c in result.checks if c.check_id == "out_of_bounds")
     assert status == "warn" and "un_wpp tfr NZL" in examples[0]
+
+
+def test_failing_rows_are_summed_up_by_measure(tmp_path):
+    import duckdb
+
+    from worldmodel_data import build as build_mod, gates
+
+    db = tmp_path / "t.duckdb"
+    con = duckdb.connect(str(db))
+    con.execute("CREATE TABLE o AS SELECT 'world_prison_brief' AS source_id, 'wpb_total' AS indicator_id, "
+                "'C' || lpad(i::VARCHAR, 3, '0') AS entity_id, DATE '2026-01-01' AS period_start FROM range(200) t(i)")
+    con.close()
+    c = gates.Check("dbt:unique", "dbt_test", "fail", "200 failing row(s)")
+    build_mod._sample_failures(db, [c], {id(c): "SELECT * FROM o"})
+    assert c.examples[0] == "world_prison_brief wpb_total: 200 row(s) in 200 place(s) (C000, C001, C002 and 197 more), 2026"
+    assert len(c.examples) < 10

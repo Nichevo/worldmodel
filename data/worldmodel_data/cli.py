@@ -141,8 +141,11 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
         result = build_mod.build(p, allow_shrink=allow_shrink)
     except build_mod.BuildFailed as exc:
         typer.echo(f"BUILD FAILED: {exc}", err=True)
-        if exc.report:
-            typer.echo(exc.report.read_text(), err=True)
+        for f in exc.failures:  # a short summary; the report has the rest
+            typer.echo(f"  FAILED {f['check_id']}: {f['detail']}", err=True)
+            shown = [e for e in f["examples"] if e and e != "First rows:"][:6]
+            for e in shown:
+                typer.echo(f"    {e}", err=True)
         _log(p, {**record, "status": "failed", "error": str(exc).splitlines()[0],
                  "build_id": exc.report.stem if exc.report else None, "failures": exc.failures})
         _echo_problems(p)
