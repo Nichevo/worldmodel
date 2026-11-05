@@ -290,6 +290,35 @@ def read_prison_page(text: str) -> dict[str, float]:
     return out
 
 
+def read_prison_workbook(path: Path) -> dict[tuple[int, int], dict[str, float]]:
+    """The quarterly workbook Corrections now publishes ("Prison_Stats_-_Q1_FY_2026_27.xlsx"),
+    sheet Population: quarter-end dates across the top, then blocks of rows such as
+    ("Grand Total", "Remand accused prisoners", counts...), "Total Male Prisoners" and
+    "Total Female Prisoners". Returns (year, month) -> indicator suffix -> count."""
+    sheets = xlsx_sheet_names(path)
+    name = next((s for s in sheets if s.strip().lower() == "population"), None)
+    if not name:
+        return {}
+    rows = xlsx_rows(path, name)
+    head = next((r for r in rows[:5] if sum(isinstance(c, (datetime, date)) for c in r) >= 2), None)
+    if head is None:
+        return {}
+    cols = {j: (c.year, c.month) for j, c in enumerate(head) if isinstance(c, (datetime, date))}
+    out: dict[tuple[int, int], dict[str, float]] = {}
+    for r in rows:
+        if len(r) < 2 or not r[0] or not r[1]:
+            continue
+        group, label = str(r[0]).strip().lower(), str(r[1]).strip().lower()
+        suffix = next((v for h, v in PRISON_ROWS.items() if group.startswith(h)), None)
+        k = next((v for h, v in PRISON_COLS.items() if label.startswith(h)), None)
+        if suffix is None or k is None:
+            continue
+        for j, ym in cols.items():
+            if j < len(r) and (v := num(r[j])) is not None:
+                out.setdefault(ym, {})[f"{k}{suffix}"] = v
+    return out
+
+
 class NZCorrections(Connector):
     """Department of Corrections quarterly prison statistics: people in prison at the
     end of each quarter by custody status (remand accused, remand convicted,
@@ -340,6 +369,11 @@ class NZCorrections(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows, latest = Rows(), {}
         for p in sorted(raw_dir.iterdir()):
+            if p.suffix.lower() == ".xlsx":  # the quarterly workbook: every quarter since 2018 in one file
+                for (y, mo), got in read_prison_workbook(p).items():
+                    if got and (y not in latest or mo > latest[y][0]):
+                        latest[y] = (mo, got)
+                continue
             if p.suffix.lower() not in (".html", ".htm"):
                 continue
             text = p.read_text(encoding="utf-8", errors="replace")
@@ -362,7 +396,7 @@ class NZCorrections(Connector):
             for k, v in got.items():
                 rows.add("iso3", "NZL", f"nz_prisoners_{k}", y, v)
         if not len(rows):
-            raise ConnectorError("nz_corrections: no custody table found on the quarterly pages")
+            raise ConnectorError("nz_corrections: no custody table found on the quarterly pages or in a Prison_Stats workbook")
         names = {"total": "People in prison", "remand_accused": "People in prison on remand, not yet convicted",
                  "remand_convicted": "People in prison on remand, convicted awaiting sentence",
                  "sentenced": "People in prison serving a sentence"}

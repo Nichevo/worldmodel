@@ -34,6 +34,7 @@ world_policy, gunpolicy, world_prison_brief
 from __future__ import annotations
 
 import csv
+import html
 import io
 import json
 import logging
@@ -570,5 +571,120 @@ class GunPolicy(_RuleTable):
     source_id, prefix, label = "gunpolicy", "guns", "GunPolicy.org"
 
 
+# The "Highest to Lowest" list that holds every measure for every country on one page
+# (https://www.prisonstudies.org/world-prison-data/highest-lowest/highest-lowest-prison-population-total);
+# "data up to selected year" is the field_date_collected_value[max] filter.
+WPB_PAGE = "https://www.prisonstudies.org/world-prison-data/highest-lowest/highest-lowest-prison-population-total"
+WPB_MEASURES = (  # how the page labels each figure -> column name (and so indicator id)
+    ("prison population total", "Prison population total"),
+    ("prison population rate", "Prison population rate per 100,000"),
+    ("pre-trial", "Pre-trial detainees share"),
+    ("female", "Female prisoners share"),
+    ("juveniles", "Juveniles share"),
+    ("foreign", "Foreign prisoners share"),
+    ("occupancy", "Occupancy level"),
+)
+
+
+def wpb_url(year: int | None = None) -> str:
+    if year is None:
+        return WPB_PAGE
+    return f"{WPB_PAGE}?field_date_collected_value%5Bmin%5D=0000-01-01&field_date_collected_value%5Bmax%5D={year}-12-31"
+
+
+def wpb_table(text: str, year: int) -> list[list]:
+    """The countries on a saved or fetched Highest to Lowest page as a table: ISO, Country,
+    Year, then one column per measure. Parts of countries (England and Wales, Scotland,
+    Northern Ireland and the like, flagged "gb-eng") are left out, so only whole countries count."""
+    head = ["ISO", "Country", "Year"] + [c for _, c in WPB_MEASURES]
+    out = [head]
+    for block in re.split(r'<div class="country views-row">', text)[1:]:
+        flag = re.search(r'class="fi fi-([a-z-]+)"', block)
+        name = re.search(r'class="country-name"><a[^>]*>(.*?)</a>', block, re.S)
+        if not name:
+            continue
+        code = flag.group(1) if flag else ""
+        if "-" in code:
+            continue
+        row = [code.upper(), html.unescape(re.sub(r"<[^>]+>", "", name.group(1))).strip(), year] + [None] * len(WPB_MEASURES)
+        for label, value in re.findall(r"<dt[^>]*>(.*?)</dt>\s*<dd[^>]*>(.*?)</dd>", block, re.S):
+            label = html.unescape(re.sub(r"<[^>]+>", "", label)).strip().lower()
+            text_v = re.sub(r"<div[^>]*visually-hidden[^>]*>.*?</div>", "", value, flags=re.S)
+            text_v = html.unescape(re.sub(r"<[^>]+>", "", text_v)).replace("c.", "").replace(",", "").replace("%", "").strip()
+            for i, (key_, _) in enumerate(WPB_MEASURES):
+                if label.startswith(key_) and re.fullmatch(r"-?\d+(\.\d+)?", text_v):
+                    row[3 + i] = float(text_v)
+                    break
+        out.append(row)
+    return _wpb_whole_countries(out)
+
+
+WPB_CODE_FIXES = {("VG", "(usa)"): "VI", ("KO", ""): "XK"}  # the site's flags for the US Virgin Islands and Kosovo
+
+
+def _wpb_whole_countries(table: list[list]) -> list[list]:
+    """Countries the site lists in parts ("United Kingdom: England and Wales", "...: Scotland",
+    "Bosnia and Herzegovina: Federation") become one row: totals added up, the rate and the
+    shares weighted by each part's prisoners, occupancy left out."""
+    head, rows = table[0], []
+    parts: dict[str, list[list]] = {}
+    for r in table[1:]:
+        for (code, hint), fixed in WPB_CODE_FIXES.items():
+            if r[0] == code and hint in r[1].lower():
+                r[0] = fixed
+        if ":" in r[1]:
+            parts.setdefault(r[0], []).append(r)
+        else:
+            rows.append(r)
+    for code, ps in parts.items():
+        tot = [p[3] for p in ps]
+        whole = [code, ps[0][1].split(":")[0].strip(), ps[0][2]] + [None] * (len(head) - 3)
+        if all(t is not None for t in tot):
+            whole[3] = sum(tot)
+            if all(p[4] for p in ps):
+                people = sum(p[3] / p[4] * 1e5 for p in ps)
+                whole[4] = round(whole[3] / people * 1e5)
+            for j in range(5, len(head) - 1):  # the shares; occupancy (last) is left out
+                if all(p[j] is not None for p in ps):
+                    whole[j] = round(sum(p[j] * p[3] for p in ps) / whole[3], 1)
+        rows.append(whole)
+    return [head] + rows
+
+
+def wpb_year(path: Path, text: str) -> int:
+    """The year a page is "data up to": wpb_<year> in the file name, the page's own filter, or
+    (a page saved by hand with no filter) the year the file was saved."""
+    m = re.search(r"wpb_(\d{4})", path.name) or re.search(r'field_date_collected_value\[max\]" value="(\d{4})', text)
+    return int(m.group(1)) if m else datetime.fromtimestamp(path.stat().st_mtime).year
+
+
 class WorldPrisonBrief(_RuleTable):
+    """World Prison Brief: tables saved by hand (a spreadsheet with Country, Year and value
+    columns), or its Highest to Lowest page, saved from the browser or fetched by
+    .\\prisons.bat (one page a year, a few seconds apart)."""
     source_id, prefix, label, domain = "world_prison_brief", "wpb", "World Prison Brief", "crime"
+    keeps_files = True  # one page per year; each adds to the ones before
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv", ".htm", ".html"))
+        if not files:
+            raise ConnectorError(f"{self.source_id}: no saved page, .xlsx or .csv file in {raw_dir}")
+        rows, names = Rows(), {}
+        for f in files:
+            if f.suffix.lower() in (".htm", ".html"):
+                text = f.read_text(encoding="utf-8", errors="replace")
+                table = wpb_table(text, wpb_year(f, text))
+            else:
+                table = _table(f)
+            rule_table(table, self.prefix, rows, names, datetime.now().year)
+        if not rows:
+            raise ConnectorError(f"{self.source_id}: no countries with figures found in {', '.join(f.name for f in files)}")
+        self.listed_indicators = []
+        for i, (n, u) in names.items():
+            share = n.endswith("share") or n.startswith("Occupancy")
+            unit = "%" if share else "persons" if n.endswith("total") else "per 100,000" if "100,000" in n else u
+            self.listed_indicators.append(indicator(
+                i, f"{n.replace(' share', '')} ({self.label})", f"{n}, from {self.label}: for each year, the latest figure "
+                "known up to that year.", unit, self.domain, self.source_id, i, decimals=1 if share else 0,
+                default_on=i in ("wpb_prison_population_rate_per_100_000", "wpb_prison_population_total")))
+        return rows.stage(con, self.source_id, vintage)
