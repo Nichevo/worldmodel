@@ -648,3 +648,20 @@ i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vert
 .rel-facts { margin: 8px 0; padding-left: 18px; }
 .rel-facts li { margin: 3px 0; }
 .rel-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+
+/* Sectors */
+.sector-tile h3 a { color: var(--ink); }
+.sector-nz { font-size: 11px; padding: 0 5px; border-radius: 8px; border: 1px solid var(--border); color: var(--ink-2); margin-left: 6px; font-weight: 500; }
+.sector-chain { margin: 6px 0 0; padding-left: 18px; }
+.sector-chain li { margin: 3px 0; }
+.sector-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+.sector-flow-step { display: inline-flex; align-items: center; gap: 6px; }
+.sector-flow button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; max-width: 240px;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.sector-flow button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.sector-arrow { color: var(--muted); }
+.sector-how dt { font-weight: 600; margin-top: 6px; }
+.sector-how dd { margin: 2px 0 0; color: var(--ink-2); }
+td.neg { color: var(--div-neg-3, #b33); }
+tr.selected td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sector-page td.num { white-space: nowrap; }
