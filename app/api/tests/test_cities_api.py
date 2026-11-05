@@ -129,7 +129,9 @@ def test_numbeo_button_fetches_once_within_the_limit(client, monkeypatch):
 def test_manual_files_say_what_to_do(client, tmp_path):
     rows = {r["source_id"]: r for r in client.get("/api/v1/manual-files").json()}
     assert rows["emdat"]["get"].startswith("https://") and rows["emdat"]["command"] == ".\\load.bat emdat"
-    assert all(r["todo"] == "download" for r in rows.values() if r["by_hand"] and r["last_loaded"] is None)
+    assert all(r["todo"] == "download" for r in rows.values()
+               if r["by_hand"] and r["last_loaded"] is None and not r["optional"])
+    assert rows["gunpolicy"]["optional"] and rows["gunpolicy"]["todo"] is None  # needs a sign-in: never nags
     assert all(r["todo"] is None for r in rows.values() if not r["by_hand"] and not r["files"])
     (tmp_path / "manual" / "rbnz").mkdir(parents=True)
     (tmp_path / "manual" / "rbnz" / "hb2-daily.xlsx").write_bytes(b"x")

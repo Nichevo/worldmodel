@@ -558,7 +558,7 @@ export type NumbeoPrices = {
 };
 
 export type ManualFile = {
-  source_id: string; name: string; by_hand: boolean; get: string; what: string; cadence: string; folder: string;
+  source_id: string; name: string; by_hand: boolean; optional: boolean; get: string; what: string; cadence: string; folder: string;
   files: string[]; last_loaded: string | null; todo: "download" | "load" | null; why: string; command: string;
 };
 

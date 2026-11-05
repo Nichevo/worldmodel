@@ -64,6 +64,7 @@ class ManualFile(BaseModel):
     by_hand: bool
     get: str  # where to download it
     what: str  # which file, and how
+    optional: bool = False  # nice to have: never listed as something to do until a file is in its folder
 
 
 class Scraper(BaseModel):
