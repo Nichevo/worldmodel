@@ -328,6 +328,9 @@ export type CrisisWatchMonth = {
   months: string[]; month: string | null;
   rows: { entity_id: string; name: string; subkind: string; title: string; detail: string | null; place: string | null; url: string | null; score: number }[];
 };
+export type BeyondOther = { entity_id: string; short_name: string; name: string; type: "organisation" | "bloc" | "alliance" | "armed_group";
+  description: string | null; valid_from: string | null; valid_to: string | null; sanctions_on: number; first_year: number | null;
+  most_imposed: number | null; events: number };
 export type Zone = {
   entity_id: string; short_name: string; name: string; description: string | null; indicators: string[]; by_country: string[];
   layers: string[]; treaties: { treaty: string; joined: number; signed_only: number; title: string | null }[];
@@ -735,6 +738,7 @@ export const api = {
   voting: (entity: string, compare?: string) => get<Voting>(`/entities/${encodeURIComponent(entity)}/voting`, { compare }),
   crisiswatch: (month?: string) => get<CrisisWatchMonth>("/crisiswatch", { month }),
   zones: () => get<Zone[]>("/zones"),
+  beyondOthers: () => get<BeyondOther[]>("/beyond/others"),
   relationships: (q: { label?: string; domain?: string; group?: string; q?: string; indicator?: string; drivers?: boolean;
     hide_same?: boolean; first?: boolean; hide_same_source?: boolean; built?: BuiltFilter; limit?: number; offset?: number }) =>
     get<RelationList>("/relationships", { ...q, built: q.built && q.built !== "last" ? q.built : undefined, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,

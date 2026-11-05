@@ -12,7 +12,7 @@ models:
         tests:
           - accepted_values:
               arguments:
-                values: [country, historical_country, world, continent, subregion, intermediate_region, bloc, alliance, group, income_group, custom, zone]
+                values: [country, historical_country, world, continent, subregion, intermediate_region, bloc, alliance, group, income_group, custom, zone, organisation, armed_group]
 
   - name: entity_codes
     tests:

@@ -31,6 +31,11 @@ def client(tmp_path, monkeypatch):
           ("seat1", "NZL", "un", "council_seat", "Elected member of the UN Security Council", "2015-01-01", "Term 2015 to 2016.")]
     con.executemany("""INSERT INTO events (event_id, entity_id, source_id, vintage, kind, subkind, title, start_date, precision, detail)
         VALUES (?, ?, 'test', 'v1', ?, ?, ?, ?, 'day', ?)""", [(i, e, k, s, t, d, x) for i, e, k, s, t, d, x in ev])
+    con.execute("""INSERT INTO entities (entity_id, name, short_name, type, valid_from) VALUES
+        ('al-qaeda', 'Al-Qaeda', 'Al-Qaeda', 'armed_group', DATE '1988-08-11'),
+        ('un', 'United Nations', 'UN', 'organisation', DATE '1945-10-24')""")
+    con.execute("""INSERT INTO events (event_id, entity_id, source_id, vintage, kind, subkind, title, start_date, precision)
+        VALUES ('gsdb:1:al-qaeda', 'al-qaeda', 'test', 'v1', 'sanction', 'financial', 'Sanctions by UN', DATE '1999-10-15', 'year')""")
     con.close()
     main.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
@@ -59,6 +64,13 @@ def test_zones_list_every_zone_even_before_a_refresh(client):
     r = client.get("/api/v1/zones").json()
     assert [z["entity_id"] for z in r] == ["ATA", "arctic", "space", "high_seas"]
     assert all(isinstance(z["treaties"], list) for z in r)
+
+
+def test_organisations_and_armed_groups_beyond_borders(client):
+    r = client.get("/api/v1/beyond/others").json()
+    got = [(o["entity_id"], o["sanctions_on"], o["first_year"]) for o in r]
+    assert got[-1] == ("al-qaeda", 1, 1999) and ("un", 0, None) in got  # armed groups last
+    assert "eu" in {o["entity_id"] for o in r} and "nato" in {o["entity_id"] for o in r}  # blocs and alliances too
 
 
 def test_around_against_each_countrys_region(client):
