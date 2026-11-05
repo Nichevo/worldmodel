@@ -1,0 +1,9 @@
+region,category,parameter,mode,powertrain,year,unit,value
+New Zealand,Historical,EV sales share,Cars,EV,2023,percent,21
+New Zealand,Historical,EV sales share,Cars,EV,2024,percent,13
+New Zealand,Historical,EV sales,Cars,BEV,2023,Vehicles,19000
+New Zealand,Historical,EV sales,Buses,BEV,2023,Vehicles,100
+World,Historical,EV sales share,Cars,EV,2024,percent,22
+EU27,Historical,EV stock share,Cars,EV,2024,percent,4.6
+China,Projection-STEPS,EV sales share,Cars,EV,2030,percent,80
+China,Historical,EV stock,Cars,PHEV,2024,Vehicles,10000000

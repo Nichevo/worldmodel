@@ -882,3 +882,105 @@
     by_hand: true
     get: https://www.prisonstudies.org/highest-to-lowest/prison_population_rate
     what: "Copy a table (prison population rate, occupancy level...) into a spreadsheet with a Country column, a Year column and value columns, and save it as .xlsx or .csv here."
+
+- id: baci
+  name: CEPII BACI world trade by product (HS 1992)
+  short_name: Trade by product (BACI)
+  publisher: CEPII
+  url: https://www.cepii.fr/CEPII/en/bdd_modele/bdd_modele_item.asp?id=37
+  licence: Etalab Open Licence 2.0 (free to use with attribution)
+  licence_url: https://www.etalab.gouv.fr/licence-ouverte-open-licence
+  commercial_use: true
+  cadence: Yearly (about 2 GB); checked every four months, years from Settings > Sectors
+  attribution: "Gaulier, G. and Zignago, S. (2010), BACI: International Trade Database at the Product-Level, CEPII Working Paper 2010-23."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.cepii.fr/CEPII/en/bdd_modele/bdd_modele_item.asp?id=37
+    what: "When the refresh is refused, download the HS92 zip (BACI_HS92_V2025xx.zip, about 2 GB) and save it here, unopened."
+
+- id: usgs_mcs
+  name: USGS Mineral Commodity Summaries, world data
+  short_name: Minerals (USGS)
+  publisher: U.S. Geological Survey
+  url: https://www.usgs.gov/centers/national-minerals-information-center/mineral-commodity-summaries
+  licence: US public domain
+  licence_url: https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits
+  commercial_use: true
+  cadence: Yearly (January); checked every four months
+  attribution: "U.S. Geological Survey, Mineral Commodity Summaries."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.sciencebase.gov/catalog/items?q=Mineral%20Commodity%20Summaries%20world%20data
+    what: "When the refresh is refused, open the latest 'Mineral Commodity Summaries ... World Data' item and save its world CSV (MCS2026_World_Data.csv or similar) here."
+
+- id: wmd
+  name: World Mining Data
+  short_name: World Mining Data
+  publisher: Austrian Federal Ministry of Finance
+  url: https://www.world-mining-data.info/
+  licence: Free to use with attribution
+  licence_url: https://www.world-mining-data.info/
+  commercial_use: true
+  cadence: Yearly (spring); each edition has five years, and saved editions build up
+  attribution: "Reichl, C. and Schatz, M., World Mining Data, Austrian Federal Ministry of Finance."
+  status: active
+  default_rank: 3
+  manual:
+    by_hand: false
+    get: https://www.world-mining-data.info/?World_Mining_Data___Data_Section
+    what: "When the refresh is refused, download '6.4. Production of Mineral Raw Materials of individual Countries by Minerals' (.xlsx) and save it here. Older editions can stay, for earlier years."
+
+- id: faostat
+  name: FAOSTAT production, fertilizers and forestry
+  short_name: FAOSTAT
+  publisher: Food and Agriculture Organization of the United Nations
+  url: https://www.fao.org/faostat/en/#data
+  licence: CC BY 4.0
+  licence_url: https://www.fao.org/contact-us/terms/db-terms-of-use/en/
+  commercial_use: true
+  cadence: Yearly; checked every three months
+  attribution: "FAO. FAOSTAT. Food and Agriculture Organization of the United Nations."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.fao.org/faostat/en/#data
+    what: "When the refresh is refused, download the bulk 'All Data (Normalized)' zips for Crops and livestock products, Fertilizers by Nutrient and Forestry Production and Trade, and save them here."
+
+- id: wb_pinksheet
+  name: World Bank commodity prices (Pink Sheet)
+  short_name: Commodity prices (World Bank)
+  publisher: World Bank
+  url: https://www.worldbank.org/en/research/commodity-markets
+  licence: CC BY 4.0
+  licence_url: https://www.worldbank.org/en/about/legal/terms-of-use-for-datasets
+  commercial_use: true
+  cadence: Monthly (early in the month); checked every 25 days
+  attribution: "World Bank, Commodity Price Data (The Pink Sheet)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.worldbank.org/en/research/commodity-markets
+    what: "When the refresh is refused, download 'Monthly prices' (CMO-Historical-Data-Monthly.xlsx) and save it here."
+
+- id: iea_ev
+  name: IEA Global EV Data Explorer
+  short_name: Electric cars (IEA)
+  publisher: International Energy Agency
+  url: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
+  licence: CC BY 4.0
+  licence_url: https://www.iea.org/terms
+  commercial_use: true
+  cadence: Yearly (spring, with the Global EV Outlook); checked every three months
+  attribution: "IEA (2025), Global EV Data Explorer, IEA, Paris. Licence: CC BY 4.0."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
+    what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv) and save it here."

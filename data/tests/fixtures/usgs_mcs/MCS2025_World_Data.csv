@@ -1,0 +1,9 @@
+SOURCE,COMMODITY,COUNTRY,TYPE,UNIT_MEAS,PROD_2023,PROD_NOTES,PROD_EST_2024,RESERVES_2024,RESERVES_NOTES
+MCS2025,Bauxite and alumina,Australia,"Mine production, bauxite",thousand metric dry tons,"98,000",,"100,000","3,500,000",
+MCS2025,Bauxite and alumina,China,"Mine production, bauxite",thousand metric dry tons,"93,000",,"93,000","710,000",
+MCS2025,Bauxite and alumina,Australia,"Refinery production, alumina",thousand metric tons,"18,000",,"18,000",,
+MCS2025,Aluminum,China,Smelter production,thousand metric tons,"41,500",,"43,000",,
+MCS2025,Aluminum,New Zealand,Smelter production,thousand metric tons,330,est.,330,,
+MCS2025,Aluminum,World total (rounded),Smelter production,thousand metric tons,"70,000",,"72,000",,
+MCS2025,Gold,Australia,Mine production,kilograms,"310,000",,"290,000","12,000,000",
+MCS2025,Gold,New Zealand,Mine production,kilograms,"10,000",,"9,000",,

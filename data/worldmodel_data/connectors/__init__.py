@@ -23,6 +23,7 @@ from worldmodel_data.connectors.un_wpp import UNWPP
 from worldmodel_data.connectors.voters import NZElectionTurnout, USCensusVoting
 from worldmodel_data.connectors.wikidata import Wikidata
 from worldmodel_data.connectors.places import WikidataPlaces
+from worldmodel_data.connectors.sectors import BACI, FAOSTAT, IEAEV, PinkSheet, USGSMinerals, WorldMiningData
 from worldmodel_data.connectors.world_bank_wdi import WorldBankWDI
 from worldmodel_data.connectors.world_bodies import GlobalSanctions, IMFMona, UNGAVotes, UNTreaties, UNVetoes, WTODisputes
 from worldmodel_data.connectors.zones import CelesTrakSatcat, NSIDCSeaIce
@@ -34,6 +35,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
     GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WikidataPlaces,
     UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat,
-    NagerHolidays, WBL, UNODCCrime, RulesCurated, WorldPolicy, GunPolicy, WorldPrisonBrief)}
+    NagerHolidays, WBL, UNODCCrime, RulesCurated, WorldPolicy, GunPolicy, WorldPrisonBrief,
+    BACI, USGSMinerals, WorldMiningData, FAOSTAT, PinkSheet, IEAEV)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]
