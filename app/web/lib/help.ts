@@ -120,8 +120,8 @@ export const HELP = {
   },
   climate_world: {
     title: "The world",
-    what: "The world's temperature against normal, carbon dioxide, methane and nitrous oxide in the air, sea ice, ice sheets, glaciers, sea level and ocean heat.",
-    how: "World temperature is NASA GISTEMP against 1951-1980. Gases are NOAA's global yearly means, plus the monthly Mauna Loa CO2 record. Sea ice is NSIDC; ice sheets, glaciers, sea level and ocean heat come from Our World in Data's climate charts, which gather NASA, WGMS, CSIRO and NOAA records.",
+    what: "The world's temperature against normal, carbon dioxide, methane and nitrous oxide in the air, sea ice, ice sheets, sea level and ocean heat.",
+    how: "World temperature is NASA GISTEMP against 1951-1980. Gases are NOAA's global yearly means, plus the monthly Mauna Loa CO2 record. Sea ice is NSIDC; ice sheets, sea level and ocean heat come from Our World in Data's climate charts, which gather NASA, CSIRO, UHSLC and NOAA records.",
     units: "°C; parts per million or billion; million km²; mm; zettajoules",
     sources: [{ label: "NASA GISTEMP", indicator: "temp_anomaly_world" }, { label: "NOAA Global Monitoring Laboratory", indicator: "co2_ppm" }, { label: "Our World in Data climate charts", indicator: "sea_level" }],
   },

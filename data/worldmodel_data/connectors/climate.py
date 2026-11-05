@@ -9,7 +9,7 @@ owid_co2
     all greenhouse gases, per person and per GDP, and each country's contribution to warming.
 owid_climate
     Single OWID climate charts (ourworldindata.org/grapher/<slug>.csv): each country's
-    yearly temperature against normal (Copernicus ERA5), sea level, ice sheets, glaciers,
+    yearly temperature against normal (Copernicus ERA5), sea level, ice sheets,
     ocean heat, greenhouse gases by sector (Climate Watch) and area burned by wildfires
     (GWIS). A chart that has gone only warns.
 noaa_gml
@@ -52,6 +52,7 @@ import io
 import json
 import logging
 import re
+import tempfile
 import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -194,16 +195,48 @@ CLIMATE_CHARTS = (
     ("annual-temperature-anomalies", "temp_anomaly", "ERA5: each country's yearly surface temperature against 1991-2020"),
     ("sea-level", "sea_level", "Global mean sea level against 1993-2008 (several reconstructions)"),
     ("ice-sheet-mass-balance", "ice_sheet_mass", "Greenland and Antarctic ice sheets: change in mass since 2002 (NASA GRACE)"),
-    ("mass-balance-global-glaciers", "glacier_mass_balance", "Glaciers' cumulative mass balance (World Glacier Monitoring Service)"),
-    ("ocean-heat-top-700m", "ocean_heat", "Heat content of the top 700 m of the oceans (NOAA)"),
+    ("ocean-heat-content-upper", "ocean_heat", "Heat content of the top 700 m of the oceans (NOAA)"),
     ("ghg-emissions-by-sector", "ghg_sector", "Greenhouse gas emissions by sector (Climate Watch)"),
     ("annual-area-burnt-by-wildfires", "wildfire_area", "Area burned by wildfires each year (GWIS)"),
     ("arctic-sea-ice", "sea_ice_owid", "Arctic sea ice extent (NSIDC)"),
 )
+# For a chart with several columns, the one that takes the chart's own id (the others get prefix_column).
+CLIMATE_MAIN = {"sea-level": "sea_level_average", "ocean-heat-content-upper": "ocean_heat_content_noaa_700m"}
+
+
+def yearly_from_days(path: Path, dest: Path) -> bool:
+    """A chart with a Day column (dates) as one with a Year column: the mean of each year's values."""
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        r = csv.reader(f)
+        header = next(r)
+        lower = [h.lower() for h in header]
+        if "day" not in lower or "entity" not in lower:
+            return False
+        di, ei = lower.index("day"), lower.index("entity")
+        ci = lower.index("code") if "code" in lower else None
+        vals = [i for i, h in enumerate(lower) if h not in ("entity", "code", "day") and "annotation" not in h]
+        sums: dict[tuple, list] = {}
+        for row in r:
+            if len(row) < len(header) or not re.match(r"\d{4}-", row[di]):
+                continue
+            k = (row[ei], row[ci] if ci is not None else "", row[di][:4])
+            acc = sums.setdefault(k, [[0.0, 0] for _ in vals])
+            for j, i in enumerate(vals):
+                v = num(row[i])
+                if v is not None:
+                    acc[j][0] += v
+                    acc[j][1] += 1
+    with dest.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Entity", "Code", "Year", *[header[i] for i in vals]])
+        for (e, c, y), acc in sorted(sums.items()):
+            w.writerow([e, c, y, *[(a / n if n else "") for a, n in acc]])
+    return True
 
 
 class OWIDClimate(_OWID):
     source_id = "owid_climate"
+    stage_version = 2  # 2: dated charts as yearly means, renamed charts, last copy of a chart that failed
     switch = "climate_fetch"
     fetch_every_days = 30
     pause_seconds = 1.0
@@ -229,21 +262,31 @@ class OWIDClimate(_OWID):
         con.execute("CREATE TABLE charts (source_code VARCHAR, scheme VARCHAR, indicator_id VARCHAR, period_start DATE, value DOUBLE)")
         spec = {s: (p, about) for s, p, about in CLIMATE_CHARTS}
         out = []
-        for path in sorted(raw_dir.glob("*.csv")):
-            slug = path.stem
-            if slug not in spec:
-                continue
+        for slug in spec:
+            path = raw_dir / f"{slug}.csv"
+            if not path.exists():  # that chart failed to download this time: keep the last copy
+                if not (path := self.earlier_copy(raw_dir, path.name)):
+                    continue
             prefix, about = spec[slug]
-            meta_path = raw_dir / f"{slug}.metadata.json"
+            meta_path = path.parent / f"{slug}.metadata.json"
             meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
             with path.open(encoding="utf-8-sig", newline="") as f:
                 header = next(csv.reader(f))
             lower = {h.lower(): h for h in header}
+            if "year" not in lower and "day" in lower:  # dated readings (sea level, ice sheets): yearly means
+                yearly = Path(tempfile.mkdtemp(prefix="owid_climate_")) / f"{slug}.csv"
+                if yearly_from_days(path, yearly):
+                    path = yearly
+                    with path.open(encoding="utf-8-sig", newline="") as f:
+                        header = next(csv.reader(f))
+                    lower = {h.lower(): h for h in header}
             if not {"entity", "year"} <= set(lower):
                 log.warning("owid_climate: %s has no Entity and Year columns; skipped", path.name)
                 continue
             values = [h for h in header if h.lower() not in ("entity", "code", "year", "day") and "annotation" not in h.lower()]
-            columns = {h: prefix if len(values) == 1 else f"{prefix}_{column_id(h)[5:]}"[:64] for h in values}
+            main = CLIMATE_MAIN.get(slug)
+            columns = {h: prefix if len(values) == 1 or h == main else f"{prefix}_{column_id(h)[5:].removeprefix(prefix + '_')}"[:64]
+                       for h in values}
             self._stage_wide(con, "charts", path, lower["entity"], lower.get("code", lower["entity"]), lower["year"], columns)
             for h, ind in columns.items():
                 m = meta.get("columns", {}).get(h, {})
@@ -597,7 +640,7 @@ def _day(s) -> date | None:
 
 
 # ----------------------------------------------------------------------------- projections
-CCKP = "https://cckpapi.worldbank.org/cckp/v1/cmip6-x0.25_timeseries_{var}_timeseries_annual_2015-2100_{stat}_{ssp}_ensemble_all_mean/{codes}?_format=json"
+CCKP_URL = "https://cckpapi.worldbank.org/cckp/v1/cmip6-x0.25_timeseries_{var}_timeseries_annual_2015-2100_{stat}_{ssp}_ensemble_all_mean/{codes}?_format=json"
 SSPS = {"ssp126": "SSP1-2.6 (low emissions)", "ssp245": "SSP2-4.5 (middle)", "ssp370": "SSP3-7.0 (high)", "ssp585": "SSP5-8.5 (very high)"}
 STATS = {"median": "central", "p10": "lower80", "p90": "upper80"}
 VARS = {"tas": ("proj_temp", "Mean temperature", "°C"), "pr": ("proj_rain", "Rainfall", "mm a year")}
@@ -618,7 +661,7 @@ class CCKP(_Yearly):
             for ssp in SSPS:
                 for stat in STATS:
                     for i in range(0, len(codes), self.CHUNK):
-                        url = CCKP.format(var=var, stat=stat, ssp=ssp, codes=",".join(codes[i:i + self.CHUNK]))
+                        url = CCKP_URL.format(var=var, stat=stat, ssp=ssp, codes=",".join(codes[i:i + self.CHUNK]))
                         try:
                             self.get(url, raw_dir / f"cckp_{var}_{ssp}_{stat}_{i // self.CHUNK:02d}.json")
                             got += 1
@@ -627,7 +670,7 @@ class CCKP(_Yearly):
                         time.sleep(self.pause_seconds)
         if not got:
             raise ConnectorError("cckp: no projections could be downloaded")
-        return CCKP.split("{var}")[0]
+        return CCKP_URL.split("{var}")[0]
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         pts = Points()
