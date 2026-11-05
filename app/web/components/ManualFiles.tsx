@@ -32,7 +32,7 @@ export default function ManualFilesCard() {
             <tbody>
               {shown.map((r) => (
                 <tr key={r.source_id}>
-                  <td><b>{r.name}</b><div className="small muted">{r.by_hand ? "By hand" : "When the site refuses"} · {r.cadence}</div></td>
+                  <td><b>{r.name}</b><div className="small muted">{r.by_hand ? (r.optional ? "By hand, optional" : "By hand") : "When the site refuses"} · {r.cadence}</div></td>
                   <td>
                     {r.todo && <div className={r.todo === "load" ? "small" : "small error"} style={{ fontWeight: 600 }}>{r.why}</div>}
                     <div className="small">{r.what}</div>
