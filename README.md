@@ -115,6 +115,24 @@ from their folder, and when a download is refused, the file in that source's fol
 used instead. Loading the same file again changes nothing. For sources that load one file
 at a time, older files move to the folder's `old` folder; nothing is deleted.
 
+### Sources read from web pages
+
+A few sources have no file or API, so the app reads their web pages: World Prison Brief,
+CrisisWatch, UN vetoes, WTO disputes, UN treaties, NZ Corrections and the Electoral
+Commission. Refresh reads them on their own schedule; `.\scrape.bat` reads them now, one
+site after another, then builds:
+
+```bat
+.\scrape.bat                 :: every scraping source
+.\scrape.bat prisons         :: World Prison Brief only (the first run goes back to 2000)
+.\scrape.bat prisons 1995    :: back to 1995
+.\scrape.bat crisiswatch wto :: any of: crisiswatch vetoes wto treaties corrections elections
+```
+
+Pages are read politely: at least the gap in Settings (6 s), longer on long runs, with a
+rest every 10 pages, and each site stops at its first refused or odd-looking page. Data
+status lists these sources and how each one's last run went.
+
 ## The data side
 
 ```sh
