@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import WorldMap, { type MapPoint } from "@/components/WorldMap";
-import { api, get, type Indicator, type Ranking, type Zone } from "@/lib/api";
+import { api, get, type BeyondOther, type Indicator, type Ranking, type Zone } from "@/lib/api";
 import { formatValue } from "@/lib/format";
 
 // Places beyond any one country: Antarctica, the Arctic, space and the high seas.
@@ -67,7 +67,47 @@ export default function ZonesPage() {
           )}
         </section>
       ))}
+      <Others />
     </div>
+  );
+}
+
+const KIND: Record<BeyondOther["type"], string> = { organisation: "Organisation", bloc: "Bloc", alliance: "Alliance", armed_group: "Armed group" };
+
+// Organisations and armed groups: not places, but they impose sanctions or are under them.
+function Others() {
+  const [list, setList] = useState<BeyondOther[] | null>(null);
+  useEffect(() => { api.beyondOthers().then(setList).catch(() => setList([])); }, []);
+  if (!list?.length) return null;
+  const years = (o: BeyondOther) => o.valid_to ? `${o.valid_from?.slice(0, 4) ?? "?"}–${o.valid_to.slice(0, 4)}` : o.valid_from ? `since ${o.valid_from.slice(0, 4)}` : "";
+  return (
+    <section className="profile-section">
+      <h2 className="section-head">Organisations and armed groups</h2>
+      <p className="ink-2 small">Not countries: international organisations, the blocs and alliances the app already knows (EU, NATO, OPEC and others), and armed groups.
+        Sanctions counts are from the Global Sanctions Data Base. Each has its own page with its events and figures.</p>
+      {(["organisation", "armed_group"] as const).map((t) => {
+        const some = list.filter((o) => (o.type === "armed_group") === (t === "armed_group"));
+        return some.length ? (
+          <div key={t} className="card">
+            <h3>{t === "armed_group" ? "Armed groups under sanctions" : "International organisations, blocs and alliances"}</h3>
+            <table className="small">
+              <thead><tr><th>Name</th>{t !== "armed_group" && <th>Kind</th>}<th>Years</th><th className="num">Sanctions on it</th><th className="num" title="The most sanctions it had in force on others in one year">Most it imposed in a year</th></tr></thead>
+              <tbody>
+                {some.map((o) => (
+                  <tr key={o.entity_id}>
+                    <td><Link href={`/entity/${o.entity_id}`} title={o.description ?? undefined}>{o.short_name}</Link></td>
+                    {t !== "armed_group" && <td>{KIND[o.type]}</td>}
+                    <td>{years(o)}</td>
+                    <td className="num">{o.sanctions_on || "–"}</td>
+                    <td className="num">{o.most_imposed ?? "–"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null;
+      })}
+    </section>
   );
 }
 

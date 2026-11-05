@@ -443,18 +443,35 @@ GSDB_FIELDS = {
     "objective": ("objective", "objectives"),
     "descr": ("descrtrade",),
 }
-# Names in the database that the country list does not know: older names, and the
-# blocs and alliances that impose (or are under) sanctions.
-GSDB_NAMES = {"ceylon": "LKA", "malaya": "MYS", "malagasy republic": "MDG", "transjordan": "JOR", "rhodesia": "ZWE",
-              "north vietnam": "VNM", "fry": "YUG", "eu": "eu", "eec": "eu", "european union": "eu", "nato": "nato",
-              "g7": "g7", "nafta": "nafta", "mercosur": "mercosur", "opec": "opec", "asean": "asean"}
+# Names in the database that the country list does not know: older names, the blocs and
+# organisations that impose (or are under) sanctions, and the armed groups under them.
+GSDB_NAMES: dict[str, tuple[str, ...]] = {
+    "ceylon": ("LKA",), "malaya": ("MYS",), "malagasy republic": ("MDG",), "transjordan": ("JOR",),
+    "rhodesia": ("ZWE",), "north vietnam": ("VNM",), "south vietnam": ("RVN",), "fry": ("YUG",),
+    "eu": ("eu",), "eec": ("eu",), "european union": ("eu",), "nato": ("nato",), "g7": ("g7",), "nafta": ("nafta",),
+    "mercosur": ("mercosur",), "opec": ("opec",), "asean": ("asean",),
+    "un": ("un",), "united nations": ("un",), "african union": ("african-union",), "organisation of african unity": ("oau",),
+    "league of arab states": ("arab-league",), "ecowas": ("ecowas",), "eeu": ("eaeu",), "comecon": ("comecon",),
+    "cocom": ("cocom",), "commonwealth": ("commonwealth",), "organization of american states": ("oas",),
+    "pacific islands forum": ("pif",), "sadc": ("sadc",), "osce": ("osce",), "csce": ("osce",), "g8": ("g8",),
+    "oic": ("oic",), "eccas": ("eccas",), "oapec": ("oapec",), "organization of eastern caribbean states": ("oecs",),
+    "unasur": ("unasur",), "kimberly process participants": ("kimberley-process",), "wto": ("wto",), "imf": ("imf",),
+    "isil/al-qaeda": ("isil", "al-qaeda"), "terrorist organizations (al-qaeda)": ("al-qaeda",),
+    "terrorist organizations (taliban)": ("taliban",), "terrorist organizations (taliban and al-qaeda)": ("taliban", "al-qaeda"),
+    "terrorist organizations (isil and anf)": ("isil", "al-nusra"),
+}
 # The second half of a name written with a comma ("Korea, North", "Gambia, The").
 NAME_TAILS = {"the", "north", "south", "arab rep.", "rep.", "islamic rep.", "dem. rep.", "dem. people's rep.",
               "democratic republic of the", "republic of the", "federated states of", "bolivarian rep."}
 
 
-def _gsdb_one(name: str, when: date) -> str | None:
-    return GSDB_NAMES.get(name.lower()) or catalogue.country_by_name(name, when)
+def _gsdb_ids(name: str, when: date) -> tuple[str, ...]:
+    """The entities one name stands for (two for "ISIL/Al-Qaeda"), or none."""
+    found = GSDB_NAMES.get(name.lower())
+    if found:
+        return found
+    one = catalogue.country_by_name(name, when)
+    return (one,) if one else ()
 
 
 def gsdb_names(cell: str, when: date) -> list[str]:
@@ -465,7 +482,7 @@ def gsdb_names(cell: str, when: date) -> list[str]:
         if not part:
             continue
         if out and (part.lower() in NAME_TAILS
-                    or (not _gsdb_one(part, when) and _gsdb_one(f"{out[-1]}, {part}", when))):
+                    or (not _gsdb_ids(part, when) and _gsdb_ids(f"{out[-1]}, {part}", when))):
             out[-1] = f"{out[-1]}, {part}"
         else:
             out.append(part)
@@ -550,11 +567,10 @@ def sanction_rows(table: list[list], this_year: int) -> tuple[list[tuple], Rows,
         targets = []
         iso = entity_for("iso3", str(get(r, "target_iso") or "").strip().upper())
         for name in ([] if iso else gsdb_names(get(r, "target"), when)):
-            found = _gsdb_one(name, when)
-            if found is None:
+            found = _gsdb_ids(name, when)
+            if not found:
                 unmatched.add(name)
-            elif found not in targets:
-                targets.append(found)
+            targets += [f for f in found if f not in targets]
         if iso:
             targets = [iso]
         if not targets:
@@ -562,7 +578,7 @@ def sanction_rows(table: list[list], this_year: int) -> tuple[list[tuple], Rows,
         sender_name = str(get(r, "sender") or "").strip()
         sender_iso = entity_for("iso3", str(get(r, "sender_iso") or "").strip().upper())
         senders = [sender_iso] if sender_iso else list(dict.fromkeys(
-            f for f in (_gsdb_one(n, when) for n in gsdb_names(sender_name, when)) if f))
+            f for n in gsdb_names(sender_name, when) for f in _gsdb_ids(n, when)))
         kinds = [label for j, label in measure_cols if j < len(r) and num(r[j])]
         case = str(get(r, "case") or i + 1).strip()
         why = str(get(r, "objective") or "").replace("_", " ").strip()

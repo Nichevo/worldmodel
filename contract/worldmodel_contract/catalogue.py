@@ -15,9 +15,11 @@ from pydantic import BaseModel, Field, model_validator
 CATALOGUE_DIR = Path(str(resources.files("worldmodel_contract") / "catalogues"))
 
 ENTITY_TYPES = ("country", "historical_country", "world", "continent", "subregion", "intermediate_region",
-                "bloc", "alliance", "group", "income_group", "custom", "zone")
-# Zones (the Arctic, space, the high seas) are places beyond any one country: not groups of members.
-GROUP_TYPES = tuple(t for t in ENTITY_TYPES if t not in ("country", "historical_country", "zone"))
+                "bloc", "alliance", "group", "income_group", "custom", "zone", "organisation", "armed_group")
+# Zones (the Arctic, space, the high seas) are places beyond any one country, and organisations
+# (the UN, Comecon) and armed groups (Al-Qaeda) are not countries either: none is a group of members.
+BEYOND_TYPES = ("zone", "organisation", "armed_group")
+GROUP_TYPES = tuple(t for t in ENTITY_TYPES if t not in ("country", "historical_country") + BEYOND_TYPES)
 
 
 class Aggregation(BaseModel):
