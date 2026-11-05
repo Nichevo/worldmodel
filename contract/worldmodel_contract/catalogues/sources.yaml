@@ -1184,3 +1184,20 @@
     by_hand: true
     get: https://data.mfe.govt.nz/
     what: "Search data.mfe.govt.nz for 'greenhouse gas emissions by sector', download the table as CSV (Year, Sector, Gas, Value) and save it here."
+
+- id: ookla_speedtest
+  name: Speedtest by Ookla open data (fixed and mobile performance tiles)
+  short_name: Internet speeds (Ookla)
+  publisher: Ookla
+  url: https://github.com/teamookla/ookla-open-data
+  licence: CC BY-NC-SA 4.0
+  licence_url: https://creativecommons.org/licenses/by-nc-sa/4.0/
+  commercial_use: false
+  cadence: Quarterly since 2019; read every four weeks, newest quarters first, then older ones a few files at a time (each file 200 to 400 MB, read and deleted; only country sums are kept)
+  attribution: "Speedtest by Ookla Global Fixed and Mobile Network Performance Maps. Based on analysis by Ookla of Speedtest Intelligence data. Provided by Ookla and accessed via AWS Open Data."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: false
+    get: https://registry.opendata.aws/speedtest-global-performance/
+    what: "When the refresh is refused, save the quarter's *_performance_fixed_tiles.parquet or *_performance_mobile_tiles.parquet files here, with ne_50m_admin_0_countries.geojson from Natural Earth (github.com/nvkelso/natural-earth-vector, geojson folder)."

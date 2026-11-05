@@ -81,6 +81,12 @@
   map: ai_use_population
   indicators: [ai_use_population, ai_use_enterprises, ai_claude_use_per_capita_index, ai_claude_use_share, internet_users_share, rd_spending_gdp]
 
+- id: internet
+  name: Internet
+  intro: How many people are online and how fast their connections are. Speeds are from Speedtest by Ookla tests summed by country, fixed broadband and mobile apart; they show what people who test get, which is not everyone. Users and subscriptions are the ITU's counts.
+  map: internet_fixed_down_mbps
+  indicators: [internet_fixed_down_mbps, internet_mobile_down_mbps, internet_users_share, broadband_subscriptions_per_100, mobile_subscriptions_per_100, internet_fixed_latency_ms, internet_mobile_latency_ms]
+
 - id: nz
   name: New Zealand in detail
   intro: The New Zealand pack's own figures, from the Reserve Bank, MBIE, the Electoral Commission and the Department of Corrections, beside the international series. Switch the pack on or off in Settings.

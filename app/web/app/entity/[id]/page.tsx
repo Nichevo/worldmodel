@@ -26,6 +26,7 @@ import LawsCard from "@/components/LawsCard";
 import HolidaysCard from "@/components/HolidaysCard";
 import CrimeCard from "@/components/CrimeCard";
 import ClimateCard from "@/components/ClimateCard";
+import InternetCard from "@/components/InternetCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -58,7 +59,7 @@ const CHART_KIND: Record<string, "line" | "bar"> = Object.fromEntries(CHARTS.fil
 const SECTIONS = [
   { key: "people", title: "People" },
   { key: "money", title: "Money, prices and housing" },
-  { key: "places", title: "Cities and places" },
+  { key: "places", title: "Cities, places and the internet" },
   { key: "energy", title: "Energy" },
   { key: "climate", title: "Climate" },
   { key: "world", title: "In the world: votes, dealings and conflict watch" },
@@ -120,6 +121,7 @@ export default function EntityPage() {
     { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
     { key: "cities", title: "Major cities", section: "places", on: !isGroup, el: <CitiesCard entity={e} name={nm} /> },
     { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
+    { key: "internet", title: "Internet", section: "places", on: true, el: <InternetCard entity={e} name={nm} indicators={byId} /> },
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
     { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
     { key: "climate", title: "Climate", section: "climate", on: !isGroup || e === "world", el: <ClimateCard entity={e} name={nm} /> },
