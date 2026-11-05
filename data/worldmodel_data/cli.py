@@ -21,13 +21,11 @@ import os
 import sys
 import time
 from datetime import date, datetime
-from importlib import resources
 from pathlib import Path
 from typing import Optional
 
 import duckdb
 import typer
-import yaml
 
 from worldmodel_contract import catalogue, local
 from worldmodel_contract.queries import series_sql, stream_query
@@ -163,6 +161,22 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
                f"{counts['skip']} skipped. Report: {result.report}")
     for line in storage:
         typer.echo(line)
+    _scan_after(p, result.path, result.build_id)
+
+
+def _scan_after(p, warehouse: Path, build_id: str) -> None:
+    """The relationship scan on the new build, unless switched off in Settings. A
+    failed scan never fails the refresh: the app keeps showing the last scan."""
+    from worldmodel_data import relations
+
+    settings = local.load_settings(p.home)
+    if not settings.get("relations_scan", True):
+        return
+    typer.echo("Looking for relationships between figures (switch off in Settings: Relationship scan)...")
+    try:
+        relations.scan(warehouse, p.home, build_id, settings, log_line=typer.echo)
+    except Exception as exc:  # noqa: BLE001
+        typer.echo(f"Relationship scan failed: {exc}. The Relationships page keeps the last scan.", err=True)
 
 
 def _echo_problems(p) -> None:
@@ -317,6 +331,11 @@ def upgrade():
         con.close()
     if is_compatible(found, SCHEMA_VERSION) and not restaged:
         typer.echo(f"Warehouse format {found} is current; nothing to rebuild.")
+        from worldmodel_contract import relations as rel
+
+        last = rel.latest(paths().home, current.stem)
+        if last is None or last["build_id"] != current.stem:  # first update with the scan: run it once now
+            _scan_after(paths(), current, current.stem)
         return
     if restaged:
         typer.echo("Rebuilding the warehouse from the data already downloaded...")
@@ -397,9 +416,21 @@ def validate():
 
 
 @app.command()
+def scan():
+    """Look for relationships between figures in the live warehouse (also run after each refresh)."""
+    from worldmodel_data import relations
+
+    p = paths()
+    current = p.current_build()
+    if current is None:
+        raise typer.BadParameter("no live build; run `worldmodel-data refresh` first")
+    relations.scan(current, p.home, current.stem, local.load_settings(p.home), log_line=typer.echo)
+
+
+@app.command()
 def keys():
     """Show the API key register and which keys are set."""
-    register = yaml.safe_load((resources.files("worldmodel_data") / "api_keys.yaml").read_text())
+    register = catalogue.api_keys()
     for entry in register:
         env = entry.get("env") or []
         state = ", ".join(f"{v}={'set' if os.environ.get(v) else 'missing'}" for v in env) or "no key needed"

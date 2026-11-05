@@ -125,7 +125,8 @@ worldmodel-data refresh                       # fetch every source, then build; 
 worldmodel-data status                        # vintages, live build, latest report, disk use
 worldmodel-data free-space                    # delete old raw downloads (keeps 2 per source)
 worldmodel-data validate                      # catalogue checks + gates on the live build
-worldmodel-data keys                          # API key register: which keys are set
+worldmodel-data keys                          # API key register: which keys are set (also on Data status)
+worldmodel-data scan                          # relationship scan on the live build (also run after each refresh)
 worldmodel-data export nz-population --format csv
 ```
 

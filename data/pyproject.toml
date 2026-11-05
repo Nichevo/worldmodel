@@ -17,6 +17,7 @@ dependencies = [
     "xlrd>=2.0",
     "rdata>=0.11",
     "truststore>=0.10",
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]
