@@ -33,6 +33,7 @@ export const KINDS: { kind: string; label: string; color: string }[] = [
   { kind: "summit", label: "Summits hosted", color: "--series-7" },
   { kind: "law", label: "Law changes", color: "--series-3" },
   { kind: "holiday", label: "Public holidays", color: "--series-2" },
+  { kind: "enso", label: "El Niño and La Niña", color: "--series-6" },
   { kind: "user", label: "Your milestones", color: "--ink-2" },
 ];
 const BY_KIND = new Map(KINDS.map((k) => [k.kind, k]));
@@ -111,8 +112,12 @@ export function useChartEvents(entityIds: string[], kinds?: string): EventRow[] 
   useEffect(() => {
     if (!s.events_on_charts || !key || entityIds.length > 3 || !wanted) { setRows([]); return; }
     let live = true;
-    api.events({ entities: key.split(","), kinds: wanted.split(",").filter(Boolean) })
-      .then((r) => live && setRows(forCharts(r, { ...s, event_kinds: wanted }))).catch(() => live && setRows([]));
+    // El Niño and La Niña are stored on the World, so every country's charts can show them.
+    const ks = wanted.split(",").filter(Boolean);
+    const ents = key.split(",");
+    api.events({ entities: ks.includes("enso") && !ents.includes("world") ? [...ents, "world"] : ents, kinds: ks })
+      .then((r) => live && setRows(forCharts(r.filter((e) => e.entity_id !== "world" || e.kind === "enso" || ents.includes("world")), { ...s, event_kinds: wanted })))
+      .catch(() => live && setRows([]));
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, s.events_on_charts, wanted, s.disaster_min_deaths]);

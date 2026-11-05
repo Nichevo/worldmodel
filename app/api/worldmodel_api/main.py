@@ -35,7 +35,7 @@ from worldmodel_contract import energy_flow
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, highlights, layouts, numbeo, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, climate, highlights, layouts, numbeo, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1778,6 +1778,52 @@ def keys_list():
     """The API keys the app can use: what each unlocks, where to get it, and whether it
     is set in the .env file (never the key itself)."""
     return relationships.keys()
+
+
+# ----------------------------------------------------------------------------- climate
+@api.get("/climate")
+def climate_overview():
+    """The world's vital signs: temperature against normal, CO2, methane and nitrous oxide in
+    the air, sea level, ocean heat, glaciers, sea ice and ice sheets, world emissions, the
+    current El Niño phase, and the indicators the emissions map can show."""
+    return climate.overview(rows)
+
+
+@api.get("/climate/country/{entity}")
+def climate_country(entity: str):
+    """One country's climate: temperature against normal, emissions by gas and by sector,
+    emissions counted where goods are used, net zero target, carbon price, area burned,
+    projections to 2100 (four scenarios, with ranges), its largest disasters, and how its
+    temperature has moved with El Niño."""
+    return climate.country(rows, entity)
+
+
+@api.get("/climate/enso")
+def climate_enso():
+    """El Niño and La Niña: the index, the Indian Ocean Dipole and the Southern Annular Mode
+    by month, past episodes, the current phase, notes on what each phase means for some
+    countries, and how strongly each country's temperature has moved with El Niño."""
+    return climate.enso(rows)
+
+
+@api.get("/climate/storms")
+def climate_storms():
+    """Tropical storms per year and basin, and the strong ones (category 3 or more), from the storm tracks layer."""
+    return climate.storms(rows)
+
+
+@api.get("/climate/live")
+def climate_live():
+    """Storms, floods, droughts, fires and earthquakes happening now (GDACS), asked for when the
+    page opens and kept 15 minutes. Off with Settings: Climate, live map."""
+    return climate.live(bool(userdata.settings().get("climate_live_map", True)))
+
+
+@api.get("/climate/policy")
+def climate_policy():
+    """Each country's net zero target year and how firm it is, its carbon price, when it
+    joined the Paris Agreement, and its share of world CO2 and emissions per person."""
+    return climate.policy(rows)
 
 
 # ----------------------------------------------------------------------------- sectors

@@ -1,0 +1,5 @@
+entity,code,year,temperature_anomaly
+New Zealand,NZL,2022,0.95
+New Zealand,NZL,2023,0.71
+Australia,AUS,2023,0.45
+World,OWID_WRL,2023,0.6
