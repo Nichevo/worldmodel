@@ -19,6 +19,14 @@ for /f %%i in ('git rev-parse HEAD') do set BEFORE=%%i
 rem npm rewrites the web lock file on some machines; it is generated, so drop that
 rem change rather than let it block the pull.
 git checkout -q -- app/web/package-lock.json 2>nul
+rem .env.example is only a template (keys go in .env). If it was edited here, keep the
+rem edited copy as .env.example.mine, and as .env when there is none yet, then take the new one.
+git diff --quiet -- .env.example 2>nul || (
+  copy /y .env.example .env.example.mine >nul
+  if not exist .env copy /y .env.example .env >nul
+  git checkout -q -- .env.example
+  echo NOTE: your changes to .env.example are kept in .env.example.mine. The app reads keys from .env only.
+)
 git checkout -q main || goto :fail
 git pull --ff-only origin main || goto :fail
 git diff --quiet %BEFORE% HEAD -- environment.yml || set ENVCHANGED=1
