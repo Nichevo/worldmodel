@@ -190,6 +190,9 @@ export type Settings = {
   sectors_trade_fetch: boolean; // refresh downloads BACI trade by product
   sectors_trade_from: number; // first year of trade kept
   sectors_hidden: string; // sectors left off the Sectors page, comma-separated ids
+  climate_fetch: boolean; // refresh fetches the climate sources
+  climate_storms_from: number; // first year of storm tracks kept
+  climate_live_map: boolean; // the storms map asks GDACS for what is happening now
   party_colours: boolean; // country page charts coloured by the governing party
   party_office: "government" | "state";
   event_kinds: string;
@@ -554,6 +557,35 @@ export type ManualFile = {
   files: string[]; last_loaded: string | null; todo: "download" | "load" | null; why: string; command: string;
 };
 
+// ----------------------------------------------------------------------------- climate
+export type IndName = Record<string, { name: string; unit: string; decimals: number }>;
+export type EnsoPhase = { name: string; strength: string; value: number; month: string } | null;
+export type ClimateOverview = {
+  world: Record<string, [number, number][]>; monthly: Record<string, [string, number][]>;
+  sea_ice: Record<string, [number, number][]>; ice_sheets: Record<string, [number, number][]>;
+  enso: EnsoPhase; names: IndName; emission_maps: string[];
+};
+export type ClimateDisaster = { kind: string; subkind: string; title: string; start_date: string; deaths: number | null;
+  affected: number | null; damage_usd: number | null; source_id: string };
+export type ClimateCountry = {
+  entity: string; temperature: Record<string, [number, number][]>; gases: Record<string, [number, number][]>;
+  sectors: Record<string, [number, number][]>; consumption: Record<string, [number, number][]>;
+  net_zero: { year: number; status: number | null } | null; carbon_price: [number, number][]; wildfire_area: [number, number][];
+  projections: Record<string, [number, number | null, number | null, number | null][]>;
+  disasters: ClimateDisaster[]; enso: { el_nino?: string; la_nina?: string; temp_r?: number; years?: number } | null; names: IndName;
+};
+export type ClimateEnso = {
+  series: Record<string, [string, number][]>; phase: EnsoPhase;
+  episodes: { subkind: string; title: string; start_date: string; end_date: string | null; size: number }[];
+  notes: Record<string, { name: string; el_nino: string; la_nina: string }>;
+  link: { entity_id: string; name: string; temp_r: number; years: number; note: boolean }[];
+};
+export type ClimateStorms = { years: number[]; basins: string[]; counts: number[][]; strong: number[]; total?: number };
+export type ClimateLive = { rows: { id: string; type: string; name: string; alert: string; country: string; from: string; lon: number; lat: number; url: string }[];
+  off?: boolean; error?: string; fetched?: string };
+export type ClimatePolicy = { rows: { entity_id: string; name: string; net_zero_year?: number; net_zero_status?: number; carbon_price?: number;
+  carbon_price_year?: number; ghg_per_capita?: number; co2_share_world?: number; paris?: string | null }[]; paris_count: number };
+
 // ----------------------------------------------------------------------------- sectors
 export type SectorRank = { entity_id: string; name: string; value: number; share: number | null };
 export type SectorMeasure = {
@@ -690,6 +722,12 @@ export const api = {
     hide_same?: boolean; first?: boolean; hide_same_source?: boolean; limit?: number; offset?: number }) =>
     get<RelationList>("/relationships", { ...q, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
       hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
+  climate: () => get<ClimateOverview>("/climate"),
+  climateCountry: (id: string) => get<ClimateCountry>(`/climate/country/${encodeURIComponent(id)}`),
+  climateEnso: () => get<ClimateEnso>("/climate/enso"),
+  climateStorms: () => get<ClimateStorms>("/climate/storms"),
+  climateLive: () => get<ClimateLive>("/climate/live"),
+  climatePolicy: () => get<ClimatePolicy>("/climate/policy"),
   sectors: () => get<SectorList>("/sectors"),
   sector: (id: string, q: { year?: number; country?: string } = {}) => get<SectorDetail>(`/sectors/${encodeURIComponent(id)}`, q),
   sectorsByCountry: (q: { country?: string; year?: number; since?: number }) => get<SectorsByCountry>("/sectors/by-country", q),

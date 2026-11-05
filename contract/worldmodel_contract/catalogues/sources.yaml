@@ -984,3 +984,203 @@
     by_hand: false
     get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
     what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv) and save it here."
+
+- id: owid_co2
+  name: Our World in Data CO2 and greenhouse gas emissions
+  short_name: Emissions (OWID)
+  publisher: Our World in Data, compiling the Global Carbon Project, Jones et al. (2023) and PRIMAP-hist
+  url: https://github.com/owid/co2-data
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Yearly (November, with the Global Carbon Budget); checked every two months
+  attribution: "Our World in Data, CO2 and Greenhouse Gas Emissions (Global Carbon Project; Jones et al.; PRIMAP-hist)."
+  status: active
+  default_rank: 2
+
+- id: owid_climate
+  name: Our World in Data climate charts
+  short_name: Climate charts (OWID)
+  publisher: Our World in Data, compiling Copernicus ERA5, NASA, NOAA, WGMS, Climate Watch and GWIS
+  url: https://ourworldindata.org/climate-change
+  licence: CC BY 4.0 (each chart names its own source)
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Monthly to yearly; checked every four weeks
+  attribution: "Our World in Data, from the sources each chart names (Copernicus ERA5, NASA, NOAA, WGMS, Climate Watch, GWIS)."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://ourworldindata.org/climate-change
+    what: "When the refresh is refused, open each chart (annual-temperature-anomalies, sea-level, ghg-emissions-by-sector ...), choose Download, Full data (CSV), and save it here under its chart name."
+
+- id: noaa_gml
+  name: NOAA Global Monitoring Laboratory greenhouse gas trends
+  short_name: Greenhouse gases in the air (NOAA)
+  publisher: NOAA Global Monitoring Laboratory
+  url: https://gml.noaa.gov/ccgg/trends/
+  licence: US public domain
+  licence_url: https://gml.noaa.gov/about/disclaimer.html
+  commercial_use: true
+  cadence: Monthly; checked every four weeks
+  attribution: "Lan, X., Tans, P. and Thoning, K.W., Trends in atmospheric CO2, CH4 and N2O, NOAA GML."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: false
+    get: https://gml.noaa.gov/ccgg/trends/data.html
+    what: "When the refresh is refused, save co2_mm_mlo.csv, co2_annmean_gl.csv, ch4_annmean_gl.csv and n2o_annmean_gl.csv here."
+
+- id: nasa_gistemp
+  name: NASA GISS Surface Temperature Analysis (GISTEMP v4)
+  short_name: World temperature (NASA)
+  publisher: NASA Goddard Institute for Space Studies
+  url: https://data.giss.nasa.gov/gistemp/
+  licence: US public domain
+  licence_url: https://www.nasa.gov/nasa-brand-center/images-and-media/
+  commercial_use: true
+  cadence: Monthly; checked every four weeks
+  attribution: "GISTEMP Team, GISS Surface Temperature Analysis (GISTEMP), version 4, NASA GISS."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: false
+    get: https://data.giss.nasa.gov/gistemp/
+    what: "When the refresh is refused, save 'Global-mean monthly, seasonal, and annual means' as CSV (GLB.Ts+dSST.csv) here."
+
+- id: noaa_enso
+  name: NOAA El Niño, Indian Ocean Dipole and Southern Annular Mode indices
+  short_name: El Niño and ocean drivers (NOAA)
+  publisher: NOAA Climate Prediction Center and Physical Sciences Laboratory
+  url: https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/ensostuff/ONI_v5.php
+  licence: US public domain
+  licence_url: https://www.weather.gov/disclaimer
+  commercial_use: true
+  cadence: Monthly; checked every 25 days
+  attribution: "NOAA Climate Prediction Center (Oceanic Niño Index, Antarctic Oscillation); NOAA PSL (Dipole Mode Index, HadISST)."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: false
+    get: https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt
+    what: "When the refresh is refused, save oni.ascii.txt here, and if you like dmi.had.long.data (psl.noaa.gov) and the monthly AAO index (cpc.ncep.noaa.gov)."
+
+- id: ibtracs
+  name: NOAA IBTrACS tropical cyclone tracks
+  short_name: Storm tracks (IBTrACS)
+  publisher: NOAA National Centers for Environmental Information
+  url: https://www.ncei.noaa.gov/products/international-best-track-archive
+  licence: US public domain
+  licence_url: https://www.ncei.noaa.gov/products/international-best-track-archive
+  commercial_use: true
+  cadence: Updated a few times a week; read every four weeks (about 300 MB; only tracks from Settings' first year are kept)
+  attribution: "Knapp, K. R. and others (2010), The International Best Track Archive for Climate Stewardship (IBTrACS), BAMS."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: false
+    get: https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/
+    what: "When the refresh is refused, save ibtracs.since1980.list.v04r01.csv here."
+
+- id: gdacs
+  name: GDACS disaster alerts
+  short_name: Disaster alerts (GDACS)
+  publisher: Global Disaster Alert and Coordination System (UN OCHA and the European Commission JRC)
+  url: https://www.gdacs.org/
+  licence: Free to use with attribution
+  licence_url: https://www.gdacs.org/About/termofuse.aspx
+  commercial_use: true
+  cadence: Live; orange and red alerts since 2000 read every week (a few small requests a year)
+  attribution: "GDACS, Global Disaster Alert and Coordination System."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: false
+    get: https://www.gdacs.org/gdacsapi/swagger/index.html
+    what: "When the refresh is refused, save the JSON answers of geteventlist/SEARCH (one file per year) here."
+
+- id: cckp
+  name: World Bank Climate Change Knowledge Portal, CMIP6 projections
+  short_name: Climate projections (World Bank CCKP)
+  publisher: World Bank
+  url: https://climateknowledgeportal.worldbank.org/
+  licence: CC BY 4.0
+  licence_url: https://www.worldbank.org/en/about/legal/terms-of-use-for-datasets
+  commercial_use: true
+  cadence: Rarely changes; checked once a year (about 50 small requests)
+  attribution: "World Bank Climate Change Knowledge Portal, CMIP6 0.25-degree ensemble."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: false
+    get: https://climateknowledgeportal.worldbank.org/download-data
+    what: "When the refresh is refused, save the API's JSON answers here, named like cckp_tas_ssp245_median_00.json."
+
+- id: net_zero_tracker
+  name: Net Zero Tracker
+  short_name: Net zero targets
+  publisher: Energy and Climate Intelligence Unit, Data-Driven EnviroLab, NewClimate Institute and Oxford Net Zero
+  url: https://zerotracker.net/
+  licence: CC BY 4.0
+  licence_url: https://zerotracker.net/about
+  commercial_use: true
+  cadence: Load a new export when you like
+  attribution: "Net Zero Tracker. Energy and Climate Intelligence Unit, Data-Driven EnviroLab, NewClimate Institute, Oxford Net Zero."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: true
+    get: https://zerotracker.net/
+    what: "Use 'Download data' on the site and save the CSV or Excel file here (the year in the file name, such as net_zero_2025.csv, dates it)."
+
+- id: carbon_pricing
+  name: World Bank Carbon Pricing Dashboard
+  short_name: Carbon prices (World Bank)
+  publisher: World Bank
+  url: https://carbonpricingdashboard.worldbank.org/
+  licence: CC BY 4.0
+  licence_url: https://www.worldbank.org/en/about/legal/terms-of-use-for-datasets
+  commercial_use: true
+  cadence: Yearly (May, with State and Trends of Carbon Pricing)
+  attribution: "World Bank, Carbon Pricing Dashboard."
+  status: active
+  default_rank: 2
+  manual:
+    by_hand: true
+    get: https://carbonpricingdashboard.worldbank.org/about
+    what: "Download the dashboard's data file (Excel) and save it here."
+
+- id: niwa_7station
+  name: NIWA seven-station temperature series
+  short_name: NZ temperature (NIWA)
+  publisher: National Institute of Water and Atmospheric Research (NIWA)
+  url: https://niwa.co.nz/climate-and-weather/nz-temperature-record
+  licence: CC BY 4.0
+  licence_url: https://niwa.co.nz/about-niwa/policies/copyright
+  commercial_use: true
+  cadence: Yearly (January, with NIWA's annual climate summary)
+  attribution: "NIWA, New Zealand seven-station temperature series."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: true
+    get: https://niwa.co.nz/climate-and-weather/nz-temperature-record
+    what: "Download the seven-station series (Excel or CSV, with a Year column and an anomaly column) and save it here."
+
+- id: mfe_ghg
+  name: New Zealand Greenhouse Gas Inventory
+  short_name: NZ greenhouse gas inventory
+  publisher: Ministry for the Environment
+  url: https://environment.govt.nz/facts-and-science/climate-change/new-zealands-greenhouse-gas-inventory/
+  licence: CC BY 4.0
+  licence_url: https://environment.govt.nz/about-us/copyright-and-terms-of-use/
+  commercial_use: true
+  cadence: Yearly (April)
+  attribution: "Ministry for the Environment, New Zealand's Greenhouse Gas Inventory."
+  status: active
+  default_rank: 1
+  manual:
+    by_hand: true
+    get: https://data.mfe.govt.nz/
+    what: "Search data.mfe.govt.nz for 'greenhouse gas emissions by sector', download the table as CSV (Year, Sector, Gas, Value) and save it here."

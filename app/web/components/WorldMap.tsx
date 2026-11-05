@@ -46,6 +46,7 @@ type Props = {
   // A click on a city dot (the points, or the "Major cities" layer); default: open the city's page.
   onCity?: (cityId: string) => void;
   lines?: MapLine[]; // routes between countries (trade on the Sectors page), width by value
+  layerFilter?: Record<string, unknown[] | null>; // a MapLibre filter per overlay (storm tracks by year)
 };
 
 export type MapLine = { from: string; to: string; value: number; text?: string };
@@ -94,7 +95,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
-  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines,
+  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
 }: Props) {
   const cityPick = useRef(onCity);
   cityPick.current = onCity;
@@ -324,6 +325,18 @@ export default function WorldMap({
     return () => { gone = true; if (map.current === m && m.getLayer("fill")) removeDetail(m); };
   }, [baseMap]);
 
+  // Filters on overlays (kept for layers still loading).
+  const filters = useRef<Record<string, unknown[] | null>>({});
+  const filterKey = JSON.stringify(layerFilter ?? {});
+  useEffect(() => {
+    filters.current = layerFilter ?? {};
+    const m = map.current;
+    if (!m) return;
+    for (const [id, f] of Object.entries(filters.current)) {
+      if (m.getLayer(`ov-${id}`)) m.setFilter(`ov-${id}`, (f ?? null) as maplibregl.FilterSpecification | null);
+    }
+  }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Overlays: add the ones asked for (fetched once per page), remove the rest.
   const layersKey = layers.join(",");
   useEffect(() => {
@@ -350,6 +363,8 @@ export default function WorldMap({
             ? { id: lid, type: "circle", source: lid, paint: style.paint() as maplibregl.CircleLayerSpecification["paint"] }
             : { id: lid, type: "line", source: lid, paint: style.paint() as maplibregl.LineLayerSpecification["paint"],
                 layout: { "line-cap": "round", "line-join": "round" } }, before);
+          const f = filters.current[id];
+          if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
         }).catch(() => {});
       }
     };

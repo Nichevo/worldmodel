@@ -77,6 +77,13 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
     }),
   },
+  storm_tracks: {
+    legend: "Tropical storm track (darker red: stronger, category 1 to 5)", swatch: () => cssVar("--div-neg-3"),
+    paint: () => ({
+      "line-color": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, cssVar("--series-1"), 2, cssVar("--series-6"), 5, cssVar("--div-neg-3")],
+      "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, 0.6, 5, 2.4], "line-opacity": 0.7,
+    }),
+  },
   antarctic_claims: {
     legend: "Antarctic claim (frozen by the 1959 treaty)", swatch: () => cssVar("--series-4"),
     paint: () => ({ "line-color": cssVar("--series-4"), "line-width": zoomWidth(1.2, 2.5), "line-opacity": 0.85, "line-dasharray": [3, 2] }),
@@ -112,6 +119,10 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "major_cities") {
     const pop = typeof p.population === "number" ? `${(p.population / 1e6).toFixed(p.population >= 1e7 ? 0 : 1)} million people` : "";
     return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}<br/>${pop}<br/><span class="muted">Click for the city page</span>`;
+  }
+  if (layer === "storm_tracks") {
+    const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";
+    return `<b>${esc(p.name)}</b><br/>${esc(p.basin)} · strongest: ${cat}${typeof p.wind === "number" ? ` (${p.wind} knots)` : ""}${p.land ? "<br/>Reached land" : ""}`;
   }
   if (layer === "transit_stations") return `<b>${esc(p.name)}</b> (station)${p.system ? `<br/>${esc(p.system)}` : ""}`;
   if (layer === "universities") {
