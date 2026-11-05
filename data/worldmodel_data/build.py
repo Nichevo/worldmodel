@@ -284,6 +284,9 @@ def _run_dbt(db_path: Path) -> tuple[bool, list[gates.Check]]:
     return bool(res.success), checks
 
 
+MAX_GROUPS = 12  # measures listed per failed check; the rest are counted
+
+
 def _sample_failures(db_path: Path, checks: list[gates.Check], sql: dict[int, str], n: int = 25) -> None:
     """Attach the first failing rows of each failed dbt test, so the report shows what broke."""
     con = duckdb.connect(str(db_path))  # same settings as dbt's own connection, which may still be open
@@ -293,11 +296,21 @@ def _sample_failures(db_path: Path, checks: list[gates.Check], sql: dict[int, st
                 cur = con.execute(f"SELECT * FROM ({sql[id(c)]}) LIMIT {n}")
                 cols = [d[0] for d in cur.description]
                 c.examples = [", ".join(f"{k}={_fmt(v)}" for k, v in zip(cols, row)) for row in cur.fetchall()]
-                if {"entity_id", "indicator_id", "period_start"} <= set(cols):  # every failure, one line per series
-                    groups = con.execute(f"""SELECT indicator_id, entity_id, count(*), min(year(period_start)),
-                        max(year(period_start)) FROM ({sql[id(c)]}) GROUP BY ALL ORDER BY 1, 2""").fetchall()
-                    c.examples = [f"{ind} {ent}: {k} row(s), {lo}-{hi}" for ind, ent, k, lo, hi in groups] \
-                        + ["", "First rows:"] + c.examples
+                if {"entity_id", "indicator_id", "period_start"} <= set(cols):  # every failure, one line per measure
+                    src = "source_id" if "source_id" in cols else "''"
+                    groups = con.execute(f"""SELECT {src}, indicator_id, count(DISTINCT entity_id), count(*),
+                        min(year(period_start)), max(year(period_start)),
+                        list(DISTINCT entity_id ORDER BY entity_id)[1:3]
+                        FROM ({sql[id(c)]}) GROUP BY ALL ORDER BY 4 DESC, 1, 2""").fetchall()
+                    lines = []
+                    for source, ind, places, k, lo, hi, first in groups[:MAX_GROUPS]:
+                        more = f" and {places - len(first)} more" if places > len(first) else ""
+                        span = str(lo) if lo == hi else f"{lo}-{hi}"
+                        lines.append(f"{(source + ' ') if source else ''}{ind}: {k:,} row(s) in {places:,} place(s) "
+                                     f"({', '.join(first)}{more}), {span}")
+                    if len(groups) > MAX_GROUPS:
+                        lines.append(f"... and {len(groups) - MAX_GROUPS} more measure(s)")
+                    c.examples = lines + ["", "First rows:"] + c.examples[:3]
             except duckdb.Error as exc:
                 c.examples = [f"(could not list the failing rows: {exc})"]
     finally:
