@@ -105,3 +105,40 @@ def test_loading_by_hand_closes_a_refused_download(home):
     out = CliRunner().invoke(cli.app, ["load", "powell_thyne"])
     assert out.exit_code == 0, out.output
     assert not next(p for p in local.problems(root) if p["key"] == "fetch:powell_thyne")["open"]
+
+
+def test_a_hand_saved_file_stops_the_retries_until_it_is_due(home, monkeypatch):
+    import os
+    import time
+
+    _, built = home
+    cls = CONNECTORS["powell_thyne"]
+    tries = []
+
+    def blocked(self, raw_dir, release):
+        tries.append(1)
+        raise RuntimeError("HTTP 403 Forbidden")
+
+    monkeypatch.setattr(cls, "download", blocked)
+    monkeypatch.setattr(cli, "CONNECTORS", {"powell_thyne": cls})
+    d = manual.folder(paths(), "powell_thyne")
+    d.mkdir(parents=True)
+    shutil.copy(FIX / "powell_thyne" / "powell_thyne_coups_final.txt", d)
+    os.utime(d / "powell_thyne_coups_final.txt", (time.time() - 3600,) * 2)
+    assert CliRunner().invoke(cli.app, ["refresh"]).exit_code == 0  # site refused: the file is loaded
+    assert len(tries) == 1
+    out = CliRunner().invoke(cli.app, ["refresh"])  # the site is left alone while the file is current
+    assert out.exit_code == 0, out.output
+    assert len(tries) == 1 and "using your file loaded" in built[1]["sources"][0]["note"]
+    assert built[1]["sources"][0]["status"] == "skipped"
+    newer = d / "powell_thyne_coups_newer.txt"
+    newer.write_text((d / "powell_thyne_coups_final.txt").read_text(encoding="utf-8"), encoding="utf-8")
+    os.utime(newer, (time.time() + 60,) * 2)
+    out = CliRunner().invoke(cli.app, ["refresh"])  # a newer file saved: read it, still without the site
+    assert out.exit_code == 0, out.output
+    assert len(tries) == 1 and "manual downloads folder" in built[2]["sources"][0]["note"]
+
+
+def test_big_sources_are_not_fetched_every_day():
+    for s in ("world_bank_wdi", "imf_weo", "oecd", "bis", "owid_grapher", "un_wpp"):
+        assert CONNECTORS[s].fetch_every_days, s

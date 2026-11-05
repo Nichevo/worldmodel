@@ -114,3 +114,22 @@ def test_iea_electric_cars(con):
     assert value(con, "eu", "ev_stock_share", "2024-01-01") == 4.6
     assert value(con, "CHN", "ev_sales_share", "2030-01-01") is None  # projections left out
     assert value(con, "CHN", "ev_stock_phev", "2024-01-01") == 10_000_000
+
+
+def test_iea_ev_reads_the_yearly_excel_file(tmp_path):
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    wb.active.title = "Notes"
+    ws = wb.create_sheet("GEVO_EV_2026")
+    ws.append(["region_country", "category", "parameter", "mode", "powertrain", "year", "unit", "value", "Aggregate group"])
+    ws.append(["New Zealand", "Historical", "EV sales share", "Cars", "EV", 2025, "percent", 17, "Other"])
+    ws.append(["New Zealand", "Historical", "EV sales", "Cars", "BEV", 2025, "Vehicles", 15000, "Other"])
+    ws.append(["New Zealand", "Projection-STEPS", "EV sales share", "Cars", "EV", 2030, "percent", 40, "Other"])
+    ws.append(["Chile", "Historical", "EV charging points", "EVSE", "Publicly available fast", 2011, "charging points", 1, "Other"])
+    folder = tmp_path / "in"
+    folder.mkdir()
+    wb.save(folder / "EV data by country 2026.xlsx")
+    home = Paths(tmp_path / "var")
+    manifest, _ = CONNECTORS["iea_ev"]().ingest(VintageStore(home), folder)
+    assert manifest.row_count == 2  # the two historical car rows; projections and chargers left out
