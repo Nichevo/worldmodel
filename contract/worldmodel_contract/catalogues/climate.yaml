@@ -1,0 +1,41 @@
+# What El Niño and La Niña usually mean for a country: short, hand-checked notes from
+# NIWA, the Australian Bureau of Meteorology, NOAA and the WMO. Tendencies, not rules:
+# each episode differs, and other drivers (the Indian Ocean Dipole, the Southern
+# Annular Mode) can outweigh them.
+enso_notes:
+  NZL:
+    el_nino: More south-westerly winds; cooler, with more rain in the west and drought risk in the east (Hawke's Bay, Canterbury, Marlborough). Cooler seas.
+    la_nina: More north-easterly winds; warmer and more humid, with more rain in the north and east and drier conditions in the south-west. Warmer seas and marine heatwaves.
+  AUS:
+    el_nino: Drier than normal over eastern and northern Australia, especially in winter and spring; hotter days and higher bushfire risk; smaller wheat harvests.
+    la_nina: Wetter than normal over the east and north, with more floods and tropical cyclones; cooler days.
+  USA:
+    el_nino: Wetter in the southern states and California in winter, milder in the north; fewer Atlantic hurricanes.
+    la_nina: Drier in the south-west and south, colder and wetter in the north-west; more Atlantic hurricanes.
+  IDN:
+    el_nino: Drought and forest fires, with haze over South-east Asia; poorer rice and palm oil harvests.
+    la_nina: Wetter, with more floods.
+  IND:
+    el_nino: A weaker monsoon more often than not, with drought risk and smaller harvests.
+    la_nina: A stronger monsoon more often than not.
+  PER:
+    el_nino: Warm coastal seas and heavy rain and floods on the northern coast; fish (anchovy) catches fall.
+    la_nina: Cooler coastal seas and drier conditions; good anchovy catches.
+  BRA:
+    el_nino: Drought in the north and Amazon, more rain in the south.
+    la_nina: Drought in the south, more rain in the north.
+  ZAF:
+    el_nino: Drier and hotter summers, with drought risk for maize.
+    la_nina: Wetter summers.
+  CHN:
+    el_nino: Wetter in the south in winter, with floods along the Yangtze the summer after a strong episode.
+    la_nina: Colder winters in the north.
+  JPN:
+    el_nino: Cooler summers and milder winters.
+    la_nina: Hotter summers and colder winters.
+  ETH:
+    el_nino: Failed summer rains in the highlands and drought; wetter short rains in the south.
+    la_nina: Drier short rains in the south and east (with Somalia and Kenya).
+  PHL:
+    el_nino: Drought, especially late in the year and early the next, hurting rice and maize.
+    la_nina: More typhoons and heavier rain.

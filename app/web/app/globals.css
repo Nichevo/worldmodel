@@ -665,3 +665,11 @@ i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vert
 td.neg { color: var(--div-neg-3, #b33); }
 tr.selected td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .sector-page td.num { white-space: nowrap; }
+
+/* Climate page */
+.climate-big { font-size: 1.6rem; font-weight: 600; margin: 4px 0; color: var(--ink); }
+.enso-gauge { margin: 8px 0; }
+.enso-bar { position: relative; height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--div-pos-3), var(--surface-2) 40%, var(--surface-2) 60%, var(--div-neg-3)); }
+.enso-bar span { position: absolute; top: -4px; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px; background: var(--ink); }
+.enso-scale { display: flex; justify-content: space-between; margin-top: 4px; }
