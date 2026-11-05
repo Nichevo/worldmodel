@@ -104,6 +104,13 @@ export const HELP = {
     units: "Yes or no; days of leave; years of age",
     sources: [{ label: "World Bank, Women, Business and the Law", indicator: "wbl_index" }, { label: "Hand-checked list", indicator: "law_same_sex_marriage" }],
   },
+  internet: {
+    title: "Internet",
+    what: "How fast the internet is (download speed in tests on fixed broadband and on mobile, each quarter), and how many are connected: the share of people using the internet and broadband and mobile subscriptions per 100 people.",
+    how: "Speeds are Ookla's open Speedtest data: map tiles of about 600 m with the mean speed of the tests run there, summed by country here (each tile goes to the country its centre is in, or the nearest within about 15 km for tiles just off the coast), weighting each tile by its tests. That mean runs higher than the medians Ookla publishes in its Speedtest Global Index, and people who run speed tests are not everyone. Upload and latency (the time to the test server and back) are stored too. Users and subscriptions are the ITU's figures via the World Bank.",
+    units: "Mbps (megabits a second); % of people; subscriptions per 100 people",
+    sources: [{ label: "Speedtest by Ookla open data", indicator: "internet_fixed_down_mbps" }, { label: "ITU via the World Bank", indicator: "internet_users_share" }],
+  },
   climate: {
     title: "Climate",
     what: "How the world's climate is changing and who is changing it: temperature, gases in the air, ice and sea level, emissions by country, storms, El Niño and La Niña, and each country's net zero target and carbon price.",
