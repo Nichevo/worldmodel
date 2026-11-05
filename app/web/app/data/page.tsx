@@ -5,6 +5,7 @@ import KeysCard from "@/components/KeysCard";
 import ManualFilesCard from "@/components/ManualFiles";
 import ScrapersCard from "@/components/ScrapersCard";
 import ProblemsCard from "@/components/Problems";
+import QualityTab from "@/components/QualityTab";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
 import { api, type Dataset, type Meta, type Source } from "@/lib/api";
 
@@ -48,6 +49,12 @@ export default function DataPage() {
   const [checks, setChecks] = useState<Check[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [open, setOpen] = useState<string | null>(null);
+  const [tab, setTab] = useState<"status" | "quality">("status");
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "quality") setTab("quality"); }, []);
+  const switchTab = (t: "status" | "quality") => {
+    setTab(t);
+    window.history.replaceState(null, "", t === "quality" ? "/data?tab=quality" : "/data");
+  };
 
   useEffect(() => {
     api.meta().then(setMeta);
@@ -72,6 +79,11 @@ export default function DataPage() {
         )}
       </div>
 
+      <div className="seg" role="tablist">
+        <button role="tab" aria-selected={tab === "status"} className={tab === "status" ? "on" : ""} onClick={() => switchTab("status")}>Sources and checks</button>
+        <button role="tab" aria-selected={tab === "quality"} className={tab === "quality" ? "on" : ""} onClick={() => switchTab("quality")}>Quality</button>
+      </div>
+      {tab === "quality" ? <QualityTab /> : <>
       <ProblemsCard />
       <ManualFilesCard />
       <ScrapersCard />
@@ -206,6 +218,7 @@ export default function DataPage() {
           </tbody>
         </table></div>
       </div>
+      </>}
     </div>
   );
 }

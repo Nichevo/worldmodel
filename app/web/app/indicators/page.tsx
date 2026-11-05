@@ -6,7 +6,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
 import Ratios from "@/components/Ratios";
 import WorldMap from "@/components/WorldMap";
-import { api, type Indicator } from "@/lib/api";
+import { QualityBadge, QualityCard, SCORE_ORDER, SCORE_TEXT } from "@/components/Quality";
+import { api, GRADE_TEXT, type Grade, type Indicator, type QualityList, type QualityScore } from "@/lib/api";
 import { DIVERGING } from "@/lib/colors";
 import { SOURCE_SHORT } from "@/lib/format";
 import { logHistory } from "@/lib/history";
@@ -27,6 +28,10 @@ export default function IndicatorsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
   const [busy, setBusy] = useState(false);
+  const [quality, setQuality] = useState<QualityList | null>(null);
+  const [grade, setGrade] = useState<"" | Grade | "starred" | "yours">("");
+  const [sort, setSort] = useState<"" | "grade" | QualityScore>("");
+  useEffect(() => { api.quality().then(setQuality).catch(() => setQuality(null)); }, []);
 
   const load = () => api.indicators().then(setAll).catch((e) => setError(String(e.message || e)));
   useEffect(() => { load(); }, []);
@@ -41,13 +46,21 @@ export default function IndicatorsPage() {
   const sources = useMemo(() => [...new Set((all ?? []).flatMap((i) => i.sources.map((s) => s.source_id)))].sort(), [all]);
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return (all ?? []).filter((i) =>
+    const found = (all ?? []).filter((i) =>
       (!domain || i.domain === domain) &&
       (!source || i.sources.some((s) => s.source_id === source)) &&
       (state === "" || (state === "on" ? i.enabled : state === "off" ? !i.enabled : !i.available)) &&
-      (!needle || [i.name, i.indicator_id, i.description, ...i.synonyms].join(" ").toLowerCase().includes(needle)));
-  }, [all, q, domain, source, state]);
-  useEffect(() => setShown(PAGE), [q, domain, source, state]);
+      (!needle || [i.name, i.indicator_id, i.description, ...i.synonyms].join(" ").toLowerCase().includes(needle)) &&
+      (!grade || (() => {
+        const g = quality?.indicators[i.indicator_id];
+        return grade === "starred" ? g?.starred : grade === "yours" ? g?.overridden : g?.grade === grade;
+      })()));
+    const qi = (i: Indicator) => quality?.indicators[i.indicator_id];
+    if (sort === "grade") found.sort((a, b) => (qi(a)?.grade ?? "E").localeCompare(qi(b)?.grade ?? "E") || a.name.localeCompare(b.name));
+    else if (sort) found.sort((a, b) => (qi(b)?.scores[sort] ?? 0) - (qi(a)?.scores[sort] ?? 0) || a.name.localeCompare(b.name));
+    return found;
+  }, [all, q, domain, source, state, grade, sort, quality]);
+  useEffect(() => setShown(PAGE), [q, domain, source, state, grade, sort]);
 
   const flip = async (changes: Record<string, boolean>) => {
     setBusy(true);
@@ -105,6 +118,17 @@ export default function IndicatorsPage() {
           <option value="off">Switched off</option>
           <option value="nodata">No data loaded</option>
         </select>
+        <select value={grade} onChange={(e) => setGrade(e.target.value as typeof grade)} aria-label="Grade">
+          <option value="">Any grade</option>
+          {(Object.keys(GRADE_TEXT) as Grade[]).map((g) => <option key={g} value={g}>Grade {g}: {GRADE_TEXT[g]}</option>)}
+          <option value="starred">Starred</option>
+          <option value="yours">Grade set by you</option>
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort">
+          <option value="">By topic and name</option>
+          <option value="grade">Best grade first</option>
+          {SCORE_ORDER.map((k) => <option key={k} value={k}>Best {SCORE_TEXT[k].toLowerCase()} first</option>)}
+        </select>
         <span className="spacer" />
         <button className="small" disabled={busy} onClick={() => flipAll(true)}>All listed on</button>
         <button className="small" disabled={busy} onClick={() => flipAll(false)}>All listed off</button>
@@ -116,7 +140,7 @@ export default function IndicatorsPage() {
           <table className="indicators">
             <thead>
               <tr>
-                <th>On</th><th>Indicator</th><th>Topic</th><th>Unit</th><th>Years</th><th>Latest estimate</th>
+                <th>On</th><th>Indicator</th><th title="A core, B good, C usable, D exploratory; the bars are the six scores (hover for why)">Grade</th><th>Topic</th><th>Unit</th><th>Years</th><th>Latest estimate</th>
                 <th className="num">Countries</th><th>Source</th>
               </tr>
             </thead>
@@ -133,6 +157,8 @@ export default function IndicatorsPage() {
                       </td>
                       <td><b>{i.name}</b>{i.default_on !== i.enabled && <span className="small muted"> (changed)</span>}
                         {i.breakdowns && <div className="small muted">by {i.breakdowns.replace(/\|/g, ", ")}; shown in pyramids</div>}</td>
+                      <td className="nowrap"><QualityBadge q={quality?.indicators[i.indicator_id]} />
+                        {quality?.indicators[i.indicator_id]?.starred && <span title="Starred"> ★</span>}</td>
                       <td>{i.domain}</td>
                       <td className="small">{i.unit}</td>
                       <td className="nowrap">{i.first_year !== null ? `${i.first_year}–${i.last_year}` : <span className="muted">no data</span>}</td>
@@ -143,7 +169,9 @@ export default function IndicatorsPage() {
                     </tr>
                     {isOpen && (
                       <tr className="detail">
-                        <td colSpan={8}><Details indicator={i} /></td>
+                        <td colSpan={9}><Details indicator={i} />
+                          <QualityCard id={i.indicator_id} q={quality?.indicators[i.indicator_id]}
+                            changed={(n) => setQuality((cur) => cur && { ...cur, indicators: { ...cur.indicators, [i.indicator_id]: n } })} /></td>
                       </tr>
                     )}
                   </Fragment>
