@@ -666,7 +666,10 @@ class WorldPrisonBrief(_RuleTable):
     keeps_files = True  # one page per year; each adds to the ones before
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
-        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv", ".htm", ".html"))
+        # The scraper's pages (wpb_<year>.html) first: a page saved by hand for the same year
+        # (dated by when it was saved) then adds nothing twice.
+        files = sorted((p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv", ".htm", ".html")),
+                       key=lambda p: (not re.match(r"wpb_\d{4}\.html?$", p.name), p.name))
         if not files:
             raise ConnectorError(f"{self.source_id}: no saved page, .xlsx or .csv file in {raw_dir}")
         rows, names = Rows(), {}
@@ -677,6 +680,16 @@ class WorldPrisonBrief(_RuleTable):
             else:
                 table = _table(f)
             rule_table(table, self.prefix, rows, names, datetime.now().year)
+        seen, kept = set(), []
+        for r in rows.rows:  # one figure per country, measure and year: the first file's
+            k = (r[1], r[2], r[3], r[4])
+            if k not in seen:
+                seen.add(k)
+                kept.append(r)
+        if len(kept) < len(rows.rows):
+            log.info("%s: %d figures repeated in more than one file; the first kept", self.source_id,
+                     len(rows.rows) - len(kept))
+        rows.rows = kept
         if not rows:
             raise ConnectorError(f"{self.source_id}: no countries with figures found in {', '.join(f.name for f in files)}")
         self.listed_indicators = []

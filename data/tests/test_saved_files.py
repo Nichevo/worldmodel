@@ -82,3 +82,15 @@ def test_scrape_command_names_and_prisons(tmp_path, monkeypatch):
     out = CliRunner().invoke(cli.app, ["scrape", "prisons", "--since", "2025", "--pause", "0"])
     assert out.exit_code == 0, out.output
     assert "[1/1] world_prison_brief" in out.output and "stored new vintage" in out.output
+
+
+def test_prison_brief_hand_saved_copy_adds_no_repeats(tmp_path):
+    import shutil
+
+    one = _staged(tmp_path / "a", "world_prison_brief", FIX / "wpb_page")
+    folder = tmp_path / "both"
+    folder.mkdir()
+    shutil.copy(FIX / "wpb_page" / "wpb_2026.htm", folder / "wpb_2026.html")  # fetched by the scraper
+    shutil.copy(FIX / "wpb_page" / "wpb_2026.htm", folder / "Highest to Lowest - prison population total.htm")
+    both = _staged(tmp_path / "b", "world_prison_brief", folder)
+    assert both.row_count == one.row_count
