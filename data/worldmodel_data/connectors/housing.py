@@ -84,6 +84,7 @@ BIS_XRU = BIS_API + "WS_XRU/1.0/M...A?format=csv"
 
 class BIS(Connector):
     source_id = "bis"
+    fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
     stage_version = 3  # 2: central bank policy rates and exchange rates against the US dollar; 3: a file missing
                        # from a vintage (one download failed) is taken from the last vintage that has it
     fetch_version = 2  # 2: downloads WS_CBPOL and WS_XRU too
@@ -247,6 +248,7 @@ OECD_MEASURES = {
 
 class OECD(Connector):
     source_id = "oecd"
+    fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -431,6 +433,7 @@ IMF_GDD = {
 
 class IMFGDD(Connector):
     source_id = "imf_gdd"
+    fetch_every_days = 90  # checked at most this often; the site answering "not changed" also skips the download
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
