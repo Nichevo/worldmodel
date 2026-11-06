@@ -297,3 +297,18 @@ def test_crisiswatch_reads_a_database_page_of_one_country_over_many_months():
     got = cw.by_entry_month(page)
     assert sorted(got) == [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)]
     assert [r[0] for _, r, _ in cw.entries(got[date(2026, 2, 1)])] == ["deteriorated"]
+
+
+def test_crisiswatch_reads_the_months_strip_beside_each_entry():
+    from datetime import date
+
+    from worldmodel_data.connectors import crisiswatch as cw
+
+    page = ('<div class="c-crisiswatch-entry u-pr" id="benin"><h3><svg><use xlink:href="#unchanged"></use></svg> Benin</h3>'
+            '<div class="o-crisis-states u-df">'
+            '<div title="June 2026" class="o-state-entry u-df u-pr"><a href="#"><span class="state-unchanged"></span>'
+            '<span class="state-resolution"></span><aside>Unchanged Situation</aside></a></div>'
+            '<div title="July 2026" class="o-state-entry u-df u-pr"><a href="#"><span class="state-deteriorated"></span>'
+            '<aside>x</aside></a></div></div><p>Text.</p></div>')
+    assert cw.strips(page) == [("Benin", date(2026, 6, 1), ("resolution_opportunity", "Resolution opportunity")),
+                               ("Benin", date(2026, 7, 1), ("deteriorated", "Deteriorated"))]

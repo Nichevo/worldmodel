@@ -131,7 +131,7 @@ class CrisisWatch(Connector):
     switch = "crisiswatch_fetch"
     keeps_files = True
     fetch_every_days = 7
-    stage_version = 3  # database pages (entries of many months); pages saved under the browser's name; the entry's own icon for its rating
+    stage_version = 4  # ratings from the five-month strips; database pages (entries of many months); pages saved under the browser's name; the entry's own icon for its rating
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -184,8 +184,10 @@ class CrisisWatch(Connector):
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows, unmatched = [], set()
+        strips = []
         for p in sorted(raw_dir.glob("*.htm*")):
             text = p.read_text(encoding="utf-8", errors="replace")
+            strips += strip_events(text, unmatched)
             if "cw-database" in text or "crisiswatch/database" in p.name.lower():  # a database page: months mixed
                 for m, part in by_entry_month(text).items():
                     rows += month_events(m, part, unmatched)
@@ -197,7 +199,8 @@ class CrisisWatch(Connector):
             rows += month_events(m, text, unmatched)
         if not rows:
             raise ConnectorError("crisiswatch: no ratings read; the pages' layout may have changed")
-        uniq = {(r[0], r[1]): r for r in rows}
+        uniq = {(r[0], r[1]): r for r in strips}  # a month's own page (with its paragraph) wins over a strip
+        uniq.update({(r[0], r[1]): r for r in rows})
         self.events_query = stage_events(con, self.source_id, vintage, list(uniq.values()), unmatched)
         return EMPTY_OBSERVATIONS
 
@@ -237,6 +240,38 @@ def entries(page: str) -> list[tuple[str, tuple[str, str], str]]:
         if not name or not r or len(name) > 80 or not body:
             continue
         out.append((name, r, body))
+    return out
+
+
+def strips(page: str) -> list[tuple[str, date, tuple[str, str]]]:
+    """(name, month, rating) from the strip beside each entry: the ratings of the months up
+    to the page's own (five on the 2026 pages), each with a link to that month's page."""
+    out = []
+    blocks = re.split(r'(?=<(?:div|article|li)\b[^>]*class="[^"]*crisiswatch-entry(?![-_a-z]))', page)
+    for b in blocks[1:]:
+        head = re.search(r"<h[234]\b[^>]*>(.*?)</h[234]>", b, re.S)
+        if not head:
+            continue
+        name = text_of(head.group(1)).strip()
+        for cell in re.split(r'(?=<div\b[^>]*class="o-state-entry)', b)[1:]:
+            t = re.search(r'title="(\w+ \d{4})"', cell[:300]) or re.search(r'<div\b[^>]*title="(\w+ \d{4})"', cell)
+            m = page_month(f"<time>{t.group(1)}</time>") if t else None
+            states = re.findall(r'class="state-([a-z-]+)"', cell.split("<aside", 1)[0])
+            r = rating(" ".join(x.replace("-", " ") for x in states))
+            if name and m and r:
+                out.append((name, m, r))
+    return out
+
+
+def strip_events(page: str, unmatched: set[str]) -> list[tuple]:
+    out = []
+    for name, month, (sub, label) in strips(page):
+        for n in SPLIT.get(name, (name,)):
+            ent = country(n, month, unmatched)
+            if ent:
+                out.append((ent, f"cw:{month.isoformat()[:7]}:{ent}", "crisiswatch", sub, f"CrisisWatch: {label}",
+                            month, None, "month", None, None, None, None, None, name if name != n else None,
+                            BASE + month_pages(month)[0], "Rating only (from a later month's page); no paragraph saved yet."))
     return out
 
 
