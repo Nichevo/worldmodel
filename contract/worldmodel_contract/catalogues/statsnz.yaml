@@ -3,7 +3,11 @@
 #
 # find:  words that must all be in the table's name (case and macrons ignored). Of the tables that
 #        match, the one with the most matching words in `prefer`, then the newest, is used.
-# keep:  for a dimension whose name holds the key's words, the value whose label holds these words.
+# table: the table id to use when Stats NZ still lists it (checked against their list on
+#        2026-11-06); `find` is the fallback when it has been renamed.
+# keep:  for a dimension whose name holds the key's words, the value whose label holds these words
+#        ("*": any dimension with such a value). A keep that matches nothing skips the measure
+#        rather than quietly giving the total.
 #        Every other dimension is held at its total ("Total ...", or code 99, T, _T or TOTAL); one
 #        with a single value is kept as it is.
 # Stats NZ renames tables now and then: the table list fetched on each refresh is kept beside the
@@ -18,6 +22,7 @@ measures:
     decimals: 0
     domain: population
     description: People living in each region at 30 June, Stats NZ subnational population estimates.
+    table: POPES_SUB_004
     find: [subnational, population, estimates]
     prefer: [regional council, rc, sex, age]
     keep: {}
@@ -28,6 +33,7 @@ measures:
     decimals: 0
     domain: population
     description: People counted in each region at the 2013, 2018 and 2023 Censuses (census usually resident population count).
+    table: CEN23_POP_001
     find: [census, usually resident population]
     prefer: [age, sex, rc, regional council, 2023]
     keep: {}
@@ -38,9 +44,10 @@ measures:
     decimals: 1
     domain: population
     description: Median age of the census usually resident population of each region.
+    table: POPES_SUB_001
     find: [census, age]
     prefer: [median, rc, regional council, 2023]
-    keep: {statistic: median, measure: median}
+    keep: {"*": median age}
 
   - id: nzreg_maori
     name: Māori descent or ethnicity, census (NZ regions)
@@ -48,6 +55,7 @@ measures:
     decimals: 0
     domain: population
     description: People in each region who gave Māori as one of their ethnic groups at the census.
+    table: CEN23_POP_001
     find: [census, ethnic]
     prefer: [rc, regional council, 2023, total responses]
     keep: {ethnic: maori}
@@ -58,6 +66,7 @@ measures:
     decimals: 0
     domain: migration
     description: People in each region born outside New Zealand, census.
+    table: CEN13_ECI_023
     find: [census, birthplace]
     prefer: [rc, regional council, 2023]
     keep: {birthplace: overseas}
@@ -68,9 +77,10 @@ measures:
     decimals: 0
     domain: economy
     description: Median total personal income of people 15 and over in each region, census.
+    table: CEN23_INC_004
     find: [census, income]
     prefer: [personal, total personal income, median, rc, regional council, 2023]
-    keep: {statistic: median, measure: median}
+    keep: {"*": median}
 
   - id: nzreg_home_ownership
     name: Households owning their home, census (NZ regions)
@@ -78,9 +88,10 @@ measures:
     decimals: 0
     domain: housing
     description: Households in each region that own or partly own the dwelling they live in, census.
+    table: CEN23_HOU_020
     find: [census, tenure]
     prefer: [household, rc, regional council, 2023]
-    keep: {tenure: own}
+    keep: {tenure: owned}
 
   - id: nzreg_unemployed
     name: Unemployed, census (NZ regions)
@@ -88,6 +99,7 @@ measures:
     decimals: 0
     domain: labour
     description: People 15 and over in each region who were unemployed at the census.
+    table: CEN23_WRK_015
     find: [census, work and labour force status]
     prefer: [rc, regional council, 2023]
     keep: {labour force status: unemployed, work and labour force status: unemployed}

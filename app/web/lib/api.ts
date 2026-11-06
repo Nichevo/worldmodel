@@ -629,7 +629,7 @@ export type ClimateEnso = {
   notes: Record<string, { name: string; el_nino: string; la_nina: string }>;
   link: { entity_id: string; name: string; temp_r: number; years: number; note: boolean }[];
 };
-export type ClimateStorms = { years: number[]; basins: string[]; counts: number[][]; strong: number[]; total?: number };
+export type ClimateStorms = { years: number[]; basins: string[]; counts: number[][]; strong: number[]; strong_by?: number[][]; total?: number };
 export type ClimateLive = { rows: { id: string; type: string; name: string; alert: string; country: string; from: string; lon: number; lat: number; url: string }[];
   off?: boolean; error?: string; fetched?: string };
 export type ClimatePolicy = { rows: { entity_id: string; name: string; net_zero_year?: number; net_zero_status?: number; carbon_price?: number;

@@ -207,15 +207,18 @@ def storms(q: Q) -> dict:
     feats = json.loads(got[0]["geojson"]).get("features", [])
     counts: dict = defaultdict(lambda: defaultdict(int))
     strong: dict = defaultdict(int)
+    strong_by: dict = defaultdict(lambda: defaultdict(int))
     for f in feats:
         p = f.get("properties") or {}
         counts[p.get("year")][p.get("basin")] += 1
         if (p.get("cat") or 0) >= 3:
             strong[p.get("year")] += 1
+            strong_by[p.get("year")][p.get("basin")] += 1
     years = sorted(y for y in counts if y)
     basins = sorted({b for y in counts.values() for b in y if b})
     return {"years": years, "basins": basins, "counts": [[counts[y].get(b, 0) for b in basins] for y in years],
-            "strong": [strong.get(y, 0) for y in years], "total": len(feats)}
+            "strong": [strong.get(y, 0) for y in years], "strong_by": [[strong_by[y].get(b, 0) for b in basins] for y in years],
+            "total": len(feats)}
 
 
 def live(enabled: bool) -> dict:
