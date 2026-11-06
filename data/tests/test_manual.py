@@ -209,3 +209,54 @@ def test_a_failed_download_says_what_went_wrong():
     assert classify("Client error '404 Not Found'") == "gone"
     assert classify("ReadTimeout: timed out") == "network"
     assert classify("no table with a Resolution column") == "changed"
+
+
+def test_verify_opens_a_looping_site_in_your_own_browser_and_waits_for_the_save(tmp_path):
+    from datetime import date
+
+    from worldmodel_data import verify
+
+    t = next(x for x in verify.targets(date(2026, 11, 6)) if x.save_as == "october-2026.html")
+    assert t.by_hand
+    folder, downloads = tmp_path / "manual", tmp_path / "Downloads"
+    folder.mkdir()
+    downloads.mkdir()
+    (downloads / "old.html").write_text("CrisisWatch October 2026")  # saved before: not taken
+    import os
+    os.utime(downloads / "old.html", (1, 1))
+
+    def you_save(url):
+        assert url.endswith("october-2026")
+        (downloads / "check.html").write_text("<title>Performing security verification</title> Just a moment")
+        (downloads / "CrisisWatch October 2026 _ Crisis Group.html").write_text("<h1>CrisisWatch</h1> October 2026 ...")
+
+    said = []
+    got = verify._by_hand(t, folder, 5, said.append, opener=you_save, watch=[folder, downloads], pause=0.05)
+    assert got == folder / "october-2026.html" and "October 2026" in got.read_text()
+    assert (downloads / "check.html").exists() and not (downloads / "CrisisWatch October 2026 _ Crisis Group.html").exists()
+    assert "Ctrl+S" in said[0]
+
+
+def test_a_check_that_keeps_coming_back_is_noticed():
+    from worldmodel_data import verify
+
+    class Page:
+        def content(self):
+            return "<title>Performing security verification</title> Just a moment..."
+
+    with pytest.raises(verify.Stuck):
+        verify._wait_for(Page(), "CrisisWatch", 10, lambda m: None, stuck=0)
+
+
+def test_verify_leaves_alone_files_saved_recently(home):
+    from datetime import date
+
+    from worldmodel_data import verify
+
+    d = manual.folder(paths(), "un_vetoes")
+    d.mkdir(parents=True)
+    (d / "vetoes.html").write_text("Vetoes")
+    todo, left = verify.todo_list(paths(), ["un_vetoes", "wto_disputes"], {"un_vetoes": 30, "wto_disputes": 30}, date(2026, 11, 6))
+    assert [t.save_as for t in left] == ["vetoes.html"]
+    assert {t.save_as for t in todo} == {"elected_members.html", "disputes.html"}
+    assert len(verify.todo_list(paths(), ["un_vetoes"], None)[0]) == 2  # verify.bat all, or names given: every one
