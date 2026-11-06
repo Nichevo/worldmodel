@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.6.0"
+SCHEMA_VERSION = "1.7.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -96,6 +96,11 @@ TABLES: dict[str, Table] = {
             "group_id": "VARCHAR", "member_id": "VARCHAR", "valid_from": "DATE", "valid_to": "DATE",
             "source": "VARCHAR", "verified": "VARCHAR",
         }, ("group_id", "member_id", "valid_from"), "Group membership over time."),
+        Table("subdivisions", {
+            "entity_id": "VARCHAR", "parent_id": "VARCHAR", "level": "VARCHAR", "code": "VARCHAR",
+        }, ("entity_id",), "Areas inside a country (entities of type subnational), with the country they are in: "
+            "New Zealand's 16 regions (level region, code the Stats NZ regional council code). Absent in warehouses "
+            "built before 1.7.0."),
         Table("successions", {
             "predecessor_id": "VARCHAR", "successor_id": "VARCHAR", "date": "DATE", "kind": "VARCHAR",
         }, ("predecessor_id", "successor_id"), "Splits, mergers and dissolutions of states."),

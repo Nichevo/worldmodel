@@ -271,6 +271,11 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             typer.echo(f"{source_id}: skipped (switched off in Settings)")
             continue
         folder = manual.folder(p, source_id)
+        missing = [v for v in cls.needs_env if not os.environ.get(v, "").strip()]
+        if missing and not manual.files(folder):
+            entry.update(status="skipped", vintage=last.vintage if last else None, note=f"needs {', '.join(missing)} in .env")
+            typer.echo(f"{source_id}: skipped (needs {', '.join(missing)} in .env; see Data status: Keys you can add)")
+            continue
         hand = _hand_loaded_wait(source_id, cls, last, folder)
         if hand == "load":  # a file saved since the last load: read it instead of trying the site
             pass

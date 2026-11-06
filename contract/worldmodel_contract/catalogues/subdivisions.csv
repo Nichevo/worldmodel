@@ -1,0 +1,17 @@
+entity_id,parent_id,level,code
+NZ-NTL,NZL,region,01
+NZ-AUK,NZL,region,02
+NZ-WKO,NZL,region,03
+NZ-BOP,NZL,region,04
+NZ-GIS,NZL,region,05
+NZ-HKB,NZL,region,06
+NZ-TKI,NZL,region,07
+NZ-MWT,NZL,region,08
+NZ-WGN,NZL,region,09
+NZ-WTC,NZL,region,12
+NZ-CAN,NZL,region,13
+NZ-OTA,NZL,region,14
+NZ-STL,NZL,region,15
+NZ-TAS,NZL,region,16
+NZ-NSN,NZL,region,17
+NZ-MBH,NZL,region,18

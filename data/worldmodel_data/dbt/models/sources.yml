@@ -10,6 +10,7 @@ sources:
       - name: entity_codes
       - name: memberships
       - name: successions
+      - name: subdivisions
       - name: indicators
       - name: indicator_sources
       - name: sources

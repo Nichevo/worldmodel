@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/forecasts", label: "Forecasts" },
   { href: "/relationships", label: "Relationships" },
   { href: "/sectors", label: "Sectors" },
+  { href: "/storage", label: "Storage" },
   { href: "/climate", label: "Climate" },
   { href: "/cities", label: "Cities" },
   { href: "/topics", label: "Topics" },

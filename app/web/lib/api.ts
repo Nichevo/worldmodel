@@ -231,6 +231,10 @@ export type Settings = {
   quality_show: QualityShow; // indicator drop-downs list grades up to this (starred ones always)
   quality_type: "" | MeasureType; // and only this measure type
   quality_on_titles: boolean; // the grade beside chart titles
+  markets_daily: boolean; // refresh fetches daily exchange rates and gas storage
+  storage_chart: "clock" | "lines"; // how the Storage page draws a year
+  storage_years: number; // years in the band and average a year is set against
+  fx_partners: Record<string, string>; // country id -> its Currency card's partners (comma-separated ids)
   basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
   basemap_world_zoom: number;
   basemap_region_zoom: number;
@@ -678,7 +682,36 @@ export type SectorsByCountry = {
   economy: { id: string; name: string; points: [number, number][] }[];
 };
 
+// Markets: a currency against its partners, storage levels, and a country's regions.
+export type FxPartner = { entity_id: string; name: string; currency: string | null; currency_name: string | null; points: [string, number][] };
+export type FxData = {
+  entity: string; currency: string | null; currency_name: string | null; mode: "rate" | "index"; partners: FxPartner[];
+  first_year: number | null; last_date: string | null; default_partners: boolean; step?: "day" | "week" | "month"; start?: number; end?: number;
+  twi: { name: string; points: [string, number][] }[];
+  choices: { entity_id: string; currency: string; name: string; currency_name: string }[];
+};
+export type StorageItem = { indicator_id: string; entity_id: string; entity_name: string; group: string; name: string; unit: string;
+  decimals: number; frequency: string; last: string; points: number };
+export type StorageSeries = {
+  indicator_id: string; entity_id: string; entity_name: string; name: string; unit: string; decimals: number; frequency: string;
+  year: number; years_back: number[]; band: { day: number; low: number; high: number; mean: number }[];
+  years: Record<string, [number, number, string][]>;
+  latest: { date: string; value: number; average: number | null; year_ago: number | null };
+  events: { title: string; kind: string; date: string; day: number }[];
+};
+export type Regions = {
+  country: string; regions: { entity_id: string; name: string; code: string }[];
+  measures: { indicator_id: string; name: string; unit: string; decimals: number; source: string | null; years: number[];
+    values: Record<string, Record<string, number>> }[];
+};
+
 export const api = {
+  fx: (entity: string, o: { partners?: string; start?: number; end?: number; mode?: "rate" | "index" } = {}) =>
+    get<FxData>(`/fx/${encodeURIComponent(entity)}`, o),
+  storageList: () => get<StorageItem[]>("/storage-levels"),
+  storageSeries: (indicator: string, entity: string, years?: number) =>
+    get<StorageSeries>(`/storage-levels/${encodeURIComponent(indicator)}/${encodeURIComponent(entity)}`, { years }),
+  regions: (country: string) => get<Regions>(`/regions/${encodeURIComponent(country)}`),
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   scrapers: () => get<Scrapers>("/scrapers"),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
