@@ -673,7 +673,8 @@ def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to op
     bad = [n for n in names or [] if n not in known and not every]
     if bad:
         raise typer.BadParameter(f"unknown {', '.join(bad)}; choose from {', '.join(sorted(known))} or all")
-    if not names:  # the sources set to verify.bat (by you or automatically) and any the site refused last time
+    picked = not names  # no names: the app picks, and leaves alone files saved recently
+    if picked:  # the sources set to verify.bat (by you or automatically) and any the site refused last time
         names = _verify_due(p, known)
         if names:
             typer.echo(f"Opening the sources set to verify.bat or refused last time: {', '.join(names)} "
@@ -687,8 +688,12 @@ def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to op
         raise typer.Exit(1) from None
     typer.echo("A browser window opens for each site. If a site asks you to prove you are a person, do it in that window;\n"
                "the page is saved once it has loaded. Leave the window alone otherwise. Close this console (Ctrl+C) to stop.")
-    saved = v.run(p, names or None, typer.echo, wait)
+    keep = {s: CONNECTORS[s].fetch_every_days or 30 for s in known if s in CONNECTORS} if picked else None
+    saved = v.run(p, names or None, typer.echo, wait, keep_days=keep)
     if not saved:
+        if keep is not None and not v.todo_list(p, names or None, keep)[0]:
+            typer.echo("Everything is up to date: each file was saved recently. .\\verify.bat all opens them anyway.")
+            raise typer.Exit(0)
         typer.echo("Nothing was saved.", err=True)
         raise typer.Exit(1)
     failed = False
