@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage } from "@/lib/api";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
 import PlacePicker, { type Place } from "@/components/PlacePicker";
+import IndicatorSelect from "@/components/IndicatorSelect";
+import type { Indicator } from "@/lib/api";
 import { baseMapStatus, type BaseMapEstimate, type BaseMapStatus } from "@/lib/basemap";
 
 // Switches for how the app behaves, and the limits the data side keeps to.
@@ -105,6 +107,8 @@ export default function SettingsPage() {
           ? <>chosen for {Object.keys(s.fx_partners).join(", ")}. <button className="link" onClick={() => save({ fx_partners: {} })}>Back to top trading partners everywhere</button></>
           : "each country's top trading partners (change them on its Currency card)."}</p>
       </section>
+
+      <DiscoverSettings s={s} save={save} />
 
       <section className="card">
         <h2>Forecasts</h2>
@@ -629,6 +633,102 @@ function MapDetail({ s, save }: { s: Settings; save: (patch: Partial<Settings>) 
         the files reads only the needed parts of the 120 GB planet build, so it takes minutes, not hours, on a normal
         connection. Files are kept in the data folder under basemap and count toward its size limit.
       </p>
+    </section>
+  );
+}
+
+// Discover: which checks run, how many finds are kept, key countries, ratings, the AI line,
+// your own "better when" per figure, and the news sources.
+const CHECK_TEXT: [string, string, string][] = [
+  ["record", "Records", "highest or lowest on record, or for decades"],
+  ["mover", "Big movers", "a year's change far beyond the country's usual swings"],
+  ["turning", "Turning points", "a long trend that levelled off or reversed"],
+  ["overtake", "Overtakes", "a key country passing a neighbour in a ranking, or big jumps in rank"],
+  ["outlier", "Outliers", "highest or lowest in the OECD, EU, G20, ASEAN or APEC by a wide margin"],
+  ["disagree", "Sources disagree", "two sources for one figure moving apart"],
+  ["forecast", "Forecast changes", "a forecaster's big revision between releases"],
+  ["together", "Moving together", "the strongest pairs from the relationship scan (needs the scan on)"],
+  ["after", "Before and after", "figures that change after events, from the scan (needs the scan on)"],
+  ["revised", "New data", "past figures for key countries revised in a new release"],
+];
+const NEWS_TEXT: [string, string, string][] = [
+  ["wikipedia", "Wikipedia Current events", "one small page a day, the backbone"],
+  ["gdelt", "GDELT news counts", "spikes in news about your key countries; slow (5 seconds a request)"],
+  ["feeds", "News feeds", "headlines with links from the feeds ticked below"],
+  ["reliefweb", "ReliefWeb (UN)", "disasters and crises; only with an approved app name below"],
+];
+const FEED_TEXT: [string, string][] = [["rnz", "RNZ (NZ)"], ["rnz_world", "RNZ world"], ["stuff", "Stuff (NZ)"], ["abc", "ABC Australia"], ["bbc", "BBC World"], ["guardian", "The Guardian"]];
+
+function DiscoverSettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
+  const [inds, setInds] = useState<Indicator[]>([]);
+  const [pick, setPick] = useState("");
+  useEffect(() => { api.indicators().then(setInds).catch(() => {}); }, []);
+  const list = (v: string) => (v || "").split(",").filter(Boolean);
+  const flip = (key: "discover_checks" | "news_sources" | "news_feeds", id: string, on: boolean) => {
+    const cur = list(s[key]);
+    save({ [key]: (on ? [...cur, id] : cur.filter((x) => x !== id)).join(",") } as Partial<Settings>);
+  };
+  const better = s.discover_better ?? {};
+  const name = (id: string) => inds.find((i) => i.indicator_id === id)?.name ?? id;
+  const checks = list(s.discover_checks);
+  return (
+    <section className="card" id="discover">
+      <h2>Discover</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        After each refresh the app looks through the figures switched on for interesting finds (the <Link href="/discover">Discover</Link> page,
+        and a card at the top of each country page). Changes here apply from the next refresh, or press &quot;Look again now&quot; on the page.
+      </p>
+      <Toggle label="Look for finds after each refresh" hint="Off: the Discover page keeps the last finds, and the country cards stay as they were. Takes under a minute."
+        on={s.discover_on} set={(v) => save({ discover_on: v })} />
+      <Field label="Checks" hint="Each check you untick stops that kind of find appearing at all.">
+        <div>{CHECK_TEXT.map(([id, label, hint]) => (
+          <label key={id} style={{ display: "block" }} title={hint}><input type="checkbox" checked={checks.includes(id)} onChange={(e) => flip("discover_checks", id, e.target.checked)} />
+            {" "}{label} <span className="small muted">({hint})</span></label>))}</div>
+      </Field>
+      <NumberField label="Finds kept" unit="per refresh" value={s.discover_keep} min={50} max={5000} step={50}
+        note="The best ones are kept. More finds means more weak ones further down." save={(v) => save({ discover_keep: v })} />
+      <TextField label="Key countries" value={s.discover_key_countries} placeholder="NZL,AUS,GBR,USA"
+        note="Lifted in the feed, and the only countries checked for overtakes, revisions, forecast changes and news spikes. Others still get records, movers and outliers."
+        save={(v) => save({ discover_key_countries: v.toUpperCase() })} />
+      <NumberField label="Lift for key countries" unit="times" value={s.discover_key_boost} min={1} max={5} step={0.1}
+        note="1 = no lift: key countries are ranked like any other." save={(v) => save({ discover_key_boost: v })} />
+      <Toggle label="Ratings tune the feed" hint="Off: Interesting and Not interesting still keep and hide finds, but no longer move similar ones up or down."
+        on={s.discover_tune} set={(v) => save({ discover_tune: v })} />
+      <Toggle label="'Why might this be?' button" hint="Asks your local AI for likely reasons; its answer is a guess, shown as such. Needs Local AI on; off, the button is not shown."
+        on={s.discover_ai} set={(v) => save({ discover_ai: v })} />
+      <Field label="Better when (your own)" hint="Sets a figure's tone: rising is good news when higher is better. Without your choice the app guesses from the name, and contested ones are neutral.">
+        <div>
+          {Object.entries(better).map(([id, b]) => (
+            <div key={id} className="small">{name(id)}:{" "}
+              <select value={b} onChange={(e) => save({ discover_better: { ...better, [id]: e.target.value as "higher" | "lower" | "neither" } })} aria-label={`Better when for ${name(id)}`}>
+                <option value="higher">higher is better</option><option value="lower">lower is better</option><option value="neither">neither (neutral)</option>
+              </select>{" "}
+              <button className="link" onClick={() => { const rest = { ...better }; delete rest[id]; save({ discover_better: rest }); }}>Back to the app&apos;s guess</button>
+            </div>
+          ))}
+          {inds.length > 0 && <div className="small" style={{ marginTop: 4 }}>
+            <IndicatorSelect indicators={inds} value={pick} onChange={(id) => { setPick(""); if (id && !better[id]) save({ discover_better: { ...better, [id]: "higher" } }); }} label="Add a figure" />
+          </div>}
+        </div>
+      </Field>
+      <h3>News</h3>
+      <Toggle label="Fetch major news" hint="For Discover's News tab, when it is opened. Off: the tab shows only news already kept, and nothing is fetched."
+        on={s.news_on} set={(v) => save({ news_on: v })} />
+      <Field label="News sources" hint="All free and read politely: a few requests each time.">
+        <div>{NEWS_TEXT.map(([id, label, hint]) => (
+          <label key={id} style={{ display: "block" }}><input type="checkbox" checked={list(s.news_sources).includes(id)} onChange={(e) => flip("news_sources", id, e.target.checked)} />
+            {" "}{label} <span className="small muted">({hint})</span></label>))}</div>
+      </Field>
+      <Field label="News feeds" hint="Only read with News feeds ticked above.">
+        <div>{FEED_TEXT.map(([id, label]) => (
+          <label key={id} style={{ marginRight: 10 }}><input type="checkbox" checked={list(s.news_feeds).includes(id)} onChange={(e) => flip("news_feeds", id, e.target.checked)} /> {label}</label>))}</div>
+      </Field>
+      <TextField label="ReliefWeb app name" value={s.news_reliefweb_app} placeholder="(blank: ReliefWeb off)"
+        note="ReliefWeb only answers app names it has approved; ask for one free at apidoc.reliefweb.int. Blank: no ReliefWeb items, even with it ticked."
+        save={(v) => save({ news_reliefweb_app: v })} />
+      <NumberField label="Fetch news again after" unit="hours" value={s.news_every_hours} min={1} max={720} step={1} save={(v) => save({ news_every_hours: v })} />
+      <NumberField label="Keep news for" unit="days" value={s.news_keep_days} min={7} max={36500} step={1}
+        note="Older items are dropped at the next fetch, unless you marked them Interesting." save={(v) => save({ news_keep_days: v })} />
     </section>
   );
 }
