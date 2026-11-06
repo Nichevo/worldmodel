@@ -719,6 +719,7 @@ export type Find = {
   headline: string; detail: string; entities: string[]; indicator_id?: string; indicator_name?: string; unit?: string; decimals?: number;
   source_id?: string; years?: number[]; value?: number | null; tags: string[]; my_tags: string[]; rating: number; never: boolean;
   first_seen?: string | null; new?: boolean; stale?: boolean; pair?: [string, string];
+  merged?: number; members?: { entity_id: string; name: string; detail: string; value?: number | null }[]; // one find for several countries
   chart?: { series: { entity_id: string; name: string; points: [number, number][] }[]; mark: number[] };
   // news items
   source?: string; outlet?: string; date?: string; url?: string | null; topic?: string;
