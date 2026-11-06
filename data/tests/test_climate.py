@@ -147,3 +147,50 @@ def test_file_missing_from_a_vintage_taken_from_the_last_one(tmp_path):
     sql = bis.stage(con, home.home / m.raw_dir, m.release, m.vintage)
     n = con.execute(f"SELECT count(*) FROM ({sql}) WHERE indicator_id = 'bis_household_credit_gdp'").fetchone()[0]
     assert n > 0
+
+
+def test_files_as_the_sites_give_them(tmp_path):
+    """The Net Zero Tracker's snapshot (group headings above the column names, ISO3 in Country)
+    and NIWA's annual and monthly workbooks (notes above; Temp / Anomaly pairs per station)."""
+    import duckdb
+    import openpyxl
+
+    from worldmodel_data.connectors import CONNECTORS
+
+    def xlsx(path, rows):
+        wb = openpyxl.Workbook()
+        for r in rows:
+            wb.active.append(r)
+        wb.save(path)
+
+    nzt = tmp_path / "nzt"
+    nzt.mkdir()
+    xlsx(nzt / "current_current-snapshot_2026-11-04_08-54-13.xlsx", [
+        ["Identification", None, None, "Entity type and location", None, None, None, None, "End target information"],
+        ["Last_updated", "ID_Code", "ISIN_ID", "Name", "Country", "Geographic_region", "Entity_type", "Private_company", "End_target",
+         "End_target_percentage_reduction", "End_target_baseline_year", "End_target_year", "Status_of_end_target"],
+        ["10/03/2026", "COU-0001", None, "Afghanistan", "AFG", "Asia", "Country", None, "Reduction v. BAU", 13.6, None, 2030, "Proposed / in discussion"],
+        ["12/05/2026", "COU-0120", None, "New Zealand", "NZL", "Oceania", "Country", None, "Net zero", None, None, 2050, "In law"],
+        ["12/05/2026", "CIT-0001", None, "Auckland", "NZL", "Oceania", "City", None, "Net zero", None, None, 2050, "In policy document"],
+    ])
+    niwa = tmp_path / "niwa"
+    niwa.mkdir()
+    xlsx(niwa / "NZT7_Adjusted_Annual_TMean2018_Web-updated-jan-2019.xlsx", [
+        ['NIWA "7-STATION" TEMPERATURE SERIES: ANNUAL DATA'], ["Notes:"], [None],
+        ["Year", "Auckland", None, "Masterton", None, "7-Stn Composite"],
+        [None, "Temp", "Anomaly", "Temp", "Anomaly", "Temp", "Anomaly"],
+        [2017, 16.13, 0.7, 12.63, 0.06, 13.15, 0.54],
+        [2018, 16.12, 0.68, 13.39, 0.82, 13.41, 0.8],
+        ["Average", 15.44, None, 12.57, None, 12.61]])
+    xlsx(niwa / "NZT7_Adjusted_Monthly_TMean_Anomalies2018-updated-jan-2019.xlsx", [
+        ["NIWA MONTHLY MEANS"], ["Notes:"], ["Year", "Jan", "Feb", "Annual"], [2018, 3.15, 0.83, 0.8], [2019, 1.0, 0.5, 0.9], ["CLIM", 17.13, 17.22, 12.61]])
+    for sid, folder in (("net_zero_tracker", nzt), ("niwa_7station", niwa)):
+        con = duckdb.connect()
+        CONNECTORS[sid]().stage(con, folder, "2026", "v1")
+        got = {(r[0], r[1], r[2].year): r[3] for r in con.execute("SELECT source_code, indicator_id, period_start, value FROM vals").fetchall()}
+        if sid == "net_zero_tracker":
+            assert got == {("NZL", "net_zero_year", 2026): 2050, ("NZL", "net_zero_status", 2026): 3}
+        else:
+            assert got[("NZL", "nz_temp_7station", 2018)] == 13.41 and got[("NZL", "nz_temp_anomaly_7station", 2018)] == 0.8
+            assert got[("NZL", "nz_temp_anomaly_7station", 2019)] == 0.9  # a year only the monthly file has
+            assert ("NZL", "nz_temp_7station", 2019) not in got

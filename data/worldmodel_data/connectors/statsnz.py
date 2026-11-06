@@ -15,6 +15,7 @@ statsnz
 from __future__ import annotations
 
 import csv
+import gzip
 import io
 import json
 import logging
@@ -93,9 +94,46 @@ def pick_flow(flows: list[dict], m: dict) -> dict | None:
     return max(hits, key=lambda f: (sum(1 for w in prefer if w in plain(f["name"])), f["id"]))
 
 
+def read_flows(data: bytes) -> list[dict]:
+    """The table list as Stats NZ sent it: SDMX-ML (XML) or SDMX-JSON, with or without a byte
+    order mark or gzip. Anything else (a web page, a message) fails saying what came back."""
+    if data[:2] == b"\x1f\x8b":
+        data = gzip.decompress(data)
+    text = data.decode("utf-8-sig", errors="replace").lstrip("\ufeff \r\n\t")
+    if text.startswith("{"):
+        try:
+            return parse_flows_json(json.loads(text))
+        except ValueError as exc:
+            raise ConnectorError(f"statsnz: the table list is not valid JSON ({exc})") from None
+    if not text.startswith("<") or text[:200].lower().lstrip().startswith(("<!doctype html", "<html")):
+        snippet = " ".join(text[:160].split())
+        raise ConnectorError(f"statsnz: the table list came back as neither XML nor JSON; it starts: {snippet!r}")
+    try:
+        return parse_flows(text)
+    except ET.ParseError as exc:
+        snippet = " ".join(text[:160].split())
+        raise ConnectorError(f"statsnz: the table list could not be read ({exc}); it starts: {snippet!r}") from None
+
+
+def parse_flows_json(d: dict) -> list[dict]:
+    """Dataflows from SDMX-JSON structure messages ({"data": {"dataflows": [...]}})."""
+    flows = (d.get("data") or d).get("dataflows") or (d.get("Dataflows") or {}).get("Dataflow") or []
+    out = []
+    for f in flows:
+        names = f.get("names") or {}
+        name = names.get("en") if isinstance(names, dict) else None
+        name = name or f.get("name") or ""
+        if isinstance(name, dict):
+            name = name.get("en") or next(iter(name.values()), "")
+        if f.get("id"):
+            out.append({"agency": f.get("agencyID") or "STATSNZ", "id": f["id"], "version": f.get("version") or "1.0",
+                        "name": str(name).strip()})
+    return out
+
+
 def parse_flows(xml: str) -> list[dict]:
     out = []
-    root = ET.fromstring(xml)
+    root = ET.fromstring(xml.lstrip("\ufeff"))
     for el in root.iter():
         if el.tag.rsplit("}", 1)[-1] != "Dataflow" or not el.get("id"):
             continue
@@ -175,13 +213,16 @@ class StatsNZ(Connector):
         hdr = {"Ocp-Apim-Subscription-Key": key}
         try:
             self.get(FLOWS_URL, raw_dir / "dataflows.xml",
-                     headers={**hdr, "Accept": "application/vnd.sdmx.structure+xml;version=2.1"})
+                     headers={**hdr, "Accept": "application/vnd.sdmx.structure+xml;version=2.1, application/xml;q=0.9, "
+                                    "application/vnd.sdmx.structure+json;q=0.8, */*;q=0.5"})
         except ConnectorError as exc:
             if "HTTP 401" in str(exc) or "HTTP 403" in str(exc):
                 raise ConnectorError("statsnz: the Data Explorer refused the key (check STATSNZ_API_KEY in .env: the "
                                      "primary key of your Aotearoa Data Explorer subscription)") from exc
             raise
-        flows = parse_flows((raw_dir / "dataflows.xml").read_text(encoding="utf-8", errors="replace"))
+        flows = read_flows((raw_dir / "dataflows.xml").read_bytes())
+        if not flows:
+            raise ConnectorError("statsnz: the table list came back empty")
         with (raw_dir / "statsnz_dataflows.csv").open("w", encoding="utf-8", newline="") as f:
             w = csv.writer(f)
             w.writerow(["agency", "id", "version", "name"])
