@@ -1,5 +1,5 @@
 import type { EChartsOption, SeriesOption } from "echarts";
-import type { StorageSeries } from "@/lib/api";
+import type { StorageSeries, StorageTotals } from "@/lib/api";
 import { cssVar, seriesColor } from "@/lib/colors";
 import { short } from "@/lib/sectors";
 
@@ -118,5 +118,36 @@ export function storageLines(s: StorageSeries, events = true): EChartsOption {
           data: s.events.map((e) => ({ value: [e.day, Math.max(...s.band.map((b) => b.high))], name: `${e.date}: ${e.title}` })),
           tooltip: { formatter: (p: unknown) => (p as { name: string }).name } } as SeriesOption]
       : series,
+  };
+}
+
+// Totals over the years: one stacked area per continent, subregion or country, the total on
+// top in the tooltip, and how many countries reported each period (gaps make steps).
+export function storageAreas(t: StorageTotals): EChartsOption {
+  const d = Math.min(t.decimals ?? 0, 1);
+  const n = Object.fromEntries(t.periods.map((p, i) => [p, t.countries[i]]));
+  const tot = Object.fromEntries(t.total);
+  return {
+    backgroundColor: "transparent",
+    textStyle: { fontFamily: font, color: cssVar("--ink-2") },
+    grid: { left: 8, right: 16, top: 48, bottom: 8, containLabel: true },
+    legend: { top: 0, type: "scroll", textStyle: { color: cssVar("--ink-2") } },
+    tooltip: { trigger: "axis", ...tip(), formatter: (ps: unknown) => {
+      const list = (ps as { axisValue: string; seriesName: string; value: number | null; color: string }[]).filter((p) => p.value != null);
+      if (!list.length) return "";
+      const p0 = list[0].axisValue;
+      return `<b>${p0}</b>: ${fmt(tot[p0] ?? 0, d)} ${t.unit} in all, from ${n[p0] ?? 0} countr${n[p0] === 1 ? "y" : "ies"}<br/>`
+        + [...list].reverse().map((p) => `<span style="color:${p.color}">●</span> ${p.seriesName}: ${fmt(p.value as number, d)}`).join("<br/>");
+    } },
+    xAxis: { type: "category", boundaryGap: false, data: t.periods, axisLabel: { color: cssVar("--muted") }, axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    yAxis: { type: "value", name: t.unit, nameTextStyle: { color: cssVar("--muted") },
+      axisLabel: { color: cssVar("--muted"), formatter: (v: number) => short(v) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    dataZoom: [{ type: "inside" }],
+    series: t.parts.map((p, i) => ({
+      type: "line", name: p.name, stack: "total", data: p.points.map((x) => x[1] ?? 0), showSymbol: false,
+      lineStyle: { width: 0.8, color: p.id === "other" ? cssVar("--muted") : seriesColor(i) },
+      itemStyle: { color: p.id === "other" ? cssVar("--muted") : seriesColor(i) },
+      areaStyle: { opacity: 0.75 }, emphasis: { focus: "series" },
+    })) as SeriesOption[],
   };
 }

@@ -14,6 +14,9 @@ import { useSettings } from "@/lib/settings";
 // Your Interesting / Not interesting ratings tune what rises to the top.
 const TABS: [DiscoverTab, string][] = [["finds", "Finds"], ["news", "News"], ["interesting", "Interesting"], ["hidden", "Hidden"]];
 const PAGE = 40;
+// Quick date ranges: news by its day, finds by the years they cover.
+const RECENT: [number, string][] = [[1, "Past day"], [7, "Past week"], [31, "Past month"], [365, "Past year"], [3650, "Past ten years"]];
+const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 
 function DiscoverPage() {
   const router = useRouter();
@@ -33,7 +36,8 @@ function DiscoverPage() {
     router.replace(`/discover?${next}`, { scroll: false });
   };
   const query = { tab, category: f("category") || undefined, kind: f("kind") || undefined, tone: f("tone") || undefined,
-    entity: f("entity") || undefined, tag: f("tag") || undefined, q: f("q") || undefined, sort: f("sort") || undefined, new: f("new") || undefined };
+    entity: f("entity") || undefined, tag: f("tag") || undefined, q: f("q") || undefined, sort: f("sort") || undefined, new: f("new") || undefined,
+    since: f("since") || undefined, until: f("until") || undefined };
   const load = (offset = 0) => api.discover({ ...query, limit: PAGE, offset }).then((d) => {
     setFeed(d); setItems((old) => (offset ? [...old, ...d.items] : d.items)); setError(null);
     if (!seen.current) { seen.current = true; api.discoverSeen().catch(() => undefined); }
@@ -113,6 +117,14 @@ function DiscoverPage() {
           <option value="newest">Newest</option>
           <option value="key">Your key countries first</option>
         </select>
+        <select value={RECENT.find(([d]) => f("since") === ago(d) && !f("until"))?.[0] ?? (f("since") || f("until") ? "custom" : "")} aria-label="When"
+          onChange={(e) => { const v = e.target.value; if (v !== "custom") set({ since: v ? ago(+v) : "", until: "" }); }}>
+          <option value="">Any time</option>
+          {RECENT.map(([d, label]) => <option key={d} value={d}>{label}</option>)}
+          <option value="custom">Dates…</option>
+        </select>
+        <label>From <input type="date" value={f("since")} onChange={(e) => set({ since: e.target.value })} /></label>
+        <label>to <input type="date" value={f("until")} onChange={(e) => set({ until: e.target.value })} /></label>
         <label><input type="checkbox" checked={f("new") === "1"} onChange={(e) => set({ new: e.target.checked ? "1" : "" })} /> New only</label>
       </div>
       {error && <p className="error">{error}</p>}

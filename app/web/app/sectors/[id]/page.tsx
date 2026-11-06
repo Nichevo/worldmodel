@@ -91,7 +91,7 @@ function StageView({ d, st, country, year }: { d: SectorDetail; st: SectorStage;
         <div className="card"><p>No figures for this stage yet. Trade comes with the BACI download (<Link href="/settings#sectors">Settings: Sectors</Link>);
           production from FAOSTAT, USGS and World Mining Data during <code>.\refresh.bat</code>.</p></div>
       ) : m ? (
-        <div className="grid two">
+        <>
           <div className="card">
             <div className="card-head"><h3>{st.name}: {MEASURE_TEXT[measure].toLowerCase()}, {m.year}</h3><CardAsk onAsk={ask} /></div>
             <div className="map-box">
@@ -107,7 +107,7 @@ function StageView({ d, st, country, year }: { d: SectorDetail; st: SectorStage;
             {st.production ? <Concentration m={st.production} name="Production" high={d.high_hhi} /> : null}
             {st.exports ? <Concentration m={st.exports} name="Exports" high={d.high_hhi} /> : null}
           </div>
-        </div>
+        </>
       ) : null}
       {m ? (
         <div className="grid two">
