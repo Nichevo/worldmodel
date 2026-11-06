@@ -110,17 +110,23 @@ SETTINGS: dict[str, object] = {
     "quality_show": "B",             # indicator drop-downs list grades up to this: "A", "B", "C", "all" or "starred" (starred ones always show)
     "quality_type": "",              # and only this measure type ("" = all): level, per_person, rate, index, money, count, projection
     "quality_on_titles": False,      # the grade beside each chart's title
+    # Markets: exchange rates and storage
+    "markets_daily": True,           # refresh fetches daily data (ECB and Fed exchange rates, European gas storage)
+    "storage_chart": "clock",        # the Storage page draws a year as a "clock" (round) or as one line per year
+    "storage_years": 5,              # years in the band (lowest to highest) and average the current year is set against
+    "fx_partners": {},               # country id -> currencies' countries on its Currency card (else its top trading partners)
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"), "map_centre": ("pacific", "atlantic"),
-           "relations_indicators": ("on", "all"), "quality_show": ("A", "B", "C", "all", "starred"),
+           "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection")}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden"}  # comma-separated ids, order kept
+PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
@@ -130,7 +136,8 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
-          "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000)}
+          "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
+          "storage_years": (2, 15)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
@@ -201,6 +208,16 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
                 continue
             out[key] = {" ".join(str(name).split())[:40]: {f: _idlist(p.get(f)) for f in ("charts", "hidden")}
                         for name, p in list(v.items())[:30] if str(name).strip() and isinstance(p, dict)}
+        elif key in PARTNERS:
+            if isinstance(v, str):
+                try:
+                    v = json.loads(v or "{}")
+                except ValueError:
+                    continue
+            if not isinstance(v, dict):
+                continue
+            out[key] = {str(k)[:40]: _idlist(x) for k, x in list(v.items())[:300]
+                        if re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(k)) and _idlist(x)}
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v

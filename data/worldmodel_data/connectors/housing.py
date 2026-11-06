@@ -80,14 +80,17 @@ BIS_MIRROR = "https://raw.githubusercontent.com/datasets/house-prices-global/mai
 # (monthly averages): key FREQ.REF_AREA and FREQ.REF_AREA.CURRENCY.COLLECTION.
 BIS_CBPOL = BIS_API + "WS_CBPOL/1.0/M.?format=csv"
 BIS_XRU = BIS_API + "WS_XRU/1.0/M...A?format=csv"
+# Effective exchange rates, monthly, broad basket, nominal and real: key FREQ.EER_TYPE.EER_BASKET.REF_AREA.
+BIS_EER = BIS_API + "WS_EER/1.0/M..B.?format=csv"
 
 
 class BIS(Connector):
     source_id = "bis"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 3  # 2: central bank policy rates and exchange rates against the US dollar; 3: a file missing
-                       # from a vintage (one download failed) is taken from the last vintage that has it
-    fetch_version = 2  # 2: downloads WS_CBPOL and WS_XRU too
+    stage_version = 4  # 2: central bank policy rates and exchange rates against the US dollar; 3: a file missing
+                       # from a vintage (one download failed) is taken from the last vintage that has it;
+                       # 4: effective exchange rates, and policy rates month by month
+    fetch_version = 3  # 2: downloads WS_CBPOL and WS_XRU too; 3: WS_EER
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -114,7 +117,7 @@ class BIS(Connector):
                 log.info("bis: %s (%s)", url, exc)
         else:
             log.warning("bis: household credit could not be downloaded; house prices only")
-        for url, name in ((BIS_CBPOL, "cbpol.csv"), (BIS_XRU, "xru.csv")):
+        for url, name in ((BIS_CBPOL, "cbpol.csv"), (BIS_XRU, "xru.csv"), (BIS_EER, "eer.csv")):
             try:
                 self.get(url, raw_dir / name)
                 got.append(url)
@@ -184,11 +187,44 @@ class BIS(Connector):
                     last[k] = (str(r[period]), v)
             for (a, y), (_, v) in last.items():
                 rows.add("iso2", a, "bis_policy_rate_end", y, v)
+        # Effective exchange rates: the yearly average, and every month (as are policy rates).
+        from worldmodel_data.connectors.markets import DatedRows, parse_day
+        monthly = DatedRows()
+        p = raw_dir / "eer.csv"
+        if not p.exists():
+            p = self.earlier_copy(raw_dir, "eer.csv") or p
+        data = read_csv(p) if p.exists() else []
+        if data:
+            h = data[0].keys()
+            area, period, obs, typ = col(h, "REF_AREA"), col(h, "TIME_PERIOD"), col(h, "OBS_VALUE"), col(h, "EER_TYPE")
+            for r in data if area and period and obs and typ else []:
+                ind = {"N": "bis_eer_nominal", "R": "bis_eer_real"}.get(code(r[typ]))
+                y, v, d = year_of(r[period]), num(r[obs]), parse_day(f"{str(r[period]).strip()[:7]}-01")
+                if not ind or not y or v is None:
+                    continue
+                a = code(r[area])
+                scheme, a = ("iso3", "eu") if a == "XM" else ("iso2", a)
+                rows.add_period(scheme, a, ind, y, v)
+                if d:
+                    monthly.add(scheme, a, f"{ind}_m", d, v, freq="M")
         rows.finish_periods(need=1)
+        p = raw_dir / "cbpol.csv"
+        if not p.exists():
+            p = self.earlier_copy(raw_dir, "cbpol.csv") or p
+        data = read_csv(p) if p.exists() else []
+        if data:
+            h = data[0].keys()
+            area, period, obs = col(h, "REF_AREA"), col(h, "TIME_PERIOD"), col(h, "OBS_VALUE")
+            for r in data if area and period and obs else []:
+                d = parse_day(f"{str(r[period]).strip()[:7]}-01")
+                a = code(r[area])
+                scheme, a = ("iso3", "eu") if a == "XM" else ("iso2", a)
+                if d:
+                    monthly.add(scheme, a, "bis_policy_rate_m", d, num(r[obs]), freq="M")
         if not len(rows):
             raise ConnectorError(f"bis: no values read from {raw_dir}")
         self.listed_indicators = BIS_INDICATORS
-        return rows.stage(con, self.source_id, vintage)
+        return rows.stage(con, self.source_id, vintage) + " UNION ALL " + monthly.stage(con, self.source_id, vintage)
 
 
 BIS_INDICATORS = [
@@ -205,6 +241,23 @@ BIS_INDICATORS = [
               "rise means the currency weakened against the dollar. BIS. For New Zealand dollars per US dollar; the "
               "NZD in US cents is 100 divided by this.", "local currency per US dollar", "finance", "bis",
               "WS_XRU:M.A", decimals=4, bounds=(0, 1e9)),
+    indicator("bis_eer_nominal", "Trade-weighted exchange rate (nominal)",
+              "The currency's value against a broad basket of about 60 trading partners' currencies, weighted by trade; "
+              "a rise means the currency strengthened. Yearly average of monthly values, 2020 = 100. BIS.",
+              "index, 2020 = 100", "finance", "bis", "WS_EER:M.N.B", decimals=1, bounds=(0, 1e6)),
+    indicator("bis_eer_real", "Trade-weighted exchange rate (real)",
+              "The trade-weighted exchange rate adjusted for consumer prices at home and abroad: a rise means the "
+              "country's goods became dearer than its partners'. Yearly average, 2020 = 100. BIS.",
+              "index, 2020 = 100", "finance", "bis", "WS_EER:M.R.B", decimals=1, bounds=(0, 1e6)),
+    indicator("bis_eer_nominal_m", "Trade-weighted exchange rate (nominal), monthly",
+              "The nominal broad effective exchange rate each month, 2020 = 100. BIS.", "index, 2020 = 100", "finance",
+              "bis", "WS_EER:M.N.B (monthly)", decimals=1, bounds=(0, 1e6), default_on=False, frequency="M"),
+    indicator("bis_eer_real_m", "Trade-weighted exchange rate (real), monthly",
+              "The real broad effective exchange rate each month, 2020 = 100. BIS.", "index, 2020 = 100", "finance",
+              "bis", "WS_EER:M.R.B (monthly)", decimals=1, bounds=(0, 1e6), default_on=False, frequency="M"),
+    indicator("bis_policy_rate_m", "Central bank policy rate, monthly",
+              "The central bank policy rate at the end of each month. BIS.", "percent", "finance", "bis",
+              "WS_CBPOL:M (monthly)", decimals=2, bounds=(-5, 1000), default_on=False, frequency="M"),
     indicator("bis_house_price_nominal", "House prices (nominal)",
               "Residential property prices in local currency, as published by the central bank or statistics office "
               "and collected by the BIS. Yearly average of the quarterly index, 2010 = 100.",

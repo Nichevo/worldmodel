@@ -139,6 +139,7 @@ class Connector(ABC):
     manual = False                     # True: never downloaded; loaded with `fetch <source> --from FILE` only
     keeps_files = False                # True: files of the last vintage that this fetch did not bring again are
                                        # carried into the new one (files loaded by hand one at a time add up)
+    needs_env: tuple[str, ...] = ()    # API keys in .env it needs: refresh skips it quietly until they are set
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
     # Raise when stage() changes in a way that alters stored output: vintages staged by an
     # older version are staged again from their raw files (by `upgrade`, or the next fetch).
@@ -164,6 +165,14 @@ class Connector(ABC):
         self.city_values_query: str | None = None
         # places.parquet: a SQL query producing PLACE_COLUMNS (without source_id and vintage).
         self.places_query: str | None = None
+
+    @staticmethod
+    def env(name: str) -> str:
+        import os
+        v = os.environ.get(name, "").strip()
+        if not v:
+            raise ConnectorError(f"{name} is not set in .env (see Data status: Keys you can add)")
+        return v
 
     @property
     def client(self) -> httpx.Client:
@@ -372,14 +381,18 @@ class Connector(ABC):
             shutil.copy2(f, dest / f.name)
         return f"file:{from_path.as_posix()}"
 
-    def get(self, url: str, dest: Path) -> None:
+    def get(self, url: str, dest: Path, headers: dict[str, str] | None = None, cached: bool = True) -> None:
         """Download url to dest, unless the server says our stored copy is still current.
         A download cut off part way is resumed where it stopped (HTTP Range); a site that
         does not send its intermediate certificate gets it fetched from the address its
-        own certificate names (AIA), then the download is tried again."""
-        cache = self._cache
-        headers = cache.conditional_headers(url) if cache else {}
-        log.info("GET %s%s", url, " (if changed)" if headers else "")
+        own certificate names (AIA), then the download is tried again. `headers` are sent
+        as well (an API key); cached=False for a URL that carries a key, so it is neither
+        logged nor kept in http_cache.json."""
+        cache = self._cache if cached else None
+        extra = dict(headers or {})
+        headers = {**(cache.conditional_headers(url) if cache else {}), **extra}
+        log.info("GET %s%s", url if cached else re.sub(r"(api_key|key)=[^&]+", r"\1=...", url),
+                 " (if changed)" if cache and len(headers) > len(extra) else "")
         fixed_chain = False
         attempt = 0
         while True:

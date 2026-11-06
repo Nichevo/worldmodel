@@ -1,0 +1,103 @@
+# Stats NZ Aotearoa Data Explorer (api.data.stats.govt.nz): which tables give the figures for
+# New Zealand's 16 regions, read by the statsnz connector (needs STATSNZ_API_KEY in .env).
+#
+# find:  words that must all be in the table's name (case and macrons ignored). Of the tables that
+#        match, the one with the most matching words in `prefer`, then the newest, is used.
+# keep:  for a dimension whose name holds the key's words, the value whose label holds these words.
+#        Every other dimension is held at its total ("Total ...", or code 99, T, _T or TOTAL); one
+#        with a single value is kept as it is.
+# Stats NZ renames tables now and then: the table list fetched on each refresh is kept beside the
+# data (statsnz_dataflows.csv), and Data status says which measures found no table.
+# Files saved by hand from the Data Explorer (Download > "Table in SDMX-CSV with labels") into
+# var\manual\statsnz are read the same way, matched by their file name or the table name inside.
+
+measures:
+  - id: nzreg_population
+    name: Estimated resident population (NZ regions)
+    unit: people
+    decimals: 0
+    domain: population
+    description: People living in each region at 30 June, Stats NZ subnational population estimates.
+    find: [subnational, population, estimates]
+    prefer: [regional council, rc, sex, age]
+    keep: {}
+
+  - id: nzreg_census_population
+    name: Census usually resident population (NZ regions)
+    unit: people
+    decimals: 0
+    domain: population
+    description: People counted in each region at the 2013, 2018 and 2023 Censuses (census usually resident population count).
+    find: [census, usually resident population]
+    prefer: [age, sex, rc, regional council, 2023]
+    keep: {}
+
+  - id: nzreg_median_age
+    name: Median age, census (NZ regions)
+    unit: years
+    decimals: 1
+    domain: population
+    description: Median age of the census usually resident population of each region.
+    find: [census, age]
+    prefer: [median, rc, regional council, 2023]
+    keep: {statistic: median, measure: median}
+
+  - id: nzreg_maori
+    name: Māori descent or ethnicity, census (NZ regions)
+    unit: people
+    decimals: 0
+    domain: population
+    description: People in each region who gave Māori as one of their ethnic groups at the census.
+    find: [census, ethnic]
+    prefer: [rc, regional council, 2023, total responses]
+    keep: {ethnic: maori}
+
+  - id: nzreg_born_overseas
+    name: Born overseas, census (NZ regions)
+    unit: people
+    decimals: 0
+    domain: migration
+    description: People in each region born outside New Zealand, census.
+    find: [census, birthplace]
+    prefer: [rc, regional council, 2023]
+    keep: {birthplace: overseas}
+
+  - id: nzreg_median_income
+    name: Median personal income, census (NZ regions)
+    unit: NZ$
+    decimals: 0
+    domain: economy
+    description: Median total personal income of people 15 and over in each region, census.
+    find: [census, income]
+    prefer: [personal, total personal income, median, rc, regional council, 2023]
+    keep: {statistic: median, measure: median}
+
+  - id: nzreg_home_ownership
+    name: Households owning their home, census (NZ regions)
+    unit: households
+    decimals: 0
+    domain: housing
+    description: Households in each region that own or partly own the dwelling they live in, census.
+    find: [census, tenure]
+    prefer: [household, rc, regional council, 2023]
+    keep: {tenure: own}
+
+  - id: nzreg_unemployed
+    name: Unemployed, census (NZ regions)
+    unit: people
+    decimals: 0
+    domain: labour
+    description: People 15 and over in each region who were unemployed at the census.
+    find: [census, work and labour force status]
+    prefer: [rc, regional council, 2023]
+    keep: {labour force status: unemployed, work and labour force status: unemployed}
+
+  - id: nzreg_gdp
+    name: Regional GDP (NZ regions)
+    unit: NZ$ million
+    decimals: 0
+    domain: economy
+    description: Gross domestic product of each region, year to March, current prices, Stats NZ regional GDP.
+    find: [regional, gross domestic product]
+    prefer: [region, current prices]
+    keep: {}

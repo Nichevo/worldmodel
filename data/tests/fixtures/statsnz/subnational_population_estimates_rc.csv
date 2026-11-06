@@ -1,0 +1,13 @@
+DATAFLOW,AREA_POPES_SUB_006: Area,SEX_POPES_SUB_006: Sex,AGE_POPES_SUB_006: Age,TIME_PERIOD: Time,OBS_VALUE,OBS_STATUS
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",01: Northland Region,9: Total people,999999: Total people - age,2023,203900,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",01: Northland Region,1: Male,999999: Total people - age,2023,100100,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",02: Auckland Region,9: Total people,999999: Total people - age,2023,1739300,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",03: Waikato Region,9: Total people,999999: Total people - age,2023,513800,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",04: Bay of Plenty Region,9: Total people,999999: Total people - age,2023,347700,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",05: Gisborne Region,9: Total people,999999: Total people - age,2023,52100,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",06: Hawke's Bay Region,9: Total people,999999: Total people - age,2023,182900,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",07: Taranaki Region,9: Total people,999999: Total people - age,2023,127300,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",08: Manawatū-Whanganui Region,9: Total people,999999: Total people - age,2023,260900,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",09: Wellington Region,9: Total people,999999: Total people - age,2023,550500,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",99: Area Outside Region,9: Total people,999999: Total people - age,2023,700,
+"STATSNZ:POPES_SUB_006(1.0): Subnational population estimates (RC, SA2) by age and sex",0100: Far North District,9: Total people,999999: Total people - age,2023,75000,

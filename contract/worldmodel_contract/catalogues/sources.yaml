@@ -1338,3 +1338,93 @@
     by_hand: false
     get: https://registry.opendata.aws/speedtest-global-performance/
     what: "When the refresh is refused, save the quarter's *_performance_fixed_tiles.parquet or *_performance_mobile_tiles.parquet files here, with ne_50m_admin_0_countries.geojson from Natural Earth (github.com/nvkelso/natural-earth-vector, geojson folder)."
+
+- id: ecb_fx
+  name: ECB euro foreign exchange reference rates
+  short_name: ECB
+  publisher: European Central Bank
+  url: https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html
+  licence: Free reuse with the source acknowledged
+  licence_url: https://www.ecb.europa.eu/services/disclaimer/html/index.en.html
+  commercial_use: true
+  cadence: Every working day (switch off daily data in Settings)
+  attribution: "European Central Bank, euro foreign exchange reference rates."
+  status: active
+  default_rank: 2
+  standing: 5
+
+- id: fed_h10
+  name: Federal Reserve H.10 foreign exchange rates (from FRED)
+  short_name: Fed H.10
+  publisher: Board of Governors of the Federal Reserve System, via FRED (Federal Reserve Bank of St. Louis)
+  url: https://www.federalreserve.gov/releases/h10/
+  licence: Public domain (US government work)
+  licence_url: https://www.federalreserve.gov/disclaimer.htm
+  commercial_use: true
+  cadence: Weekly (daily rates)
+  attribution: "Board of Governors of the Federal Reserve System, H.10 foreign exchange rates; retrieved from FRED."
+  status: active
+  default_rank: 3
+  standing: 5
+
+- id: gie_agsi
+  name: GIE AGSI+ gas storage and ALSI LNG terminals
+  short_name: GIE
+  publisher: Gas Infrastructure Europe
+  url: https://agsi.gie.eu/
+  licence: Free with registration and attribution
+  licence_url: https://agsi.gie.eu/
+  commercial_use: true
+  cadence: Daily (needs GIE_API_KEY)
+  attribution: "Gas Infrastructure Europe, AGSI+ and ALSI transparency platforms."
+  status: active
+  default_rank: 3
+  standing: 4
+
+- id: eia
+  name: US EIA weekly petroleum and natural gas stocks
+  short_name: EIA
+  publisher: US Energy Information Administration
+  url: https://www.eia.gov/opendata/
+  licence: Public domain (US government work)
+  licence_url: https://www.eia.gov/about/copyrights_reuse.php
+  commercial_use: true
+  cadence: Weekly (needs EIA_API_KEY)
+  attribution: "US Energy Information Administration, weekly petroleum status report and natural gas storage report."
+  status: active
+  default_rank: 3
+  standing: 5
+
+- id: jodi
+  name: JODI Oil and JODI Gas world databases
+  short_name: JODI
+  publisher: Joint Organisations Data Initiative (APEC, Eurostat, GECF, IEA, OLADE, OPEC, UN Statistics Division)
+  url: https://www.jodidata.org/
+  licence: Free with attribution
+  licence_url: https://www.jodidata.org/about-jodi/terms-of-use.aspx
+  commercial_use: true
+  cadence: Monthly
+  attribution: "JODI Oil and JODI Gas World Databases, Joint Organisations Data Initiative."
+  status: active
+  default_rank: 3
+  standing: 4
+
+- id: statsnz
+  name: Stats NZ Aotearoa Data Explorer (regions and census)
+  short_name: Stats NZ
+  publisher: Stats NZ Tatauranga Aotearoa
+  url: https://explore.data.stats.govt.nz/
+  licence: CC BY 4.0
+  licence_url: https://www.stats.govt.nz/about-us/legal-matters/licences/
+  commercial_use: true
+  cadence: Read every 30 days (needs STATSNZ_API_KEY; NZ pack)
+  attribution: "Stats NZ Tatauranga Aotearoa, Aotearoa Data Explorer, licensed under CC BY 4.0."
+  status: active
+  default_rank: 1
+  standing: 5
+  manual:
+    by_hand: false
+    optional: true
+    get: https://explore.data.stats.govt.nz/
+    what: "Only if the key will not work: open a census or population table for regional council areas and use Download > Table in SDMX-CSV with labels."
+
