@@ -155,6 +155,20 @@ def test_currency_pairs_storage_and_regions_for_the_app(con):
     assert s["year"] == 2024 and s["latest"]["value"] == pytest.approx(85.7) and s["years"]["2024"][0][0] == 1
     nz = markets.storage(q, "jodi_product_days", "NZL", 5)
     assert nz["frequency"] == "M" and nz["years"]["2024"][0][0] == 15  # mid-January
+    nzl = next(i for i in items if i["entity_id"] == "NZL" and i["indicator_id"] == "jodi_product_stocks")
+    assert nzl["region"] == "Oceania" and nzl["subregion"] == "Australia and New Zealand" and nzl["summable"]
+    assert not next(i for i in items if i["indicator_id"] == "jodi_product_days")["summable"]
+    # Totals over the years: the last figure of each year, added up by continent or by country.
+    t = markets.storage_totals(q, "jodi_product_stocks", "region")
+    parts = {p["name"]: dict(p["points"]) for p in t["parts"]}
+    assert parts["Oceania"] == {"2023": 3000, "2024": 26200} and parts["Europe"]["2024"] == 9000
+    assert dict(t["total"])["2024"] == 35200 and t["countries"] == [1, 3]
+    t = markets.storage_totals(q, "jodi_product_stocks", "country", "oceania", top=1)
+    assert [p["name"] for p in t["parts"]] == ["Australia", "Other"] and t["group_name"] == "Oceania"
+    assert dict(t["total"])["2024"] == 26200
+    m = markets.storage_totals(q, "jodi_product_stocks", "region", step="month")
+    assert m["periods"] == ["2023-12", "2024-01"]
+    assert markets.storage_totals(q, "jodi_product_days", "region") is None  # days of cover are not added up
     r = markets.regions(q, "NZL")
     assert len(r["regions"]) == 16
     pop = next(m for m in r["measures"] if m["indicator_id"] == "nzreg_population")

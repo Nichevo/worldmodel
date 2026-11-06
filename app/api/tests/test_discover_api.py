@@ -152,3 +152,70 @@ def test_news_tab_and_switch(client, tmp_path):
     assert tab["news"]["on"] and tab["news"]["due"]
     client.put("/api/v1/settings", json={"news_on": False})
     assert client.post("/api/v1/news/fetch").status_code == 409
+
+
+def test_gdelt_slow_down_keeps_what_it_found_and_starts_there_next_time(monkeypatch):
+    monkeypatch.setattr(news.time, "sleep", lambda s: None)
+    from datetime import date
+
+    class R:
+        def __init__(self, code):
+            self.status_code, self.text = code, ""
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"timeline": [{"data": [{"value": 10}] * 80}]}
+
+    class Slow:
+        def __init__(self):
+            self.n = 0
+
+        def get(self, url, params=None):
+            self.n += 1
+            return R(200 if self.n <= 2 else 429)  # the first country, then refused
+
+    st = {}
+    assert news.fetch_gdelt(Slow(), NAMES, ["NZL", "FJI"], date(2026, 11, 6), st) == []  # no spike, but no error
+    assert st["gdelt_next"] == 1  # Fiji first next time
+    with pytest.raises(news.Slowed):
+        news.fetch_gdelt(type("C", (), {"get": lambda self, url, params=None: R(429)})(), NAMES, ["NZL"], date(2026, 11, 6), {})
+
+
+def test_one_feed_down_does_not_stop_the_others():
+    import httpx
+
+    class C:
+        def get(self, url, params=None):
+            if "stuff" in url:
+                raise httpx.ConnectError("refused")
+
+            class R:
+                text = RSS
+
+                def raise_for_status(self):
+                    pass
+            return R()
+
+    got = news.fetch_feeds(C(), NAMES, ["stuff", "rnz"])
+    assert len(got) == 2
+    with pytest.raises(RuntimeError, match="Stuff"):
+        news.fetch_feeds(C(), NAMES, ["stuff"])
+
+
+def test_good_news_words_and_date_filter(client):
+    assert news.word_tone("Ceasefire agreed in Sudan as aid arrives") == "good"
+    assert news.word_tone("Floods kill 12 in Fiji") == "bad"
+    assert news.word_tone("Council votes on water") == "neutral"
+    assert news.word_tone("Hostages released after ceasefire", "bad") == "good"
+    items = news.parse_current_events(WIKITEXT, "2026-11-05", NAMES) + news.parse_feed(RSS, "rnz", NAMES)
+    items[-1]["headline"] = "Peace deal signed; survivors found"
+    news._write("items.json", items)
+    tab = client.get("/api/v1/discover?tab=news&tone=good").json()
+    assert [x["headline"] for x in tab["items"]] == ["Peace deal signed; survivors found"]
+    assert client.get("/api/v1/discover?tab=news&since=2999").json()["total"] == 0
+    assert client.get("/api/v1/discover?tab=news&since=2026-11-05&until=2026-11-05").json()["total"] == 4
+    assert client.get("/api/v1/discover?tab=news&until=2025").json()["total"] == 0
+    assert client.get("/api/v1/discover?since=1800").json()["total"] == client.get("/api/v1/discover").json()["total"]
+    assert client.get("/api/v1/discover?since=bad").status_code == 422

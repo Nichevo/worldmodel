@@ -137,3 +137,32 @@ def test_compute_on_the_sample_warehouse(tmp_path, monkeypatch):
     for f in finds:
         assert f["kind"] in d.KINDS and f["category"] in d.CATEGORIES and f["tone"] in d.TONES and 0 <= f["score"] <= 1
         assert f["headline"] and isinstance(f["tags"], list)
+
+
+def test_the_same_find_in_several_countries_becomes_one():
+    rows = {k: [5 + 0.1 * i for i in range(30)] for k in ("NZL", "AUS", "FJI")}
+    rows["USA"] = [9 - 0.1 * i for i in range(30)]  # falling: a record low, not merged with the highs
+    rows.update({f"C{i}": [5.0 + i] * 30 for i in range(10)})
+    p = panel(rows)
+    found = d.records(p, NAMES, {})
+    merged = d.merge_alike(sorted(found, key=lambda f: -f["score"]), p, NAMES, ["AUS"], {"x": [[y, 6.0] for y in range(1990, 2020)]})
+    highs = [f for f in merged if f.get("merged")]
+    assert len(highs) == 1 and highs[0]["entities"][0] == "AUS" and set(highs[0]["entities"]) == {"NZL", "AUS", "FJI"}
+    assert highs[0]["headline"] == "Unemployment rate at its highest in years in 3 countries in 2019: Australia, Fiji and 1 more"
+    assert [s["name"] for s in highs[0]["chart"]["series"]][-1] == "World" and len(highs[0]["chart"]["series"]) == 4
+    assert any(f["entities"] == ["USA"] for f in merged)  # the record low stays on its own
+    alone = d.merge_alike(found, p, NAMES, [])  # no world figure: the middle country stands in
+    assert next(f for f in alone if f.get("merged"))["chart"]["series"][-1]["name"] == "Middle country"
+
+
+def test_opposite_trends_for_key_countries_and_neighbours():
+    up = [10 + 0.5 * i for i in range(20)]
+    down = [20 - 0.5 * i for i in range(20)]
+    flat = [15.0] * 20
+    p = panel({"NZL": up, "AUS": down, "FJI": [20 - 0.3 * i for i in range(20)], "USA": flat}, ind="gdp_pc", name="GDP per person", unit="US$")
+    found = d.opposite(p, NAMES, {}, ["NZL", "AUS"], {"NZL": ["AUS", "FJI", "USA"]})
+    assert [f["entities"] for f in found] == [["NZL", "AUS"]]  # once for the pair, the clearest partner only
+    f = found[0]
+    assert f["headline"] == "GDP per person: rising in New Zealand, falling in Australia" and f["kind"] == "opposite"
+    assert len(f["chart"]["series"]) == 2 and f["tone"] == "good"
+    assert d.opposite(p, NAMES, {}, ["USA"], {"USA": ["NZL"]}) == []  # a flat line is no trend
