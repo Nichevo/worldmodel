@@ -629,8 +629,9 @@
   standing: 5
   manual:
     by_hand: false
-    get: https://population.un.org/wup/Download/Files/WUP2018-F12-Cities_Over_300K.xls
-    what: "Open the link and save the Excel file when the UN site refuses the refresh."
+    optional: true
+    get: https://population.un.org/wup/
+    what: "Optional. The UN took the 2018 cities file down; cities use GeoNames sizes meanwhile. If you find a World Urbanization Prospects file of city populations (WUP2018-F12-Cities_Over_300K.xls or a newer revision), save it here."
 
 - id: wherenext
   name: WhereNext cost of living, city and pay data

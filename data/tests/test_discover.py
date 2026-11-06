@@ -148,6 +148,7 @@ def test_the_same_find_in_several_countries_becomes_one():
     merged = d.merge_alike(sorted(found, key=lambda f: -f["score"]), p, NAMES, ["AUS"], {"x": [[y, 6.0] for y in range(1990, 2020)]})
     highs = [f for f in merged if f.get("merged")]
     assert len(highs) == 1 and highs[0]["entities"][0] == "AUS" and set(highs[0]["entities"]) == {"NZL", "AUS", "FJI"}
+    assert len(highs[0]["members"]) == 3 and highs[0]["detail"].count(":") == 3
     assert highs[0]["headline"] == "Unemployment rate at its highest in years in 3 countries in 2019: Australia, Fiji and 1 more"
     assert [s["name"] for s in highs[0]["chart"]["series"]][-1] == "World" and len(highs[0]["chart"]["series"]) == 4
     assert any(f["entities"] == ["USA"] for f in merged)  # the record low stays on its own

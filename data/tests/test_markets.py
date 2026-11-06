@@ -174,3 +174,38 @@ def test_currency_pairs_storage_and_regions_for_the_app(con):
     pop = next(m for m in r["measures"] if m["indicator_id"] == "nzreg_population")
     assert pop["values"]["NZ-AUK"]["2023"] == 1739300
     assert markets.regions(q, "AUS")["regions"] == []
+
+
+def test_census_tables_as_the_data_explorer_gives_them(tmp_path):
+    """A year dimension of its own (CEN23_YEAR_001), bare area codes named from the table's
+    structure, and a key asking only for the regions and totals."""
+    from worldmodel_data.connectors.statsnz import parse_structure, plan_key, read_table
+
+    xml = """<m:Structure xmlns:m='m' xmlns:s='s' xmlns:c='c'><m:Structures><s:Codelists>
+      <s:Codelist id='CL_YEAR'><c:Name xml:lang='en'>Census year</c:Name><s:Code id='2018'><c:Name>2018</c:Name></s:Code><s:Code id='2023'><c:Name>2023</c:Name></s:Code></s:Codelist>
+      <s:Codelist id='CL_AREA'><c:Name xml:lang='en'>Area</c:Name>""" + "".join(
+        f"<s:Code id='{c}'><c:Name xml:lang='en'>{n}</c:Name></s:Code>" for c, n in [
+            ("01", "Northland Region"), ("02", "Auckland Region"), ("03", "Waikato Region"), ("04", "Bay of Plenty Region"),
+            ("05", "Gisborne Region"), ("06", "Hawke's Bay Region"), ("07", "Taranaki Region"), ("08", "Manawatū-Whanganui Region"),
+            ("100100", "Some SA2")]) + """</s:Codelist>
+      <s:Codelist id='CL_ETH'><c:Name xml:lang='en'>Ethnicity</c:Name><s:Code id='2'><c:Name>Māori</c:Name></s:Code><s:Code id='3'><c:Name>Pacific Peoples</c:Name></s:Code>
+        <s:Code id='999'><c:Name>Total - ethnicity</c:Name></s:Code></s:Codelist>
+      </s:Codelists><s:DataStructures><s:DataStructure id='DSD'><s:DataStructureComponents><s:DimensionList>
+      <s:Dimension id='CEN23_YEAR_001' position='1'><s:LocalRepresentation><s:Enumeration><Ref id='CL_YEAR' class='Codelist'/></s:Enumeration></s:LocalRepresentation></s:Dimension>
+      <s:Dimension id='CEN23_GEO_008' position='2'><s:LocalRepresentation><s:Enumeration><Ref id='CL_AREA' class='Codelist'/></s:Enumeration></s:LocalRepresentation></s:Dimension>
+      <s:Dimension id='CEN23_ETH_002' position='3'><s:LocalRepresentation><s:Enumeration><Ref id='CL_ETH' class='Codelist'/></s:Enumeration></s:LocalRepresentation></s:Dimension>
+      </s:DimensionList></s:DataStructureComponents></s:DataStructure></s:DataStructures></m:Structures></m:Structure>"""
+    st = parse_structure(xml)
+    assert [d for d, _, _ in st["dims"]] == ["CEN23_YEAR_001", "CEN23_GEO_008", "CEN23_ETH_002"]
+    assert plan_key(st, [{"id": "a", "keep": {"ethnic": "maori"}}, {"id": "b", "keep": {}}]) == ".01+02+03+04+05+06+07+08.2+999"
+    labels = {d: st["codes"][cl] for d, _, cl in st["dims"]}
+    lines = ["DATAFLOW,CEN23_YEAR_001: Census year,CEN23_GEO_008: Area,CEN23_ETH_002: Ethnicity,OBS_VALUE"]
+    for n, code in enumerate(["01", "02", "03", "04", "05", "06", "07", "08"]):
+        lines += [f"STATSNZ:CEN23_POP_001(1.0),2023: 2023,{code},2: Māori,{100 + n}",
+                  f"STATSNZ:CEN23_POP_001(1.0),2023: 2023,{code},999: Total - ethnicity,{1000 + n}"]
+    f = tmp_path / "CEN23_POP_001.csv"
+    f.write_text("\n".join(lines), encoding="utf-8")
+    assert read_table(f, {"id": "a", "keep": {"ethnic": "maori"}}, labels)[("NZ-MWT", 2023)] == 107
+    assert read_table(f, {"id": "b", "keep": {}}, labels)[("NZ-NTL", 2023)] == 1000
+    assert read_table(f, {"id": "c", "keep": {"ethnic": "asian"}}, labels) == {}  # asked for and missing: skipped, not the total
+    assert read_table(f, {"id": "b", "keep": {}}) == {}  # bare codes and no names: no regions found

@@ -27,6 +27,7 @@ from collections import Counter
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from typing import Iterator
 
 import duckdb
 
@@ -38,7 +39,8 @@ log = logging.getLogger(__name__)
 
 STATSNZ_API = "https://api.data.stats.govt.nz/rest"
 FLOWS_URL = STATSNZ_API + "/dataflow/all/all/latest"
-DATA_URL = STATSNZ_API + "/data/{agency},{id},{version}/all?dimensionAtObservation=AllDimensions"
+DATA_URL = STATSNZ_API + "/data/{agency},{id},{version}/{key}?dimensionAtObservation=AllDimensions"
+STRUCTURE_URL = STATSNZ_API + "/dataflow/{agency}/{id}/{version}?references=all"
 TOTAL_CODES = {"99", "999", "9999", "T", "_T", "TOTAL", "TOT", "ALL", "_Z"}
 
 
@@ -85,7 +87,11 @@ def is_total(label: str) -> bool:
 
 
 def pick_flow(flows: list[dict], m: dict) -> dict | None:
-    """The table for a measure: all `find` words in its name; most `prefer` words; newest id."""
+    """The table for a measure: its `table` when Stats NZ still lists it; else all `find` words
+    in its name, most `prefer` words, newest id."""
+    named = next((f for f in flows if m.get("table") and f["id"].upper() == str(m["table"]).upper()), None)
+    if named:
+        return named
     want = [plain(w) for w in m.get("find", [])]
     prefer = [plain(w) for w in m.get("prefer", [])]
     hits = [f for f in flows if all(w in plain(f["name"]) for w in want)]
@@ -146,49 +152,100 @@ def parse_flows(xml: str) -> list[dict]:
     return out
 
 
-def read_table(text: str, m: dict) -> dict[tuple[str, int], float]:
-    """(region entity, year) -> value from an SDMX-CSV table, for one measure."""
-    rows = list(csv.reader(io.StringIO(text)))
-    if len(rows) < 2:
+def _is_time(dim_id: str, name: str) -> bool:
+    """A table's year column: TIME_PERIOD, or a dimension of its own such as CEN23_YEAR_001
+    ("Census year") or YEAR_POPES_SUB_004 ("Year at 30 June")."""
+    d = dim_id.upper()
+    return d in ("TIME_PERIOD", "TIME", "YEAR") or "YEAR" in d.split("_") or name.startswith(("year", "census year", "time"))
+
+
+def _want(keep: dict[str, str], dim_name: str, dim_id: str) -> str | None:
+    return next((v for k, v in keep.items() if k and k != "*" and (k in dim_name or k in plain(dim_id))), None)
+
+
+def _rows(src) -> Iterator[list[str]]:
+    """CSV rows from text, or from a file read a line at a time (census tables run to gigabytes)."""
+    if isinstance(src, Path):
+        with src.open(encoding="utf-8-sig", errors="replace", newline="") as f:
+            yield from csv.reader(f)
+    else:
+        yield from csv.reader(io.StringIO(src.lstrip("\ufeff")))
+
+
+def read_table(src, m: dict, labels: dict[str, dict[str, str]] | None = None) -> dict[tuple[str, int], float]:
+    """(region entity, year) -> value from an SDMX-CSV table (text or a file), for one measure.
+    `labels` (dimension id -> code -> name, from the table's structure) names codes the file
+    gives bare. Read twice, a row at a time: once to see each column's values, once to keep."""
+    labels = {k.upper(): v for k, v in (labels or {}).items()}
+    it = _rows(src)
+    head = next(it, None)
+    if not head:
         return {}
-    head = rows[0]
     ids = [h.split(":", 1)[0].strip().upper() for h in head]
     names = [plain(h.split(":", 1)[1] if ":" in h else h) for h in head]
     if "OBS_VALUE" not in ids:
         raise ConnectorError("statsnz: the table has no OBS_VALUE column (not SDMX-CSV)")
     vi = ids.index("OBS_VALUE")
-    ti = next((i for i, x in enumerate(ids) if x in ("TIME_PERIOD", "TIME", "YEAR")), None)
+    ti = next((i for i, x in enumerate(ids) if x in ("TIME_PERIOD", "TIME")), None)
     if ti is None:
-        raise ConnectorError("statsnz: the table has no TIME_PERIOD column")
+        ti = next((i for i in range(vi) if _is_time(ids[i], names[i])), None)
+    if ti is None:
+        raise ConnectorError(f"statsnz: the table has no year column (columns: {', '.join(ids[:vi])})")
     dims = [i for i in range(vi) if i != ti and ids[i] not in ("DATAFLOW", "STRUCTURE", "STRUCTURE_ID", "ACTION")]
-    body = [r for r in rows[1:] if len(r) > vi]
+
+    def label(i: int, v: str) -> str:
+        if ":" in v:
+            return v
+        name = labels.get(ids[i], {}).get(v.strip())
+        return f"{v}: {name}" if name else v
+    seen: dict[int, Counter] = {i: Counter() for i in dims}
+    for r in it:
+        if len(r) > vi:
+            for i in dims:
+                seen[i][r[i]] += 1
     # The area dimension: the one naming the most regions.
-    area = max(dims, key=lambda i: len({region_of(r[i]) for r in body} - {None}), default=None)
-    if area is None or len({region_of(r[area]) for r in body} - {None}) < 8:
+    regions = {i: {v: region_of(label(i, v)) for v in seen[i]} for i in dims}
+    area = max(dims, key=lambda i: len(set(regions[i].values()) - {None}), default=None)
+    if area is None or len(set(regions[area].values()) - {None}) < 8:
         return {}
     chosen: dict[int, str] = {}
     keep = {plain(k): plain(v) for k, v in (m.get("keep") or {}).items()}
+    anywhere = keep.get("*")
+    used = set()
     for i in dims:
         if i == area:
             continue
-        values = Counter(r[i] for r in body)
-        want = next((v for k, v in keep.items() if k and (k in names[i] or k in plain(ids[i]))), None)
+        values = seen[i]
+        want = _want(keep, names[i], ids[i])
         pick = None
         if want:
-            pick = next((v for v in values if want in plain(v.partition(":")[2] or v)), None)
+            pick = next((v for v in values if want in plain(label(i, v).partition(":")[2] or v)), None)
+            if pick is None:
+                log.warning("statsnz: %s: no '%s' in %s; skipped", m["id"], want, head[i])
+                return {}
+            used.add(want)
+        if pick is None and anywhere:
+            pick = next((v for v in values if anywhere in plain(label(i, v).partition(":")[2] or v)), None)
+            if pick is not None:
+                used.add("*")
         if pick is None and len(values) == 1:
             pick = next(iter(values))
         if pick is None:
-            pick = next((v for v in values if is_total(v)), None)
+            pick = next((v for v in values if is_total(label(i, v))), None)
         if pick is None:
             pick = values.most_common(1)[0][0]
             log.info("statsnz: %s: no total in %s; using %s", m["id"], head[i], pick)
         chosen[i] = pick
+    if anywhere and "*" not in used:
+        log.warning("statsnz: %s: no '%s' in any column; skipped", m["id"], anywhere)
+        return {}
     out: dict[tuple[str, int], float] = {}
-    for r in body:
+    for r in _rows(src) if isinstance(src, Path) else _rows(src):
+        if len(r) <= vi or r is head or r[0] == head[0] and r[vi] == head[vi]:
+            continue
         if any(r[i] != v for i, v in chosen.items()):
             continue
-        ent = region_of(r[area])
+        ent = regions[area].get(r[area])
         y = re.match(r"\s*(\d{4})", r[ti])
         v = num(r[vi])
         if ent and y and v is not None:
@@ -196,11 +253,77 @@ def read_table(text: str, m: dict) -> dict[tuple[str, int], float]:
     return out
 
 
+# ----------------------------------------------------------------------------- asking for less
+def parse_structure(xml: bytes | str) -> dict:
+    """A table's dimensions in key order and the names of their codes, from the SDMX-ML
+    structure (dataflow with references=all): {"dims": [(id, name, codelist)], "codes": {codelist: {code: name}}}."""
+    text = xml.decode("utf-8-sig", errors="replace") if isinstance(xml, bytes) else xml
+    root = ET.fromstring(text.lstrip("\ufeff"))
+    tag = lambda el: el.tag.rsplit("}", 1)[-1]  # noqa: E731
+
+    def name_of(el) -> str:
+        found = ""
+        for c in el:
+            if tag(c) == "Name" and (not found or c.get("{http://www.w3.org/XML/1998/namespace}lang") == "en"):
+                found = (c.text or "").strip()
+        return found
+    codes: dict[str, dict[str, str]] = {}
+    cl_names: dict[str, str] = {}
+    for el in root.iter():
+        if tag(el) == "Codelist" and el.get("id"):
+            cl_names[el.get("id")] = name_of(el)
+            codes[el.get("id")] = {c.get("id"): name_of(c) for c in el if tag(c) == "Code" and c.get("id")}
+    dims = []
+    for el in root.iter():
+        if tag(el) != "Dimension" or not el.get("id"):
+            continue
+        ref = next((r for r in el.iter() if tag(r) == "Ref" and (r.get("class") == "Codelist" or r.get("package") == "codelist")), None)
+        cl = ref.get("id") if ref is not None else None
+        dims.append((int(el.get("position") or len(dims) + 1), el.get("id"), cl_names.get(cl or "", ""), cl))
+    dims.sort()
+    return {"dims": [(d, n, cl) for _, d, n, cl in dims], "codes": codes}
+
+
+def plan_key(struct: dict, ms: list[dict]) -> str | None:
+    """The data key asking only for what the measures need: the regions on the area
+    dimension, every year, and on the others the totals and the values `keep` asks for.
+    None when the structure gives no area dimension (then the whole table is asked for)."""
+    dims, codes = struct["dims"], struct["codes"]
+    area = None
+    for d, _, cl in dims:
+        hits = [c for c, n in codes.get(cl, {}).items() if region_of(f"{c}: {n}")]
+        if len(hits) >= 8 and (area is None or len(hits) > len(area[1])):
+            area = (d, hits)
+    if area is None:
+        return None
+    parts = []
+    for d, name, cl in dims:
+        cs = codes.get(cl, {})
+        if d == area[0]:
+            parts.append("+".join(sorted(area[1])))
+            continue
+        if _is_time(d, plain(name)) or not cs:
+            parts.append("")
+            continue
+        want: set[str] = set()
+        for m in ms:
+            keep = {plain(k): plain(v) for k, v in (m.get("keep") or {}).items()}
+            w = _want(keep, plain(name), d)
+            for v in [w, keep.get("*")]:
+                if v:
+                    want |= {c for c, n in cs.items() if v in plain(n)}
+        want |= {c for c, n in cs.items() if is_total(f"{c}: {n}")}
+        parts.append("+".join(sorted(want)) if want and len(cs) > 1 else "")
+    return ".".join(parts)
+
+
 class StatsNZ(Connector):
     source_id = "statsnz"
     pack = "nz"
     needs_env = ("STATSNZ_API_KEY",)
     fetch_every_days = 30
+    fetch_version = 2  # 2: asks for the regions and totals only (whole census tables ran to gigabytes); tables named in statsnz.yaml
+    stage_version = 2  # 2: year columns such as CEN23_YEAR_001; bare area codes named from the structure; read a row at a time
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -228,21 +351,36 @@ class StatsNZ(Connector):
             w.writerow(["agency", "id", "version", "name"])
             w.writerows([[x["agency"], x["id"], x["version"], x["name"]] for x in flows])
         picks, done = {}, set()
+        by_flow: dict[str, list[dict]] = {}
         for m in measures():
             f = pick_flow(flows, m)
             picks[m["id"]] = f["id"] if f else None
             if not f:
                 log.warning("statsnz: no table found for %s (words: %s)", m["id"], ", ".join(m.get("find", [])))
                 continue
-            if f["id"] in done:
-                continue
+            by_flow.setdefault(f["id"], []).append(m)
+        for fid, ms in by_flow.items():
+            f = next(x for x in flows if x["id"] == fid)
+            # Ask for the regions and the totals only: a whole census table can be gigabytes.
+            key = "all"
             try:
-                self.get(DATA_URL.format(**f), raw_dir / f"{f['id']}.csv",
+                self.get(STRUCTURE_URL.format(**f), raw_dir / f"{fid}.structure.xml",
+                         headers={**hdr, "Accept": "application/vnd.sdmx.structure+xml;version=2.1, application/xml;q=0.9"}, cached=False)
+                struct = parse_structure((raw_dir / f"{fid}.structure.xml").read_bytes())
+                key = plan_key(struct, ms) or "all"
+                (raw_dir / f"{fid}.labels.json").write_text(json.dumps({d: struct["codes"].get(cl, {}) for d, _, cl in struct["dims"]},
+                                                                       ensure_ascii=False), encoding="utf-8")
+                (raw_dir / f"{fid}.structure.xml").unlink(missing_ok=True)
+            except (ConnectorError, ET.ParseError, OSError) as exc:
+                log.warning("statsnz: %s: structure not read (%s); asking for the whole table", fid, exc)
+            try:
+                self.get(DATA_URL.format(**f, key=key), raw_dir / f"{fid}.csv", cached=False,
                          headers={**hdr, "Accept": "application/vnd.sdmx.data+csv;labels=both"})
-                done.add(f["id"])
+                done.add(fid)
             except ConnectorError as exc:
-                log.warning("statsnz: %s (%s) not downloaded: %s", f["id"], f["name"], exc)
-                picks[m["id"]] = None
+                log.warning("statsnz: %s (%s) not downloaded: %s", fid, f["name"], exc)
+                for m in ms:
+                    picks[m["id"]] = None
             time.sleep(1)
         (raw_dir / "statsnz_picks.json").write_text(json.dumps(picks, indent=1), encoding="utf-8")
         if not done:
@@ -256,18 +394,19 @@ class StatsNZ(Connector):
         files = {f.stem.upper(): f for f in raw_dir.glob("*.csv") if f.name != "statsnz_dataflows.csv"}
         rows, found = Rows(), []
         for m in measures():
-            texts = []
+            texts: list[Path] = []
             if picks.get(m["id"]) and picks[m["id"]].upper() in files:
-                texts.append(files[picks[m["id"]].upper()].read_text(encoding="utf-8-sig", errors="replace"))
+                texts.append(files[picks[m["id"]].upper()])
             elif not picks:  # files saved by hand: match by file name or the table named inside
                 want = [plain(w) for w in m.get("find", [])]
                 for f in files.values():
-                    t = f.read_text(encoding="utf-8-sig", errors="replace")
-                    first = plain(f.stem + " " + t[:2000])
-                    if all(w in first for w in want):
-                        texts.append(t)
+                    with f.open(encoding="utf-8-sig", errors="replace") as fh:
+                        first = plain(f.stem + " " + fh.read(2000))
+                    if (m.get("table") and str(m["table"]).lower() in first.replace(" ", "_")) or all(w in first for w in want):
+                        texts.append(f)
             for t in texts:
-                got = read_table(t, m)
+                lab = raw_dir / f"{t.stem}.labels.json"
+                got = read_table(t, m, json.loads(lab.read_text(encoding="utf-8")) if lab.exists() else None)
                 for (ent, y), v in got.items():
                     rows.add("iso3", ent, m["id"], y, v)
                 if got:

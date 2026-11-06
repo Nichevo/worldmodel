@@ -31,6 +31,7 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
   onChange: (f: Find) => void; onTag?: (t: string) => void; onNever?: (kind: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [allCountries, setAllCountries] = useState(false);
   const [tagText, setTagText] = useState("");
   const mark = async (change: { rating?: number; tags?: string[]; tone?: Tone | null }) => {
     const r = await api.discoverMark(f.key, change);
@@ -78,7 +79,9 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
       <div className="small muted">{[source, years].filter(Boolean).join(" · ")}</div>
       {!compact && (
         <div className="chips-row small" style={{ marginTop: 6 }}>
-          {f.entities.map((e) => <Link key={e} className="chip" href={`/entity/${e}`}>{names[e] ?? e}</Link>)}
+          {f.entities.slice(0, 5).map((e) => <Link key={e} className="chip" href={`/entity/${e}`}>{names[e] ?? e}</Link>)}
+          {f.entities.length > 5 && <button className="link" aria-expanded={allCountries} onClick={() => setAllCountries(!allCountries)}>
+            {allCountries ? "Fewer" : `All ${f.entities.length} countries`}</button>}
           {f.tags.filter((t) => !f.entities.some((e) => (names[e] ?? e) === t)).slice(0, 8).map((t) => (
             <button key={t} className={`chip${f.my_tags.includes(t) ? " mine" : ""}`} onClick={() => onTag?.(t)} title="Show finds with this tag">{t}
               {f.my_tags.includes(t) && <span role="button" aria-label={`Remove tag ${t}`} onClick={(e) => { e.stopPropagation(); mark({ tags: f.my_tags.filter((x) => x !== t) }); }}> ×</span>}</button>
@@ -90,6 +93,10 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
           ) : <button className="link" onClick={() => setAdding(true)}>+ tag</button>}
         </div>
       )}
+      {allCountries && f.members && (
+        <ul className="small find-members">{f.members.map((x) => <li key={x.entity_id}><Link href={`/entity/${x.entity_id}`}>{x.name}</Link>: {x.detail}</li>)}</ul>
+      )}
+      {allCountries && !f.members && <div className="chips-row small">{f.entities.slice(5).map((e) => <Link key={e} className="chip" href={`/entity/${e}`}>{names[e] ?? e}</Link>)}</div>}
       <div className="find-actions small">
         <button className={f.rating > 0 ? "on" : ""} aria-pressed={f.rating > 0} onClick={() => mark({ rating: f.rating > 0 ? 0 : 1 })}>Interesting</button>
         <button className={f.rating < 0 ? "on" : ""} aria-pressed={f.rating < 0} onClick={() => mark({ rating: f.rating < 0 ? 0 : -1 })}>Not interesting</button>

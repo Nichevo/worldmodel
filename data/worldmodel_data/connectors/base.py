@@ -139,6 +139,7 @@ class Connector(ABC):
     manual = False                     # True: never downloaded; loaded with `fetch <source> --from FILE` only
     keeps_files = False                # True: files of the last vintage that this fetch did not bring again are
                                        # carried into the new one (files loaded by hand one at a time add up)
+    files_only = False                 # the site no longer offers the file: refresh skips it quietly until one is saved by hand
     needs_env: tuple[str, ...] = ()    # API keys in .env it needs: refresh skips it quietly until they are set
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
     # Raise when stage() changes in a way that alters stored output: vintages staged by an

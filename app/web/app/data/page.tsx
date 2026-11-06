@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import KeysCard from "@/components/KeysCard";
 import ManualFilesCard from "@/components/ManualFiles";
 import ScrapersCard from "@/components/ScrapersCard";
+import FetchMethodsCard from "@/components/FetchMethods";
 import ProblemsCard from "@/components/Problems";
 import QualityTab from "@/components/QualityTab";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
@@ -85,6 +86,7 @@ export default function DataPage() {
       </div>
       {tab === "quality" ? <QualityTab /> : <>
       <ProblemsCard />
+      <FetchMethodsCard />
       <ManualFilesCard />
       <ScrapersCard />
       <KeysCard />
