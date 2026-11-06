@@ -281,3 +281,19 @@ def test_crisiswatch_reads_a_page_saved_under_the_browsers_name():
     assert cw.month_pages(date(2026, 10, 1))[0] == "october-trends-and-november-alerts-2026"
     assert cw.month_pages(date(2026, 12, 1))[:2] == ["december-trends-and-january-alerts-2027",
                                                      "december-trends-and-january-alerts-2026"]
+
+
+def test_crisiswatch_reads_a_database_page_of_one_country_over_many_months():
+    from datetime import date
+
+    from worldmodel_data.connectors import crisiswatch as cw
+
+    def entry(month, icon, text):
+        return (f'<div class="c-crisiswatch-entry u-pr" id="albania"><h3><svg><use xlink:href="#{icon}"></use></svg> Albania</h3>'
+                f'<time class="u-ttu">{month}</time><p>{text}</p></div>')
+
+    page = '<div class="cw-database"><h1>Tracking</h1>' + entry("March 2026", "unchanged", "Calm.") + \
+        entry("February 2026", "deteriorated", "Protests.") + entry("January 2026", "unchanged", "Talks.") + "</div>"
+    got = cw.by_entry_month(page)
+    assert sorted(got) == [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)]
+    assert [r[0] for _, r, _ in cw.entries(got[date(2026, 2, 1)])] == ["deteriorated"]
