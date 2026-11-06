@@ -32,6 +32,7 @@ from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
+from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
@@ -400,10 +401,97 @@ def _indicator_rows() -> list[dict]:
 @api.get("/indicators")
 def indicators(domain: str | None = None):
     """Every indicator, with `enabled`: whether it is switched on (Indicators page)
-    for the panel menus. Switched-off indicators still serve data."""
+    for the panel menus (switched-off indicators still serve data), and its quality:
+    `grade` (A to D, yours when you set one), `type` (level, per person, rate...) and `starred`."""
     over = userdata.indicator_overrides()
-    return [{**f, "enabled": over.get(f["indicator_id"], f["default_on"])}
-            for f in _indicator_rows() if domain is None or f["domain"] == domain]
+    q = _quality()
+    out = []
+    for f in _indicator_rows():
+        if domain is not None and f["domain"] != domain:
+            continue
+        g = q.get(f["indicator_id"], {})
+        out.append({**f, "enabled": over.get(f["indicator_id"], f["default_on"]), "grade": g.get("grade"),
+                    "type": g.get("type") or qual.measure_type(f["indicator_id"], f["name"], f["unit"]),
+                    "starred": bool(g.get("starred"))})
+    return out
+
+
+# ----------------------------------------------------------------------------- indicator quality
+_q_cache: dict = {"key": None, "scores": {}}
+
+
+def _quality_raw() -> dict[str, dict]:
+    """The grades worked out for the live build: the pipeline's saved copy, else worked out here once."""
+    build = _build_id()
+    key = (build, json.dumps(userdata.ratios(), sort_keys=True))
+    if _q_cache["key"] != key:
+        found = qual.load(local.home(), build)
+        if found is None or any(r["id"] not in found for r in userdata.ratios()):
+            found = qual.compute(cursor())
+            try:
+                if not userdata.ratios():
+                    qual.save(local.home(), build, found)
+            except OSError:
+                pass
+        _q_cache.update(key=key, scores=found)
+    return _q_cache["scores"]
+
+
+def _quality() -> dict[str, dict]:
+    return qual.with_choices(_quality_raw())
+
+
+@api.get("/quality")
+def quality_list():
+    """Every indicator's six quality scores (1 to 5) with a note on each, its grade (A core,
+    B good, C usable, D exploratory), the grade worked out before any override of yours,
+    its measure type and whether you starred it."""
+    return {"scores": qual.SCORES, "grades": qual.GRADES, "types": qual.MEASURE_TYPES, "weights": qual.WEIGHTS,
+            "indicators": _quality()}
+
+
+@api.put("/quality/{indicator_id}")
+def quality_set(indicator_id: str, change: dict = Body(...)):
+    """Star an indicator ({"starred": true}) or set its grade ({"grade": "B"}; null goes back to
+    the worked-out grade). Both stay through refreshes."""
+    if indicator_id not in _quality_raw():
+        raise HTTPException(404, f"no indicator {indicator_id}")
+    if "grade" in change and change["grade"] not in (None, *qual.GRADES):
+        raise HTTPException(422, f"grade must be one of {', '.join(qual.GRADES)} or null")
+    if "starred" in change:
+        userdata.set_star(indicator_id, bool(change["starred"]))
+    if "grade" in change:
+        userdata.set_grade(indicator_id, change["grade"])
+    return _quality()[indicator_id]
+
+
+@api.get("/quality/summary")
+def quality_summary():
+    """For the Quality tab on Data status: how many indicators sit at each grade, by topic and by
+    source, and what changed since the build before (grades lost and gained, figures gone stale,
+    new problems found by the checks, starred indicators whose grade fell)."""
+    q = _quality()
+    rows_ = {f["indicator_id"]: f for f in _indicator_rows()}
+    by_domain: dict[str, dict[str, int]] = {}
+    by_source: dict[str, dict[str, int]] = {}
+    totals = {g: 0 for g in qual.GRADES}
+    for iid, v in q.items():
+        g = v["grade"]
+        totals[g] += 1
+        dom = rows_.get(iid, {}).get("domain") or "other"
+        by_domain.setdefault(dom, {k: 0 for k in qual.GRADES})[g] += 1
+        by_source.setdefault(v.get("source_id") or "none", {k: 0 for k in qual.GRADES})[g] += 1
+    build = _build_id()
+    before = qual.previous(local.home(), build)
+    ch = qual.changes(before[1], _quality_raw(), set(qual.stars())) if before else None
+    names = {k: r["name"] for k, r in rows_.items()}
+    if ch:
+        for k in ch:
+            for c in ch[k]:
+                c["name"] = names.get(c["indicator_id"], c["indicator_id"])
+    return {"totals": totals, "by_domain": by_domain, "by_source": by_source, "since": before[0] if before else None,
+            "changes": ch, "starred": [{"indicator_id": i, "name": names.get(i, i), "grade": q.get(i, {}).get("grade")}
+                                        for i in qual.stars()]}
 
 
 @api.get("/indicators/{indicator_id}")

@@ -6,6 +6,7 @@ import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "r
 import ChartCard from "@/components/ChartCard";
 import DriversCard from "@/components/DriversCard";
 import EChart from "@/components/EChart";
+import IndicatorSelect from "@/components/IndicatorSelect";
 import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
   type WhatIfLevers } from "@/lib/api";
 import { cardLinesOption, inputOption, pyramidCompareOption, trackOption, whatifOption, type CardLine } from "@/lib/charts";
@@ -411,11 +412,7 @@ function StatView({ entity, name, indicator, setIndicator, others }: { entity: s
   return (
     <>
       <div className="controls">
-        <select value={indicator} onChange={(e) => setIndicator(e.target.value)} aria-label="Indicator">
-          {!ind && <option value={indicator}>{indicator}</option>}
-          <optgroup label="Often forecast">{picks.top.map((i) => <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>)}</optgroup>
-          <optgroup label="All switched-on indicators">{picks.rest.map((i) => <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>)}</optgroup>
-        </select>
+        <IndicatorSelect indicators={[...picks.top, ...picks.rest]} value={indicator} onChange={setIndicator} />
         <Link className="small" href="/settings">Forecast settings</Link>
       </div>
       {ind && <ChartCard indicator={ind} entities={[{ id: entity, name }, ...others]} height={320} forecast />}

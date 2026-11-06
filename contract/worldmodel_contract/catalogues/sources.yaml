@@ -16,6 +16,7 @@
   attribution: "United Nations, DESA, Population Division (2024). World Population Prospects 2024."
   status: active
   default_rank: 1
+  standing: 5
 
 - id: imf_weo
   name: IMF World Economic Outlook
@@ -29,6 +30,7 @@
   attribution: "International Monetary Fund, World Economic Outlook database."
   status: active
   default_rank: 1
+  standing: 5
 
 - id: imf_weo_history
   name: IMF WEO historical forecasts
@@ -42,6 +44,7 @@
   attribution: "International Monetary Fund, World Economic Outlook historical forecasts database."
   status: active
   default_rank: 5
+  standing: 5
 
 - id: world_bank_wdi
   name: World Bank World Development Indicators
@@ -55,6 +58,7 @@
   attribution: "World Bank, World Development Indicators."
   status: active
   default_rank: 2
+  standing: 5
 
 - id: owid_energy
   name: Our World in Data energy dataset (Ember, Energy Institute, EIA)
@@ -68,6 +72,7 @@
   attribution: "Our World in Data, Energy dataset, based on Ember (Yearly Electricity Data), the Energy Institute Statistical Review of World Energy and the U.S. Energy Information Administration."
   status: active
   default_rank: 2
+  standing: 4
 
 - id: owid_grapher
   name: Our World in Data charts (conflict deaths from UCDP, and other single charts)
@@ -81,6 +86,7 @@
   attribution: "Our World in Data, based on the Uppsala Conflict Data Program (UCDP) and the other sources each chart names."
   status: active
   default_rank: 3
+  standing: 4
 
 - id: cia_factbook
   name: CIA World Factbook, editions 1990 to 2025
@@ -94,6 +100,8 @@
   attribution: "Central Intelligence Agency, The World Factbook (editions 1990-2025), via the CIA World Factbooks Archive 1990-2025."
   status: active
   default_rank: 4
+  standing: 4
+  definition: established
 
 - id: wikidata
   name: Wikidata country facts
@@ -107,6 +115,8 @@
   attribution: "Wikidata (CC0)."
   status: active
   default_rank: 5
+  standing: 2
+  definition: exploratory
 
 - id: wikidata_places
   name: Wikidata places (metro and rail systems and stations, universities, large companies)
@@ -120,6 +130,8 @@
   attribution: "Wikidata (CC0)."
   status: active
   default_rank: 5
+  standing: 2
+  definition: exploratory
 
 - id: wikipedia
   name: Wikipedia article introductions and pictures (fetched by the app, on demand)
@@ -133,6 +145,8 @@
   attribution: "Wikipedia (CC BY-SA 4.0); pictures from Wikimedia Commons, credited on each page."
   status: active
   default_rank: 6
+  standing: 2
+  definition: exploratory
   scraper:
     run: "Opening a country or city page, and a few an hour in the background"
     reads: "One article per country or city, kept and read again when stale"
@@ -163,6 +177,8 @@
   attribution: "Powell, Jonathan M. and Clayton L. Thyne (2011), Global instances of coups from 1950 to 2010: A new dataset, Journal of Peace Research 48(2): 249-259."
   status: active
   default_rank: 5
+  standing: 4
+  definition: established
   manual:
     by_hand: false
     get: https://jonathanmpowell.com/coups
@@ -180,6 +196,8 @@
   attribution: "UCDP/PRIO Armed Conflict Dataset; Gleditsch et al. (2002), Armed Conflict 1946-2001: A New Dataset, Journal of Peace Research 39(5); Davies, Pettersson and Oberg (2024), Journal of Peace Research."
   status: active
   default_rank: 5
+  standing: 4
+  definition: established
 
 - id: emdat
   name: EM-DAT international disaster database
@@ -193,6 +211,8 @@
   attribution: "EM-DAT, CRED / UCLouvain, Brussels, Belgium - www.emdat.be"
   status: active
   default_rank: 5
+  standing: 4
+  definition: established
   manual:
     by_hand: true
     get: https://public.emdat.be/
@@ -210,6 +230,7 @@
   attribution: "Bank for International Settlements, residential property prices and total credit statistics."
   status: active
   default_rank: 3
+  standing: 5
 
 - id: oecd
   name: OECD analytical house prices and household debt
@@ -223,6 +244,7 @@
   attribution: "OECD (2025), Analytical house prices indicators; Household dashboard. OECD Data Explorer."
   status: active
   default_rank: 3
+  standing: 5
 
 - id: dallas_fed_ihpd
   name: Federal Reserve Bank of Dallas International House Price Database
@@ -236,6 +258,8 @@
   attribution: "Mack, A. and E. Martinez-Garcia (2011), A Cross-Country Quarterly Database of Real House Prices: A Methodological Note. Federal Reserve Bank of Dallas, Globalization and Monetary Policy Institute Working Paper No. 99."
   status: active
   default_rank: 3
+  standing: 5
+  definition: established
 
 - id: imf_gdd
   name: IMF Global Debt Database
@@ -249,6 +273,7 @@
   attribution: "International Monetary Fund, Global Debt Database."
   status: active
   default_rank: 4
+  standing: 5
 
 - id: un_ims
   name: UN International Migrant Stock
@@ -262,6 +287,7 @@
   attribution: "United Nations, DESA, Population Division (2024). International Migrant Stock 2024."
   status: active
   default_rank: 2
+  standing: 5
 
 - id: unhcr
   name: UNHCR Refugee Data Finder
@@ -275,6 +301,7 @@
   attribution: "UNHCR Refugee Data Finder, www.unhcr.org/refugee-statistics."
   status: active
   default_rank: 2
+  standing: 5
 
 - id: wittgenstein
   name: Wittgenstein Centre Human Capital Data Explorer
@@ -288,6 +315,8 @@
   attribution: "Wittgenstein Centre for Demography and Global Human Capital (2023). Wittgenstein Centre Data Explorer Version 3.0."
   status: active
   default_rank: 3
+  standing: 4
+  definition: established
 
 - id: undp_hdr
   name: UNDP Human Development Report indices
@@ -301,6 +330,8 @@
   attribution: "UNDP (United Nations Development Programme), Human Development Report composite indices time series."
   status: active
   default_rank: 3
+  standing: 5
+  definition: established
 
 - id: idea_turnout
   name: International IDEA Voter Turnout Database
@@ -314,6 +345,8 @@
   attribution: "International IDEA, Voter Turnout Database, www.idea.int."
   status: active
   default_rank: 3
+  standing: 4
+  definition: established
   manual:
     by_hand: false
     get: https://www.idea.int/data-tools/data/voter-turnout-database
@@ -331,6 +364,7 @@
   attribution: "Bird, P. (2003), An updated digital model of plate boundaries, Geochem. Geophys. Geosyst. 4(3), 1027; GIS data by Hugo Ahlenius, Nordpil."
   status: active
   default_rank: 5
+  standing: 4
 
 - id: gem_faults
   name: GEM Global Active Faults Database
@@ -344,6 +378,7 @@
   attribution: "Styron, R. and M. Pagani (2020), The GEM Global Active Faults Database, Earthquake Spectra 36(1_suppl), 160-180."
   status: active
   default_rank: 5
+  standing: 4
 
 - id: gvp_volcanoes
   name: Smithsonian Global Volcanism Program, Volcanoes of the World
@@ -357,6 +392,7 @@
   attribution: "Global Volcanism Program, Volcanoes of the World, Smithsonian Institution."
   status: active
   default_rank: 5
+  standing: 5
 
 - id: usgs_earthquakes
   name: USGS earthquake catalogue (ComCat)
@@ -370,6 +406,7 @@
   attribution: "U.S. Geological Survey, Earthquake Hazards Program, ANSS Comprehensive Earthquake Catalog (ComCat)."
   status: active
   default_rank: 5
+  standing: 5
 
 - id: notable
   name: Notable episodes (curated list)
@@ -396,6 +433,7 @@
   attribution: "OECD Economic Outlook database (DSD_EO@DF_EO), OECD Data Explorer."
   status: active
   default_rank: 4
+  standing: 5
 
 - id: wb_gep
   name: World Bank Global Economic Prospects
@@ -409,6 +447,7 @@
   attribution: "World Bank, Global Economic Prospects (World Bank API source 27)."
   status: active
   default_rank: 4
+  standing: 5
 
 - id: eurostat_ai
   name: Eurostat, artificial intelligence use in enterprises
@@ -422,6 +461,8 @@
   attribution: "Eurostat (isoc_eb_ai), Artificial intelligence by size class of enterprise."
   status: active
   default_rank: 3
+  standing: 5
+  definition: exploratory
 
 - id: anthropic_aei
   name: Anthropic Economic Index
@@ -435,6 +476,8 @@
   attribution: "Anthropic Economic Index (Hugging Face dataset Anthropic/EconomicIndex)."
   status: active
   default_rank: 3
+  standing: 3
+  definition: exploratory
   manual:
     by_hand: false
     get: https://huggingface.co/datasets/Anthropic/EconomicIndex
@@ -452,6 +495,8 @@
   attribution: "Microsoft AI Economy Institute, AI Diffusion Report."
   status: active
   default_rank: 3
+  standing: 3
+  definition: exploratory
   manual:
     by_hand: false
     get: https://github.com/microsoft/ai-diffusion-report/tree/main/data
@@ -469,6 +514,7 @@
   attribution: "Reserve Bank of New Zealand, statistics tables B1, B2, B3 and B20."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://www.rbnz.govt.nz/statistics
@@ -486,6 +532,7 @@
   attribution: "Department of Corrections, Prison facts and statistics (quarterly)."
   status: active
   default_rank: 3
+  standing: 5
   manual:
     by_hand: false
     get: https://www.corrections.govt.nz/resources/statistics/quarterly_prison_statistics
@@ -507,6 +554,7 @@
   attribution: "Ministry of Business, Innovation and Employment, Energy balance tables."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://www.mbie.govt.nz/building-and-energy/energy-and-natural-resources/energy-statistics-and-modelling/energy-statistics/energy-balances
@@ -524,6 +572,7 @@
   attribution: "U.S. Census Bureau, Current Population Survey, November supplement, table A-1."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://www.census.gov/data/tables/time-series/demo/voting-and-registration/voting-historical-time-series.html
@@ -541,6 +590,7 @@
   attribution: "Electoral Commission, general election voter turnout statistics."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://elections.nz/stats-and-research/
@@ -562,6 +612,7 @@
   attribution: "GeoNames (geonames.org), cities15000, CC BY 4.0."
   status: active
   default_rank: 5
+  standing: 3
 
 - id: un_wup
   name: UN World Urbanization Prospects 2018, cities of 300,000 or more
@@ -575,6 +626,7 @@
   attribution: "United Nations, DESA, Population Division (2018). World Urbanization Prospects: The 2018 Revision, File 12."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://population.un.org/wup/Download/Files/WUP2018-F12-Cities_Over_300K.xls
@@ -592,6 +644,8 @@
   attribution: "WhereNext (getwherenext.com), Cost of Living, Best Value Cities and Median Salaries datasets, CC BY 4.0."
   status: active
   default_rank: 4
+  standing: 2
+  definition: exploratory
 
 - id: ilostat_earnings
   name: ILOSTAT earnings and minimum wages
@@ -605,6 +659,7 @@
   attribution: "ILO, ILOSTAT: mean monthly earnings of employees (EAR_4MTH_SEX_CUR_NB_A) and statutory minimum wage (EAR_4MMN_CUR_NB_A)."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://ilostat.ilo.org/topics/wages/
@@ -622,6 +677,8 @@
   attribution: "Numbeo, Cost of Living Index by City, crowd-sourced prices."
   status: active
   default_rank: 6
+  standing: 2
+  definition: exploratory
   manual:
     by_hand: true
     get: https://www.numbeo.com/cost-of-living/rankings.jsp
@@ -643,6 +700,8 @@
   attribution: "Voeten, Erik; Strezhnev, Anton; Bailey, Michael (2009), United Nations General Assembly Voting Data, Harvard Dataverse, doi:10.7910/DVN/LEJUQZ."
   status: active
   default_rank: 3
+  standing: 4
+  definition: established
   manual:
     by_hand: false
     get: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/LEJUQZ
@@ -660,6 +719,7 @@
   attribution: "United Nations, Dag Hammarskjöld Library: Security Council veto list; Security Council: countries elected members."
   status: active
   default_rank: 3
+  standing: 5
   manual:
     by_hand: false
     get: https://research.un.org/en/docs/sc/quick/veto
@@ -680,6 +740,8 @@
   attribution: "Global Sanctions Database (GSDB): Felbermayr, G., A. Kirilakha, C. Syropoulos, E. Yalcin and Y.V. Yotov (2020), The Global Sanctions Data Base, European Economic Review 129."
   status: active
   default_rank: 3
+  standing: 4
+  definition: established
   manual:
     by_hand: true
     get: https://www.globalsanctionsdatabase.com/
@@ -697,6 +759,7 @@
   attribution: "International Monetary Fund, Monitoring of Fund Arrangements (MONA) database."
   status: active
   default_rank: 3
+  standing: 5
   manual:
     by_hand: false
     get: https://www.imf.org/external/np/pdr/mona/index.aspx
@@ -714,6 +777,7 @@
   attribution: "World Trade Organization, dispute settlement: chronological list of disputes cases."
   status: active
   default_rank: 3
+  standing: 5
   manual:
     by_hand: false
     get: https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm
@@ -734,6 +798,7 @@
   attribution: "United Nations Treaty Collection, Multilateral Treaties Deposited with the Secretary-General."
   status: active
   default_rank: 3
+  standing: 5
   manual:
     by_hand: false
     get: https://treaties.un.org/Pages/ParticipationStatus.aspx?clang=_en
@@ -754,6 +819,8 @@
   attribution: "International Crisis Group, CrisisWatch."
   status: active
   default_rank: 3
+  standing: 3
+  definition: established
   manual:
     by_hand: false
     get: https://www.crisisgroup.org/crisiswatch/database
@@ -775,6 +842,7 @@
   attribution: "Fetterer, F., K. Knowles, W. N. Meier, M. Savoie and A. K. Windnagel, Sea Ice Index (G02135), NSIDC."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/
@@ -792,6 +860,7 @@
   attribution: "CelesTrak SATCAT, celestrak.org."
   status: active
   default_rank: 2
+  standing: 4
   manual:
     by_hand: false
     get: https://celestrak.org/pub/satcat.csv
@@ -809,6 +878,8 @@
   attribution: "Public holidays from Nager.Date (date.nager.at)."
   status: active
   default_rank: 2
+  standing: 3
+  definition: established
   manual:
     by_hand: false
     get: https://date.nager.at/api/v3/PublicHolidays/2026/NZ
@@ -826,6 +897,8 @@
   attribution: "World Bank, Women, Business and the Law (historical panel data)."
   status: active
   default_rank: 2
+  standing: 5
+  definition: established
   manual:
     by_hand: false
     get: https://wbl.worldbank.org/en/wbl-data
@@ -843,6 +916,7 @@
   attribution: "UNODC, crime and criminal justice statistics (dataunodc.un.org)."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://dataunodc.un.org/
@@ -873,6 +947,8 @@
   attribution: "WORLD Policy Analysis Center, UCLA."
   status: active
   default_rank: 3
+  standing: 4
+  definition: established
   manual:
     by_hand: true
     optional: true
@@ -891,6 +967,8 @@
   attribution: "Alpers, Philip and others, GunPolicy.org, Sydney School of Public Health, The University of Sydney."
   status: active
   default_rank: 3
+  standing: 3
+  definition: established
   manual:
     by_hand: true
     optional: true
@@ -909,6 +987,8 @@
   attribution: "World Prison Brief, Institute for Crime and Justice Policy Research."
   status: active
   default_rank: 3
+  standing: 4
+  definition: established
   manual:
     by_hand: true
     get: https://www.prisonstudies.org/world-prison-data/highest-lowest/highest-lowest-prison-population-total
@@ -929,6 +1009,7 @@
   attribution: "Gaulier, G. and Zignago, S. (2010), BACI: International Trade Database at the Product-Level, CEPII Working Paper 2010-23."
   status: active
   default_rank: 2
+  standing: 4
   manual:
     by_hand: false
     get: https://www.cepii.fr/CEPII/en/bdd_modele/bdd_modele_item.asp?id=37
@@ -946,6 +1027,7 @@
   attribution: "U.S. Geological Survey, Mineral Commodity Summaries."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://www.sciencebase.gov/catalog/items?q=Mineral%20Commodity%20Summaries%20world%20data
@@ -963,6 +1045,7 @@
   attribution: "Reichl, C. and Schatz, M., World Mining Data, Austrian Federal Ministry of Finance."
   status: active
   default_rank: 3
+  standing: 5
   manual:
     by_hand: false
     get: https://www.world-mining-data.info/?World_Mining_Data___Data_Section
@@ -980,6 +1063,7 @@
   attribution: "FAO. FAOSTAT. Food and Agriculture Organization of the United Nations."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://www.fao.org/faostat/en/#data
@@ -997,6 +1081,7 @@
   attribution: "World Bank, Commodity Price Data (The Pink Sheet)."
   status: active
   default_rank: 2
+  standing: 5
   manual:
     by_hand: false
     get: https://www.worldbank.org/en/research/commodity-markets
@@ -1014,6 +1099,8 @@
   attribution: "IEA (2025), Global EV Data Explorer, IEA, Paris. Licence: CC BY 4.0."
   status: active
   default_rank: 2
+  standing: 5
+  definition: established
   manual:
     by_hand: false
     get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
@@ -1031,6 +1118,7 @@
   attribution: "Our World in Data, CO2 and Greenhouse Gas Emissions (Global Carbon Project; Jones et al.; PRIMAP-hist)."
   status: active
   default_rank: 2
+  standing: 4
 
 - id: owid_climate
   name: Our World in Data climate charts
@@ -1044,6 +1132,7 @@
   attribution: "Our World in Data, from the sources each chart names (Copernicus ERA5, NASA, NOAA, WGMS, Climate Watch, GWIS)."
   status: active
   default_rank: 2
+  standing: 4
   manual:
     by_hand: false
     get: https://ourworldindata.org/climate-change
@@ -1061,6 +1150,7 @@
   attribution: "Lan, X., Tans, P. and Thoning, K.W., Trends in atmospheric CO2, CH4 and N2O, NOAA GML."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: false
     get: https://gml.noaa.gov/ccgg/trends/data.html
@@ -1078,6 +1168,7 @@
   attribution: "GISTEMP Team, GISS Surface Temperature Analysis (GISTEMP), version 4, NASA GISS."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: false
     get: https://data.giss.nasa.gov/gistemp/
@@ -1095,6 +1186,7 @@
   attribution: "NOAA Climate Prediction Center (Oceanic Niño Index, Antarctic Oscillation); NOAA PSL (Dipole Mode Index, HadISST)."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: false
     get: https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt
@@ -1112,6 +1204,7 @@
   attribution: "Knapp, K. R. and others (2010), The International Best Track Archive for Climate Stewardship (IBTrACS), BAMS."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: false
     get: https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/
@@ -1129,6 +1222,7 @@
   attribution: "GDACS, Global Disaster Alert and Coordination System."
   status: active
   default_rank: 2
+  standing: 4
   manual:
     by_hand: false
     get: https://www.gdacs.org/gdacsapi/swagger/index.html
@@ -1146,6 +1240,7 @@
   attribution: "World Bank Climate Change Knowledge Portal, CMIP6 0.25-degree ensemble."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: false
     get: https://climateknowledgeportal.worldbank.org/download-data
@@ -1163,6 +1258,8 @@
   attribution: "Net Zero Tracker. Energy and Climate Intelligence Unit, Data-Driven EnviroLab, NewClimate Institute, Oxford Net Zero."
   status: active
   default_rank: 2
+  standing: 3
+  definition: established
   manual:
     by_hand: true
     get: https://zerotracker.net/
@@ -1180,6 +1277,8 @@
   attribution: "World Bank, Carbon Pricing Dashboard."
   status: active
   default_rank: 2
+  standing: 5
+  definition: established
   manual:
     by_hand: true
     get: https://carbonpricingdashboard.worldbank.org/about
@@ -1197,6 +1296,7 @@
   attribution: "NIWA, New Zealand seven-station temperature series."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: true
     get: https://niwa.co.nz/climate-and-weather/nz-temperature-record
@@ -1214,6 +1314,7 @@
   attribution: "Ministry for the Environment, New Zealand's Greenhouse Gas Inventory."
   status: active
   default_rank: 1
+  standing: 5
   manual:
     by_hand: true
     get: https://data.mfe.govt.nz/
@@ -1231,6 +1332,8 @@
   attribution: "Speedtest by Ookla Global Fixed and Mobile Network Performance Maps. Based on analysis by Ookla of Speedtest Intelligence data. Provided by Ookla and accessed via AWS Open Data."
   status: active
   default_rank: 1
+  standing: 3
+  definition: exploratory
   manual:
     by_hand: false
     get: https://registry.opendata.aws/speedtest-global-performance/

@@ -94,7 +94,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   return (
     <div className="card">
       <div className="card-head">
-        <h3>{indicator.name} <Help indicator={indicator} /></h3>
+        <h3>{indicator.name}{settings.quality_on_titles && indicator.grade && <> <span className={`grade grade-${indicator.grade}`} title="Quality grade (Indicators page)">{indicator.grade}</span></>} <Help indicator={indicator} /></h3>
         {rows && rows.length > 0 && (
           <span className="card-actions">
             {kind === "line" && <button className={`link small${forecastOn ? " on" : ""}`} aria-pressed={forecastOn}
