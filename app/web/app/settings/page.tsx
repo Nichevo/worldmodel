@@ -650,6 +650,7 @@ const CHECK_TEXT: [string, string, string][] = [
   ["together", "Moving together", "the strongest pairs from the relationship scan (needs the scan on)"],
   ["after", "Before and after", "figures that change after events, from the scan (needs the scan on)"],
   ["revised", "New data", "past figures for key countries revised in a new release"],
+  ["opposite", "Opposite trends", "a key country's figure rising steadily for ten years while a neighbour's or another key country's falls"],
 ];
 const NEWS_TEXT: [string, string, string][] = [
   ["wikipedia", "Wikipedia Current events", "one small page a day, the backbone"],
@@ -692,6 +693,8 @@ function DiscoverSettings({ s, save }: { s: Settings; save: (patch: Partial<Sett
         save={(v) => save({ discover_key_countries: v.toUpperCase() })} />
       <NumberField label="Lift for key countries" unit="times" value={s.discover_key_boost} min={1} max={5} step={0.1}
         note="1 = no lift: key countries are ranked like any other." save={(v) => save({ discover_key_boost: v })} />
+      <Toggle label="Group the same find across countries" hint="One card when several countries hit the same record, jump or turn in the same year, with up to four drawn against the world. Off: one card per country, which can fill the feed with repeats. Takes effect on the next look (Discover: Look again now)."
+        on={s.discover_merge} set={(v) => save({ discover_merge: v })} />
       <Toggle label="Ratings tune the feed" hint="Off: Interesting and Not interesting still keep and hide finds, but no longer move similar ones up or down."
         on={s.discover_tune} set={(v) => save({ discover_tune: v })} />
       <Toggle label="'Why might this be?' button" hint="Asks your local AI for likely reasons; its answer is a guess, shown as such. Needs Local AI on; off, the button is not shown."

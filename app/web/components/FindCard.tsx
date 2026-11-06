@@ -118,6 +118,6 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
 
 export const KIND_LABEL: Record<string, string> = {
   record: "Record", mover: "Big mover", turning: "Turning point", overtake: "Overtake", outlier: "Outlier",
-  disagree: "Sources disagree", forecast: "Forecast change", together: "Moving together", after: "Before and after", revised: "New data", news: "News",
+  disagree: "Sources disagree", forecast: "Forecast change", together: "Moving together", after: "Before and after", revised: "New data", opposite: "Opposite trends", news: "News",
 };
 const kindLabel = (k: string) => KIND_LABEL[k] ?? k;

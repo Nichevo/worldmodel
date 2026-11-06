@@ -129,7 +129,7 @@ export default function WorldMap({
       // Fit the inhabited world to whatever size the map's box is: Europe and Africa in the
       // middle, or the Pacific (the same span moved half way round, New Zealand near the middle).
       bounds: mapCentre === "atlantic" ? [[-170, -56], [180, 78]] : [[10, -56], [360, 78]],
-      minZoom: 0.5,
+      minZoom: -1, // small boxes (half-width cards, phones) can still show the whole world
       maxZoom: 7,
       attributionControl: { compact: true, customAttribution: "Borders: Natural Earth" },
       renderWorldCopies: true, // drag round the globe without running off the edge

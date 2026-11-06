@@ -157,9 +157,98 @@ def storage_list(q: Q) -> list[dict]:
         out.append({"indicator_id": r["indicator_id"], "entity_id": r["entity_id"], "entity_name": r["name"],
                     "group": m[1], "name": m[2], "unit": i.get("unit"), "decimals": i.get("decimals"),
                     "frequency": i.get("frequency"), "last": r["last"], "points": r["n"]})
+    place = _places(q, sorted({r["entity_id"] for r in out}))
+    for r in out:
+        r.update(place.get(r["entity_id"], {"region_id": None, "region": None, "subregion_id": None, "subregion": None}))
+        r["summable"] = r["indicator_id"] not in NOT_SUMMED
     order = {s[0]: n for n, s in enumerate(STORAGE)}
     out.sort(key=lambda x: (order[x["indicator_id"]], x["entity_id"] != "eu", x["entity_id"] != "NZL", x["entity_name"]))
     return out
+
+
+NOT_SUMMED = {"gas_storage_fill", "jodi_product_days"}  # shares and days of cover: adding them up means nothing
+
+
+def _places(q: Q, ids: list[str]) -> dict[str, dict]:
+    """Each entity's continent and subregion (today's memberships); a bloc takes its own name."""
+    if not ids:
+        return {}
+    got = q(f"""SELECT m.member_id, g.entity_id, g.short_name, g.type FROM memberships m JOIN entities g ON g.entity_id = m.group_id
+                WHERE m.member_id IN ({', '.join('?' * len(ids))}) AND g.type IN ('continent', 'subregion') AND m.valid_to IS NULL""", ids)
+    out: dict[str, dict] = {}
+    for r in got:
+        d = out.setdefault(r["member_id"], {"region_id": None, "region": None, "subregion_id": None, "subregion": None})
+        k = "region" if r["type"] == "continent" else "subregion"
+        d[f"{k}_id"], d[k] = r["entity_id"], r["short_name"]
+    for e in ids:  # the EU and other blocs: listed under themselves
+        if e not in out:
+            name = q("SELECT short_name, type FROM entities WHERE entity_id = ?", [e])
+            if name and name[0]["type"] != "country":
+                out[e] = {"region_id": e, "region": name[0]["short_name"], "subregion_id": None, "subregion": None}
+    return out
+
+
+def storage_totals(q: Q, indicator: str, by: str = "region", group: str | None = None, step: str = "year",
+                   top: int = 10) -> dict | None:
+    """A stock summed over countries, period by period (the last figure of each year or month),
+    split by continent, by subregion, or by country (within `group`, a continent or subregion,
+    or the whole world: the `top` biggest, the rest as Other). Blocs such as the EU are left
+    out so nothing is counted twice. Shares and days of cover are not added up."""
+    meta = next((s for s in STORAGE if s[0] == indicator), None)
+    if not meta or indicator in NOT_SUMMED or by not in ("region", "subregion", "country") or step not in ("year", "month"):
+        return None
+    ind = q("SELECT name, unit, decimals, frequency FROM indicators WHERE indicator_id = ?", [indicator])
+    if not ind:
+        return None
+    cut = "year(period_start)::VARCHAR" if step == "year" else "strftime(period_start, '%Y-%m')"
+    pts = q(f"""SELECT s.entity_id, {cut} AS p, arg_max(s.value, s.period_start) AS v
+                FROM series s JOIN entities e USING (entity_id)
+                WHERE s.indicator_id = ? AND s.breakdown = '' AND s.variant = 'central' AND e.type = 'country' AND s.value IS NOT NULL
+                GROUP BY ALL ORDER BY 2""", [indicator])
+    if not pts:
+        return None
+    ents = sorted({r["entity_id"] for r in pts})
+    place = _places(q, ents)
+    names = {r["entity_id"]: r["short_name"] for r in q(f"SELECT entity_id, short_name FROM entities WHERE entity_id IN ({', '.join('?' * len(ents))})", ents)}
+    if group:
+        pts = [r for r in pts if group in (place.get(r["entity_id"], {}).get("region_id"), place.get(r["entity_id"], {}).get("subregion_id"))]
+    periods = sorted({r["p"] for r in pts})
+
+    def part(e: str) -> str:
+        if by == "country":
+            return e
+        pl = place.get(e, {})
+        return pl.get(f"{by}_id") or "other"
+    sums: dict[str, dict[str, float]] = {}
+    count: dict[str, int] = {}
+    for r in pts:
+        k = part(r["entity_id"])
+        sums.setdefault(k, {})
+        sums[k][r["p"]] = sums[k].get(r["p"], 0.0) + r["v"]
+        count[r["p"]] = count.get(r["p"], 0) + 1
+    total = [[p, sum(v.get(p) or 0 for v in sums.values())] for p in periods]
+    label = {}
+    for e, pl in place.items():
+        for k in ("region", "subregion"):
+            if pl.get(f"{k}_id"):
+                label[pl[f"{k}_id"]] = pl[k]
+    size = {k: (v.get(periods[-1]) or max(v.values())) for k, v in sums.items()} if periods else {}
+    keys = sorted(sums, key=lambda k: -size[k])
+    if by == "country" and len(keys) > top:
+        rest = keys[top:]
+        keys = keys[:top]
+        other: dict[str, float] = {}
+        for k in rest:
+            for p, v in sums[k].items():
+                other[p] = other.get(p, 0.0) + v
+        sums["other"] = other
+        keys.append("other")
+    parts = [{"id": k, "name": "Other" if k == "other" else names.get(k) or label.get(k) or k,
+              "points": [[p, sums[k].get(p)] for p in periods]} for k in keys]
+    return {"indicator_id": indicator, "name": meta[2], "unit": ind[0]["unit"], "decimals": ind[0]["decimals"],
+            "frequency": ind[0]["frequency"], "by": by, "group": group, "group_name": label.get(group) if group else "World",
+            "step": step, "periods": periods, "parts": parts, "countries": [count.get(p, 0) for p in periods],
+            "total": total}
 
 
 def storage(q: Q, indicator: str, entity: str, years: int = 5) -> dict | None:

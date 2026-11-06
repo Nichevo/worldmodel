@@ -117,10 +117,11 @@ SETTINGS: dict[str, object] = {
     "fx_partners": {},               # country id -> currencies' countries on its Currency card (else its top trading partners)
     # Discover: interesting finds after each refresh, and major news
     "discover_on": True,             # look for finds after each refresh (and once after update.bat)
-    "discover_checks": "record,mover,turning,overtake,outlier,disagree,forecast,together,after,revised",
+    "discover_checks": "record,mover,turning,overtake,outlier,disagree,forecast,together,after,revised,opposite",
     "discover_keep": 500,            # finds kept per build, best first
     "discover_key_countries": "NZL,AUS,GBR,USA",  # boosted, and the ones checked for overtakes, revisions and forecasts
     "discover_key_boost": 1.5,       # how much a key country's finds are lifted (1 = not at all)
+    "discover_merge": True,          # the same find in several countries shown once, as lines against the world (off: one card per country)
     "discover_tune": True,           # your Interesting / Not interesting ratings lift or sink kinds, categories and tags
     "discover_ai": False,            # a "Why might this be?" button on each card, answered by your local AI (marked as its guess)
     "discover_better": {},           # indicator id -> "higher", "lower" or "neither": your own "better when" for a find's tone

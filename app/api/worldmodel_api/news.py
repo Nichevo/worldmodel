@@ -54,6 +54,8 @@ SOURCES = {"wikipedia": "Wikipedia Current events", "gdelt": "GDELT news counts"
            "reliefweb": "ReliefWeb (UN)"}
 FIRST_DAYS = 14
 GDELT_GAP = 5.5  # seconds between GDELT requests
+GDELT_WAIT = 30  # seconds to wait after GDELT says too many requests, before the one retry
+WIKI_GAP = 0.3   # seconds between Wikipedia requests (one at a time, as Wikipedia asks)
 SPIKE = 3.0      # a week with this many times the usual news count is a spike
 TOPIC_CATEGORY = {
     "armed conflicts and attacks": "Conflict and security", "arts and culture": "Society and laws",
@@ -87,9 +89,35 @@ def _write(name: str, data) -> None:
     tmp.replace(p)
 
 
+GOOD_WORDS = re.compile(r"\b(ceasefires?|truce|peace (deal|agreement|accord|treaty|talks)|rescued|freed|reunited|breakthrough|eradicat\w*|"
+                        r"cured?|recover(s|ed|y)|celebrat\w*|landmark|milestone|record (high|harvest|low)|reopen(s|ed)?|restored|"
+                        r"lifts? (sanctions|ban|curfew)|lifted|signs? (an? )?(agreement|deal|treaty|accord)|historic (agreement|deal)|"
+                        r"vaccines? approved|approves? (a |the )?vaccine|aid arrives|survivors? found|released (unharmed|safely)|hostages? released)\b", re.I)
+BAD_WORDS = re.compile(r"\b(kill(s|ed|ing)?|dead|deaths?|dies|died|attacks?|bomb(s|ing|ed)?|airstrikes?|war|invasion|earthquake|floods?|flooding|"
+                       r"wildfires?|cyclone|hurricane|typhoon|crash(es|ed)?|shooting|murder\w*|famine|outbreak|epidemic|injur\w*|hostages?|"
+                       r"collapse[sd]?|scandal|evacuat\w*|drought|missiles?|massacre|coup|riots?|recession|layoffs?|explosion)\b", re.I)
+
+
+def word_tone(text: str, base: str = "neutral") -> str:
+    """Good, bad or neutral from the words in a headline: news that something got better
+    (a ceasefire, people rescued, a disease wiped out) is good; deaths, attacks and disasters bad."""
+    good, bad = len(GOOD_WORDS.findall(text)), len(BAD_WORDS.findall(text))
+    if good > bad:
+        return "good"
+    if bad > good or base == "bad":
+        return "bad"
+    return "neutral"
+
+
 def items() -> list[dict]:
     got = _read("items.json", [])
-    return got if isinstance(got, list) else []
+    if not isinstance(got, list):
+        return []
+    for i in got:  # tone worked out when read, so older items gain it too
+        if i.get("source") in ("wikipedia", "feeds"):
+            base = "bad" if (i.get("topic") or "").lower() in BAD_TOPICS else "neutral"
+            i["tone"] = word_tone(f"{i.get('headline', '')} {i.get('detail', '') if i.get('source') == 'feeds' else ''}", base)
+    return got
 
 
 def state() -> dict:
@@ -225,12 +253,19 @@ def fetch_wikipedia(client: httpx.Client, names: Names, st: dict, today: date) -
     days = [today - timedelta(days=k) for k in range(FIRST_DAYS)]
     want = [d for d in days if d.isoformat() not in done or (today - d).days <= 1]
     out = []
-    for d in sorted(want):
-        text = _wiki_day(client, d)
+    failed = []
+    for d in sorted(want, reverse=True):  # newest first
+        try:
+            text = _wiki_day(client, d)
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            failed.append(f"{d.isoformat()}: {exc}")
+            continue
         if text:
             out += parse_current_events(text, d.isoformat(), names)
             done.add(d.isoformat())
-        time.sleep(1)
+        time.sleep(WIKI_GAP)
+    if failed and not out:
+        raise RuntimeError(f"{len(failed)} day(s) failed, first {failed[0]}")
     st["wiki_days"] = sorted(done)[-400:]
     return out
 
@@ -254,8 +289,18 @@ def spikes(timeline: list[dict], tones: list[dict] | None = None) -> dict | None
     return {"ratio": now / usual, "week": now, "usual": usual, "tone": t}
 
 
+class Slowed(RuntimeError):
+    """GDELT asked for fewer requests (429) twice running."""
+
+
 def _gdelt(client: httpx.Client, query: str, mode: str) -> list[dict]:
-    r = client.get(GDELT, params={"query": query, "mode": mode, "timespan": "3m", "format": "json"})
+    params = {"query": query, "mode": mode, "timespan": "3m", "format": "json"}
+    r = client.get(GDELT, params=params)
+    if r.status_code == 429:
+        time.sleep(GDELT_WAIT)
+        r = client.get(GDELT, params=params)
+        if r.status_code == 429:
+            raise Slowed("GDELT asked for fewer requests; the rest of the countries are tried on the next fetch")
     r.raise_for_status()
     try:
         data = r.json()
@@ -265,17 +310,27 @@ def _gdelt(client: httpx.Client, query: str, mode: str) -> list[dict]:
     return series[0].get("data", []) if series else []
 
 
-def fetch_gdelt(client: httpx.Client, names: Names, countries: list[str], today: date) -> list[dict]:
-    out = []
-    for ent in countries:
-        name = names.name.get(ent)
-        if not name:
-            continue
+def fetch_gdelt(client: httpx.Client, names: Names, countries: list[str], today: date, st: dict | None = None) -> list[dict]:
+    """News-count spikes for the key countries. Starts where the last fetch stopped, so a
+    refusal part way through still gets every country checked over a few fetches."""
+    out: list[dict] = []
+    st = st if st is not None else {}
+    todo = [e for e in countries if names.name.get(e)]
+    start = int(st.get("gdelt_next", 0)) % len(todo) if todo else 0
+    for n, ent in enumerate(todo[start:] + todo[:start]):
+        name = names.name[ent]
         q = f'"{name}"'
-        vol = _gdelt(client, q, "timelinevolraw")
-        time.sleep(GDELT_GAP)
-        tones = _gdelt(client, q, "timelinetone")
-        time.sleep(GDELT_GAP)
+        try:
+            vol = _gdelt(client, q, "timelinevolraw")
+            time.sleep(GDELT_GAP)
+            tones = _gdelt(client, q, "timelinetone")
+            time.sleep(GDELT_GAP)
+        except Slowed:
+            st["gdelt_next"] = (start + n) % len(todo)
+            if out or n:
+                return out  # some countries done: keep them, the rest next time
+            raise
+        st["gdelt_next"] = 0
         s = spikes(vol, tones)
         if not s or s["ratio"] < SPIKE:
             continue
@@ -316,14 +371,25 @@ def parse_feed(text: str, feed_id: str, names: Names) -> list[dict]:
 
 
 def fetch_feeds(client: httpx.Client, names: Names, ids: list[str]) -> list[dict]:
-    out = []
+    """Each chosen feed; one that fails or is not a feed is named in the error, the others still count."""
+    out, bad = [], []
     for f in ids:
         if f not in FEEDS:
             continue
-        r = client.get(FEEDS[f][1])
-        r.raise_for_status()
-        out += parse_feed(r.text, f, names)
-        time.sleep(1)
+        try:
+            r = client.get(FEEDS[f][1])
+            r.raise_for_status()
+        except httpx.HTTPError as exc:
+            bad.append(f"{FEEDS[f][0]}: {str(exc).splitlines()[0][:120]}")
+            continue
+        got = parse_feed(r.text, f, names)
+        if not got:
+            bad.append(f"{FEEDS[f][0]}: no headlines in the reply (the feed may have moved)")
+        out += got
+    if bad and not out:
+        raise RuntimeError("; ".join(bad))
+    if bad:
+        log.warning("news feeds: %s", "; ".join(bad))
     return out
 
 
@@ -383,29 +449,34 @@ def _run(settings: dict, names: Names, client: httpx.Client | None, today: date 
             "wikipedia": lambda: fetch_wikipedia(client, names, st, today),
             "feeds": lambda: fetch_feeds(client, names, str(settings.get("news_feeds") or "").split(",")),
             "reliefweb": lambda: fetch_reliefweb(client, names, str(settings.get("news_reliefweb_app") or "")),
-            "gdelt": lambda: fetch_gdelt(client, names, [k for k in str(settings.get("discover_key_countries") or "").split(",") if k], today),
+            "gdelt": lambda: fetch_gdelt(client, names, [k for k in str(settings.get("discover_key_countries") or "").split(",") if k], today, st),
         }
-        for src in ("wikipedia", "feeds", "reliefweb", "gdelt"):
+        keep_from = (today - timedelta(days=int(settings.get("news_keep_days", 730)))).isoformat()
+
+        def save(found: list[dict], done: bool) -> None:
+            # Saved after each source, so the News tab fills in while the slow ones (GDELT) are still going.
+            with _lock:
+                by = {i["key"]: i for i in items() if i.get("date", "") >= keep_from}
+                for i in found:
+                    if i["date"] >= keep_from:
+                        by.setdefault(i["key"], {**i, "first_seen": today.isoformat()})
+                _write("items.json", sorted(by.values(), key=lambda i: (i["date"], i["key"]), reverse=True))
+                if done:
+                    st["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                _write("state.json", {k: v for k, v in st.items() if k != "running"})
+        for src in ("feeds", "wikipedia", "reliefweb", "gdelt"):  # quickest first, GDELT (5 s a request) last
             if src not in on or (src == "reliefweb" and not settings.get("news_reliefweb_app")):
                 continue
             try:
                 found = jobs[src]()
-                got += found
                 st["last"][src] = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "items": len(found)}
                 st["errors"].pop(src, None)
             except Exception as exc:  # noqa: BLE001 - one source down must not stop the others
+                found = []
                 log.warning("news: %s failed: %s", src, exc)
                 st["errors"][src] = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "error": str(exc)[:300]}
-        keep_from = (today - timedelta(days=int(settings.get("news_keep_days", 730)))).isoformat()
-        with _lock:
-            by = {i["key"]: i for i in items() if i.get("date", "") >= keep_from}
-            for i in got:
-                if i["date"] >= keep_from:
-                    by.setdefault(i["key"], {**i, "first_seen": today.isoformat()})
-            _write("items.json", sorted(by.values(), key=lambda i: (i["date"], i["key"]), reverse=True))
-            st["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            st.pop("running", None)
-            _write("state.json", st)
+            save(found, False)
+        save([], True)
         return state()
     finally:
         if own:

@@ -31,7 +31,7 @@ SCORES = {
 }
 WEIGHTS = {"standing": 2.0, "definition": 2.0, "history": 1.5, "up_to_date": 1.5, "coverage": 1.0, "health": 1.0}
 GRADES = {"A": "Core", "B": "Good", "C": "Usable", "D": "Exploratory"}
-CUTS = (("A", 4.2), ("B", 3.5), ("C", 2.7))
+CUTS = (("A", 4.5), ("B", 3.9), ("C", 3.0))  # stricter since the first version: most figures were landing in A and B
 SHOW = {"A": ("A",), "B": ("A", "B"), "C": ("A", "B", "C"), "all": ("A", "B", "C", "D")}
 DEFINITIONS = {"standard": 5, "established": 4, "exploratory": 2}
 DEFINITION_TEXT = {
@@ -151,6 +151,13 @@ def _health(n: int, out_of_range: int, jumps: int, changes: int, gap: float | No
 def grade_of(scores: dict[str, int], definition: str) -> str:
     total = sum(WEIGHTS[k] * scores[k] for k in WEIGHTS) / sum(WEIGHTS.values())
     g = next((g for g, cut in CUTS if total >= cut), "D")
+    low = min(scores[k] for k in WEIGHTS)
+    if g == "A" and low < 4:
+        g = "B"  # core means good on every count, not a high average
+    if g in ("A", "B") and low <= 2:
+        g = "C"  # one weak score (few countries, short, stale, broken) keeps it out of the good grades
+    if g == "C" and low <= 1:
+        g = "D"
     if definition == "exploratory" and g in ("A", "B"):
         g = "C"  # new, pilot or rough figures are never core, however full
     return g

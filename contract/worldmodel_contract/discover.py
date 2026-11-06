@@ -37,7 +37,7 @@ from worldmodel_contract import local
 KINDS = {
     "record": "Records", "mover": "Big movers", "turning": "Turning points", "overtake": "Overtakes",
     "outlier": "Outliers", "disagree": "Sources disagree", "forecast": "Forecast changes",
-    "together": "Moving together", "after": "Before and after", "revised": "New data",
+    "together": "Moving together", "after": "Before and after", "revised": "New data", "opposite": "Opposite trends",
 }
 CATEGORIES = ["People", "Economy", "Trade", "Money and prices", "Energy", "Climate", "Government and politics",
               "Conflict and security", "Society and laws", "Cities and living", "AI and technology"]
@@ -201,6 +201,7 @@ def _find(kind: str, key: str, p: Panel, ind: str, ents: list[str], names: dict[
     b = better_when(ind, m["name"], better)
     return {
         "key": key, "kind": kind, "category": category(m["domain"], f"{ind} {m['name']}"), "tone": tone(b, rising), "better": b,
+        "rising": None if rising is None else bool(rising),
         "score": round(max(0.0, min(1.0, score)), 3), "headline": headline, "detail": detail,
         "entities": ents, "indicator_id": ind, "indicator_name": m["name"], "unit": m["unit"], "decimals": m["decimals"],
         "source_id": m["source_id"], "years": years, "value": value,
@@ -366,6 +367,78 @@ def overtakes(p: Panel, names, better, keys: list[str], min_countries: int = 40,
                                  series=[{"entity_id": ent, "name": names.get(ent, ent), "points": _points(p, ind, i, y - 20)}],
                                  mark=[y], value=float(now[i])))
     return out
+
+
+def _trend(row: np.ndarray, years: int) -> tuple[float, float] | None:
+    """The straight-line change a year over the last `years`, as a share of the average level,
+    and how well a straight line fits (r squared); None with too few figures."""
+    seg = row[-years:]
+    ok = np.isfinite(seg)
+    if ok.sum() < years - 2 or not math.isfinite(seg[-1]):
+        return None
+    x, y = np.arange(len(seg))[ok], seg[ok]
+    level = float(np.mean(np.abs(y)))
+    if level == 0 or np.ptp(y) == 0:
+        return None
+    slope, icept = np.polyfit(x, y, 1)
+    fit = slope * x + icept
+    r2 = 1 - float(np.sum((y - fit) ** 2)) / float(np.sum((y - y.mean()) ** 2))
+    return float(slope) / level, r2
+
+
+def opposite(p: Panel, names, better, keys: list[str], peers: dict[str, list[str]], years: int = 10,
+             min_slope: float = 0.01, min_fit: float = 0.6, per_key: int = 1) -> list[dict]:
+    """Countries going opposite ways: over the last `years`, a key country's figure rising
+    steadily while a neighbour's or another key country's falls steadily (or the reverse).
+    The clearest pair for each key country and figure."""
+    out = []
+    last = len(p.years) - 1
+    y1 = p.years[last]
+    for ind, a in p.data.items():
+        m = p.meta[ind]
+        # Figures stop a year or two before this one: end the window at the last year with enough countries.
+        j = next((j for j in range(last, last - 3, -1) if np.isfinite(a[:, j]).sum() >= 2), None)
+        if j is None:
+            continue
+        trends: dict[str, tuple[float, float]] = {}
+
+        def trend(e: str):
+            if e not in trends and e in p.ei:
+                t = _trend(a[p.ei[e], : j + 1], years)
+                trends[e] = t if t and abs(t[0]) >= min_slope and t[1] >= min_fit else None
+            return trends.get(e)
+        for k in keys:
+            tk = trend(k)
+            if not tk:
+                continue
+            cands = []
+            for o in dict.fromkeys([*keys, *peers.get(k, [])]):
+                if o == k:
+                    continue
+                to = trend(o)
+                if to and (to[0] > 0) != (tk[0] > 0):
+                    cands.append((min(abs(tk[0]), abs(to[0])) * min(tk[1], to[1]), o, to))
+            for strength, o, to in sorted(cands, reverse=True)[:per_key]:
+                pair = sorted([k, o])
+                yend, y0 = p.years[j], p.years[j] - years + 1
+                up, down = (k, o) if tk[0] > 0 else (o, k)
+                ki, oi = p.ei[k], p.ei[o]
+                out.append(_find("opposite", f"opposite:{ind}:{pair[0]}:{pair[1]}:{yend}", p, ind, [k, o], names,
+                                 f"{m['name']}: rising in {names.get(up, up)}, falling in {names.get(down, down)}",
+                                 0.45 + min(0.45, strength * 6), [y0, yend], tk[0] > 0, better,
+                                 detail=f"Since {y0}: {names.get(up, up)} up about {100 * abs(trends[up][0]):.1f}% a year, "
+                                        f"{names.get(down, down)} down about {100 * abs(trends[down][0]):.1f}% a year. "
+                                        f"{yend}: {names.get(k, k)} {num(a[ki, j], m['unit'], m['decimals'])}, "
+                                        f"{names.get(o, o)} {num(a[oi, j], m['unit'], m['decimals'])}.",
+                                 series=[{"entity_id": x, "name": names.get(x, x), "points": _points(p, ind, p.ei[x], y0 - 10)} for x in (k, o)],
+                                 mark=[y0, yend], value=float(a[ki, j])))
+    # A pair of key countries is found from both sides: keep it once.
+    seen, uniq = set(), []
+    for f in out:
+        if f["key"] not in seen:
+            seen.add(f["key"])
+            uniq.append(f)
+    return uniq
 
 
 def outliers(p: Panel, names, better, groups: dict[str, list[str]], z_min: float = 2.5) -> list[dict]:
@@ -563,7 +636,7 @@ def from_scan(home: Path, names, better, panel: Panel, limit: int = 15) -> list[
 
 
 # ----------------------------------------------------------------------------- run, save, load
-CHECKS = ("record", "mover", "turning", "overtake", "outlier", "disagree", "forecast", "together", "after", "revised")
+CHECKS = ("record", "mover", "turning", "overtake", "outlier", "disagree", "forecast", "together", "after", "revised", "opposite")
 
 
 def compute(con, home: Path | None = None, settings: dict | None = None, today: date | None = None) -> list[dict]:
@@ -597,6 +670,8 @@ def compute(con, home: Path | None = None, settings: dict | None = None, today: 
         found += forecasts(con, names, better, panel, keys)
     if "revised" in checks:
         found += revised(con, names, better, panel, keys)
+    if "opposite" in checks:
+        found += opposite(panel, names, better, keys, _peers(con, keys))
     if home is not None and ("together" in checks or "after" in checks):
         found += [f for f in from_scan(Path(home), names, better, panel) if f["kind"] in checks]
     # One find per indicator and country per kind (a record and a mover on the same point both stay).
@@ -606,7 +681,107 @@ def compute(con, home: Path | None = None, settings: dict | None = None, today: 
         if k not in seen:
             seen.add(k)
             out.append(f)
+    if s.get("discover_merge", True):
+        out = merge_alike(out, panel, names, keys, _world(con, out))
     return out[: int(s.get("discover_keep", 500))]
+
+
+def _peers(con, keys: list[str]) -> dict[str, list[str]]:
+    """Each key country's neighbours for comparison: the countries in its subregion."""
+    if not keys:
+        return {}
+    got = con.execute(f"""SELECT k.member_id, o.member_id FROM memberships k JOIN entities g ON g.entity_id = k.group_id AND g.type = 'subregion'
+        JOIN memberships o ON o.group_id = k.group_id AND o.valid_to IS NULL JOIN entities e ON e.entity_id = o.member_id AND e.type = 'country'
+        WHERE k.valid_to IS NULL AND k.member_id IN ({', '.join('?' * len(keys))})""", keys).fetchall()
+    out: dict[str, list[str]] = {}
+    for k, o in got:
+        if o != k:
+            out.setdefault(k, []).append(o)
+    return out
+
+
+MERGE_KINDS = ("record", "mover", "turning")
+MERGE_LINES = 4  # countries drawn as lines on a merged find, against the world
+
+
+def _shape(f: dict) -> str:
+    if f["kind"] == "record":
+        return f["key"].rsplit(":", 1)[-1]  # hi or lo
+    if f["kind"] == "turning":
+        return "reversed" if " reversed " in f["headline"] else "levelled"
+    return ""
+
+
+def _world(con, finds: list[dict]) -> dict[str, list[list]]:
+    """The world's figures for the indicators that may be merged (from the warehouse's aggregates)."""
+    ids = sorted({f["indicator_id"] for f in finds if f["kind"] in MERGE_KINDS and f.get("indicator_id")})
+    if not ids:
+        return {}
+    try:
+        got = con.execute(f"""SELECT indicator_id, year(period_start), value FROM series WHERE entity_id = 'world' AND breakdown = ''
+            AND variant = 'central' AND freq = 'A' AND indicator_id IN ({', '.join('?' * len(ids))}) AND value IS NOT NULL ORDER BY 1, 2""", ids).fetchall()
+    except Exception:  # noqa: BLE001 - a warehouse without world figures: the middle country stands in
+        got = []
+    out: dict[str, list[list]] = {}
+    for ind, y, v in got:
+        out.setdefault(ind, []).append([int(y), float(v)])
+    return out
+
+
+def merge_alike(finds: list[dict], p: Panel, names: dict[str, str], keys: list[str], world: dict[str, list[list]] | None = None) -> list[dict]:
+    """The same thing found for several countries (unemployment at a record high in five
+    countries in the same year) becomes one find: the countries named, the first few (key
+    countries first) drawn as lines against the world (or the middle country when there is no
+    world figure). Finds for one country stay as they are."""
+    world = world or {}
+    groups: dict[tuple, list[dict]] = {}
+    for f in finds:
+        if f["kind"] in MERGE_KINDS and len(f["entities"]) == 1 and f.get("indicator_id"):
+            groups.setdefault((f["kind"], f["indicator_id"], f.get("rising"), f["years"][-1], _shape(f)), []).append(f)
+    done: set[str] = set()
+    out = []
+    for f in finds:
+        if f["key"] in done:
+            continue
+        g = groups.get((f["kind"], f.get("indicator_id"), f.get("rising"), f["years"][-1], _shape(f))) if f["kind"] in MERGE_KINDS else None
+        if not g or len(g) < 2 or len(f["entities"]) != 1:
+            out.append(f)
+            continue
+        done.update(x["key"] for x in g)
+        order = sorted(g, key=lambda x: (x["entities"][0] not in keys, -x["score"]))
+        ents = [x["entities"][0] for x in order]
+        ind, y = f["indicator_id"], f["years"][-1]
+        name = f.get("indicator_name") or ind
+        shape = _shape(f)
+        verb = {("record", "hi"): "at its highest in years", ("record", "lo"): "at its lowest in years",
+                ("mover", True): "jumped", ("mover", False): "fell sharply",
+                ("turning", "reversed"): "changed direction", ("turning", "levelled"): "levelled off"}
+        what = verb.get((f["kind"], shape)) or verb.get((f["kind"], f.get("rising"))) or KINDS[f["kind"]].lower()
+        who = [names.get(e, e) for e in ents]
+        listed = ", ".join(who[:2]) + (f" and {len(who) - 2} more" if len(who) > 2 else "") if len(who) > 2 else " and ".join(who)
+        series = [{"entity_id": x["entities"][0], "name": names.get(x["entities"][0], x["entities"][0]),
+                   "points": (x["chart"]["series"][0]["points"] if x["chart"]["series"] else [])} for x in order[:MERGE_LINES]]
+        first = min((pt[0] for s_ in series for pt in s_["points"]), default=y - 40)
+        ref = [pt for pt in world.get(ind, []) if pt[0] >= first]
+        if ref:
+            series.append({"entity_id": "world", "name": "World", "points": ref})
+        elif ind in p.data:
+            a = p.data[ind]
+            mid = [[p.years[j], float(np.nanmedian(a[:, j]))] for j in range(len(p.years))
+                   if p.years[j] >= first and np.isfinite(a[:, j]).sum() >= 10]
+            if mid:
+                series.append({"entity_id": "", "name": "Middle country", "points": mid})
+        best = order[0]
+        out.append({**best,
+                    "key": f"alike:{f['kind']}:{ind}:{y}:{shape or f.get('rising')}",
+                    "headline": f"{name} {what} in {len(ents)} countries in {y}: {listed}",
+                    "detail": " ".join(f"{names.get(x['entities'][0], x['entities'][0])}: {x['detail'] or x['headline'].split(': ', 1)[-1]}"
+                                       for x in order[:8]) + (f" And {len(order) - 8} more." if len(order) > 8 else ""),
+                    "entities": ents, "years": [min(x["years"][0] for x in g), y],
+                    "score": round(min(1.0, max(x["score"] for x in g) + 0.04 * min(4, len(g) - 1)), 3),
+                    "tags": [*who[:8], name, KINDS[f["kind"]], *[t for t in best["tags"] if t not in who and t not in (name, KINDS[f["kind"]])]],
+                    "chart": {"series": series, "mark": best["chart"]["mark"]}, "merged": len(g)})
+    return out
 
 
 def folder(home: Path) -> Path:

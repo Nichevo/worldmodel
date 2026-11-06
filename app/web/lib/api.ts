@@ -236,7 +236,7 @@ export type Settings = {
   storage_years: number; // years in the band and average a year is set against
   fx_partners: Record<string, string>; // country id -> its Currency card's partners (comma-separated ids)
   discover_on: boolean; discover_checks: string; discover_keep: number; discover_key_countries: string; discover_key_boost: number;
-  discover_tune: boolean; discover_ai: boolean; discover_better: Record<string, "higher" | "lower" | "neither">;
+  discover_merge: boolean; discover_tune: boolean; discover_ai: boolean; discover_better: Record<string, "higher" | "lower" | "neither">;
   news_on: boolean; news_sources: string; news_feeds: string; news_reliefweb_app: string; news_keep_days: number; news_every_hours: number;
   basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
   basemap_world_zoom: number;
@@ -694,7 +694,12 @@ export type FxData = {
   choices: { entity_id: string; currency: string; name: string; currency_name: string }[];
 };
 export type StorageItem = { indicator_id: string; entity_id: string; entity_name: string; group: string; name: string; unit: string;
-  decimals: number; frequency: string; last: string; points: number };
+  decimals: number; frequency: string; last: string; points: number;
+  region_id: string | null; region: string | null; subregion_id: string | null; subregion: string | null; summable: boolean };
+export type StorageTotals = {
+  indicator_id: string; name: string; unit: string; decimals: number; frequency: string; by: "region" | "subregion" | "country";
+  group: string | null; group_name: string; step: "year" | "month"; periods: string[];
+  parts: { id: string; name: string; points: [string, number | null][] }[]; countries: number[]; total: [string, number][] };
 export type StorageSeries = {
   indicator_id: string; entity_id: string; entity_name: string; name: string; unit: string; decimals: number; frequency: string;
   year: number; years_back: number[]; band: { day: number; low: number; high: number; mean: number }[];
@@ -730,7 +735,7 @@ export type DiscoverFeed = {
 
 export const api = {
   discover: (o: { tab?: DiscoverTab; category?: string; kind?: string; tone?: string; entity?: string; tag?: string; q?: string;
-    sort?: string; new?: string; limit?: number; offset?: number } = {}) => get<DiscoverFeed>("/discover", o),
+    sort?: string; new?: string; since?: string; until?: string; limit?: number; offset?: number } = {}) => get<DiscoverFeed>("/discover", o),
   discoverMark: (key: string, change: { rating?: number; tags?: string[]; tone?: Tone | null }) =>
     send<{ key: string; rating: number; my_tags: string[]; tone: Tone }>("PUT", `/discover/${encodeURIComponent(key)}`, change),
   discoverNever: (kind: string, on: boolean) => send<{ never: string[] }>("PUT", `/discover-never/${encodeURIComponent(kind)}`, { on }),
@@ -743,6 +748,8 @@ export const api = {
   storageList: () => get<StorageItem[]>("/storage-levels"),
   storageSeries: (indicator: string, entity: string, years?: number) =>
     get<StorageSeries>(`/storage-levels/${encodeURIComponent(indicator)}/${encodeURIComponent(entity)}`, { years }),
+  storageTotals: (indicator: string, o: { by?: string; group?: string; step?: string; top?: number } = {}) =>
+    get<StorageTotals>(`/storage-levels/${encodeURIComponent(indicator)}/totals`, o),
   regions: (country: string) => get<Regions>(`/regions/${encodeURIComponent(country)}`),
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   scrapers: () => get<Scrapers>("/scrapers"),
