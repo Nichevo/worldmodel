@@ -722,12 +722,16 @@ class NetZeroTracker(_Yearly):
             table = _table(f)
             if not table:
                 continue
-            head = {key(c): i for i, c in enumerate(table[0])}
-            c_type = next((head[k] for k in ("actortype", "type") if k in head), None)
-            c_code = next((head[k] for k in ("idcode", "iso3", "iso", "code") if k in head), None)
+            # The export has a row of group headings ("Identification", "End target information")
+            # above the column names: start from the row that names the target year.
+            h = next((i for i, r in enumerate(table[:10]) if any(key(c) in ("endtargetyear", "endtargettargetyear", "targetyear") for c in r if c)), 0)
+            table = table[h:]
+            head = {key(c): i for i, c in enumerate(table[0]) if c}
+            c_type = next((head[k] for k in ("actortype", "entitytype", "type") if k in head), None)
+            c_code = next((head[k] for k in ("iso3", "iso", "country", "code", "idcode") if k in head), None)
             c_name = next((head[k] for k in ("name", "country", "actor") if k in head), None)
             c_year = next((head[k] for k in ("endtargettargetyear", "endtargetyear", "targetyear") if k in head), None)
-            c_stat = next((head[k] for k in ("endtargetstatus", "status") if k in head), None)
+            c_stat = next((head[k] for k in ("endtargetstatus", "statusofendtarget", "status") if k in head), None)
             c_kind = next((head[k] for k in ("endtarget",) if k in head), None)
             if c_year is None or (c_code is None and c_name is None):
                 continue
@@ -810,22 +814,37 @@ class NIWA7Station(_Yearly):
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows = Rows()
+        seen: set[tuple[str, int]] = set()
         for f in sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".csv", ".xlsx")):
             table = _table(f)
             h = next((i for i, r in enumerate(table[:15]) if any(key(c) == "year" for c in r if c)), None)
             if h is None:
                 continue
-            head = [key(c) for c in table[h]]
+            head = [key(c) if c else "" for c in table[h]]
             cy = head.index("year")
-            cv = next((i for i, c in enumerate(head) if "anomaly" in c), None)
-            ct = next((i for i, c in enumerate(head) if c.startswith(("mean", "temperature", "nz"))), None)
+            sub = [key(c) if c else "" for c in table[h + 1]] if h + 1 < len(table) else []
+            comp = next((i for i, c in enumerate(head) if "composite" in c or c.startswith(("7stn", "7station", "sevenstation"))), None)
+            if comp is not None and "temp" in sub[comp:comp + 2] and "anomaly" in sub[comp:comp + 2]:
+                # NIWA's annual workbook: a row of station names over a row of Temp / Anomaly pairs;
+                # the seven-station composite is the last pair.
+                ct, cv = comp + sub[comp:comp + 2].index("temp"), comp + sub[comp:comp + 2].index("anomaly")
+                h += 1
+            elif "anomal" in f.name.lower() and "annual" in head:
+                # NIWA's monthly anomalies workbook: one column per month and the year's anomaly.
+                cv, ct = head.index("annual"), None
+            else:
+                cv = next((i for i, c in enumerate(head) if "anomaly" in c), None)
+                ct = next((i for i, c in enumerate(head) if c.startswith(("mean", "temperature", "nz"))), None)
             for r in table[h + 1:]:
                 y = num(r[cy]) if cy < len(r) else None
                 if not y:
                     continue
-                if cv is not None and cv < len(r):
+                # Two of NIWA's files can give the same year (annual and monthly): the first one read is kept.
+                if cv is not None and cv < len(r) and num(r[cv]) is not None and ("a", int(y)) not in seen:
+                    seen.add(("a", int(y)))
                     rows.add("iso3", "NZL", "nz_temp_anomaly_7station", int(y), num(r[cv]))
-                if ct is not None and ct < len(r):
+                if ct is not None and ct < len(r) and num(r[ct]) is not None and ("t", int(y)) not in seen:
+                    seen.add(("t", int(y)))
                     rows.add("iso3", "NZL", "nz_temp_7station", int(y), num(r[ct]))
         if not len(rows):
             raise ConnectorError("niwa_7station: no years read; expected a Year column and an anomaly or mean temperature column")

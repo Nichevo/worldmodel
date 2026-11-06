@@ -1,6 +1,7 @@
 """Markets (daily exchange rates, gas and oil storage, JODI stocks), BIS effective exchange
 rates and the Stats NZ regions. All from small sample files."""
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -10,7 +11,7 @@ import pytest
 from worldmodel_data.build import build
 from worldmodel_data.config import Paths
 from worldmodel_data.connectors import CONNECTORS
-from worldmodel_data.connectors.statsnz import parse_flows, pick_flow, region_of
+from worldmodel_data.connectors.statsnz import parse_flows, pick_flow, read_flows, region_of
 from worldmodel_data.vintage_store import VintageStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -112,6 +113,20 @@ def test_region_names_and_table_choice():
     assert len(flows) == 2
     assert pick_flow(flows, {"find": ["subnational", "population", "estimates"], "prefer": ["rc", "sex"]})["id"] == "POPES_SUB_006"
     assert pick_flow(flows, {"find": ["census"]}) is None
+    # The same list with a byte order mark, gzipped, or as SDMX-JSON; a web page fails saying what came back.
+    import gzip
+
+    import pytest
+
+    from worldmodel_data.connectors.base import ConnectorError
+
+    assert read_flows(b"\xef\xbb\xbf" + xml.encode()) == flows
+    assert read_flows(gzip.compress(xml.encode())) == flows
+    js = {"data": {"dataflows": [{"id": "POPES_SUB_006", "agencyID": "STATSNZ", "version": "1.0",
+                                  "names": {"en": "Subnational population estimates (RC, SA2), by age and sex"}}]}}
+    assert read_flows(json.dumps(js).encode())[0]["id"] == "POPES_SUB_006"
+    with pytest.raises(ConnectorError, match="neither XML nor JSON; it starts: 'Access denied"):
+        read_flows(b"Access denied due to invalid subscription key.")
 
 
 def _q(con):
