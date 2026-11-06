@@ -164,7 +164,37 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
                f"{counts['skip']} skipped. Report: {result.report}")
     for line in storage:
         typer.echo(line)
+    _quality_after(p, result.path, result.build_id, record)
     _scan_after(p, result.path, result.build_id)
+
+
+def _quality_after(p, warehouse: Path, build_id: str, record: dict | None = None) -> None:
+    """Grade every indicator on the new build, keep the grades, and say what changed since the
+    last build. Never fails the refresh: the app works the grades out itself when they are missing."""
+    import duckdb
+
+    from worldmodel_contract import quality
+
+    try:
+        con = duckdb.connect(str(warehouse), read_only=True)
+        try:
+            now = quality.compute(con)
+        finally:
+            con.close()
+        quality.save(p.home, build_id, now)
+        before = quality.previous(p.home, build_id)
+        if not before:
+            return
+        ch = quality.changes(before[1], now, set(quality.stars()))
+        parts = [f"{len(ch[k])} {label}" for k, label in (("lost", "lost a grade"), ("gained", "gained a grade"),
+                                                          ("stale", "went out of date"), ("flagged", "newly flagged by the checks"))
+                 if ch[k]]
+        if parts:
+            typer.echo("Indicator quality since the last build: " + ", ".join(parts) + " (Data status > Quality).")
+        for c in ch["starred_fell"]:
+            typer.echo(f"  A starred indicator fell from {c['from']} to {c['to']}: {c['indicator_id']}")
+    except Exception as exc:  # noqa: BLE001 - grades are a nicety; never fail a refresh over them
+        typer.echo(f"Indicator grades not worked out ({exc}); the app works them out when asked.")
 
 
 def _scan_after(p, warehouse: Path, build_id: str) -> None:
@@ -364,6 +394,11 @@ def upgrade():
         from worldmodel_contract import relations as rel
 
         last = rel.latest(paths().home, current.stem)
+        from worldmodel_contract import quality
+
+        if quality.load(paths().home, current.stem) is None:  # first update with grades: work them out once now
+            typer.echo("Grading every indicator (A to D; see Data status > Quality)...")
+            _quality_after(paths(), current, current.stem)
         if last is None or last["build_id"] != current.stem:  # first update with the scan: run it once now
             _scan_after(paths(), current, current.stem)
         return

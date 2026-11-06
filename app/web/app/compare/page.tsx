@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
+import IndicatorSelect from "@/components/IndicatorSelect";
 import Search from "@/components/Search";
 import { api, type Entity, type Indicator, type SeriesRow } from "@/lib/api";
 import { seriesVar } from "@/lib/colors";
@@ -57,9 +58,7 @@ function Compare() {
       <div className="controls">
         <label>
           Indicator{" "}
-          <select value={indicatorId} onChange={(e) => update(ids, e.target.value)}>
-            {indicators.map((i) => <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>)}
-          </select>
+          <IndicatorSelect indicators={indicators} value={indicatorId} onChange={(id) => update(ids, id)} />
         </label>
         <div style={{ width: 280 }}>
           <Search

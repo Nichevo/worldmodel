@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { KINDS, kindVar } from "@/lib/events";
 import { useEffect, useState } from "react";
-import { api, type AIStatus, type Settings, type Storage } from "@/lib/api";
+import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage } from "@/lib/api";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
 import PlacePicker, { type Place } from "@/components/PlacePicker";
 import { baseMapStatus, type BaseMapEstimate, type BaseMapStatus } from "@/lib/basemap";
@@ -57,6 +57,30 @@ export default function SettingsPage() {
           save={(v) => save({ ranks_top_n: v })} />
         <Toggle label="Side panel (pinboard)" hint="A column beside the panels for cards sent from popups; saved with each layout."
           on={s.side_panel} set={(v) => save({ side_panel: v })} />
+      </section>
+
+      <section className="card" id="quality">
+        <h2>Indicator quality</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Every indicator gets a grade at each refresh: A core, B good, C usable, D exploratory (see the{" "}
+          <Link href="/indicators">Indicators</Link> page and Data status, Quality). The drop-downs list only the grades below;
+          starred indicators always show, and typing a name finds every indicator.
+        </p>
+        <Field label="Drop-downs show" hint="Also changeable at the top of any indicator list.">
+          <div className="seg" role="group" aria-label="Drop-downs show">
+            {([["A", "A only"], ["B", "A and B"], ["C", "Up to C"], ["all", "Everything"], ["starred", "Starred only"]] as const).map(([v, t]) => (
+              <button key={v} className={s.quality_show === v ? "on" : ""} aria-pressed={s.quality_show === v} onClick={() => save({ quality_show: v })}>{t}</button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Of the type">
+          <select value={s.quality_type} onChange={(e) => save({ quality_type: e.target.value as typeof s.quality_type })} aria-label="Measure type">
+            <option value="">All types</option>
+            {(Object.keys(TYPE_TEXT) as MeasureType[]).map((k) => <option key={k} value={k}>{TYPE_TEXT[k]}</option>)}
+          </select>
+        </Field>
+        <Toggle label="Grade beside chart titles" hint="A small A, B, C or D after each chart's name."
+          on={s.quality_on_titles} set={(v) => save({ quality_on_titles: v })} />
       </section>
 
       <section className="card">

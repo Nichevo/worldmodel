@@ -4,6 +4,7 @@ import type { ECharts, EChartsOption } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
 import Help from "@/components/Help";
+import IndicatorSelect from "@/components/IndicatorSelect";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
@@ -12,6 +13,7 @@ import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
 import { mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
+import { isStarred, passes, useStars } from "@/lib/quality";
 import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
@@ -75,7 +77,6 @@ export default function Panel({
   const year = effectiveYear(panel, indicator);
   const set = (patch: Extract<Action, { type: "panel" }>["patch"]) => dispatch({ type: "panel", id: panel.id, patch });
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
-  const domains = useMemo(() => [...new Set(indicators.map((i) => i.domain))], [indicators]);
   const isProjection = indicator && year !== null && indicator.last_estimate_year !== null && year > indicator.last_estimate_year;
   const exporter = useRef<Exporter>({});
   const body = useRef<HTMLDivElement>(null);
@@ -104,15 +105,7 @@ export default function Panel({
           ))}
         </div>
         {panel.view !== "pyramid" && (
-          <select value={panel.indicator} onChange={(e) => set({ indicator: e.target.value })} aria-label="Indicator">
-            {domains.map((d) => (
-              <optgroup key={d} label={d[0].toUpperCase() + d.slice(1)}>
-                {indicators.filter((i) => i.domain === d).map((i) => (
-                  <option key={i.indicator_id} value={i.indicator_id}>{i.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <IndicatorSelect indicators={indicators} value={panel.indicator} onChange={(id) => set({ indicator: id })} />
         )}
         {indicator && panel.view !== "pyramid" && <Help indicator={indicator} />}
         {indicator && year !== null && (
@@ -689,7 +682,11 @@ function ColumnsMenu({ panel, indicators, dispatch, lines = false, units = [] }:
   }, []);
   const toggle = (id: string, on: boolean) =>
     dispatch({ type: "panel", id: panel.id, patch: { cols: on ? [...panel.cols.filter((c) => c !== id), id] : panel.cols.filter((c) => c !== id) } });
-  const domains = [...new Set(indicators.map((i) => i.domain))];
+  const { quality_show: show } = useSettings();
+  const local = useStars();
+  // The Show filter of the drop-downs applies here too; starred ones and ones already on always show.
+  const offered = indicators.filter((i) => passes(i, show, isStarred(i, local)) || panel.cols.includes(i.indicator_id));
+  const domains = [...new Set(offered.map((i) => i.domain))];
   const main = indicators.find((i) => i.indicator_id === panel.indicator);
   const shownIds = new Set(lines && main ? lineExtras(panel, main, indicators).map((i) => i.indicator_id) : []);
   const lineCount = shownIds.size;
@@ -706,7 +703,7 @@ function ColumnsMenu({ panel, indicators, dispatch, lines = false, units = [] }:
         {domains.map((d) => (
           <Fragment key={d}>
             <div className="menu-head">{d[0].toUpperCase() + d.slice(1)}</div>
-            {indicators.filter((i) => i.domain === d && i.indicator_id !== panel.indicator && (i.available || panel.cols.includes(i.indicator_id))).map((i) => {
+            {offered.filter((i) => i.domain === d && i.indicator_id !== panel.indicator && (i.available || panel.cols.includes(i.indicator_id))).map((i) => {
               const on = lines ? shownIds.has(i.indicator_id) : panel.cols.includes(i.indicator_id);
               const blocked = lines && !on && (lineCount >= MAX_LINES - 1 || (units.length >= 2 && !units.includes(i.unit)));
               return (
@@ -1041,7 +1038,7 @@ function ScatterView({ panel, indicator, indicators, year, names, selection, dis
         <span className="small muted">Across: {indicator.name}</span>
         <label className="small">
           Up
-          <select value={yInd.indicator_id} onChange={(e) => setOpts({ y: e.target.value })}>{choices(indicator.indicator_id)}</select>
+          <IndicatorSelect indicators={usable} value={yInd.indicator_id} skip={indicator.indicator_id} label="Up" onChange={(id) => setOpts({ y: id })} />
         </label>
         <label className="small">
           Bubble size

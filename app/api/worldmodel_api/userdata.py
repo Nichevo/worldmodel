@@ -62,6 +62,27 @@ def save_settings(patch: dict) -> dict:
         return merged
 
 
+# ----------------------------------------------------------------------------- stars and grades (see worldmodel_contract.quality)
+def set_star(indicator_id: str, on: bool) -> list[str]:
+    with _lock:
+        cur = [s for s in _read_json("indicator_stars.json", {}).get("stars", []) if s != indicator_id]
+        if on:
+            cur.append(indicator_id)
+        _write_json("indicator_stars.json", {"stars": cur, "saved_at": now()})
+        return cur
+
+
+def set_grade(indicator_id: str, grade: str | None) -> dict[str, str]:
+    with _lock:
+        cur = dict(_read_json("grade_overrides.json", {}).get("grades", {}))
+        if grade:
+            cur[indicator_id] = grade
+        else:
+            cur.pop(indicator_id, None)
+        _write_json("grade_overrides.json", {"grades": cur, "saved_at": now()})
+        return cur
+
+
 # ----------------------------------------------------------------------------- indicator switches
 def indicator_overrides() -> dict[str, bool]:
     data = _read_json("indicators.json", {})
