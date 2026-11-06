@@ -722,6 +722,7 @@ tr.selected td { background: color-mix(in srgb, var(--accent) 10%, transparent);
 .new-mark { color: var(--div-pos-3); }
 .find-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
 .find-actions > button:not(.link) { padding: 2px 8px; }
+.find-members { max-height: 220px; overflow: auto; margin: 6px 0 0; padding-left: 18px; }
 .find-actions > button.on { background: var(--surface-2); font-weight: 600; border-color: var(--axis); }
 .chip.mine { border-style: dashed; }
 button.chip { cursor: pointer; color: var(--ink-2); }
