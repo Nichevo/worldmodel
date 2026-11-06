@@ -1,0 +1,11 @@
+DATAFLOW,CEN23_ETH_002: Area,ETHNIC: Ethnic group,TIME_PERIOD: Census year,OBS_VALUE
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),01: Northland Region,2: Māori,2023,72000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),01: Northland Region,9999: Total,2023,194000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),02: Auckland Region,2: Māori,2023,190000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),03: Waikato Region,2: Māori,2023,120000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),04: Bay of Plenty Region,2: Māori,2023,100000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),05: Gisborne Region,2: Māori,2023,27000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),06: Hawke's Bay Region,2: Māori,2023,50000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),07: Taranaki Region,2: Māori,2023,25000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),08: Manawatu-Whanganui Region,2: Māori,2023,60000
+STATSNZ:CEN23_ETH_002(1.0): Ethnic group (total responses) for the census usually resident population count (RC),09: Wellington Region,2: Māori,2023,75000

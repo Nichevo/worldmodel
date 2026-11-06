@@ -1,7 +1,11 @@
 -- Members of each group in each period, resolved at the middle of the period,
 -- so a 1990 EU value uses the twelve members of 1990.
+-- Only the periods of indicators that are added up for groups (and population, for coverage):
+-- daily market series (aggregation none) would otherwise multiply this table by thousands of days.
 with periods as (
-    select distinct period_start, freq from {{ ref('int_latest') }}
+    select distinct l.period_start, l.freq from {{ ref('int_latest') }} l
+    join {{ ref('indicators') }} i on i.indicator_id = l.indicator_id
+    where i.agg_method <> 'none' or i.indicator_id = 'pop_total'
 ),
 mid as (
     select period_start, freq,

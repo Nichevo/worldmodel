@@ -431,11 +431,27 @@ country by name (including other names and spellings), or for the UN by location
 Canada. Figures that match no city are counted on the **Data status** page with examples.
 Wikipedia pages for cities have their own daily limit in Settings (10 by default).
 
+## Markets and storage
+
+Exchange rates day by day (ECB since 1999, US Federal Reserve H.10 from FRED since
+1971), BIS trade-weighted exchange rates and policy rates month by month, European gas
+storage and LNG stocks day by day (GIE, free key GIE_API_KEY), US gas, crude oil,
+Strategic Petroleum Reserve and fuel stocks week by week (EIA, free key EIA_API_KEY),
+and oil and gas stocks by country month by month (JODI, no key; New Zealand's days of
+oil product cover come from here). Each country page has a **Currency** card (its
+currency against its biggest trading partners', as rates, indexed, or trade-weighted;
+partners can be changed), and the **Storage** page sets this year against the range
+and average of the years before, drawn as a clock or as lines (Settings: Markets and
+storage, where daily data can also be switched off).
+
 ## New Zealand pack
 
 Extra New Zealand sources, switched on or off together in Settings, Country
-packs (on by default). None needs a key; the regional and census figures that
-need a Stats NZ key come later.
+packs (on by default). Only the regions need a key: add the free Stats NZ key
+(STATSNZ_API_KEY in `.env`) for New Zealand's 16 regions (population estimates,
+census 2013, 2018 and 2023 figures, regional GDP), shown on the NZ page's Regions
+card. The tables are picked by name each month from Stats NZ's Aotearoa Data Explorer
+(the words are in `contract/worldmodel_contract/catalogues/statsnz.yaml`).
 
 | Source | What | How it is fetched |
 | --- | --- | --- |

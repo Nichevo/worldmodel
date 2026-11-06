@@ -36,7 +36,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, climate, highlights, layouts, numbeo, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, climate, highlights, layouts, markets, numbeo, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1963,6 +1963,38 @@ def climate_policy():
     """Each country's net zero target year and how firm it is, its carbon price, when it
     joined the Paris Agreement, and its share of world CO2 and emissions per person."""
     return climate.policy(rows)
+
+
+# ----------------------------------------------------------------------------- markets and regions
+@api.get("/fx/{entity}")
+def fx(entity: str, partners: str | None = Query(None, description="Comma-separated entity ids; default: saved, else top trading partners"),
+       start: int | None = None, end: int | None = None, mode: Literal["rate", "index"] = "rate"):
+    """The country's currency against its partners' currencies, day by day (week or month over
+    longer spans): units of the partner's currency one unit buys, or indexed to 100 at the start;
+    with the BIS trade-weighted index each month."""
+    saved = (local.load_settings().get("fx_partners") or {}).get(entity)
+    return markets.fx(rows, entity, split(partners) or None, start, end, mode, split(saved) or None)
+
+
+@api.get("/storage-levels")
+def storage_list():
+    """The storage series held: European gas and LNG (daily), US stocks (weekly), JODI stocks by country (monthly)."""
+    return markets.storage_list(rows)
+
+
+@api.get("/storage-levels/{indicator}/{entity}")
+def storage_series(indicator: str, entity: str, years: int | None = Query(None, ge=2, le=15)):
+    """One storage series: this year against the band and average of the years before (Settings: storage_years)."""
+    out = markets.storage(rows, indicator, entity, years or int(local.load_settings().get("storage_years", 5)))
+    if out is None:
+        raise HTTPException(404, f"no storage series {indicator} for {entity}")
+    return out
+
+
+@api.get("/regions/{country}")
+def regions(country: str):
+    """The country's regions (New Zealand's 16) with every figure held for them, by year."""
+    return markets.regions(rows, country)
 
 
 # ----------------------------------------------------------------------------- sectors

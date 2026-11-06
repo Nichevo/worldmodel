@@ -83,6 +83,29 @@ export default function SettingsPage() {
           on={s.quality_on_titles} set={(v) => save({ quality_on_titles: v })} />
       </section>
 
+      <section className="card" id="markets">
+        <h2>Markets and storage</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Exchange rates (ECB and the US Federal Reserve) and Europe&apos;s gas storage (GIE, needs GIE_API_KEY) come day by day; US stocks
+          (EIA, needs EIA_API_KEY) week by week; JODI oil and gas stocks month by month. See the <Link href="/storage">Storage</Link> page and
+          each country&apos;s Currency card.
+        </p>
+        <Toggle label="Fetch daily data" hint="Exchange rates and European gas storage at each refresh (a few MB; the first GIE fetch takes about 10 minutes)."
+          on={s.markets_daily} set={(v) => save({ markets_daily: v })} />
+        <Field label="Storage charts" hint="A year drawn round like a clock (January at the top), or one line per year.">
+          <div className="seg" role="group" aria-label="Storage charts">
+            {([["clock", "Clock"], ["lines", "Lines"]] as const).map(([v, t]) => (
+              <button key={v} className={s.storage_chart === v ? "on" : ""} aria-pressed={s.storage_chart === v} onClick={() => save({ storage_chart: v })}>{t}</button>
+            ))}
+          </div>
+        </Field>
+        <NumberField label="Years this year is set against" unit="years" value={s.storage_years} min={2} max={15} step={1}
+          save={(v) => save({ storage_years: v })} />
+        <p className="small muted">Currency card partners: {Object.keys(s.fx_partners ?? {}).length
+          ? <>chosen for {Object.keys(s.fx_partners).join(", ")}. <button className="link" onClick={() => save({ fx_partners: {} })}>Back to top trading partners everywhere</button></>
+          : "each country's top trading partners (change them on its Currency card)."}</p>
+      </section>
+
       <section className="card">
         <h2>Forecasts</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
