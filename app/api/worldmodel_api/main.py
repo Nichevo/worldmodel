@@ -32,11 +32,12 @@ from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
 from worldmodel_contract import energy_flow
+from worldmodel_contract import discover
 from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, climate, highlights, layouts, markets, numbeo, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, climate, highlights, layouts, markets, news, numbeo, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -2361,6 +2362,200 @@ def stream(name: str, format: Literal["json", "csv", "parquet"] = "json", as_of:
     meta_ = warehouse.current().meta
     return _respond(rows(sql, params), format, name,
                     {"stream": st, "as_of": as_of, "build_id": meta_.get("build_id")})
+
+
+# ----------------------------------------------------------------------------- Discover
+_d_cache: dict = {"build": None, "finds": []}
+
+
+def _finds() -> list[dict]:
+    """The finds for the live build: the pipeline's saved copy, else worked out here once and saved."""
+    build = _build_id()
+    if _d_cache["build"] != build:
+        saved = discover.load_saved(local.home(), build, exact=True)
+        if saved is None:
+            found = discover.compute(cursor(), local.home(), userdata.settings())
+            try:
+                discover.save(local.home(), build, found)
+            except OSError:
+                pass
+        else:
+            found = saved.get("finds", [])
+        _d_cache.update(build=build, finds=found)
+    return _d_cache["finds"]
+
+
+def _news_names() -> "news.Names":
+    return news.Names(cursor().execute("SELECT entity_id, short_name FROM entities WHERE type = 'country' AND short_name IS NOT NULL").fetchall())
+
+
+def _stamp_first_seen(items: list[dict], st: dict) -> None:
+    """The first time each find was listed, for "New since your last visit"."""
+    now_ = userdata.now()
+    fresh = {f["key"]: now_ for f in items if f["key"] not in st["first_seen"]}
+    if fresh:
+        st["first_seen"].update(fresh)
+        if len(st["first_seen"]) > 50_000:  # keep the newest
+            st["first_seen"] = dict(sorted(st["first_seen"].items(), key=lambda kv: kv[1])[-40_000:])
+        discover.save_user_state(st)
+
+
+@api.get("/discover")
+def discover_list(tab: str = Query("finds", pattern="^(finds|interesting|hidden|news)$"), category: str | None = None,
+                  kind: str | None = None, tone: str | None = None, entity: str | None = None, tag: str | None = None,
+                  q: str | None = None, sort: str = Query("score", pattern="^(score|newest|key)$"), new: bool = False,
+                  limit: int = Query(60, ge=1, le=1000), offset: int = Query(0, ge=0)):
+    """Interesting finds on the live build (and news), scored for you. Tabs: finds (all but the
+    ones you hid), interesting (the ones you marked), hidden (marked Not interesting, or a kind
+    you never want), news. Filters by category, kind, tone, country, tag and words."""
+    s = userdata.settings()
+    st = discover.user_state()
+    keys = [k for k in (s.get("discover_key_countries") or "").split(",") if k]
+    finds = _finds() if tab != "news" else []
+    pool = finds + (news.items() if tab in ("news", "interesting", "hidden") else [])
+    _stamp_first_seen(pool, st)
+    ranked = discover.ranked(pool, st, keys, float(s.get("discover_key_boost", 1.5)), bool(s.get("discover_tune", True)))
+    if tab == "news":
+        ranked = [f for f in ranked if f["kind"] == "news" and f["rating"] >= 0]
+    elif tab == "interesting":
+        ranked = [f for f in ranked if f["rating"] > 0]
+    elif tab == "hidden":
+        ranked = [f for f in ranked if f["rating"] < 0 or f["never"]]
+    else:
+        ranked = [f for f in ranked if f["rating"] >= 0 and not f["never"] and f["kind"] != "news"]
+    last = st.get("last_visit")
+    for f in ranked:
+        f["new"] = bool(last and f.get("first_seen") and f["first_seen"] > last)
+    facets = {"categories": {}, "kinds": {}, "tones": {}, "entities": {}, "tags": {}}
+    words = [w for w in (q or "").lower().split() if w]
+
+    def keep(f: dict) -> bool:
+        if category and f["category"] != category or kind and f["kind"] != kind or tone and f["tone"] != tone:
+            return False
+        if entity and entity not in f.get("entities", []) or tag and tag not in f.get("tags", []) or new and not f["new"]:
+            return False
+        hay = f"{f['headline']} {f.get('detail', '')} {' '.join(f.get('tags', []))}".lower()
+        return all(w in hay for w in words)
+
+    shown = [f for f in ranked if keep(f)]
+    for f in ranked:  # counts across the tab, so a filter can be changed without losing the others
+        for k, v in (("categories", f["category"]), ("kinds", f["kind"]), ("tones", f["tone"])):
+            facets[k][v] = facets[k].get(v, 0) + 1
+        for e in f.get("entities", []):
+            facets["entities"][e] = facets["entities"].get(e, 0) + 1
+        for t in f.get("tags", []):
+            facets["tags"][t] = facets["tags"].get(t, 0) + 1
+    facets["tags"] = dict(sorted(facets["tags"].items(), key=lambda kv: -kv[1])[:60])
+    if sort == "newest":
+        shown.sort(key=lambda f: (f.get("first_seen") or "", f.get("date") or str((f.get("years") or [0])[-1])), reverse=True)
+    elif sort == "key":
+        order = {k: i for i, k in enumerate(keys)}
+        shown.sort(key=lambda f: (min((order.get(e, 99) for e in f.get("entities", [])), default=99), -f["rank_score"]))
+    names = dict(cursor().execute("SELECT entity_id, short_name FROM entities WHERE entity_id IN (SELECT unnest(?))",
+                                  [list(facets["entities"])]).fetchall())
+    st_news = news.state()
+    return {"items": shown[offset: offset + limit], "total": len(shown), "facets": facets, "names": names,
+            "build_id": _build_id(), "last_visit": last, "new_count": sum(1 for f in ranked if f["new"]),
+            "kinds": {**discover.KINDS, "news": "News"}, "categories": discover.CATEGORIES, "never": st["never"],
+            "news": {"on": bool(s.get("news_on", True)), "running": st_news["running"], "finished_at": st_news.get("finished_at"),
+                     "errors": st_news["errors"], "last": st_news["last"], "due": news.is_due(s, st_news)}}
+
+
+def _discover_find(key: str) -> dict | None:
+    for f in _finds():
+        if f["key"] == key:
+            return f
+    return next((i for i in news.items() if i["key"] == key), None)
+
+
+@api.put("/discover/{key:path}")
+def discover_mark(key: str, change: dict = Body(...)):
+    """Your mark on one find: rating 1 (Interesting), -1 (Not interesting) or 0; tags (your own);
+    tone ("good", "bad", "neutral", or null for the app's own)."""
+    st = discover.user_state()
+    f = _discover_find(key) or st["kept"].get(key)
+    if f is None:
+        raise HTTPException(404, f"no find {key}")
+    if "rating" in change:
+        r = int(change["rating"] or 0)
+        if r not in (-1, 0, 1):
+            raise HTTPException(422, "rating is 1, -1 or 0")
+        if r:
+            st["ratings"][key] = r
+        else:
+            st["ratings"].pop(key, None)
+        if r > 0:
+            st["kept"][key] = {k: v for k, v in f.items() if k not in ("stale", "rating", "rank_score", "new")}
+        else:
+            st["kept"].pop(key, None)
+    if "tags" in change:
+        tags = ai.clean_tags(change.get("tags"))
+        if tags:
+            st["tags"][key] = tags
+        else:
+            st["tags"].pop(key, None)
+    if "tone" in change:
+        t = change.get("tone")
+        if t in discover.TONES:
+            st["tones"][key] = t
+        elif t is None:
+            st["tones"].pop(key, None)
+        else:
+            raise HTTPException(422, "tone is good, bad, neutral or null")
+    discover.save_user_state(st)
+    return {"key": key, "rating": st["ratings"].get(key, 0), "my_tags": st["tags"].get(key, []), "tone": st["tones"].get(key, f["tone"])}
+
+
+@api.put("/discover-never/{kind}")
+def discover_never(kind: str, on: bool = Body(..., embed=True)):
+    """Never show this kind of find (or show it again)."""
+    if kind not in discover.KINDS and kind != "news":
+        raise HTTPException(404, f"no kind {kind}")
+    st = discover.user_state()
+    st["never"] = sorted({*st["never"], kind} if on else set(st["never"]) - {kind})
+    discover.save_user_state(st)
+    return {"never": st["never"]}
+
+
+@api.post("/discover-seen")
+def discover_seen():
+    """Mark the feed as seen now: later finds are "new since your last visit"."""
+    st = discover.user_state()
+    st["last_visit"] = userdata.now()
+    discover.save_user_state(st)
+    return {"last_visit": st["last_visit"]}
+
+
+@api.get("/discover-entity/{entity_id}")
+def discover_entity(entity_id: str, limit: int = Query(5, ge=1, le=50)):
+    """A country's top finds, for the Discover card on its page."""
+    s = userdata.settings()
+    st = discover.user_state()
+    keys = [k for k in (s.get("discover_key_countries") or "").split(",") if k]
+    mine = [f for f in _finds() if entity_id in f.get("entities", [])]
+    ranked = [f for f in discover.ranked(mine, st, keys, float(s.get("discover_key_boost", 1.5)), bool(s.get("discover_tune", True)))
+              if f["rating"] >= 0 and not f["never"] and entity_id in f.get("entities", [])]
+    return {"items": ranked[:limit], "total": len(ranked)}
+
+
+@api.post("/news/fetch")
+def news_fetch(force: bool = False):
+    """Fetch major news in the background (when due, or now with force); see GET /discover?tab=news."""
+    s = userdata.settings()
+    if not s.get("news_on", True):
+        raise HTTPException(409, "News is switched off (Settings: Discover).")
+    if not force and not news.is_due(s):
+        return {"started": False, "why": "fetched recently", **news.state()}
+    return {"started": news.start(s, _news_names()), **news.state()}
+
+
+@api.post("/discover-rescan")
+def discover_rescan():
+    """Work the finds out again on the live build (after changing Discover's settings)."""
+    found = discover.compute(cursor(), local.home(), userdata.settings())
+    discover.save(local.home(), _build_id(), found)
+    _d_cache.update(build=_build_id(), finds=found)
+    return {"finds": len(found)}
 
 
 @app.get("/health")

@@ -444,6 +444,27 @@ partners can be changed), and the **Storage** page sets this year against the ra
 and average of the years before, drawn as a clock or as lines (Settings: Markets and
 storage, where daily data can also be switched off).
 
+## Discover
+
+After each refresh the app looks through its own figures for interesting finds and lists
+them on the **Discover** page, best first: records (highest or lowest on record, or for
+decades), big movers, turning points, overtakes and jumps in rank, outliers in the OECD,
+EU, G20, ASEAN and APEC, sources that disagree, forecasters' big revisions, revised past
+figures, and the strongest pairs and event links from the relationship scan. Each card
+has a headline written from the numbers, a small chart with the years marked, tags, a
+category and a tone (good news, bad news or neutral, from whether the figure is better
+higher or lower; set your own in Settings). Mark finds **Interesting** or **Not
+interesting**: similar ones rise or sink, and the Interesting and Hidden tabs keep them.
+Each country page has a Discover card with its top finds. No new downloads are needed:
+`.\update.bat` works the finds out once, then every refresh does.
+
+The **News** tab gathers major world news from free sources, read politely when the tab
+is opened (at most every six hours): Wikipedia's Current events pages, GDELT's news
+counts (spikes in news about your key countries), and headlines from RNZ, Stuff, ABC
+Australia, the BBC and the Guardian. ReliefWeb's disaster list can be added with an app
+name ReliefWeb has approved. Choose the checks, key countries, sources and how long news
+is kept in Settings: Discover.
+
 ## New Zealand pack
 
 Extra New Zealand sources, switched on or off together in Settings, Country

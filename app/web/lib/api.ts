@@ -235,6 +235,9 @@ export type Settings = {
   storage_chart: "clock" | "lines"; // how the Storage page draws a year
   storage_years: number; // years in the band and average a year is set against
   fx_partners: Record<string, string>; // country id -> its Currency card's partners (comma-separated ids)
+  discover_on: boolean; discover_checks: string; discover_keep: number; discover_key_countries: string; discover_key_boost: number;
+  discover_tune: boolean; discover_ai: boolean; discover_better: Record<string, "higher" | "lower" | "neither">;
+  news_on: boolean; news_sources: string; news_feeds: string; news_reliefweb_app: string; news_keep_days: number; news_every_hours: number;
   basemap_regions: string; // countries (lower-case ISO3, comma-separated) the local map file holds in full detail
   basemap_world_zoom: number;
   basemap_region_zoom: number;
@@ -705,7 +708,36 @@ export type Regions = {
     values: Record<string, Record<string, number>> }[];
 };
 
+export type Tone = "good" | "bad" | "neutral";
+export type Find = {
+  key: string; kind: string; category: string; tone: Tone; better?: string; score: number; rank_score: number;
+  headline: string; detail: string; entities: string[]; indicator_id?: string; indicator_name?: string; unit?: string; decimals?: number;
+  source_id?: string; years?: number[]; value?: number | null; tags: string[]; my_tags: string[]; rating: number; never: boolean;
+  first_seen?: string | null; new?: boolean; stale?: boolean; pair?: [string, string];
+  chart?: { series: { entity_id: string; name: string; points: [number, number][] }[]; mark: number[] };
+  // news items
+  source?: string; outlet?: string; date?: string; url?: string | null; topic?: string;
+};
+export type NewsState = { on: boolean; running: boolean; finished_at?: string | null; due: boolean;
+  errors: Record<string, { at: string; error: string }>; last: Record<string, { at: string; items: number }> };
+export type DiscoverTab = "finds" | "interesting" | "hidden" | "news";
+export type DiscoverFeed = {
+  items: Find[]; total: number; names: Record<string, string>; build_id: string; last_visit: string | null; new_count: number;
+  facets: { categories: Record<string, number>; kinds: Record<string, number>; tones: Record<string, number>;
+    entities: Record<string, number>; tags: Record<string, number> };
+  kinds: Record<string, string>; categories: string[]; never: string[]; news: NewsState;
+};
+
 export const api = {
+  discover: (o: { tab?: DiscoverTab; category?: string; kind?: string; tone?: string; entity?: string; tag?: string; q?: string;
+    sort?: string; new?: string; limit?: number; offset?: number } = {}) => get<DiscoverFeed>("/discover", o),
+  discoverMark: (key: string, change: { rating?: number; tags?: string[]; tone?: Tone | null }) =>
+    send<{ key: string; rating: number; my_tags: string[]; tone: Tone }>("PUT", `/discover/${encodeURIComponent(key)}`, change),
+  discoverNever: (kind: string, on: boolean) => send<{ never: string[] }>("PUT", `/discover-never/${encodeURIComponent(kind)}`, { on }),
+  discoverSeen: () => send<{ last_visit: string }>("POST", "/discover-seen"),
+  discoverEntity: (entity: string, limit = 5) => get<{ items: Find[]; total: number }>(`/discover-entity/${encodeURIComponent(entity)}`, { limit }),
+  discoverRescan: () => send<{ finds: number }>("POST", "/discover-rescan"),
+  newsFetch: (force = false) => send<NewsState & { started: boolean }>("POST", `/news/fetch${force ? "?force=true" : ""}`),
   fx: (entity: string, o: { partners?: string; start?: number; end?: number; mode?: "rate" | "index" } = {}) =>
     get<FxData>(`/fx/${encodeURIComponent(entity)}`, o),
   storageList: () => get<StorageItem[]>("/storage-levels"),

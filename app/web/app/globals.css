@@ -707,3 +707,22 @@ tr.selected td { background: color-mix(in srgb, var(--accent) 10%, transparent);
 .isel-star { background: none; border: 0; cursor: pointer; color: var(--ink-2); font-size: 14px; padding: 0 2px; }
 .isel-star[aria-pressed="true"] { color: #d9a400; }
 .isel-empty { padding: 8px 4px; }
+
+/* Discover */
+.finds { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; }
+.card.find { padding: 12px 14px; }
+.card.find.new { border-left: 3px solid var(--div-pos-3); }
+.find-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+.find-head .chip { margin: 0; }
+.find-title { margin: 2px 0; font-size: 1rem; line-height: 1.3; }
+.tone { font-weight: 600; }
+.tone.good { color: var(--div-pos-3); }
+.tone.bad { color: var(--div-neg-3); }
+.tone.neutral { color: var(--muted); }
+.new-mark { color: var(--div-pos-3); }
+.find-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.find-actions > button:not(.link) { padding: 2px 8px; }
+.find-actions > button.on { background: var(--surface-2); font-weight: 600; border-color: var(--axis); }
+.chip.mine { border-style: dashed; }
+button.chip { cursor: pointer; color: var(--ink-2); }
+a.chip { color: var(--ink); text-decoration: none; }
