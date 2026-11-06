@@ -166,6 +166,7 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
         typer.echo(line)
     _quality_after(p, result.path, result.build_id, record)
     _scan_after(p, result.path, result.build_id)
+    _discover_after(p, result.path, result.build_id)
 
 
 def _quality_after(p, warehouse: Path, build_id: str, record: dict | None = None) -> None:
@@ -210,6 +211,28 @@ def _scan_after(p, warehouse: Path, build_id: str) -> None:
         relations.scan(warehouse, p.home, build_id, settings, log_line=typer.echo)
     except Exception as exc:  # noqa: BLE001
         typer.echo(f"Relationship scan failed: {exc}. The Relationships page keeps the last scan.", err=True)
+
+
+def _discover_after(p, warehouse: Path, build_id: str) -> None:
+    """Look for interesting finds on the new build for the Discover page, unless switched off.
+    Never fails the refresh: the page works them out itself when they are missing."""
+    import duckdb
+
+    from worldmodel_contract import discover
+
+    settings = local.load_settings(p.home)
+    if not settings.get("discover_on", True):
+        return
+    try:
+        con = duckdb.connect(str(warehouse), read_only=True)
+        try:
+            finds = discover.compute(con, p.home, settings)
+        finally:
+            con.close()
+        discover.save(p.home, build_id, finds)
+        typer.echo(f"Discover: {len(finds)} finds on this build (the Discover page).")
+    except Exception as exc:  # noqa: BLE001 - finds are a nicety; never fail a refresh over them
+        typer.echo(f"Discover finds not worked out ({exc}); the page works them out when opened.")
 
 
 def _echo_problems(p) -> None:
@@ -406,6 +429,10 @@ def upgrade():
             _quality_after(paths(), current, current.stem)
         if last is None or last["build_id"] != current.stem:  # first update with the scan: run it once now
             _scan_after(paths(), current, current.stem)
+        from worldmodel_contract import discover
+
+        if discover.load_saved(paths().home, current.stem, exact=True) is None:
+            _discover_after(paths(), current, current.stem)  # first update with Discover: fill the page once now
         return
     if restaged:
         typer.echo("Rebuilding the warehouse from the data already downloaded...")

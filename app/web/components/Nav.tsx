@@ -10,6 +10,7 @@ import { useSettings } from "@/lib/settings";
 
 const LINKS = [
   { href: "/", label: "Map" },
+  { href: "/discover", label: "Discover" },
   { href: "/compare", label: "Compare" },
   { href: "/forecasts", label: "Forecasts" },
   { href: "/relationships", label: "Relationships" },
