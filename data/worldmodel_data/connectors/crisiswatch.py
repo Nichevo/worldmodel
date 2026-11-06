@@ -101,6 +101,19 @@ def page_month(page: str) -> date | None:
     return None
 
 
+def by_entry_month(page: str) -> dict[date, str]:
+    """A database page (one country over many months, say, ten entries a page): its entries
+    grouped by each entry's own month, as page text month_events can read."""
+    blocks = re.split(r'(?=<(?:div|article|li)\b[^>]*class="[^"]*crisiswatch-entry(?![-_a-z]))', page)
+    out: dict[date, list[str]] = {}
+    for b in blocks[1:]:
+        t = re.search(r"<time\b[^>]*>(.*?)</time>", b, re.S | re.I)
+        m = page_month(t.group(0)) if t else None
+        if m:
+            out.setdefault(m, ["<div></div>"]).append(b)
+    return {m: "".join(parts) for m, parts in out.items()}
+
+
 def month_of(name: str) -> date | None:
     """The month a stored page is for, from its file name (october-2024.html, 2024-10.html)."""
     s = name.lower()
@@ -118,7 +131,7 @@ class CrisisWatch(Connector):
     switch = "crisiswatch_fetch"
     keeps_files = True
     fetch_every_days = 7
-    stage_version = 2  # pages saved under the browser's name; the entry's own icon for its rating
+    stage_version = 3  # database pages (entries of many months); pages saved under the browser's name; the entry's own icon for its rating
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -173,6 +186,10 @@ class CrisisWatch(Connector):
         rows, unmatched = [], set()
         for p in sorted(raw_dir.glob("*.htm*")):
             text = p.read_text(encoding="utf-8", errors="replace")
+            if "cw-database" in text or "crisiswatch/database" in p.name.lower():  # a database page: months mixed
+                for m, part in by_entry_month(text).items():
+                    rows += month_events(m, part, unmatched)
+                continue
             m = month_of(p.name) or page_month(text)
             if not m:
                 log.warning("crisiswatch: cannot tell the month of %s (name it like october-2024.html); skipped", p.name)
