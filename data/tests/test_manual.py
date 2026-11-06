@@ -156,3 +156,56 @@ def test_verify_lists_the_pages_with_person_checks():
     assert [t.save_as for t in ts if t.source == "crisiswatch"] == ["october-2026.html", "september-2026.html"]
     assert sum(t.download for t in ts) == 4  # the RBNZ tables
     assert verify.CHECK_WORDS.search("<title>Just a moment...</title>") and not verify.CHECK_WORDS.search("<h1>Vetoes</h1>")
+
+
+def test_a_site_that_keeps_refusing_is_switched_and_switched_back(home, monkeypatch):
+    import json
+
+    from worldmodel_contract import fetch_methods as fm
+
+    _, built = home
+    cls = CONNECTORS["powell_thyne"]
+    tries = []
+    works = {"ok": False}
+
+    def download(self, raw_dir, release):
+        tries.append(1)
+        if not works["ok"]:
+            raise RuntimeError("HTTP 403 Forbidden")
+        shutil.copy(FIX / "powell_thyne" / "powell_thyne_coups_final.txt", raw_dir)
+        return "https://example.org/pt.txt"
+
+    monkeypatch.setattr(cls, "download", download)
+    monkeypatch.setattr(cli, "CONNECTORS", {"powell_thyne": cls})
+    assert CliRunner().invoke(cli.app, ["refresh"]).exit_code == 1  # refused once: keeps trying
+    out = CliRunner().invoke(cli.app, ["refresh"])  # refused twice in a row: switched to your file
+    assert "switched to your file" in out.output
+    state = fm.read_state(paths().home)["sources"]["powell_thyne"]
+    assert state["auto"] == "file" and state["method"] == "file" and state["can"] == ["site", "file"]
+    CliRunner().invoke(cli.app, ["refresh"])
+    assert len(tries) == 2  # the site is left alone now
+    assert "switched to your file automatically" in built[2]["sources"][0]["note"]
+
+    fm.set_choice("powell_thyne", "site", paths().home)  # you can make it try anyway
+    CliRunner().invoke(cli.app, ["refresh"])
+    assert len(tries) == 3
+    fm.set_choice("powell_thyne", "auto", paths().home)
+
+    path = fm.state_path(paths().home)  # the retry date comes round, and the site works again
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["sources"]["powell_thyne"]["retry_from"] = "2000-01-01"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    works["ok"] = True
+    out = CliRunner().invoke(cli.app, ["refresh"])
+    assert out.exit_code == 0, out.output
+    assert len(tries) == 4 and fm.read_state(paths().home)["sources"]["powell_thyne"]["auto"] == "site"
+
+
+def test_a_failed_download_says_what_went_wrong():
+    from worldmodel_contract.fetch_methods import classify
+
+    assert classify("Client error '403 Forbidden' for url") == "blocked"
+    assert classify("HTTP 202 (a check page)") == "blocked"
+    assert classify("Client error '404 Not Found'") == "gone"
+    assert classify("ReadTimeout: timed out") == "network"
+    assert classify("no table with a Resolution column") == "changed"

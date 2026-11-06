@@ -1401,6 +1401,51 @@ def scrapers():
     return {"gap_seconds": settings.get("scrape_gap_seconds"), "sources": out}
 
 
+@api.get("/fetch-methods")
+def fetch_methods_list():
+    """How each source is fetched: what it can do (refresh from the site, verify.bat in your
+    browser, your own file), what you chose, what Automatic chose and why, and how its last
+    refresh went. Written by the data side on every refresh and update.bat."""
+    from worldmodel_contract import fetch_methods as fm
+    state = fm.read_state()
+    choices = fm.read_choices()
+    meta = catalogue.sources()
+    last: dict[str, dict] = {}
+    for run in local.read_refresh_log():
+        for s in run.get("sources") or []:
+            if s.get("source_id"):
+                last[s["source_id"]] = {"at": run.get("started_at"), "status": s.get("status"),
+                                        "note": s.get("error") or s.get("note") or ""}
+    out = []
+    for sid, e in sorted((state.get("sources") or {}).items()):
+        can = [m for m in e.get("can") or [] if m in fm.METHODS]
+        choice = choices.get(sid) if choices.get(sid) in can else None
+        auto = e.get("auto") if e.get("auto") in can else None
+        m = meta.get(sid)
+        out.append({"source_id": sid, "name": m.name if m else sid, "can": can, "kind": e.get("kind"),
+                    "kind_label": fm.SITE_KINDS.get(e.get("kind") or "", ""), "choice": choice or "auto",
+                    "auto": auto or fm.effective(None, None, can), "method": fm.effective(choice, auto, can),
+                    "since": e.get("since"), "why": e.get("why") if auto and auto != "site" else None,
+                    "retry_from": e.get("retry_from") if not choice else None,
+                    "last_kind": e.get("last_kind"), "last_error": e.get("last_error"), "last": last.get(sid)})
+    return {"written_at": state.get("written_at"), "labels": fm.LABELS, "kinds": fm.SITE_KINDS,
+            "blocked_in_a_row": fm.BLOCKED_IN_A_ROW, "sources": out}
+
+
+@api.put("/fetch-methods/{source_id}")
+def fetch_methods_set(source_id: str, change: dict = Body(...)):
+    """Choose how one source is fetched: {"method": "auto" | "site" | "verify" | "file"}."""
+    from worldmodel_contract import fetch_methods as fm
+    e = (fm.read_state().get("sources") or {}).get(source_id)
+    if e is None:
+        raise HTTPException(404, f"no source {source_id} (run update.bat if it is new)")
+    method = change.get("method")
+    if method != "auto" and method not in (e.get("can") or []):
+        raise HTTPException(422, f"{source_id} can be fetched by: auto, {', '.join(e.get('can') or [])}")
+    fm.set_choice(source_id, method)
+    return next(r for r in fetch_methods_list()["sources"] if r["source_id"] == source_id)
+
+
 @api.get("/problems")
 def problems():
     """Each distinct failure in the refresh log, with how often it happened and whether it is still open."""

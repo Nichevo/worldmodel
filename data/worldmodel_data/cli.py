@@ -30,7 +30,7 @@ import typer
 from worldmodel_contract import catalogue, local
 from worldmodel_contract.queries import series_sql, stream_query
 from worldmodel_data import build as build_mod
-from worldmodel_data import gates, manual, monitor
+from worldmodel_data import gates, manual, methods, monitor
 from worldmodel_data.config import load_env, paths
 from worldmodel_data.connectors import CONNECTORS
 from worldmodel_data.vintage_store import VintageStore, now_utc
@@ -276,6 +276,7 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         typer.echo(f"{name}: staged again with the fixed loader")
     failed = []
     settings = local.load_settings(p.home)
+    ways = methods.Methods(p, CONNECTORS)
     for source_id, cls in CONNECTORS.items():
         last = store.latest(source_id)
         size = sum(f.get("bytes", 0) for f in last.files) if last else 0
@@ -303,7 +304,21 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", vintage=None, note="its download is gone; read from a file you save", settled=True)
             typer.echo(f"{source_id}: skipped (its download link is gone; save the file in {folder} to use it)")
             continue
-        hand = _hand_loaded_wait(source_id, cls, last, folder)
+        how, chosen = ways.method(source_id), ways.chosen(source_id)
+        hand = None if chosen == "site" else _hand_loaded_wait(source_id, cls, last, folder)
+        if how in ("verify", "file") and not cls.manual:
+            if _newer_file(last, folder):
+                hand = "load"
+            elif not chosen and ways.retry_due(source_id):
+                hand = None  # automatic: time to see whether the site works again
+                typer.echo(f"{source_id}: trying the site again ({ways.label(source_id)})")
+            else:
+                todo = (".\\verify.bat " + source_id) if how == "verify" else f"save the file in {folder}"
+                note = f"{ways.label(source_id)}; {'nothing loaded yet: ' + todo if not last else 'to update it: ' + todo}"
+                entry.update(status="skipped", vintage=last.vintage if last else None, note=note, settled=bool(last),
+                             method=how)
+                typer.echo(f"{source_id}: skipped ({note})")
+                continue
         if hand == "load":  # a file saved since the last load: read it instead of trying the site
             pass
         elif hand:
@@ -333,6 +348,10 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         try:
             manifest, is_new = conn.ingest(store)
         except Exception as exc:  # one source failing should not stop the others
+            switched = ways.outcome(source_id, False, str(exc))
+            if switched:
+                entry["method_note"] = switched
+                typer.echo(f"{source_id}: {switched} ({ways.entry(source_id).get('why')})")
             if manual.files(folder):  # the site blocked us: use the file saved by hand
                 try:
                     manifest, is_new = cls().ingest(store, folder)
@@ -350,15 +369,28 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             typer.echo(f"{source_id}: FAILED {exc}{hint}", err=True)
             failed.append(source_id)
             continue
+        switched = ways.outcome(source_id, True)
+        if switched:
+            entry["method_note"] = switched
         entry.update(status="new" if is_new else "unchanged", vintage=manifest.vintage,
                      seconds=round(time.monotonic() - t0, 1), download_bytes=conn.downloaded_bytes,
                      vintage_rows=manifest.row_count)
         typer.echo(f"{source_id}: {'new vintage' if is_new else 'unchanged'} {manifest.vintage}")
+    try:
+        ways.save()
+    except OSError as exc:
+        typer.echo(f"could not save how each source is fetched: {exc}", err=True)
     _build_and_log(allow_shrink, record)
     if failed:
         _echo_problems(p)
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
         raise typer.Exit(1)
+
+
+def _newer_file(last, folder: Path) -> bool:
+    """A file in the source's manual folder saved after its stored data was loaded."""
+    newest = max((f.stat().st_mtime for f in manual.files(folder)), default=0.0)
+    return bool(newest) and (last is None or newest > datetime.fromisoformat(last.retrieved_at).timestamp())
 
 
 def _hand_loaded_wait(source_id: str, cls, last, folder: Path) -> str | None:
@@ -409,6 +441,10 @@ def upgrade():
     made = manual.prepare(paths(), CONNECTORS)
     if made:
         typer.echo(f"Folders for files you download yourself are in {manual.root(paths())}: {', '.join(made)}")
+    try:
+        methods.Methods(paths(), CONNECTORS).save()  # the Data status page lists how each source is fetched
+    except OSError:
+        pass
     restaged = _restage_stale(VintageStore(paths()))
     if restaged:
         typer.echo(f"Staged again with fixed loaders: {', '.join(restaged)}")
@@ -633,9 +669,17 @@ def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to op
     p = paths()
     manual.prepare(p, CONNECTORS)
     known = {t.source for t in v.targets()}
-    bad = [n for n in names or [] if n not in known]
+    every = [n.lower() for n in names or []] == ["all"]
+    bad = [n for n in names or [] if n not in known and not every]
     if bad:
-        raise typer.BadParameter(f"unknown {', '.join(bad)}; choose from {', '.join(sorted(known))}")
+        raise typer.BadParameter(f"unknown {', '.join(bad)}; choose from {', '.join(sorted(known))} or all")
+    if not names:  # the sources set to verify.bat (by you or automatically) and any the site refused last time
+        names = _verify_due(p, known)
+        if names:
+            typer.echo(f"Opening the sources set to verify.bat or refused last time: {', '.join(names)} "
+                       "(.\\verify.bat all opens every one).")
+    elif every:
+        names = None
     try:
         import playwright  # noqa: F401
     except ImportError:
@@ -654,6 +698,15 @@ def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to op
         except typer.Exit:
             failed = True
     raise typer.Exit(3 if failed else 0)
+
+
+def _verify_due(p, known: set[str]) -> list[str]:
+    from worldmodel_contract import fetch_methods as fm
+
+    ways = methods.Methods(p, CONNECTORS)
+    refused = {x["source_id"] for x in local.problems(p.home) if x.get("kind") == "fetch" and x.get("open")}
+    return sorted(s for s in known if s in CONNECTORS and (ways.method(s) == "verify" or s in refused
+                  or fm.classify(ways.entry(s).get("last_error") or "") == "blocked" and ways.entry(s).get("last_error")))
 
 
 @app.command(hidden=True)
