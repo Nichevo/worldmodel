@@ -47,6 +47,9 @@ type Props = {
   onCity?: (cityId: string) => void;
   lines?: MapLine[]; // routes between countries (trade on the Sectors page), width by value
   layerFilter?: Record<string, unknown[] | null>; // a MapLibre filter per overlay (storm tracks by year)
+  // Picture tiles under the countries (sea temperatures on the Climate page), and boxes drawn on top.
+  raster?: { tiles: string; attribution: string; maxzoom?: number } | null;
+  boxes?: { name: string; west: number; south: number; east: number; north: number }[];
 };
 
 export type MapLine = { from: string; to: string; value: number; text?: string };
@@ -96,6 +99,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
+  raster = null, boxes = [],
 }: Props) {
   const cityPick = useRef(onCity);
   cityPick.current = onCity;
@@ -334,6 +338,34 @@ export default function WorldMap({
     else onLoad.current.push(apply);
     return () => { gone = true; if (map.current === m && m.getLayer("fill")) removeDetail(m); };
   }, [baseMap]);
+
+  // Picture tiles under the countries, and outlined boxes over them.
+  const rasterKey = raster?.tiles ?? "";
+  const boxesKey = JSON.stringify(boxes);
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => {
+      if (m.getLayer("raster")) m.removeLayer("raster");
+      if (m.getSource("raster")) m.removeSource("raster");
+      if (raster) {
+        m.addSource("raster", { type: "raster", tiles: [raster.tiles], tileSize: 256, maxzoom: raster.maxzoom ?? 7, attribution: raster.attribution });
+        m.addLayer({ id: "raster", type: "raster", source: "raster", paint: { "raster-opacity": 0.95 } }, "fill");
+      }
+      for (const id of ["boxes-line", "boxes-label"]) if (m.getLayer(id)) m.removeLayer(id);
+      if (m.getSource("boxes")) m.removeSource("boxes");
+      if (boxes.length) {
+        m.addSource("boxes", { type: "geojson", data: { type: "FeatureCollection", features: boxes.map((b) => ({
+          type: "Feature", properties: { name: b.name },
+          geometry: { type: "Polygon", coordinates: [[[b.west, b.south], [b.east, b.south], [b.east, b.north], [b.west, b.north], [b.west, b.south]]] } })) } });
+        m.addLayer({ id: "boxes-line", type: "line", source: "boxes", paint: { "line-color": cssVar("--ink"), "line-width": 1.5, "line-dasharray": [3, 2] } });
+        m.addLayer({ id: "boxes-label", type: "symbol", source: "boxes", layout: { "text-field": ["get", "name"], "text-size": 11, "text-anchor": "bottom", "text-offset": [0, -1] },
+          paint: { "text-color": cssVar("--ink"), "text-halo-color": cssVar("--surface"), "text-halo-width": 1.5 } });
+      }
+    };
+    if (m.getSource("countries")) apply();
+    else onLoad.current.push(apply);
+  }, [rasterKey, boxesKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filters on overlays (kept for layers still loading).
   const filters = useRef<Record<string, unknown[] | null>>({});

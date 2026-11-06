@@ -93,6 +93,24 @@ function MapTab({ o }: { o: ClimateOverview }) {
   const unit = meta?.unit ?? "";
   const ranked = useMemo(() => [...rows].sort((a, b) => b.value - a.value).map((r) => ({ name: names.get(r.entity_id) ?? r.entity_id, value: r.value })), [rows, names]);
   const bars = useCallback(() => rankingBars(ranked, unit, 25), [ranked, unit]);
+  // Over time: the five highest this year, the key countries and the world.
+  const s = useSettings();
+  const [overTime, setOverTime] = useState<{ name: string; points: [number, number][] }[]>([]);
+  const top = useMemo(() => [...rows].sort((a, b) => b.value - a.value).slice(0, 5).map((r) => r.entity_id).join(","), [rows]);
+  useEffect(() => {
+    if (!ind) return;
+    const keys = (s.discover_key_countries || "NZL,AUS,GBR,USA").split(",").filter(Boolean);
+    const ids = [...new Set(["world", ...keys, ...(top ? top.split(",") : [])])];
+    let live = true;
+    api.series(ind, ids, 1950).then((r) => {
+      if (!live) return;
+      const by = new Map<string, [number, number][]>();
+      for (const x of r) if (x.value != null) { const k = x.entity_id; if (!by.has(k)) by.set(k, []); by.get(k)!.push([+String(x.period).slice(0, 4), x.value]); }
+      setOverTime(ids.filter((e) => by.get(e)?.length).map((e) => ({ name: e === "world" ? "World" : names.get(e) ?? e, points: by.get(e)! })));
+    }).catch(() => live && setOverTime([]));
+    return () => { live = false; };
+  }, [ind, top, names, s.discover_key_countries]);
+  const timeOpt = useCallback(() => lines(overTime, unit, { decimals: 2, zero: ind === "temp_anomaly" }), [overTime, unit, ind]);
   if (!o.emission_maps.length) return <Nothing what="emissions or temperatures by country" />;
   return (
     <>
@@ -102,6 +120,10 @@ function MapTab({ o }: { o: ClimateOverview }) {
       </div>
       <div className="card"><div className="map-box"><WorldMap fill values={rows} unit={unit} decimals={2} diverging={ind === "temp_anomaly"} onPick={(iso) => router.push(`/entity/${iso}#climate`)} /></div></div>
       <div className="card"><h3>Highest, {year}</h3><EChart option={bars} height={520} label={`${ind} ranking`} /></div>
+      {overTime.length > 0 && (
+        <div className="card"><h3>{meta?.name ?? ind} over time</h3><EChart option={timeOpt} height={360} label={`${ind} over time`} />
+          <p className="caption">The world, your key countries (Settings: Discover) and the five highest in {year}. Click a name in the legend to hide it.</p></div>
+      )}
     </>
   );
 }
@@ -113,12 +135,18 @@ function Storms() {
   const [from, setFrom] = useState(2015);
   const [to, setTo] = useState(2030);
   const [minCat, setMinCat] = useState(0);
+  const [basin, setBasin] = useState("");
   useEffect(() => { api.climateStorms().then((r) => { setSt(r); if (r.years.length) { setTo(r.years[r.years.length - 1]); setFrom(Math.max(r.years[0], r.years[r.years.length - 1] - 5)); } }).catch(() => setSt(null)); }, []);
   useEffect(() => { api.climateLive().then(setLive).catch(() => setLive(null)); }, [s.climate_live_map]);
-  const chart = useCallback(() => stormsOption(st?.years ?? [], st?.basins ?? [], st?.counts ?? [], st?.strong ?? []), [st]);
+  const chart = useCallback(() => {
+    const bi = st ? st.basins.indexOf(basin) : -1;
+    if (!st || bi < 0) return stormsOption(st?.years ?? [], st?.basins ?? [], st?.counts ?? [], st?.strong ?? []);
+    return stormsOption(st.years, [basin], st.counts.map((c) => [c[bi]]), st.strong_by ? st.strong_by.map((c) => c[bi]) : st.strong);
+  }, [st, basin]);
   const points: MapPoint[] = (live?.rows ?? []).map((r) => ({ id: r.id, name: `${LIVE_TYPES[r.type] ?? r.type}: ${r.name ?? ""}`, lng: r.lon, lat: r.lat,
     size: r.alert === "red" ? 3 : r.alert === "orange" ? 2 : 1, color: cssVar(ALERT_COLOR[r.alert] ?? "--muted"), text: `${r.country ?? ""} · ${r.alert} alert · from ${String(r.from ?? "").slice(0, 10)}` }));
-  const filter = useMemo(() => ["all", [">=", ["get", "year"], from], ["<=", ["get", "year"], to], [">=", ["coalesce", ["get", "cat"], 0], minCat]] as unknown[], [from, to, minCat]);
+  const filter = useMemo(() => ["all", [">=", ["get", "year"], from], ["<=", ["get", "year"], to], [">=", ["coalesce", ["get", "cat"], 0], minCat],
+    ...(basin ? [["==", ["get", "basin"], basin]] : [])] as unknown[], [from, to, minCat, basin]);
   return (
     <>
       <div className="chips-row small">
@@ -126,6 +154,8 @@ function Storms() {
         <label>to <input type="number" value={to} min={from} max={2030} onChange={(e) => setTo(+e.target.value)} style={{ width: 70 }} /></label>
         <label>Strength at least <select value={minCat} onChange={(e) => setMinCat(+e.target.value)}>
           <option value={0}>Tropical storm</option>{[1, 2, 3, 4, 5].map((c) => <option key={c} value={c}>Category {c}</option>)}</select></label>
+        <label>Ocean <select value={basin} onChange={(e) => setBasin(e.target.value)}>
+          <option value="">Every ocean</option>{(st?.basins ?? []).map((b) => <option key={b} value={b}>{b}</option>)}</select></label>
         <span className="muted">{live?.off ? "Live alerts are off (Settings: Climate)." : live?.error ? live.error : live?.rows.length ? `${live.rows.length} alerts now (GDACS, ${live.fetched})` : ""}</span>
       </div>
       <div className="card">
@@ -133,9 +163,30 @@ function Storms() {
           layerFilter={{ storm_tracks: filter }} points={points} onPick={() => {}} onCity={() => {}} /></div>
         <p className="caption">Lines: tropical storm tracks (NOAA IBTrACS), darker and wider for stronger. Dots: what GDACS lists now, red and orange alerts larger. Hover for names.</p>
       </div>
-      {st?.years.length ? <div className="card"><h3>Storms each year, by ocean <Help note="climate_storms" /></h3><EChart option={chart} height={300} label="Storms per year" /></div> : <Nothing what="storm tracks" />}
+      {st?.years.length ? <div className="card"><h3>Storms each year, {basin ? basin : "by ocean"} <Help note="climate_storms" /></h3><EChart option={chart} height={300} label="Storms per year" /></div> : <Nothing what="storm tracks" />}
       <p className="small">Orange and red GDACS alerts since 2000 are events: on the <Link href="/events?kinds=disaster">Events page</Link>, the Timeline and charts.</p>
     </>
+  );
+}
+
+// Sea temperatures against normal, from NASA's daily satellite map (GIBS, no key): El Niño
+// shows as a warm tongue along the equator east of the date line, La Niña as a cool one.
+const GIBS_SST = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/{day}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png";
+const NINO_BOXES = [{ name: "Niño 3.4", west: -170, south: -5, east: -120, north: 5 }];
+
+function SeaMap() {
+  const ago = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
+  const [day, setDay] = useState(ago(3)); // the satellite map is a day or two behind
+  const raster = useMemo(() => ({ tiles: GIBS_SST.replace("{day}", day), attribution: "Sea temperatures: NASA GIBS, GHRSST MUR", maxzoom: 7 }), [day]);
+  return (
+    <div className="card">
+      <div className="card-head"><h3>Sea temperatures against normal</h3>
+        <label className="small">Day <input type="date" value={day} max={ago(1)} min="2002-06-01" onChange={(e) => e.target.value && setDay(e.target.value)} /></label></div>
+      <div className="map-box"><WorldMap fill values={[]} unit="" decimals={0} diverging={false} raster={raster} boxes={NINO_BOXES} onPick={() => {}} /></div>
+      <p className="caption">Red: warmer than usual for the day; blue: cooler (about ±4 °C at the ends). The dashed box is Niño 3.4, where the El Niño index is
+        measured: a warm tongue there is El Niño, a cool one La Niña. Daily satellite map from NASA (GIBS, GHRSST MUR); pick an earlier day to compare,
+        for example December 2015 or 2023. Needs the internet; blank if NASA has no map for that day yet.</p>
+    </div>
   );
 }
 
@@ -165,6 +216,7 @@ function Enso() {
         <EChart option={opt} height={280} label="El Niño index history" />
         <p className="caption">Red shading: El Niño side (+0.5 °C or more); blue: La Niña side. Scroll on the chart to zoom. El Niño and La Niña can also show as bands on any chart: tick them in Settings: Events on charts.</p>
       </div>
+      <SeaMap />
       <div className="grid two">
         <div className="card">
           <h3>What it usually means</h3>

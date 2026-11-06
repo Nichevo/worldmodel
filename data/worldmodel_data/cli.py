@@ -299,6 +299,10 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", vintage=last.vintage if last else None, note=f"needs {', '.join(missing)} in .env")
             typer.echo(f"{source_id}: skipped (needs {', '.join(missing)} in .env; see Data status: Keys you can add)")
             continue
+        if getattr(cls, "files_only", False) and not manual.files(folder) and not last:
+            entry.update(status="skipped", vintage=None, note="its download is gone; read from a file you save", settled=True)
+            typer.echo(f"{source_id}: skipped (its download link is gone; save the file in {folder} to use it)")
+            continue
         hand = _hand_loaded_wait(source_id, cls, last, folder)
         if hand == "load":  # a file saved since the last load: read it instead of trying the site
             pass
@@ -615,6 +619,41 @@ def scrape(names: Optional[list[str]] = typer.Argument(None, help="Sources to re
         typer.echo(f"Stopped early or failed: {', '.join(failed)} (the Data status page lists why). "
                    "Building with what was read.", err=True)
         raise typer.Exit(3)
+
+
+@app.command()
+def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to open (default: all): rbnz mbie_energy "
+                                                                 "un_vetoes wto_disputes crisiswatch"),
+           wait: int = typer.Option(240, help="Seconds to wait on each page while you complete a check.")):
+    """Open the sites that turn programs away in a browser window on your screen, one page at
+    a time; you complete any "are you a person?" check yourself. What arrives is saved into
+    the manual folders and loaded. verify.bat builds afterwards."""
+    from worldmodel_data import verify as v
+
+    p = paths()
+    manual.prepare(p, CONNECTORS)
+    known = {t.source for t in v.targets()}
+    bad = [n for n in names or [] if n not in known]
+    if bad:
+        raise typer.BadParameter(f"unknown {', '.join(bad)}; choose from {', '.join(sorted(known))}")
+    try:
+        import playwright  # noqa: F401
+    except ImportError:
+        typer.echo("The browser helper (playwright) is not installed: run .\\update.bat first.", err=True)
+        raise typer.Exit(1) from None
+    typer.echo("A browser window opens for each site. If a site asks you to prove you are a person, do it in that window;\n"
+               "the page is saved once it has loaded. Leave the window alone otherwise. Close this console (Ctrl+C) to stop.")
+    saved = v.run(p, names or None, typer.echo, wait)
+    if not saved:
+        typer.echo("Nothing was saved.", err=True)
+        raise typer.Exit(1)
+    failed = False
+    for source in saved:
+        try:
+            load(source=source, file=None)
+        except typer.Exit:
+            failed = True
+    raise typer.Exit(3 if failed else 0)
 
 
 @app.command(hidden=True)

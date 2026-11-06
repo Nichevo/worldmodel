@@ -142,3 +142,17 @@ def test_a_hand_saved_file_stops_the_retries_until_it_is_due(home, monkeypatch):
 def test_big_sources_are_not_fetched_every_day():
     for s in ("world_bank_wdi", "imf_weo", "oecd", "bis", "owid_grapher", "un_wpp"):
         assert CONNECTORS[s].fetch_every_days, s
+
+
+def test_verify_lists_the_pages_with_person_checks():
+    from datetime import date
+
+    from worldmodel_data import verify
+    from worldmodel_data.connectors import CONNECTORS
+
+    ts = verify.targets(date(2026, 11, 6))
+    assert {t.source for t in ts} == {"rbnz", "mbie_energy", "un_vetoes", "wto_disputes", "crisiswatch"}
+    assert all(t.source in CONNECTORS for t in ts)
+    assert [t.save_as for t in ts if t.source == "crisiswatch"] == ["october-2026.html", "september-2026.html"]
+    assert sum(t.download for t in ts) == 4  # the RBNZ tables
+    assert verify.CHECK_WORDS.search("<title>Just a moment...</title>") and not verify.CHECK_WORDS.search("<h1>Vetoes</h1>")

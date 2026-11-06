@@ -542,7 +542,7 @@ def problems(root: Path | None = None) -> list[dict]:
                      title=f"Download failed: {names.get(sid, sid)}",
                      explain="The source could not be fetched.", todo=AFTER_FAILED_FETCH,
                      summary=s.get("error") or "", examples=[])
-            if s.get("status") in ("new", "unchanged", "error"):
+            if s.get("status") in ("new", "unchanged", "error") or s.get("settled"):  # settled: skipped on purpose, nothing to fix
                 fetches.setdefault(sid, []).append((when, s.get("status") != "error"))
         if run.get("kind") == "load":  # files loaded by hand: they clear a refused download, but are not a build
             continue
