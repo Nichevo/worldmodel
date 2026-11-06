@@ -226,7 +226,7 @@ def test_verify_opens_a_looping_site_in_your_own_browser_and_waits_for_the_save(
     os.utime(downloads / "old.html", (1, 1))
 
     def you_save(url):
-        assert url.endswith("october-2026")
+        assert url.endswith("database?date=October%202026")
         (downloads / "check.html").write_text("<title>Performing security verification</title> Just a moment")
         (downloads / "CrisisWatch October 2026 _ Crisis Group.html").write_text("<h1>CrisisWatch</h1> October 2026 ...")
 
