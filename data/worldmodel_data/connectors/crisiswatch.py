@@ -77,6 +77,30 @@ def months_back(today: date, n: int) -> list[date]:
     return out
 
 
+def month_pages(m: date) -> list[str]:
+    """Names a month's page has had, newest style first: october-trends-and-november-alerts-2026
+    (the year of the alerts month), the older november-alerts-and-october-trends-2026, and plain
+    october-2026."""
+    a, b = MONTH_NAMES[m.month - 1], MONTH_NAMES[m.month % 12]
+    ny = m.year + (m.month == 12)
+    out = [f"{a}-trends-and-{b}-alerts-{ny}"]
+    if ny != m.year:
+        out.append(f"{a}-trends-and-{b}-alerts-{m.year}")
+    return out + [f"{b}-alerts-and-{a}-trends-{ny}", month_slug(m)]
+
+
+def page_month(page: str) -> date | None:
+    """The month a saved page is for, from the month in its main heading (a page saved with
+    the browser's own name, such as 'CrisisWatch Database _ International Crisis Group.htm')."""
+    heads = [h for h in re.findall(r"<h1\b[^>]*>(.*?)</h1>", page, re.S | re.I) if "<time" in h]
+    heads += re.findall(r"<time\b[^>]*>(.*?)</time>", page, re.S | re.I)
+    for part in heads:
+        t = re.search(r"(?i)\b(" + "|".join(MONTH_NAMES) + r")\s+(\d{4})\b", re.sub(r"<[^>]+>", " ", part))
+        if t:
+            return date(int(t.group(2)), MONTH_NAMES.index(t.group(1).lower()) + 1, 1)
+    return None
+
+
 def month_of(name: str) -> date | None:
     """The month a stored page is for, from its file name (october-2024.html, 2024-10.html)."""
     s = name.lower()
@@ -94,6 +118,7 @@ class CrisisWatch(Connector):
     switch = "crisiswatch_fetch"
     keeps_files = True
     fetch_every_days = 7
+    stage_version = 2  # pages saved under the browser's name; the entry's own icon for its rating
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -133,11 +158,11 @@ class CrisisWatch(Connector):
         with PageReader(self, planned=len(wanted)) as pages:
             for m in wanted:
                 dest = raw_dir / f"{month_slug(m)}.html"
-                text = pages.read(BASE + month_slug(m), dest, missing_ok=True, what=month_slug(m),
-                                  expect=r"crisiswatch")
-                if text is None:  # no page by that name: the database view of the month
-                    text = pages.read(f"{BASE}database?date={MONTH_NAMES[m.month - 1].capitalize()}%20{m.year}", dest,
-                                      missing_ok=True, what=f"{month_slug(m)} (database view)", expect=r"crisiswatch")
+                text = None
+                for slug in month_pages(m):  # the page's name has changed over the years
+                    text = pages.read(BASE + slug, dest, missing_ok=True, what=month_slug(m), expect=r"crisiswatch")
+                    if text is not None:
+                        break
                 if text is not None:
                     got.append(month_slug(m))
         if not got:
@@ -147,11 +172,12 @@ class CrisisWatch(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows, unmatched = [], set()
         for p in sorted(raw_dir.glob("*.htm*")):
-            m = month_of(p.name)
+            text = p.read_text(encoding="utf-8", errors="replace")
+            m = month_of(p.name) or page_month(text)
             if not m:
                 log.warning("crisiswatch: cannot tell the month of %s (name it like october-2024.html); skipped", p.name)
                 continue
-            rows += month_events(m, p.read_text(encoding="utf-8", errors="replace"), unmatched)
+            rows += month_events(m, text, unmatched)
         if not rows:
             raise ConnectorError("crisiswatch: no ratings read; the pages' layout may have changed")
         uniq = {(r[0], r[1]): r for r in rows}
@@ -179,6 +205,14 @@ def entries(page: str) -> list[tuple[str, tuple[str, str], str]]:
             continue
         name = text_of(head.group(1)).strip()
         # the rating: from class names or alt text before the paragraphs, else from words near the heading
+        icons = " ".join(re.findall(r'href="#([a-z-]+)"', head.group(0)))  # the entry's own icons, not the months strip
+        if rating(icons):
+            r = rating(icons)
+            paras = [text_of(p) for p in re.findall(r"<p\b[^>]*>(.*?)</p>", b, re.S)]
+            body = " ".join(p for p in paras if p).strip()
+            if name and len(name) <= 80 and body:
+                out.append((name, r, body))
+            continue
         before = b[: head.start()] + b[head.end(): head.end() + 600]
         r = rating(" ".join(re.findall(r'(?:class|alt|title)="([^"]+)"', before))) or rating(text_of(before)[:200])
         paras = [text_of(p) for p in re.findall(r"<p\b[^>]*>(.*?)</p>", b, re.S)]
