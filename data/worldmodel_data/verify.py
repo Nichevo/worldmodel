@@ -39,7 +39,7 @@ class Target:
 
 
 def _crisiswatch(today: date) -> list[Target]:
-    from worldmodel_data.connectors.crisiswatch import BASE, MONTH_NAMES, month_slug
+    from worldmodel_data.connectors.crisiswatch import BASE, month_pages, month_slug
 
     out = []
     for back in (1, 2):
@@ -47,8 +47,7 @@ def _crisiswatch(today: date) -> list[Target]:
         while m < 1:
             y, m = y - 1, m + 12
         slug = month_slug(date(y, m, 1))
-        out.append(Target("crisiswatch", f"CrisisWatch {slug}",  # the month's own page name varies; the database view does not
-                          f"{BASE}database?date={MONTH_NAMES[m - 1].capitalize()}%20{y}", f"{slug}.html",
+        out.append(Target("crisiswatch", f"CrisisWatch {slug}", BASE + month_pages(date(y, m, 1))[0], f"{slug}.html",
                           r"(?i)crisiswatch[\s\S]*" + r"\W+".join(slug.split("-")),
                           by_hand=True))  # its check page reloads for ever in a window the app drives
     return out

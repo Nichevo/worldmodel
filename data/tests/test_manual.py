@@ -226,7 +226,7 @@ def test_verify_opens_a_looping_site_in_your_own_browser_and_waits_for_the_save(
     os.utime(downloads / "old.html", (1, 1))
 
     def you_save(url):
-        assert url.endswith("database?date=October%202026")
+        assert url.endswith("crisiswatch/october-trends-and-november-alerts-2026")
         (downloads / "check.html").write_text("<title>Performing security verification</title> Just a moment")
         (downloads / "CrisisWatch October 2026 _ Crisis Group.html").write_text("<h1>CrisisWatch</h1> October 2026 ...")
 
@@ -260,3 +260,24 @@ def test_verify_leaves_alone_files_saved_recently(home):
     assert [t.save_as for t in left] == ["vetoes.html"]
     assert {t.save_as for t in todo} == {"elected_members.html", "disputes.html"}
     assert len(verify.todo_list(paths(), ["un_vetoes"], None)[0]) == 2  # verify.bat all, or names given: every one
+
+
+def test_crisiswatch_reads_a_page_saved_under_the_browsers_name():
+    from datetime import date
+
+    from worldmodel_data.connectors import crisiswatch as cw
+
+    page = """<h1><time datetime="2026-10-30">October 2026</time></h1>
+    <div class="c-crisiswatch-entry u-pr" id="benin"><h3 class="u-df"><span class="o-icon"><svg><use xlink:href="#unchanged"></use></svg></span>
+    Benin</h3><time>October 2026</time><div class="o-crisis-states"><div title="June 2026"><a href="/crisiswatch/june-trends-and-july-alerts-2026#benin">
+    <span class="state-unchanged"></span><span class="state-resolution"></span></a></div></div>
+    <div class="o-entry-text"><p>President reaffirmed ties.</p></div></div>
+    <div class="c-crisiswatch-entry u-pr" id="mali"><h3><svg><use xlink:href="#deteriorated"></use></svg> Mali</h3>
+    <p>Jihadists blockaded the capital.</p></div>
+    <div class="c-crisiswatch-entry u-pr" id="x"><h3>Nowhere</h3></div>"""
+    assert cw.page_month(page) == date(2026, 10, 1) and cw.month_of("CrisisWatch Database _ International Crisis Group.htm") is None
+    got = {n: r[0] for n, r, _ in cw.entries(page)}
+    assert got == {"Benin": "unchanged", "Mali": "deteriorated"}
+    assert cw.month_pages(date(2026, 10, 1))[0] == "october-trends-and-november-alerts-2026"
+    assert cw.month_pages(date(2026, 12, 1))[:2] == ["december-trends-and-january-alerts-2027",
+                                                     "december-trends-and-january-alerts-2026"]
