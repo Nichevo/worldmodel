@@ -1983,6 +1983,17 @@ def storage_list():
     return markets.storage_list(rows)
 
 
+@api.get("/storage-levels/{indicator}/totals")
+def storage_totals(indicator: str, by: str = Query("region", pattern="^(region|subregion|country)$"), group: str | None = None,
+                   step: str = Query("year", pattern="^(year|month)$"), top: int = Query(10, ge=3, le=30)):
+    """A stock added up over countries, year by year (or month by month): split by continent,
+    subregion, or by country within a continent or subregion. Shares and days of cover are not added up."""
+    out = markets.storage_totals(rows, indicator, by, group, step, top)
+    if out is None:
+        raise HTTPException(404, f"no totals for {indicator}")
+    return out
+
+
 @api.get("/storage-levels/{indicator}/{entity}")
 def storage_series(indicator: str, entity: str, years: int | None = Query(None, ge=2, le=15)):
     """One storage series: this year against the band and average of the years before (Settings: storage_years)."""
@@ -2400,14 +2411,24 @@ def _stamp_first_seen(items: list[dict], st: dict) -> None:
         discover.save_user_state(st)
 
 
+def _when(f: dict) -> tuple[str, str]:
+    """The days a find or news item covers, as ISO dates: a news item's day, a find's years."""
+    if f.get("date"):
+        return f["date"], f["date"]
+    ys = [y for y in (f.get("years") or []) if y]
+    return (f"{min(ys)}-01-01", f"{max(ys)}-12-31") if ys else ("", "")
+
+
 @api.get("/discover")
 def discover_list(tab: str = Query("finds", pattern="^(finds|interesting|hidden|news)$"), category: str | None = None,
                   kind: str | None = None, tone: str | None = None, entity: str | None = None, tag: str | None = None,
                   q: str | None = None, sort: str = Query("score", pattern="^(score|newest|key)$"), new: bool = False,
+                  since: str | None = Query(None, pattern=r"^\d{4}(-\d{2}(-\d{2})?)?$"), until: str | None = Query(None, pattern=r"^\d{4}(-\d{2}(-\d{2})?)?$"),
                   limit: int = Query(60, ge=1, le=1000), offset: int = Query(0, ge=0)):
     """Interesting finds on the live build (and news), scored for you. Tabs: finds (all but the
     ones you hid), interesting (the ones you marked), hidden (marked Not interesting, or a kind
-    you never want), news. Filters by category, kind, tone, country, tag and words."""
+    you never want), news. Filters by category, kind, tone, country, tag, words and dates
+    (since/until: a news item's day, or the years a find covers)."""
     s = userdata.settings()
     st = discover.user_state()
     keys = [k for k in (s.get("discover_key_countries") or "").split(",") if k]
@@ -2434,6 +2455,10 @@ def discover_list(tab: str = Query("finds", pattern="^(finds|interesting|hidden|
             return False
         if entity and entity not in f.get("entities", []) or tag and tag not in f.get("tags", []) or new and not f["new"]:
             return False
+        if since or until:
+            first, last_ = _when(f)
+            if not first or since and last_ < since[:10] or until and first[: len(until)] > until:
+                return False
         hay = f"{f['headline']} {f.get('detail', '')} {' '.join(f.get('tags', []))}".lower()
         return all(w in hay for w in words)
 

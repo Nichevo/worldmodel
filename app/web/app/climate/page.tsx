@@ -92,7 +92,7 @@ function MapTab({ o }: { o: ClimateOverview }) {
   const meta = o.names[ind];
   const unit = meta?.unit ?? "";
   const ranked = useMemo(() => [...rows].sort((a, b) => b.value - a.value).map((r) => ({ name: names.get(r.entity_id) ?? r.entity_id, value: r.value })), [rows, names]);
-  const bars = useCallback(() => rankingBars(ranked, unit, 15), [ranked, unit]);
+  const bars = useCallback(() => rankingBars(ranked, unit, 25), [ranked, unit]);
   if (!o.emission_maps.length) return <Nothing what="emissions or temperatures by country" />;
   return (
     <>
@@ -100,10 +100,8 @@ function MapTab({ o }: { o: ClimateOverview }) {
         <label>Show <select value={ind} onChange={(e) => setInd(e.target.value)}>{o.emission_maps.map((i) => <option key={i} value={i}>{o.names[i]?.name ?? i}</option>)}</select></label>
         <label>Year <input type="number" min={1950} max={2030} value={year} onChange={(e) => setYear(+e.target.value)} style={{ width: 80 }} /></label>
       </div>
-      <div className="grid two">
-        <div className="card"><div className="map-box"><WorldMap fill values={rows} unit={unit} decimals={2} diverging={ind === "temp_anomaly"} onPick={(iso) => router.push(`/entity/${iso}#climate`)} /></div></div>
-        <div className="card"><h3>Highest, {year}</h3><EChart option={bars} height={380} label={`${ind} ranking`} /></div>
-      </div>
+      <div className="card"><div className="map-box"><WorldMap fill values={rows} unit={unit} decimals={2} diverging={ind === "temp_anomaly"} onPick={(iso) => router.push(`/entity/${iso}#climate`)} /></div></div>
+      <div className="card"><h3>Highest, {year}</h3><EChart option={bars} height={520} label={`${ind} ranking`} /></div>
     </>
   );
 }
