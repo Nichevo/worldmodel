@@ -132,7 +132,7 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
     """Copy the contract catalogues and every staged vintage into schema src."""
     con.execute("CREATE SCHEMA src")
     cat = catalogue.CATALOGUE_DIR
-    for name in ("entities", "entity_codes", "memberships", "successions"):
+    for name in ("entities", "entity_codes", "memberships", "successions", "subdivisions"):
         cols = TABLES[name].columns
         casts = ", ".join(f"CAST(nullif({c}, '') AS {t}) AS {c}" for c, t in cols.items())
         con.execute(f"CREATE TABLE src.{name} AS SELECT {casts} FROM "

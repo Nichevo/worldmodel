@@ -27,6 +27,8 @@ import HolidaysCard from "@/components/HolidaysCard";
 import CrimeCard from "@/components/CrimeCard";
 import ClimateCard from "@/components/ClimateCard";
 import InternetCard from "@/components/InternetCard";
+import CurrencyCard from "@/components/CurrencyCard";
+import RegionsCard from "@/components/RegionsCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -70,7 +72,7 @@ const SECTIONS = [
 const TYPE_LABEL: Record<string, string> = {
   country: "Country or area", historical_country: "Former state", world: "World", continent: "Continent",
   subregion: "UN sub-region", intermediate_region: "UN region", bloc: "Bloc", alliance: "Alliance", group: "Group", income_group: "Income group",
-  zone: "Beyond borders", organisation: "International organisation", armed_group: "Armed group",
+  zone: "Beyond borders", organisation: "International organisation", armed_group: "Armed group", subnational: "Region within a country",
 };
 
 export default function EntityPage() {
@@ -116,9 +118,11 @@ export default function EntityPage() {
     { key: "migration", title: "Migration in and out", section: "people", on: true, el: <MigrationCard entity={e} name={nm} indicators={byId} /> },
     { key: "education", title: "Education", section: "people", on: true, el: <EducationCard entity={e} name={nm} indicators={byId} /> },
     { key: "voters", title: "Who votes", section: "people", on: !isGroup, el: <VotersCard entity={e} name={nm} indicators={byId} /> },
+    { key: "currency", title: "Currency", section: "money", on: !isGroup || e === "eu", el: <CurrencyCard entity={e} name={nm} /> },
     { key: "debt", title: "Debt", section: "money", on: !isGroup, el: <DebtCard entity={e} name={nm} indicators={byId} /> },
     { key: "housing", title: "House prices and household debt", section: "money", on: true, el: <HousingCard entity={e} name={nm} indicators={byId} /> },
     { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
+    { key: "regions", title: "Regions", section: "places", on: !isGroup, el: <RegionsCard entity={e} name={nm} /> },
     { key: "cities", title: "Major cities", section: "places", on: !isGroup, el: <CitiesCard entity={e} name={nm} /> },
     { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
     { key: "internet", title: "Internet", section: "places", on: true, el: <InternetCard entity={e} name={nm} indicators={byId} /> },

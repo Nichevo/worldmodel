@@ -15,11 +15,14 @@ from pydantic import BaseModel, Field, model_validator
 CATALOGUE_DIR = Path(str(resources.files("worldmodel_contract") / "catalogues"))
 
 ENTITY_TYPES = ("country", "historical_country", "world", "continent", "subregion", "intermediate_region",
-                "bloc", "alliance", "group", "income_group", "custom", "zone", "organisation", "armed_group")
+                "bloc", "alliance", "group", "income_group", "custom", "zone", "organisation", "armed_group",
+                "subnational")
 # Zones (the Arctic, space, the high seas) are places beyond any one country, and organisations
 # (the UN, Comecon) and armed groups (Al-Qaeda) are not countries either: none is a group of members.
 BEYOND_TYPES = ("zone", "organisation", "armed_group")
-GROUP_TYPES = tuple(t for t in ENTITY_TYPES if t not in ("country", "historical_country") + BEYOND_TYPES)
+# Areas inside a country (New Zealand's regions), listed in subdivisions.csv with their country.
+SUB_TYPES = ("subnational",)
+GROUP_TYPES = tuple(t for t in ENTITY_TYPES if t not in ("country", "historical_country") + BEYOND_TYPES + SUB_TYPES)
 
 
 class Aggregation(BaseModel):
@@ -53,7 +56,7 @@ class Indicator(BaseModel):
     domain: str
     unit: str
     decimals: int = 1
-    frequency: Literal["A", "Q", "M", "D"] = "A"
+    frequency: Literal["A", "Q", "M", "W", "D"] = "A"  # W: weekly, stored as daily rows on the week's date
     breakdowns: list[str] = []
     aggregation: Aggregation
     bounds: tuple[float, float]
@@ -171,6 +174,18 @@ def entity_codes() -> list[dict[str, str | None]]:
 
 def memberships() -> list[dict[str, str | None]]:
     return [_none_if_blank(r) for r in _csv("memberships.csv")]
+
+
+@lru_cache
+def currencies() -> list[dict[str, str | None]]:
+    """Which currency each country (and the euro area, as "eu") uses, with the dates it used it."""
+    return [_none_if_blank(r) for r in _csv("currencies.csv")]
+
+
+@lru_cache
+def subdivisions() -> list[dict[str, str | None]]:
+    """Areas inside a country (New Zealand's regions): entity_id, parent_id, level, code."""
+    return [_none_if_blank(r) for r in _csv("subdivisions.csv")]
 
 
 def successions() -> list[dict[str, str | None]]:

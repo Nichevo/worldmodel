@@ -52,9 +52,9 @@
   needs_key: true
   signup: https://portal.apis.stats.govt.nz/
   how: Sign up on the API portal, subscribe to the Aotearoa Data Explorer product, and copy the subscription key.
-  unlocks: New Zealand regions and census (2013, 2018, 2023) on the NZ pages.
-  limits: Free; per-key rate limits on the portal.
-  status: wanted next (NZ regions and census)
+  unlocks: New Zealand's 16 regions on the NZ page (population, census 2013, 2018 and 2023, regional GDP).
+  limits: Free; per-key rate limits on the portal. Read every 30 days, about ten tables.
+  status: active
 
 - source: gie_agsi
   name: GIE gas storage (AGSI+) and LNG (ALSI) API
@@ -62,9 +62,9 @@
   needs_key: true
   signup: https://agsi.gie.eu/
   how: Register on the site; the key is on your account page.
-  unlocks: European gas storage levels, filling the storage "clock" charts on the markets pages.
-  limits: Free; about 60 requests a minute.
-  status: wanted next (markets and commodities)
+  unlocks: European gas storage and LNG stocks day by day, on the Storage page's clock charts.
+  limits: Free; about 60 requests a minute. The first refresh reads every year since 2011 (about 10 minutes); later ones only the current year.
+  status: active
 
 - source: eia
   name: US EIA Open Data API
@@ -72,9 +72,9 @@
   needs_key: true
   signup: https://www.eia.gov/opendata/register.php
   how: Fill in the form; the key arrives by email.
-  unlocks: US and world oil, gas and coal prices, stocks and output, month by month, on the markets pages.
-  limits: Free key; about 5,000 rows per request.
-  status: wanted next (markets and commodities)
+  unlocks: US gas storage, crude oil, Strategic Petroleum Reserve and fuel stocks week by week, on the Storage page.
+  limits: Free key; about 5,000 rows per request. Six series, read every three days.
+  status: active
 
 
 - source: un_comtrade
@@ -95,16 +95,6 @@
   how: Not needed now. ACLED closed its old developer site (developer.acleddata.com); its newer API signs in with your account password, which the app does not store, so nothing uses ACLED yet.
   unlocks: Conflict events week by week (optional; UCDP covers conflicts without a key).
   limits: Registration required; terms restrict commercial use and redistribution.
-  status: optional, not used yet
-
-- source: eia
-  name: US EIA Open Data API
-  env: [EIA_API_KEY]
-  needs_key: true
-  signup: https://www.eia.gov/opendata/register.php
-  how: Fill in the form; the key arrives by email.
-  unlocks: US and world oil, gas and coal prices, stocks and output, month by month, on the markets pages.
-  limits: Free key; about 5,000 rows per request.
   status: optional, not used yet
 
 - source: ember
