@@ -99,6 +99,11 @@ def test_problems_count_repeats_and_close_once_a_run_passes(tmp_path):
     log.write_text(log.read_text() + json.dumps({"kind": "refresh", "status": "ok", "started_at": "2026-10-05T00:00:00+00:00",
                                                  "sources": [{"source_id": "imf_weo", "status": "unchanged"}]}) + "\n")
     assert not any(p["open"] for p in local.problems(tmp_path))
+    # A source whose download is gone, skipped on purpose from then on: its old failure closes too.
+    log.write_text(log.read_text() + "".join(json.dumps(r) + "\n" for r in [
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-06T00:00:00+00:00", "sources": [{"source_id": "un_wup", "status": "error", "error": "HTTP 404"}]},
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-07T00:00:00+00:00", "sources": [{"source_id": "un_wup", "status": "skipped", "settled": True}]}]))
+    assert not local.problems(tmp_path)[0]["open"]
 
 
 def test_statistical_forecast_models():

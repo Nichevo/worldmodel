@@ -18,6 +18,7 @@ dependencies = [
     "rdata>=0.11",
     "truststore>=0.10",
     "numpy>=1.26",
+    "playwright>=1.45",  # verify.bat: opens sites with a person check in your own Edge or Chrome
 ]
 
 [project.optional-dependencies]

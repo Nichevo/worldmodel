@@ -206,6 +206,7 @@ def sheet_rows(path: Path) -> list[list]:
 class UNWUP(Connector):
     source_id = "un_wup"
     frozen = True
+    files_only = True  # the UN took the 2018 file down (HTTP 404 from 2026-11); cities use GeoNames until a file is saved
 
     def default_release(self, fetched_at: datetime) -> str:
         return "2018"

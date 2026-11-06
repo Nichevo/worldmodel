@@ -605,6 +605,14 @@ export type Scraper = {
   today: string | null; problem: string | null;
 };
 export type Scrapers = { gap_seconds: number; sources: Scraper[] };
+export type FetchMethod = "auto" | "site" | "verify" | "file";
+export type FetchWay = {
+  source_id: string; name: string; can: Exclude<FetchMethod, "auto">[]; kind: "download" | "api" | "pages" | null;
+  kind_label: string; choice: FetchMethod; auto: Exclude<FetchMethod, "auto">; method: Exclude<FetchMethod, "auto">;
+  since: string | null; why: string | null; retry_from: string | null; last_kind: string | null; last_error: string | null;
+  last: { at: string; status: string; note: string } | null;
+};
+export type FetchWays = { written_at: string | null; labels: Record<FetchMethod, string>; blocked_in_a_row: number; sources: FetchWay[] };
 
 // ----------------------------------------------------------------------------- climate
 export type IndName = Record<string, { name: string; unit: string; decimals: number }>;
@@ -629,7 +637,7 @@ export type ClimateEnso = {
   notes: Record<string, { name: string; el_nino: string; la_nina: string }>;
   link: { entity_id: string; name: string; temp_r: number; years: number; note: boolean }[];
 };
-export type ClimateStorms = { years: number[]; basins: string[]; counts: number[][]; strong: number[]; total?: number };
+export type ClimateStorms = { years: number[]; basins: string[]; counts: number[][]; strong: number[]; strong_by?: number[][]; total?: number };
 export type ClimateLive = { rows: { id: string; type: string; name: string; alert: string; country: string; from: string; lon: number; lat: number; url: string }[];
   off?: boolean; error?: string; fetched?: string };
 export type ClimatePolicy = { rows: { entity_id: string; name: string; net_zero_year?: number; net_zero_status?: number; carbon_price?: number;
@@ -719,6 +727,7 @@ export type Find = {
   headline: string; detail: string; entities: string[]; indicator_id?: string; indicator_name?: string; unit?: string; decimals?: number;
   source_id?: string; years?: number[]; value?: number | null; tags: string[]; my_tags: string[]; rating: number; never: boolean;
   first_seen?: string | null; new?: boolean; stale?: boolean; pair?: [string, string];
+  merged?: number; members?: { entity_id: string; name: string; detail: string; value?: number | null }[]; // one find for several countries
   chart?: { series: { entity_id: string; name: string; points: [number, number][] }[]; mark: number[] };
   // news items
   source?: string; outlet?: string; date?: string; url?: string | null; topic?: string;
@@ -753,6 +762,8 @@ export const api = {
   regions: (country: string) => get<Regions>(`/regions/${encodeURIComponent(country)}`),
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   scrapers: () => get<Scrapers>("/scrapers"),
+  fetchMethods: () => get<FetchWays>("/fetch-methods"),
+  setFetchMethod: (id: string, method: FetchMethod) => send<FetchWay>("PUT", `/fetch-methods/${encodeURIComponent(id)}`, { method }),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
     get<{ rows: CityRow[]; note: string | null }>("/cities", q),
   places: (q: { kind?: PlaceKind; country?: string; city?: string; q?: string; limit?: number } = {}) =>

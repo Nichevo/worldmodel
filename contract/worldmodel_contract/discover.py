@@ -731,7 +731,7 @@ def _world(con, finds: list[dict]) -> dict[str, list[list]]:
 def merge_alike(finds: list[dict], p: Panel, names: dict[str, str], keys: list[str], world: dict[str, list[list]] | None = None) -> list[dict]:
     """The same thing found for several countries (unemployment at a record high in five
     countries in the same year) becomes one find: the countries named, the first few (key
-    countries first) drawn as lines against the world (or the middle country when there is no
+    countries first, then the most unusual) drawn as lines against the world (or the middle country when there is no
     world figure). Finds for one country stay as they are."""
     world = world or {}
     groups: dict[tuple, list[dict]] = {}
@@ -775,11 +775,14 @@ def merge_alike(finds: list[dict], p: Panel, names: dict[str, str], keys: list[s
         out.append({**best,
                     "key": f"alike:{f['kind']}:{ind}:{y}:{shape or f.get('rising')}",
                     "headline": f"{name} {what} in {len(ents)} countries in {y}: {listed}",
-                    "detail": " ".join(f"{names.get(x['entities'][0], x['entities'][0])}: {x['detail'] or x['headline'].split(': ', 1)[-1]}"
-                                       for x in order[:8]) + (f" And {len(order) - 8} more." if len(order) > 8 else ""),
+                    "detail": ("Most notable: " if len(order) > MERGE_LINES else "") + " ".join(
+                        f"{names.get(x['entities'][0], x['entities'][0])}: {x['detail'] or x['headline'].split(': ', 1)[-1]}"
+                        for x in order[:3]) + (f" And {len(order) - 3} more." if len(order) > 3 else ""),
+                    "members": [{"entity_id": x["entities"][0], "name": names.get(x["entities"][0], x["entities"][0]),
+                                 "detail": x["detail"] or x["headline"].split(": ", 1)[-1], "value": x.get("value")} for x in order],
                     "entities": ents, "years": [min(x["years"][0] for x in g), y],
                     "score": round(min(1.0, max(x["score"] for x in g) + 0.04 * min(4, len(g) - 1)), 3),
-                    "tags": [*who[:8], name, KINDS[f["kind"]], *[t for t in best["tags"] if t not in who and t not in (name, KINDS[f["kind"]])]],
+                    "tags": [*who[:5], name, KINDS[f["kind"]], *[t for t in best["tags"] if t not in who and t not in (name, KINDS[f["kind"]])]],
                     "chart": {"series": series, "mark": best["chart"]["mark"]}, "merged": len(g)})
     return out
 
