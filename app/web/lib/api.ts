@@ -605,6 +605,14 @@ export type Scraper = {
   today: string | null; problem: string | null;
 };
 export type Scrapers = { gap_seconds: number; sources: Scraper[] };
+export type FetchMethod = "auto" | "site" | "verify" | "file";
+export type FetchWay = {
+  source_id: string; name: string; can: Exclude<FetchMethod, "auto">[]; kind: "download" | "api" | "pages" | null;
+  kind_label: string; choice: FetchMethod; auto: Exclude<FetchMethod, "auto">; method: Exclude<FetchMethod, "auto">;
+  since: string | null; why: string | null; retry_from: string | null; last_kind: string | null; last_error: string | null;
+  last: { at: string; status: string; note: string } | null;
+};
+export type FetchWays = { written_at: string | null; labels: Record<FetchMethod, string>; blocked_in_a_row: number; sources: FetchWay[] };
 
 // ----------------------------------------------------------------------------- climate
 export type IndName = Record<string, { name: string; unit: string; decimals: number }>;
@@ -754,6 +762,8 @@ export const api = {
   regions: (country: string) => get<Regions>(`/regions/${encodeURIComponent(country)}`),
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   scrapers: () => get<Scrapers>("/scrapers"),
+  fetchMethods: () => get<FetchWays>("/fetch-methods"),
+  setFetchMethod: (id: string, method: FetchMethod) => send<FetchWay>("PUT", `/fetch-methods/${encodeURIComponent(id)}`, { method }),
   cities: (q: { country?: string; q?: string; min_population?: number; limit?: number; sort?: string } = {}) =>
     get<{ rows: CityRow[]; note: string | null }>("/cities", q),
   places: (q: { kind?: PlaceKind; country?: string; city?: string; q?: string; limit?: number } = {}) =>

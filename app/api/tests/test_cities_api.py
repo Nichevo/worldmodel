@@ -152,3 +152,21 @@ def test_scrapers_listed_with_their_last_run(client, tmp_path):
     assert data["sources"][0]["source_id"] == "crisiswatch"  # stopped runs first
     assert rows["crisiswatch"]["last_run"]["read"] == 4 and rows["crisiswatch"]["setting_value"] == 12
     assert "of 20 pages today" in rows["numbeo"]["today"] and data["gap_seconds"] == 6
+
+
+def test_fetch_methods_listed_and_chosen(client, tmp_path):
+    import json
+
+    (tmp_path / "warehouse").mkdir(exist_ok=True)
+    (tmp_path / "warehouse" / "fetch_methods.json").write_text(json.dumps({"written_at": "2026-11-06T00:00:00+00:00", "sources": {
+        "rbnz": {"can": ["site", "verify", "file"], "kind": "download", "auto": "verify", "since": "2026-11-05T01:00:00+00:00",
+                 "why": "the site refused 2 refreshes in a row (HTTP 403)", "retry_from": "2026-12-05"},
+        "world_bank_wdi": {"can": ["site"], "kind": "download", "auto": "site"}}}))
+    rows = {r["source_id"]: r for r in client.get("/api/v1/fetch-methods").json()["sources"]}
+    assert rows["rbnz"]["method"] == "verify" and rows["rbnz"]["choice"] == "auto" and "403" in rows["rbnz"]["why"]
+    assert rows["world_bank_wdi"]["method"] == "site" and rows["world_bank_wdi"]["why"] is None
+    got = client.put("/api/v1/fetch-methods/rbnz", json={"method": "file"}).json()
+    assert got["method"] == "file" and got["choice"] == "file" and got["retry_from"] is None
+    assert json.loads((tmp_path / "user" / "fetch_methods.json").read_text()) == {"rbnz": "file"}
+    assert client.put("/api/v1/fetch-methods/world_bank_wdi", json={"method": "verify"}).status_code == 422
+    assert client.put("/api/v1/fetch-methods/rbnz", json={"method": "auto"}).json()["method"] == "verify"
