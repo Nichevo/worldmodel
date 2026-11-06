@@ -115,6 +115,21 @@ SETTINGS: dict[str, object] = {
     "storage_chart": "clock",        # the Storage page draws a year as a "clock" (round) or as one line per year
     "storage_years": 5,              # years in the band (lowest to highest) and average the current year is set against
     "fx_partners": {},               # country id -> currencies' countries on its Currency card (else its top trading partners)
+    # Discover: interesting finds after each refresh, and major news
+    "discover_on": True,             # look for finds after each refresh (and once after update.bat)
+    "discover_checks": "record,mover,turning,overtake,outlier,disagree,forecast,together,after,revised",
+    "discover_keep": 500,            # finds kept per build, best first
+    "discover_key_countries": "NZL,AUS,GBR,USA",  # boosted, and the ones checked for overtakes, revisions and forecasts
+    "discover_key_boost": 1.5,       # how much a key country's finds are lifted (1 = not at all)
+    "discover_tune": True,           # your Interesting / Not interesting ratings lift or sink kinds, categories and tags
+    "discover_ai": False,            # a "Why might this be?" button on each card, answered by your local AI (marked as its guess)
+    "discover_better": {},           # indicator id -> "higher", "lower" or "neither": your own "better when" for a find's tone
+    "news_on": True,                 # the News tab fetches major news (no key needed)
+    "news_sources": "wikipedia,gdelt,feeds",  # wikipedia (Current events), gdelt (news counts and spikes), feeds (headlines), reliefweb
+    "news_feeds": "rnz,stuff,abc,bbc,guardian",
+    "news_reliefweb_app": "",        # ReliefWeb only answers app names it has approved (free: apidoc.reliefweb.int); blank = off
+    "news_keep_days": 730,           # how far back news is kept
+    "news_every_hours": 6,           # news is fetched again when the News tab is opened this long after the last time
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
@@ -122,11 +137,12 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection")}
 # Free text settings (addresses and model names), kept to one line.
-TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url"}
+TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden"}  # comma-separated ids, order kept
+IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
+BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
@@ -137,7 +153,8 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
-          "storage_years": (2, 15)}
+          "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),
+          "news_every_hours": (1, 720)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
@@ -218,6 +235,16 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
                 continue
             out[key] = {str(k)[:40]: _idlist(x) for k, x in list(v.items())[:300]
                         if re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(k)) and _idlist(x)}
+        elif key in BETTER:
+            if isinstance(v, str):
+                try:
+                    v = json.loads(v or "{}")
+                except ValueError:
+                    continue
+            if not isinstance(v, dict):
+                continue
+            out[key] = {str(k)[:80]: x for k, x in list(v.items())[:5000]
+                        if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", str(k)) and x in ("higher", "lower", "neither")}
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v

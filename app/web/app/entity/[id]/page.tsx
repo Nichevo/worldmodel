@@ -29,6 +29,7 @@ import ClimateCard from "@/components/ClimateCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
 import RegionsCard from "@/components/RegionsCard";
+import DiscoverCard from "@/components/DiscoverCard";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -232,6 +233,8 @@ export default function EntityPage() {
         </div>
       )}
 
+      {show("discover") && <DiscoverCard entity={e} name={nm} />}
+
       <h2 className="section-head" id="charts">Charts</h2>
       <div className="charts-bar small">
         <button onClick={() => setPicker(true)} title="Tick which charts and cards this page shows">Choose charts and cards…</button>
@@ -302,7 +305,7 @@ export default function EntityPage() {
 
       <ProfilePicker open={picker} onClose={() => setPicker(false)} indicators={indicators} charts={chartIds}
         defaults={CHARTS.map((c) => c.id)} setCharts={(ids) => saveSettings({ profile_charts: ids.join(",") || "none" })}
-        cards={[{ key: "pyramid", title: "Population by age and sex" }, ...cards.filter((c) => c.on).map(({ key, title }) => ({ key, title }))]}
+        cards={[{ key: "discover", title: "Discover: top finds" }, { key: "pyramid", title: "Population by age and sex" }, ...cards.filter((c) => c.on).map(({ key, title }) => ({ key, title }))]}
         hidden={hidden} setHidden={(keys) => saveSettings({ profile_cards_hidden: keys.join(",") })} />
     </div>
   );
