@@ -28,11 +28,19 @@ from datetime import date, datetime
 from pathlib import Path
 
 import duckdb
-
 from worldmodel_contract import catalogue
+
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.events_common import stage_events
-from worldmodel_data.connectors.tabular import Rows, entity_for, indicator, key, num, xlsx_rows, xlsx_sheet_names
+from worldmodel_data.connectors.tabular import (
+    Rows,
+    entity_for,
+    indicator,
+    key,
+    num,
+    xlsx_rows,
+    xlsx_sheet_names,
+)
 
 log = logging.getLogger(__name__)
 

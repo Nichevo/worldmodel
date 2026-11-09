@@ -1107,6 +1107,26 @@
     get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
     what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv), or save the yearly Excel file ('EV data by country 2026.xlsx', from the Global EV Outlook data page), here."
 
+- id: iea_data
+  name: IEA data files (electricity, RD&D, coal, subsidies, prices, outlook)
+  short_name: IEA files
+  publisher: International Energy Agency
+  url: https://www.iea.org/data-and-statistics
+  licence: IEA terms; free datasets for personal use (some CC BY 4.0)
+  licence_url: https://www.iea.org/terms
+  commercial_use: false
+  cadence: Saved by hand when the IEA updates a file (monthly electricity and prices; yearly for the rest)
+  attribution: "IEA (2026), data files as named in each indicator, IEA, Paris."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: true
+    optional: true
+    get: https://www.iea.org/data-and-statistics/data-product
+    what: "Sign in to the IEA (free) and save any of these here, keeping their names: the data explorer's zipped CSVs MESGEN and MESBAL (Monthly Electricity Statistics), RDDPUBLIC and RDDPRIVATE (energy RD&D), CST and CSTWORLDTRADE (coal); the workbooks 'Subsidies 2010-2024', 'Household Energy Expenditure database', 'Household Appliances database', 'Energy_Prices_Monthly_Excerpt' and 'Energy_ValueAdded'; and the World Energy Outlook Annex A free dataset CSVs (World and Regions). Other files are left out. A new copy of one file replaces only that file."
+
 - id: owid_co2
   name: Our World in Data CO2 and greenhouse gas emissions
   short_name: Emissions (OWID)
