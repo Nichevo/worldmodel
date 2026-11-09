@@ -249,6 +249,24 @@ export default function SettingsPage() {
         <TextField label="UN voting compared with" value={s.voting_compare} placeholder="USA,CHN,RUS,eu"
           note="Country codes or group ids, comma-separated. A group (eu, nato, oecd, asean) shows the average over its members of each year. Used on every country's UN voting card."
           save={(v) => save({ voting_compare: v })} />
+        <h3>WORLD Policy tables from Harvard Dataverse</h3>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          WORLD&apos;s datasets (paid leave, minimum wage, working hours, schooling, constitutions and more) ask each downloader to fill in
+          a short guestbook. Fill it in once here and <code>.\refresh.bat</code> downloads the data files itself, every 90 days, a few
+          seconds apart. The answers go to Dataverse with each download and are kept on this PC only. Left blank, WORLD stays a source
+          you download yourself.
+        </p>
+        <Toggle label="Download WORLD Policy tables" hint="Switching off keeps what is stored; files you save by hand still load."
+          on={s.world_dataverse_fetch} set={(v) => save({ world_dataverse_fetch: v })} />
+        <TextField label="Your name" value={s.world_dataverse_name} save={(v) => save({ world_dataverse_name: v })} />
+        <TextField label="Email" value={s.world_dataverse_email} save={(v) => save({ world_dataverse_email: v })} />
+        <TextField label="Organisation" value={s.world_dataverse_institution} placeholder="(none)" save={(v) => save({ world_dataverse_institution: v })} />
+        <TextField label="Position" value={s.world_dataverse_position} placeholder="(none)" save={(v) => save({ world_dataverse_position: v })} />
+        <TextField label="Purpose" value={s.world_dataverse_purpose} note="Also the answer to any extra question a dataset's guestbook asks."
+          save={(v) => save({ world_dataverse_purpose: v })} />
+        <TextField label="Only these datasets" value={s.world_dataverse_datasets} placeholder="(blank: every dataset with a data file)"
+          note="Words from dataset titles (leave, wage, education) or DOIs, comma-separated."
+          save={(v) => save({ world_dataverse_datasets: v })} />
       </section>
 
       <section className="card">

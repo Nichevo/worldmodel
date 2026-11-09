@@ -269,6 +269,13 @@ export type Settings = {
   map_layer_sets: Record<string, string>; // your own quick sets: name -> layer letters
   news_watch_words: string; // comma-separated words that put a news item on the map
   news_watch_outlets: number; // outlets needed before a reported item shows on the map
+  world_dataverse_fetch: boolean; // refresh downloads WORLD Policy's files from Harvard Dataverse
+  world_dataverse_name: string;
+  world_dataverse_email: string;
+  world_dataverse_institution: string;
+  world_dataverse_position: string;
+  world_dataverse_purpose: string;
+  world_dataverse_datasets: string;
   flags_on: boolean; // small flags beside country names
 };
 

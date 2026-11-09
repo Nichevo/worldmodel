@@ -944,17 +944,17 @@
   licence: Free public use data; non-commercial use
   licence_url: https://www.worldpolicycenter.org/data-and-methods
   commercial_use: false
-  cadence: Load new tables when you download them
+  cadence: Checked every 90 days on Harvard Dataverse (with the guestbook filled in)
   attribution: "WORLD Policy Analysis Center, UCLA."
   status: active
   default_rank: 3
   standing: 4
   definition: established
   manual:
-    by_hand: true
+    by_hand: false
     optional: true
     get: https://dataverse.harvard.edu/dataverse/WORLD
-    what: "Optional. WORLD's tables are now on Harvard Dataverse (no sign-in): open a dataset (paid leave, minimum wage, working hours, education, constitutions...), download its data file (Excel or CSV, one row per country) and save it here."
+    what: "Refresh downloads WORLD's tables from Harvard Dataverse once you fill in its guestbook in Settings > The world beyond borders. Or open a dataset (paid leave, minimum wage, working hours, education, constitutions...), download its data file (Excel or CSV, one row per country) and save it here."
 
 - id: gunpolicy
   name: GunPolicy.org
@@ -1443,6 +1443,10 @@
   default_rank: 3
   standing: 3
   definition: exploratory
+  manual:
+    by_hand: false
+    get: https://github.com/unicode-org/cldr-json/tree/main/cldr-json
+    what: "If the download fails: save cldr-core/supplemental/territoryInfo.json and cldr-localenames-full/main/en/languages.json here."
 
 - id: glottolog
   name: Glottolog, the world's languages and how endangered they are
@@ -1458,6 +1462,10 @@
   default_rank: 3
   standing: 4
   definition: exploratory
+  manual:
+    by_hand: false
+    get: https://github.com/glottolog/glottolog-cldf/tree/master/cldf
+    what: "If the download fails: save languages.csv and values.csv from the cldf folder here."
 
 - id: cow_religion
   name: Correlates of War, World Religion Data (national, 1945-2010)
@@ -1473,6 +1481,10 @@
   default_rank: 3
   standing: 4
   definition: exploratory
+  manual:
+    by_hand: false
+    get: https://correlatesofwar.org/data-sets/world-religion-data/
+    what: "If the download fails: save the national file (WRP_national.csv) here."
 
 - id: pew_religion
   name: Pew Research Center, religious composition by country (2010, 2020, projections to 2050)
