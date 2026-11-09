@@ -1,0 +1,5 @@
+{"supplemental": {"version": {"_cldrVersion": "49"}, "territoryInfo": {
+  "NZ": {"_population": "5161210", "languagePopulation": {"en": {"_populationPercent": "98", "_officialStatus": "de_facto_official"}, "mi": {"_populationPercent": "2.8", "_officialStatus": "official"}}},
+  "CH": {"_population": "8860574", "languagePopulation": {"de": {"_populationPercent": "64", "_officialStatus": "official"}, "fr": {"_populationPercent": "23", "_officialStatus": "official"}, "it": {"_populationPercent": "8.4", "_officialStatus": "official"}, "rm": {"_populationPercent": "0.6", "_officialStatus": "official_regional"}, "en": {"_populationPercent": "61"}}},
+  "QO": {"_population": "1000", "languagePopulation": {"en": {"_populationPercent": "50"}}}
+}}}

@@ -269,6 +269,13 @@ export type Settings = {
   map_layer_sets: Record<string, string>; // your own quick sets: name -> layer letters
   news_watch_words: string; // comma-separated words that put a news item on the map
   news_watch_outlets: number; // outlets needed before a reported item shows on the map
+  world_dataverse_fetch: boolean; // refresh downloads WORLD Policy's files from Harvard Dataverse
+  world_dataverse_name: string;
+  world_dataverse_email: string;
+  world_dataverse_institution: string;
+  world_dataverse_position: string;
+  world_dataverse_purpose: string;
+  world_dataverse_datasets: string;
   flags_on: boolean; // small flags beside country names
 };
 
@@ -777,6 +784,41 @@ export type WatchHit = {
 };
 export type MapEvents = { start: string; end: string; events: MapEvent[]; watch: WatchHit[]; words: string[] };
 
+
+// Religion and languages (/religion, /languages and each country's mix).
+export type RelGroup = { id: string; name: string };
+export type RelPoint = { year: number; projected: boolean; shares: Record<string, number>; edition?: number; text?: string; people?: number };
+export type Religion = {
+  groups: RelGroup[]; sources: { id: string; name: string }[]; years: number[]; world: Record<string, RelPoint[]>;
+  map: { year: number | null; group: string; since: number | null;
+    rows: { entity_id: string; source: string; largest: string; largest_share: number; share: number; change?: number }[] };
+};
+export type EntityReligion = { entity_id: string; groups: RelGroup[]; sources: { id: string; name: string; points: RelPoint[] }[] };
+export type Languages = {
+  top: { code: string; name: string; speakers: number; countries: number; official_in: number }[];
+  lang: string; lang_name: string;
+  map: { entity_id: string; share: number; official: number | null }[];
+  main: { entity_id: string; code: string; name: string; share: number }[];
+  counts: { entity_id: string; lang_count?: number; lang_endangered?: number; lang_official_count?: number }[];
+  languages: { code: string; name: string }[];
+};
+export type CrisisWave = { year: number; share: number; count: number; of: number };
+export type Crises = {
+  kinds: { id: string; name: string }[];
+  selected: string[];
+  years: [number, number] | null;
+  waves: Record<string, CrisisWave[]>;
+  strips: { entity_id: string; years: number; spells: { kind: string; from: number; to: number }[] }[];
+  countries: number;
+};
+export type EntityLanguages = {
+  entity_id: string;
+  languages: { code: string; name: string; share: number | null; speakers: number | null; official: string | null }[];
+  counts: Record<string, number>;
+  endangered: { name: string; status: string; family: string; level: number }[];
+  factbook: { edition: number; content: string } | null;
+};
+
 export const api = {
   briefing: (days?: number) => get<Briefing>("/briefing", { days }),
   entityLatest: (id: string, days = 30) => get<EntityLatest>(`/entities/${encodeURIComponent(id)}/latest`, { days }),
@@ -885,6 +927,11 @@ export const api = {
   deleteRatio: (id: string) => send<{ deleted: string }>("DELETE", `/ratios/${id}`),
   voting: (entity: string, compare?: string) => get<Voting>(`/entities/${encodeURIComponent(entity)}/voting`, { compare }),
   crisiswatch: (month?: string) => get<CrisisWatchMonth>("/crisiswatch", { month }),
+  religion: (year?: number, group?: string, since?: number) => get<Religion>("/religion", { year, group, since }),
+  entityReligion: (id: string) => get<EntityReligion>(`/entities/${encodeURIComponent(id)}/religion`),
+  languages: (lang?: string, top?: number) => get<Languages>("/languages", { lang, top }),
+  crises: (kind?: string, start?: number, entity?: string) => get<Crises>("/crises", { kind, start, entity }),
+  entityLanguages: (id: string) => get<EntityLanguages>(`/entities/${encodeURIComponent(id)}/languages`),
   zones: () => get<Zone[]>("/zones"),
   beyondOthers: () => get<BeyondOther[]>("/beyond/others"),
   relationships: (q: { label?: string; domain?: string; group?: string; q?: string; indicator?: string; drivers?: boolean;

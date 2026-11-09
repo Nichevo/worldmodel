@@ -22,6 +22,9 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/", label: "Map" },
     { href: "/compare", label: "Compare" },
     { href: "/topics", label: "Topics" },
+    { href: "/religion", label: "Religion" },
+    { href: "/languages", label: "Languages" },
+    { href: "/crises", label: "Financial crises" },
     { href: "/indicators", label: "Indicators" },
     { href: "/sectors", label: "Sectors" },
     { href: "/storage", label: "Storage" },
@@ -41,6 +44,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
   ] },
   { label: "Data", hint: "Sources, what is loaded, and settings", links: [
     { href: "/sources", label: "Sources" },
+    { href: "/glossary", label: "Glossary", hint: "The terms the charts use" },
     { href: "/data", label: "Data status" },
     { href: "/settings", label: "Settings" },
   ] },

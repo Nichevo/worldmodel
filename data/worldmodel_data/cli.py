@@ -300,12 +300,21 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", vintage=last.vintage if last else None, note=f"needs {', '.join(missing)} in .env")
             typer.echo(f"{source_id}: skipped (needs {', '.join(missing)} in .env; see Data status: Keys you can add)")
             continue
+        # A source that needs a form filled in (a guestbook): until it is, only files you saved are read.
+        blank = [v for v in cls.needs_settings if not settings.get(v)]
+        if blank and not _newer_file(last, folder):
+            entry.update(status="skipped", vintage=last.vintage if last else None, note="waits for its form in Settings",
+                         settled=bool(last))
+            typer.echo(f"{source_id}: skipped (fill in its form in Settings to download it)")
+            continue
         if getattr(cls, "files_only", False) and not manual.files(folder) and not last:
             entry.update(status="skipped", vintage=None, note="its download is gone; read from a file you save", settled=True)
             typer.echo(f"{source_id}: skipped (its download link is gone; save the file in {folder} to use it)")
             continue
         how, chosen = ways.method(source_id), ways.chosen(source_id)
         hand = None if chosen == "site" else _hand_loaded_wait(source_id, cls, last, folder)
+        if blank:
+            hand = "load"  # the form is empty but you saved a newer file: read it
         if how in ("verify", "file") and not cls.manual:
             if _newer_file(last, folder):
                 hand = "load"
@@ -659,8 +668,10 @@ def scrape(names: Optional[list[str]] = typer.Argument(None, help="Sources to re
 
 @app.command()
 def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to open (default: all): rbnz mbie_energy "
-                                                                 "un_vetoes wto_disputes crisiswatch"),
-           wait: int = typer.Option(240, help="Seconds to wait on each page while you complete a check.")):
+                                                                 "un_vetoes wto_disputes crisiswatch; crisiswatch_pdf "
+                                                                 "(the PDF archive since 2003) only when named"),
+           wait: int = typer.Option(240, help="Seconds to wait on each page while you complete a check."),
+           pdfs: int = typer.Option(40, help="PDFs of an archive opened in one run (it carries on next time).")):
     """Open the sites that turn programs away in a browser window on your screen, one page at
     a time; you complete any "are you a person?" check yourself. What arrives is saved into
     the manual folders and loaded. verify.bat builds afterwards."""
@@ -668,7 +679,7 @@ def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to op
 
     p = paths()
     manual.prepare(p, CONNECTORS)
-    known = {t.source for t in v.targets()}
+    known = {t.key for t in v.targets()}
     every = [n.lower() for n in names or []] == ["all"]
     bad = [n for n in names or [] if n not in known and not every]
     if bad:
@@ -689,7 +700,7 @@ def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to op
     typer.echo("A browser window opens for each site. If a site asks you to prove you are a person, do it in that window;\n"
                "the page is saved once it has loaded. Leave the window alone otherwise. Close this console (Ctrl+C) to stop.")
     keep = {s: CONNECTORS[s].fetch_every_days or 30 for s in known if s in CONNECTORS} if picked else None
-    saved = v.run(p, names or None, typer.echo, wait, keep_days=keep)
+    saved = v.run(p, names or None, typer.echo, wait, keep_days=keep, pdf_limit=pdfs)
     if not saved:
         if keep is not None and not v.todo_list(p, names or None, keep)[0]:
             typer.echo("Everything is up to date: each file was saved recently. .\\verify.bat all opens them anyway.")

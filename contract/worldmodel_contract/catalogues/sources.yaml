@@ -944,17 +944,17 @@
   licence: Free public use data; non-commercial use
   licence_url: https://www.worldpolicycenter.org/data-and-methods
   commercial_use: false
-  cadence: Load new tables when you download them
+  cadence: Checked every 90 days on Harvard Dataverse (with the guestbook filled in)
   attribution: "WORLD Policy Analysis Center, UCLA."
   status: active
   default_rank: 3
   standing: 4
   definition: established
   manual:
-    by_hand: true
+    by_hand: false
     optional: true
     get: https://dataverse.harvard.edu/dataverse/WORLD
-    what: "Optional. WORLD's tables are now on Harvard Dataverse (no sign-in): open a dataset (paid leave, minimum wage, working hours, education, constitutions...), download its data file (Excel or CSV, one row per country) and save it here."
+    what: "Refresh downloads WORLD's tables from Harvard Dataverse once you fill in its guestbook in Settings > The world beyond borders. Or open a dataset (paid leave, minimum wage, working hours, education, constitutions...), download its data file (Excel or CSV, one row per country) and save it here."
 
 - id: gunpolicy
   name: GunPolicy.org
@@ -1106,6 +1106,26 @@
     by_hand: false
     get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
     what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv), or save the yearly Excel file ('EV data by country 2026.xlsx', from the Global EV Outlook data page), here."
+
+- id: iea_data
+  name: IEA data files (electricity, RD&D, coal, subsidies, prices, outlook)
+  short_name: IEA files
+  publisher: International Energy Agency
+  url: https://www.iea.org/data-and-statistics
+  licence: IEA terms; free datasets for personal use (some CC BY 4.0)
+  licence_url: https://www.iea.org/terms
+  commercial_use: false
+  cadence: Saved by hand when the IEA updates a file (monthly electricity and prices; yearly for the rest)
+  attribution: "IEA (2026), data files as named in each indicator, IEA, Paris."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: true
+    optional: true
+    get: https://www.iea.org/data-and-statistics/data-product
+    what: "Sign in to the IEA (free) and save any of these here, keeping their names: the data explorer's zipped CSVs MESGEN and MESBAL (Monthly Electricity Statistics), RDDPUBLIC and RDDPRIVATE (energy RD&D), CST and CSTWORLDTRADE (coal); the workbooks 'Subsidies 2010-2024', 'Household Energy Expenditure database', 'Household Appliances database', 'Energy_Prices_Monthly_Excerpt' and 'Energy_ValueAdded'; and the World Energy Outlook Annex A free dataset CSVs (World and Regions). Other files are left out. A new copy of one file replaces only that file."
 
 - id: owid_co2
   name: Our World in Data CO2 and greenhouse gas emissions
@@ -1429,3 +1449,99 @@
     get: https://explore.data.stats.govt.nz/
     what: "Only if the key will not work: open a census or population table for regional council areas and use Download > Table in SDMX-CSV with labels."
 
+- id: cldr_languages
+  name: Unicode CLDR, languages spoken in each country
+  short_name: CLDR languages
+  publisher: Unicode Consortium, Common Locale Data Repository
+  url: https://cldr.unicode.org/translation/getting-started/territory-information
+  licence: Unicode License v3 (open, free to reuse)
+  licence_url: https://www.unicode.org/license.txt
+  commercial_use: true
+  cadence: Twice a year (CLDR releases)
+  attribution: "Unicode CLDR, territory information (languagePopulation)."
+  status: active
+  default_rank: 3
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://github.com/unicode-org/cldr-json/tree/main/cldr-json
+    what: "If the download fails: save cldr-core/supplemental/territoryInfo.json and cldr-localenames-full/main/en/languages.json here."
+
+- id: glottolog
+  name: Glottolog, the world's languages and how endangered they are
+  short_name: Glottolog
+  publisher: Max Planck Institute for Evolutionary Anthropology
+  url: https://glottolog.org
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: About once a year
+  attribution: "Hammarström, Forkel, Haspelmath and Bank, Glottolog (CLDF release), Agglomerated Endangerment Status."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://github.com/glottolog/glottolog-cldf/tree/master/cldf
+    what: "If the download fails: save languages.csv and values.csv from the cldf folder here."
+
+- id: cow_religion
+  name: Correlates of War, World Religion Data (national, 1945-2010)
+  short_name: COW religion
+  publisher: Correlates of War Project (Maoz and Henderson)
+  url: https://correlatesofwar.org/data-sets/world-religion-data/
+  licence: Free for research with citation
+  licence_url: https://correlatesofwar.org/data-sets/
+  commercial_use: false
+  cadence: Frozen (version 1.1, every 5 years 1945-2010)
+  attribution: "Maoz and Henderson, World Religion Project, Correlates of War (national data, version 1.1)."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://correlatesofwar.org/data-sets/world-religion-data/
+    what: "If the download fails: save the national file (WRP_national.csv) here."
+
+- id: pew_religion
+  name: Pew Research Center, religious composition by country (2010, 2020, projections to 2050)
+  short_name: Pew religion
+  publisher: Pew Research Center, Global Religious Futures
+  url: https://www.pewresearch.org/religion/feature/religious-composition-by-country-2010-2020/
+  licence: Free to use with attribution (Pew terms of use)
+  licence_url: https://www.pewresearch.org/about/terms-and-conditions/
+  commercial_use: false
+  cadence: Every 10 years, with projections
+  attribution: "Pew Research Center, religious composition by country."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    optional: true
+    get: https://www.pewresearch.org/religion/feature/religious-composition-by-country-2010-2020/
+    what: "Download the data table (Excel or CSV) of each country's religious groups. Correlates of War and the Factbook cover religion until it is loaded."
+
+- id: crisis_history
+  name: Global Crises Data by Country (Reinhart and Rogoff)
+  short_name: Reinhart-Rogoff crises
+  publisher: Behavioral Finance & Financial Stability project, Harvard Business School
+  url: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
+  licence: Free to use for research with citation
+  licence_url: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
+  commercial_use: false
+  cadence: Updated now and then; load a new copy when one appears
+  attribution: "Reinhart, C. and Rogoff, K., This Time Is Different; Global Crises Data by Country, BFFS project, Harvard Business School."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: true
+    optional: true
+    get: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
+    what: "Download 'Global Crises Data by Country' (an Excel workbook, such as 20160923_global_crisis_data.xlsx). Banking, debt, currency and inflation crises by year since 1800."

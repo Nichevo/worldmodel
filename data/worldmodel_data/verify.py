@@ -22,6 +22,8 @@ from typing import Callable
 from worldmodel_data.config import Paths
 
 WAIT = 240  # seconds to wait for each page while you complete a check
+PDF_LIMIT = 40  # PDFs of an archive opened in one run (it picks up where it stopped next time)
+PDF_PAUSE = 4.0  # seconds between them
 STUCK = 45  # a check page still showing after this long (it reloads itself): open the site in your own browser
 
 
@@ -36,6 +38,13 @@ class Target:
     link: str = ""                   # open url, then download the first link matching this
     by_hand: bool = False            # the site loops on its check in a driven window: open it in your own browser
     extra: list["Target"] = field(default_factory=list)
+    name: str = ""                   # what you type to pick it (default: the source)
+    pdf_archive: bool = False        # a page listing PDFs: save it, then each PDF not saved yet
+    only_by_name: bool = False       # long: opened only when asked for by name, never by a plain verify.bat
+
+    @property
+    def key(self) -> str:
+        return self.name or self.source
 
 
 def _crisiswatch(today: date) -> list[Target]:
@@ -54,6 +63,7 @@ def _crisiswatch(today: date) -> list[Target]:
 
 
 def targets(today: date | None = None) -> list[Target]:
+    from worldmodel_data.connectors.crisiswatch import ARCHIVE as CW_ARCHIVE
     from worldmodel_data.connectors.nz import MBIE_PAGE, RBNZ_FILES, RBNZ_URL
     from worldmodel_data.connectors.world_bodies import MEMBERS_PAGE, VETO_PAGE, WTO_PAGE
 
@@ -70,6 +80,8 @@ def targets(today: date | None = None) -> list[Target]:
         Target("un_vetoes", "UN Security Council elected members", MEMBERS_PAGE, "elected_members.html", r"(?i)elected"),
         Target("wto_disputes", "WTO disputes list", WTO_PAGE, "disputes.html", r"DS\s?\d"),
         *_crisiswatch(today),
+        Target("crisiswatch", "CrisisWatch PDF archive (every month since 2003)", CW_ARCHIVE, "pdf-archive.html",
+               r"(?i)\.pdf", by_hand=True, name="crisiswatch_pdf", pdf_archive=True, only_by_name=True),
     ]
 
 
@@ -129,7 +141,7 @@ def todo_list(p: Paths, sources: list[str] | None, keep_days: dict[str, int] | N
               today: date | None = None) -> tuple[list[Target], list[Target]]:
     """(to open, left alone because their file is still fresh). keep_days: source -> days a
     saved file stays fresh; None opens everything asked for."""
-    asked = [t for t in targets(today) if not sources or t.source in sources]
+    asked = [t for t in targets(today) if (t.key in sources if sources else not t.only_by_name)]
     if keep_days is None:
         return asked, []
     fresh_ = [t for t in asked if fresh(p, t, keep_days.get(t.source, 30))]
@@ -137,7 +149,7 @@ def todo_list(p: Paths, sources: list[str] | None, keep_days: dict[str, int] | N
 
 
 def run(p: Paths, sources: list[str] | None, echo: Callable[[str], None], wait: int = WAIT,
-        keep_days: dict[str, int] | None = None) -> dict[str, list[Path]]:
+        keep_days: dict[str, int] | None = None, pdf_limit: int = PDF_LIMIT) -> dict[str, list[Path]]:
     """Open each target, save what arrives into var/manual/<source>/; returns the files saved per source.
     With keep_days, a target whose file was saved within that many days is left alone."""
     from playwright.sync_api import sync_playwright
@@ -160,6 +172,11 @@ def run(p: Paths, sources: list[str] | None, echo: Callable[[str], None], wait: 
                 folder.mkdir(parents=True, exist_ok=True)
                 echo(f"[{n}/{len(todo)}] {t.what}: {t.url}")
                 try:
+                    if t.pdf_archive:
+                        got_pdfs = pdf_archive(t, folder, wait, echo, pdf_limit)
+                        if got_pdfs:
+                            saved.setdefault(t.source, []).extend(got_pdfs)
+                        continue
                     if t.by_hand or _host(t.url) in by_hand:
                         got = _by_hand(t, folder, wait, echo)
                     else:
@@ -258,3 +275,81 @@ def _by_hand(t: Target, folder: Path, wait: int, echo, opener: Callable[[str], o
                 return dest
         time.sleep(pause)
     return None
+
+
+def pdf_links(page: str, base: str) -> list[str]:
+    """The PDF addresses on an archive page, in page order (newest first), once each."""
+    from urllib.parse import urljoin
+
+    out: list[str] = []
+    for href in re.findall(r"""href=["']([^"']+?\.pdf)(?:\?[^"']*)?["']""", page, re.I):
+        u = urljoin(base, href.replace("&amp;", "&"))
+        if u not in out:
+            out.append(u)
+    return out
+
+
+def pdf_name(url: str) -> str:
+    from urllib.parse import unquote, urlparse
+
+    name = unquote(Path(urlparse(url).path).name)
+    return re.sub(r'[<>:"/\\|?*]+', "_", name)
+
+
+def pdf_archive(t: Target, folder: Path, wait: int, echo, limit: int = PDF_LIMIT,
+                opener: Callable[[str], object] | None = None, watch: list[Path] | None = None,
+                pause: float = PDF_PAUSE, poll: float = 2.0) -> list[Path]:
+    """Save an archive page by hand, then open each PDF on it not saved yet in your own browser,
+    a few seconds apart, and move each one that lands in Downloads into the manual folder.
+    At most `limit` a run; the next run picks up where this one stopped."""
+    import webbrowser
+
+    page_file = folder / t.save_as
+    if not (page_file.is_file() and time.time() - page_file.stat().st_mtime < 7 * 86400):
+        if not _by_hand(t, folder, wait, echo, opener=opener, watch=watch, pause=poll):
+            echo("    the archive page was not saved; nothing to open")
+            return []
+    links = pdf_links(page_file.read_text(encoding="utf-8", errors="replace"), t.url)
+    have = {f.name.lower() for f in folder.glob("*.pdf")}
+    todo = [u for u in links if pdf_name(u).lower() not in have]
+    echo(f"    {len(links)} PDFs listed, {len(links) - len(todo)} saved already; opening up to {min(limit, len(todo))} now.")
+    if not todo:
+        return []
+    echo("    Tip: in Edge, Settings > Cookies and site permissions > PDF documents > 'Always download PDF files'\n"
+         "    saves each one by itself. Otherwise press Ctrl+S on each and save it into Downloads.")
+    places = watch if watch is not None else [folder, downloads_dir()]
+    saved: list[Path] = []
+    misses = 0
+    for n, url in enumerate(todo[:limit], 1):
+        start = time.time() - 1
+        (opener or webbrowser.open)(url)
+        dest = folder / pdf_name(url)
+        got = None
+        end = time.time() + min(wait, 120)
+        while time.time() < end and not got:
+            for place in places:
+                if not place.is_dir():
+                    continue
+                for f in place.iterdir():
+                    if (f.is_file() and f.suffix.lower() == ".pdf" and f.stat().st_mtime >= start and f != dest
+                            and f.name.lower() not in have and not f.name.lower().endswith((".crdownload", ".part"))):
+                        got = f
+                        break
+                if got:
+                    break
+            if not got:
+                time.sleep(poll)
+        if got:
+            got.replace(dest)
+            have.add(dest.name.lower())
+            saved.append(dest)
+            echo(f"    [{n}/{min(limit, len(todo))}] saved {dest.name}")
+            misses = 0
+        else:
+            misses += 1
+            echo(f"    [{n}/{min(limit, len(todo))}] {pdf_name(url)} did not arrive; skipped")
+            if misses >= 3:
+                echo("    Three in a row did not arrive, so stopping here. Check the tip above, then run it again.")
+                break
+        time.sleep(pause)
+    return saved

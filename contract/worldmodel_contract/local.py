@@ -141,6 +141,14 @@ SETTINGS: dict[str, object] = {
                         "ceasefire,invasion,airstrike,air strike,massacre,hostage,blockade,sanctions,default,impeachment,resigns,"
                         "tsunami,eruption,famine,outbreak",  # news naming one of these words is put on the map, hollow until a dataset confirms it
     "news_watch_outlets": 1,         # how many outlets must report it before a watch-word item shows on the map
+    # WORLD Policy Analysis Center on Harvard Dataverse: its guestbook asks who is downloading
+    "world_dataverse_fetch": True,   # refresh downloads WORLD's data files every 90 days once the guestbook is filled in
+    "world_dataverse_name": "",      # the guestbook answers, sent with each download (kept on this PC only)
+    "world_dataverse_email": "",
+    "world_dataverse_institution": "",
+    "world_dataverse_position": "",
+    "world_dataverse_purpose": "Personal, non-commercial research",
+    "world_dataverse_datasets": "",  # words or DOIs picking datasets (comma-separated); blank = every dataset with a data file
     "flags_on": True,                # small flags beside country names (in pickers, headings, tables and cards)
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
@@ -150,7 +158,9 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y")}
 # Free text settings (addresses and model names), kept to one line.
-TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app"}
+TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app", "world_dataverse_name",
+         "world_dataverse_email", "world_dataverse_institution", "world_dataverse_position", "world_dataverse_purpose",
+         "world_dataverse_datasets"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries"}  # comma-separated ids, order kept

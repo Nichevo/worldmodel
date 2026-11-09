@@ -141,6 +141,8 @@ class Connector(ABC):
                                        # carried into the new one (files loaded by hand one at a time add up)
     files_only = False                 # the site no longer offers the file: refresh skips it quietly until one is saved by hand
     needs_env: tuple[str, ...] = ()    # API keys in .env it needs: refresh skips it quietly until they are set
+    needs_settings: tuple[str, ...] = ()  # settings it needs filled in (a guestbook form): skipped quietly until they are,
+                                          # unless files were saved by hand
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
     # Raise when stage() changes in a way that alters stored output: vintages staged by an
     # older version are staged again from their raw files (by `upgrade`, or the next fetch).
