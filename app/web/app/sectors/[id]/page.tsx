@@ -85,11 +85,12 @@ function StageView({ d, st, country, year }: { d: SectorDetail; st: SectorStage;
           {have.map((k) => <button key={k} className={measure === k ? "on" : ""} aria-pressed={measure === k} onClick={() => setMeasure(k)}>{MEASURE_TEXT[k]}</button>)}
         </div>
         {measure === "exports" && st.routes.length ? <label><input type="checkbox" checked={routes} onChange={(e) => setRoutes(e.target.checked)} /> Routes on the map</label> : null}
-        <span className="muted">HS {st.hs.join(", ")}{year && m && m.year !== year ? ` · latest with figures: ${m.year}` : ""}</span>
+        <span className="muted">{st.hs.length ? `HS ${st.hs.join(", ")}` : "No trade code"}{year && m && m.year !== year ? ` · latest with figures: ${m.year}` : ""}</span>
       </div>
       {!have.length ? (
         <div className="card"><p>No figures for this stage yet. Trade comes with the BACI download (<Link href="/settings#sectors">Settings: Sectors</Link>);
-          production from FAOSTAT, USGS and World Mining Data during <code>.\refresh.bat</code>.</p></div>
+          production from FAOSTAT, USGS and World Mining Data during <code>.\refresh.bat</code>
+          {st.production_indicator && !st.production_indicator.startsWith("sp_") ? <>, or here from the <Link href={`/indicator/${st.production_indicator}`}>{st.production_indicator}</Link> indicator once its source is loaded</> : null}.</p></div>
       ) : m ? (
         <>
           <div className="card">

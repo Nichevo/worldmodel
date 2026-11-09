@@ -27,6 +27,7 @@ groups:
   food: Food and farming
   forestry: Forestry
   made: Made goods
+  transport: Airlines and space
 
 sector_prices:
   aluminium: Aluminum
@@ -60,6 +61,10 @@ sector_prices:
   cocoa: Cocoa
   beef: Beef
   logs: Logs, Malaysian
+  cotton: Cotton, A Index
+  rubber: Rubber, TSR20
+  tea: Tea, avg 3 auctions
+  chicken: Chicken
   sawnwood: Sawnwood, Malaysian
 
 sectors:
@@ -600,6 +605,7 @@ sectors:
     stages:
       - {id: kiwifruit, name: "Kiwifruit", hs: ["081050"], production: {fao: "Kiwi fruit"}}
       - {id: apples, name: "Apples", hs: ["080810"], production: {fao: "Apples"}}
+      - {id: avocados, name: "Avocados", hs: ["080440"], production: {fao: "Avocados"}}
     companies:
       - {name: Zespri, country: NZL, step: kiwifruit, note: "Markets New Zealand's kiwifruit worldwide", nz: true}
 
@@ -694,6 +700,371 @@ sectors:
       - {name: Panasonic, country: JPN, step: battery_cells}
       - {name: SK On, country: KOR, step: battery_cells}
       - {name: Samsung SDI, country: KOR, step: battery_cells}
+
+  # ---- more minerals (v4)
+  - id: platinum_metals
+    name: Platinum and palladium
+    group: metals
+    feeds: Car exhaust catalysts (most palladium and much platinum), jewellery, chemicals and refining catalysts, glass making, hydrogen electrolysers and fuel cells.
+    sources: USGS; World Mining Data; World Bank Pink Sheet; BACI.
+    prices: [platinum]
+    stages:
+      - {id: pgm_ore, name: "Precious metal ores and concentrates", hs: ["261690"]}
+      - {id: platinum_mined, name: "Platinum, mined", production: {wmd: Platinum, usgs: "platinum|platinum"}, unit: kilograms}
+      - {id: palladium_mined, name: "Palladium, mined", production: {wmd: Palladium, usgs: "platinum|palladium"}, unit: kilograms}
+      - {id: platinum_metal, name: "Platinum and palladium metal", hs: ["7110"]}
+    companies:
+      - {name: Anglo American Platinum (Valterra Platinum), country: ZAF, step: platinum_mined}
+      - {name: Impala Platinum, country: ZAF, step: platinum_mined}
+      - {name: Sibanye-Stillwater, country: ZAF, step: platinum_mined}
+      - {name: Nornickel, country: RUS, step: palladium_mined, note: "The biggest palladium miner"}
+
+  - id: titanium
+    name: Titanium
+    group: metals
+    feeds: White pigment (titanium dioxide, about 90% of use) for paint, plastics and paper; titanium metal for aircraft, implants and chemical plants.
+    sources: USGS; World Mining Data; BACI.
+    stages:
+      - {id: titanium_ore, name: "Titanium ores (ilmenite, rutile)", hs: ["2614"], production: {wmd: Ilmenite, usgs: "titanium mineral concentrates|ilmenite"}}
+      - {id: titanium_pigment, name: "Titanium dioxide pigment", hs: ["320611"]}
+      - {id: titanium_metal, name: "Titanium metal and articles", hs: ["8108"]}
+    companies:
+      - {name: Iluka Resources, country: AUS, step: titanium_ore}
+      - {name: Rio Tinto, country: GBR, step: titanium_ore}
+      - {name: Chemours, country: USA, step: titanium_pigment}
+      - {name: LB Group, country: CHN, step: titanium_pigment}
+      - {name: VSMPO-AVISMA, country: RUS, step: titanium_metal}
+
+  - id: tungsten
+    name: Tungsten
+    group: battery
+    feeds: Hard cutting tools and drill bits (tungsten carbide), armour-piercing shells, light filaments, electronics.
+    sources: USGS; World Mining Data; BACI.
+    stages:
+      - {id: tungsten_ore, name: "Tungsten ores", hs: ["2611"], production: {wmd: Tungsten, usgs: "tungsten|"}}
+      - {id: tungsten_metal, name: "Tungsten metal and articles", hs: ["8101"]}
+    companies:
+      - {name: China Tungsten High-Tech, country: CHN, step: tungsten_metal}
+      - {name: Almonty Industries, country: KOR, step: tungsten_ore, note: "Sangdong mine"}
+      - {name: Masan High-Tech Materials, country: VNM, step: tungsten_ore}
+
+  - id: gallium_germanium
+    name: Gallium and germanium
+    group: battery
+    feeds: Chips and LEDs (gallium nitride and gallium arsenide), solar cells for satellites, fibre optics and night-vision lenses (germanium). By-products of aluminium and zinc refining; China makes almost all gallium and limits its export since 2023.
+    sources: USGS; World Mining Data; BACI.
+    stages:
+      - {id: gallium, name: "Gallium (refinery output)", production: {wmd: Gallium, usgs: "gallium|"}, unit: kilograms}
+      - {id: germanium, name: "Germanium (refinery output)", production: {wmd: Germanium, usgs: "germanium|"}, unit: kilograms}
+      - {id: minor_metals, name: "Gallium, germanium, indium and other minor metals (one trade code)", hs: ["811291", "811299"]}
+      - {id: germanium_oxide, name: "Germanium oxides", hs: ["282560"]}
+    companies:
+      - {name: Chalco (Aluminum Corporation of China), country: CHN, step: gallium}
+      - {name: Yunnan Lincang Xinyuan Germanium, country: CHN, step: germanium}
+      - {name: Umicore, country: BEL, step: germanium}
+
+  - id: antimony
+    name: Antimony
+    group: battery
+    feeds: Flame retardants, lead-acid batteries, ammunition and military uses, solar glass. China and Russia mine most of it; China limits exports since 2024.
+    sources: USGS; World Mining Data; BACI.
+    stages:
+      - {id: antimony_ore, name: "Antimony ores", hs: ["261710"], production: {wmd: Antimony, usgs: "antimony|"}}
+      - {id: antimony_oxide, name: "Antimony oxides", hs: ["282580"]}
+      - {id: antimony_metal, name: "Antimony metal", hs: ["8110"]}
+    companies:
+      - {name: Hunan Gold, country: CHN, step: antimony_metal}
+      - {name: Larvotto Resources, country: AUS, step: antimony_ore}
+      - {name: Perpetua Resources, country: USA, step: antimony_ore}
+
+  # ---- more food and farming (v4)
+  - id: poultry
+    name: Chicken and eggs
+    group: food
+    feeds: Food; the cheapest and fastest-growing meat. Feed is mostly maize and soy meal.
+    sources: FAOSTAT; World Bank Pink Sheet; BACI.
+    prices: [chicken]
+    stages:
+      - {id: chicken, name: "Poultry meat", hs: ["0207"], production: {fao: "Meat of chickens, fresh or chilled"}}
+      - {id: eggs, name: "Eggs in shell", hs: ["0407"], production: {fao: "Hen eggs in shell, fresh"}}
+    companies:
+      - {name: Tyson Foods, country: USA, step: chicken}
+      - {name: BRF, country: BRA, step: chicken}
+      - {name: Charoen Pokphand Foods, country: THA, step: chicken}
+      - {name: Tegel Foods, country: NZL, step: chicken, nz: true}
+      - {name: Inghams, country: AUS, step: chicken}
+
+  - id: pork
+    name: Pork
+    group: food
+    feeds: Food; China eats about half the world's pork. African swine fever cut China's herd by around 40% in 2019.
+    sources: FAOSTAT; BACI.
+    stages:
+      - {id: pork, name: "Pork", hs: ["0203"], production: {fao: "Meat of pig with the bone, fresh or chilled"}}
+    companies:
+      - {name: WH Group (with Smithfield), country: CHN, step: pork}
+      - {name: Muyuan Foods, country: CHN, step: pork}
+      - {name: Danish Crown, country: DNK, step: pork}
+
+  - id: wine
+    name: Wine
+    group: food
+    feeds: Drink. New Zealand's sauvignon blanc is one of its main exports.
+    sources: FAOSTAT; BACI; OIV.
+    stages:
+      - {id: grapes, name: "Grapes", hs: ["080610"], production: {fao: "Grapes"}}
+      - {id: wine, name: "Wine", hs: ["2204"], production: {fao: "Wine"}}
+    companies:
+      - {name: Delegat Group, country: NZL, step: wine, nz: true}
+      - {name: Indevin, country: NZL, step: wine, nz: true}
+      - {name: Pernod Ricard Winemakers, country: FRA, step: wine, note: "Brancott Estate in Marlborough"}
+      - {name: Treasury Wine Estates, country: AUS, step: wine}
+      - {name: E. & J. Gallo, country: USA, step: wine}
+
+  - id: tea
+    name: Tea
+    group: food
+    feeds: Drink.
+    sources: FAOSTAT; World Bank Pink Sheet; BACI.
+    prices: [tea]
+    stages:
+      - {id: tea, name: "Tea", hs: ["0902"], production: {fao: "Tea leaves"}}
+    companies:
+      - {name: Tata Consumer Products, country: IND, step: tea}
+      - {name: LIPTON Teas and Infusions, country: NLD, step: tea}
+      - {name: McLeod Russel, country: IND, step: tea}
+
+  - id: cotton
+    name: Cotton and clothing
+    group: food
+    feeds: Yarn and cloth for clothing and household textiles; clothing is the biggest made-goods export of Bangladesh, Vietnam and Cambodia.
+    sources: FAOSTAT; World Bank Pink Sheet; BACI.
+    prices: [cotton]
+    stages:
+      - {id: cotton_lint, name: "Raw cotton", hs: ["5201"], production: {fao: "Cotton lint, ginned"}}
+      - {id: cotton_yarn, name: "Cotton yarn", hs: ["5205", "5206", "5207"]}
+      - {id: cotton_cloth, name: "Cotton cloth", hs: ["5208", "5209", "5210", "5211", "5212"]}
+      - {id: clothing, name: "Clothing (knitted and woven)", hs: ["61", "62"]}
+    companies:
+      - {name: Inditex (Zara), country: ESP, step: clothing}
+      - {name: H&M, country: SWE, step: clothing}
+      - {name: Shein, country: SGP, step: clothing}
+      - {name: Shenzhou International, country: CHN, step: clothing}
+      - {name: Olam Agri, country: SGP, step: cotton_lint}
+
+  - id: rubber
+    name: Rubber and tyres
+    group: food
+    feeds: Tyres (about 70% of natural rubber), gloves, hoses, belts and shoes.
+    sources: FAOSTAT; World Bank Pink Sheet; BACI.
+    prices: [rubber]
+    stages:
+      - {id: natural_rubber, name: "Natural rubber", hs: ["4001"], production: {fao: "Natural rubber in primary forms"}}
+      - {id: synthetic_rubber, name: "Synthetic rubber", hs: ["4002"]}
+      - {id: tyres, name: "New tyres", hs: ["4011"]}
+    companies:
+      - {name: Sri Trang Agro-Industry, country: THA, step: natural_rubber}
+      - {name: Michelin, country: FRA, step: tyres}
+      - {name: Bridgestone, country: JPN, step: tyres}
+      - {name: Goodyear, country: USA, step: tyres}
+
+  - id: honey
+    name: Honey, with mānuka
+    group: food
+    feeds: Food and health products; mānuka honey sells for many times the price of ordinary honey.
+    sources: FAOSTAT; BACI; Ministry for Primary Industries (New Zealand apiculture).
+    stages:
+      - {id: honey, name: "Natural honey", hs: ["0409"], production: {fao: "Natural honey"}}
+    companies:
+      - {name: Comvita, country: NZL, step: honey, nz: true}
+      - {name: Manuka Health, country: NZL, step: honey, nz: true}
+
+  - id: infant_formula
+    name: Infant formula
+    group: food
+    feeds: Food for babies; China is the biggest buyer, and New Zealand one of the biggest sellers.
+    sources: BACI.
+    stages:
+      - {id: infant_formula, name: "Food for infants, retail packs", hs: ["190110"]}
+    companies:
+      - {name: Nestlé, country: CHE, step: infant_formula}
+      - {name: Danone, country: FRA, step: infant_formula}
+      - {name: Feihe, country: CHN, step: infant_formula}
+      - {name: The a2 Milk Company, country: NZL, step: infant_formula, nz: true}
+      - {name: Fonterra, country: NZL, step: infant_formula, nz: true}
+
+  # ---- more made goods (v4), trade from BACI
+  - id: medicines
+    name: Medicines and vaccines
+    group: made
+    feeds: Health care. Ireland, Switzerland, Germany and the US lead exports; India makes much of the world's generic medicines and China most of their ingredients.
+    sources: BACI.
+    stages:
+      - {id: vaccines_blood, name: "Vaccines, blood products and antisera", hs: ["3002"]}
+      - {id: medicines, name: "Medicines (bulk and packaged)", hs: ["3003", "3004"]}
+    companies:
+      - {name: Pfizer, country: USA, step: medicines}
+      - {name: Roche, country: CHE, step: medicines}
+      - {name: Novo Nordisk, country: DNK, step: medicines}
+      - {name: AstraZeneca, country: GBR, step: medicines}
+      - {name: Serum Institute of India, country: IND, step: vaccines_blood, note: "The most vaccine doses of any maker"}
+      - {name: Douglas Pharmaceuticals, country: NZL, step: medicines, nz: true}
+
+  - id: aircraft
+    name: Aircraft and engines
+    group: transport
+    feeds: Airlines, air freight and air forces. Two makers (Airbus, Boeing) build almost all large passenger jets.
+    sources: BACI; Airbus and Boeing orders and deliveries.
+    stages:
+      - {id: aircraft_engines, name: "Jet engines and parts", hs: ["8411"]}
+      - {id: aircraft_parts, name: "Aircraft parts", hs: ["8803"]}
+      - {id: aircraft, name: "Aircraft and helicopters", hs: ["8802"]}
+    companies:
+      - {name: Airbus, country: FRA, step: aircraft}
+      - {name: Boeing, country: USA, step: aircraft}
+      - {name: Embraer, country: BRA, step: aircraft}
+      - {name: COMAC, country: CHN, step: aircraft}
+      - {name: GE Aerospace, country: USA, step: aircraft_engines}
+      - {name: Rolls-Royce, country: GBR, step: aircraft_engines}
+      - {name: Safran, country: FRA, step: aircraft_engines}
+
+  - id: airlines
+    name: Airlines
+    group: transport
+    feeds: Travel, tourism and air freight (high-value goods, fresh food such as New Zealand seafood and cherries).
+    sources: World Bank and ICAO (passengers carried); IATA's free industry outlook; airline annual reports. Schedule and seat data (OAG, Cirium) are paid, so left out.
+    stages:
+      - {id: air_passengers, name: "Passengers carried by the country's airlines", production: {indicator: air_passengers}, unit: passengers}
+    companies:
+      - {name: Air New Zealand, country: NZL, step: air_passengers, nz: true}
+      - {name: Qantas, country: AUS, step: air_passengers}
+      - {name: Delta Air Lines, country: USA, step: air_passengers}
+      - {name: American Airlines, country: USA, step: air_passengers}
+      - {name: Emirates, country: ARE, step: air_passengers}
+      - {name: Ryanair, country: IRL, step: air_passengers}
+      - {name: China Southern Airlines, country: CHN, step: air_passengers}
+      - {name: Singapore Airlines, country: SGP, step: air_passengers}
+
+  - id: space
+    name: Space
+    group: transport
+    feeds: Communications, navigation (GPS and others), weather and Earth watching, science and defence. Rocket Lab launches from Māhia in New Zealand.
+    sources: CelesTrak satellite catalogue (launches and satellites by country); UCS Satellite Database; OECD space economy; BACI.
+    stages:
+      - {id: space_launches, name: "Launches from the country's sites", production: {indicator: space_launches}, unit: launches}
+      - {id: satellites, name: "Satellites launched (and spacecraft trade)", hs: ["880260"], production: {indicator: sats_launched}, unit: satellites}
+    companies:
+      - {name: SpaceX, country: USA, step: space_launches, note: "Most of the world's launches and the Starlink network"}
+      - {name: Rocket Lab, country: USA, step: space_launches, note: "Launches from Māhia Peninsula; New Zealand-founded", nz: true}
+      - {name: China Aerospace Science and Technology Corporation, country: CHN, step: space_launches}
+      - {name: Arianespace, country: FRA, step: space_launches}
+      - {name: Airbus Defence and Space, country: FRA, step: satellites}
+      - {name: Dawn Aerospace, country: NZL, step: satellites, note: "Satellite thrusters", nz: true}
+
+  - id: ships
+    name: Ships and boats
+    group: made
+    feeds: Sea trade (about 80% of goods by volume), fishing, navies, cruises; yachts and superyachts, with New Zealand builders.
+    sources: BACI.
+    stages:
+      - {id: ships, name: "Cargo ships, tankers and ferries", hs: ["8901", "8902", "8904", "8905", "8906"]}
+      - {id: yachts, name: "Yachts and pleasure boats", hs: ["8903"]}
+      - {id: ships_scrap, name: "Ships for breaking up", hs: ["8908"]}
+    companies:
+      - {name: China State Shipbuilding Corporation, country: CHN, step: ships}
+      - {name: HD Hyundai Heavy Industries, country: KOR, step: ships}
+      - {name: Hanwha Ocean, country: KOR, step: ships}
+      - {name: Fincantieri, country: ITA, step: ships}
+      - {name: Imabari Shipbuilding, country: JPN, step: ships}
+      - {name: Feadship, country: NLD, step: yachts}
+
+  - id: machinery
+    name: Machinery
+    group: made
+    feeds: Mines, building sites, farms and factories.
+    sources: BACI.
+    stages:
+      - {id: earthmoving, name: "Earthmoving and mining machines", hs: ["8429", "8430"]}
+      - {id: farm_machinery, name: "Farm machinery (with tractors)", hs: ["8432", "8433", "8701"]}
+      - {id: machine_tools, name: "Machine tools", hs: ["8456", "8457", "8458", "8459", "8460", "8461", "8462", "8463"]}
+    companies:
+      - {name: Caterpillar, country: USA, step: earthmoving}
+      - {name: Komatsu, country: JPN, step: earthmoving}
+      - {name: Sany, country: CHN, step: earthmoving}
+      - {name: Deere & Company, country: USA, step: farm_machinery}
+      - {name: CNH Industrial, country: GBR, step: farm_machinery}
+      - {name: DMG Mori, country: JPN, step: machine_tools}
+      - {name: Gallagher, country: NZL, step: farm_machinery, note: "Electric fencing and farm technology", nz: true}
+
+  - id: electronics
+    name: Phones and computers
+    group: made
+    feeds: Homes, offices, data centres; the largest trade in made goods after cars.
+    sources: BACI. In the 1992 codes mobile phones sit with radio transmitters (852520).
+    stages:
+      - {id: computers, name: "Computers", hs: ["8471"]}
+      - {id: phones, name: "Mobile phones and radio transmitters", hs: ["852520"]}
+      - {id: computer_parts, name: "Computer parts", hs: ["8473"]}
+    companies:
+      - {name: Apple, country: USA, step: phones}
+      - {name: Samsung Electronics, country: KOR, step: phones}
+      - {name: Xiaomi, country: CHN, step: phones}
+      - {name: Hon Hai (Foxconn), country: TWN, step: phones, note: "Assembles most iPhones"}
+      - {name: Lenovo, country: CHN, step: computers}
+      - {name: Dell Technologies, country: USA, step: computers}
+
+  - id: wind_turbines
+    name: Wind turbines
+    group: made
+    feeds: Electricity. China makes most turbines; Europe and China build most wind farms.
+    sources: BACI; Global Wind Energy Council.
+    stages:
+      - {id: wind_turbines, name: "Wind turbines (generating sets)", hs: ["850231"]}
+    companies:
+      - {name: Goldwind, country: CHN, step: wind_turbines}
+      - {name: Envision, country: CHN, step: wind_turbines}
+      - {name: Vestas, country: DNK, step: wind_turbines}
+      - {name: Siemens Gamesa, country: ESP, step: wind_turbines}
+      - {name: GE Vernova, country: USA, step: wind_turbines}
+
+  - id: plastics
+    name: Plastics
+    group: made
+    feeds: Packaging (about 40%), building, cars, clothing fibres, electronics. Made from oil and gas; plastic waste is also traded, much less since China stopped taking it in 2018.
+    sources: BACI.
+    stages:
+      - {id: plastics_primary, name: "Plastics in primary forms (pellets, resins)", hs: ["3901", "3902", "3903", "3904", "3905", "3906", "3907", "3908", "3909", "3910", "3911", "3912", "3913", "3914"]}
+      - {id: plastic_goods, name: "Plastic goods (film, pipes, packaging)", hs: ["3916", "3917", "3918", "3919", "3920", "3921", "3922", "3923", "3924", "3925", "3926"]}
+      - {id: plastic_waste, name: "Plastic waste and scrap", hs: ["3915"]}
+    companies:
+      - {name: Sinopec, country: CHN, step: plastics_primary}
+      - {name: Dow, country: USA, step: plastics_primary}
+      - {name: LyondellBasell, country: NLD, step: plastics_primary}
+      - {name: SABIC, country: SAU, step: plastics_primary}
+      - {name: ExxonMobil Chemical, country: USA, step: plastics_primary}
+
+  - id: cement
+    name: Cement
+    group: made
+    feeds: Concrete for buildings, roads and dams; about 7% of the world's CO2 emissions. China makes about half of it. Heavy and cheap, so little is traded far.
+    sources: USGS; BACI.
+    stages:
+      - {id: clinker, name: "Cement clinker", hs: ["252310"]}
+      - id: cement
+        name: Cement
+        hs: ["252321", "252329", "252330", "252390"]
+        production: {usgs: "cement|"}
+        how:
+          inputs: About 1.5 tonnes of limestone and clay, with some sand and iron ore, per tonne of clinker; cement is clinker ground with gypsum and fillers such as fly ash or slag.
+          energy: A kiln at about 1,450 °C, burning coal, gas or waste; about 0.6 tonnes of CO2 per tonne of cement, over half of it from the limestone itself.
+          time: Hours in the kiln.
+          waste: Kiln dust; dust and noise at quarries.
+    companies:
+      - {name: Anhui Conch, country: CHN, step: cement}
+      - {name: CNBM (China National Building Material), country: CHN, step: cement}
+      - {name: Holcim, country: CHE, step: cement}
+      - {name: Heidelberg Materials, country: DEU, step: cement}
+      - {name: Golden Bay Cement (Fletcher Building), country: NZL, step: cement, nz: true}
 
 # Rough materials in a battery pack, kg per kWh of capacity, by chemistry. Approximate,
 # rounded from IEA and Argonne estimates; they vary by cell design.
