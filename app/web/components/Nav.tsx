@@ -44,6 +44,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
   ] },
   { label: "Data", hint: "Sources, what is loaded, and settings", links: [
     { href: "/sources", label: "Sources" },
+    { href: "/glossary", label: "Glossary", hint: "The terms the charts use" },
     { href: "/data", label: "Data status" },
     { href: "/settings", label: "Settings" },
   ] },
