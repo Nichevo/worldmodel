@@ -777,6 +777,32 @@ export type WatchHit = {
 };
 export type MapEvents = { start: string; end: string; events: MapEvent[]; watch: WatchHit[]; words: string[] };
 
+
+// Religion and languages (/religion, /languages and each country's mix).
+export type RelGroup = { id: string; name: string };
+export type RelPoint = { year: number; projected: boolean; shares: Record<string, number>; edition?: number; text?: string; people?: number };
+export type Religion = {
+  groups: RelGroup[]; sources: { id: string; name: string }[]; years: number[]; world: Record<string, RelPoint[]>;
+  map: { year: number | null; group: string; since: number | null;
+    rows: { entity_id: string; source: string; largest: string; largest_share: number; share: number; change?: number }[] };
+};
+export type EntityReligion = { entity_id: string; groups: RelGroup[]; sources: { id: string; name: string; points: RelPoint[] }[] };
+export type Languages = {
+  top: { code: string; name: string; speakers: number; countries: number; official_in: number }[];
+  lang: string; lang_name: string;
+  map: { entity_id: string; share: number; official: number | null }[];
+  main: { entity_id: string; code: string; name: string; share: number }[];
+  counts: { entity_id: string; lang_count?: number; lang_endangered?: number; lang_official_count?: number }[];
+  languages: { code: string; name: string }[];
+};
+export type EntityLanguages = {
+  entity_id: string;
+  languages: { code: string; name: string; share: number | null; speakers: number | null; official: string | null }[];
+  counts: Record<string, number>;
+  endangered: { name: string; status: string; family: string; level: number }[];
+  factbook: { edition: number; content: string } | null;
+};
+
 export const api = {
   briefing: (days?: number) => get<Briefing>("/briefing", { days }),
   entityLatest: (id: string, days = 30) => get<EntityLatest>(`/entities/${encodeURIComponent(id)}/latest`, { days }),
@@ -885,6 +911,10 @@ export const api = {
   deleteRatio: (id: string) => send<{ deleted: string }>("DELETE", `/ratios/${id}`),
   voting: (entity: string, compare?: string) => get<Voting>(`/entities/${encodeURIComponent(entity)}/voting`, { compare }),
   crisiswatch: (month?: string) => get<CrisisWatchMonth>("/crisiswatch", { month }),
+  religion: (year?: number, group?: string, since?: number) => get<Religion>("/religion", { year, group, since }),
+  entityReligion: (id: string) => get<EntityReligion>(`/entities/${encodeURIComponent(id)}/religion`),
+  languages: (lang?: string, top?: number) => get<Languages>("/languages", { lang, top }),
+  entityLanguages: (id: string) => get<EntityLanguages>(`/entities/${encodeURIComponent(id)}/languages`),
   zones: () => get<Zone[]>("/zones"),
   beyondOthers: () => get<BeyondOther[]>("/beyond/others"),
   relationships: (q: { label?: string; domain?: string; group?: string; q?: string; indicator?: string; drivers?: boolean;

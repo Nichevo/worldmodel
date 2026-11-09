@@ -25,6 +25,8 @@ import CrisisWatchCard from "@/components/CrisisWatchCard";
 import LawsCard from "@/components/LawsCard";
 import HolidaysCard from "@/components/HolidaysCard";
 import CrimeCard from "@/components/CrimeCard";
+import LanguagesCard from "@/components/LanguagesCard";
+import ReligionCard from "@/components/ReligionCard";
 import ClimateCard from "@/components/ClimateCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
@@ -120,6 +122,8 @@ export default function EntityPage() {
   const cards: { key: string; title: string; section: string; on: boolean; el: React.ReactNode }[] = [
     { key: "migration", title: "Migration in and out", section: "people", on: true, el: <MigrationCard entity={e} name={nm} indicators={byId} /> },
     { key: "education", title: "Education", section: "people", on: true, el: <EducationCard entity={e} name={nm} indicators={byId} /> },
+    { key: "religion", title: "Religion", section: "people", on: !isGroup, el: <ReligionCard entity={e} name={nm} /> },
+    { key: "languages", title: "Languages", section: "people", on: !isGroup, el: <LanguagesCard entity={e} name={nm} /> },
     { key: "voters", title: "Who votes", section: "people", on: !isGroup, el: <VotersCard entity={e} name={nm} indicators={byId} /> },
     { key: "currency", title: "Currency", section: "money", on: !isGroup || e === "eu", el: <CurrencyCard entity={e} name={nm} /> },
     { key: "debt", title: "Debt", section: "money", on: !isGroup, el: <DebtCard entity={e} name={nm} indicators={byId} /> },

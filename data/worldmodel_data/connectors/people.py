@@ -124,7 +124,7 @@ class CLDRLanguages(_Yearly):
                 if status:
                     rows.add("iso3", ent, "lang_official", year, status[0], breakdown=bd)
                 texts.append((ent, year, "Languages", language_name(code, names), f"lang:{code}",
-                              status[1] if status else "", pos))
+                              status[1] if status else "spoken", pos))  # empty texts are not kept
             official = [c for c, v in langs if (v.get("_officialStatus") or "") in ("official", "de_facto_official")]
             rows.add("iso3", ent, "lang_listed", year, len(langs))
             rows.add("iso3", ent, "lang_official_count", year, len(official))
@@ -181,7 +181,7 @@ class Glottolog(_Yearly):
                     if r["Parameter_ID"] == "aes":
                         status[r["Language_ID"]] = r.get("Code_ID") or ""
                     elif r["Parameter_ID"] == "category":
-                        category[r["Language_ID"]] = (r.get("Value") or "").lower()
+                        category[r["Language_ID"]] = (r.get("Value") or "").lower().replace("_", " ")
         year = int(release[:4]) if re.match(r"\d{4}", release or "") else datetime.now().year
         families = {}
         langs = []

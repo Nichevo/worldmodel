@@ -42,3 +42,14 @@ export function useFlagCodes(on: boolean): Map<string, string> {
   return on ? codes : EMPTY;
 }
 const EMPTY = new Map<string, string>();
+
+// Each entity's short name once the list has arrived (the id until then).
+export function useEntityNames(): (id: string) => string {
+  const [names, setNames] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    let live = true;
+    flagIndex().then((m) => live && setNames(new Map([...m].map(([id, f]) => [id, f.name])))).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  return (id: string) => names.get(id) ?? id;
+}
