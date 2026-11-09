@@ -82,6 +82,7 @@ BACI_SPECIAL = {"490": "TWN", "S19": "TWN"}  # "Other Asia, nes" is Taiwan
 
 class BACI(Connector):
     source_id = "baci"
+    stage_version = 2  # 2: the sectors added in version 4
     switch = "sectors_trade_fetch"
     fetch_every_days = 120
 
@@ -277,6 +278,7 @@ def to_tonnes(unit: str) -> float:
 
 class USGSMinerals(Connector):
     source_id = "usgs_mcs"
+    stage_version = 2  # 2: the sectors added in version 4
     fetch_every_days = 120
     SEARCH = "https://www.sciencebase.gov/catalog/items?q=%22Mineral+Commodity+Summaries%22+world+data&format=json&max=10&fields=title,files"
 
@@ -355,6 +357,7 @@ def usgs_rows(table: list[list], rows: Rows, found: set[str]) -> None:
 
 class WorldMiningData(Connector):
     source_id = "wmd"
+    stage_version = 2  # 2: the sectors added in version 4
     fetch_every_days = 120
     keeps_files = True
     URL = "https://www.world-mining-data.info/wmd/downloads/XLS/6.4.%20Production_of_Mineral_Raw_Materials_of_individual_Countries_by_Minerals.xlsx"
@@ -420,6 +423,7 @@ FAO_FILES = ("Production_Crops_Livestock_E_All_Data_(Normalized).zip", "Inputs_F
 
 class FAOSTAT(Connector):
     source_id = "faostat"
+    stage_version = 2  # 2: the sectors added in version 4
     fetch_every_days = 90
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -483,6 +487,7 @@ PINK_PAGE = "https://www.worldbank.org/en/research/commodity-markets"
 
 class PinkSheet(Connector):
     source_id = "wb_pinksheet"
+    stage_version = 2  # 2: the sectors added in version 4
     fetch_every_days = 25
 
     def default_release(self, fetched_at: datetime) -> str:
