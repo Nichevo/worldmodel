@@ -11,8 +11,11 @@ owid_energy
 owid_grapher
     Single OWID charts, by their address: https://ourworldindata.org/grapher/<slug>.csv
     and <slug>.metadata.json (column names, units, descriptions). CHARTS lists the
-    ones fetched, a second apart; a chart that has gone only warns. Each numeric
-    column becomes an indicator `owid_<column>`, switched on.
+    ones fetched, a second apart; a chart that has gone only warns: armed conflict
+    deaths (UCDP), inequality (the World Inequality Database), values (the World
+    Values Survey), and science (journal articles, patents). Each numeric column
+    becomes an indicator, switched on: the chart's own id where CHARTS gives one
+    (wid_income_top1), else `owid_<column>`.
 
 Countries are matched by ISO alpha-3 code. Of OWID's own regions, only the World,
 Kosovo and the World Bank income groups are kept (scheme `owid` in the crosswalk);
@@ -53,11 +56,33 @@ ENERGY_MAIN = {
 
 GRAPHER = "https://ourworldindata.org/grapher/"
 GRAPHER_QUERY = "?v=1&csvType=full&useColumnShortNames=true"
-# (slug, what it is). Deaths are placed where they occurred, not by the nationality of those killed.
+# (slug, what it is, indicator id or None for owid_<column>, domain). A chart with one value
+# column stores it under the id; with several, under <id>_<column>. Deaths are placed where
+# they occurred, not by the nationality of those killed.
 CHARTS = (
-    ("death-rate-in-armed-conflicts", "UCDP: deaths in armed conflicts per 100,000 people, by country where they occurred"),
-    ("death-rate-in-armed-conflicts-by-type-and-country", "UCDP: the same death rate, by type of conflict"),
+    ("death-rate-in-armed-conflicts", "UCDP: deaths in armed conflicts per 100,000 people, by country where they occurred",
+     None, "conflict"),
+    ("death-rate-in-armed-conflicts-by-type-and-country", "UCDP: the same death rate, by type of conflict", None, "conflict"),
+    # inequality: the World Inequality Database (WID), before tax, from national accounts, tax and survey data
+    ("income-share-top-1-before-tax-wid", "WID: share of income going to the richest 1%, before tax", "wid_income_top1", "inequality"),
+    ("income-share-top-10-before-tax-wid", "WID: share of income going to the richest 10%, before tax", "wid_income_top10", "inequality"),
+    ("wealth-share-richest-1-percent", "WID: share of wealth held by the richest 1%", "wid_wealth_top1", "inequality"),
+    ("wealth-share-richest-10-percent", "WID: share of wealth held by the richest 10%", "wid_wealth_top10", "inequality"),
+    ("palma-ratio-wid", "WID: income of the richest 10% divided by that of the poorest 40%", "wid_palma", "inequality"),
+    # values: the World Values Survey and European Values Study, through OWID
+    ("self-reported-trust-attitudes", "World Values Survey: share agreeing that most people can be trusted", "wvs_trust", "values"),
+    ("how-important-religion-is-in-your-life", "World Values Survey: how important religion is in people's lives",
+     "wvs_religion_important", "values"),
+    ("share-of-people-who-say-they-are-happy", "World Values Survey: share who say they are very or rather happy",
+     "wvs_happy", "values"),
+    # science
+    ("scientific-publications-per-million", "Articles in scientific and technical journals per million people (NSF)",
+     "science_articles_per_million", "science"),
+    ("patent-applications-per-million", "Patent applications per million people (WIPO)", "patents_per_million", "science"),
+    ("scholarly-publications-on-artificial-intelligence-per-million-people",
+     "Scholarly publications on artificial intelligence per million people (CSET)", "ai_publications_per_million", "science"),
 )
+CHART = {c[0]: c for c in CHARTS}
 
 
 class _OWID(Connector):
@@ -181,12 +206,12 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 2  # 2: long column names no longer cut to the same indicator id
+    stage_version = 3  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:
         got = []
-        for i, (slug, _) in enumerate(CHARTS):
+        for i, (slug, *_) in enumerate(CHARTS):
             if i:
                 time.sleep(self.pause_seconds)
             try:
@@ -217,14 +242,22 @@ class OWIDGrapher(_OWID):
                 continue
             code = lower.get("code", lower["entity"])
             values = [h for h in header if h.lower() not in ("entity", "code", "year") and "annotation" not in h.lower()]
-            columns = {h: column_id(h) for h in values}
+            _, about, own, domain = CHART.get(slug, (slug, "", None, "conflict" if "conflict" in slug else "other"))
+            columns = {h: chart_id(own, h, len(values)) for h in values}
             self._stage_wide(con, "charts", path, lower["entity"], code, lower["year"], columns)
-            about = dict(CHARTS).get(slug, "")
             for h, ind in columns.items():
-                self.listed_indicators.append(_chart_indicator(slug, h, ind, meta.get("columns", {}).get(h, {}), about))
+                self.listed_indicators.append(_chart_indicator(slug, h, ind, meta.get("columns", {}).get(h, {}), about,
+                                                               domain))
         if not self.listed_indicators:
             raise ConnectorError(f"owid_grapher: no chart files with yearly values in {raw_dir}")
         return self._query(vintage, "charts")
+
+
+def chart_id(own: str | None, column: str, n: int) -> str:
+    """The chart's own id for its only column; <own>_<column> for one of several; else owid_<column>."""
+    if not own:
+        return column_id(column)
+    return own if n == 1 else own + column_id(column)[4:][:40]
 
 
 def column_id(column: str) -> str:
@@ -238,14 +271,14 @@ def column_id(column: str) -> str:
     return f"owid_{name[:51]}_{hashlib.sha1(name.encode()).hexdigest()[:8]}"
 
 
-def _chart_indicator(slug: str, col: str, ind: str, meta: dict, about: str) -> dict:
+def _chart_indicator(slug: str, col: str, ind: str, meta: dict, about: str, domain: str) -> dict:
     unit = (meta.get("unit") or meta.get("shortUnit") or "").strip()
     name = (meta.get("titleShort") or meta.get("titleLong") or col.replace("_", " ")).strip()
     counts = unit.lower() in ("deaths", "conflicts", "people", "events") or unit.lower().startswith("deaths ")
     return {
         "id": ind, "name": name,
         "description": (meta.get("descriptionShort") or meta.get("description") or about or name).strip()[:1200],
-        "synonyms": [slug], "domain": "conflict" if "conflict" in slug or "war" in slug else "other",
+        "synonyms": [slug], "domain": domain,
         "unit": unit, "decimals": 0 if counts else 2,
         "aggregation": {"method": "sum" if counts and "per" not in unit.lower() else "none"},
         "bounds": [-1e18, 1e18],

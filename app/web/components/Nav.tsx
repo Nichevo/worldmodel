@@ -24,6 +24,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/topics", label: "Topics" },
     { href: "/religion", label: "Religion" },
     { href: "/languages", label: "Languages" },
+    { href: "/crises", label: "Financial crises" },
     { href: "/indicators", label: "Indicators" },
     { href: "/sectors", label: "Sectors" },
     { href: "/storage", label: "Storage" },

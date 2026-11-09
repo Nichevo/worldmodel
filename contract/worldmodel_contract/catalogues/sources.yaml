@@ -1488,3 +1488,28 @@
   default_rank: 2
   standing: 5
   definition: standard
+  manual:
+    by_hand: true
+    optional: true
+    get: https://www.pewresearch.org/religion/feature/religious-composition-by-country-2010-2020/
+    what: "Download the data table (Excel or CSV) of each country's religious groups. Correlates of War and the Factbook cover religion until it is loaded."
+
+- id: crisis_history
+  name: Global Crises Data by Country (Reinhart and Rogoff)
+  short_name: Reinhart-Rogoff crises
+  publisher: Behavioral Finance & Financial Stability project, Harvard Business School
+  url: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
+  licence: Free to use for research with citation
+  licence_url: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
+  commercial_use: false
+  cadence: Updated now and then; load a new copy when one appears
+  attribution: "Reinhart, C. and Rogoff, K., This Time Is Different; Global Crises Data by Country, BFFS project, Harvard Business School."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: true
+    optional: true
+    get: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
+    what: "Download 'Global Crises Data by Country' (an Excel workbook, such as 20160923_global_crisis_data.xlsx). Banking, debt, currency and inflation crises by year since 1800."
