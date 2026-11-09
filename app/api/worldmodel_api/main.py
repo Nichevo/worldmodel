@@ -37,7 +37,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, highlights, layouts, markets, news, numbeo, people, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, markets, news, numbeo, people, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -2108,6 +2108,18 @@ def languages_page(lang: str | None = None, top: int = Query(25, ge=1, le=200)):
     `lang` is spoken and official, each country's main language, and how many languages are
     spoken and endangered in each (Glottolog)."""
     return people.languages(rows, lang, top)
+
+
+@api.get("/crises")
+def crises_page(kind: list[str] = Query(None), start: int = Query(1800, ge=1500, le=2100), end: int | None = None,
+                entity: list[str] = Query(None)):
+    """Two centuries of financial crises (Reinhart and Rogoff): for each year the share of
+    countries with data in each kind of crisis, and each country's crisis spells as a strip,
+    most crisis years first (countries in `entity` first)."""
+    bad = [k for k in kind or [] if k not in crises.KINDS]
+    if bad:
+        raise HTTPException(422, f"kind must be among {', '.join(crises.KINDS)}")
+    return crises.crises(rows, kind, start, end, entity)
 
 
 @api.get("/entities/{entity_id}/languages")

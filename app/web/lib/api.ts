@@ -795,6 +795,15 @@ export type Languages = {
   counts: { entity_id: string; lang_count?: number; lang_endangered?: number; lang_official_count?: number }[];
   languages: { code: string; name: string }[];
 };
+export type CrisisWave = { year: number; share: number; count: number; of: number };
+export type Crises = {
+  kinds: { id: string; name: string }[];
+  selected: string[];
+  years: [number, number] | null;
+  waves: Record<string, CrisisWave[]>;
+  strips: { entity_id: string; years: number; spells: { kind: string; from: number; to: number }[] }[];
+  countries: number;
+};
 export type EntityLanguages = {
   entity_id: string;
   languages: { code: string; name: string; share: number | null; speakers: number | null; official: string | null }[];
@@ -914,6 +923,7 @@ export const api = {
   religion: (year?: number, group?: string, since?: number) => get<Religion>("/religion", { year, group, since }),
   entityReligion: (id: string) => get<EntityReligion>(`/entities/${encodeURIComponent(id)}/religion`),
   languages: (lang?: string, top?: number) => get<Languages>("/languages", { lang, top }),
+  crises: (kind?: string, start?: number, entity?: string) => get<Crises>("/crises", { kind, start, entity }),
   entityLanguages: (id: string) => get<EntityLanguages>(`/entities/${encodeURIComponent(id)}/languages`),
   zones: () => get<Zone[]>("/zones"),
   beyondOthers: () => get<BeyondOther[]>("/beyond/others"),

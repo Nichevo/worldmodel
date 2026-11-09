@@ -99,3 +99,27 @@
   map: turnout_parliamentary
   indicators: [turnout_parliamentary, vap_turnout_parliamentary, turnout_presidential, us_voted, us_voted_age_18_24, us_voted_age_65_plus, nz_turnout, nz_turnout_age_18_24, nz_turnout_age_70_plus]
 
+
+- id: inequality
+  name: Inequality
+  intro: How unequally income and wealth are shared. The Gini index runs from 0 (everyone the same) to 100 (one person has everything) and comes from household surveys; the World Inequality Database adds tax records and national accounts, which catch the top incomes surveys miss, so its top shares run higher. Wealth is always far less equal than income.
+  map: wid_income_top1
+  indicators: [gini, wid_income_top1, wid_income_top10, wid_wealth_top1, wid_wealth_top10, wid_palma, income_share_top10, income_share_bottom20]
+
+- id: values
+  name: Values
+  intro: What people say they believe, from the World Values Survey, asked in waves about every five years since 1981. Trust in other people tends to be high where institutions work and inequality is low; religion matters less to people in most rich countries than it did a generation ago. Each wave covers a different set of countries, so lines have gaps.
+  map: wvs_trust
+  indicators: [wvs_trust, wvs_happy, rel_none_share, women_in_parliament]
+
+- id: science
+  name: Science and technology
+  intro: How much countries spend on research, how many researchers they have, and what comes out of it in papers and patents. Spending on research and development is the steadiest measure; papers and patents are counted where the authors and inventors live, and counts favour large countries, so the per-person figures compare better.
+  map: rd_spending_gdp
+  indicators: [rd_spending_gdp, researchers_per_million, science_articles_per_million, journal_articles, patents_per_million, patent_applications_resident, patent_applications_nonresident, high_tech_exports_share, ip_receipts_usd, ai_publications_per_million]
+
+- id: crises
+  name: Financial crises
+  intro: Two centuries of banking crises, defaults, currency crashes and runaway inflation, from Reinhart and Rogoff's crisis years. Crises come in waves (the 1830s, 1870s, 1890s, 1930s, 1980s and 2008) and often together, a banking crisis leading to a default or a currency crash. Each crisis is 1 in a year it was under way and 0 when not; the count adds up the kinds at once. The Financial crises page shows them as strips by country.
+  map: crisis_kinds
+  indicators: [crisis_kinds, crisis_banking, crisis_default_external, crisis_default_domestic, crisis_currency, crisis_inflation, rr_inflation, govt_debt_gdp]
