@@ -43,6 +43,7 @@ export type Workspace = {
   pins: Pin[];
   board: BoardItem[];
   side: boolean; // pinboard shown (when the side panel is on in Settings)
+  win: string; // time window for timed map layers ("" = the Settings default; see windowDates)
 };
 
 export const LAYOUTS: { id: Layout; label: string; panels: number }[] = [
@@ -99,6 +100,7 @@ export const DEFAULT: Workspace = {
   pins: [],
   board: [],
   side: false,
+  win: "",
 };
 
 export type Action =
@@ -116,7 +118,8 @@ export type Action =
   | { type: "unpin"; entity: string; panel: string }
   | { type: "board"; item: BoardItem; on: boolean }
   | { type: "clearBoard" }
-  | { type: "side"; on: boolean };
+  | { type: "side"; on: boolean }
+  | { type: "win"; win: string };
 
 // Other panels in the same group that link this setting.
 const peers = (ws: Workspace, p: Panel, key: LinkKey) =>
@@ -232,20 +235,62 @@ export function reducer(ws: Workspace, a: Action): Workspace {
       return { ...ws, board: [] };
     case "side":
       return { ...ws, side: a.on };
+    case "win":
+      return { ...ws, win: WIN_RE.test(a.win) ? a.win : "" };
   }
 }
 
 // The countries a panel shows: the shared selection, or its own while unlinked.
 export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.selection : p.selection);
 
-// Overlays a map panel can draw over the countries, from the warehouse's layers table.
-export const MAP_LAYERS = [
-  { letter: "p", id: "plate_boundaries", label: "Tectonic plate boundaries" },
-  { letter: "f", id: "active_faults", label: "Active faults" },
-  { letter: "v", id: "volcanoes", label: "Volcanoes" },
-  { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)" },
-  { letter: "c", id: "major_cities", label: "Major cities" },
-] as const;
+// Overlays a map panel can draw over the countries. Most come from the warehouse's layers
+// table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
+// ratings), event markers and news that names a watch word. Timed layers follow the
+// map's time window. Letters are the URL form; the group and order are the Layers panel's.
+export type LayerGroup = "events" | "earth" | "people" | "polar";
+export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
+export const MAP_LAYERS: readonly LayerDef[] = [
+  { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "events", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
+  { letter: "e", id: "events", label: "Events", group: "events", timed: true, made: true, hint: "Coups, conflicts, disasters, elections and other dated events in the time window" },
+  { letter: "n", id: "news", label: "Reported in the news", group: "events", timed: true, made: true, hint: "News naming one of your watch words, placed on a city it names or its country; hollow until a dataset confirms it" },
+  { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)", group: "events", timed: true },
+  { letter: "s", id: "storm_tracks", label: "Storm tracks", group: "events", timed: true },
+  { letter: "p", id: "plate_boundaries", label: "Tectonic plate boundaries", group: "earth" },
+  { letter: "f", id: "active_faults", label: "Active faults", group: "earth" },
+  { letter: "v", id: "volcanoes", label: "Volcanoes", group: "earth" },
+  { letter: "c", id: "major_cities", label: "Major cities", group: "people" },
+  { letter: "u", id: "universities", label: "Universities", group: "people" },
+  { letter: "t", id: "transit_stations", label: "Metro and rail stations", group: "people" },
+  { letter: "o", id: "companies", label: "Big company head offices", group: "people" },
+  { letter: "a", id: "antarctic_claims", label: "Antarctic claims", group: "polar" },
+  { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "polar" },
+];
+export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
+  { id: "events", label: "Events and news" }, { id: "earth", label: "Earth and hazards" },
+  { id: "people", label: "People and places" }, { id: "polar", label: "Antarctica" },
+];
+export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
+  { name: "Conflict watch", letters: "wen", hint: "CrisisWatch, events, news watch words" },
+  { name: "Hazards", letters: "qsvpf", hint: "Earthquakes, storms, volcanoes, plates, faults" },
+  { name: "People and places", letters: "cuto", hint: "Cities, universities, stations, companies" },
+];
+
+// The map's time window for timed layers: "7d", "30d", "90d", "1y", "year" (the year the
+// country colours show) or "2026-01-01~2026-03-31". "" means the Settings default.
+export const WINDOWS: { id: string; label: string }[] = [
+  { id: "7d", label: "7 days" }, { id: "30d", label: "30 days" }, { id: "90d", label: "90 days" }, { id: "1y", label: "This year" },
+  { id: "year", label: "Colour year" },
+];
+const WIN_RE = /^(7d|30d|90d|1y|year|\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2})$/;
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+export function windowDates(win: string, year: number | null, today = new Date()): [string, string] {
+  const m = win.match(/^(\d{4}-\d{2}-\d{2})~(\d{4}-\d{2}-\d{2})$/);
+  if (m) return m[1] <= m[2] ? [m[1], m[2]] : [m[2], m[1]];
+  if (win === "year" && year) return [`${year}-01-01`, `${year}-12-31`];
+  if (win === "1y") return [`${today.getUTCFullYear()}-01-01`, iso(today)];
+  const days = win === "7d" ? 7 : win === "90d" ? 90 : 30;
+  return [iso(new Date(today.getTime() - days * 86_400_000)), iso(today)];
+}
 
 // URL form, kept readable:
 //   ?l=4&p=map.tfr.1970~chart.tfr~table.gdp_growth.2023.chsyk.B.-20&s=NZL,AUS&s2=FRA
@@ -279,6 +324,7 @@ export function toQuery(ws: Workspace): string {
   if (pins.length) q.set("pin", pins.join(","));
   if (ws.board.length) q.set("b", ws.board.map((b) => `${b.entity}:${b.indicator}`).join(","));
   if (ws.side) q.set("side", "1");
+  if (ws.win) q.set("w", ws.win);
   return q.toString().replace(/%7E/g, "~").replace(/%2C/g, ",").replace(/%3A/g, ":");
 }
 
@@ -308,7 +354,8 @@ export function fromQuery(q: URLSearchParams): Workspace {
         rk: rk && RANK_RE.test(rk) ? rk : "",
       });
     });
-  if (!panels.length) return DEFAULT;
+  const win = WIN_RE.test(q.get("w") || "") ? q.get("w")! : "";
+  if (!panels.length) return { ...DEFAULT, win };
   const wanted = LAYOUTS.find((l) => l.id === q.get("l"))?.id ?? "1";
   const layout = layoutFor(panels.length, wanted);
   const max = q.get("max");
@@ -333,6 +380,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     pins,
     board,
     side: q.get("side") === "1",
+    win,
   };
 }
 

@@ -131,18 +131,33 @@ SETTINGS: dict[str, object] = {
     "news_reliefweb_app": "",        # ReliefWeb only answers app names it has approved (free: apidoc.reliefweb.int); blank = off
     "news_keep_days": 730,           # how far back news is kept
     "news_every_hours": 6,           # news is fetched again when the News tab is opened this long after the last time
+    # Briefing, the map's events and the Layers panel
+    "start_page": "briefing_after_refresh",  # what the Map link and the app open on: "briefing_after_refresh", "briefing" or "map"
+    "briefing_days": 7,              # the Briefing's "Happening" lane looks back this many days
+    "map_open_layers": "wen",        # layers the opening map turns on (letters, see the Layers panel): w CrisisWatch, e events, n news watch words
+    "map_window": "30d",             # time window for timed map layers (events, earthquakes, storms, news): 7d, 30d, 90d or 1y
+    "map_layer_sets": {},            # your own quick sets in the Layers panel: name -> layer letters
+    "news_watch_words": "assassination,assassinated,coup,protest,protests,riot,riots,uprising,martial law,state of emergency,"
+                        "ceasefire,invasion,airstrike,air strike,massacre,hostage,blockade,sanctions,default,impeachment,resigns,"
+                        "tsunami,eruption,famine,outbreak",  # news naming one of these words is put on the map, hollow until a dataset confirms it
+    "news_watch_outlets": 1,         # how many outlets must report it before a watch-word item shows on the map
+    "flags_on": True,                # small flags beside country names (in pickers, headings, tables and cards)
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
-           "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection")}
+           "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
+           "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y")}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
+LETTERS = {"map_open_layers"}  # map layer letters, each once
+LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
+PHRASES = {"news_watch_words"}  # comma-separated words or short phrases, lower case
 BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
@@ -155,7 +170,8 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
           "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),
-          "news_every_hours": (1, 720)}
+          "news_every_hours": (1, 720),
+          "briefing_days": (1, 90), "news_watch_outlets": (1, 5)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.
@@ -206,6 +222,11 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
+def _letters(v) -> str:
+    """Map layer letters, each once, in the order given."""
+    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z"))[:26]
+
+
 def clean_settings(data: dict, base: dict | None = None) -> dict:
     """The known settings from data, each checked and held to its range; the rest
     (and anything invalid) come from base, else the defaults."""
@@ -246,6 +267,22 @@ def clean_settings(data: dict, base: dict | None = None) -> dict:
                 continue
             out[key] = {str(k)[:80]: x for k, x in list(v.items())[:5000]
                         if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", str(k)) and x in ("higher", "lower", "neither")}
+        elif key in LAYERSETS:
+            if isinstance(v, str):
+                try:
+                    v = json.loads(v or "{}")
+                except ValueError:
+                    continue
+            if not isinstance(v, dict):
+                continue
+            out[key] = {" ".join(str(name).split())[:40]: _letters(x) for name, x in list(v.items())[:30]
+                        if str(name).strip() and _letters(x)}
+        elif key in LETTERS:
+            out[key] = _letters(v)
+        elif key in PHRASES:
+            words = [" ".join(w.lower().split()) for w in str(v or "").split(",")]
+            words = [w for w in words if re.fullmatch(r"[a-z][a-z' -]{0,39}", w)]
+            out[key] = ",".join(dict.fromkeys(words))[:1500]
         elif key in CHOICES:
             if v in CHOICES[key]:
                 out[key] = v

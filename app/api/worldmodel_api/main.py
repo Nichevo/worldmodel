@@ -18,7 +18,7 @@ import os
 import re
 import tempfile
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -37,7 +37,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, climate, highlights, layouts, markets, news, numbeo, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, highlights, layouts, markets, news, numbeo, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -183,7 +183,7 @@ def entities(type: str | None = None, q: str | None = None):
     if q:
         where.append("(name ILIKE ? OR short_name ILIKE ? OR synonyms ILIKE ? OR entity_id ILIKE ?)")
         params += [f"%{q}%"] * 3 + [q]
-    return rows(f"SELECT entity_id, name, short_name, type, iso3, valid_from, valid_to FROM entities "
+    return rows(f"SELECT entity_id, name, short_name, type, iso3, iso2, valid_from, valid_to FROM entities "
                 f"WHERE {' AND '.join(where)} ORDER BY type <> 'country', short_name", params)
 
 
@@ -2298,9 +2298,11 @@ def places(kind: PLACE_KINDS | None = None, country: str | None = Query(None, de
     if q:
         where.append("p.name ILIKE ?")
         params.append(f"%{q}%")
+    city_join = ("LEFT JOIN cities c ON c.city_id = p.city_id" if _has_cities()
+                 else "LEFT JOIN (SELECT NULL::VARCHAR AS city_id, NULL::VARCHAR AS name) c ON false")
     found = rows(f"""SELECT p.place_id, p.kind, p.subkind, p.name, p.country_id, e.short_name AS country, p.city_id,
                             coalesce(c.name, p.city_name) AS city, p.lat, p.lon, p.founded, p.url, p.facts, p.size
-                     FROM places p LEFT JOIN entities e ON e.entity_id = p.country_id LEFT JOIN cities c ON c.city_id = p.city_id
+                     FROM places p LEFT JOIN entities e ON e.entity_id = p.country_id {city_join}
                      WHERE {' AND '.join(where)} ORDER BY p.size DESC NULLS LAST, p.name LIMIT ?""", [*params, limit])
     for r in found:
         r["facts"] = json.loads(r["facts"] or "{}")
@@ -2626,6 +2628,122 @@ def discover_rescan():
     discover.save(local.home(), _build_id(), found)
     _d_cache.update(build=_build_id(), finds=found)
     return {"finds": len(found)}
+
+
+# ----------------------------------------------------------------------------- Briefing, map events, watch words
+def _has_table(name: str) -> bool:
+    return bool(rows("SELECT 1 FROM information_schema.tables WHERE table_name = ? AND table_schema = 'main'", [name]))
+
+
+def _city_index(entities: list[str]) -> dict[str, list[tuple[str, float, float]]]:
+    """Cities of 100,000 people or more in these countries, biggest first, for placing news on the map."""
+    if not entities or not _has_cities():
+        return {}
+    out: dict[str, list[tuple[str, float, float]]] = {}
+    for r in rows("""SELECT country_id, name, lat, lon FROM cities WHERE population >= 100000
+            AND country_id IN (SELECT unnest(?)) ORDER BY population DESC""", [sorted(set(entities))]):
+        out.setdefault(r["country_id"], []).append((r["name"], r["lat"], r["lon"]))
+    return out
+
+
+def _starting(lo: str, hi: str, entity: str | None = None, quiet: bool = False) -> list[dict]:
+    """Events that start between two days (not the long worked-out episodes, unless quiet)."""
+    where = ["e.start_date BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)"]
+    params: list = [lo, hi]
+    if not quiet:
+        where.append("e.kind NOT IN (SELECT unnest(?))")
+        params.append(sorted(briefing.QUIET_KINDS))
+    if entity:
+        where.append("e.entity_id = ?")
+        params.append(entity)
+    found = rows(f"""SELECT {', '.join('e.' + c for c in EVENT_COLUMNS)}, n.short_name AS entity_name FROM events e
+        LEFT JOIN entities n USING (entity_id) WHERE {' AND '.join(where)} ORDER BY e.start_date DESC LIMIT 3000""", params)
+    for r in found:
+        for k in ("start_date", "end_date"):
+            r[k] = r[k].isoformat() if r[k] else None
+        r["group"] = briefing.KIND_GROUP.get(r["kind"], "other")
+    return found
+
+
+def _watch(lo: str, hi: str, entity: str | None = None) -> list[dict]:
+    s = userdata.settings()
+    ws = briefing.words(s.get("news_watch_words", ""))
+    items = [i for i in news.items() if entity is None or entity in (i.get("entities") or [])]
+    ents = sorted({e for i in items for e in (i.get("entities") or [])[:1]})
+    confirm = rows("""SELECT entity_id, kind, start_date, title FROM events WHERE start_date BETWEEN
+        CAST(? AS DATE) - INTERVAL 3 DAY AND CAST(? AS DATE) + INTERVAL 3 DAY""", [lo, hi])
+    return briefing.watch_hits(items, ws, lo, until=hi, min_outlets=int(s.get("news_watch_outlets", 1)),
+                               cities=_city_index(ents), confirm=confirm)
+
+
+@api.get("/map-events")
+def map_events(start: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"), end: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$")):
+    """What happened between two days, for the map's Events and News layers: dated events that start in the
+    window (placed on their country), and news that names a watch word (placed on a city it names, else
+    its country; confirmed once a dataset holds a matching event). Earthquakes and storm tracks are map
+    layers of their own (GET /layers), filtered to the same window by the app."""
+    if start > end:
+        raise HTTPException(422, "start is after end")
+    return {"start": start, "end": end, "events": _starting(start, end), "watch": _watch(start, end),
+            "words": briefing.words(userdata.settings().get("news_watch_words", ""))}
+
+
+def _cw_latest() -> tuple[str | None, list[dict]]:
+    found = crisiswatch(None) if _has_table("events") else {"month": None, "rows": []}
+    return found["month"], found["rows"]
+
+
+@api.get("/briefing")
+def briefing_page(days: int | None = Query(None, ge=1, le=90)):
+    """Everything new in four lanes, each a list of the shared card: happening (CrisisWatch's month,
+    news that names a watch word, events of the last days, top news), found (Discover's best finds),
+    due (events coming up in the next 60 days) and yours (what you kept lately)."""
+    s = userdata.settings()
+    keys = [k for k in (s.get("discover_key_countries") or "").split(",") if k]
+    days = days or int(s.get("briefing_days", 7))
+    lo, hi = briefing.window(days)
+    month, cw = _cw_latest()
+    feed = discover_list(tab="finds", category=None, kind=None, tone=None, entity=None, tag=None, q=None, sort="score",
+                         new=False, since=None, until=None, limit=12, offset=0)
+    finds = sorted(feed["items"], key=lambda f: (not f.get("new"), -f.get("rank_score", 0)))
+    ahead = (date.today() + timedelta(days=60)).isoformat()
+    due = [e for e in _starting((date.today() + timedelta(days=1)).isoformat(), ahead)
+           if e["kind"] in ("election", "sport", "summit", "court", "un", "treaty") or e["entity_id"] in keys]
+    hl = highlights.search()
+    names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+    return {
+        "days": days, "since": lo, "build_id": _build_id(), "crisiswatch_month": month, "key_countries": keys, "names": names,
+        "news_due": bool(s.get("news_on", True)) and news.is_due(s),
+        "lanes": {
+            "happening": [*briefing.crisiswatch_cards(cw, month, keys), *briefing.watch_cards(_watch(lo, hi)),
+                          *briefing.event_cards(_starting(lo, hi)), *briefing.news_cards(news.items(), lo, 8)],
+            "found": briefing.find_cards(finds, 8),
+            "due": briefing.event_cards(due, due=True)[:20],
+            "yours": briefing.yours_cards(hl, 6),
+        },
+    }
+
+
+@api.get("/entities/{entity_id}/latest")
+def entity_latest(entity_id: str, days: int = Query(30, ge=1, le=365)):
+    """The "Latest on" strip of a country page: its CrisisWatch rating this month (and last), news that names
+    a watch word, events of the last days, top news and its best Discover finds, as shared cards."""
+    lo, hi = briefing.window(days)
+    cw = None
+    if _has_table("events"):
+        got = rows("""SELECT strftime(start_date, '%Y-%m') AS month, subkind, detail, place, url FROM events
+            WHERE kind = 'crisiswatch' AND entity_id = ? ORDER BY start_date DESC LIMIT 2""", [entity_id])
+        if got:
+            cw = {**got[0], "label": briefing.CW_WORDS.get(got[0]["subkind"] or "", got[0]["subkind"]),
+                  "previous": got[1]["subkind"] if len(got) > 1 else None}
+    # Finds about this country itself, not ones where it is one of a hundred countries setting a record.
+    finds = [f for f in discover_entity(entity_id, limit=30)["items"] if entity_id in (f.get("entities") or []) and len(f.get("entities") or []) <= 3]
+    cards = [*briefing.watch_cards(_watch(lo, hi, entity_id)), *briefing.event_cards(_starting(lo, hi, entity_id)),
+             *briefing.news_cards(news.items(), lo, 5, entity_id), *briefing.find_cards(finds, 3)]
+    ids = sorted({e for c in cards for e in c["entities"][:3]} | {entity_id})
+    names = {r["entity_id"]: r["short_name"] for r in rows(
+        "SELECT entity_id, short_name FROM entities WHERE entity_id IN (SELECT unnest(?))", [ids])}
+    return {"entity_id": entity_id, "days": days, "crisiswatch": cw, "cards": cards, "names": names}
 
 
 @app.get("/health")

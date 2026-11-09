@@ -19,6 +19,7 @@ app/web/next-env.d.ts
 # OS
 .DS_Store
 
-# copied from node_modules by app/web/scripts/copy-maplibre-worker.mjs
+# copied from node_modules by app/web/scripts/copy-maplibre-worker.mjs (MapLibre worker, flags)
 app/web/public/maplibre/
 .env.example.mine
+app/web/public/flags/

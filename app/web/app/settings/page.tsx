@@ -59,7 +59,11 @@ export default function SettingsPage() {
           save={(v) => save({ ranks_top_n: v })} />
         <Toggle label="Side panel (pinboard)" hint="A column beside the panels for cards sent from popups; saved with each layout."
           on={s.side_panel} set={(v) => save({ side_panel: v })} />
+        <Toggle label="Flags beside country names" hint="In pickers, headings, tables and cards; groups without a flag get a lettered badge. Off: names only, nothing else changes."
+          on={s.flags_on} set={(v) => save({ flags_on: v })} />
       </section>
+
+      <BriefingSettings s={s} save={save} />
 
       <section className="card" id="quality">
         <h2>Indicator quality</h2>
@@ -437,6 +441,59 @@ function AISettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>)
 }
 
 // A line of text that saves when you leave the box or press Enter.
+const START_PAGES: [Settings["start_page"], string, string][] = [
+  ["briefing_after_refresh", "Briefing after each refresh", "Once per new warehouse, then the map."],
+  ["briefing", "Briefing every time", "The map is one click away (Explore > Map)."],
+  ["map", "The map", "The Briefing is still in the menu (Today > Briefing) but never opens by itself."],
+];
+const LAYER_TEXT: [string, string][] = [["w", "CrisisWatch this month"], ["e", "Events"], ["n", "Reported in the news"], ["q", "Earthquakes"],
+  ["s", "Storm tracks"], ["v", "Volcanoes"], ["p", "Plate boundaries"], ["c", "Major cities"]];
+
+function BriefingSettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
+  const [words, setWords] = useState(s.news_watch_words.split(",").join(", "));
+  useEffect(() => setWords(s.news_watch_words.split(",").join(", ")), [s.news_watch_words]);
+  const flip = (letter: string, on: boolean) =>
+    save({ map_open_layers: LAYER_TEXT.map(([l]) => l).filter((l) => (l === letter ? on : s.map_open_layers.includes(l))).join("") });
+  return (
+    <section className="card" id="briefing">
+      <h2>Briefing and the map&apos;s events</h2>
+      <Field label="The app opens on" hint={START_PAGES.find(([id]) => id === s.start_page)?.[2]}>
+        <div className="seg" role="group" aria-label="The app opens on">
+          {START_PAGES.map(([id, label]) => (
+            <button key={id} className={s.start_page === id ? "on" : ""} aria-pressed={s.start_page === id} onClick={() => save({ start_page: id })}>{label}</button>
+          ))}
+        </div>
+      </Field>
+      <NumberField label="Happening looks back" unit="days" value={s.briefing_days} min={1} max={90} step={1}
+        note="The Briefing's first lane: CrisisWatch's month, news with a watch word, events and top news from this many days." save={(v) => save({ briefing_days: v })} />
+      <Field label="Layers the opening map turns on" hint="Only the map you open without a saved view; layouts and links keep their own layers. None ticked: a plain map.">
+        <div>{LAYER_TEXT.map(([l, label]) => (
+          <label key={l} style={{ marginRight: 10, whiteSpace: "nowrap" }}>
+            <input type="checkbox" checked={s.map_open_layers.includes(l)} onChange={(e) => flip(l, e.target.checked)} /> {label}
+          </label>))}</div>
+      </Field>
+      <Field label="Default time window" hint="For events, news, earthquakes and storms on the map; each map can change it in its Layers panel.">
+        <div className="seg" role="group" aria-label="Default time window">
+          {(["7d", "30d", "90d", "1y"] as const).map((w) => (
+            <button key={w} className={s.map_window === w ? "on" : ""} aria-pressed={s.map_window === w} onClick={() => save({ map_window: w })}>
+              {{ "7d": "7 days", "30d": "30 days", "90d": "90 days", "1y": "This year" }[w]}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <div id="watch-words" />
+      <Field label="News watch words" hint="News that names one of these and a country goes on the map (hollow until a dataset confirms it) and into the Briefing. Commas between words; short phrases work. Empty: no news on the map.">
+        <textarea value={words} rows={3} style={{ width: "min(520px, 100%)" }} aria-label="News watch words"
+          onChange={(e) => setWords(e.target.value)} onBlur={() => save({ news_watch_words: words })} />
+      </Field>
+      <NumberField label="Outlets before it shows" unit="outlets" value={s.news_watch_outlets} min={1} max={5} step={1}
+        note="1 shows a story as soon as one outlet has it. More waits for others to report it too: fewer false alarms, but slower, and stories from one outlet never show."
+        save={(v) => save({ news_watch_outlets: v })} />
+      <p className="caption">News is fetched when the Briefing or Discover &gt; News is opened (Settings &gt; Discover: sources and how often).</p>
+    </section>
+  );
+}
+
 function TextField({ label, value, placeholder, note, save }: { label: string; value: string; placeholder?: string; note?: string; save: (v: string) => void }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
