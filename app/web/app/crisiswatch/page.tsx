@@ -1,5 +1,6 @@
 "use client";
 
+import Flag from "@/components/Flag";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -66,7 +67,7 @@ function CrisisWatchPage() {
           <tbody>
             {[...data.rows].sort((a, b) => a.score - b.score || a.name.localeCompare(b.name)).map((r) => (
               <tr key={r.entity_id + (r.place ?? "")}>
-                <td style={{ whiteSpace: "nowrap" }}><i className="dot" style={{ background: CW_COLOR[r.subkind] }} /> <Link href={`/entity/${r.entity_id}#crisiswatch`}>{r.name}</Link>
+                <td style={{ whiteSpace: "nowrap" }}><i className="dot" style={{ background: CW_COLOR[r.subkind] }} /> <Link href={`/entity/${r.entity_id}#crisiswatch`}><Flag id={r.entity_id} />{r.name}</Link>
                   {r.place ? <span className="muted"> ({r.place})</span> : null}</td>
                 <td style={{ whiteSpace: "nowrap" }}>{CW_LABEL[r.subkind] ?? r.subkind}</td>
                 <td>{r.detail}</td>

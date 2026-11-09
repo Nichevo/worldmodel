@@ -100,6 +100,14 @@ export const DEFAULT_SETTINGS: Settings = {
   brave_free_monthly: 1000,
   brave_price_per_1000: 5,
   highlight_menu: true,
+  start_page: "briefing_after_refresh",
+  briefing_days: 7,
+  map_open_layers: "wen",
+  map_window: "30d",
+  map_layer_sets: {},
+  news_watch_words: "assassination,assassinated,coup,protest,protests,riot,riots,uprising,martial law,state of emergency,ceasefire,invasion,airstrike,air strike,massacre,hostage,blockade,sanctions,default,impeachment,resigns,tsunami,eruption,famine,outbreak",
+  news_watch_outlets: 1,
+  flags_on: true,
 };
 
 let current: Settings = DEFAULT_SETTINGS;

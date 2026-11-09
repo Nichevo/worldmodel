@@ -6,6 +6,7 @@ export type Entity = {
   short_name: string;
   type: string;
   iso3: string | null;
+  iso2?: string | null;
   valid_from: string | null;
   valid_to: string | null;
 };
@@ -261,6 +262,14 @@ export type Settings = {
   brave_free_monthly: number;
   brave_price_per_1000: number;
   highlight_menu: boolean; // selecting text shows Ask AI / Save highlight
+  start_page: "briefing_after_refresh" | "briefing" | "map"; // what the app opens on
+  briefing_days: number; // the Briefing's Happening lane looks back this far
+  map_open_layers: string; // layer letters the opening map turns on
+  map_window: "7d" | "30d" | "90d" | "1y"; // time window for timed map layers
+  map_layer_sets: Record<string, string>; // your own quick sets: name -> layer letters
+  news_watch_words: string; // comma-separated words that put a news item on the map
+  news_watch_outlets: number; // outlets needed before a reported item shows on the map
+  flags_on: boolean; // small flags beside country names
 };
 
 // Text sources about a country: the CIA Factbook (an edition per year, 1990-2025) and Wikidata facts.
@@ -742,7 +751,36 @@ export type DiscoverFeed = {
   kinds: Record<string, string>; categories: string[]; never: string[]; news: NewsState;
 };
 
+// The Briefing, the "Latest on" strip and the map's events: one shared card for everything
+// (see app/api/worldmodel_api/briefing.py).
+export type BriefKind = "feed" | "find" | "event" | "due" | "yours";
+export type BriefCard = {
+  kind: BriefKind; key: string; title: string; detail: string; date: string | null; entities: string[]; source: string;
+  url: string | null; href: string | null; tone: Tone; group: string | null;
+  rating?: string | number; word?: string; confirmed?: boolean; n_outlets?: number; new?: boolean;
+};
+export type Briefing = {
+  days: number; since: string; build_id: string; crisiswatch_month: string | null; key_countries: string[];
+  names: Record<string, string>; news_due: boolean;
+  lanes: { happening: BriefCard[]; found: BriefCard[]; due: BriefCard[]; yours: BriefCard[] };
+};
+export type EntityLatest = {
+  entity_id: string; days: number; cards: BriefCard[]; names: Record<string, string>;
+  crisiswatch: { month: string; subkind: string; label: string; detail: string | null; place: string | null; url: string | null;
+    previous: string | null } | null;
+};
+export type MapEvent = EventRow & { group: string };
+export type WatchHit = {
+  key: string; word: string; words: string[]; date: string; entity_id: string; entities: string[]; headline: string;
+  detail: string; url: string | null; outlets: string[]; urls: string[]; n_outlets: number; confirmed: boolean;
+  confirmed_by?: string; place: { name: string; lat: number; lon: number } | null; group: string; tone: Tone;
+};
+export type MapEvents = { start: string; end: string; events: MapEvent[]; watch: WatchHit[]; words: string[] };
+
 export const api = {
+  briefing: (days?: number) => get<Briefing>("/briefing", { days }),
+  entityLatest: (id: string, days = 30) => get<EntityLatest>(`/entities/${encodeURIComponent(id)}/latest`, { days }),
+  mapEvents: (start: string, end: string) => get<MapEvents>("/map-events", { start, end }),
   discover: (o: { tab?: DiscoverTab; category?: string; kind?: string; tone?: string; entity?: string; tag?: string; q?: string;
     sort?: string; new?: string; since?: string; until?: string; limit?: number; offset?: number } = {}) => get<DiscoverFeed>("/discover", o),
   discoverMark: (key: string, change: { rating?: number; tags?: string[]; tone?: Tone | null }) =>

@@ -1,5 +1,6 @@
 "use client";
 
+import Flag from "@/components/Flag";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -72,7 +73,7 @@ function Compare() {
         {named.map((e, i) => (
           <span className="chip" key={e.id}>
             <span className="swatch" style={{ background: seriesVar(i) }} />
-            <Link href={`/entity/${e.id}`}>{e.name}</Link>
+            <Link href={`/entity/${e.id}`}><Flag id={e.id} size={12} />{e.name}</Link>
             <button aria-label={`Remove ${e.name}`} onClick={() => update(ids.filter((x) => x !== e.id))}>×</button>
           </span>
         ))}
@@ -87,7 +88,7 @@ function Compare() {
               {latest.map((r, i) => (
                 <tr key={r.entity_id}>
                   <td>{i + 1}</td>
-                  <td><Link href={`/entity/${r.entity_id}`}>{names.get(r.entity_id) ?? r.entity_id}</Link></td>
+                  <td><Link href={`/entity/${r.entity_id}`}><Flag id={r.entity_id} />{names.get(r.entity_id) ?? r.entity_id}</Link></td>
                   <td className="num">{formatValue(r.value, indicator.unit, indicator.decimals)}</td>
                   <td className="num">{r.period}</td>
                 </tr>

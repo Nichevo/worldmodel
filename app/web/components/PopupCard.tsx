@@ -1,5 +1,6 @@
 "use client";
 
+import Flag from "@/components/Flag";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import EChart from "@/components/EChart";
@@ -75,7 +76,7 @@ export default function PopupCard({
   return (
     <div className={`popup-card ${variant}`} role="dialog" aria-label={`${shown?.name ?? entity}: ${ind.name}`}>
       <div className="popup-head">
-        <b>{shown?.name ?? entity}</b>
+        <b><Flag id={entity} />{shown?.name ?? entity}</b>
         {shown?.region && <span className="muted small"> · {shown.region.name}</span>}
         <span className="spacer" />
         {pinned && <span className="pin-mark" title="Pinned">📌</span>}
