@@ -1,0 +1,7 @@
+ID,Name,Macroarea,Latitude,Longitude,Glottocode,ISO639P3code,Level,Countries,Family_ID,Language_ID,Closest_ISO369P3code,First_Year_Of_Documentation,Last_Year_Of_Documentation,Is_Isolate
+aust1307,Austronesian,Papunesia,,,aust1307,,family,,,,,,,
+maor1246,Maori,Papunesia,-38,176,maor1246,mri,language,NZ,aust1307,,,,,false
+mori1267,Moriori,Papunesia,-44,-176,mori1267,rrm,language,NZ,aust1307,,,,,false
+nzsl1238,New Zealand Sign Language,Papunesia,-41,174,nzsl1238,nzs,language,NZ,,,,,,false
+stan1293,English,Eurasia,53,-1,stan1293,eng,language,NZ;GB;AU,,,,,,false
+book1242,Bookkeeping,,,,book1242,,language,NZ,,,,,,false
