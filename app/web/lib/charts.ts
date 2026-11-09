@@ -8,7 +8,7 @@ import { compact, formatValue } from "@/lib/format";
 
 export type Named = { id: string; name: string };
 
-function chrome(): EChartsOption {
+export function chrome(): EChartsOption {
   const ink2 = cssVar("--ink-2");
   const muted = cssVar("--muted");
   return {

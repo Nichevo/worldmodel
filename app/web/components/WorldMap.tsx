@@ -56,6 +56,7 @@ type Props = {
   marks?: MapMark[];
   // Extra legend entries for outlines and markers.
   legend?: { label: string; color: string; shape: "dot" | "ring" | "outline" }[];
+  hideScale?: boolean; // colours stand for categories, so the number legend would mislead
 };
 
 export type MapOutline = { entity: string; color: string; label: string };
@@ -108,7 +109,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
-  raster = null, boxes = [], outlines, marks, legend = [],
+  raster = null, boxes = [], outlines, marks, legend = [], hideScale = false,
 }: Props) {
   const outlineText = useRef<Map<string, string>>(new Map());
   outlineText.current = new Map((outlines ?? []).map((o) => [o.entity, o.label]));
@@ -602,7 +603,7 @@ export default function WorldMap({
   return (
     <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" /></div>
-      <Legend scale={scale} unit={unit} />
+      {!hideScale && <Legend scale={scale} unit={unit} />}
       {(layers.length > 0 || legend.length > 0) && (
         <div className="legend overlays" aria-label="Map layers">
           {legend.map((l) => (
