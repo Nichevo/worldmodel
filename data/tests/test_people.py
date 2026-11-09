@@ -41,7 +41,9 @@ def test_glottolog_counts_languages_and_names_the_endangered(tmp_path):
     assert obs[("NZL", "lang_endangered", "")] == 1 and obs[("NZL", "lang_extinct", "")] == 1
     assert obs[("NZL", "lang_threatened", "")] == 1 and obs[("GBR", "lang_count", "")] == 1
     names = {(t[0], t[2]): t[4] for t in texts}
-    assert names[("NZL", "Maori")] == "shifting|Austronesian" and names[("NZL", "Moriori")].startswith("extinct")
+    assert names[("NZL", "Maori")].startswith("shifting|Austronesian|") and names[("NZL", "Moriori")].startswith("extinct")
+    pos = duckdb.sql(f"SELECT source_code, position FROM '{d / 'texts.parquet'}'").fetchall()
+    assert len(pos) == len(set(pos))  # one position per language in a country (the build checks this)
     assert ("NZL", "English") not in names
 
 
@@ -53,6 +55,8 @@ def test_cow_religion_shares_by_group_and_state(tmp_path):
     assert ("SUN", "rel_share", "rel=muslim", 1985) in obs and obs[("SUN", "rel_people", "rel=muslim.other", 1985)] == 0
     assert round(obs[("NZL", "rel_largest_share", "", 1945)]) == 95
     assert not any(k[0] == "XXX" for k in obs)
+    # 1990 has both West Germany (260) and unified Germany (255): only unified Germany counts
+    assert obs[("DEU", "rel_people", "rel=christian", 1990)] == 58000000
 
 
 def test_pew_religion_reads_a_table_of_shares(tmp_path):

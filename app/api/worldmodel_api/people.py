@@ -273,9 +273,12 @@ def languages_country(q: Q, entity: str) -> dict:
               AND breakdown = '' QUALIFY row_number() OVER (PARTITION BY indicator_id ORDER BY period_start DESC) = 1""", [entity])}
     endangered = []
     for r in q("""SELECT field AS name, content, position FROM texts WHERE entity_id = ? AND source_id = 'glottolog'
-                  AND section = 'Endangered languages' ORDER BY position DESC, field""", [entity]):
-        status, _, family = (r["content"] or "").partition("|")
-        endangered.append({"name": r["name"], "status": status, "family": family, "level": r["position"]})
+                  AND section = 'Endangered languages' ORDER BY position, field""", [entity]):
+        # content is "status|family|level", most endangered first (older builds: level in position)
+        status, family, level = ((r["content"] or "").split("|") + ["", ""])[:3]
+        endangered.append({"name": r["name"], "status": status, "family": family,
+                           "level": int(level) if level.isdigit() else r["position"]})
+    endangered.sort(key=lambda e: -e["level"])
     fb = q("""SELECT edition, content FROM texts WHERE entity_id = ? AND source_id = 'cia_factbook'
               AND lower(field_key) LIKE '%language%' ORDER BY edition DESC LIMIT 1""", [entity])
     return {

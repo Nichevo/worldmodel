@@ -161,6 +161,7 @@ class CLDRLanguages(_Yearly):
 
 
 class Glottolog(_Yearly):
+    stage_version = 2  # 2: one text position per language in each country
     source_id = "glottolog"
     fetch_every_days = 180  # a release or two a year
 
@@ -209,7 +210,7 @@ class Glottolog(_Yearly):
                 if aes and aes[0] >= 2:  # threatened or worse: named on the card
                     family = families.get(r.get("Family_ID") or "", "isolate" if r.get("Is_Isolate") == "true" else "")
                     texts.append((ent, year, "Endangered languages", r["Name"], f"glotto:{r['ID']}",
-                                  f"{aes[1]}|{family}", aes[0]))
+                                  f"{aes[1]}|{family}|{aes[0]}", aes[0]))
         if not counts:
             raise ConnectorError("glottolog: no languages with countries read")
         rows = Rows()
@@ -218,7 +219,18 @@ class Glottolog(_Yearly):
             rows.add("iso3", ent, "lang_endangered", year, c[3] + c[4] + c[5])
             rows.add("iso3", ent, "lang_threatened", year, c[2])
             rows.add("iso3", ent, "lang_extinct", year, c[6])
-        self.texts_query = _texts_query(con, self.source_id, vintage, texts)
+        # One position per language in each country (a language spoken in several places is listed in each),
+        # most endangered first; the level itself is the content's third part.
+        texts.sort(key=lambda t: (t[0], -t[6], t[3], t[4]))
+        seen: set[tuple] = set()
+        ordered, n = [], defaultdict(int)
+        for t in texts:
+            if (t[0], t[4]) in seen:
+                continue
+            seen.add((t[0], t[4]))
+            ordered.append((*t[:6], n[t[0]]))
+            n[t[0]] += 1
+        self.texts_query = _texts_query(con, self.source_id, vintage, ordered)
         note = "Glottolog, Agglomerated Endangerment Status (from UNESCO, EGIDS and the Catalogue of Endangered Languages)."
         self.listed_indicators = [
             indicator("lang_count", "Languages spoken", "Languages spoken in the country (spoken and sign languages, "
@@ -289,6 +301,8 @@ def cow_entity(ccode, year: int) -> str | None:
         return None
     if c == 365:
         return "SUN" if year < 1992 else "RUS"
+    if c == 260 and year >= 1990:
+        return None  # West Germany's last year: unified Germany (255) has its own row
     if c == 345:
         return "YUG" if year < 1992 else "SCG" if year < 2006 else "SRB"
     return COW_STATES.get(c)
@@ -331,6 +345,7 @@ def _add_religion(rows: Rows, ent: str, year: int, people: dict[str, float], pop
 
 class COWReligion(_Yearly):
     source_id = "cow_religion"
+    stage_version = 2  # 2: West Germany's 1990 row left out (unified Germany has its own)
     frozen = True  # a closed dataset (1945-2010)
 
     def default_release(self, fetched_at: datetime) -> str:
