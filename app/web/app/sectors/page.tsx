@@ -56,6 +56,14 @@ function SectorsList({ list }: { list: SectorList }) {
     if (next.has(id)) next.delete(id); else next.add(id);
     saveSettings({ sectors_hidden: [...next].join(",") });
   };
+  // A whole group at once (say, food): hides every sector in it, or shows them all again.
+  const toggleGroup = (g: string) => {
+    const ids = list.sectors.filter((x) => x.group === g).map((x) => x.id);
+    const next = new Set(hidden);
+    const allHidden = ids.every((id) => next.has(id));
+    ids.forEach((id) => (allHidden ? next.delete(id) : next.add(id)));
+    saveSettings({ sectors_hidden: [...next].join(",") });
+  };
   const words = q.trim().toLowerCase();
   const shown = list.sectors.map((x) => ({ ...x, hidden: hidden.has(x.id) }))
     .filter((x) => (showHidden || !x.hidden) && (!words || `${x.name} ${x.feeds} ${x.stages.map((t) => t.name).join(" ")}`.toLowerCase().includes(words)));
@@ -69,9 +77,12 @@ function SectorsList({ list }: { list: SectorList }) {
       {Object.entries(list.groups).map(([g, name]) => {
         const here = shown.filter((x) => x.group === g);
         if (!here.length) return null;
+        const allHidden = list.sectors.filter((x) => x.group === g).every((x) => hidden.has(x.id));
         return (
           <section key={g}>
-            <h2>{name}</h2>
+            <h2>{name} <button className="link small" onClick={() => toggleGroup(g)}
+              title="Hidden sectors stay loaded and keep their trade figures; they are only left off this list">
+              {allHidden ? "Show this group" : "Hide this group"}</button></h2>
             <div className="grid three">{here.map((x) => <SectorTile key={x.id} s={x} onHide={() => toggle(x.id)} />)}</div>
           </section>
         );

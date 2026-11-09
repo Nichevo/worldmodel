@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Indicator } from "@/lib/api";
+import { termsIn } from "@/lib/glossary";
 import { HELP, type HelpNote } from "@/lib/help";
 import { SOURCE_LABEL } from "@/lib/format";
 
@@ -26,6 +27,7 @@ export default function Help({ note, indicator, label }: { note?: keyof typeof H
   const n: HelpNote | null = typeof note === "string" ? HELP[note] : note ?? (indicator ? fromIndicator(indicator) : null);
   if (!n) return null;
   const title = label ?? n.title;
+  const terms = termsIn(`${title} ${n.units ?? ""} ${n.what}`);
   return (
     <span className="help" ref={box}>
       <button className="help-q" aria-label={`What is ${title}?`} aria-expanded={open} title="What this shows" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}>?</button>
@@ -43,6 +45,11 @@ export default function Help({ note, indicator, label }: { note?: keyof typeof H
                   {i < n.sources!.length - 1 ? "; " : ""}
                 </span>
               ))}
+            </span>
+          ) : null}
+          {terms.length ? (
+            <span className="help-p"><i>Terms:</i>{" "}
+              {terms.map((t, i) => <span key={t.id}><Link href={`/glossary#${t.id}`}>{t.term}</Link>{i < terms.length - 1 ? "; " : ""}</span>)}
             </span>
           ) : null}
         </span>

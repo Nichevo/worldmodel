@@ -9,6 +9,8 @@ from worldmodel_data.connectors.cities import UNWUP, GeoNames, ILOEarnings, Numb
 from worldmodel_data.connectors.coups import Coups
 from worldmodel_data.connectors.crisiswatch import CrisisWatch
 from worldmodel_data.connectors.education import UNDPHDR, Wittgenstein
+from worldmodel_data.connectors.crises import CrisisHistory
+from worldmodel_data.connectors.iea_data import IEAData
 from worldmodel_data.connectors.emdat import EMDAT
 from worldmodel_data.connectors.forecasters import OECDEO, WorldBankGEP
 from worldmodel_data.connectors.housing import BIS, OECD, DallasFedIHPD, IMFGDD
@@ -21,6 +23,7 @@ from worldmodel_data.connectors.layers import GEMFaults, GVPVolcanoes, PlatesBir
 from worldmodel_data.connectors.migration import UNHCR, UNIMS
 from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
+from worldmodel_data.connectors.people import CLDRLanguages, COWReligion, Glottolog, PewReligion
 from worldmodel_data.connectors.turnout import IDEATurnout
 from worldmodel_data.connectors.ucdp import UCDPConflicts
 from worldmodel_data.connectors.un_wpp import UNWPP
@@ -42,6 +45,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     NagerHolidays, WBL, UNODCCrime, RulesCurated, WorldPolicy, GunPolicy, WorldPrisonBrief,
     BACI, USGSMinerals, WorldMiningData, FAOSTAT, PinkSheet, IEAEV,
     OWIDCO2, OWIDClimate, NOAAGML, GISTEMP, NOAAEnso, IBTrACS, GDACS, CCKP, NetZeroTracker, CarbonPricing, NIWA7Station, MfEGHG, OoklaSpeedtest,
-    ECBRates, FedH10, GIEStorage, EIAStocks, JODI, StatsNZ)}
+    ECBRates, FedH10, GIEStorage, EIAStocks, JODI, StatsNZ,
+    CLDRLanguages, Glottolog, COWReligion, PewReligion, CrisisHistory, IEAData)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

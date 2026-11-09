@@ -816,3 +816,28 @@ img.flag { display: inline-block; vertical-align: -2px; border-radius: 2px; box-
 .lp-dates { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .lp-dates input[type="date"] { font: inherit; font-size: 0.8rem; }
 .panel-body { position: relative; }
+
+/* Languages card: a small bar behind each share */
+.bar-cell { position: relative; display: inline-block; min-width: 120px; padding-left: 4px; z-index: 0; }
+.bar-cell i { position: absolute; left: 0; top: 2px; bottom: 2px; background: var(--series-1); opacity: 0.25; border-radius: 2px; z-index: -1; }
+.lang-table td:first-child { white-space: nowrap; }
+
+/* Financial crises: one strip per country on a shared year axis */
+.crisis-strips { display: grid; gap: 3px; }
+.crisis-row { display: grid; grid-template-columns: minmax(110px, 180px) 1fr 52px; gap: 8px; align-items: center; font-size: 13px; }
+.crisis-row svg { width: 100%; height: 14px; display: block; }
+.crisis-row .track { fill: var(--grid); opacity: 0.5; }
+.crisis-row .tick { stroke: var(--border); stroke-width: 0.6; vector-effect: non-scaling-stroke; }
+.crisis-row.lanes svg { height: 22px; }
+.crisis-row.key a { font-weight: 600; }
+.crisis-row.axis svg { height: 4px; }
+.crisis-row.labels { font-size: 11px; color: var(--muted); }
+.crisis-row a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .crisis-row { grid-template-columns: 90px 1fr 40px; } }
+
+/* Country reading list */
+ul.reading { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+dl.glossary { margin: 0; display: grid; gap: 12px; }
+dl.glossary dt { font-weight: 600; }
+dl.glossary dd { margin: 2px 0 0; color: var(--ink-2); max-width: 75ch; }
+dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border-radius: 6px; padding: 6px 8px; margin: -6px -8px; }
