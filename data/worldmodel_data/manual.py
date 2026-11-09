@@ -21,6 +21,7 @@ FALLBACK = {"rbnz", "mbie_energy", "us_census_voting", "idea_turnout", "powell_t
             "unga_votes", "un_vetoes", "imf_mona", "wto_disputes", "un_treaties", "crisiswatch", "nsidc_sea_ice",
             "celestrak_satcat", "nager_holidays", "wbl", "unodc_crime",
             "ookla_speedtest", "baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "iea_ev",
+            "cow_religion", "cldr_languages", "glottolog",
             "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp"}
 ABOUT = "_where to get it.txt"
 OLD = "old"

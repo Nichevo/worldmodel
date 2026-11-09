@@ -37,7 +37,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, highlights, layouts, markets, news, numbeo, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, highlights, layouts, markets, news, numbeo, people, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -2082,6 +2082,39 @@ def sector_page(sector_id: str, year: int | None = None, country: str = "NZL"):
     if out is None:
         raise HTTPException(404, f"no sector {sector_id}")
     return out
+
+
+# ----------------------------------------------------------------------------- religion and languages
+@api.get("/religion")
+def religion_page(year: int | None = None, group: str = "christian", since: int | None = None):
+    """Each religion's share of the world over time by source (Correlates of War 1945-2010, Pew
+    2010-2050 with projections), and a map year: each country's largest religion, the share of
+    `group`, and its change since `since`."""
+    if group not in people.GROUP_IDS:
+        raise HTTPException(422, f"group must be one of {', '.join(people.GROUP_IDS)}")
+    return people.religion(rows, year, group, since)
+
+
+@api.get("/entities/{entity_id}/religion")
+def entity_religion(entity_id: str):
+    """One country's religious mix over time from each source, including the percentages read
+    from each CIA Factbook edition's Religions line (exploratory)."""
+    return people.religion_country(rows, entity_id)
+
+
+@api.get("/languages")
+def languages_page(lang: str | None = None, top: int = Query(25, ge=1, le=200)):
+    """The most spoken languages in the world (first and second language together, CLDR), where
+    `lang` is spoken and official, each country's main language, and how many languages are
+    spoken and endangered in each (Glottolog)."""
+    return people.languages(rows, lang, top)
+
+
+@api.get("/entities/{entity_id}/languages")
+def entity_languages(entity_id: str):
+    """One country's languages: share speaking each and official status (CLDR), counts and the
+    endangered ones by name (Glottolog), and the latest Factbook line."""
+    return people.languages_country(rows, entity_id)
 
 
 # ----------------------------------------------------------------------------- laws and society

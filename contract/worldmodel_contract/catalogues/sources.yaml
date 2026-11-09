@@ -1429,3 +1429,62 @@
     get: https://explore.data.stats.govt.nz/
     what: "Only if the key will not work: open a census or population table for regional council areas and use Download > Table in SDMX-CSV with labels."
 
+- id: cldr_languages
+  name: Unicode CLDR, languages spoken in each country
+  short_name: CLDR languages
+  publisher: Unicode Consortium, Common Locale Data Repository
+  url: https://cldr.unicode.org/translation/getting-started/territory-information
+  licence: Unicode License v3 (open, free to reuse)
+  licence_url: https://www.unicode.org/license.txt
+  commercial_use: true
+  cadence: Twice a year (CLDR releases)
+  attribution: "Unicode CLDR, territory information (languagePopulation)."
+  status: active
+  default_rank: 3
+  standing: 3
+  definition: exploratory
+
+- id: glottolog
+  name: Glottolog, the world's languages and how endangered they are
+  short_name: Glottolog
+  publisher: Max Planck Institute for Evolutionary Anthropology
+  url: https://glottolog.org
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: About once a year
+  attribution: "Hammarström, Forkel, Haspelmath and Bank, Glottolog (CLDF release), Agglomerated Endangerment Status."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: exploratory
+
+- id: cow_religion
+  name: Correlates of War, World Religion Data (national, 1945-2010)
+  short_name: COW religion
+  publisher: Correlates of War Project (Maoz and Henderson)
+  url: https://correlatesofwar.org/data-sets/world-religion-data/
+  licence: Free for research with citation
+  licence_url: https://correlatesofwar.org/data-sets/
+  commercial_use: false
+  cadence: Frozen (version 1.1, every 5 years 1945-2010)
+  attribution: "Maoz and Henderson, World Religion Project, Correlates of War (national data, version 1.1)."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: exploratory
+
+- id: pew_religion
+  name: Pew Research Center, religious composition by country (2010, 2020, projections to 2050)
+  short_name: Pew religion
+  publisher: Pew Research Center, Global Religious Futures
+  url: https://www.pewresearch.org/religion/feature/religious-composition-by-country-2010-2020/
+  licence: Free to use with attribution (Pew terms of use)
+  licence_url: https://www.pewresearch.org/about/terms-and-conditions/
+  commercial_use: false
+  cadence: Every 10 years, with projections
+  attribution: "Pew Research Center, religious composition by country."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
