@@ -278,7 +278,7 @@ def to_tonnes(unit: str) -> float:
 
 class USGSMinerals(Connector):
     source_id = "usgs_mcs"
-    stage_version = 2  # 2: the sectors added in version 4
+    stage_version = 3  # 2: the sectors added in version 4; 3: one value per country, year and stage
     fetch_every_days = 120
     SEARCH = "https://www.sciencebase.gov/catalog/items?q=%22Mineral+Commodity+Summaries%22+world+data&format=json&max=10&fields=title,files"
 
@@ -328,6 +328,13 @@ def usgs_rows(table: list[list], rows: Rows, found: set[str]) -> None:
     c_com, c_cty, c_type, c_unit = col.get("commodity"), col.get("country"), col.get("type"), col.get("unitmeas")
     prod = [(i, int(m.group(1))) for i, c in enumerate(head) if (m := re.search(r"prod\w*?(\d{4})", c, re.I)) and "note" not in c.lower()]
     res = [i for i, c in enumerate(head) if re.search(r"reserve", c, re.I) and "note" not in c.lower()]
+    seen: set[tuple] = set()  # a country can have several rows for one stage (iron ore as usable ore and as iron content): the first counts
+
+    def add(ent: str, ind: str, y: int, v: float) -> None:
+        if (ent, ind, y) not in seen:
+            seen.add((ent, ind, y))
+            rows.add("iso3", ent, ind, y, v)
+
     for r in table[h + 1:]:
         if c_com is None or c_cty is None or c_com >= len(r):
             continue
@@ -345,13 +352,13 @@ def usgs_rows(table: list[list], rows: Rows, found: set[str]) -> None:
             for i, y in prod:
                 v = num(r[i]) if i < len(r) else None
                 if v is not None:
-                    rows.add("iso3", ent, f"sp_{st}", y, v * mult)
+                    add(ent, f"sp_{st}", y, v * mult)
                     found.add(st)
             for i in res[:1]:
                 v = num(r[i]) if i < len(r) else None
                 y = max((y for _, y in prod), default=None)
                 if v is not None and y:
-                    rows.add("iso3", ent, f"sr_{st}", y, v * mult)
+                    add(ent, f"sr_{st}", y, v * mult)
                     found.add(f"sr_{st}")
 
 
@@ -423,7 +430,7 @@ FAO_FILES = ("Production_Crops_Livestock_E_All_Data_(Normalized).zip", "Inputs_F
 
 class FAOSTAT(Connector):
     source_id = "faostat"
-    stage_version = 2  # 2: the sectors added in version 4
+    stage_version = 3  # 2: the sectors added in version 4; 3: production in tonnes only (eggs also come as counts)
     fetch_every_days = 90
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -472,6 +479,8 @@ class FAOSTAT(Connector):
             ent = entity_for("m49", m)
             if not is_country(ent):
                 continue
+            if unit not in ("t", "tonnes", "1000 t", "1000 tonnes"):
+                continue  # eggs also come as numbers of eggs ("1000 no")
             scale = 1000.0 if unit in ("1000 t", "1000 tonnes") else 1.0
             rows.add("iso3", ent, f"sp_{st}", y, v * scale)
             found.add(st)

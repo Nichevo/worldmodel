@@ -40,3 +40,17 @@ def test_iea_files(tmp_path):
     assert obs[("world", "weo_total_total_energy_supply", "2024-01-01", "A", "")] == (654.2, "E")
     assert obs[("world", "weo_total_total_energy_supply", "2035-01-01", "A", "")] == (700, "P")
     assert obs[("world", "weo_total_total_energy_supply", "2035-01-01", "A", "scenario=nze")] == (560, "P")
+
+
+def test_world_series_in_both_weo_files_kept_once(tmp_path):
+    import shutil
+    src = tmp_path / "files"
+    src.mkdir()
+    shutil.copy(FIXTURES / "iea_data" / "WEO2025_AnnexA_Free_Dataset_World.csv", src / "WEO2025_AnnexA_Free_Dataset_World.csv")
+    shutil.copy(FIXTURES / "iea_data" / "WEO2025_AnnexA_Free_Dataset_World.csv", src / "WEO2025_AnnexA_Free_Dataset_Regions.csv")
+    store = VintageStore(Paths(tmp_path / "var"))
+    m, _ = CONNECTORS["iea_data"]().ingest(store, src)
+    d = store.vintage_dir("iea_data", m.vintage)
+    n, distinct = duckdb.sql(f"SELECT count(*), count(DISTINCT (source_code, indicator_id, period_start, breakdown)) "
+                             f"FROM '{d / 'observations.parquet'}'").fetchall()[0]
+    assert n == distinct == 4
