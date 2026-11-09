@@ -26,6 +26,7 @@ import LawsCard from "@/components/LawsCard";
 import HolidaysCard from "@/components/HolidaysCard";
 import CrimeCard from "@/components/CrimeCard";
 import LanguagesCard from "@/components/LanguagesCard";
+import ReadingCard from "@/components/ReadingCard";
 import ReligionCard from "@/components/ReligionCard";
 import ClimateCard from "@/components/ClimateCard";
 import InternetCard from "@/components/InternetCard";
@@ -145,6 +146,7 @@ export default function EntityPage() {
     { key: "timeline", title: "Timeline of events", section: "history", on: true, el: <Timeline entity={e} name={nm} isGroup={isGroup} /> },
     { key: "factbook", title: "CIA World Factbook", section: "history", on: !isGroup, el: <FactbookCard entity={e} /> },
     { key: "sources_differ", title: "Where sources disagree", section: "history", on: !isGroup, el: <SourcesDiffer entity={e} /> },
+    { key: "reading", title: "Reading list", section: "history", on: entity.type === "country", el: <ReadingCard entity={entity} /> },
   ];
   const hidden = (settings.profile_cards_hidden ?? "").split(",").filter(Boolean);
   const show = (key: string) => !hidden.includes(key);

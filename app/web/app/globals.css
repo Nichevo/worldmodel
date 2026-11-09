@@ -834,3 +834,10 @@ img.flag { display: inline-block; vertical-align: -2px; border-radius: 2px; box-
 .crisis-row.labels { font-size: 11px; color: var(--muted); }
 .crisis-row a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 600px) { .crisis-row { grid-template-columns: 90px 1fr 40px; } }
+
+/* Country reading list */
+ul.reading { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+dl.glossary { margin: 0; display: grid; gap: 12px; }
+dl.glossary dt { font-weight: 600; }
+dl.glossary dd { margin: 2px 0 0; color: var(--ink-2); max-width: 75ch; }
+dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border-radius: 6px; padding: 6px 8px; margin: -6px -8px; }
