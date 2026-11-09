@@ -300,12 +300,21 @@ def refresh(allow_shrink: bool = typer.Option(False)):
             entry.update(status="skipped", vintage=last.vintage if last else None, note=f"needs {', '.join(missing)} in .env")
             typer.echo(f"{source_id}: skipped (needs {', '.join(missing)} in .env; see Data status: Keys you can add)")
             continue
+        # A source that needs a form filled in (a guestbook): until it is, only files you saved are read.
+        blank = [v for v in cls.needs_settings if not settings.get(v)]
+        if blank and not _newer_file(last, folder):
+            entry.update(status="skipped", vintage=last.vintage if last else None, note="waits for its form in Settings",
+                         settled=bool(last))
+            typer.echo(f"{source_id}: skipped (fill in its form in Settings to download it)")
+            continue
         if getattr(cls, "files_only", False) and not manual.files(folder) and not last:
             entry.update(status="skipped", vintage=None, note="its download is gone; read from a file you save", settled=True)
             typer.echo(f"{source_id}: skipped (its download link is gone; save the file in {folder} to use it)")
             continue
         how, chosen = ways.method(source_id), ways.chosen(source_id)
         hand = None if chosen == "site" else _hand_loaded_wait(source_id, cls, last, folder)
+        if blank:
+            hand = "load"  # the form is empty but you saved a newer file: read it
         if how in ("verify", "file") and not cls.manual:
             if _newer_file(last, folder):
                 hand = "load"

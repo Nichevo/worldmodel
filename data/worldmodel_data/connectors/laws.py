@@ -25,10 +25,21 @@ rules_curated
     Hand-checked lists where no free dataset gives the year a law changed: same-sex
     marriage (the year it became legal nationwide).
 
-world_policy, gunpolicy, world_prison_brief
-    Files you download yourself (WORLD Policy Analysis Center needs a free registration;
-    GunPolicy.org and World Prison Brief have no download): any table with a country
-    column, a year column and value columns. Each value column becomes an indicator.
+world_policy
+    WORLD Policy Analysis Center's datasets on Harvard Dataverse
+    (https://dataverse.harvard.edu/dataverse/WORLD), fetched through the Dataverse API
+    every 90 days once the guestbook in Settings is filled in: the collection's datasets
+    (and those of its sub-collections), each one's data files (CSV, Excel, or tables
+    Dataverse ingested, fetched in their original format), a few seconds apart. Files
+    whose checksum has not changed since the last fetch are carried over, not fetched
+    again. A file behind a guestbook is asked for again with the guestbook answers
+    (POST, Dataverse 6), which gives the file or a signed address to fetch it from.
+
+gunpolicy, world_prison_brief
+    Files you download yourself (GunPolicy.org and World Prison Brief have no download).
+
+All three read any table with a country column, a year column and value columns; each
+value column becomes an indicator.
 """
 
 from __future__ import annotations
@@ -520,7 +531,7 @@ class _RuleTable(Connector):
                              f"and run .\\load.bat {self.source_id}")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
-        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv"))
+        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv", ".tab", ".tsv"))
         if not files:
             raise ConnectorError(f"{self.source_id}: no .xlsx or .csv file in {raw_dir}")
         rows, names = Rows(), {}
@@ -563,8 +574,147 @@ def rule_table(table: list[list], prefix: str, rows: Rows, names: dict, this_yea
             rows.add("iso3", ent, ind, int(y), v)
 
 
+DATAVERSE = "https://dataverse.harvard.edu"
+WORLD_COLLECTION = "WORLD"
+DATA_EXT = (".csv", ".xlsx", ".tab", ".tsv")
+DATAVERSE_PAUSE = 3.0
+
+
 class WorldPolicy(_RuleTable):
     source_id, prefix, label = "world_policy", "world", "WORLD Policy Analysis Center"
+    manual = False  # downloaded from Harvard Dataverse once the guestbook is filled in; files saved by hand still load
+    keeps_files = True  # files not fetched again (unchanged checksum) are carried into the new vintage
+    fetch_every_days = 90
+    needs_settings = ("world_dataverse_name", "world_dataverse_email")
+    pause_seconds = DATAVERSE_PAUSE
+
+    def _api(self, path: str, **params) -> dict:
+        r = self.client.get(f"{DATAVERSE}/api/{path}", params=params or None)
+        if r.status_code != 200:
+            raise ConnectorError(f"world_policy: Dataverse answered HTTP {r.status_code} for /api/{path}")
+        return r.json().get("data") or {}
+
+    def datasets(self, collection: str = WORLD_COLLECTION, depth: int = 0) -> list[str]:
+        """The persistent ids (doi:...) of the collection's datasets, and of its sub-collections' (two levels)."""
+        out: list[str] = []
+        for item in self._api(f"dataverses/{collection}/contents") or []:
+            if item.get("type") == "dataset" and item.get("identifier"):
+                out.append(f"{item.get('protocol', 'doi')}:{item.get('authority')}/{item['identifier']}")
+            elif item.get("type") == "dataverse" and depth < 2 and item.get("id"):
+                time.sleep(self.pause_seconds)
+                out += self.datasets(str(item["id"]), depth + 1)
+        return out
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        from worldmodel_contract.local import load_settings
+
+        from worldmodel_data.config import paths
+
+        s = load_settings(paths().home)
+        if not s.get("world_dataverse_fetch", True):
+            raise ConnectorError("world_policy: downloading is switched off in Settings > The world beyond borders")
+        who = {k: str(s.get(f"world_dataverse_{k}") or "").strip() for k in ("name", "email", "institution", "position", "purpose")}
+        if not who["name"] or not who["email"]:
+            raise ConnectorError("world_policy: fill in the WORLD Policy guestbook in Settings > The world beyond borders")
+        wanted = [w.strip().lower() for w in str(s.get("world_dataverse_datasets") or "").split(",") if w.strip()]
+        # raw/world_policy/checksums.json (beside http_cache.json) remembers each file's checksum
+        # from the last fetch, so unchanged files are not fetched again: they are carried over.
+        sums_path = raw_dir.parent.parent / "checksums.json"
+        known = _read_json(sums_path)
+        sums: dict[str, str] = {}
+        got, kept, ids = [], 0, self.datasets()
+        if not ids:
+            raise ConnectorError("world_policy: the WORLD collection on Dataverse lists no datasets")
+        listing = []
+        for pid in ids:
+            time.sleep(self.pause_seconds)
+            ds = self._api("datasets/:persistentId/", persistentId=pid)
+            ver = ds.get("latestVersion") or {}
+            title = next((f.get("value") for f in ((ver.get("metadataBlocks") or {}).get("citation") or {}).get("fields", [])
+                          if f.get("typeName") == "title"), "") or pid
+            if wanted and not any(w in str(title).lower() or w in pid.lower() for w in wanted):
+                continue
+            guestbook = ds.get("guestbookId") or ver.get("guestbookId")
+            for f in ver.get("files") or []:
+                df = f.get("dataFile") or {}
+                name = df.get("originalFileName") or df.get("filename") or ""
+                if not df.get("id") or not name.lower().endswith(DATA_EXT) or f.get("restricted"):
+                    continue
+                dest = raw_dir / f"{df['id']}_{_safe(name)}"
+                md5 = str((df.get("checksum") or {}).get("value") or df.get("md5") or "")
+                listing.append({"dataset": pid, "title": title, "file": dest.name, "checksum": md5})
+                if md5 and known.get(dest.name) == md5:
+                    kept += 1
+                    sums[dest.name] = md5
+                    continue
+                time.sleep(self.pause_seconds)
+                self._fetch_file(df["id"], dest, guestbook, who)
+                got.append(dest.name)
+                if md5:
+                    sums[dest.name] = md5
+        if not listing:
+            raise ConnectorError("world_policy: no data files (CSV, Excel or tables) in the chosen WORLD datasets")
+        # Always written, so a fetch with nothing new is still a fetch; the same list gives the same vintage.
+        (raw_dir / "datasets.json").write_text(json.dumps(sorted(listing, key=lambda x: x["file"]), indent=1), encoding="utf-8")
+        sums_path.write_text(json.dumps(sums, indent=1), encoding="utf-8")
+        log.info("world_policy: %s files fetched, %s unchanged", len(got), kept)
+        return f"{DATAVERSE}/dataverse/{WORLD_COLLECTION}"
+
+    def _fetch_file(self, file_id: int, dest: Path, guestbook, who: dict[str, str]) -> None:
+        url = f"{DATAVERSE}/api/access/datafile/{file_id}"
+        r = self.client.get(url, params={"format": "original"})
+        if r.status_code == 200:
+            dest.write_bytes(r.content)
+            return
+        if r.status_code not in (400, 401, 403):
+            raise ConnectorError(f"world_policy: file {file_id} answered HTTP {r.status_code}")
+        # Behind a guestbook: answer it (custom questions get the purpose) and fetch again.
+        answers = []
+        if guestbook:
+            try:
+                book = self._api(f"guestbooks/{guestbook}")
+                answers = [{"id": q.get("id"), "value": who["purpose"] or "Research"}
+                           for q in book.get("customQuestions") or [] if q.get("id")]
+            except (ConnectorError, ValueError):
+                answers = []
+        body = {"guestbookResponse": {"name": who["name"], "email": who["email"], "institution": who["institution"],
+                                      "position": who["position"], "answers": answers}}
+        r = self.client.post(url, params={"format": "original"}, json=body)
+        if r.status_code != 200:
+            raise ConnectorError(f"world_policy: file {file_id} refused the guestbook answers (HTTP {r.status_code}); "
+                                 "check the form in Settings, or save the file by hand")
+        if "json" in r.headers.get("content-type", ""):
+            signed = _find_url(r.json())
+            if not signed:
+                raise ConnectorError(f"world_policy: file {file_id}: Dataverse answered without a download address")
+            r = self.client.get(signed)
+            if r.status_code != 200:
+                raise ConnectorError(f"world_policy: file {file_id}: the signed address answered HTTP {r.status_code}")
+        dest.write_bytes(r.content)
+
+
+def _safe(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", name)[:120]
+
+
+def _find_url(obj) -> str | None:
+    """The first http(s) address anywhere in a JSON answer (the signed download URL)."""
+    if isinstance(obj, str):
+        return obj if obj.startswith("http") else None
+    if isinstance(obj, dict):
+        obj = list(obj.values())
+    if isinstance(obj, list):
+        for v in obj:
+            if (u := _find_url(v)):
+                return u
+    return None
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except ValueError:
+        return {}
 
 
 class GunPolicy(_RuleTable):
