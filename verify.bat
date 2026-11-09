@@ -4,6 +4,7 @@ rem CrisisWatch): opens each page in your own Edge (or Chrome) window. Complete 
 rem yourself; each page or file is saved into var\manual and loaded, then the app is rebuilt.
 rem   .\verify.bat                 every such site
 rem   .\verify.bat rbnz crisiswatch   only these
+rem   .\verify.bat crisiswatch_pdf   the CrisisWatch PDF archive since 2003, 40 PDFs a run
 cd /d "%~dp0"
 echo Verify: starting in %CD%
 if /i "%CONDA_DEFAULT_ENV%"=="worldmodel" (

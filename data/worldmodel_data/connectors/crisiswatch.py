@@ -11,6 +11,11 @@ working back to August 2003. Pages already stored are kept (files of earlier vin
 are carried forward), so after a year or two of refreshes the whole history is there.
 Pages saved by hand work too (name them after the month, as october-2024.html).
 
+The PDF archive (https://www.crisisgroup.org/crisiswatch/crisiswatch-pdf-archive) has the
+whole history, one PDF a month (one per region in recent years). verify.bat collects them
+into the manual folder; each entry there is a rating symbol, the place and its paragraph.
+A month's web page wins over its PDF, and a PDF wins over a rating read from a strip.
+
 Each entry on a page is a country (or a conflict, such as "Israel/Palestine") with a
 rating: Deteriorated, Improved, Unchanged, Conflict Risk Alert or Resolution
 Opportunity, and a paragraph on what happened that month. Each becomes a
@@ -27,6 +32,7 @@ from pathlib import Path
 
 import duckdb
 
+from worldmodel_contract import catalogue
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.events_common import EMPTY_OBSERVATIONS, country, stage_events
 from worldmodel_data.connectors.world_bodies import text_of
@@ -131,7 +137,7 @@ class CrisisWatch(Connector):
     switch = "crisiswatch_fetch"
     keeps_files = True
     fetch_every_days = 7
-    stage_version = 4  # ratings from the five-month strips; database pages (entries of many months); pages saved under the browser's name; the entry's own icon for its rating
+    stage_version = 5  # 5: the PDF archive; 4: ratings from the five-month strips; database pages (entries of many months); pages saved under the browser's name; the entry's own icon for its rating
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -197,9 +203,20 @@ class CrisisWatch(Connector):
                 log.warning("crisiswatch: cannot tell the month of %s (name it like october-2024.html); skipped", p.name)
                 continue
             rows += month_events(m, text, unmatched)
-        if not rows:
+        pdfs, unknown = [], set()
+        for p in sorted(raw_dir.glob("*.pdf")):
+            try:
+                pdfs += pdf_events(p, unmatched, unknown)
+            except Exception as exc:  # noqa: BLE001 - one unreadable PDF must not stop the rest
+                log.warning("crisiswatch: %s could not be read (%s); skipped", p.name, str(exc).splitlines()[0][:120])
+        if unknown:
+            log.warning("crisiswatch: rating symbols not known yet, entries kept as 'rated': %s",
+                        ", ".join(sorted(unknown)))
+        if not rows and not pdfs:
             raise ConnectorError("crisiswatch: no ratings read; the pages' layout may have changed")
-        uniq = {(r[0], r[1]): r for r in strips}  # a month's own page (with its paragraph) wins over a strip
+        # A month's own page wins over its PDF, and both win over a rating read from a later page's strip.
+        uniq = {(r[0], r[1]): r for r in strips}
+        uniq.update({(r[0], r[1]): r for r in pdfs})
         uniq.update({(r[0], r[1]): r for r in rows})
         self.events_query = stage_events(con, self.source_id, vintage, list(uniq.values()), unmatched)
         return EMPTY_OBSERVATIONS
@@ -287,3 +304,101 @@ def month_events(month: date, page: str, unmatched: set[str]) -> list[tuple]:
             out.append((ent, f"cw:{month.isoformat()[:7]}:{ent}", "crisiswatch", sub, f"CrisisWatch: {label}",
                         month, None, "month", None, None, None, None, None, name if name != n else None, url, body[:4000]))
     return out
+
+
+# ----------------------------------------------------------------------------- the PDF archive
+ARCHIVE = "https://www.crisisgroup.org/crisiswatch/crisiswatch-pdf-archive"
+# Rating symbols in the PDFs' text (Word's Wingdings, read as private-use characters).
+# Checked on February 2025 (Middle East) and November 2019 (Asia); the others are still to see.
+PDF_SYMBOLS = {"\uf0c6": ("unchanged", "Unchanged"), "\uf0c8": ("deteriorated", "Deteriorated"),
+               "\U0001F5F2": ("risk_alert", "Conflict risk alert")}
+UNKNOWN_SYMBOL = ("rated", "Rated (symbol not read yet)")
+_SYMBOL = r"[\ue000-\uf8ff\U0001F5F2]"
+_ENTRY = re.compile(rf"^[ \t]*((?:{_SYMBOL}[ \t]*)+)(\S.*)$", re.M)
+
+
+def pdf_text(path: Path) -> tuple[str, dict]:
+    from pypdf import PdfReader
+
+    r = PdfReader(str(path))
+    return "\n".join((pg.extract_text() or "") for pg in r.pages), dict(r.metadata or {})
+
+
+def pdf_month(name: str, text: str, meta: dict) -> date | None:
+    """The month a PDF covers: from its title ("CrisisWatch 2025 – February Trends and March
+    Alerts"), its file name, or the day it was made (early in the month after)."""
+    t = re.search(r"(?i)\b(\d{4})\s*[-–—]\s*(" + "|".join(MONTH_NAMES) + r")\s+trends", text[:3000])
+    if t:
+        return date(int(t.group(1)), MONTH_NAMES.index(t.group(2).lower()) + 1, 1)
+    t = re.search(r"(?i)\b(" + "|".join(MONTH_NAMES) + r")\s+(\d{4})\s+trends", text[:3000])
+    if t:
+        return date(int(t.group(2)), MONTH_NAMES.index(t.group(1).lower()) + 1, 1)
+    if m := month_of(name):
+        return m
+    made = re.search(r"D:(\d{4})(\d{2})(\d{2})", str(meta.get("/CreationDate", "")))
+    if made:
+        y, mo, d = (int(x) for x in made.groups())
+        if d <= 20:  # written in the first weeks of the month after
+            y, mo = (y - 1, 12) if mo == 1 else (y, mo - 1)
+        return date(y, mo, 1)
+    return None
+
+
+def _place(line: str, on: date) -> tuple[str, str]:
+    """Split an entry's first line into (place, the start of its paragraph). Newer PDFs put
+    several spaces after the place; older ones one, so known names are tried longest first."""
+    parts = re.split(r"\s{3,}", line.strip(), maxsplit=1)
+    if len(parts) == 2 and len(parts[0]) <= 60:
+        return re.sub(r"\s+", " ", parts[0]), parts[1]
+    words = line.split()
+    for k in range(min(7, len(words)), 0, -1):
+        cand = " ".join(words[:k])
+        if cand.count("(") != cand.count(")"):
+            continue
+        tidy = re.sub(r"\s+-", "-", cand)
+        if tidy in SPLIT or catalogue.country_by_name(tidy, on) or catalogue.country_by_name(re.sub(r"\s*\(.*\)", "", tidy), on):
+            return tidy, " ".join(words[k:])
+    return " ".join(words[:2]), " ".join(words[2:])
+
+
+def pdf_entries(text: str, on: date, unknown: set[str] | None = None) -> list[tuple[str, tuple[str, str], str]]:
+    """(place, rating, paragraph) for each entry in a month's PDF text."""
+    found = list(_ENTRY.finditer(text))
+    out = []
+    for i, m in enumerate(found):
+        symbols = [c for c in m.group(1) if not c.isspace()]
+        rated = [PDF_SYMBOLS[c] for c in symbols if c in PDF_SYMBOLS]
+        for c in symbols:
+            if c not in PDF_SYMBOLS and unknown is not None:
+                unknown.add(f"U+{ord(c):04X}")
+        # An alert sits beside the month's rating; the alert is what the app shows first.
+        r = next((x for x in rated if x[0] == "risk_alert"), rated[0] if rated else UNKNOWN_SYMBOL)
+        place, first = _place(m.group(2), on)
+        end = found[i + 1].start() if i + 1 < len(found) else len(text)
+        body_lines = [first, *text[m.end():end].splitlines()]
+        # Drop region headings that come just before the next entry (short lines with no full stop).
+        while len(body_lines) > 1 and (s := body_lines[-1].strip()) and len(s) < 40 and not s.endswith((".", ")", "”")):
+            body_lines.pop()
+        body = re.sub(r"\s+", " ", " ".join(body_lines)).strip()
+        if place and body:
+            out.append((place, r, body))
+    return out
+
+
+def pdf_events(path: Path, unmatched: set[str], unknown: set[str] | None = None) -> list[tuple]:
+    text, meta = pdf_text(path)
+    month = pdf_month(path.name, text, meta)
+    if not month:
+        log.warning("crisiswatch: cannot tell the month of %s; skipped", path.name)
+        return []
+    out = []
+    for name, (sub, label), body in pdf_entries(text, month, unknown):
+        bare = re.sub(r"\s*\(.*\)", "", name)
+        for n in SPLIT.get(name, SPLIT.get(bare, (bare,))):
+            ent = country(n, month, unmatched)
+            if ent:
+                out.append((ent, f"cw:{month.isoformat()[:7]}:{ent}", "crisiswatch", sub, f"CrisisWatch: {label}",
+                            month, None, "month", None, None, None, None, None, name if name != n else None,
+                            BASE + month_pages(month)[0], body[:4000]))
+    # A country's own entry wins over a shared one (India over Kashmir, China over the South China Sea).
+    return sorted(out, key=lambda r: r[13] is None)

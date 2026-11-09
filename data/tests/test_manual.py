@@ -153,7 +153,8 @@ def test_verify_lists_the_pages_with_person_checks():
     ts = verify.targets(date(2026, 11, 6))
     assert {t.source for t in ts} == {"rbnz", "mbie_energy", "un_vetoes", "wto_disputes", "crisiswatch"}
     assert all(t.source in CONNECTORS for t in ts)
-    assert [t.save_as for t in ts if t.source == "crisiswatch"] == ["october-2026.html", "september-2026.html"]
+    assert [t.save_as for t in ts if t.key == "crisiswatch"] == ["october-2026.html", "september-2026.html"]
+    assert [t.key for t in ts if t.pdf_archive] == ["crisiswatch_pdf"]
     assert sum(t.download for t in ts) == 4  # the RBNZ tables
     assert verify.CHECK_WORDS.search("<title>Just a moment...</title>") and not verify.CHECK_WORDS.search("<h1>Vetoes</h1>")
 
@@ -312,3 +313,53 @@ def test_crisiswatch_reads_the_months_strip_beside_each_entry():
             '<aside>x</aside></a></div></div><p>Text.</p></div>')
     assert cw.strips(page) == [("Benin", date(2026, 6, 1), ("resolution_opportunity", "Resolution opportunity")),
                                ("Benin", date(2026, 7, 1), ("deteriorated", "Deteriorated"))]
+
+
+def test_crisiswatch_reads_a_month_from_the_pdf_archive():
+    from datetime import date
+
+    from worldmodel_data.connectors import crisiswatch as cw
+
+    text = ("CrisisWatch 2025 – February Trends and March Alerts\nMiddle East and North Africa\nEastern Mediterranean\n"
+            "\U0001F5F2 Israel/Palestine    Israel’s broadest operation in decades.\nMore on Gaza.\n"
+            " Jordan   Amman rejected the idea.\nGulf and Arabian Peninsula\n"
+            " Korean Peninsula North Korea fired missiles.\n"
+            " India (non -Kashmir)  In Jharkhand, police were killed.\n"
+            " Mali   Something new.\n")
+    month = cw.pdf_month("x.pdf", text, {})
+    assert month == date(2025, 2, 1)
+    unknown: set[str] = set()
+    got = cw.pdf_entries(text, month, unknown)
+    assert [(p, r[0]) for p, r, _ in got] == [("Israel/Palestine", "risk_alert"), ("Jordan", "unchanged"),
+                                             ("Korean Peninsula", "unchanged"), ("India (non-Kashmir)", "unchanged"),
+                                             ("Mali", "rated")]
+    assert got[0][2] == "Israel’s broadest operation in decades. More on Gaza."
+    assert got[1][2] == "Amman rejected the idea."  # the region heading after it is dropped
+    assert unknown == {"U+F0C9"}
+    # Older PDFs have no title: the month comes from the file name, else the day it was made.
+    assert cw.pdf_month("crisiswatch-november-2019.pdf", "Asia", {}) == date(2019, 11, 1)
+    assert cw.pdf_month("Asia.pdf", "Asia", {"/CreationDate": "D:20191203164956+01'00'"}) == date(2019, 11, 1)
+
+
+def test_verify_collects_an_archives_pdfs_a_few_at_a_time(tmp_path):
+    from worldmodel_data import verify
+
+    folder, downloads = tmp_path / "manual", tmp_path / "Downloads"
+    folder.mkdir()
+    downloads.mkdir()
+    t = next(x for x in verify.targets() if x.pdf_archive)
+    (folder / t.save_as).write_text('<a href="/sites/default/files/cw-2025-02-mena.pdf">Feb</a>'
+                                    '<a href="https://x.org/files/cw%202019-11.pdf?v=2">Nov</a>'
+                                    '<a href="/sites/default/files/old.pdf">Old</a>', encoding="utf-8")
+    (folder / "old.pdf").write_bytes(b"%PDF saved before")
+    opened = []
+
+    def opener(url):  # the browser saves the PDF into Downloads under its own name
+        opened.append(url)
+        (downloads / f"download-{len(opened)}.pdf").write_bytes(b"%PDF")
+
+    got = verify.pdf_archive(t, folder, 5, lambda s: None, limit=5, opener=opener, watch=[downloads], pause=0, poll=0.01)
+    assert [p.name for p in got] == ["cw-2025-02-mena.pdf", "cw 2019-11.pdf"]
+    assert opened[0] == "https://www.crisisgroup.org/sites/default/files/cw-2025-02-mena.pdf"
+    assert not list(downloads.iterdir())
+    assert verify.pdf_archive(t, folder, 5, lambda s: None, opener=opener, watch=[downloads], pause=0, poll=0.01) == []
