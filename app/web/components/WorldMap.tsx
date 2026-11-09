@@ -50,7 +50,16 @@ type Props = {
   // Picture tiles under the countries (sea temperatures on the Climate page), and boxes drawn on top.
   raster?: { tiles: string; attribution: string; maxzoom?: number } | null;
   boxes?: { name: string; west: number; south: number; east: number; north: number }[];
+  // Countries outlined in a colour (CrisisWatch's month), with a line for the hover text.
+  outlines?: MapOutline[];
+  // Markers at places (events, news), solid or hollow, with hover text; a click opens href.
+  marks?: MapMark[];
+  // Extra legend entries for outlines and markers.
+  legend?: { label: string; color: string; shape: "dot" | "ring" | "outline" }[];
 };
+
+export type MapOutline = { entity: string; color: string; label: string };
+export type MapMark = { key: string; lng: number; lat: number; color: string; hollow?: boolean; r?: number; opacity?: number; label: string; href?: string };
 
 export type MapLine = { from: string; to: string; value: number; text?: string };
 
@@ -99,8 +108,10 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
-  raster = null, boxes = [],
+  raster = null, boxes = [], outlines, marks, legend = [],
 }: Props) {
+  const outlineText = useRef<Map<string, string>>(new Map());
+  outlineText.current = new Map((outlines ?? []).map((o) => [o.entity, o.label]));
   const cityPick = useRef(onCity);
   cityPick.current = onCity;
   const el = useRef<HTMLDivElement>(null);
@@ -173,10 +184,10 @@ export default function WorldMap({
 
     // The overlay feature under the pointer, if any (a few pixels' slack for thin lines and small dots).
     const overlayAt = (pt: maplibregl.Point) => {
-      const ids = [...Object.keys(LAYER_STYLE), "points", "lines"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      const ids = [...Object.keys(LAYER_STYLE), "points", "lines", "marks"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (!ids.length) return null;
       const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
-      if (f && f.layer.id === "ov-lines") return String((f.properties as { label?: string }).label || "") || null;
+      if (f && (f.layer.id === "ov-lines" || f.layer.id === "ov-marks")) return String((f.properties as { label?: string }).label || "") || null;
       return f ? layerLabel(f.layer.id.slice(3), f.properties as Record<string, unknown>) : null;
     };
     // The city dot under the pointer, if any: its city id.
@@ -188,6 +199,15 @@ export default function WorldMap({
       return typeof id === "string" ? id : null;
     };
     m.on("click", (e) => {
+      if (m.getLayer("ov-marks")) {
+        const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["ov-marks"] })[0];
+        const href = f?.properties?.href;
+        if (typeof href === "string" && href) {
+          if (/^https?:/.test(href)) window.open(href, "_blank", "noopener");
+          else window.location.assign(href);
+          return;
+        }
+      }
       const id = cityAt(e.point);
       if (!id) return;
       if (cityPick.current) cityPick.current(id);
@@ -218,7 +238,8 @@ export default function WorldMap({
       const sp = sparkRef.current;
       const line = sp && sp.rows[p.iso3] ? sparklineSvg(sp.years, sp.rows[p.iso3], sp.upTo, cssVar("--series-1")) : "";
       popup.setLngLat(e.lngLat)
-        .setHTML(`<b>${p.name}</b><br/>${p.label ?? "no data"}${p.status === "P" ? " (projection)" : ""}${line}`)
+        .setHTML(`<b>${p.name}</b><br/>${p.label ?? "no data"}${p.status === "P" ? " (projection)" : ""}${line}`
+          + (outlineText.current.get(p.iso3) ? `<br/>${outlineText.current.get(p.iso3)}` : ""))
         .addTo(m);
     });
     m.on("mouseleave", "fill", () => {
@@ -487,6 +508,54 @@ export default function WorldMap({
     return () => { live = false; };
   }, [linesKey]);
 
+  // Countries outlined in a colour: a line layer over the country shapes, coloured per country.
+  const outlinesKey = outlines ? outlines.map((o) => `${o.entity}:${o.color}`).join(",") : null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => {
+      const list = outlines ?? [];
+      if (!list.length) {
+        if (m.getLayer("ov-outline")) m.removeLayer("ov-outline");
+        return;
+      }
+      const color = ["match", ["get", "iso3"], ...list.flatMap((o) => [o.entity, o.color]), "rgba(0,0,0,0)"] as unknown as ExpressionSpecification;
+      const filter = ["in", ["get", "iso3"], ["literal", list.map((o) => o.entity)]] as maplibregl.FilterSpecification;
+      if (!m.getLayer("ov-outline")) {
+        m.addLayer({ id: "ov-outline", type: "line", source: "countries", filter, layout: { "line-join": "round" },
+          paint: { "line-color": color, "line-width": ["interpolate", ["linear"], ["zoom"], 0, 1.6, 5, 3] } }, "hover");
+      } else {
+        m.setFilter("ov-outline", filter);
+        m.setPaintProperty("ov-outline", "line-color", color);
+      }
+    };
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+  }, [outlinesKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Markers: solid dots, or rings for things only reported so far; older ones fainter.
+  const marksKey = marks ? marks.map((k) => `${k.key}:${k.color}:${k.hollow ? 1 : 0}:${k.opacity ?? 1}`).join(",") : null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || marksKey === null) return;
+    const apply = () => {
+      const data: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: (marks ?? []).map((k) => ({
+        type: "Feature", geometry: { type: "Point", coordinates: [k.lng, k.lat] },
+        properties: { color: k.color, hollow: k.hollow ? 1 : 0, r: k.r ?? 5, o: k.opacity ?? 1, label: k.label, href: k.href ?? "" } })) };
+      const src = m.getSource("ov-marks") as GeoJSONSource | undefined;
+      if (src) { src.setData(data); return; }
+      m.addSource("ov-marks", { type: "geojson", data });
+      m.addLayer({ id: "ov-marks", type: "circle", source: "ov-marks", paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, ["*", ["get", "r"], 0.8], 5, ["*", ["get", "r"], 1.5]],
+        "circle-color": ["get", "color"], "circle-opacity": ["case", ["==", ["get", "hollow"], 1], 0, ["*", 0.85, ["get", "o"]]],
+        "circle-stroke-color": ["case", ["==", ["get", "hollow"], 1], ["get", "color"], cssVar("--surface")],
+        "circle-stroke-width": ["case", ["==", ["get", "hollow"], 1], 2, 1], "circle-stroke-opacity": ["get", "o"],
+      } }, "hover");
+    };
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+  }, [marksKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Outline the country hovered in a linked panel.
   useEffect(() => {
     const m = map.current;
@@ -534,8 +603,15 @@ export default function WorldMap({
     <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" /></div>
       <Legend scale={scale} unit={unit} />
-      {layers.length > 0 && (
+      {(layers.length > 0 || legend.length > 0) && (
         <div className="legend overlays" aria-label="Map layers">
+          {legend.map((l) => (
+            <span key={l.label} className="step">
+              <i className={l.shape === "dot" ? "dot" : l.shape === "ring" ? "dot ring" : "outline"}
+                style={l.shape === "dot" ? { background: l.color } : { borderColor: l.color }} />
+              {l.label}
+            </span>
+          ))}
           {layers.filter((id) => LAYER_STYLE[id]).map((id) => (
             <span key={id} className="step">
               <i className={LAYER_STYLE[id].dot ? "dot" : "line"} style={{ background: LAYER_STYLE[id].swatch() }} />

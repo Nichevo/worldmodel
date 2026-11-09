@@ -30,6 +30,8 @@ import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
 import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
+import Flag from "@/components/Flag";
+import LatestOn from "@/components/LatestOn";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
@@ -148,7 +150,7 @@ export default function EntityPage() {
     <div className="grid">
       <div>
         <div className="title-row">
-          <h1>{entity.short_name}</h1>
+          <h1><Flag id={entity.entity_id} size={30} />{entity.short_name}</h1>
           <AskButton title={entity.short_name} entity={entity.entity_id} parts={() => {
             const parts: AskPart[] = [{ key: "data", kind: "data", label: "Key figures (latest of each)",
               text: ["Indicator,Value,Unit,Year,Source", ...profile.map((p) => `"${p.name}",${+p.value.toPrecision(6)},"${p.unit}",${p.period},${SOURCE_LABEL[p.source_id] ?? p.source_id}`)].join("\n") }];
@@ -173,7 +175,7 @@ export default function EntityPage() {
         {entity.groups.length > 0 && (
           <div style={{ marginTop: 8 }}>
             {entity.groups.map((g) => (
-              <Link key={g.entity_id} href={`/entity/${g.entity_id}`} className="chip">{g.short_name}</Link>
+              <Link key={g.entity_id} href={`/entity/${g.entity_id}`} className="chip"><Flag id={g.entity_id} size={12} />{g.short_name}</Link>
             ))}
           </div>
         )}
@@ -194,6 +196,8 @@ export default function EntityPage() {
         </p>
       </div>
 
+      {!isGroup && settings.profile_cards_hidden.split(",").indexOf("latest") < 0 && <LatestOn entity={entity.entity_id} name={entity.short_name} />}
+
       <CountryAbout entity={entity.entity_id} />
 
       {profile.length > 0 && (
@@ -213,7 +217,7 @@ export default function EntityPage() {
           <h3>Members today ({entity.members.length}) <Help note="members" /></h3>
           <div>
             {entity.members.map((m) => (
-              <Link key={m.entity_id} href={`/entity/${m.entity_id}`} className="chip">{m.short_name}</Link>
+              <Link key={m.entity_id} href={`/entity/${m.entity_id}`} className="chip"><Flag id={m.entity_id} size={12} />{m.short_name}</Link>
             ))}
           </div>
           {entity.membership_history.length > 0 && (

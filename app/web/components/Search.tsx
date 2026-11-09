@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Flag from "@/components/Flag";
 import { api, type SearchHit } from "@/lib/api";
 
 type Props = {
@@ -63,7 +64,7 @@ export default function Search({ placeholder, kinds, onPick }: Props) {
         <div className="results" role="listbox">
           {hits.map((h) => (
             <button key={`${h.kind}:${h.id}`} onClick={() => pick(h)} role="option" aria-selected={false}>
-              {h.name} <span className="muted small">{h.detail.replace("_", " ")}</span>
+              {h.kind === "entity" && <Flag id={h.id} />} {h.name} <span className="muted small">{h.detail.replace("_", " ")}</span>
             </button>
           ))}
         </div>

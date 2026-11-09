@@ -1,5 +1,6 @@
 "use client";
 
+import Flag from "@/components/Flag";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import EChart from "@/components/EChart";
@@ -79,7 +80,7 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
       <div className="small muted">{[source, years].filter(Boolean).join(" · ")}</div>
       {!compact && (
         <div className="chips-row small" style={{ marginTop: 6 }}>
-          {f.entities.slice(0, 5).map((e) => <Link key={e} className="chip" href={`/entity/${e}`}>{names[e] ?? e}</Link>)}
+          {f.entities.slice(0, 5).map((e) => <Link key={e} className="chip" href={`/entity/${e}`}><Flag id={e} size={12} />{names[e] ?? e}</Link>)}
           {f.entities.length > 5 && <button className="link" aria-expanded={allCountries} onClick={() => setAllCountries(!allCountries)}>
             {allCountries ? "Fewer" : `All ${f.entities.length} countries`}</button>}
           {f.tags.filter((t) => !f.entities.some((e) => (names[e] ?? e) === t)).slice(0, 8).map((t) => (

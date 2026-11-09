@@ -1,7 +1,8 @@
 "use client";
 
+import Flag from "@/components/Flag";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Panel, { effectiveYear, type Activate, type At, type PanelPopup, type Value } from "@/components/Panel";
 import PopupCard from "@/components/PopupCard";
@@ -10,6 +11,7 @@ import { makeScale, type Scale } from "@/components/WorldMap";
 import { api, type Indicator, type SavedLayout } from "@/lib/api";
 import { CameraBus } from "@/lib/camera";
 import { DIVERGING, seriesVar } from "@/lib/colors";
+import { BRIEFING_SEEN } from "@/lib/briefing";
 import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
 import {
@@ -145,6 +147,14 @@ function ExploreWorkspace() {
 
   const [focus, setFocus] = useMapFocus();
 
+  // The opening map (no view in the address) turns on the layers chosen in Settings: CrisisWatch and events by default.
+  const fresh = useRef(!params.get("p"));
+  useEffect(() => {
+    if (!fresh.current || !ws.panels[0]) return;
+    dispatch({ type: "panel", id: ws.panels[0].id, patch: { layers: settings.map_open_layers } });
+  }, [settings.map_open_layers]); // eslint-disable-line react-hooks/exhaustive-deps
+  useStartPage(fresh.current);
+
   // Keep the URL in step without a navigation, so the view can be bookmarked.
   useEffect(() => {
     const q = toQuery(ws);
@@ -201,6 +211,8 @@ function ExploreWorkspace() {
             onActivate={activate(p)}
             popups={popupsFor(p)}
             sparkline={settings.hover_sparkline}
+            win={ws.win}
+            onWin={(win) => dispatch({ type: "win", win })}
           />
         ))}
       </Grid>
@@ -315,7 +327,7 @@ function SelectionBar({ ws, names, dispatch }: { ws: Workspace; names: Map<strin
       {ws.selection.map((id, i) => (
         <span className="chip" key={id}>
           <span className="swatch" style={{ background: seriesVar(i) }} />
-          <Link href={`/entity/${id}`}>{names.get(id) ?? id}</Link>
+          <Link href={`/entity/${id}`}><Flag id={id} size={12} />{names.get(id) ?? id}</Link>
           <button aria-label={`Remove ${names.get(id) ?? id}`} onClick={() => dispatch({ type: "toggleSelect", entity: id })}>×</button>
         </span>
       ))}
@@ -411,6 +423,32 @@ function LayoutsMenu({ ws, onLoad }: { ws: Workspace; onLoad: (query: string) =>
       </div>
     </details>
   );
+}
+
+// The app opens on the Briefing (Settings > Briefing): every time, or once after each refresh
+// (a warehouse the Briefing has not shown yet). Only the first page of a visit is sent there,
+// so the Map link always opens the map.
+const STARTED = "wm.started";
+function useStartPage(fresh: boolean) {
+  const router = useRouter();
+  useEffect(() => {
+    if (!fresh) return;
+    try {
+      if (window.sessionStorage.getItem(STARTED)) return;
+      window.sessionStorage.setItem(STARTED, "1");
+    } catch { return; }
+    let live = true;
+    api.settings().then(async ({ settings: s }) => {
+      if (!live || s.start_page === "map") return;
+      if (s.start_page === "briefing") return router.replace("/briefing");
+      const m = await api.meta();
+      const build = String(m.warehouse ?? "").replace(/\.duckdb$/, "");
+      let seen: string | null = null;
+      try { seen = window.localStorage.getItem(BRIEFING_SEEN); } catch { /* storage blocked */ }
+      if (live && build && build !== seen) router.replace("/briefing");
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [fresh, router]);
 }
 
 // Controls hidden or shown, remembered in this browser. F toggles it (not while

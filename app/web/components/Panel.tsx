@@ -3,14 +3,17 @@
 import type { ECharts, EChartsOption } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EChart from "@/components/EChart";
+import Flag from "@/components/Flag";
 import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
+import LayersPanel, { useMapMarks } from "@/components/LayersPanel";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
 import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
-import { mapLayers, type MapLayerInfo } from "@/lib/layers";
+import { flagUrl, useFlagCodes } from "@/lib/flags";
+import { mapLayers } from "@/lib/layers";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
 import { isStarred, passes, useStars } from "@/lib/quality";
@@ -56,6 +59,8 @@ type Props = {
   onActivate: Activate;
   popups: PanelPopup[];
   sparkline: boolean;
+  win: string; // the page's time window for timed map layers ("" = the Settings default)
+  onWin: (win: string) => void;
 };
 
 const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks" };
@@ -69,8 +74,11 @@ export function effectiveYear(panel: PanelState, ind: Indicator | undefined): nu
 
 export default function Panel({
   panel, indicators, names, selection, dispatch, canDuplicate, canClose, maximised, style,
-  hovered, onHover, scale, onValues, cameraBus, clickMode, onActivate, popups, sparkline,
+  hovered, onHover, scale, onValues, cameraBus, clickMode, onActivate, popups, sparkline, win, onWin,
 }: Props) {
+  const [layersOpen, setLayersOpen] = useState(false);
+  const settings = useSettings();
+  const effWin = win || settings.map_window;
   // A pyramid has no indicator of its own; its years follow total population.
   const chosen = indicators.find((i) => i.indicator_id === panel.indicator);
   const indicator = panel.view === "pyramid" ? (indicators.find((i) => i.indicator_id === "pop_total") ?? chosen) : chosen;
@@ -127,7 +135,12 @@ export default function Panel({
           </label>
         )}
         <span className="spacer" />
-        {panel.view === "map" && <LayersMenu panel={panel} dispatch={dispatch} />}
+        {panel.view === "map" && (
+          <button className={`small layers-btn${layersOpen ? " on" : ""}`} aria-pressed={layersOpen} onClick={() => setLayersOpen(!layersOpen)}
+            title="Layers over the map: CrisisWatch, events, news, hazards, places, and the time window">
+            Layers{panel.layers ? <span className="muted"> {panel.layers.length}</span> : null}
+          </button>
+        )}
         <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />
         <LinksMenu panel={panel} dispatch={dispatch} />
         <div className="panel-actions">
@@ -154,7 +167,10 @@ export default function Panel({
         {indicator && panel.view === "map" && year !== null && (
           <MapView panel={panel} indicator={indicator} year={year} selection={selection}
             hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}
-            clicks={clicks} popups={popups} sparkline={sparkline} exporter={exporter} />
+            clicks={clicks} popups={popups} sparkline={sparkline} exporter={exporter} win={effWin}
+            layersPanel={layersOpen ? (counts) => (
+              <LayersPanel panel={panel} dispatch={dispatch} win={win} onWin={onWin} counts={counts} year={year} onClose={() => setLayersOpen(false)} />
+            ) : null} />
         )}
         {indicator && panel.view === "table" && year !== null && (
           <TableView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection} dispatch={dispatch}
@@ -316,42 +332,6 @@ async function chartPng(chart: ECharts | null, title: string, note: string, foot
   return titledPng(chart.getDataURL({ type: "svg", excludeComponents: ["dataZoom"] }), chart.getWidth(), chart.getHeight(), title, note, lines);
 }
 
-// Overlays drawn over a map panel's countries: plate boundaries, faults, volcanoes, earthquakes.
-function LayersMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
-  const box = useRef<HTMLDetailsElement>(null);
-  const [have, setHave] = useState<Map<string, MapLayerInfo> | null>(null);
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (box.current?.open && !box.current.contains(e.target as Node)) box.current.open = false;
-    };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, []);
-  useEffect(() => { mapLayers().then((l) => setHave(new Map(l.map((x) => [x.layer_id, x])))).catch(() => setHave(new Map())); }, []);
-  const toggle = (letter: string, on: boolean) => dispatch({ type: "panel", id: panel.id, patch: {
-    layers: MAP_LAYERS.map((m) => m.letter).filter((l) => (l === letter ? on : panel.layers.includes(l))).join("") } });
-  return (
-    <details className="links" ref={box}>
-      <summary title="Draw plate boundaries, faults, volcanoes or earthquakes over the map">
-        Layers{panel.layers ? <span className="muted"> {panel.layers.length}</span> : null}
-      </summary>
-      <div className="links-menu layers-menu">
-        {MAP_LAYERS.map((m) => {
-          const info = have?.get(m.id);
-          return (
-            <label key={m.letter} title={info?.description ?? "Not loaded yet: a refresh fetches it"} className={info ? undefined : "muted"}>
-              <input type="checkbox" checked={panel.layers.includes(m.letter)} disabled={!info && !panel.layers.includes(m.letter)}
-                onChange={(e) => toggle(m.letter, e.target.checked)} />
-              <span>{m.label}{info ? <small className="muted">{info.source_name}</small> : <small>not loaded yet</small>}</span>
-            </label>
-          );
-        })}
-        <p className="caption">Hover a line or dot for its name. Layers are saved with the panel and its layouts.</p>
-      </div>
-    </details>
-  );
-}
-
 function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
   const box = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -413,12 +393,15 @@ function sourceLine(indicator: Indicator) {
   return s ? (SOURCE_SHORT[s] ?? s) : "";
 }
 
-function MapView({ panel, indicator, year, selection, hovered, onHover, scale, onValues, cameraBus, clicks, popups, sparkline, exporter }: {
+function MapView({ panel, indicator, year, selection, hovered, onHover, scale, onValues, cameraBus, clicks, popups, sparkline, exporter, win, layersPanel }: {
   panel: PanelState; indicator: Indicator; year: number; selection: string[];
   hovered: string | null; onHover: (e: string | null) => void; scale?: Scale;
   onValues: (id: string, v: Value[] | null) => void; cameraBus: CameraBus;
   clicks: Clicks; popups: PanelPopup[]; sparkline: boolean; exporter: React.RefObject<Exporter>;
+  win: string; layersPanel: ((counts: Record<string, string>) => React.ReactNode) | null;
 }) {
+  const marks = useMapMarks(panel.layers, win, year);
+  const timed = MAP_LAYERS.some((m) => m.timed && panel.layers.includes(m.letter));
   const { values, error } = useMapValues(indicator.indicator_id, year);
   useEffect(() => { onValues(panel.id, values); }, [panel.id, values, onValues]);
   useEffect(() => () => onValues(panel.id, null), [panel.id, onValues]);
@@ -433,7 +416,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
     csv: () => csvText(["entity_id", "indicator_id", "year", "value", "status"],
       values.map((v) => [v.entity_id, indicator.indicator_id, year, v.value, v.status])),
     png: async () => {
-      const shown: string[] = MAP_LAYERS.filter((m) => panel.layers.includes(m.letter)).map((m) => m.id);
+      const shown: string[] = MAP_LAYERS.filter((m) => !m.made && panel.layers.includes(m.letter)).map((m) => m.id);
       const overlaySources = shown.length ? (await mapLayers().catch(() => [])).filter((l) => shown.includes(l.layer_id)).map((l) => l.source_id) : [];
       const footer = await credits([...sourcesOf(indicator), ...overlaySources], ["Borders: Natural Earth (public domain)."]);
       return new Promise((ok, fail) => {
@@ -468,10 +451,16 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         overlays={overlays}
         spark={spark}
         onMap={onMap}
-        layers={MAP_LAYERS.filter((m) => panel.layers.includes(m.letter)).map((m) => m.id)}
+        layers={MAP_LAYERS.filter((m) => !m.made && panel.layers.includes(m.letter)).map((m) => m.id)}
+        layerFilter={marks.filters}
+        outlines={marks.outlines}
+        marks={panel.layers.includes("e") || panel.layers.includes("n") ? marks.marks : []}
+        legend={marks.legend}
       />
+      {layersPanel?.(marks.counts)}
       <p className="caption">
-        {sourceLine(indicator)}. {values.length} countries with data.{scale ? " Colour scale shared with linked maps." : ""} {hint}
+        {sourceLine(indicator)}. {values.length} countries with data.{scale ? " Colour scale shared with linked maps." : ""}
+        {timed ? ` Events and timed layers: ${marks.start} to ${marks.end}.` : ""} {hint}
       </p>
     </>
   );
@@ -636,7 +625,7 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
                   onClick={(e) => handlers.click(id, e)} onDoubleClick={(e) => handlers.double(id, e)}
                   onMouseEnter={() => onHover(id)} aria-selected={on}>
                   <td className="num">{ranks.get(id) ?? "–"}</td>
-                  <td>{names.get(id) ?? id}</td>
+                  <td><Flag id={id} />{names.get(id) ?? id}</td>
                   {columns.map((c) => <td key={c.key} className="num">{fmt(c, c.values.get(id))}</td>)}
                 </tr>
               );
@@ -1242,6 +1231,8 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
   }, [range, own, members, years, who, world, opts.lowFirst, top, selKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nameOf = (id: string) => names.get(id) ?? id;
+  const flagCodes = useFlagCodes(settings.flags_on);
+  const flagOf = (id: string) => flagCodes.get(id);
   const option = useCallback(() => {
     if (!model) return {} as EChartsOption;
     const grey = cssVar("--muted");
@@ -1265,8 +1256,9 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
             value: rank, raw,
             ...(end ? { label: { show: true, position: i === firstAt && i !== lastAt ? "left" : "right",
               formatter: i === lastAt
-                ? `${rank} ${nameOf(id)}${opts.values && val ? `  ${val}` : ""}`
-                : `${opts.values && val ? `${val}  ` : ""}${nameOf(id)} ${rank}`,
+                ? `${flagOf(id) ? "{f|} " : ""}${rank} ${nameOf(id)}${opts.values && val ? `  ${val}` : ""}`
+                : `${opts.values && val ? `${val}  ` : ""}${nameOf(id)} ${rank}${flagOf(id) ? " {f|}" : ""}`,
+              rich: flagOf(id) ? { f: { width: 14, height: 10, backgroundColor: { image: flagUrl(flagOf(id)!) } } } : undefined,
               color: cssVar("--ink-2"), fontSize: 11 } }
               : opts.values && val ? { label: { show: true, position: "top", formatter: val, color: cssVar("--muted"), fontSize: 10 } } : {}),
           };
@@ -1291,7 +1283,7 @@ function RanksView({ panel, indicator, names, selection, dispatch, hovered, onHo
         } },
       series,
     } as EChartsOption;
-  }, [model, years, selKey, who, names, indicator, opts.values]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [model, years, selKey, who, names, indicator, opts.values, flagCodes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chart = useRef<ECharts | null>(null);
   const hoverRef = useRef(onHover);
