@@ -163,6 +163,7 @@ def runs(years: list[int]) -> list[tuple[int, int]]:
 
 
 class CrisisHistory(Connector):
+    stage_version = 2  # 2: rr_inflation listed under its own series name (it clashed with crisis_inflation)
     source_id = "crisis_history"
     manual = True
 
@@ -219,7 +220,7 @@ class CrisisHistory(Connector):
                       f"currency, inflation, stock market crash (0 to 6). {note}", "kinds", "debt", self.source_id,
                       "count", decimals=0, aggregation={"method": "sum"}, bounds=(0, 6)),
             indicator("rr_inflation", "Inflation, two centuries", "Consumer price inflation, % a year, from 1800 "
-                      f"where known. {note}", "%", "prices", self.source_id, "inflation", decimals=1,
+                      f"where known. {note}", "%", "prices", self.source_id, "rr_inflation", decimals=1,
                       bounds=(-100, 1e12)),
         ]
         return rows.stage(con, self.source_id, vintage)

@@ -34,3 +34,13 @@ def test_crisis_history(tmp_path):
     assert spells[("ARG", "banking")] == (2001, 2002)
     assert spells[("ARG", "default_external")] == (2001, 2003)
     assert ("NZL", "banking") not in spells
+
+
+def test_crisis_series_names_are_unique(tmp_path):
+    """Each listed indicator needs its own series name, or the build drops all but the first (rr_inflation)."""
+    import json
+    store = VintageStore(Paths(tmp_path / "var"))
+    m, _ = CONNECTORS["crisis_history"]().ingest(store, FIXTURES / "crisis_history")
+    listed = json.loads((store.vintage_dir("crisis_history", m.vintage) / "indicators.json").read_text())
+    series = [s["series"] for i in listed for s in i["sources"]]
+    assert len(series) == len(set(series)) and "rr_inflation" in {i["id"] for i in listed}

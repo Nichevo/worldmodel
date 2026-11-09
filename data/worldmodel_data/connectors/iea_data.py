@@ -85,6 +85,7 @@ class Out:
 
     def __init__(self) -> None:
         self.rows: list[tuple] = []
+        self.seen: set[tuple] = set()  # the World and Regions files both hold some world series: the first counts
         self.unknown: set[str] = set()
         self.found: set[str] = set()
 
@@ -98,6 +99,9 @@ class Out:
             if place:
                 self.unknown.add(str(place))
             return
+        if (e, ind, when, freq, breakdown) in self.seen:
+            return
+        self.seen.add((e, ind, when, freq, breakdown))
         self.rows.append((e, ind, when, freq, breakdown, v, status))
         self.found.add(ind)
 
@@ -487,6 +491,7 @@ def indicators(found: set[str]) -> list[dict]:
 class IEAData(Connector):
     source_id = SOURCE
     manual = True
+    stage_version = 2  # 2: one value per place, period and breakdown
     keeps_files = True  # each file stays in use until a newer copy of it is saved
 
     def default_release(self, fetched_at: datetime) -> str:
