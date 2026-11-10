@@ -1,0 +1,91 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q11"
+    },
+    "next": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12"
+    },
+    "line": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q50"
+    },
+    "lineLabel": {
+     "type": "literal",
+     "value": "Metro North West Line"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "168388"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12"
+    },
+    "next": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q11"
+    },
+    "line": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q50"
+    },
+    "lineLabel": {
+     "type": "literal",
+     "value": "Metro North West Line"
+    },
+    "colour": {
+     "type": "literal",
+     "value": "168388"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q11"
+    },
+    "next": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12"
+    },
+    "line": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q51"
+    },
+    "lineLabel": {
+     "type": "literal",
+     "value": "Q51"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q11"
+    },
+    "next": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q99"
+    }
+   },
+   {
+    "st": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q11"
+    },
+    "next": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q13"
+    }
+   }
+  ]
+ }
+}

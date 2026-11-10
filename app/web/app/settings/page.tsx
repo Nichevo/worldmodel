@@ -157,8 +157,13 @@ export default function SettingsPage() {
 
       <section className="card">
         <h2>Places</h2>
-        <Toggle label="Metro and rail, universities and big companies" hint="Five Wikidata queries every four weeks during .\refresh.bat. They fill the Transport, universities and companies card on country and city pages and three map layers. Switching off keeps what is stored."
+        <Toggle label="Metro and rail, universities, big companies, hospitals and military bases" hint="Eight Wikidata queries every four weeks during .\refresh.bat. They fill the Transport, universities and companies card on country and city pages and six map layers. Switching off keeps what is stored."
           on={s.places_fetch} set={(v) => save({ places_fetch: v })} />
+        <NumberField label="Hospitals on the map: at least" unit="beds" value={s.map_hospital_beds} min={0} max={10000} step={50}
+          note="The Hospitals layer shows hospitals this size or bigger. 0 shows every hospital with a bed count. Takes effect at once."
+          save={(v) => save({ map_hospital_beds: v })} />
+        <Toggle label="Also show well-known hospitals with no bed count" hint="Wikidata gives beds for only some hospitals. This adds the ones with articles in three or more Wikipedias but no bed count, so the map is fuller but no longer only the big ones."
+          on={s.map_hospitals_unsized} set={(v) => save({ map_hospitals_unsized: v })} />
       </section>
 
       <section className="card" id="relationships">

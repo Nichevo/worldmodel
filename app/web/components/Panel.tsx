@@ -23,7 +23,7 @@ import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, compact, formatValue, shortUnit } from "@/lib/format";
 import {
-  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
+  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, NO_INDICATOR, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
   rankOptions, rankString, rankTable, rankYears, type RankOptions,
   scatterOptions, scatterString, toQuery, DEFAULT as DEFAULT_WORKSPACE, type Action, type Group, type Panel as PanelState, type View,
 } from "@/lib/workspace";
@@ -83,6 +83,8 @@ export default function Panel({
   const chosen = indicators.find((i) => i.indicator_id === panel.indicator);
   const indicator = panel.view === "pyramid" ? (indicators.find((i) => i.indicator_id === "pop_total") ?? chosen) : chosen;
   const year = effectiveYear(panel, indicator);
+  // "None" on a map: no colours, only the layers (the background indicator cleared).
+  const plain = panel.view === "map" && panel.indicator === NO_INDICATOR;
   const set = (patch: Extract<Action, { type: "panel" }>["patch"]) => dispatch({ type: "panel", id: panel.id, patch });
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
   const isProjection = indicator && year !== null && indicator.last_estimate_year !== null && year > indicator.last_estimate_year;
@@ -113,7 +115,8 @@ export default function Panel({
           ))}
         </div>
         {panel.view !== "pyramid" && (
-          <IndicatorSelect indicators={indicators} value={panel.indicator} onChange={(id) => set({ indicator: id })} />
+          <IndicatorSelect indicators={indicators} value={panel.indicator} onChange={(id) => set({ indicator: id })}
+            none={panel.view === "map" ? "None (plain map)" : undefined} />
         )}
         {indicator && panel.view !== "pyramid" && <Help indicator={indicator} />}
         {indicator && year !== null && (
@@ -154,7 +157,7 @@ export default function Panel({
       </header>
       {/* Shown only with the controls hidden (F): what the panel shows and for whom. */}
       <div className="panel-caption">
-        <b>{panel.view === "pyramid" ? "Population by age and sex" : indicator?.name ?? panel.indicator}</b>
+        <b>{panel.view === "pyramid" ? "Population by age and sex" : plain ? "Map" : indicator?.name ?? panel.indicator}</b>
         {panel.view === "scatter" && indicator ? <> (across) and <b>{scatterY(scatterOptions(panel.xy).y, indicator, indicators.filter((i) => i.available)).name}</b> (up)</> : null}
         {year !== null && panel.view !== "chart" && panel.view !== "ranks" ? <> · {year}</> : null}
         {indicator?.unit && panel.view !== "pyramid" ? <span className="muted"> · {indicator.unit}</span> : null}
@@ -163,9 +166,9 @@ export default function Panel({
         ))}</>}
       </div>
       <div className="panel-body" ref={body}>
-        {!indicator && <p className="muted">Loading…</p>}
-        {indicator && panel.view === "map" && year !== null && (
-          <MapView panel={panel} indicator={indicator} year={year} selection={selection}
+        {!indicator && !plain && <p className="muted">{panel.indicator === NO_INDICATOR ? "Choose an indicator above." : "Loading…"}</p>}
+        {((indicator && year !== null) || plain) && panel.view === "map" && (
+          <MapView panel={panel} indicator={plain ? null : indicator!} year={plain ? null : year} selection={selection}
             hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}
             clicks={clicks} popups={popups} sparkline={sparkline} exporter={exporter} win={effWin}
             layersPanel={layersOpen ? (counts) => (
@@ -375,10 +378,11 @@ function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Actio
   );
 }
 
-function useMapValues(indicator: string, year: number) {
+function useMapValues(indicator: string | null, year: number | null) {
   const [values, setValues] = useState<Value[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (!indicator || year === null) { setValues([]); setError(null); return; }
     let live = true;
     mapValues(indicator, year)
       .then((v) => { if (live) { setValues(v); setError(null); } })
@@ -394,7 +398,7 @@ function sourceLine(indicator: Indicator) {
 }
 
 function MapView({ panel, indicator, year, selection, hovered, onHover, scale, onValues, cameraBus, clicks, popups, sparkline, exporter, win, layersPanel }: {
-  panel: PanelState; indicator: Indicator; year: number; selection: string[];
+  panel: PanelState; indicator: Indicator | null; year: number | null; selection: string[];
   hovered: string | null; onHover: (e: string | null) => void; scale?: Scale;
   onValues: (id: string, v: Value[] | null) => void; cameraBus: CameraBus;
   clicks: Clicks; popups: PanelPopup[]; sparkline: boolean; exporter: React.RefObject<Exporter>;
@@ -402,30 +406,30 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
 }) {
   const marks = useMapMarks(panel.layers, win, year);
   const timed = MAP_LAYERS.some((m) => m.timed && panel.layers.includes(m.letter));
-  const { values, error } = useMapValues(indicator.indicator_id, year);
+  const { values, error } = useMapValues(indicator?.indicator_id ?? null, year);
   useEffect(() => { onValues(panel.id, values); }, [panel.id, values, onValues]);
   useEffect(() => () => onValues(panel.id, null), [panel.id, onValues]);
-  const range = useRange(sparkline ? indicator.indicator_id : null);
-  const spark: Spark | null = useMemo(() => (range ? { years: range.years, rows: range.rows, upTo: year } : null), [range, year]);
+  const range = useRange(sparkline && indicator ? indicator.indicator_id : null);
+  const spark: Spark | null = useMemo(() => (range && year !== null ? { years: range.years, rows: range.rows, upTo: year } : null), [range, year]);
   const overlays: Overlay[] = popups.flatMap((p) => (p.at && "lng" in p.at ? [{ key: p.key, lng: p.at.lng, lat: p.at.lat, node: p.node }] : []));
   const map = useRef<maplibregl.Map | null>(null);
   const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; }, []);
-  const title = `${indicator.name}, ${year}`;
+  const title = indicator ? `${indicator.name}, ${year}` : "Map";
   exporter.current = {
-    name: fileName(indicator.indicator_id, year),
+    name: indicator ? fileName(indicator.indicator_id, year ?? 0) : "map",
     csv: () => csvText(["entity_id", "indicator_id", "year", "value", "status"],
-      values.map((v) => [v.entity_id, indicator.indicator_id, year, v.value, v.status])),
+      values.map((v) => [v.entity_id, indicator?.indicator_id ?? "", year, v.value, v.status])),
     png: async () => {
       const shown: string[] = MAP_LAYERS.filter((m) => !m.made && panel.layers.includes(m.letter)).map((m) => m.id);
       const overlaySources = shown.length ? (await mapLayers().catch(() => [])).filter((l) => shown.includes(l.layer_id)).map((l) => l.source_id) : [];
-      const footer = await credits([...sourcesOf(indicator), ...overlaySources], ["Borders: Natural Earth (public domain)."]);
+      const footer = await credits([...(indicator ? sourcesOf(indicator) : []), ...overlaySources], ["Borders: Natural Earth (public domain)."]);
       return new Promise((ok, fail) => {
         const m = map.current;
         if (!m) return fail(new Error("The map is not ready yet"));
         // The canvas is only readable during a render, so ask for one and copy it then.
         m.once("render", () => {
           const c = m.getCanvas();
-          titledPng(c.toDataURL("image/png"), c.clientWidth, c.clientHeight, title, `${values.length} countries with data.`, footer).then(ok, fail);
+          titledPng(c.toDataURL("image/png"), c.clientWidth, c.clientHeight, title, indicator ? `${values.length} countries with data.` : "", footer).then(ok, fail);
         });
         m.triggerRepaint();
       });
@@ -438,9 +442,10 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
       <WorldMap
         fill
         values={values}
-        unit={indicator.unit}
-        decimals={indicator.decimals}
-        diverging={DIVERGING.has(indicator.indicator_id)}
+        unit={indicator?.unit ?? ""}
+        decimals={indicator?.decimals ?? 0}
+        diverging={!!indicator && DIVERGING.has(indicator.indicator_id)}
+        hideScale={!indicator}
         selected={selection}
         onPick={(iso, e) => clicks.activate(iso, { shift: e.shift, double: e.double }, { lng: e.lngLat[0], lat: e.lngLat[1] })}
         doubleClick={clicks.mode === "select"}
@@ -459,7 +464,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
       />
       {layersPanel?.(marks.counts)}
       <p className="caption">
-        {sourceLine(indicator)}. {values.length} countries with data.{scale ? " Colour scale shared with linked maps." : ""}
+        {indicator ? `${sourceLine(indicator)}. ${values.length} countries with data.` : "No background indicator: only the layers."}{indicator && scale ? " Colour scale shared with linked maps." : ""}
         {timed ? ` Events and timed layers: ${marks.start} to ${marks.end}.` : ""} {hint}
       </p>
     </>
