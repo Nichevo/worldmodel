@@ -66,6 +66,26 @@ def test_pew_religion_reads_a_table_of_shares(tmp_path):
     assert len({k[0] for k in obs}) == 1
 
 
+def test_pew_religion_reads_each_country_and_year_once(tmp_path):
+    import shutil
+    src = tmp_path / "pew"
+    shutil.copytree(FIXTURES / "pew_religion", src)
+    (src / "religious-composition-2020-copy.csv").write_text(
+        (FIXTURES / "pew_religion" / "religious-composition-2020.csv").read_text(encoding="utf-8"), encoding="utf-8")
+    (src / "religious-composition-counts-2020.csv").write_text(
+        "Country,Christians,Muslims,Religiously unaffiliated,Buddhists,Hindus,Jews,Other religions,All religions\n"
+        "New Zealand,1900000,70000,2650000,67000,150000,10000,290000,5137000\n", encoding="utf-8")
+    store = VintageStore(Paths(tmp_path / "var"))
+    manifest, _ = CONNECTORS["pew_religion"]().ingest(store, src)
+    d = store.vintage_dir("pew_religion", manifest.vintage)
+    keys = duckdb.sql(f"SELECT source_code, indicator_id, breakdown, period_start FROM '{d / 'observations.parquet'}'").fetchall()
+    assert len(keys) == len(set(keys))  # the build's duplicate check
+    obs = {tuple(k): v for *k, v in duckdb.sql(f"SELECT source_code, indicator_id, breakdown, value "
+                                        f"FROM '{d / 'observations.parquet'}'").fetchall()}
+    assert obs[("NZL", "rel_share", "rel=none")] == 51.6  # the printed share wins over one worked out from counts
+    assert obs[("NZL", "rel_people", "rel=none")] == 2650000
+
+
 def _obs_only(tmp_path, source):
     store = VintageStore(Paths(tmp_path / "var"))
     manifest, _ = CONNECTORS[source]().ingest(store, FIXTURES / source)
