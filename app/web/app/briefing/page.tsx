@@ -32,7 +32,14 @@ export default function BriefingPage() {
   useEffect(() => {
     if (!b?.news_due || fetching) return;
     setFetching(true);
-    api.newsFetch().then(() => setTimeout(() => load(days).finally(() => setFetching(false)), 6000)).catch(() => setFetching(false));
+    // The fetch runs in the background (GDELT alone takes a minute or more): ask every 5 s whether it
+    // has finished, for up to 3 minutes, then reload the lanes once.
+    let tries = 0;
+    const poll = () => api.newsFetch().then((st) => {
+      if (st.running && ++tries < 36) setTimeout(poll, 5000);
+      else load(days).finally(() => setFetching(false));
+    }).catch(() => setFetching(false));
+    api.newsFetch().then(() => setTimeout(poll, 5000)).catch(() => setFetching(false));
   }, [b?.news_due]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <p className="error">{error}</p>;

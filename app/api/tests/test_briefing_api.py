@@ -93,3 +93,12 @@ def test_map_events_window_and_latest(client):
     client.put("/api/v1/settings", json={"news_watch_words": "budget"})
     m = client.get("/api/v1/map-events", params={"start": week, "end": today}).json()
     assert [w["entity_id"] for w in m["watch"]] == ["NZL"]
+
+
+def test_news_cards_put_the_newest_day_first():
+    """A week-old Wikipedia item scores higher than today's feed headline, but today's comes first."""
+    from worldmodel_api.briefing import news_cards
+    items = [{"kind": "news", "source": "wikipedia", "key": "w1", "headline": "Old", "date": "2026-11-03", "score": 0.55},
+             {"kind": "news", "source": "feeds", "key": "f1", "headline": "New", "date": "2026-11-10", "score": 0.35},
+             {"kind": "news", "source": "feeds", "key": "f2", "headline": "Newer but minor", "date": "2026-11-10", "score": 0.3}]
+    assert [c["title"] for c in news_cards(items, "2026-11-01", 8)][:2] == ["New", "Newer but minor"]

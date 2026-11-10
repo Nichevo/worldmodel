@@ -197,7 +197,9 @@ def news_cards(items: list[dict], since: str, limit: int, entity: str | None = N
     """Top news (Wikipedia Current events and the feeds) since a day, best first."""
     keep = [i for i in items if i.get("kind") == "news" and i.get("source") != "gdelt" and (i.get("date") or "") >= since
             and (entity is None or entity in (i.get("entities") or []))]
-    keep.sort(key=lambda i: (i.get("score", 0), i.get("date") or ""), reverse=True)
+    # newest day first, the most important first within a day: by score alone, a week-old Wikipedia
+    # or ReliefWeb item (scored higher) pushed every one of today's headlines off the list
+    keep.sort(key=lambda i: (i.get("date") or "", i.get("score", 0)), reverse=True)
     return [card("feed", i["key"], i["headline"], detail=i.get("detail") or "", day=i.get("date"), entities=i.get("entities") or [],
                  source=i.get("outlet") or "News", url=i.get("url"), href="/discover?tab=news", tone=i.get("tone", "neutral"),
                  group="news") for i in keep[:limit]]
