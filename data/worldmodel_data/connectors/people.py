@@ -399,6 +399,7 @@ class PewReligion(_Yearly):
 
     source_id = "pew_religion"
     manual = True
+    stage_version = 2  # 2: each country and year written once when the workbook repeats it on several sheets
 
     def download(self, raw_dir: Path, release: str) -> str:
         raise ConnectorError("pew_religion: save Pew's religious composition table in var\\manual\\pew_religion "
@@ -417,7 +418,10 @@ class PewReligion(_Yearly):
             elif p.suffix.lower() in (".xlsx", ".xlsm"):
                 for i, name in enumerate(xlsx_sheet_names(p)):
                     tables.append((f"{p.name} {name}", xlsx_rows(p, i)))
-        rows = Rows()
+        # Pew's workbooks repeat the same countries and years on several sheets (shares on one, numbers of
+        # people on another, a summary on a third), so values are gathered per country and year first,
+        # the first table to give a group wins, and each country-year is written once.
+        found: dict[tuple[str, int], dict] = {}
         for label, table in tables:
             hi = next((i for i, r in enumerate(table[:30]) if sum(key(c) in PEW_GROUPS for c in r) >= 3), None)
             if hi is None:
@@ -441,11 +445,18 @@ class PewReligion(_Yearly):
                     continue
                 total = sum(vals.values())
                 pop = num(r[pi]) if pi is not None else None
-                status = "P" if y > datetime.now().year else "E"
+                f = found.setdefault((ent, y), {"people": {}, "shares": {}, "pop": None})
                 if 95 <= total <= 105 or max(vals.values()) <= 100 and not pop:
-                    _add_religion(rows, ent, y, {}, None, vals, status)
+                    for g, v in vals.items():
+                        f["shares"].setdefault(g, v)
                 else:
-                    _add_religion(rows, ent, y, vals, pop or total, None, status)
+                    for g, v in vals.items():
+                        f["people"].setdefault(g, v)
+                    f["pop"] = f["pop"] or pop or total
+        rows = Rows()
+        for (ent, y), f in found.items():
+            status = "P" if y > datetime.now().year else "E"
+            _add_religion(rows, ent, y, f["people"], f["pop"], f["shares"] or None, status)
         if not len(rows):
             raise ConnectorError("pew_religion: no table with a country column and religious groups (Christians, "
                                  "Muslims, Unaffiliated ...) was found")

@@ -69,6 +69,30 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4,
     }),
   },
+  transit_lines: {
+    legend: "Metro and rail line (its own colour where known)", swatch: () => cssVar("--series-3"),
+    paint: () => ({
+      "line-color": ["case", ["has", "color"], ["get", "color"],
+        ["match", ["get", "ci"], 0, cssVar("--series-1"), 1, cssVar("--series-2"), 2, cssVar("--series-3"), 3, cssVar("--series-4"),
+          4, cssVar("--series-5"), 5, cssVar("--series-6"), 6, cssVar("--series-7"), cssVar("--series-8")]],
+      "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.6, 8, 2, 13, 4], "line-opacity": 0.9,
+    }),
+  },
+  hospitals: {
+    legend: "Hospital, sized by beds (Settings > Places: smallest shown)", swatch: () => cssVar("--div-neg-2"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--div-neg-2"), "circle-opacity": 0.8,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "beds"], 100]], 0, 1.8, 20, 3, 50, 7],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+    }),
+  },
+  military_bases: {
+    legend: "Military, air or naval base", swatch: () => cssVar("--series-7"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-7"), "circle-opacity": 0.85, "circle-radius": zoomWidth(2, 5),
+      "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 0.6,
+    }),
+  },
   universities: {
     legend: "University, sized by students", swatch: () => cssVar("--series-5"), dot: true,
     paint: () => ({
@@ -82,6 +106,13 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({
       "line-color": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, cssVar("--series-1"), 2, cssVar("--series-6"), 5, cssVar("--div-neg-3")],
       "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, 0.6, 5, 2.4], "line-opacity": 0.7,
+    }),
+  },
+  storms_active: {
+    legend: "Storm active now (NOAA IBTrACS, last days; darker red: stronger)", swatch: () => cssVar("--div-neg-3"),
+    paint: () => ({
+      "line-color": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, cssVar("--series-1"), 2, cssVar("--series-6"), 5, cssVar("--div-neg-3")],
+      "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, 2, 5, 4], "line-opacity": 0.95,
     }),
   },
   antarctic_claims: {
@@ -123,6 +154,18 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "storm_tracks") {
     const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";
     return `<b>${esc(p.name)}</b><br/>${esc(p.basin)} · strongest: ${cat}${typeof p.wind === "number" ? ` (${p.wind} knots)` : ""}${p.land ? "<br/>Reached land" : ""}`;
+  }
+  if (layer === "storms_active") {
+    const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";
+    return `<b>${esc(p.name)}</b> (active)<br/>${esc(p.basin)} · strongest so far: ${cat}${typeof p.wind === "number" ? ` (${p.wind} knots)` : ""}`
+      + (p.last ? `<br/>Last position ${esc(p.last)} UTC` : "");
+  }
+  if (layer === "transit_lines") return `<b>${esc(p.name)}</b> (line)`;
+  if (layer === "hospitals") {
+    return `<b>${esc(p.name)}</b> (hospital)${typeof p.beds === "number" ? `<br/>${p.beds.toLocaleString()} beds` : "<br/>Beds not given"}`;
+  }
+  if (layer === "military_bases") {
+    return `<b>${esc(p.name)}</b> (${esc(p.type ?? "military base")})${p.operator ? `<br/>Run by ${esc(p.operator)}` : ""}`;
   }
   if (layer === "transit_stations") return `<b>${esc(p.name)}</b> (station)${p.system ? `<br/>${esc(p.system)}` : ""}`;
   if (layer === "universities") {

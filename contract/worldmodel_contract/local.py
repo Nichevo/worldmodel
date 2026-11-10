@@ -62,6 +62,8 @@ SETTINGS: dict[str, object] = {
     "forecast_ranges": "80+95",      # ranges drawn around a forecast: "80+95", "80" or "none"
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
     "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
+    "map_hospital_beds": 200,        # the Hospitals map layer shows hospitals with at least this many beds
+    "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
     "holidays_fetch": True,          # refresh reads public holidays from Nager.Date (about 240 small requests every 90 days)
     "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
@@ -176,7 +178,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
-          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
+          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
           "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),

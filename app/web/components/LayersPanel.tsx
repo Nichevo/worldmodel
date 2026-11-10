@@ -45,6 +45,7 @@ export type LayerCounts = Record<string, string>;
 // Outlines, markers, filters, legend and counts for a map panel's layers in a time window.
 export function useMapMarks(letters: string, win: string, year: number | null) {
   const on = (l: string) => letters.includes(l);
+  const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized } = useSettings();
   const [start, end] = windowDates(win, year);
   const [cw, setCw] = useState<CrisisWatchMonth | null>(null);
   const [ev, setEv] = useState<MapEvents | null>(null);
@@ -128,6 +129,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     const filters: Record<string, unknown[] | null> = {
       earthquakes: ["all", [">=", ["to-string", ["get", "date"]], start], ["<=", ["to-string", ["get", "date"]], `${end}~`]],
       storm_tracks: ["all", [">=", ["get", "year"], +start.slice(0, 4)], ["<=", ["get", "year"], +end.slice(0, 4)]],
+      // Hospitals above the size in Settings > Places (and, if asked, those with no bed count).
+      hospitals: ["any", [">=", ["coalesce", ["get", "beds"], -1], minBeds ?? 200], unsized ? ["!", ["has", "beds"]] : false],
     };
     const legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[] = [];
     if (on("w") && outlines.length) {
@@ -143,7 +146,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     if (cw?.month) all.crisiswatch = `${cw.rows.filter((r) => r.subkind !== "unchanged").length} changed, ${cw.month}`;
     if (ev) { all.events = `${ev.events.length} in window`; all.news = `${ev.watch.length} in window`; }
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null };
-  }, [cw, ev, centres, counts, letters, start, end]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 function inWindow(id: string, p: Record<string, unknown>, start: string, end: string): boolean {
@@ -199,6 +202,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "events") return { ok: true, why: "", source: "Events from every source, placed on their country" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
+    if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
     const info = have?.get(m.id);
     if (!have) return { ok: true, why: "", source: "" };
     if (!info) return { ok: false, why: "Not loaded yet: a refresh fetches it", source: "" };

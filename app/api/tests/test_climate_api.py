@@ -116,3 +116,35 @@ def test_storms_and_policy(client):
 
 def test_live_switched_off():
     assert climate.live(False) == {"off": True, "rows": []}
+
+
+ACTIVE_CSV = """SID,SEASON,NUMBER,BASIN,SUBBASIN,NAME,ISO_TIME,NATURE,LAT,LON,WMO_WIND,USA_WIND,USA_SSHS
+ ,Year, , , , ,,, degrees_north,degrees_east,kts,kts,1
+2026300S15170,2026,1,SP,MM,GITA,2026-11-08 00:00:00,TS,-15.0,178.0,40,45,0
+2026300S15170,2026,1,SP,MM,GITA,2026-11-08 06:00:00,TS,-15.5,-179.5,,90,2
+2026300S15170,2026,1,SP,MM,GITA,2026-11-09 12:00:00,TS,-16.0,-178.0,,70,1
+2026290N10130,2026,2,WP,MM,OLDONE,2026-10-20 00:00:00,TS,10.0,130.0,,50,0
+2026290N10130,2026,2,WP,MM,OLDONE,2026-10-21 00:00:00,TS,11.0,131.0,,55,0
+"""
+
+
+def test_active_storms_only_recent_and_across_180():
+    from datetime import datetime, timezone
+    now = datetime(2026, 11, 10, 12, tzinfo=timezone.utc).timestamp()
+    feats = climate.active_features(ACTIVE_CSV, now)
+    assert [f["properties"]["name"] for f in feats] == ["Gita"]  # the October storm is over
+    p = feats[0]["properties"]
+    assert p["cat"] == 2 and p["wind"] == 90 and p["basin"] == "South Pacific" and p["last"] == "2026-11-09 12:00"
+    xs = [c[0] for c in feats[0]["geometry"]["coordinates"]]
+    assert xs == [178.0, 180.5, 182.0]  # continuous across the date line
+
+
+def test_active_storms_layer_says_why_when_off_or_failing(monkeypatch):
+    climate._active.update(at=0.0, data=None)
+    assert climate.active_storms(False)["features"] == []
+
+    def boom() -> str:
+        raise ConnectionError("no network")
+    got = climate.active_storms(True, fetch=boom)
+    assert got["features"] == [] and "NOAA did not answer" in got["note"]
+    climate._active.update(at=0.0, data=None)

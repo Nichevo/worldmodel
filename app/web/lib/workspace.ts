@@ -9,6 +9,9 @@
 export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks";
 export type Layout = "1" | "2h" | "2v" | "3" | "3h" | "4" | "5" | "6";
 export type Group = "A" | "B";
+// The indicator id for "None" on a map: no colours, only the layers.
+export const NO_INDICATOR = "none";
+
 export type LinkKey = "camera" | "hover" | "select" | "year" | "indicator" | "scale" | "range";
 export type Links = Record<LinkKey, boolean>;
 
@@ -254,13 +257,17 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "e", id: "events", label: "Events", group: "events", timed: true, made: true, hint: "Coups, conflicts, disasters, elections and other dated events in the time window" },
   { letter: "n", id: "news", label: "Reported in the news", group: "events", timed: true, made: true, hint: "News naming one of your watch words, placed on a city it names or its country; hollow until a dataset confirms it" },
   { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)", group: "events", timed: true },
-  { letter: "s", id: "storm_tracks", label: "Storm tracks", group: "events", timed: true },
+  { letter: "s", id: "storm_tracks", label: "Storm tracks (history)", group: "events", timed: true, hint: "Every tropical storm in the time window, from the monthly NOAA file" },
+  { letter: "z", id: "storms_active", label: "Storms active now", group: "events", hint: "Tropical storms going on now (NOAA IBTrACS, read when turned on, at most hourly)" },
   { letter: "p", id: "plate_boundaries", label: "Tectonic plate boundaries", group: "earth" },
   { letter: "f", id: "active_faults", label: "Active faults", group: "earth" },
   { letter: "v", id: "volcanoes", label: "Volcanoes", group: "earth" },
   { letter: "c", id: "major_cities", label: "Major cities", group: "people" },
   { letter: "u", id: "universities", label: "Universities", group: "people" },
   { letter: "t", id: "transit_stations", label: "Metro and rail stations", group: "people" },
+  { letter: "l", id: "transit_lines", label: "Metro and rail lines", group: "people", hint: "Straight lines between neighbouring stations, coloured by line (Wikidata)" },
+  { letter: "h", id: "hospitals", label: "Hospitals", group: "people", hint: "Hospitals above the size set in Settings > Places (Wikidata)" },
+  { letter: "m", id: "military_bases", label: "Military bases", group: "people", hint: "Military, air and naval bases (Wikidata; the well-known ones)" },
   { letter: "o", id: "companies", label: "Big company head offices", group: "people" },
   { letter: "a", id: "antarctic_claims", label: "Antarctic claims", group: "polar" },
   { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "polar" },
@@ -271,8 +278,8 @@ export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
 ];
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
   { name: "Conflict watch", letters: "wen", hint: "CrisisWatch, events, news watch words" },
-  { name: "Hazards", letters: "qsvpf", hint: "Earthquakes, storms, volcanoes, plates, faults" },
-  { name: "People and places", letters: "cuto", hint: "Cities, universities, stations, companies" },
+  { name: "Hazards", letters: "qzvpf", hint: "Earthquakes, storms now, volcanoes, plates, faults" },
+  { name: "People and places", letters: "cutlo", hint: "Cities, universities, stations and lines, companies" },
 ];
 
 // The map's time window for timed layers: "7d", "30d", "90d", "1y", "year" (the year the

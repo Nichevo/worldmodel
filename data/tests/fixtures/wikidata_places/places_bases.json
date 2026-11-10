@@ -1,0 +1,87 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "b": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q70"
+    },
+    "bLabel": {
+     "type": "literal",
+     "value": "RNZAF Base Ohakea"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "air base"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(175.38 -40.2)"
+    },
+    "operatorLabel": {
+     "type": "literal",
+     "value": "Royal New Zealand Air Force"
+    }
+   },
+   {
+    "b": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q71"
+    },
+    "bLabel": {
+     "type": "literal",
+     "value": "Pine Gap"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "military base"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "AUS"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(133.74 -23.8)"
+    },
+    "operatorLabel": {
+     "type": "literal",
+     "value": "Australian Department of Defence"
+    }
+   },
+   {
+    "b": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q71"
+    },
+    "bLabel": {
+     "type": "literal",
+     "value": "Pine Gap"
+    },
+    "kindName": {
+     "type": "literal",
+     "value": "military base"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "AUS"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(133.74 -23.8)"
+    },
+    "operatorLabel": {
+     "type": "literal",
+     "value": "Central Intelligence Agency"
+    }
+   }
+  ]
+ }
+}

@@ -1532,7 +1532,11 @@ def layers():
 
 @api.get("/layers/{layer_id}")
 def layer(layer_id: str):
-    """One overlay's features, as GeoJSON."""
+    """One overlay's features, as GeoJSON. storms_active is read live from NOAA (kept an hour)."""
+    if layer_id == "storms_active":
+        data = climate.active_storms(bool(userdata.settings().get("climate_live_map", True)))
+        return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
+                        headers={"Cache-Control": "max-age=900"})
     found = rows("SELECT geojson FROM layers WHERE layer_id = ?", [layer_id])
     if not found:
         raise HTTPException(404, f"no map layer {layer_id}; a refresh loads the map layers")

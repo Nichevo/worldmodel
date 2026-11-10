@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GRADE_TEXT, TYPE_TEXT, type Indicator, type MeasureType, type QualityShow } from "@/lib/api";
 import { isStarred, passes, setStar, SHOW_TEXT, useStars } from "@/lib/quality";
 import { saveSettings, useSettings } from "@/lib/settings";
+import { NO_INDICATOR } from "@/lib/workspace";
 
 // The indicator drop-down: a Show filter (by grade) and a Type filter (by measure) at the top,
 // starred indicators first, then the rest by topic. Typing a name finds every indicator, with
 // those the filters hide marked, so nothing is lost. The filters are remembered in Settings.
-export default function IndicatorSelect({ indicators, value, onChange, skip, label = "Indicator", className }: {
-  indicators: Indicator[]; value: string; onChange: (id: string) => void; skip?: string; label?: string; className?: string;
+// With `none`, the list starts with that choice (a plain map), picked as NO_INDICATOR.
+export default function IndicatorSelect({ indicators, value, onChange, skip, label = "Indicator", className, none }: {
+  indicators: Indicator[]; value: string; onChange: (id: string) => void; skip?: string; label?: string; className?: string; none?: string;
 }) {
   const { quality_show: show, quality_type: type } = useSettings();
   const local = useStars();
@@ -63,7 +65,7 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
   return (
     <div className={`isel${className ? ` ${className}` : ""}`} ref={box}>
       <button className="isel-button" aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => setOpen(!open)}>
-        <span className="isel-name">{current?.name ?? "Choose…"}</span>
+        <span className="isel-name">{current?.name ?? (none && value === NO_INDICATOR ? none : "Choose…")}</span>
         {current?.grade && <span className={`grade grade-${current.grade}`}>{current.grade}</span>}
         <span aria-hidden className="isel-caret">▾</span>
       </button>
@@ -82,6 +84,12 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
           <input ref={search} type="search" placeholder="Type to find any indicator" value={q} onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && found[0]) pick(found[0].indicator_id); }} aria-label="Find an indicator" />
           <ul className="isel-list" role="listbox">
+            {none && !words.length && (
+              <li className={`isel-row${value === NO_INDICATOR ? " on" : ""}`}>
+                <span className="isel-star" aria-hidden />
+                <button className="isel-pick" onClick={() => pick(NO_INDICATOR)} title="No colours: only the map's layers">{none}</button>
+              </li>
+            )}
             {starred.length > 0 && <li className="isel-head">Starred</li>}
             {starred.map(row)}
             {domains.map((d) => [

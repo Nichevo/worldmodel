@@ -18,7 +18,14 @@ SSPS = {"ssp126": "SSP1-2.6 (low emissions)", "ssp245": "SSP2-4.5 (middle)", "ss
 WORLD = ["temp_anomaly_world", "co2_ppm", "ch4_ppb", "n2o_ppb", "sea_level", "ocean_heat", "co2_gcp", "ghg_total_gcp"]
 GASES = ["co2_gcp", "methane_emissions", "n2o_emissions"]
 LIVE_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP"
+# NOAA's file of storms going on now (and in the last days), updated as the agencies report.
+ACTIVE_URL = ("https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/"
+              "v04r01/access/csv/ibtracs.ACTIVE.list.v04r01.csv")
+ACTIVE_DAYS = 4  # a storm counts as active if its last position is this recent
+BASINS = {"NA": "North Atlantic", "EP": "Eastern Pacific", "WP": "Western Pacific", "NI": "North Indian", "SI": "South Indian",
+          "SP": "South Pacific", "SA": "South Atlantic", "MM": "Mixed"}
 _live: dict = {"at": 0.0, "data": None}
+_active: dict = {"at": 0.0, "data": None}
 _lock = threading.Lock()
 
 
@@ -246,6 +253,86 @@ def live(enabled: bool) -> dict:
     out = {"rows": rows, "fetched": time.strftime("%Y-%m-%d %H:%M")}
     with _lock:
         _live.update(at=time.time(), data=out)
+    return out
+
+
+def active_storms(enabled: bool, fetch: Callable[[], str] | None = None) -> dict:
+    """Tropical storms going on now as GeoJSON lines (NOAA IBTrACS, kept an hour). On a failure the
+    collection is empty and says why, so the map still draws."""
+    empty = {"type": "FeatureCollection", "features": []}
+    if not enabled:
+        return {**empty, "note": "Live storm data is off (Settings: Climate)."}
+    with _lock:
+        if _active["data"] is not None and time.time() - _active["at"] < 3600:
+            return _active["data"]
+    try:
+        text = fetch() if fetch else _get_text(ACTIVE_URL)
+    except Exception as exc:  # noqa: BLE001 - the map says why
+        return {**empty, "note": f"NOAA did not answer ({type(exc).__name__}); try again later."}
+    out = {"type": "FeatureCollection", "features": active_features(text, time.time()), "fetched": time.strftime("%Y-%m-%d %H:%M")}
+    with _lock:
+        _active.update(at=time.time(), data=out)
+    return out
+
+
+def _get_text(url: str) -> str:
+    import httpx
+    r = httpx.get(url, timeout=httpx.Timeout(30, connect=5), follow_redirects=True)
+    r.raise_for_status()
+    return r.text
+
+
+def active_features(text: str, now: float) -> list[dict]:
+    """One line per storm whose last position is within ACTIVE_DAYS of now: name, basin, the
+    strongest category so far (0 = tropical storm), highest wind in knots, last position time."""
+    import csv
+    import io
+    from datetime import datetime, timezone
+    rows = csv.reader(io.StringIO(text))
+    head = [c.strip().lower() for c in next(rows, [])]
+    col = {c: i for i, c in enumerate(head)}
+    if not all(c in col for c in ("sid", "basin", "name", "iso_time", "lat", "lon")):
+        return []
+
+    def num(v: str) -> float | None:
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+    tracks: dict[str, dict] = {}
+    for r in rows:
+        if len(r) < len(head):
+            continue
+        try:
+            t = datetime.strptime(r[col["iso_time"]].strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue  # the units row under the header
+        lat, lon = num(r[col["lat"]]), num(r[col["lon"]])
+        if lat is None or lon is None:
+            continue
+        s = tracks.setdefault(r[col["sid"]], {"name": r[col["name"]].strip().title(), "basin": r[col["basin"]].strip() or "NA",
+                                              "pts": [], "cat": -9, "wind": 0.0, "last": t})
+        if s["pts"] and abs(lon - s["pts"][-1][0]) > 180:  # keep the line continuous across 180°
+            lon += 360 if lon < s["pts"][-1][0] else -360
+        s["pts"].append([lon, lat])
+        s["last"] = max(s["last"], t)
+        cat = num(r[col["usa_sshs"]]) if "usa_sshs" in col else None
+        wind = num(r[col["usa_wind"]]) if "usa_wind" in col else None
+        if wind is None and "wmo_wind" in col:
+            wind = num(r[col["wmo_wind"]])
+        if cat is not None and cat > s["cat"]:
+            s["cat"] = int(cat)
+        if wind and wind > s["wind"]:
+            s["wind"] = wind
+    out = []
+    for sid, s in tracks.items():
+        if now - s["last"].timestamp() > ACTIVE_DAYS * 86400 or not s["pts"]:
+            continue
+        pts = s["pts"] if len(s["pts"]) > 1 else s["pts"] * 2  # a storm just named: a dot-length line
+        name = "Unnamed" if s["name"] in ("", "Not_Named", "Unnamed") else s["name"]
+        out.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": pts},
+                    "properties": {"name": name, "basin": BASINS.get(s["basin"], s["basin"]), "cat": max(s["cat"], 0),
+                                   "wind": int(s["wind"]) or None, "last": s["last"].strftime("%Y-%m-%d %H:%M"), "sid": sid}})
     return out
 
 
