@@ -12,6 +12,7 @@ import { api, type ClimateEnso, type ClimateLive, type ClimateOverview, type Cli
 import { ensoOption, lines, stormsOption, stripesOption } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
+import { layerData } from "@/lib/layers";
 import { rankingBars } from "@/lib/sectors";
 import { useSettings } from "@/lib/settings";
 
@@ -136,6 +137,13 @@ function Storms() {
   const [to, setTo] = useState(2030);
   const [minCat, setMinCat] = useState(0);
   const [basin, setBasin] = useState("");
+  const [now, setNow] = useState(false); // storms going on now, or the history in a range of years
+  const [active, setActive] = useState<{ n: number; note?: string; fetched?: string } | null>(null);
+  useEffect(() => {
+    if (!now) return;
+    layerData("storms_active").then((fc) => { const x = fc as GeoJSON.FeatureCollection & { note?: string; fetched?: string };
+      setActive({ n: x.features.length, note: x.note, fetched: x.fetched }); }).catch(() => setActive({ n: 0, note: "Could not read the storms now." }));
+  }, [now]);
   useEffect(() => { api.climateStorms().then((r) => { setSt(r); if (r.years.length) { setTo(r.years[r.years.length - 1]); setFrom(Math.max(r.years[0], r.years[r.years.length - 1] - 5)); } }).catch(() => setSt(null)); }, []);
   useEffect(() => { api.climateLive().then(setLive).catch(() => setLive(null)); }, [s.climate_live_map]);
   const chart = useCallback(() => {
@@ -147,11 +155,20 @@ function Storms() {
     size: r.alert === "red" ? 3 : r.alert === "orange" ? 2 : 1, color: cssVar(ALERT_COLOR[r.alert] ?? "--muted"), text: `${r.country ?? ""} · ${r.alert} alert · from ${String(r.from ?? "").slice(0, 10)}` }));
   const filter = useMemo(() => ["all", [">=", ["get", "year"], from], ["<=", ["get", "year"], to], [">=", ["coalesce", ["get", "cat"], 0], minCat],
     ...(basin ? [["==", ["get", "basin"], basin]] : [])] as unknown[], [from, to, minCat, basin]);
+  const nowFilter = useMemo(() => ["all", [">=", ["coalesce", ["get", "cat"], 0], minCat],
+    ...(basin ? [["==", ["get", "basin"], basin]] : [])] as unknown[], [minCat, basin]);
   return (
     <>
       <div className="chips-row small">
-        <label>Storms from <input type="number" value={from} min={1980} max={to} onChange={(e) => setFrom(+e.target.value)} style={{ width: 70 }} /></label>
-        <label>to <input type="number" value={to} min={from} max={2030} onChange={(e) => setTo(+e.target.value)} style={{ width: 70 }} /></label>
+        <div className="seg" role="group" aria-label="Which storms">
+          <button className={now ? "on" : ""} aria-pressed={now} onClick={() => setNow(true)}>Active now</button>
+          <button className={!now ? "on" : ""} aria-pressed={!now} onClick={() => setNow(false)}>History</button>
+        </div>
+        {!now && <>
+          <label>Storms from <input type="number" value={from} min={1980} max={to} onChange={(e) => setFrom(+e.target.value)} style={{ width: 70 }} /></label>
+          <label>to <input type="number" value={to} min={from} max={2030} onChange={(e) => setTo(+e.target.value)} style={{ width: 70 }} /></label>
+        </>}
+        {now && <span className="muted">{active === null ? "Reading the storms now…" : active.note ?? `${active.n} active in the last 4 days (NOAA, ${active.fetched ?? ""})`}</span>}
         <label>Strength at least <select value={minCat} onChange={(e) => setMinCat(+e.target.value)}>
           <option value={0}>Tropical storm</option>{[1, 2, 3, 4, 5].map((c) => <option key={c} value={c}>Category {c}</option>)}</select></label>
         <label>Ocean <select value={basin} onChange={(e) => setBasin(e.target.value)}>
@@ -159,9 +176,12 @@ function Storms() {
         <span className="muted">{live?.off ? "Live alerts are off (Settings: Climate)." : live?.error ? live.error : live?.rows.length ? `${live.rows.length} alerts now (GDACS, ${live.fetched})` : ""}</span>
       </div>
       <div className="card">
-        <div className="map-box"><WorldMap fill values={[]} unit="" decimals={0} diverging={false} layers={st?.years.length ? ["storm_tracks"] : []}
-          layerFilter={{ storm_tracks: filter }} points={points} onPick={() => {}} onCity={() => {}} /></div>
-        <p className="caption">Lines: tropical storm tracks (NOAA IBTrACS), darker and wider for stronger. Dots: what GDACS lists now, red and orange alerts larger. Hover for names.</p>
+        <div className="map-box"><WorldMap fill values={[]} unit="" decimals={0} diverging={false}
+          layers={now ? ["storms_active"] : st?.years.length ? ["storm_tracks"] : []}
+          layerFilter={now ? { storms_active: nowFilter } : { storm_tracks: filter }} points={points} onPick={() => {}} onCity={() => {}} /></div>
+        <p className="caption">{now
+          ? "Lines: storms going on now and in the last few days (NOAA IBTrACS, read at most hourly), darker and wider for stronger; the line ends where the storm was last placed."
+          : "Lines: tropical storm tracks in the years chosen (NOAA IBTrACS, the monthly file), darker and wider for stronger."} Dots: what GDACS lists now, red and orange alerts larger. Hover for names.</p>
       </div>
       {st?.years.length ? <div className="card"><h3>Storms each year, {basin ? basin : "by ocean"} <Help note="climate_storms" /></h3><EChart option={chart} height={300} label="Storms per year" /></div> : <Nothing what="storm tracks" />}
       <p className="small">Orange and red GDACS alerts since 2000 are events: on the <Link href="/events?kinds=disaster">Events page</Link>, the Timeline and charts.</p>

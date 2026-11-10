@@ -82,6 +82,8 @@ export const DEFAULT_SETTINGS: Settings = {
   basemap_region_zoom: 15,
   basemap_limit_gb: 20,
   places_fetch: true,
+  map_hospital_beds: 200,
+  map_hospitals_unsized: false,
   pack_nz: true,
   ai_enabled: true,
   ollama_url: "http://localhost:11434",

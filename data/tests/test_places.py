@@ -76,3 +76,29 @@ def test_stations_map_layer(built):
     assert r and r[0] == 3
     got = dict(con.execute("SELECT layer_id, feature_count FROM layers WHERE layer_id IN ('universities', 'companies')").fetchall())
     assert got == {"universities": 2, "companies": 2}
+
+
+def _layer(con, layer_id):
+    r = con.execute("SELECT geojson FROM layers WHERE layer_id = ?", [layer_id]).fetchone()
+    return json.loads(r[0])["features"] if r else []
+
+
+def test_metro_lines_between_neighbouring_stations(built):
+    _, con = built
+    feats = _layer(con, "transit_lines")
+    # one segment per pair and line (both directions count once); no unplaced or 2,000 km "hops"
+    assert sorted(f["properties"]["name"] for f in feats) == ["Line not named", "Metro North West Line"]
+    named = next(f for f in feats if f["properties"]["name"] == "Metro North West Line")
+    assert named["properties"]["color"] == "#168388" and named["geometry"]["coordinates"][0] == [151.18, -33.797]
+    plain = next(f for f in feats if f["properties"]["name"] == "Line not named")
+    assert "color" not in plain["properties"] and 0 <= plain["properties"]["ci"] < 8
+
+
+def test_hospitals_and_military_bases(built):
+    _, con = built
+    h = {f["properties"]["name"]: f["properties"] for f in _layer(con, "hospitals")}
+    assert h["Auckland City Hospital"]["beds"] == 1100  # the largest figure given
+    assert "beds" not in h["Famous Old Hospital"] and "Nowhere Clinic" not in h
+    b = {f["properties"]["name"]: f["properties"] for f in _layer(con, "military_bases")}
+    assert b["RNZAF Base Ohakea"]["type"] == "air base" and b["RNZAF Base Ohakea"]["country"] == "NZL"
+    assert b["Pine Gap"]["operator"] == "Australian Department of Defence, Central Intelligence Agency"

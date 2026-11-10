@@ -244,6 +244,8 @@ export type Settings = {
   basemap_region_zoom: number;
   basemap_limit_gb: number;
   places_fetch: boolean; // refresh fetches metro and rail, universities and companies
+  map_hospital_beds: number; // the Hospitals map layer shows hospitals with at least this many beds
+  map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
   pack_nz: boolean; // refresh fetches the New Zealand pack
   ai_enabled: boolean; // Ask AI buttons, AI notes page, highlight menu's Ask AI
   ollama_url: string;

@@ -1,0 +1,97 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "h": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q60"
+    },
+    "hLabel": {
+     "type": "literal",
+     "value": "Auckland City Hospital"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.77 -36.86)"
+    },
+    "beds": {
+     "type": "literal",
+     "value": "710"
+    },
+    "links": {
+     "type": "literal",
+     "value": "6"
+    }
+   },
+   {
+    "h": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q60"
+    },
+    "hLabel": {
+     "type": "literal",
+     "value": "Auckland City Hospital"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.77 -36.86)"
+    },
+    "beds": {
+     "type": "literal",
+     "value": "1100"
+    },
+    "links": {
+     "type": "literal",
+     "value": "6"
+    }
+   },
+   {
+    "h": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q61"
+    },
+    "hLabel": {
+     "type": "literal",
+     "value": "Famous Old Hospital"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "GBR"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(-0.1 51.5)"
+    },
+    "links": {
+     "type": "literal",
+     "value": "4"
+    }
+   },
+   {
+    "h": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q62"
+    },
+    "hLabel": {
+     "type": "literal",
+     "value": "Nowhere Clinic"
+    },
+    "links": {
+     "type": "literal",
+     "value": "9"
+    }
+   }
+  ]
+ }
+}

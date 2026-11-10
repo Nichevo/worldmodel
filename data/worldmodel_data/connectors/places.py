@@ -1,5 +1,6 @@
-"""Places from Wikidata: metro and rail systems with their stations, universities, and
-companies with their revenue and staff. Five queries, at most once a month.
+"""Places from Wikidata: metro and rail systems with their stations and the links between
+them, universities, companies with their revenue and staff, hospitals and military bases.
+Eight queries, at most once a month.
 
     https://query.wikidata.org/sparql   (the Wikidata Query Service, Wikimedia's official API)
 
@@ -9,6 +10,9 @@ companies with their revenue and staff. Five queries, at most once a month.
   yearly passengers (P3872, the latest dated figure) and English Wikipedia article;
 * stations: every item whose transport network (P16) is one of those systems, with its
   location; counted per system and drawn as the "Metro and rail stations" map layer;
+* links: each station's adjacent stations (P197) on the same systems, with the line
+  (P81 qualifier) and its colour (P465); drawn as straight segments, one colour per line,
+  as the "Metro and rail lines" map layer;
 * universities: items that are a university (or a public, private, research or
   technical one) with a location and articles in three or more Wikipedias, with
   students (P2196, latest dated), founding year and article;
@@ -17,7 +21,12 @@ companies with their revenue and staff. Five queries, at most once a month.
   with its location); the build turns revenue into US dollars with the World Bank's
   exchange rate for that currency and year;
 * currencies: each country's currency code (P38 / ISO 4217 P498), to find the exchange
-  rate for a currency.
+  rate for a currency;
+* hospitals: hospitals (general, teaching, university, children's...) with a location
+  and either a number of beds (P6801) or articles in three or more Wikipedias; the map
+  shows those above a size (Settings > Places), so changing the size needs no refresh;
+* bases: military bases, air bases and naval bases with a location, country and
+  operator (P137). Coverage is patchy: Wikidata has the well-known ones.
 
 A query that fails is logged and skipped, so one timing out leaves the others. What is
 stored: places.parquet (one row per system, university or company) and the stations
@@ -42,6 +51,11 @@ from worldmodel_data.connectors.wikidata import ENDPOINT, _day, _num, _qid, _val
 log = logging.getLogger(__name__)
 
 TRANSIT_TYPES = {"rapid transit": "metro", "light rail": "light rail", "commuter rail": "commuter rail"}
+HOSPITAL_TYPES = ("hospital", "general hospital", "teaching hospital", "university hospital", "children's hospital",
+                  "military hospital", "public hospital", "private hospital", "psychiatric hospital", "district hospital")
+BASE_TYPES = ("military base", "air base", "naval base", "military airbase", "army base", "military installation")
+MIN_HOSPITAL_LINKS = 3
+LINE_PALETTE = 8  # lines without a colour of their own get one of the map's eight series colours
 UNIVERSITY_TYPES = ("university", "public university", "private university", "research university", "technical university")
 MIN_UNI_LINKS = 3
 MIN_COMPANY_LINKS = 5
@@ -76,6 +90,35 @@ SELECT ?st ?stLabel ?s ?coord WHERE {
   OPTIONAL { ?st wdt:P625 ?coord }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }""" % _labels(TRANSIT_TYPES),
+    "links": """
+SELECT ?st ?next ?line ?lineLabel ?colour WHERE {
+  VALUES ?kindName { %s }
+  ?kind rdfs:label ?kindName .
+  ?s wdt:P31 ?kind .
+  ?st wdt:P16 ?s ; p:P197 ?adj .
+  ?adj ps:P197 ?next .
+  OPTIONAL { ?adj pq:P81 ?line . OPTIONAL { ?line wdt:P465 ?colour } }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""" % _labels(TRANSIT_TYPES),
+    "hospitals": """
+SELECT ?h ?hLabel ?iso3 ?coord ?beds ?links WHERE {
+  VALUES ?kindName { %s }
+  ?kind rdfs:label ?kindName .
+  ?h wdt:P31 ?kind ; wdt:P625 ?coord ; wikibase:sitelinks ?links .
+  OPTIONAL { ?h wdt:P6801 ?beds }
+  FILTER(BOUND(?beds) || ?links >= %d)
+  OPTIONAL { ?h wdt:P17 ?c . ?c wdt:P298 ?iso3 }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""" % (_labels(HOSPITAL_TYPES), MIN_HOSPITAL_LINKS),
+    "bases": """
+SELECT ?b ?bLabel ?kindName ?iso3 ?coord ?operatorLabel WHERE {
+  VALUES ?kindName { %s }
+  ?kind rdfs:label ?kindName .
+  ?b wdt:P31 ?kind ; wdt:P625 ?coord .
+  OPTIONAL { ?b wdt:P17 ?c . ?c wdt:P298 ?iso3 }
+  OPTIONAL { ?b wdt:P137 ?operator }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""" % _labels(BASE_TYPES),
     "universities": """
 SELECT ?u ?uLabel ?kindName ?iso3 ?cityLabel ?coord ?students ?studentsAt ?founded ?links ?article WHERE {
   VALUES ?kindName { %s }
@@ -115,6 +158,7 @@ class WikidataPlaces(Connector):
     source_id = "wikidata_places"
     switch = "places_fetch"
     fetch_every_days = 28
+    fetch_version = 2  # 2: metro and rail lines, hospitals and military bases (fetched at the next refresh)
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -139,7 +183,7 @@ class WikidataPlaces(Connector):
         stations = station_rows(found["stations"])
         rows = (transit_rows(found["transit"], stations) + university_rows(found["universities"])
                 + company_rows(found["companies"], currency_countries(found["currencies"])))
-        if not rows and not stations:
+        if not rows and not stations and not any(found[k] for k in ("hospitals", "bases")):
             raise ConnectorError(f"wikidata_places: nothing read from {raw_dir}")
         con.execute("CREATE TABLE wd_places (place_key VARCHAR, kind VARCHAR, subkind VARCHAR, name VARCHAR, country_id VARCHAR, "
                     "lat DOUBLE, lon DOUBLE, city_name VARCHAR, founded DATE, url VARCHAR, facts VARCHAR)")
@@ -167,6 +211,20 @@ class WikidataPlaces(Connector):
             if feats:
                 self.layers.append({"layer_id": layer_id, "name": title, "description": about, "kind": "point",
                                     "feature_count": len(feats),
+                                    "geojson": json.dumps({"type": "FeatureCollection", "features": feats},
+                                                          separators=(",", ":"), ensure_ascii=False)})
+        for layer_id, title, about, feats in (
+                ("transit_lines", "Metro and rail lines",
+                 "Links between neighbouring stations of metro, light rail and commuter rail systems, one colour per line (Wikidata).",
+                 line_features(found["links"], found["stations"])),
+                ("hospitals", "Hospitals",
+                 "Hospitals with a number of beds or articles in three or more Wikipedias (Wikidata); the map shows those above "
+                 "the size set in Settings > Places.", hospital_features(found["hospitals"])),
+                ("military_bases", "Military bases",
+                 "Military, air and naval bases (Wikidata). Patchy: the well-known ones only.", base_features(found["bases"]))):
+            if feats:
+                self.layers.append({"layer_id": layer_id, "name": title, "description": about,
+                                    "kind": "line" if layer_id == "transit_lines" else "point", "feature_count": len(feats),
                                     "geojson": json.dumps({"type": "FeatureCollection", "features": feats},
                                                           separators=(",", ":"), ensure_ascii=False)})
         if stations:
@@ -336,3 +394,77 @@ def company_rows(bindings: list[dict], currencies: dict[str, list[str]]) -> list
         out.append((q, "company", None, name, country, lat, lon, _val(b, "hqLabel"), _year_date(_val(b, "founded")),
                     _val(b, "article"), json.dumps(facts)))
     return out
+
+
+def _pt(lat: float, lon: float) -> list[float]:
+    return [round(lon, 5), round(lat, 5)]
+
+
+def line_features(links: list[dict], stations: list[dict]) -> list[dict]:
+    """One straight segment per pair of neighbouring stations and line, coloured by the
+    line's own colour (P465) when Wikidata has it, else one of the series colours (ci)."""
+    where: dict[str, tuple[float, float]] = {}
+    for b in stations:
+        lat, lon = _point(_val(b, "coord"))
+        if lat is not None:
+            where.setdefault(_qid(_val(b, "st")), (lat, lon))
+    seen, out = set(), []
+    for b in links:
+        a, z = _qid(_val(b, "st")), _qid(_val(b, "next"))
+        if a not in where or z not in where or a == z:
+            continue
+        line = _qid(_val(b, "line")) if _val(b, "line") else ""
+        key = (min(a, z), max(a, z), line)
+        if key in seen:
+            continue
+        seen.add(key)
+        (lat1, lon1), (lat2, lon2) = where[a], where[z]
+        if abs(lat1 - lat2) > 5 or abs(lon1 - lon2) > 5:
+            continue  # a wrong coordinate or a long-distance link, not a metro hop
+        name = _named(_val(b, "lineLabel"), line) or ""
+        colour = (_val(b, "colour") or "").strip().lstrip("#")
+        props: dict = {"name": name or "Line not named", "ci": sum(map(ord, line or name)) % LINE_PALETTE}
+        if len(colour) == 6 and all(c in "0123456789abcdefABCDEF" for c in colour):
+            props["color"] = f"#{colour.lower()}"
+        out.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": [_pt(lat1, lon1), _pt(lat2, lon2)]},
+                    "properties": props})
+    return out
+
+
+def hospital_features(bindings: list[dict]) -> list[dict]:
+    """One dot per hospital: name, country and beds (the largest figure given), if any."""
+    got: dict[str, dict] = {}
+    for b in bindings:
+        q = _qid(_val(b, "h"))
+        lat, lon = _point(_val(b, "coord"))
+        name = _named(_val(b, "hLabel"), q)
+        if lat is None or not name:
+            continue
+        h = got.setdefault(q, {"name": name, "iso3": (_val(b, "iso3") or "").upper(), "pt": _pt(lat, lon), "beds": None})
+        beds = _num(_val(b, "beds"))
+        if beds is not None and beds > 0 and (h["beds"] is None or beds > h["beds"]):
+            h["beds"] = int(beds)
+    return [{"type": "Feature", "geometry": {"type": "Point", "coordinates": h["pt"]},
+             "properties": {k: v for k, v in {"name": h["name"], "country": h["iso3"] or None, "beds": h["beds"], "id": q}.items()
+                            if v is not None}}
+            for q, h in got.items()]
+
+
+def base_features(bindings: list[dict]) -> list[dict]:
+    """One dot per base: name, kind (military, air or naval base), country and operator."""
+    got: dict[str, dict] = {}
+    for b in bindings:
+        q = _qid(_val(b, "b"))
+        lat, lon = _point(_val(b, "coord"))
+        name = _named(_val(b, "bLabel"), q)
+        if lat is None or not name:
+            continue
+        k = got.setdefault(q, {"name": name, "type": _val(b, "kindName") or "military base",
+                               "country": (_val(b, "iso3") or "").upper() or None, "pt": _pt(lat, lon), "operators": []})
+        op = _named(_val(b, "operatorLabel"), "")
+        if op and op not in k["operators"]:
+            k["operators"].append(op)
+    return [{"type": "Feature", "geometry": {"type": "Point", "coordinates": k["pt"]},
+             "properties": {x: v for x, v in {"name": k["name"], "type": k["type"], "country": k["country"],
+                                              "operator": ", ".join(k["operators"][:3]) or None, "id": q}.items() if v is not None}}
+            for q, k in got.items()]
