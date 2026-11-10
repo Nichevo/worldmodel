@@ -28,18 +28,31 @@ export default function BriefingPage() {
       try { window.localStorage.setItem(BRIEFING_SEEN, x.build_id); } catch { /* storage blocked */ }
     });
   }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
-  // News is fetched when it is due (Settings > Discover: how often), then the lanes reload.
-  useEffect(() => {
-    if (!b?.news_due || fetching) return;
+  // Fetch the news (forced: even if it is not due), wait for it, look again for finds, reload the lanes.
+  // The fetch runs in the background (GDELT alone takes a minute or more): ask every 5 s whether it
+  // has finished, for up to 3 minutes, then reload the lanes once.
+  const [step, setStep] = useState<string | null>(null);
+  const refresh = (force: boolean, rescan: boolean) => {
+    if (fetching) return;
     setFetching(true);
-    // The fetch runs in the background (GDELT alone takes a minute or more): ask every 5 s whether it
-    // has finished, for up to 3 minutes, then reload the lanes once.
+    setStep("Fetching news…");
     let tries = 0;
+    const finish = async () => {
+      if (rescan) { setStep("Looking again for finds…"); await api.discoverRescan().catch(() => undefined); }
+      setStep("Reloading…");
+      await load(days);
+      setFetching(false);
+      setStep(null);
+    };
     const poll = () => api.newsFetch().then((st) => {
       if (st.running && ++tries < 36) setTimeout(poll, 5000);
-      else load(days).finally(() => setFetching(false));
-    }).catch(() => setFetching(false));
-    api.newsFetch().then(() => setTimeout(poll, 5000)).catch(() => setFetching(false));
+      else finish();
+    }).catch(() => finish());
+    api.newsFetch(force).then(() => setTimeout(poll, 5000)).catch(() => finish());
+  };
+  // News is fetched when it is due (Settings > Discover: how often), then the lanes reload.
+  useEffect(() => {
+    if (b?.news_due && !fetching) refresh(false, false);
   }, [b?.news_due]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <p className="error">{error}</p>;
@@ -61,7 +74,9 @@ export default function BriefingPage() {
           ))}
         </div>
         <span className="spacer" />
-        {fetching && <span className="muted small">Fetching news…</span>}
+        {fetching && <span className="muted small" role="status">{step ?? "Fetching news…"}</span>}
+        <button className="small" disabled={fetching} onClick={() => refresh(true, true)}
+          title="Fetch the news now, look again for finds, and reload the lanes. Data from the sources still comes from refresh.bat.">Refresh now</button>
         <Link href="/?w=30d" className="small">See it on the map</Link>
         <Link href="/settings#briefing" className="small muted" title="What the app opens on, how far back, watch words">Settings</Link>
       </div>

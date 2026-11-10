@@ -2,7 +2,7 @@
 
 import Flag from "@/components/Flag";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import EChart from "@/components/EChart";
 import type { EChartsOption } from "echarts";
 import { api, type Find, type Tone } from "@/lib/api";
@@ -34,29 +34,39 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
   const [adding, setAdding] = useState(false);
   const [allCountries, setAllCountries] = useState(false);
   const [tagText, setTagText] = useState("");
+  const [big, setBig] = useState(false); // the chart enlarged over the page
+  useEffect(() => {
+    if (!big) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setBig(false); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [big]);
   const mark = async (change: { rating?: number; tags?: string[]; tone?: Tone | null }) => {
     const r = await api.discoverMark(f.key, change);
     const extra = f.tags.filter((t) => !f.my_tags.includes(t));
     onChange({ ...f, rating: r.rating, my_tags: r.my_tags, tone: r.tone, tags: [...extra, ...r.my_tags] });
   };
-  const option = useCallback((): EChartsOption => {
+  const chartOption = useCallback((large: boolean): EChartsOption => {
     const ser = f.chart?.series ?? [];
     const m = f.chart?.mark ?? [];
+    const fs = large ? 13 : 10;
     return {
       backgroundColor: "transparent", animation: false,
-      grid: { left: 4, right: 8, top: ser.length > 1 ? 22 : 8, bottom: 4, containLabel: true },
-      legend: ser.length > 1 ? { top: 0, itemHeight: 8, textStyle: { color: cssVar("--ink-2"), fontSize: 11 } } : undefined,
+      grid: { left: large ? 12 : 4, right: large ? 20 : 8, top: ser.length > 1 ? (large ? 34 : 22) : 8, bottom: large ? 12 : 4, containLabel: true },
+      legend: ser.length > 1 ? { top: 0, itemHeight: large ? 10 : 8, textStyle: { color: cssVar("--ink-2"), fontSize: large ? 13 : 11 } } : undefined,
       tooltip: { trigger: "axis" as const, confine: true, backgroundColor: cssVar("--surface"), borderColor: cssVar("--border"), textStyle: { color: cssVar("--ink") } },
-      xAxis: { type: "value" as const, min: "dataMin", max: "dataMax", minInterval: 1, axisLabel: { color: cssVar("--muted"), fontSize: 10, formatter: (v: number) => String(v) },
+      xAxis: { type: "value" as const, min: "dataMin", max: "dataMax", minInterval: 1, axisLabel: { color: cssVar("--muted"), fontSize: fs, formatter: (v: number) => String(v) },
         splitLine: { show: false }, axisLine: { lineStyle: { color: cssVar("--axis") } } },
-      yAxis: { type: "value" as const, scale: true, axisLabel: { color: cssVar("--muted"), fontSize: 10, formatter: (v: number) => short(v) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
+      yAxis: { type: "value" as const, scale: true, axisLabel: { color: cssVar("--muted"), fontSize: fs, formatter: (v: number) => short(v) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
       series: ser.map((s, i) => ({
-        type: "line" as const, name: s.name, data: s.points, showSymbol: false, lineStyle: { width: i === 0 ? 2 : 1.5, color: seriesColor(i) }, itemStyle: { color: seriesColor(i) },
+        type: "line" as const, name: s.name, data: s.points, showSymbol: large && s.points.length <= 40, lineStyle: { width: (i === 0 ? 2 : 1.5) + (large ? 0.5 : 0), color: seriesColor(i) }, itemStyle: { color: seriesColor(i) },
         markArea: i === 0 && m.length ? { silent: true, itemStyle: { color: cssVar("--surface-2"), opacity: 0.9 },
           data: [[{ xAxis: m[0] - (m.length === 1 ? 0.5 : 0) }, { xAxis: m[m.length - 1] + (m.length === 1 ? 0.5 : 0) }]] } : undefined,
       })),
     } as EChartsOption;
   }, [f.chart]);
+  const option = useCallback(() => chartOption(false), [chartOption]);
+  const bigOption = useCallback(() => chartOption(true), [chartOption]);
   const href = openHref(f);
   const years = f.years?.length ? (f.years.length > 1 && f.years[0] !== f.years[f.years.length - 1] ? `${f.years[0]}–${f.years[f.years.length - 1]}` : String(f.years[0])) : f.date ?? "";
   const source = f.kind === "news" ? f.outlet : f.source_id ? SOURCE_LABEL[f.source_id] ?? f.source_id : "";
@@ -76,7 +86,30 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
       </div>
       <h3 className="find-title">{f.kind === "news" && f.url ? <a href={f.url} target="_blank" rel="noreferrer">{f.headline}</a> : f.headline}</h3>
       {f.detail && <p className="small ink-2" style={{ margin: "2px 0 6px" }}>{f.detail}</p>}
-      {!compact && f.chart && f.chart.series.length > 0 && <EChart option={option} height={130} label={f.headline} />}
+      {!compact && f.chart && f.chart.series.length > 0 && (
+        <div className="find-chart" role="button" tabIndex={0} title="Click to enlarge" onClick={() => setBig(true)}
+          onKeyDown={(e) => { if (e.key === "Enter") setBig(true); }}>
+          <EChart option={option} height={130} label={f.headline} />
+        </div>
+      )}
+      {big && f.chart && (
+        <div className="find-big-back" onClick={() => setBig(false)}>
+          <div className="find-big card" role="dialog" aria-modal="true" aria-label={f.headline} onClick={(e) => e.stopPropagation()}>
+            <div className="row">
+              <h2 className="find-title" style={{ fontSize: "1.2rem" }}>{f.headline}</h2>
+              <span className="spacer" />
+              <button onClick={() => setBig(false)} aria-label="Close the enlarged chart">Close</button>
+            </div>
+            {f.detail && <p className="ink-2">{f.detail}</p>}
+            <EChart option={bigOption} height={Math.max(320, Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * 0.6))} label={f.headline} />
+            <div className="small muted">{[source, years].filter(Boolean).join(" · ")}{f.chart.mark?.length ? " · shaded: the years this find is about" : ""}</div>
+            <div className="find-actions small">
+              {href && <Link className="link" href={href}>Open in full</Link>}
+              {ai && <button className="link" onClick={() => { setBig(false); askAbout(); }}>Ask AI</button>}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="small muted">{[source, years].filter(Boolean).join(" · ")}</div>
       {!compact && (
         <div className="chips-row small" style={{ marginTop: 6 }}>
@@ -102,6 +135,7 @@ export default function FindCard({ f, names, ai, why, onChange, onTag, onNever, 
         <button className={f.rating > 0 ? "on" : ""} aria-pressed={f.rating > 0} onClick={() => mark({ rating: f.rating > 0 ? 0 : 1 })}>Interesting</button>
         <button className={f.rating < 0 ? "on" : ""} aria-pressed={f.rating < 0} onClick={() => mark({ rating: f.rating < 0 ? 0 : -1 })}>Not interesting</button>
         {href && <Link className="link" href={href}>Open</Link>}
+        {!compact && f.chart && f.chart.series.length > 0 && <button className="link" onClick={() => setBig(true)}>Enlarge</button>}
         <button className="link" onClick={() => keep({ kind: "text", title: f.headline, text: `${f.headline}\n\n${f.detail}`, entities: f.entities, indicator: f.indicator_id ?? null, tags: ["Discover", f.category], sources: source ?? null })}>Keep</button>
         {ai && <button className="link" onClick={() => askAbout()}>Ask AI</button>}
         {ai && why && <button className="link" title="Your local AI's guess at the reasons, shown in the Ask AI box. It is a guess, not a finding." onClick={() => askAbout("Why might this have happened? Give the two or three most likely reasons, say how sure you are, and make clear these are guesses.")}>Why might this be?</button>}
