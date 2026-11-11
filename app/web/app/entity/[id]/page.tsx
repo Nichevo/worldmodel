@@ -28,6 +28,7 @@ import CrimeCard from "@/components/CrimeCard";
 import LanguagesCard from "@/components/LanguagesCard";
 import ReadingCard from "@/components/ReadingCard";
 import ReligionCard from "@/components/ReligionCard";
+import LongViewCard from "@/components/long/LongViewCard";
 import ClimateCard from "@/components/ClimateCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
@@ -144,6 +145,7 @@ export default function EntityPage() {
     { key: "holidays", title: "Public holidays", section: "laws", on: !isGroup, el: <HolidaysCard entity={e} name={nm} /> },
     { key: "crime", title: "Crime and prisons", section: "laws", on: !isGroup, el: <CrimeCard entity={e} name={nm} indicators={byId} /> },
     { key: "timeline", title: "Timeline of events", section: "history", on: true, el: <Timeline entity={e} name={nm} isGroup={isGroup} /> },
+    { key: "long_view", title: "The long view", section: "history", on: !isGroup || e === "world", el: <LongViewCard entity={e} name={nm} /> },
     { key: "factbook", title: "CIA World Factbook", section: "history", on: !isGroup, el: <FactbookCard entity={e} /> },
     { key: "sources_differ", title: "Where sources disagree", section: "history", on: !isGroup, el: <SourcesDiffer entity={e} /> },
     { key: "reading", title: "Reading list", section: "history", on: entity.type === "country", el: <ReadingCard entity={entity} /> },

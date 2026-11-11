@@ -43,6 +43,7 @@ SETTINGS: dict[str, object] = {
     "numbeo_daily": 20,              # single-page Numbeo fetches per day, all countries together
     "wikipedia_countries_daily": 20,
     "wikipedia_cities_daily": 10,
+    "wikipedia_empires_daily": 20,   # Long history: Wikipedia pages for empires, dynasties and voyages, fetched when opened
     "wikipedia_background": True,    # fetch pages not yet opened, a few an hour, within half the daily limit
     "history_paused": False,
     "history_retention_days": 0,     # 0 keeps history forever
@@ -64,6 +65,13 @@ SETTINGS: dict[str, object] = {
     "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
     "map_hospital_beds": 200,        # the Hospitals map layer shows hospitals with at least this many beds
     "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
+    # Long history
+    "history_borders_fetch": True,   # refresh fetches Cliopatria's borders of states and empires (46 MB, twice a year)
+    "history_series_fetch": True,    # refresh fetches long-run figures through Our World in Data (every three months)
+    "history_events_fetch": True,    # refresh fetches wars, battles, epidemics... (Wikidata, monthly) and NOAA's hazards
+    "history_event_min_links": 5,    # events shown: those with articles in at least this many Wikipedias
+    "history_events_on_charts": True,  # events far back as marks on the long charts
+    "map_history_year": 1700,        # the year the Map's "World in year" layer shows (it has its own slider)
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
     "holidays_fetch": True,          # refresh reads public holidays from Nager.Date (about 240 small requests every 90 days)
     "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
@@ -174,7 +182,8 @@ BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", 
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
 RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
-          "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500),
+          "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
+          "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),

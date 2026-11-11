@@ -166,6 +166,28 @@ export default function SettingsPage() {
           on={s.map_hospitals_unsized} set={(v) => save({ map_hospitals_unsized: v })} />
       </section>
 
+      <section className="card" id="long-history">
+        <h2>Long history</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <a href="/long">Long history</a> page, the Map&apos;s &quot;World in year&quot; layer and each country&apos;s Long view card.
+          Switching a source off keeps what is stored; the views then show what was last loaded.
+        </p>
+        <Toggle label="Borders of states and empires (Cliopatria)" hint="One 46 MB download from GitHub, checked twice a year during .\refresh.bat, stored at about 15 MB. Off: no new borders; age of empires, who ruled where, empire maps and World in year keep the last ones (or stay empty)."
+          on={s.history_borders_fetch} set={(v) => save({ history_borders_fetch: v })} />
+        <Toggle label="Long-run figures (population since 10,000 BC, Maddison GDP, literacy...)" hint="Nine chart files from Our World in Data every three months. Off: the long charts, reach back, then and now and the eight factors keep the last figures."
+          on={s.history_series_fetch} set={(v) => save({ history_series_fetch: v })} />
+        <Toggle label="Events far back (Wikidata) and NOAA's earthquakes, eruptions and tsunamis" hint="Seven Wikidata queries a month and about 50 small NOAA pages every three months. Off: the events on long charts and empire cards keep the last ones."
+          on={s.history_events_fetch} set={(v) => save({ history_events_fetch: v })} />
+        <NumberField label="Events shown: articles in at least" unit="Wikipedias" value={s.history_event_min_links} min={5} max={200} step={5}
+          note="Higher shows only the best-known wars, battles, plagues and treaties. NOAA's hazards have no article count and always show. Takes effect at once."
+          save={(v) => save({ history_event_min_links: v })} />
+        <Toggle label="Events as marks on the long charts" hint="Plagues, famines, wars and big disasters as marks on People since 10,000 BC. Off: the line only."
+          on={s.history_events_on_charts} set={(v) => save({ history_events_on_charts: v })} />
+        <NumberField label="Wikipedia pages for empires, dynasties and voyages per day" unit="pages" value={s.wikipedia_empires_daily} min={0} max={500} step={5}
+          note="A page is read when its card is first opened and kept for a month. 0 stops new reads (stored pages still show)."
+          save={(v) => save({ wikipedia_empires_daily: v })} />
+      </section>
+
       <section className="card" id="relationships">
         <h2>Relationship scan</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>

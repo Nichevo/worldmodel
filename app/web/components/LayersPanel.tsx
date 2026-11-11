@@ -9,6 +9,8 @@ import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { saveSettings, useSettings } from "@/lib/settings";
+import { yl } from "@/lib/long";
+import { setMapYear, useMapYear, useWorldIn } from "@/lib/longYear";
 import {
   LAYER_GROUPS, MAP_LAYERS, QUICK_SETS, WINDOWS, windowDates, type Action, type LayerDef, type Panel as PanelState,
 } from "@/lib/workspace";
@@ -51,6 +53,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const [ev, setEv] = useState<MapEvents | null>(null);
   const [centres, setCentres] = useState<Record<string, [number, number]> | null>(null);
   const [counts, setCounts] = useState<LayerCounts>({});
+  const pastYear = useMapYear();
+  const world = useWorldIn(on("y"), pastYear);
   useEffect(() => {
     if (!on("w")) return;
     cwLatest ??= api.crisiswatch().catch((e) => { cwLatest = null; throw e; });
@@ -145,8 +149,12 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     const all: LayerCounts = { ...counts };
     if (cw?.month) all.crisiswatch = `${cw.rows.filter((r) => r.subkind !== "unchanged").length} changed, ${cw.month}`;
     if (ev) { all.events = `${ev.events.length} in window`; all.news = `${ev.watch.length} in window`; }
-    return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (world) {
+      all.history_world = `${world.count} states in ${yl(pastYear)}`;
+      legend.push({ label: `States and empires in ${yl(pastYear)} (one colour per empire)`, color: cssVar("--series-4"), shape: "dot" });
+    }
+    return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world };
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 function inWindow(id: string, p: Record<string, unknown>, start: string, end: string): boolean {
@@ -163,6 +171,7 @@ const BASE_MAPS: { id: "plain" | "online" | "local"; label: string; gives: strin
 ];
 const MADE_SWATCH: Record<string, () => string> = {
   crisiswatch: () => cssVar("--div-neg-3"), events: () => cssVar("--series-7"), news: () => cssVar("--series-4"),
+  history_world: () => cssVar("--series-4"),
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose }: {
@@ -200,6 +209,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.made) {
       if (m.id === "crisiswatch") return { ok: true, why: "", source: "Crisis Group, the latest month stored" };
       if (m.id === "events") return { ok: true, why: "", source: "Events from every source, placed on their country" };
+      if (m.id === "history_world") return { ok: true, why: "", source: "Seshat Cliopatria borders (a refresh loads them)" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
@@ -313,6 +323,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         );
       })}
 
+      {panel.layers.includes("y") && <PastYear />}
+
       <div className="lp-section lp-window">
         <div className="lp-label">Time window for timed layers <span className="muted">{from} to {to}</span></div>
         <div className="seg" role="group" aria-label="Time window">
@@ -335,5 +347,42 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         {" "}<Link href="/settings#briefing">change in Settings</Link>.
       </p>
     </aside>
+  );
+}
+
+// The World in year layer's own year: a slider over 5,400 years, quick jumps, and Play.
+const JUMPS = [-500, 1, 500, 1000, 1300, 1500, 1700, 1800, 1900, 1914, 1939, 2000];
+function PastYear() {
+  const y = useMapYear();
+  const [playing, setPlaying] = useState(false);
+  const [text, setText] = useState(String(y));
+  useEffect(() => setText(String(y)), [y]);
+  useEffect(() => {
+    if (!playing) return;
+    let cur = y;
+    const t = setInterval(() => {
+      cur = Math.min(2024, cur + 10);
+      setMapYear(cur);
+      if (cur >= 2024) setPlaying(false);
+    }, 1200);
+    return () => clearInterval(t);
+  }, [playing]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="lp-section">
+      <div className="lp-label">World in year <b>{yl(y)}</b></div>
+      <input type="range" min={-3400} max={2024} value={y} onChange={(e) => setMapYear(+e.target.value)} style={{ width: "100%" }} aria-label="Year for the World in year layer" />
+      <div className="row small lp-dates">
+        <label>Year <input type="number" value={text} min={-3400} max={2024} style={{ width: 80 }}
+          onChange={(e) => setText(e.target.value)} onBlur={() => Number.isFinite(+text) && setMapYear(+text)}
+          onKeyDown={(e) => { if (e.key === "Enter" && Number.isFinite(+text)) setMapYear(+text); }} /></label>
+        <button className="small" onClick={() => setPlaying(!playing)} title="Ten years at a time">{playing ? "❚❚ Stop" : "▶ Play"}</button>
+      </div>
+      <div className="row small" style={{ flexWrap: "wrap", gap: 4 }}>
+        {JUMPS.map((j) => <button key={j} className="link small" onClick={() => setMapYear(j)}>{yl(j)}</button>)}
+      </div>
+      <p className="caption">Negative years are BC. Its own year, apart from the country colours&apos; year; pairs well with
+        &quot;None (plain map)&quot;. Grey land had no state recorded that year. Hover a state for its name and years;
+        empires&apos; cards are on <Link href="/long?tab=empires">Long history</Link>.</p>
+    </div>
   );
 }

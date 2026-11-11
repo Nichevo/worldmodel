@@ -211,6 +211,25 @@ def api_keys() -> list[dict]:
     return _yaml("api_keys.yaml")
 
 
+@lru_cache
+def history() -> dict:
+    """The Long history page's set-up: powers, China's dynasties, regions, series, factors,
+    hand-dated periods, the cycle's stages and voyages (history.yaml)."""
+    return _yaml("history.yaml")
+
+
+def history_powers() -> dict[str, dict]:
+    """Every power and dynasty by id, the dynasties-only ones too (group china)."""
+    h = history()
+    out = {p["id"]: dict(p) for p in h["powers"]}
+    for d in h["china_dynasties"]:
+        if d["id"] in out:
+            out[d["id"]]["group"] = "china"
+        else:
+            out[d["id"]] = {"era": "dynasty", "group": "china", "entity": "CHN", "colour": None, **d}
+    return out
+
+
 def driver_graph() -> dict:
     return _yaml("driver_graph.yaml")
 

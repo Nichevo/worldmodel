@@ -25,6 +25,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/religion", label: "Religion" },
     { href: "/languages", label: "Languages" },
     { href: "/crises", label: "Financial crises" },
+    { href: "/long", label: "Long history", hint: "Empires, borders over time, people since 10,000 BC, the eight factors and the big cycle" },
     { href: "/indicators", label: "Indicators" },
     { href: "/sectors", label: "Sectors" },
     { href: "/storage", label: "Storage" },

@@ -22,9 +22,9 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import __version__, cities, episodes, gates
+from worldmodel_data import __version__, cities, episodes, gates, history
 from worldmodel_data.config import Paths
-from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
+from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
 
 log = logging.getLogger(__name__)
@@ -94,6 +94,11 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                     checks.append(gates.Check("places:matched", "places", "info",
                                               f"{n_places:,} metro systems, universities and companies; "
                                               f"{placed:,} matched to a city"))
+                n_long, n_pol, n_hev = history.compute(con)
+                if n_long or n_pol or n_hev:
+                    checks.append(gates.Check("history:loaded", "history", "info",
+                                              f"Long history: {n_long:,} long-run figures, {n_pol:,} border shapes, "
+                                              f"{n_hev:,} events far back"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]
@@ -190,7 +195,8 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
     for table, file, columns in (("raw_texts", "texts.parquet", TEXT_COLUMNS), ("raw_events", "events.parquet", EVENT_COLUMNS),
                                  ("raw_layers", "layers.parquet", LAYER_COLUMNS), ("raw_cities", "cities.parquet", CITY_COLUMNS),
                                  ("raw_city_values", "city_values.parquet", CITY_VALUE_COLUMNS),
-                                 ("raw_places", "places.parquet", PLACE_COLUMNS)):
+                                 ("raw_places", "places.parquet", PLACE_COLUMNS),
+                                 *((f"raw_{t}", f"{t}.parquet", cols) for t, cols in HISTORY_COLUMNS.items())):
         found = [(paths.vintages / m.source_id / m.vintage.replace("/", "_") / file).as_posix() for m in latest.values()]
         found = [f for f in found if Path(f).exists()]
         con.execute(f"CREATE TABLE src.{table} ({', '.join(f'{c} {t}' for c, t in columns.items())})")

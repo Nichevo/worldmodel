@@ -844,3 +844,29 @@ dl.glossary { margin: 0; display: grid; gap: 12px; }
 dl.glossary dt { font-weight: 600; }
 dl.glossary dd { margin: 2px 0 0; color: var(--ink-2); max-width: 75ch; }
 dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border-radius: 6px; padding: 6px 8px; margin: -6px -8px; }
+
+/* Long history */
+.long-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.long-powers { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: 0.85rem; }
+.long-power { color: var(--ink); text-decoration: none; }
+.long-power:hover b { text-decoration: underline; }
+.ruled { display: grid; gap: 3px; }
+.ruled-row { display: grid; grid-template-columns: 170px 1fr; gap: 8px; align-items: center; }
+.ruled-row svg { width: 100%; height: 22px; display: block; }
+.ruled-row .track { fill: var(--surface-2); }
+.ruled-row .tick, .ruled-row.axis .tick { stroke: var(--surface); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ruled-row.pacific svg { height: 14px; opacity: 0.85; }
+.ruled-row rect:hover { opacity: 0.8; }
+.long-slider { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.long-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .long-two { grid-template-columns: 1fr; } .ruled-row { grid-template-columns: 110px 1fr; } }
+.long-events { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 4px; max-height: 420px; overflow: auto; }
+.long-voyages { padding-left: 18px; display: grid; gap: 4px; }
+.long-strip { width: 100%; height: 16px; display: block; border-radius: 3px; background: var(--surface-2); }
+.long-strip-axis { display: flex; justify-content: space-between; }
+.cycle { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 10px; }
+@media (max-width: 900px) { .cycle { grid-template-columns: repeat(2, 1fr); } }
+.cycle-stage { border: 1px solid var(--border); border-radius: 6px; padding: 8px; background: var(--surface); }
+.cycle-stage p { margin: 4px 0; }
+.cycle-n { font-size: 1.4rem; font-weight: 700; color: var(--muted); }
+.cycle-who { display: flex; flex-wrap: wrap; gap: 4px; }

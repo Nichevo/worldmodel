@@ -15,7 +15,7 @@ import duckdb
 import httpx
 
 from worldmodel_contract import catalogue
-from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore,
+from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, STAGED_COLUMNS, TEXT_COLUMNS, Manifest, VintageStore,
                                           now_utc, sha256_files)
 
 log = logging.getLogger(__name__)
@@ -168,6 +168,9 @@ class Connector(ABC):
         self.city_values_query: str | None = None
         # places.parquet: a SQL query producing PLACE_COLUMNS (without source_id and vintage).
         self.places_query: str | None = None
+        # The long view: table name in HISTORY_COLUMNS -> a SQL query producing its columns
+        # (without source_id and vintage); written as <table>.parquet.
+        self.history_queries: dict[str, str] = {}
 
     @staticmethod
     def env(name: str) -> str:
@@ -298,7 +301,8 @@ class Connector(ABC):
         raw_dir, release, vintage = store.paths.home / manifest.raw_dir, manifest.release, manifest.vintage
         out_dir = store.vintage_dir(self.source_id, vintage)
         out_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("texts.parquet", "events.parquet", "layers.parquet", "cities.parquet", "city_values.parquet", "places.parquet"):
+        for name in ("texts.parquet", "events.parquet", "layers.parquet", "cities.parquet", "city_values.parquet", "places.parquet",
+                     *(f"{t}.parquet" for t in HISTORY_COLUMNS)):
             (out_dir / name).unlink(missing_ok=True)
         con = duckdb.connect()
         try:
@@ -343,7 +347,18 @@ class Connector(ABC):
                         con.execute(f"COPY staged_{name} TO '{(out_dir / f'{name}.parquet').as_posix()}' "
                                     "(FORMAT parquet, COMPRESSION zstd)")
                 city_counts.append(n)
-            if rows == 0 and texts == 0 and events == 0 and not self.layers and not any(city_counts):
+            history = 0
+            for name, q in self.history_queries.items():
+                cols = HISTORY_COLUMNS[name]
+                sel = ", ".join(f"CAST({c} AS {t}) AS {c}" for c, t in cols.items() if c not in ("source_id", "vintage"))
+                con.execute(f"CREATE TABLE staged_{name} AS SELECT '{self.source_id}' AS source_id, "
+                            f"'{vintage}' AS vintage, {sel} FROM ({q})")
+                n = con.execute(f"SELECT count(*) FROM staged_{name}").fetchone()[0]
+                if n:
+                    con.execute(f"COPY staged_{name} TO '{(out_dir / f'{name}.parquet').as_posix()}' "
+                                "(FORMAT parquet, COMPRESSION zstd)")
+                history += n
+            if rows == 0 and texts == 0 and events == 0 and not self.layers and not any(city_counts) and not history:
                 raise ConnectorError(f"{self.source_id}: staged 0 rows from {raw_dir}")
             parquet = out_dir / "observations.parquet"
             con.execute(f"COPY staged TO '{parquet.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
@@ -358,6 +373,7 @@ class Connector(ABC):
         manifest.row_count, manifest.stage_version = rows, self.stage_version
         manifest.text_count, manifest.event_count, manifest.layer_count = texts, events, len(self.layers)
         manifest.city_count, manifest.city_value_count, manifest.place_count = city_counts
+        manifest.history_count = history
         manifest.write(out_dir / "manifest.json")
 
     def _carry_files(self, store: VintageStore, staging: Path) -> None:
