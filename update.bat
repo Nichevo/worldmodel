@@ -38,6 +38,8 @@ call npm install --no-fund --no-audit || (popd & goto :fail)
 popd
 git checkout -q -- app/web/package-lock.json 2>nul
 echo Checking the warehouse format...
+rem Back up your saved files, settings and keys first (Settings > Looking after the data; once a day at most).
+worldmodel-data backup --auto || echo The backup did not finish; carrying on.
 worldmodel-data upgrade || echo The warehouse could not be rebuilt from the stored data; run refresh.bat.
 echo.
 echo Up to date:

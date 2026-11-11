@@ -9,6 +9,8 @@ import ProblemsCard from "@/components/Problems";
 import QualityTab from "@/components/QualityTab";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
 import { api, type Dataset, type Meta, type Source } from "@/lib/api";
+import Link from "next/link";
+import { InboxCard, JobPanel, SourceHealthCard, useJob } from "@/components/Upkeep";
 
 type Check = { check_id: string; kind: string; status: string; detail: string };
 type Status = { label: string; tone: "ok" | "warn" | "off"; note: string };
@@ -51,6 +53,7 @@ export default function DataPage() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [tab, setTab] = useState<"status" | "quality">("status");
+  const { job, start } = useJob();
   useEffect(() => { if (new URLSearchParams(window.location.search).get("tab") === "quality") setTab("quality"); }, []);
   const switchTab = (t: "status" | "quality") => {
     setTab(t);
@@ -85,6 +88,10 @@ export default function DataPage() {
         <button role="tab" aria-selected={tab === "quality"} className={tab === "quality" ? "on" : ""} onClick={() => switchTab("quality")}>Quality</button>
       </div>
       {tab === "quality" ? <QualityTab /> : <>
+      <p className="small" style={{ margin: 0 }}>What needs you is gathered on the <Link href="/todo">To do</Link> page.</p>
+      <JobPanel job={job} />
+      <SourceHealthCard start={start} busy={!!job?.running} />
+      <InboxCard start={() => start("inbox")} busy={!!job?.running} />
       <ProblemsCard />
       <FetchMethodsCard />
       <ManualFilesCard />

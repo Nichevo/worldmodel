@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { KINDS, kindVar } from "@/lib/events";
 import { Fragment, useEffect, useState } from "react";
-import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage } from "@/lib/api";
+import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage, type Upkeep } from "@/lib/api";
+import { useJob } from "@/components/Upkeep";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
 import PlacePicker, { type Place } from "@/components/PlacePicker";
 import IndicatorSelect from "@/components/IndicatorSelect";
@@ -152,6 +153,8 @@ export default function SettingsPage() {
           hint="Shows the latest failed check or download at the top of every page, with how often it has happened, until a later refresh passes. The Problems list on Data status is always there."
           on={s.problem_banner} set={(v) => save({ problem_banner: v })} />
       </section>
+
+      <LookingAfter s={s} save={save} />
 
       <MapDetail s={s} save={save} />
       <MapPictures s={s} save={save} />
@@ -660,6 +663,73 @@ function TextField({ label, value, placeholder, note, save }: { label: string; v
       <input type="text" value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={commit}
         onKeyDown={(e) => e.key === "Enter" && commit()} aria-label={label} style={{ width: 260 }} />
     </Field>
+  );
+}
+
+// The inbox and Downloads, the scheduled refresh and backups.
+function LookingAfter({ s, save }: { s: Settings; save: (p: Partial<Settings>) => Promise<void> }) {
+  const [u, setU] = useState<Upkeep | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const { job, start } = useJob();
+  const load = () => api.upkeep().then(setU).catch(() => {});
+  useEffect(() => { load(); }, [s.backup_folder]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (job && !job.running && job.kind === "backup") load(); }, [job?.running]); // eslint-disable-line react-hooks/exhaustive-deps
+  const schedule = async (patch: { on?: boolean; often?: string; day?: string; time?: string }) => {
+    const on = patch.on ?? s.schedule_on;
+    try {
+      const r = await api.setSchedule(on, patch.often ?? s.schedule_often, patch.day ?? s.schedule_day, patch.time ?? s.schedule_time);
+      setNote(r.message);
+      if (r.ok) await saveSettings({ schedule_on: on, schedule_often: (patch.often ?? s.schedule_often) as Settings["schedule_often"],
+        schedule_day: patch.day ?? s.schedule_day, schedule_time: patch.time ?? s.schedule_time });
+      load();
+    } catch (e) { setNote(String((e as Error).message || e)); }
+  };
+  const times = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
+  return (
+    <section className="card" id="looking-after">
+      <h2>Looking after the data</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        The <Link href="/todo">To do</Link> page lists what needs you; <Link href="/data">Data status</Link> has every source and can switch sources off.
+      </p>
+      <h3>Inbox</h3>
+      <Toggle label="Also look in my Downloads folder"
+        hint="Files downloaded in the last days whose source the app is sure of (by name, a file like it loaded before, or the site it came from) are copied into that source's folder and loaded. Downloads itself is never changed. Off: only the var\inbox folder is read, so you move files there yourself."
+        on={s.inbox_downloads} set={(v) => save({ inbox_downloads: v })} />
+      <NumberField label="Days back to look in Downloads" unit="days" value={s.inbox_downloads_days} min={1} max={365} step={1} save={(v) => save({ inbox_downloads_days: v })} />
+      <TextField label="Downloads folder" value={s.inbox_downloads_folder} placeholder="Your own Downloads folder" note="Leave blank unless your browser saves somewhere else."
+        save={(v) => save({ inbox_downloads_folder: v })} />
+      <h3>Scheduled refresh</h3>
+      <Toggle label="Refresh by itself"
+        hint={u?.schedule.available === false ? "Only on Windows: a Windows scheduled task runs refresh.bat." :
+          "A Windows scheduled task runs refresh.bat while you are signed in; the Briefing shows what came in. Off: nothing is fetched until you run refresh.bat or press Refresh."}
+        on={s.schedule_on} set={(v) => schedule({ on: v })} />
+      <Field label="When" hint={u?.schedule.exists ? `Windows has it${u.schedule.next_run ? `; next run ${u.schedule.next_run}` : ""}.` : "Not set up in Windows."}>
+        <select value={s.schedule_often} onChange={(e) => schedule({ often: e.target.value })} aria-label="How often">
+          <option value="weekly">Weekly</option><option value="daily">Every night</option></select>
+        {s.schedule_often === "weekly" && <select value={s.schedule_day} onChange={(e) => schedule({ day: e.target.value })} aria-label="Day">
+          {["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((d) => <option key={d} value={d}>{d[0].toUpperCase() + d.slice(1)}</option>)}</select>}
+        <select value={s.schedule_time} onChange={(e) => schedule({ time: e.target.value })} aria-label="Time">
+          {times.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+      </Field>
+      {note && <p className="small muted">{note}</p>}
+      <h3>Backups</h3>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        A backup holds what only you can replace: the files you saved by hand (var\manual), your settings, predictions, highlights and
+        layouts (var\user) and your keys (.env). Downloads and builds are left out; a refresh makes them again.
+      </p>
+      <Toggle label="Back up when update.bat runs" hint="Once a day at most, before the update rebuilds anything. Off: only when you press Back up now."
+        on={s.backup_on_update} set={(v) => save({ backup_on_update: v })} />
+      <TextField label="Backup folder" value={s.backup_folder} placeholder={u?.backup_folder ?? "worldmodel-backups beside the worldmodel folder"}
+        note={u ? `Now: ${u.backup_folder}` : undefined} save={(v) => save({ backup_folder: v })} />
+      <NumberField label="Backups kept" unit="" value={s.backup_keep} min={1} max={100} step={1}
+        note="Older backups the app made (worldmodel-backup-*.zip) are removed; nothing else in the folder is touched." save={(v) => save({ backup_keep: v })} />
+      <NumberField label="Leave out files bigger than" unit="MB" value={s.backup_big_mb} min={0} max={100000} step={50}
+        note="Big downloads (trade or map files) the site can give again; 0 keeps everything." save={(v) => save({ backup_big_mb: v })} />
+      <Field label="Back up now" hint={u?.backups[0] ? `Last: ${u.backups[0].name} (${(u.backups[0].bytes / 1024 ** 2).toFixed(1)} MB); ${u.backups.length} kept.` : "No backup yet."}>
+        <button disabled={!!job?.running} onClick={() => start("backup")}>{job?.running && job.kind === "backup" ? "Backing up…" : "Back up now"}</button>
+      </Field>
+      {job?.kind === "backup" && !job.running && job.lines.length > 0 && <p className="small muted">{job.lines.slice(-3).join(" ")}</p>}
+    </section>
   );
 }
 

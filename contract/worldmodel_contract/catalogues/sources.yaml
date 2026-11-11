@@ -181,6 +181,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["pt_*.csv", "powell_thyne*"]
     get: https://jonathanmpowell.com/coups
     what: "Download the newest 'List of coups by country' CSV (pt_YYYYMMDD.csv) when the refresh cannot reach it."
 
@@ -215,6 +216,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["public_emdat*", "emdat*"]
     get: https://public.emdat.be/
     what: "Sign in (free), Data, choose all disaster types and every country, and download the Excel table."
 
@@ -349,6 +351,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["*voter*turnout*idea*", "idea_export*"]
     get: https://www.idea.int/data-tools/data/voter-turnout-database
     what: "Export the whole database (Excel) when IDEA refuses the refresh."
 
@@ -499,6 +502,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["AI_Diffusion_*"]
     get: https://github.com/microsoft/ai-diffusion-report/tree/main/data
     what: "Download the newest AI_Diffusion_*.csv from the data folder when the refresh cannot reach GitHub."
 
@@ -517,6 +521,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["hb1*.xlsx", "hb2*.xlsx", "hb3*.xlsx", "hb20*.xlsx", "b1*.xlsx", "b2*.xlsx", "b3*.xlsx", "b20*.xlsx"]
     get: https://www.rbnz.govt.nz/statistics
     what: "Download tables B1, B2, B3 and B20 (Excel) when the RBNZ site refuses the refresh."
 
@@ -575,6 +580,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["hst_vote*"]
     get: https://www.census.gov/data/tables/time-series/demo/voting-and-registration/voting-historical-time-series.html
     what: "Download table A-1 (hst_vote01.xlsx) when the Census Bureau refuses the refresh."
 
@@ -593,6 +599,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["*voter-turnout-by-age*", "*voter_turnout_by_age*"]
     get: https://elections.nz/stats-and-research/
     what: "When the site refuses the refresh: download '<year> General Election voter turnout by age' for each election you want; keep them all."
   scraper:
@@ -629,6 +636,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["WUP*"]
     optional: true
     get: https://population.un.org/wup/
     what: "Optional. The UN took the 2018 cities file down; cities use GeoNames sizes meanwhile. If you find a World Urbanization Prospects file of city populations (WUP2018-F12-Cities_Over_300K.xls or a newer revision), save it here."
@@ -663,6 +671,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["EAR_4M*"]
     get: https://ilostat.ilo.org/topics/wages/
     what: "Download the bulk CSV files EAR_4MTH_SEX_CUR_NB_A and EAR_4MMN_CUR_NB_A when ILOSTAT refuses the refresh."
 
@@ -682,6 +691,7 @@
   definition: exploratory
   manual:
     by_hand: true
+    files: ["*numbeo*"]
     get: https://www.numbeo.com/cost-of-living/rankings.jsp
     what: "Pick the year, then save the page (Ctrl+S, Web page, HTML only). Rankings by Country can go in too. Once or twice a year; keep every year's files."
   scraper:
@@ -705,6 +715,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["AgreementScores*", "Idealpoint*", "IdealPoint*"]
     get: https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/LEJUQZ
     what: "When the refresh cannot reach Dataverse, download the agreement scores file (AgreementScores...csv) and the ideal points file (Idealpoint...csv) from the page."
 
@@ -745,6 +756,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["GSDB*"]
     get: https://www.globalsanctionsdatabase.com/
     what: "Fill in the request form (free). From the e-mail, unzip the GSDB release (for example GSDB_R5) and save its CSV file (one row per sanction case) here. The financial-sanctions file (GSDB-FS) is not needed; if it is here too, the main release is read."
 
@@ -763,6 +775,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["*mona*"]
     get: https://www.imf.org/external/np/pdr/mona/index.aspx
     what: "When the refresh is refused, open 'Download the MONA database' and save the arrangements Excel file."
 
@@ -781,6 +794,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["*chronological*list*dispute*", "*dispu_status*"]
     get: https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm
     what: "When the refresh is refused, save the 'Chronological list of disputes cases' page (Ctrl+S, Web page, HTML only)."
   scraper:
@@ -824,6 +838,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["*crisiswatch*", "*-trends-and-*-alerts-*"]
     get: https://www.crisisgroup.org/crisiswatch/database
     what: "When the refresh is refused, pick a month and save the page (Ctrl+S, Web page, HTML only). Save as many months as you like."
   scraper:
@@ -846,6 +861,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["N_*_extent_v*", "S_*_extent_v*"]
     get: https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/
     what: "When the refresh is refused, download the monthly files (N_01_extent_v4.0.csv ... and the same from the south folder) and save them here."
 
@@ -864,6 +880,7 @@
   standing: 4
   manual:
     by_hand: false
+    files: ["satcat*"]
     get: https://celestrak.org/pub/satcat.csv
     what: "When the refresh is refused, download satcat.csv and save it here."
 
@@ -883,6 +900,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["holidays_*_*.json"]
     get: https://date.nager.at/api/v3/PublicHolidays/2026/NZ
     what: "When the refresh is refused, open the address (change the year and two-letter country code as needed) and save each page as holidays_<year>_<CC>.json."
 
@@ -902,6 +920,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["*WBL*", "*women*business*law*"]
     get: https://wbl.worldbank.org/en/wbl-data
     what: "When the refresh is refused, download the historical panel data (Excel, all years) and save it here."
 
@@ -920,6 +939,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["data_cts_*", "*unodc*"]
     get: https://dataunodc.un.org/
     what: "When the refresh is refused, download the Excel files under Crime and criminal justice (intentional homicide, violent and sexual crime, corruption and economic crime, prisons) and save them here."
 
@@ -1013,6 +1033,7 @@
   standing: 4
   manual:
     by_hand: false
+    files: ["BACI_*"]
     get: https://www.cepii.fr/CEPII/en/bdd_modele/bdd_modele_item.asp?id=37
     what: "When the refresh is refused, download the HS92 zip (BACI_HS92_V2025xx.zip, about 2 GB) and save it here, unopened."
 
@@ -1031,6 +1052,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["MCS*World*"]
     get: https://www.sciencebase.gov/catalog/items?q=Mineral%20Commodity%20Summaries%20world%20data
     what: "When the refresh is refused, open the latest 'Mineral Commodity Summaries ... World Data' item and save its world CSV (MCS2026_World_Data.csv or similar) here."
 
@@ -1049,6 +1071,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["*6.4*Production*", "*wmd*"]
     get: https://www.world-mining-data.info/?World_Mining_Data___Data_Section
     what: "When the refresh is refused, download '6.4. Production of Mineral Raw Materials of individual Countries by Minerals' (.xlsx) and save it here. Older editions can stay, for earlier years."
 
@@ -1067,6 +1090,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["Production_Crops_Livestock*", "Inputs_FertilizersNutrient*", "Forestry_E_All*", "Forestry*All_Data*"]
     get: https://www.fao.org/faostat/en/#data
     what: "When the refresh is refused, download the bulk 'All Data (Normalized)' zips for Crops and livestock products, Fertilizers by Nutrient and Forestry Production and Trade, and save them here."
 
@@ -1085,6 +1109,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["CMO-Historical-Data*"]
     get: https://www.worldbank.org/en/research/commodity-markets
     what: "When the refresh is refused, download 'Monthly prices' (CMO-Historical-Data-Monthly.xlsx) and save it here."
 
@@ -1104,6 +1129,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["IEA-EV-data*", "EV data by country*", "*Global*EV*Outlook*"]
     get: https://www.iea.org/data-and-statistics/data-tools/global-ev-data-explorer
     what: "When the refresh is refused, choose 'Download data' (the full CSV, IEA-EV-data.csv), or save the yearly Excel file ('EV data by country 2026.xlsx', from the Global EV Outlook data page), here."
 
@@ -1123,6 +1149,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["MESGEN*", "MESBAL*", "RDDPUBLIC*", "*WEO*Extended*", "*World*Energy*Investment*"]
     optional: true
     get: https://www.iea.org/data-and-statistics/data-product
     what: "Sign in to the IEA (free) and save any of these here, keeping their names: the data explorer's zipped CSVs MESGEN and MESBAL (Monthly Electricity Statistics), RDDPUBLIC and RDDPRIVATE (energy RD&D), CST and CSTWORLDTRADE (coal); the workbooks 'Subsidies 2010-2024', 'Household Energy Expenditure database', 'Household Appliances database', 'Energy_Prices_Monthly_Excerpt' and 'Energy_ValueAdded'; and the World Energy Outlook Annex A free dataset CSVs (World and Regions). Other files are left out. A new copy of one file replaces only that file."
@@ -1174,6 +1201,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["co2_mm_mlo*", "co2_annmean_gl*", "ch4_annmean_gl*", "n2o_annmean_gl*"]
     get: https://gml.noaa.gov/ccgg/trends/data.html
     what: "When the refresh is refused, save co2_mm_mlo.csv, co2_annmean_gl.csv, ch4_annmean_gl.csv and n2o_annmean_gl.csv here."
 
@@ -1192,6 +1220,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["GLB.Ts+dSST*"]
     get: https://data.giss.nasa.gov/gistemp/
     what: "When the refresh is refused, save 'Global-mean monthly, seasonal, and annual means' as CSV (GLB.Ts+dSST.csv) here."
 
@@ -1210,6 +1239,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["oni.ascii*", "dmi.had.long*", "*aao*"]
     get: https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt
     what: "When the refresh is refused, save oni.ascii.txt here, and if you like dmi.had.long.data (psl.noaa.gov) and the monthly AAO index (cpc.ncep.noaa.gov)."
 
@@ -1228,6 +1258,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["ibtracs*"]
     get: https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/
     what: "When the refresh is refused, save ibtracs.since1980.list.v04r01.csv here."
 
@@ -1246,6 +1277,7 @@
   standing: 4
   manual:
     by_hand: false
+    files: ["*geteventlist*", "gdacs*"]
     get: https://www.gdacs.org/gdacsapi/swagger/index.html
     what: "When the refresh is refused, save the JSON answers of geteventlist/SEARCH (one file per year) here."
 
@@ -1264,6 +1296,7 @@
   standing: 5
   manual:
     by_hand: false
+    files: ["cckp_*"]
     get: https://climateknowledgeportal.worldbank.org/download-data
     what: "When the refresh is refused, save the API's JSON answers here, named like cckp_tas_ssp245_median_00.json."
 
@@ -1283,6 +1316,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["net_zero*", "*netzerotracker*"]
     get: https://zerotracker.net/
     what: "Use 'Download data' on the site and save the CSV or Excel file here (the year in the file name, such as net_zero_2025.csv, dates it)."
 
@@ -1302,6 +1336,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["*carbon*pric*", "*Data_Carbon*"]
     get: https://carbonpricingdashboard.worldbank.org/about
     what: "Download the dashboard's data file (Excel) and save it here."
 
@@ -1320,6 +1355,7 @@
   standing: 5
   manual:
     by_hand: true
+    files: ["*7*station*", "*seven*station*"]
     get: https://niwa.co.nz/climate-and-weather/nz-temperature-record
     what: "Download the seven-station series (Excel or CSV, with a Year column and an anomaly column) and save it here."
 
@@ -1357,6 +1393,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["*_performance_fixed_tiles*", "*_performance_mobile_tiles*", "ne_50m_admin_0_countries*"]
     get: https://registry.opendata.aws/speedtest-global-performance/
     what: "When the refresh is refused, save the quarter's *_performance_fixed_tiles.parquet or *_performance_mobile_tiles.parquet files here, with ne_50m_admin_0_countries.geojson from Natural Earth (github.com/nvkelso/natural-earth-vector, geojson folder)."
 
@@ -1465,6 +1502,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["territoryInfo.json", "languages.json"]
     get: https://github.com/unicode-org/cldr-json/tree/main/cldr-json
     what: "If the download fails: save cldr-core/supplemental/territoryInfo.json and cldr-localenames-full/main/en/languages.json here."
 
@@ -1484,6 +1522,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["languages.csv", "values.csv"]
     get: https://github.com/glottolog/glottolog-cldf/tree/master/cldf
     what: "If the download fails: save languages.csv and values.csv from the cldf folder here."
 
@@ -1503,6 +1542,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["WRP_*"]
     get: https://correlatesofwar.org/data-sets/world-religion-data/
     what: "If the download fails: save the national file (WRP_national.csv) here."
 
@@ -1522,6 +1562,7 @@
   definition: standard
   manual:
     by_hand: true
+    files: ["*Religious*Composition*", "*religious*landscape*", "*pew*religio*"]
     optional: true
     get: https://www.pewresearch.org/religion/feature/religious-composition-by-country-2010-2020/
     what: "Download the data table (Excel or CSV) of each country's religious groups. Correlates of War and the Factbook cover religion until it is loaded."
@@ -1542,6 +1583,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["*global_crisis_data*", "*Global Crises Data*"]
     optional: true
     get: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
     what: "Download 'Global Crises Data by Country' (an Excel workbook, such as 20160923_global_crisis_data.xlsx). Banking, debt, currency and inflation crises by year since 1800."
@@ -1623,6 +1665,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["koppen_geiger*"]
     get: https://figshare.com/articles/dataset/21789074
     what: "If the download fails: download koppen_geiger_tif.zip, and from it save the koppen_geiger_0p1.tif of each period folder (and of its ssp126, ssp245 and ssp585 folders) as <period>_koppen_geiger_0p1.tif or <period>_<ssp>_koppen_geiger_0p1.tif (for example 2071_2099_ssp245_koppen_geiger_0p1.tif)."
 
@@ -1657,6 +1700,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["rlr_annual*"]
     get: https://psmsl.org/data/obtaining/
     what: "If the download fails: under Annual data, revised local reference, download the zip of all stations (rlr_annual.zip)."
 
@@ -1695,6 +1739,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["*nd_gain*", "*ndgain*", "resources.zip"]
     get: https://gain.nd.edu/our-work/country-index/download-data/
     what: "If the download fails: download the country index zip (it holds gain.csv, vulnerability.csv and readiness.csv)."
 
@@ -1759,6 +1804,7 @@
   definition: standard
   manual:
     by_hand: true
+    files: ["*wahis*"]
     optional: true
     get: https://wahis.woah.org/#/event-management
     what: "Export the events or outbreaks table (Excel or CSV) for the diseases and years you want. It needs Country, Disease and a date or year column; a column of outbreak counts is used if there is one."
@@ -1779,6 +1825,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["WDPA_*"]
     get: https://www.protectedplanet.net/en/thematic-areas/wdpa?tab=WDPA
     what: "If the download fails: download the shapefile (SHP) of the whole world and save the zip as it comes (WDPA_<Mon><Year>_Public_shp.zip)."
 
@@ -1829,6 +1876,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["UpdatedPub150*", "*World*Port*Index*"]
     get: https://msi.nga.mil/Publications/WPI
     what: "If the download fails: download the World Port Index as CSV and save it as it comes (UpdatedPub150.csv)."
 
@@ -1913,6 +1961,7 @@
   definition: standard
   manual:
     by_hand: true
+    files: ["*taic*"]
     get: https://www.taic.org.nz/inquiries
     what: "Save the inquiries list as CSV or Excel with columns for date, mode (air, maritime, rail), title and, if given, deaths and the inquiry's link. A page saved from the browser (Ctrl+S) also works."
 
@@ -1947,6 +1996,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["whc-sites*", "*whc*sites*"]
     get: https://whc.unesco.org/en/syndication/
     what: "If the download fails: save the World Heritage List as XML from the syndication page (whc-sites XML) as it comes."
 
@@ -1966,6 +2016,7 @@
   definition: standard
   manual:
     by_hand: true
+    files: ["*UN_Tourism*", "*unwto*", "*Key*Tourism*"]
     get: https://www.unwto.org/tourism-statistics/key-tourism-statistics
     what: "Download the Excel files from Key Tourism Statistics (inbound arrivals, nights, expenditure; outbound departures and expenditure; arrivals by region of origin) and save them as they come."
 
@@ -1985,6 +2036,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["*TTDI*", "*Travel*Tourism*Development*"]
     get: https://www.weforum.org/publications/travel-tourism-development-index-2024/
     what: "Download the index's data (Excel) and save it as it comes; overall scores, ranks and pillar scores are read."
 
@@ -2023,6 +2075,7 @@
   definition: established
   manual:
     by_hand: false
+    files: ["HydroRIVERS_*", "hybas_*"]
     get: https://www.hydrosheds.org/products/hydrorivers
     what: "If the download fails: save the HydroRIVERS shapefile zips by region (HydroRIVERS_v10_<region>_shp.zip) and the HydroBASINS level 4 zips (hybas_<region>_lev04_v1c.zip) as they come."
 
@@ -2042,6 +2095,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["*waterway*network*"]
     optional: true
     get: https://geodata.bts.gov/datasets/usdot::navigable-waterway-network-lines
     what: "If the US network fails to download: save it as GeoJSON (name it with waterway network in the name)."
@@ -2077,6 +2131,7 @@
   definition: established
   manual:
     by_hand: true
+    files: ["GGIT*", "GOIT*", "*Gas*Infrastructure*Tracker*", "*Oil*Infrastructure*Tracker*", "*LNG*Terminal*"]
     get: https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/download-data/
     what: "Fill in the short download form for the Global Gas Infrastructure Tracker, the Global Oil Infrastructure Tracker and the LNG terminals list, and save the Excel files as they come (pipelines have a WKT route column)."
 
@@ -2096,6 +2151,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["cropland-area*", "grazing-land*"]
     get: https://ourworldindata.org/grapher/cropland-area
     what: "If the download fails: on the Our World in Data charts cropland-area and grazing-land, Download > Full data (CSV), saved as cropland-area.csv and grazing-land.csv. HYDE's own country tables (cropland_c.txt, grazing_c.txt, pasture_c.txt, rangeland_c.txt from the HYDE 3.3 baseline/txt folder) also load."
 
@@ -2115,6 +2171,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["GHS_UCDB*", "GHS_STAT_UCDB*"]
     get: https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php
     what: "If the download fails: download the GHS-UCDB R2024A zip (GeoPackage) and save it as it comes. The older R2019A zip (with its CSV table) also loads."
 
@@ -2134,6 +2191,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["global_country_stats*", "*treecover*"]
     get: https://www.globalforestwatch.org/dashboards/global/
     what: "If the download fails: on the global dashboard, Download data (the download arrow at the top), then save the country statistics spreadsheet (global_country_stats.xlsx, or its zip) as it comes."
 
@@ -2153,6 +2211,7 @@
   definition: standard
   manual:
     by_hand: false
+    files: ["*_trees.*"]
     get: https://data-aucklandcouncil.opendata.arcgis.com/search?q=trees
     what: "If the download fails: download the council's tree list as CSV or GeoJSON and save it with a name starting with the council (auckland_trees.csv). Columns read: species or botanical name, common name, planted year or date, height, and latitude/longitude or NZTM easting/northing."
 
@@ -2172,6 +2231,7 @@
   definition: standard
   manual:
     by_hand: true
+    files: ["*lcdb*", "*LCDB*"]
     get: https://lris.scinfo.org.nz/layer/104400-lcdb-v50-land-cover-database-version-50-mainland-new-zealand/
     what: "Sign in to LRIS (free), export the latest LCDB layer as a GeoPackage or shapefile (NZTM) and save the zip as it comes. For totals by region, also save Stats NZ's Regional Council boundaries (clipped, generalised) from datafinder.stats.govt.nz as a GeoPackage or GeoJSON with 'regional' in its file name, in the same folder."
 
@@ -2191,6 +2251,7 @@
   definition: standard
   manual:
     by_hand: true
+    files: ["*NEFD*", "*exotic*forest*", "*ETS*forest*"]
     get: https://www.mpi.govt.nz/forestry/forest-industry-and-workforce/forestry-wood-processing-data/
     what: "Save any of: the National Exotic Forest Description tables (net stocked plantation area, harvest, new planting and replanting by year), Emissions Trading Scheme forest registrations by year, and MPI's farm-to-forest (whole farms sold for forestry) table, as Excel or CSV. A table needs a Year column (or a year per column) and headings such as 'New planting (ha)'."
 
@@ -2210,6 +2271,7 @@
   definition: exploratory
   manual:
     by_hand: false
+    files: ["polymarket_page_*"]
     get: https://gamma-api.polymarket.com/events?closed=false&limit=100
     what: "Read through the public API; nothing to save by hand. A saved copy of an events page (JSON) named polymarket_page_1.json also loads."
 
@@ -2267,5 +2329,6 @@
   definition: established
   manual:
     by_hand: false
+    files: ["views_page_*"]
     get: https://api.viewsforecasting.org/current/cm/sb
     what: "Read through the public API, page by page; saved pages named views_page_000.json also load."
