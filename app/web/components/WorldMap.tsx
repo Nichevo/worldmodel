@@ -158,7 +158,7 @@ export default function WorldMap({
   const { base_map: baseMap, map_centre: mapCentre } = settings;
   const look = {
     map_look: pictures ? settings.map_look : "plain", relief_style: settings.relief_style, relief_shading: settings.relief_shading,
-    map_colours_over: settings.map_colours_over, night_year: settings.night_year, map_3d: pictures && settings.map_3d,
+    map_colours_over: settings.map_colours_over, night_year: settings.night_year, land_cover_year: settings.land_cover_year, map_3d: pictures && settings.map_3d,
     map_3d_exaggeration: settings.map_3d_exaggeration, map_tiles: settings.map_tiles,
   } as const;
   const lookKey = JSON.stringify(look);

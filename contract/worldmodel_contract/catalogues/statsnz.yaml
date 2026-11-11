@@ -113,3 +113,44 @@ measures:
     find: [regional, gross domestic product]
     prefer: [region, current prices]
     keep: {}
+
+  # Farms (Agricultural Production Statistics, June each year)
+  - id: nzreg_dairy_cattle
+    name: Dairy cattle (NZ regions)
+    unit: head
+    decimals: 0
+    domain: land
+    description: Dairy cattle at 30 June in each region, Stats NZ Agricultural Production Statistics.
+    find: [agricultur, livestock]
+    prefer: [regional council, region, cattle]
+    keep: {"*": dairy cattle}
+
+  - id: nzreg_beef_cattle
+    name: Beef cattle (NZ regions)
+    unit: head
+    decimals: 0
+    domain: land
+    description: Beef cattle at 30 June in each region, Stats NZ Agricultural Production Statistics.
+    find: [agricultur, livestock]
+    prefer: [regional council, region, cattle]
+    keep: {"*": beef cattle}
+
+  - id: nzreg_sheep
+    name: Sheep (NZ regions)
+    unit: head
+    decimals: 0
+    domain: land
+    description: Sheep at 30 June in each region, Stats NZ Agricultural Production Statistics.
+    find: [agricultur, livestock]
+    prefer: [regional council, region, sheep]
+    keep: {"*": sheep}
+
+  - id: nzreg_plantation_ha
+    name: Plantation forest area (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares in plantation forest in each region, Stats NZ Agricultural Production Statistics (land use).
+    find: [agricultur, land use]
+    prefer: [regional council, region, forest]
+    keep: {"*": plantation}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import CardAsk from "@/components/CardAsk";
+import LandCard from "@/components/LandCard";
 import CountryChoice from "@/components/CountryChoice";
 import EChart from "@/components/EChart";
 import Help from "@/components/Help";
@@ -11,6 +12,9 @@ import WorldMap from "@/components/WorldMap";
 import { api, type SectorDetail, type SectorMeasure, type SectorStage } from "@/lib/api";
 import { openAsk } from "@/lib/ai";
 import { amount, concentrationOption, hhiText, money, pricesOption, rankingBars, routesSankey, yearLines } from "@/lib/sectors";
+
+// Sectors with a Land card (worldmodel_contract.land LAND_CARDS).
+const LAND_SECTORS = new Set(["dairy", "beef", "sheep", "wheat", "maize", "rice", "soybeans", "forestry", "wine", "fruit"]);
 
 // One sector across the globe: pick a stage of the chain, then see who makes it, who
 // sells it and to whom, how concentrated that is, what it sells for, and one country's place.
@@ -277,6 +281,7 @@ function SectorPage() {
         ) : null}
       </div>
       <StageView key={st.id} d={d} st={st} country={country} year={year} />
+      {LAND_SECTORS.has(d.id) ? <LandCard sector={d.id} country={country} /> : null}
       {d.electric ? <Electric e={d.electric} /> : null}
       {d.battery ? <Battery b={d.battery} /> : null}
       {d.prices.length ? (

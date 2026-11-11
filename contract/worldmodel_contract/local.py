@@ -111,8 +111,15 @@ SETTINGS: dict[str, object] = {
     "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
     "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
     "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)
+    # Land, cities and trees (connectors/land.py; FAOSTAT land use comes with the sectors' FAOSTAT files)
+    "land_history_fetch": True,          # HYDE cropland and grazing land by country back to 1700 (via Our World in Data, once a year)
+    "land_cities_fetch": True,           # GHSL urban centres: people, built-up area and outlines of about 11,000 cities (300 MB once a year)
+    "land_trees_fetch": True,            # Global Forest Watch tree cover and loss by country; council tree lists (Auckland)
+    "land_nz_fetch": True,               # read the NZ Land Cover Database and MPI forestry files you save by hand
+    "land_city_cover": True,             # city land cover worked out from the WorldCover map pictures (on request, a few dozen tiles a city)
+    "land_cover_year": "2021",           # WorldCover year for the land cover background and city shares: "2021" or "2020"
     # Maps (Settings > Maps)
-    "map_look": "plain",                 # under the country colours: "plain", "relief" (shaded heights and sea depths), "satellite" or "night" (night lights)
+    "map_look": "plain",                 # under the country colours: "plain", "relief" (shaded heights and sea depths), "satellite", "night" (night lights) or "landcover" (ESA WorldCover)
     "relief_style": "classic",           # "classic" (height colours + shading), "grey" (shading only) or "satellite" (shading over the satellite picture)
     "relief_shading": 0.6,               # how strong the hill shading is (0 to 1)
     "map_colours_over": 0.55,            # how solid the country colours are over relief, satellite or night lights (0 to 1)
@@ -120,7 +127,7 @@ SETTINGS: dict[str, object] = {
     "map_3d": False,                     # tilt the map and raise the land (right-drag or Ctrl-drag to tilt)
     "map_3d_exaggeration": 1.5,          # how much the land is raised in 3D
     "map_tiles": "local_first",          # relief, satellite and night pictures: "local_first" (saved copies, online for the rest) or "online"
-    "map_tiles_starter": True,           # download the starter copies once: world relief to zoom 6, NZ relief and satellite closer, newest night lights
+    "map_tiles_starter": True,           # download the starter copies once: world relief to zoom 6, NZ relief, satellite and land cover closer, newest night lights
     "map_true_size": True,               # Map shapes page: true size, equal-area view and cartograms
     "space_fetch": True,                 # Solar system page: asteroids (JPL), mission paths (JPL Horizons), about 50 MB
     "space_values": False,               # Solar system page: Asterank's guessed dollar values for asteroids
@@ -195,8 +202,8 @@ SETTINGS: dict[str, object] = {
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
-           "map_look": ("plain", "relief", "satellite", "night"), "relief_style": ("classic", "grey", "satellite"),
-           "night_year": ("2016", "2012", "latest"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
+           "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
+           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y")}

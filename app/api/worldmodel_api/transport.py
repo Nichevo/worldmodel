@@ -38,6 +38,9 @@ GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom be
     "cables": ("Undersea cables", [(99, 9)], 1500),
     "gas_pipelines": ("Gas pipelines", [(3, 1), (99, 5)], 4000),
     "oil_pipelines": ("Oil pipelines", [(3, 1), (99, 5)], 4000),
+    "urban_centres": ("City outlines", [(3, 1), (5, 2), (99, 3)], 3000),
+    "street_trees": ("Street trees", [(12, 0), (99, 1)], 8000),
+    "nz_land_change": ("Land cover change (NZ)", [(7, 1), (99, 2)], 6000),
 }
 COVID = {"kind": "band", "title": "COVID-19 border closures", "start_date": "2020-03-01", "end_date": "2022-06-30"}
 
@@ -99,6 +102,8 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
             props = {k: props.get(k) for k in ("area", "flow", "transboundary")}
         elif layer == "cables":
             props = {k: props.get(k) for k in ("color", "rfs", "planned")}
+        elif layer == "urban_centres":
+            props = {k: props.get(k) for k in ("people", "growth", "now", "first")}
         feats.append({"type": "Feature", "geometry": json.loads(r["geojson"]),
                       "properties": {"id": r["feature_id"], "name": r["name"], "rank": r["rank"], "layer": layer,
                                      "countries": r["countries"] or "", **props}})
