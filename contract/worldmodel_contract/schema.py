@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.8.0"
+SCHEMA_VERSION = "1.9.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -38,6 +38,9 @@ EVENT_KINDS = {
     "sport": "Major sporting events",
     "disaster": "Disasters and extreme weather",
     "epidemic": "Epidemics and pandemics",
+    "animal_disease": "Animal disease outbreaks",
+    "pest": "Pests, weeds and plant diseases arriving",
+    "pollution": "Pollution disasters and smoke across borders",
     "notable": "Notable episodes",
     "un": "United Nations: Security Council seats, vetoes and resolutions",
     "sanction": "Sanctions",
@@ -225,6 +228,35 @@ TABLES: dict[str, Table] = {
             "Events far back in time for the Long history page: wars, battles, sieges, epidemics, famines, "
             "revolutions and treaties (Wikidata, links = Wikipedias with an article) and earthquakes, eruptions "
             "and tsunamis (NOAA; size is magnitude, VEI or wave height). year is negative for BC. Absent before 1.8.0."),
+        Table("zone_grids", {
+            "period": "VARCHAR", "scenario": "VARCHAR", "width": "INTEGER", "height": "INTEGER", "grid": "BLOB",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("period", "scenario"),
+            "Köppen-Geiger climate zones (Beck et al. 2023) as grids: one byte per cell (0 = sea or no data, 1-30 "
+            "the zones in catalogue order), rows from 90°N, columns from 180°W, zlib-compressed. period is "
+            "1901-1930 ... 2071-2099; scenario is historical, ssp126, ssp245 or ssp585. Absent before 1.9.0."),
+        Table("protected_areas", {
+            "wdpa_id": "VARCHAR", "name": "VARCHAR", "designation": "VARCHAR", "iucn_cat": "VARCHAR",
+            "entity_id": "VARCHAR", "marine": "VARCHAR", "area_km2": "DOUBLE", "year": "INTEGER", "lat": "DOUBLE",
+            "lon": "DOUBLE", "west": "DOUBLE", "south": "DOUBLE", "east": "DOUBLE", "north": "DOUBLE", "geojson": "VARCHAR",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("wdpa_id",),
+            "Protected areas from the World Database on Protected Areas: 10 km² or more, and every one in New "
+            "Zealand, with simplified shapes. marine is 0 (land), 1 (land and sea) or 2 (sea); year is when it was "
+            "protected. Absent before 1.9.0."),
+        Table("species_status", {
+            "entity_id": "VARCHAR", "scientific_name": "VARCHAR", "category": "VARCHAR", "year": "INTEGER",
+            "url": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("entity_id", "scientific_name"),
+            "Species extinct, extinct in the wild or critically endangered in a country (IUCN Red List; New Zealand, "
+            "Australia, the United States and the United Kingdom). Absent before 1.9.0."),
+        Table("pest_presence", {
+            "pest_code": "VARCHAR", "pest_name": "VARCHAR", "entity_id": "VARCHAR", "state": "VARCHAR",
+            "status": "VARCHAR", "present": "BOOLEAN", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("pest_code", "entity_id", "state"),
+            "Where each pest on nature.yaml's watch list is found (EPPO): status as EPPO words it, present when it "
+            "is there (present or transient). state is a state or province, or empty for the whole country. "
+            "Absent before 1.9.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

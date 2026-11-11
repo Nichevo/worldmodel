@@ -48,7 +48,8 @@ type Props = {
   lines?: MapLine[]; // routes between countries (trade on the Sectors page), width by value
   layerFilter?: Record<string, unknown[] | null>; // a MapLibre filter per overlay (storm tracks by year)
   // Picture tiles under the countries (sea temperatures on the Climate page), and boxes drawn on top.
-  raster?: { tiles: string; attribution: string; maxzoom?: number } | null;
+  // over: drawn above the country colours (climate zones, smoke) rather than under them; several may be given.
+  raster?: RasterTiles | RasterTiles[] | null;
   boxes?: { name: string; west: number; south: number; east: number; north: number }[];
   // Countries outlined in a colour (CrisisWatch's month), with a line for the hover text.
   outlines?: MapOutline[];
@@ -64,6 +65,8 @@ type Props = {
   // Routes as dated stops joined by straight lines (voyages), with a dot at each stop.
   paths?: MapPath[];
 };
+
+export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number; over?: boolean; opacity?: number };
 
 export type MapPath = { key: string; color: string; label: string; stops: { lng: number; lat: number; label: string }[] };
 
@@ -377,18 +380,20 @@ export default function WorldMap({
   }, [baseMap]);
 
   // Picture tiles under the countries, and outlined boxes over them.
-  const rasterKey = raster?.tiles ?? "";
+  const rasterList = raster ? (Array.isArray(raster) ? raster : [raster]) : [];
+  const rasterKey = rasterList.map((r) => `${r.tiles}|${r.over ? 1 : 0}|${r.opacity ?? ""}`).join(",");
   const boxesKey = JSON.stringify(boxes);
   useEffect(() => {
     const m = map.current;
     if (!m) return;
     const apply = () => {
-      if (m.getLayer("raster")) m.removeLayer("raster");
-      if (m.getSource("raster")) m.removeSource("raster");
-      if (raster) {
-        m.addSource("raster", { type: "raster", tiles: [raster.tiles], tileSize: 256, maxzoom: raster.maxzoom ?? 7, attribution: raster.attribution });
-        m.addLayer({ id: "raster", type: "raster", source: "raster", paint: { "raster-opacity": 0.95 } }, "fill");
-      }
+      for (const l of m.getStyle().layers ?? []) if (l.id.startsWith("wm-raster")) m.removeLayer(l.id);
+      for (const id of Object.keys(m.getStyle().sources ?? {})) if (id.startsWith("wm-raster")) m.removeSource(id);
+      rasterList.forEach((r, i) => {
+        const id = `wm-raster${i}`;
+        m.addSource(id, { type: "raster", tiles: [r.tiles], tileSize: 256, maxzoom: r.maxzoom ?? 7, attribution: r.attribution });
+        m.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": r.opacity ?? 0.95 } }, r.over && m.getLayer("line") ? "line" : "fill");
+      });
       for (const id of ["boxes-line", "boxes-label"]) if (m.getLayer(id)) m.removeLayer(id);
       if (m.getSource("boxes")) m.removeSource("boxes");
       if (boxes.length) {

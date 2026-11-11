@@ -37,7 +37,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, news, numbeo, people, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -2014,6 +2014,96 @@ def climate_policy():
     """Each country's net zero target year and how firm it is, its carbon price, when it
     joined the Paris Agreement, and its share of world CO2 and emissions per person."""
     return climate.policy(rows)
+
+
+# ----------------------------------------------------------------------------- climate zones, pollution, nature
+def _zones_scenario(scenario: str | None) -> str:
+    s = scenario or str(userdata.settings().get("zones_scenario", "ssp245"))
+    return s if s in nature.SCENARIOS else "ssp245"
+
+
+@api.get("/climatezones")
+def zones_overview():
+    """The Köppen-Geiger zones: legend (30 zones in five groups, with colours), the emissions
+    paths, and which periods are loaded."""
+    have = nature.periods(rows) if _has_table("zone_grids") else []
+    return {**nature.legend(), "periods": have, "scenario": _zones_scenario(None)}
+
+
+@api.get("/climatezones/tiles/{period}/{scenario}/{z}/{x}/{y}.png")
+def zones_tile(period: str, scenario: str, z: int, x: int, y: int, groups: bool = False):
+    """A 256-pixel map tile of the climate zones (Web Mercator), the six groups if groups=true.
+    Periods up to 2020 use scenario historical whatever is asked."""
+    if not re.fullmatch(r"\d{4}-\d{4}", period) or not (0 <= z <= 10) or not (0 <= y < 2 ** z) or not _has_table("zone_grids"):
+        raise HTTPException(404, "no such tile")
+    scen = "historical" if int(period[:4]) <= 2020 else _zones_scenario(scenario)
+    png = nature.tile_png(rows, _build_id(), period, scen, z, x, y, groups)
+    if png is None:
+        raise HTTPException(404, f"no climate zone grid for {period} {scen}; a refresh loads them")
+    return Response(png, media_type="image/png", headers={"Cache-Control": "max-age=86400"})
+
+
+@api.get("/climatezones/country/{entity}")
+def zones_country(entity: str, scenario: str | None = None):
+    """A country's land in each zone and group per period (and each path ahead), the share of its
+    city dwellers in each zone now, and its big cities' climate twins in 2071-2099."""
+    if not _has_table("zone_grids"):
+        return {"entity": entity, "zones": {}, "groups": {}, "people": {}, "twins": [], "legend": nature.legend()}
+    return nature.country(rows, _build_id(), entity, _zones_scenario(scenario))
+
+
+@api.get("/climatezones/city/{city_id}")
+def zones_city(city_id: str, scenario: str | None = None):
+    """One city's zone now and in 2041-2070 and 2071-2099, with its rough climate twin for each."""
+    found = rows("SELECT city_id, name, country_id, lat, lon, population FROM cities WHERE city_id = ?", [city_id]) if _has_cities() else []
+    if not found or not _has_table("zone_grids"):
+        raise HTTPException(404, f"no city {city_id} or no climate zones loaded")
+    scen = _zones_scenario(scenario)
+    return {"scenario": scen, "periods": {p: (nature.twins(rows, _build_id(), found, scen, p) or [None])[0]
+                                          for p in ("2041-2070", "2071-2099")}}
+
+
+@api.get("/climate/pledges/{entity}")
+def climate_pledges(entity: str, indicator: str = "ghg_total_gcp"):
+    """A country's climate pledges (NDCs) as points for its emissions chart."""
+    return nature.pledges(rows, entity, indicator)
+
+
+@api.get("/pollution")
+def pollution_overview():
+    """The Pollution page: the indicators on each tab (air, water, ocean, across borders) and
+    pollution disasters and smoke across borders as events."""
+    return nature.pollution(rows)
+
+
+@api.get("/pollution/country/{entity}")
+def pollution_country(entity: str):
+    """One country's latest pollution figures by tab and its pollution events."""
+    return nature.pollution_country(rows, entity)
+
+
+@api.get("/nature")
+def nature_overview():
+    """The Nature tab: indicators of nature being lost, invasive species and disease, and
+    recovery; animal disease and pest events; the pest watch list with how many countries
+    have each; species comebacks and restoration projects; protected areas loaded."""
+    return nature.nature(rows)
+
+
+@api.get("/nature/country/{entity}")
+def nature_country(entity: str):
+    """One country's nature figures, species by name (where loaded), pests, events, comebacks
+    and restoration."""
+    return nature.nature_country(rows, entity)
+
+
+@api.get("/nature/protected")
+def nature_protected(west: float = -180, south: float = -90, east: float = 180, north: float = 90,
+                     limit: int = Query(1500, le=5000)):
+    """Protected areas in a map window (WDPA), largest first, as GeoJSON."""
+    data = nature.protected(rows, west, south, east, north, limit) if _has_table("protected_areas") else \
+        {"type": "FeatureCollection", "features": []}
+    return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
 
 
 # ----------------------------------------------------------------------------- markets and regions

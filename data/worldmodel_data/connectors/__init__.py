@@ -22,6 +22,8 @@ from worldmodel_data.connectors.statsnz import StatsNZ
 from worldmodel_data.connectors.laws import WBL, GunPolicy, NagerHolidays, RulesCurated, UNODCCrime, WorldPolicy, WorldPrisonBrief
 from worldmodel_data.connectors.layers import GEMFaults, GVPVolcanoes, PlatesBird, USGSEarthquakes
 from worldmodel_data.connectors.migration import UNHCR, UNIMS
+from worldmodel_data.connectors.nature import (PSMSL, UNSDG, WDPA, BerkeleyEarth, EPPOPests, GRIIS, IUCNRedList, KoppenBeck,
+                                                NatureCurated, NDGAIN, WAHISOutbreaks)
 from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
 from worldmodel_data.connectors.people import CLDRLanguages, COWReligion, Glottolog, PewReligion
@@ -48,6 +50,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     OWIDCO2, OWIDClimate, NOAAGML, GISTEMP, NOAAEnso, IBTrACS, GDACS, CCKP, NetZeroTracker, CarbonPricing, NIWA7Station, MfEGHG, OoklaSpeedtest,
     ECBRates, FedH10, GIEStorage, EIAStocks, JODI, StatsNZ,
     CLDRLanguages, Glottolog, COWReligion, PewReligion, CrisisHistory, IEAData,
-    Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards)}
+    Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards,
+    KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

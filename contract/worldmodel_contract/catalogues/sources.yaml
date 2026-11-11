@@ -1605,3 +1605,194 @@
   default_rank: 6
   standing: 4
   definition: established
+
+# ----------------------------------------------------------------------------- climate zones, pollution and nature
+- id: koppen_beck
+  name: Köppen-Geiger climate zones 1901-2099 (Beck et al. 2023)
+  short_name: Köppen-Geiger (Beck)
+  publisher: Beck, H.E. et al., Scientific Data (2023), on figshare
+  url: https://www.gloh2o.org/koppen/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Published once; read once (a zip of about 1 GB, of which only the 0.1° grids are kept, about 20 MB)
+  attribution: "Beck, H.E. et al. (2023), High-resolution (1 km) Köppen-Geiger maps for 1901-2099 based on constrained CMIP6 projections, Scientific Data (CC BY 4.0)."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://figshare.com/articles/dataset/21789074
+    what: "If the download fails: download koppen_geiger_tif.zip, and from it save the koppen_geiger_0p1.tif of each period folder (and of its ssp126, ssp245 and ssp585 folders) as <period>_koppen_geiger_0p1.tif or <period>_<ssp>_koppen_geiger_0p1.tif (for example 2071_2099_ssp245_koppen_geiger_0p1.tif)."
+
+- id: berkeley_earth
+  name: Berkeley Earth land temperature by country
+  short_name: Berkeley Earth
+  publisher: Berkeley Earth
+  url: https://berkeleyearth.org/data/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Updated monthly; read every three months (one small file per country)
+  attribution: "Berkeley Earth (CC BY 4.0)."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+
+- id: psmsl
+  name: Permanent Service for Mean Sea Level, annual tide gauge data
+  short_name: PSMSL tide gauges
+  publisher: National Oceanography Centre (UK)
+  url: https://psmsl.org/
+  licence: Free to use with acknowledgement
+  licence_url: https://psmsl.org/data/obtaining/
+  commercial_use: true
+  cadence: Updated now and then; read twice a year (one zip of about 1 MB)
+  attribution: "Permanent Service for Mean Sea Level (PSMSL), 'Tide Gauge Data'."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://psmsl.org/data/obtaining/
+    what: "If the download fails: under Annual data, revised local reference, download the zip of all stations (rlr_annual.zip)."
+
+- id: un_sdg
+  name: UN SDG Global Database (water, wastewater, protected key areas, Red List Index)
+  short_name: UN SDG database
+  publisher: United Nations Statistics Division
+  url: https://unstats.un.org/sdgs/dataportal
+  licence: UN terms of use (free with attribution)
+  licence_url: https://www.un.org/en/about-us/terms-of-use
+  commercial_use: true
+  cadence: Updated yearly; read every three months (seven series)
+  attribution: "United Nations Global SDG Database."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://unstats.un.org/sdgapi/swagger/
+    what: "If the API refuses: for each series (EN_WWT_WWDS, EN_H2O_OPAMBQ, ER_H2O_STRESS, ER_RSK_LST, ER_PTD_TERR, ER_PTD_FRWRT, ER_MRN_MPA) open Series/Data?seriesCode=<code>&pageSize=100000 and save the answer as <code>.json."
+
+- id: nd_gain
+  name: Notre Dame Global Adaptation Initiative country index
+  short_name: ND-GAIN
+  publisher: University of Notre Dame
+  url: https://gain.nd.edu/our-work/country-index/
+  licence: Free to use with attribution
+  licence_url: https://gain.nd.edu/our-work/country-index/download-data/
+  commercial_use: false
+  cadence: Updated yearly; checked twice a year
+  attribution: "University of Notre Dame Global Adaptation Initiative (ND-GAIN)."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: established
+  manual:
+    by_hand: false
+    get: https://gain.nd.edu/our-work/country-index/download-data/
+    what: "If the download fails: download the country index zip (it holds gain.csv, vulnerability.csv and readiness.csv)."
+
+- id: griis
+  name: Global Register of Introduced and Invasive Species (through GBIF)
+  short_name: GRIIS
+  publisher: IUCN SSC Invasive Species Specialist Group, published on GBIF
+  url: https://griis.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Lists updated now and then; checked twice a year (about 200 small requests a second apart)
+  attribution: "Global Register of Introduced and Invasive Species, via GBIF.org."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: exploratory
+
+- id: iucn_redlist
+  name: IUCN Red List of Threatened Species (API v4)
+  short_name: IUCN Red List
+  publisher: International Union for Conservation of Nature
+  url: https://www.iucnredlist.org/
+  licence: IUCN terms of use (non-commercial)
+  licence_url: https://www.iucnredlist.org/terms/terms-of-use
+  commercial_use: false
+  cadence: Updated twice a year; read twice a year for New Zealand, Australia, the US and the UK (needs IUCN_API_KEY)
+  attribution: "IUCN 2025. The IUCN Red List of Threatened Species."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+
+- id: eppo_pests
+  name: EPPO Global Database (where pests and plant diseases are found)
+  short_name: EPPO
+  publisher: European and Mediterranean Plant Protection Organization
+  url: https://gd.eppo.int/
+  licence: EPPO terms (free with attribution)
+  licence_url: https://gd.eppo.int/about
+  commercial_use: false
+  cadence: Updated continuously; read every three months for the watch list in nature.yaml (needs EPPO_API_KEY)
+  attribution: "EPPO (2025) EPPO Global Database."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+
+- id: wahis_outbreaks
+  name: WOAH World Animal Health Information System (outbreaks)
+  short_name: WAHIS
+  publisher: World Organisation for Animal Health
+  url: https://wahis.woah.org/
+  licence: WOAH terms of use
+  licence_url: https://www.woah.org/en/terms-and-conditions/
+  commercial_use: false
+  cadence: Load a new export when you want newer outbreaks
+  attribution: "World Organisation for Animal Health, WAHIS."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    optional: true
+    get: https://wahis.woah.org/#/event-management
+    what: "Export the events or outbreaks table (Excel or CSV) for the diseases and years you want. It needs Country, Disease and a date or year column; a column of outbreak counts is used if there is one."
+
+- id: wdpa
+  name: World Database on Protected Areas
+  short_name: WDPA (Protected Planet)
+  publisher: UNEP-WCMC and IUCN
+  url: https://www.protectedplanet.net/
+  licence: Free for non-commercial use with attribution
+  licence_url: https://www.protectedplanet.net/en/legal
+  commercial_use: false
+  cadence: Updated monthly; read twice a year (about 900 MB, deleted once the areas of 10 km² or more are taken out)
+  attribution: "UNEP-WCMC and IUCN, Protected Planet: The World Database on Protected Areas (WDPA)."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://www.protectedplanet.net/en/thematic-areas/wdpa?tab=WDPA
+    what: "If the download fails: download the shapefile (SHP) of the whole world and save the zip as it comes (WDPA_<Mon><Year>_Public_shp.zip)."
+
+- id: nature_curated
+  name: Hand-checked animal disease, pest and pollution events
+  short_name: Nature events (curated)
+  publisher: This app, from MPI, WOAH, Wikipedia and news reports
+  url: https://github.com/Nichevo/worldmodel/blob/main/contract/worldmodel_contract/catalogues/nature.yaml
+  licence: Facts compiled with links to sources
+  licence_url: https://github.com/Nichevo/worldmodel
+  commercial_use: true
+  cadence: Updated with the app
+  attribution: "Hand-checked list (nature.yaml), with a link per event."
+  status: active
+  default_rank: 6
+  standing: 3
+  definition: exploratory
