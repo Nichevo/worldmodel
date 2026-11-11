@@ -385,3 +385,72 @@ def normals(q: Q, entities: list[str]) -> dict:
     order = {e: i for i, e in enumerate(entities)}
     return {"countries": sorted(by.values(), key=lambda e: order.get(e["entity_id"], 999)),
             "period": "1991-2020", "source": "World Bank Climate Change Knowledge Portal (CRU TS)"}
+
+
+ICE_POLES = {"arctic": "Arctic", "ATA": "Antarctic"}
+ICE_BASE = (1981, 2010)  # NSIDC's own baseline for the median line
+_MONTH_START = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]
+
+
+def _day365(d) -> int | None:
+    """Day of a 365-day year (1-365); 29 February is left out so every year lines up."""
+    if d.month == 2 and d.day == 29:
+        return None
+    return _MONTH_START[d.month - 1] + d.day - 1
+
+
+def _pct(vals: list[float], p: float) -> float:
+    s = sorted(vals)
+    k = (len(s) - 1) * p
+    lo, hi = math.floor(k), math.ceil(k)
+    return s[lo] + (s[hi] - s[lo]) * (k - lo)
+
+
+def sea_ice(q: Q, pole: str = "arctic") -> dict:
+    """The sea ice through each year since 1978 for the yearly circle: each year's days (day of a 365-day
+    year, million km²), the 1981-2010 median with its 10th-90th percentile band, each year's lowest and
+    highest day, and the newest day against the median. Uses the monthly figures (mid-month) when no
+    daily file is held."""
+    if pole not in ICE_POLES:
+        pole = "arctic"
+    got = q("""SELECT period_start AS d, value AS v FROM series WHERE indicator_id = 'sea_ice_extent_daily'
+        AND entity_id = ? AND breakdown = '' AND variant = 'central' AND value IS NOT NULL ORDER BY 1""", [pole])
+    kind = "daily"
+    if not got:
+        kind = "monthly"
+        got = [{"d": r["d"].replace(day=15), "v": r["v"]} for r in q("""SELECT period_start AS d, value AS v FROM series
+            WHERE indicator_id = 'sea_ice_extent' AND entity_id = ? AND breakdown = '' AND variant = 'central'
+              AND value IS NOT NULL ORDER BY 1""", [pole])]
+    if not got:
+        return {"pole": pole, "name": ICE_POLES[pole], "kind": None, "years": {}, "median": [], "low": [], "high": []}
+    years: dict[int, list] = defaultdict(list)
+    base: dict[int, list[float]] = defaultdict(list)
+    for r in got:
+        x = _day365(r["d"])
+        if x is None:
+            continue
+        v = round(float(r["v"]), 3)
+        years[r["d"].year].append([x, v, r["d"].isoformat()])
+        if ICE_BASE[0] <= r["d"].year <= ICE_BASE[1]:
+            base[x].append(v)
+    median = [[x, round(_pct(vs, .5), 3), round(_pct(vs, .1), 3), round(_pct(vs, .9), 3)] for x, vs in sorted(base.items())]
+    last_year = max(years)
+    low, high = [], []
+    for y, pts in sorted(years.items()):
+        lo = min(pts, key=lambda p: p[1])
+        hi = max(pts, key=lambda p: p[1])
+        part = y in (min(years), last_year) and (pts[0][0] > 20 or pts[-1][0] < 345)  # 1978 starts in October; the newest is going on
+        low.append({"year": y, "day": lo[2], "value": lo[1], "partial": part})
+        high.append({"year": y, "day": hi[2], "value": hi[1], "partial": part})
+    newest = got[-1]
+    nx = _day365(newest["d"])
+    med_by = {m[0]: m[1] for m in median}
+    near = sorted(((y, min(pts, key=lambda p: abs(p[0] - nx))) for y, pts in years.items() if nx is not None), key=lambda t: t[1][1])
+    same_day = [(y, p[1]) for y, p in near if abs(p[0] - nx) <= 2]
+    latest = {"day": newest["d"].isoformat(), "value": round(float(newest["v"]), 3), "median": med_by.get(nx),
+              "rank": next((i + 1 for i, (y, _) in enumerate(same_day) if y == newest["d"].year), None),
+              "of": len(same_day)}
+    return {"pole": pole, "name": ICE_POLES[pole], "kind": kind, "base": f"{ICE_BASE[0]}-{ICE_BASE[1]}",
+            "years": {str(y): [p[:2] for p in pts] for y, pts in years.items()},
+            "median": median, "low": low, "high": high, "latest": latest,
+            "source": "NSIDC Sea Ice Index (G02135)"}

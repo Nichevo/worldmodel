@@ -949,3 +949,15 @@ dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border
   body { background: #fff; color: #000; }
   .card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
 }
+
+/* sea ice circle: NSIDC's map in the middle, the chosen day bottom left */
+.ice-map { position: absolute; border-radius: 50%; overflow: hidden; display: block; background: var(--surface-2, #eef2f5); }
+.ice-map img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.18); }
+.ice-map-cap { position: absolute; bottom: 8%; left: 0; right: 0; text-align: center; font-size: 11px; font-style: italic; color: #333; text-shadow: 0 0 3px #fff; }
+.ice-readout { position: absolute; left: 8px; bottom: 44px; pointer-events: none; }
+.ice-date { font-size: 1.35rem; font-style: italic; font-weight: 600; }
+.ice-value { font-family: var(--mono, ui-monospace, monospace); font-size: 1.05rem; }
+.ice-years { align-items: center; gap: 10px; }
+.ice-years input[type="range"] { flex: 1; min-width: 160px; }
+.ice-readout.flat { position: static; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.ice-readout.flat .ice-date { font-size: 1.05rem; }
