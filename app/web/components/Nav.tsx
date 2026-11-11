@@ -41,7 +41,9 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/space", label: "Solar system", hint: "Planets on any date, asteroids by what they are made of, and where spacecraft have flown" },
     { href: "/relationships", label: "Relationships" },
   ] },
-  { label: "Predict", hint: "Forecasts and what-if", links: [
+  { label: "Predict", hint: "Your predictions, crowd forecasts, forecasts and what-if", links: [
+    { href: "/predictions", label: "Predictions", hint: "Your log of calls, scored when they come due; base rates; the watchlist" },
+    { href: "/crowd", label: "Crowd forecasts", hint: "Polymarket, Metaculus and Manifold questions by country, and ViEWS conflict forecasts" },
     { href: "/forecasts", label: "Forecasts" },
   ] },
   { label: "Mine", hint: "What you kept, looked at and asked", links: [

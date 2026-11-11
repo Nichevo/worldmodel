@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.10.0"
+SCHEMA_VERSION = "1.11.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -288,6 +288,45 @@ TABLES: dict[str, Table] = {
         }, ("airport", "year"),
             "Passengers and freight a year at each airport (Eurostat; files saved by hand for other countries). "
             "airport is the ICAO code where known. Absent before 1.10.0."),
+        Table("crowd_questions", {
+            "question_key": "VARCHAR", "site": "VARCHAR", "site_id": "VARCHAR", "title": "VARCHAR", "url": "VARCHAR",
+            "kind": "VARCHAR", "category": "VARCHAR", "countries": "VARCHAR", "indicator_id": "VARCHAR",
+            "created": "TIMESTAMP", "closes": "TIMESTAMP", "resolved_at": "TIMESTAMP", "status": "VARCHAR",
+            "resolution": "VARCHAR", "chance": "DOUBLE", "volume": "DOUBLE", "forecasters": "INTEGER",
+            "comments": "INTEGER", "description": "VARCHAR", "options": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("question_key",),
+            "Questions on Polymarket, Metaculus and Manifold matched to countries (countries: comma list of entity ids) "
+            "or one of the read categories. kind is binary, numeric, date or multiple; chance is the latest chance of "
+            "yes (0 to 1) for binary ones; status is open, closed or resolved; resolution is yes, no, annulled or the "
+            "site's own word. options is JSON (outcomes of a multiple-choice question with their chances). "
+            "Absent before 1.11.0."),
+        Table("crowd_points", {
+            "question_key": "VARCHAR", "at_time": "TIMESTAMP", "chance": "DOUBLE", "lower": "DOUBLE", "upper": "DOUBLE",
+            "origin": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("question_key", "at_time"),
+            "A question's chance (or, for numeric questions, its median with lower and upper quartiles) over time: "
+            "origin site is the site's own history, refresh is the app's own save at each refresh, kept for good. "
+            "Absent before 1.11.0."),
+        Table("crowd_comments", {
+            "question_key": "VARCHAR", "comment_id": "VARCHAR", "parent_id": "VARCHAR", "author": "VARCHAR",
+            "created": "TIMESTAMP", "votes": "INTEGER", "forecast": "DOUBLE", "text": "VARCHAR",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("comment_id",),
+            "Metaculus comments on followed and much-discussed questions, with the author's forecast when the comment "
+            "carried one. Absent before 1.11.0."),
+        Table("crowd_mine", {
+            "question_key": "VARCHAR", "forecaster": "VARCHAR", "at_time": "TIMESTAMP", "chance": "DOUBLE",
+            "community": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("question_key", "forecaster", "at_time"),
+            "Your own Metaculus forecasts (every update), with the community forecast at that moment. forecaster is "
+            "the Metaculus user name (a bot account counts as its own forecaster). Absent before 1.11.0."),
+        Table("conflict_forecasts", {
+            "entity_id": "VARCHAR", "month": "DATE", "deaths": "DOUBLE", "chance_25": "DOUBLE", "kind": "VARCHAR",
+            "run": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("entity_id", "month", "kind"),
+            "ViEWS (Uppsala and PRIO) monthly forecasts of conflict deaths by country for the next three years: deaths "
+            "is the predicted number, chance_25 the chance of 25 or more; kind sb is fighting between a state and an "
+            "armed group. Absent before 1.11.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

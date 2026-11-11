@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { KINDS, kindVar } from "@/lib/events";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage } from "@/lib/api";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
 import PlacePicker, { type Place } from "@/components/PlacePicker";
@@ -337,6 +337,41 @@ export default function SettingsPage() {
           </select> <span className="muted">ESA WorldCover at 10 m; the map&apos;s Land cover look and city shares use it.</span></label>
       </section>
 
+      <section className="card" id="predictions">
+        <h2>Predictions and crowd forecasts</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <Link href="/predictions">Predictions</Link> and <Link href="/crowd">Crowd forecasts</Link> pages, the country cards and the Briefing&apos;s crowd and watchlist cards.
+          Your own log stays on this PC (var\user\predictions.json) whatever these say. Switching a site off keeps what is stored.
+        </p>
+        <Toggle label="Polymarket" hint="Reads the questions in the categories below and their prices at each refresh (a few pages; no account). Off: no new Polymarket questions or chances."
+          on={s.crowd_polymarket} set={(v) => save({ crowd_polymarket: v })} />
+        <Toggle label="Metaculus" hint="Reads questions and the community forecast. Needs a free token (METACULUS_TOKEN in .env; Settings > Keys). Off: no new Metaculus questions, comments or your own Metaculus forecasts."
+          on={s.crowd_metaculus} set={(v) => save({ crowd_metaculus: v })} />
+        <Toggle label="Manifold" hint="Reads questions and chances (play money; no account). Off: no new Manifold questions."
+          on={s.crowd_manifold} set={(v) => save({ crowd_manifold: v })} />
+        <Toggle label="Metaculus comments" hint="Reads the comments on questions you follow and the 30 most discussed. Off: the Comments box on question pages stays as it was."
+          on={s.crowd_comments} set={(v) => save({ crowd_comments: v })} />
+        <Toggle label="Your own Metaculus forecasts" hint="Reads your forecasts (and a bot's, with METACULUS_BOT_TOKEN) so the scorecard can score them beside the crowd. Off: they leave the scorecard after the next refresh."
+          on={s.crowd_mine} set={(v) => save({ crowd_mine: v })} />
+        <Field label="Categories read" hint="Questions in other categories are not read. Sport, crypto and entertainment are always left out.">
+          <div>{(["politics", "economics", "geopolitics", "climate", "science"] as const).map((c) => {
+            const on = s.crowd_categories.split(",").includes(c);
+            return (<label key={c} style={{ display: "block" }}><input type="checkbox" checked={on} onChange={(e) => save({ crowd_categories:
+              [...s.crowd_categories.split(",").filter((x) => x && x !== c), ...(e.target.checked ? [c] : [])].join(",") })} /> {c[0].toUpperCase() + c.slice(1)}</label>);
+          })}</div>
+        </Field>
+        <Toggle label="ViEWS conflict forecasts" hint="Monthly predicted deaths in state-based conflict for every country (Uppsala and PRIO), read about once a month. Off: no Conflict forecasts tab or country line."
+          on={s.views_fetch} set={(v) => save({ views_fetch: v })} />
+        <NumberField label="A big move" unit="points in a week" value={s.crowd_move_points} min={1} max={50} step={1}
+          note="A crowd chance moving this much counts as news on the Briefing and as a watchlist alert." save={(v) => save({ crowd_move_points: v })} />
+        <NumberField label="Score crowd sites" unit="days before closing" value={s.crowd_score_days} min={0} max={365} step={1}
+          note="The scorecard uses each site's chance this long before a question closed, so last-minute certainty does not count. 0 = the last chance saved." save={(v) => save({ crowd_score_days: v })} />
+        <Toggle label="Predictions on charts" hint="Your number predictions show as diamonds on charts of their indicator and country. Off: the charts show none (the log keeps them)."
+          on={s.predictions_on_charts} set={(v) => save({ predictions_on_charts: v })} />
+        <Toggle label="Watchlist alerts on the Briefing" hint="Off: the watchlist still works on the Predictions page, but nothing shows on the Briefing."
+          on={s.watchlist_on} set={(v) => save({ watchlist_on: v })} />
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."
@@ -464,6 +499,8 @@ export default function SettingsPage() {
           <ClearHistory />
         </Field>
       </section>
+
+      <Libraries />
 
       <p className="small">
         <button className="link" onClick={() => window.confirm("Put every setting back to its default?") && save(DEFAULT_SETTINGS)}>
@@ -1027,6 +1064,65 @@ function DiscoverSettings({ s, save }: { s: Settings; save: (patch: Partial<Sett
       <NumberField label="Fetch news again after" unit="hours" value={s.news_every_hours} min={1} max={720} step={1} save={(v) => save({ news_every_hours: v })} />
       <NumberField label="Keep news for" unit="days" value={s.news_keep_days} min={7} max={36500} step={1}
         note="Older items are dropped at the next fetch, unless you marked them Interesting." save={(v) => save({ news_keep_days: v })} />
+    </section>
+  );
+}
+
+// What the app is built with, one line each (from data/pyproject.toml, app/api/pyproject.toml,
+// contract/pyproject.toml and app/web/package.json).
+const LIBRARIES: [string, [string, string][]][] = [
+  ["Programs it runs on", [
+    ["Python 3.12", "Runs the data side (fetching and building) and the API the pages talk to."],
+    ["Node.js 22", "Runs the web pages you are looking at."],
+    ["Miniconda (conda)", "Keeps Python and Node.js in their own folder (the worldmodel environment) so nothing else on the PC is touched."],
+    ["Ollama (optional)", "Runs the local AI models behind Ask AI; nothing is sent to an online AI."],
+  ]],
+  ["Data side (fetching, building the database)", [
+    ["DuckDB", "The database: every figure is kept in Parquet files and one DuckDB file, which answers the app's questions in a moment."],
+    ["dbt (dbt-core, dbt-duckdb)", "Builds the database from the downloaded files in checked steps, with tests that stop a bad build."],
+    ["httpx", "Downloads files and reads web services, politely and with clear errors."],
+    ["certifi, truststore", "The list of trusted certificates, so secure (https) downloads work behind company networks and on Windows."],
+    ["Typer", "The worldmodel-data commands that refresh.bat, load.bat and the other scripts call."],
+    ["python-dotenv", "Reads your keys from the .env file."],
+    ["PyYAML", "Reads the catalogues: sources, indicators, events and groups written as YAML."],
+    ["pydantic", "Checks the shape of the catalogues and settings."],
+    ["openpyxl, xlrd", "Read Excel files (new .xlsx and old .xls) that many sources publish."],
+    ["pypdf", "Reads PDF files, such as the CrisisWatch archive."],
+    ["rdata", "Reads R data files (.rda/.rds) some research datasets come in."],
+    ["NumPy", "Fast number crunching: forecasts, climate grids, picture pixels."],
+    ["Pillow", "Reads pictures: climate zone maps and land cover tiles."],
+    ["pyshp", "Reads shapefiles, such as the protected areas map."],
+    ["Shapely", "Works with shapes: city outlines, areas and what falls inside what."],
+    ["Playwright", "verify.bat: opens sites with a person check in your own browser so you can pass it."],
+  ]],
+  ["API (between the database and the pages)", [
+    ["FastAPI", "Answers the pages' requests (localhost:8000/api) and writes the API docs page."],
+    ["Uvicorn", "The small web server FastAPI runs in."],
+    ["websockets", "Live feeds: ships now (AISstream)."],
+  ]],
+  ["Web pages", [
+    ["Next.js", "The framework the pages are built with (on port 3030)."],
+    ["React", "Draws the pages and updates them as you click."],
+    ["MapLibre GL", "Draws the maps: countries, layers, satellite and relief, 3D."],
+    ["PMTiles", "Reads the map tiles kept on this PC in one file, for maps that work offline."],
+    ["Apache ECharts", "Draws the charts."],
+    ["flag-icons", "The country flags (pictures, not emoji)."],
+    ["TypeScript", "Checks the page code for mistakes before it runs."],
+  ]],
+  ["Tests", [["pytest", "Runs the checks on the data, contract and API code."]]],
+];
+
+function Libraries() {
+  return (
+    <section className="card" id="libraries">
+      <h2>Libraries this app uses</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>All free and open source. setup.bat installs them and update.bat keeps them current.</p>
+      {LIBRARIES.map(([group, libs]) => (
+        <div key={group}>
+          <h3>{group}</h3>
+          <dl className="lib-list">{libs.map(([n, what]) => <Fragment key={n}><dt>{n}</dt><dd>{what}</dd></Fragment>)}</dl>
+        </div>
+      ))}
     </section>
   );
 }

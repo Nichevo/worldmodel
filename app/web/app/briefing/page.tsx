@@ -61,6 +61,8 @@ export default function BriefingPage() {
   const cw = by("crisiswatch");
   const watch = by("watch");
   const news = by("news");
+  const crowdMoves = by("crowd");
+  const alerts = by("alert");
   const events = b.lanes.happening.filter((c) => c.kind === "event");
   const nothing = Object.values(b.lanes).every((l) => l.length === 0);
   return (
@@ -90,10 +92,15 @@ export default function BriefingPage() {
             note={<p className="caption">News naming a watch word (<Link href="/settings#watch-words">edit the words</Link>). Marked confirmed once a dataset has the event too.</p>} />
           <CardGroup title="Events" cards={events} names={b.names} />
           <CardGroup title="Top news" cards={news} names={b.names} />
+          <CardGroup title="Your watchlist" cards={alerts} names={b.names}
+            note={<p className="caption">Lines crossed, crowd chances that jumped, IMF forecasts revised. <Link href="/predictions?tab=watchlist">Edit the watchlist</Link></p>} />
+          <CardGroup title="Crowd: biggest moves" cards={crowdMoves} names={b.names}
+            note={<p className="caption">Questions on your key countries or that you follow, moving at least {s.crowd_move_points} points. <Link href="/crowd?tab=moves">All moves</Link></p>} />
           {!b.lanes.happening.length && <p className="muted small">Nothing in the last {b.days} days.</p>}
         </section>
         <Lane title="Found" cards={b.lanes.found} names={b.names} empty="No finds yet: Discover looks after each refresh." more={<Link href="/discover" className="small">All finds in Discover</Link>} />
-        <Lane title="Due" cards={b.lanes.due} names={b.names} empty="Nothing dated in the next 60 days." compact />
+        <Lane title="Due" cards={b.lanes.due} names={b.names} empty="Nothing dated in the next 60 days." compact
+          more={<Link href="/predictions" className="small">Your predictions</Link>} />
         <section className="brief-lane" aria-label="Yours">
           <h2>Yours</h2>
           {b.key_countries.length > 0 && (

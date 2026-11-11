@@ -2193,3 +2193,79 @@
     by_hand: true
     get: https://www.mpi.govt.nz/forestry/forest-industry-and-workforce/forestry-wood-processing-data/
     what: "Save any of: the National Exotic Forest Description tables (net stocked plantation area, harvest, new planting and replanting by year), Emissions Trading Scheme forest registrations by year, and MPI's farm-to-forest (whole farms sold for forestry) table, as Excel or CSV. A table needs a Year column (or a year per column) and headings such as 'New planting (ha)'."
+
+- id: polymarket
+  name: Polymarket prediction market prices (Gamma API, read-only)
+  short_name: Polymarket
+  publisher: Polymarket
+  url: https://polymarket.com
+  licence: Polymarket terms of use (public market data, read-only)
+  licence_url: https://polymarket.com/tos
+  commercial_use: false
+  cadence: Each refresh; the price of every followed question saved when it moves
+  attribution: "Market prices from Polymarket (read-only API)."
+  status: active
+  default_rank: 8
+  standing: 2
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://gamma-api.polymarket.com/events?closed=false&limit=100
+    what: "Read through the public API; nothing to save by hand. A saved copy of an events page (JSON) named polymarket_page_1.json also loads."
+
+- id: metaculus
+  name: Metaculus community forecasts, comments and your own forecasts
+  short_name: Metaculus
+  publisher: Metaculus
+  url: https://www.metaculus.com
+  licence: Metaculus terms of use (personal, non-commercial use)
+  licence_url: https://www.metaculus.com/terms-of-use/
+  commercial_use: false
+  cadence: Each refresh; needs a free METACULUS_TOKEN in .env
+  attribution: "Community forecasts and comments from Metaculus."
+  status: active
+  default_rank: 8
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://www.metaculus.com/accounts/settings/
+    what: "Read through the API with your free token (Metaculus account settings > API access, copied into .env as METACULUS_TOKEN; an optional METACULUS_BOT_TOKEN adds a bot account as its own forecaster)."
+
+- id: manifold
+  name: Manifold prediction market chances (public API)
+  short_name: Manifold
+  publisher: Manifold Markets
+  url: https://manifold.markets
+  licence: Manifold public API (open data)
+  licence_url: https://docs.manifold.markets/api
+  commercial_use: false
+  cadence: Each refresh; the chance of every question saved when it moves
+  attribution: "Market chances from Manifold (play money)."
+  status: active
+  default_rank: 9
+  standing: 2
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://api.manifold.markets/v0/search-markets?term=&filter=open
+    what: "Read through the public API; nothing to save by hand."
+
+- id: views
+  name: ViEWS conflict forecasts (Uppsala University and PRIO)
+  short_name: ViEWS
+  publisher: Uppsala University and Peace Research Institute Oslo (ViEWS)
+  url: https://viewsforecasting.org
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Monthly forecasts for the next three years; read every four weeks
+  attribution: "ViEWS (Uppsala University and PRIO), CC BY 4.0."
+  status: active
+  default_rank: 6
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://api.viewsforecasting.org/current/cm/sb
+    what: "Read through the public API, page by page; saved pages named views_page_000.json also load."

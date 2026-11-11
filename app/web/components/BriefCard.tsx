@@ -14,6 +14,7 @@ export const KIND_LABEL: Record<string, string> = { feed: "Feed", find: "Found",
 export const GROUP_LABEL: Record<string, string> = {
   crisiswatch: "CrisisWatch", watch: "Reported in the news", news: "News", conflict: "Conflict", coup: "Coup", disaster: "Disaster",
   election: "Election", epidemic: "Epidemic", sport: "Sport", summit: "Summit", earthquake: "Earthquake", storm: "Storm",
+  crowd: "Crowd forecast", prediction: "Your prediction", alert: "Watchlist",
 };
 
 export default function BriefCard({ card, names, compact = false }: { card: Card; names: Record<string, string>; compact?: boolean }) {
