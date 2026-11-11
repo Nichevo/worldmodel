@@ -303,6 +303,9 @@ export type Settings = {
   backup_big_mb: number;
   views_fetch: boolean; // ViEWS conflict forecasts
   predictions_on_charts: boolean; // your predictions as dots on charts
+  api_public_on: boolean; // the public API for scripts, Python, Excel and AI assistants
+  api_daily_limit: number; // calls a day per key
+  digest_on: boolean; // the weekly digest on the Briefing
   watchlist_on: boolean; // watchlist alerts on the Briefing
   map_look: "plain" | "relief" | "satellite" | "night" | "landcover"; // under the country colours
   relief_style: "classic" | "grey" | "satellite";
@@ -1256,4 +1259,14 @@ export const api = {
   longCountry: (id: string) => get<LongCountry>(`/long/country/${encodeURIComponent(id)}`),
   divergence: (q: { indicator?: string; entity?: string; flagged?: boolean; limit?: number }) =>
     get<Divergence[]>("/sources/divergence", { ...q, flagged: q.flagged ? "true" : undefined }),
+};
+
+// ----------------------------------------------------------------------------- public API (Settings > API access)
+export type PublicKey = { id: string; name: string; start: string; made: string; last_used: string | null; today: number; total: number; daily_limit: number | null };
+export type ApiCall = { at: string; who: string; from: string; path: string; query: string; status: number };
+export type ApiAccess = { on: boolean; daily_limit: number; keys: PublicKey[]; recent: ApiCall[]; local: boolean; mcp_command: string };
+export const apiAccess = {
+  get: () => get<ApiAccess>("/api-access"),
+  make: (name: string) => send<{ id: string; name: string; key: string }>("POST", "/api-access/keys", { name }),
+  revoke: (id: string) => send<{ ok: boolean }>("DELETE", `/api-access/keys/${id}`),
 };

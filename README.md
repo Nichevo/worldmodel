@@ -41,7 +41,7 @@ Needs Python 3.11+ and Node 20+.
 
 ```sh
 make setup        # virtualenv + Python packages + npm install
-make api          # terminal 1: API on http://127.0.0.1:8000 (docs at /docs)
+make api          # terminal 1: API on http://127.0.0.1:8000 (docs at /api/docs)
 make web          # terminal 2: app on http://localhost:3030
 ```
 
@@ -328,7 +328,7 @@ and company debt per person (US dollars or local currency) or as % of GDP.
 
 ## Forecasts
 
-The **Forecasts** page (also linked from each country's profile) has three parts:
+The **Forecasts** page (also linked from each country's profile) has four parts:
 
 - **Population what-if.** Move fertility, life expectancy and migration away
   from the UN projection and see the total, the age pyramid and key shares
@@ -362,6 +362,27 @@ The **Forecasts** page (also linked from each country's profile) has three parts
   forecast's own back-test alongside. The IMF's record goes back to 1990
   through its historical file; the OECD's and World Bank's build up from the
   second edition stored (each refresh after a new edition adds one).
+- **Synthetic comparison.** Did an event change a country's path? Pick a
+  country, an indicator and the event year: the weighted mix of other
+  countries (weights 0 to 1, adding up to 1) that tracked it best before the
+  event stands in for "the same country without the event" after it. A placebo
+  run treats each pool country as if it had the event; if the real country's
+  gap is no bigger than theirs, the event may not have mattered. Only the one
+  indicator is matched, so check the mix makes sense.
+
+**Countries like this one** (Predict menu, and a "Like this one" card on each
+country page): the nearest countries to one country in any year since 1960 on a
+set of figures (economy, people, government, energy, or all of them), each put
+on one scale across countries (logged when it spans more than a hundredfold),
+how the nearest changed decade by decade, and groups of countries whose yearly
+changes in one indicator go up and down together, on a map. Code:
+`app/api/worldmodel_api/similar.py`.
+
+**Briefing > Week** is the weekly digest: one Monday-to-Sunday week (new
+figures for your key countries, Discover finds, big crowd moves, predictions
+due and settled, CrisisWatch changes, events, top news), made on the first
+visit after the week ends and kept in `user/digests/`, with a Summarise with AI
+button and Print or save as PDF. Nothing is emailed.
 
 API: `/api/v1/whatif?entity=NZL&tfr=-0.5&e0=2&mig=0.5&extra=0&phase=10&hold=false`,
 `/api/v1/forecast?indicator=gdp_growth&entity=NZL&horizon=10`,
@@ -531,10 +552,39 @@ searches and estimated cost. Or use SearXNG, free and run by you, for example wi
 a note. **Save as Markdown** exports what is shown. Answers and highlights are stored in
 `var\user\`.
 
+## Public API, Python client and MCP server
+
+Your own scripts, Python, Excel and AI assistants can read the data at
+`http://localhost:3030/api/public/v1` (the **API** page in the Predict menu has
+copyable examples; interactive docs at `/api/docs`). It is **off until you
+switch it on** in Settings > API access. From this PC no key is needed; from
+another PC on your network make a key on the API page and send it as
+`Authorization: Bearer <key>`. Each key has a daily limit and every call is
+listed on the API page. Nothing is opened to the internet.
+
+Calls: `/countries`, `/indicators`, `/search`, `/data` (JSON or CSV;
+`as_of=YYYY-MM-DD` for the figures as known on a date), `/forecast` (p10, p50,
+p90), `/chart.svg`, `/events`, `/crowd`, `/predictions` (read, and add with
+POST), `/alike`, `/synthetic`. Every chart card has **Copy API link** for its
+figures as CSV.
+
+The Python client is installed with the app (`client/`):
+
+```python
+import worldmodel_client as wm
+df = wm.data("gdp_growth", ["NZL", "AUS"], start=2000)   # a pandas DataFrame when pandas is installed
+wm.forecast("inflation", "NZL")
+wm.chart("gdp_growth", ["NZL", "AUS"], path="growth.svg")
+wm.connect("http://other-pc:3030", key="wm_...")         # from another PC
+```
+
+`worldmodel-mcp` is an MCP server with the same calls for an AI assistant such
+as Claude Desktop; the API page shows the lines for its settings file.
+
 ## Designed now, built later
 
 - **Ask the data** assistant (phase 3), on Ollama: [docs/design/assistant.md](docs/design/assistant.md)
-- **Streams and an MCP server** for other tools such as a Metaculus bot: [docs/design/streams-and-mcp.md](docs/design/streams-and-mcp.md)
+- **Streams** for other tools such as a Metaculus bot: [docs/design/streams-and-mcp.md](docs/design/streams-and-mcp.md) (the MCP server is built: see above)
 - **Linked forecasts**: the driver graph format is fixed in `contract/.../driver_graph.yaml`
 
 ## Tests

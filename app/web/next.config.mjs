@@ -24,8 +24,9 @@ const lanHosts = [
 const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: lanHosts,
+  // As a fallback, so app/api/public (the public API, which passes on who is calling) is matched first.
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${api}/api/:path*` }];
+    return { beforeFiles: [], afterFiles: [], fallback: [{ source: "/api/:path*", destination: `${api}/api/:path*` }] };
   },
 };
 

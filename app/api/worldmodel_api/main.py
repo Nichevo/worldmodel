@@ -6,7 +6,8 @@ in a user folder beside the data (see layouts.py and userdata.py), Wikipedia pag
 fetched on demand within the daily limits in Settings (media/wikipedia, see
 wiki.py), and, when asked on the Data status page, old raw downloads deleted to
 free space.
-Interactive docs are at /docs when the server runs.
+Interactive docs are at /api/docs when the server runs (also through the web app, port 3030).
+The public API for scripts, the Python client and MCP is in public.py, under /api/public/v1.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from typing import Literal
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
@@ -42,6 +43,7 @@ from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
 from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, crowd, predictions, highlights, land, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
+from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -71,8 +73,11 @@ async def lifespan(_app: FastAPI):
     background.close()
 
 
-app = FastAPI(title="Worldmodel API", version=__version__, lifespan=lifespan,
-              description="Local read-only API over the worldmodel warehouse.")
+app = FastAPI(title="Worldmodel API", version=__version__, lifespan=lifespan, docs_url="/api/docs", redoc_url=None,
+              openapi_url="/api/openapi.json",
+              description="The worldmodel app's API. **Public API** (/api/public/v1) is the stable part for scripts, "
+                          "the Python client and AI assistants: switch it on in Settings > API access. The rest (/api/v1) "
+                          "serves the app's own pages and may change.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3030", "http://127.0.0.1:3030"],
                    allow_methods=["GET", "PUT", "POST", "PATCH", "DELETE"], allow_headers=["*"])
 api = APIRouter(prefix="/api/v1")
@@ -4046,6 +4051,112 @@ def long_country(entity_id: str):
     return out
 
 
+# ----------------------------------------------------------------------------- countries like this one, synthetic comparison
+def _country_names() -> dict[str, str]:
+    return {r["entity_id"]: r["name"] for r in rows("SELECT entity_id, name FROM entities")}
+
+
+def _alike_indicators(preset: str | None, indicators: str | None) -> list[str]:
+    from worldmodel_api import similar
+    ids = split(indicators)
+    if ids:
+        return ids[:30]
+    key = preset or "everything"
+    if key not in similar.PRESETS:
+        raise HTTPException(422, f"preset must be one of {', '.join(similar.PRESETS)}")
+    return similar.PRESETS[key][1]
+
+
+@api.get("/alike/presets")
+def alike_presets():
+    """The ready-made indicator sets for countries like this one."""
+    from worldmodel_api import similar
+    return [{"id": k, "name": n, "indicators": ids} for k, (n, ids) in similar.PRESETS.items()]
+
+
+@api.get("/alike")
+def alike(entity: str, preset: str | None = None, indicators: str | None = None, year: int | None = None,
+          n: int = Query(10, ge=1, le=40), decades: bool = False):
+    """The countries most like this one in a year, on the indicators of a preset (or the ones given):
+    each indicator on one scale across countries (logged when it spans more than a hundredfold), then the
+    average distance over the indicators both have. With `decades`, the five nearest every ten years."""
+    from worldmodel_api import similar
+    ids = _alike_indicators(preset, indicators)
+    year = year or date.today().year - 2
+    names = _country_names()
+    out = similar.like(rows, names, entity, ids, year, n)
+    out["indicator_names"] = {r["indicator_id"]: r["name"] for r in
+                              rows("SELECT indicator_id, name FROM indicators WHERE indicator_id IN (SELECT unnest(?))", [ids])}
+    if decades:
+        out["decades"] = similar.like_by_decade(rows, names, entity, ids, list(range(1960, year + 1, 10)))
+    return out
+
+
+@api.get("/alike/move")
+def alike_move(indicator: str = "gdp_growth", start: int = Query(1990, ge=1800), end: int | None = None,
+               groups: int = Query(6, ge=2, le=12)):
+    """Groups of countries whose yearly changes in one indicator go up and down together."""
+    from worldmodel_api import similar
+    end = end or date.today().year - 1
+    if end - start < 12:
+        raise HTTPException(422, "choose at least 12 years")
+    return similar.move_alike(rows, _country_names(), indicator, start, end, groups)
+
+
+@api.get("/synthetic")
+def synthetic_view(entity: str, indicator: str, year: int, pool: str | None = None, start: int | None = None,
+                   end: int | None = None, placebos: bool = True):
+    """Synthetic comparison: the mix of other countries that tracked this one best before the event year,
+    the gap after it, and placebo runs on the pool countries to say whether that gap is unusual."""
+    from worldmodel_api import similar
+    out = similar.synthetic(rows, _country_names(), entity, indicator, year, split(pool) or None, start, end, placebos)
+    if "error" in out:
+        raise HTTPException(422, out["error"])
+    return out
+
+
+
+# ----------------------------------------------------------------------------- weekly digest (Briefing > Week)
+@api.get("/digest")
+def digest_view(week: str | None = Query(None, pattern=r"^\d{4}-W\d{2}$", description="2026-W45; default the last whole week")):
+    """One Monday-to-Sunday week: new figures, finds, crowd moves, predictions due and settled, CrisisWatch,
+    events and news. Kept once the week is over (Settings: weekly digest); the week in progress is worked out each time."""
+    from worldmodel_api import digest
+    import sys
+    try:
+        return digest.get(sys.modules[__name__], week)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.get("/digests")
+def digests_list():
+    """The weeks with a kept digest, newest first, and the last whole week and this one."""
+    from worldmodel_api import digest
+    return {"kept": digest.saved(), "last_complete": digest.last_complete(), "this_week": digest.week_id(date.today())}
+
+
+# ----------------------------------------------------------------------------- Settings > API access
+@api.get("/api-access")
+def api_access(request: Request):
+    """The public API's switch, keys (never the keys themselves) and recent calls."""
+    s = userdata.settings()
+    return {"on": bool(s.get("api_public_on")), "daily_limit": s.get("api_daily_limit"), "keys": public_api.key_list(),
+            "recent": public_api.recent(40), "local": public_api.is_local(request), "mcp_command": public_api.mcp_command()}
+
+
+@api.post("/api-access/keys")
+def api_key_make(body: dict = Body(..., examples=[{"name": "Laptop"}])):
+    """Make a key for another PC; the key is in this answer only, so copy it now."""
+    return public_api.make_key(body.get("name", ""), body.get("daily_limit"))
+
+
+@api.delete("/api-access/keys/{key_id}")
+def api_key_revoke(key_id: str):
+    if not public_api.revoke_key(key_id):
+        raise HTTPException(404, "no such key")
+    return {"ok": True}
+
 
 @app.get("/health")
 def health():
@@ -4057,6 +4168,7 @@ def health():
 
 
 app.include_router(api)
+app.include_router(public_api.router)  # the public API (public.py), which reuses the calls above
 
 
 def run() -> None:
