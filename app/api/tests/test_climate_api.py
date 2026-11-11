@@ -19,8 +19,8 @@ def add_climate_rows(path):
     con = duckdb.connect(str(path))
     rows = []
 
-    def put(e, ind, d, v, src, freq="A", variant="central", status="E"):
-        rows.append((e, ind, d, freq, "", variant, src, "t", float(v), status))
+    def put(e, ind, d, v, src, freq="A", variant="central", status="E", breakdown=""):
+        rows.append((e, ind, d, freq, breakdown, variant, src, "t", float(v), status))
 
     oni = {y: 1.5 * math.sin(y * 1.3) for y in range(1980, 2024)}
     for y in range(1980, 2024):
@@ -40,13 +40,17 @@ def add_climate_rows(path):
         put("NZL", "proj_temp_ssp245", date(y, 1, 1), c, "cckp", status="P")
         put("NZL", "proj_temp_ssp245", date(y, 1, 1), lo, "cckp", variant="lower80", status="P")
         put("NZL", "proj_temp_ssp245", date(y, 1, 1), hi, "cckp", variant="upper80", status="P")
+    for m in range(1, 13):  # monthly normals, NZ only
+        put("NZL", "clim_temp", date(2020, 1, 1), 10 + m, "cckp_normals", breakdown=f"month={m:02d}")
+        put("NZL", "clim_rain", date(2020, 1, 1), 100 + m, "cckp_normals", breakdown=f"month={m:02d}")
+    put("NZL", "clim_rain_year", date(2020, 1, 1), 1278, "cckp_normals")
     con.executemany("INSERT INTO observations VALUES (" + ", ".join("?" * 10) + ")", rows)
     for s in sorted({r[6] for r in rows}):
         con.execute("INSERT INTO vintages BY NAME SELECT ? AS source_id, 't' AS vintage, 't' AS release, true AS is_latest", [s])
     units = {"enso_oni": ("°C", "M"), "temp_anomaly": ("°C", "A"), "temp_anomaly_world": ("°C", "A"), "co2_ppm": ("parts per million", "A"),
              "co2_gcp": ("million tonnes CO2", "A"), "methane_emissions": ("million tonnes CO2e", "A"), "ghg_sector_agriculture": ("t CO2e", "A"),
              "net_zero_year": ("year", "A"), "net_zero_status": ("level", "A"), "carbon_price": ("US$ per tonne CO2e", "A"),
-             "proj_temp_ssp245": ("°C", "A")}
+             "proj_temp_ssp245": ("°C", "A"), "clim_temp": ("°C", "A"), "clim_rain": ("mm", "A"), "clim_rain_year": ("mm", "A")}
     srcs = {r[1]: r[6] for r in rows}
     for i, (u, f) in units.items():
         con.execute("INSERT INTO indicators BY NAME SELECT ? AS indicator_id, ? AS name, '' AS description, 'climate' AS domain, ? AS unit, "
@@ -148,3 +152,11 @@ def test_active_storms_layer_says_why_when_off_or_failing(monkeypatch):
     got = climate.active_storms(True, fetch=boom)
     assert got["features"] == [] and "NOAA did not answer" in got["note"]
     climate._active.update(at=0.0, data=None)
+
+
+def test_monthly_normals(client):
+    d = client.get("/api/v1/climate/normals", params={"entities": "NZL,AUS"}).json()
+    assert [c["entity_id"] for c in d["countries"]] == ["NZL"]
+    nz = d["countries"][0]
+    assert nz["temp"][0] == 11 and nz["temp"][11] == 22 and nz["rain"][6] == 107 and nz["high"] == [None] * 12
+    assert nz["summary"]["clim_rain_year"] == 1278 and d["period"] == "1991-2020"
