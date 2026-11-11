@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
+import LargestCities from "@/components/LargestCities";
 import WorldMap from "@/components/WorldMap";
 import { api, type CityRow, type Entity } from "@/lib/api";
 import { cityPoints, cityPopulation, growth, people } from "@/lib/cities";
@@ -28,6 +29,7 @@ function Cities() {
   const country = params.get("country") ?? "";
   const sort = params.get("sort") ?? "population";
   const min = Number(params.get("min") ?? (country ? 0 : 1_000_000));
+  const view = params.get("view") === "largest" ? "largest" : "list";
   const [q, setQ] = useState(params.get("q") ?? "");
   const [rows, setRows] = useState<CityRow[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -71,6 +73,11 @@ function Cities() {
         (saved by hand, see the README). Click a city for its page; prices you fetch from Numbeo there can be
         set side by side on <Link href="/prices">Compare prices</Link>.
       </p>
+      <div className="seg" role="tablist">
+        <button role="tab" aria-selected={view === "list"} className={view === "list" ? "on" : ""} onClick={() => set("view", "")}>List and map</button>
+        <button role="tab" aria-selected={view === "largest"} className={view === "largest" ? "on" : ""} onClick={() => set("view", "largest")}>Largest cities through the years</button>
+      </div>
+      {view === "largest" ? <LargestCities /> : <>
       <div className="chips-row small">
         <select value={country} onChange={(e) => set("country", e.target.value)} aria-label="Country">
           <option value="">Every country</option>
@@ -134,6 +141,7 @@ function Cities() {
           </section>
         </div>
       )}
+      </>}
     </div>
   );
 }

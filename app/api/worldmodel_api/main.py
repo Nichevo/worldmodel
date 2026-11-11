@@ -3316,6 +3316,45 @@ def cities(country: str | None = Query(None, description="Comma-separated countr
     return {"rows": found, "note": None}
 
 
+LARGEST_MEASURES = {"city_population": "UN World Urbanization Prospects (urban agglomerations)",
+                    "ghsl_population": "GHSL Urban Centre Database (urban centres, satellite-based)"}
+
+
+@api.get("/cities/largest")
+def cities_largest(measure: Literal["auto", "city_population", "ghsl_population"] = "auto",
+                   year: int = Query(2025, description="Rank the cities by their size this year"),
+                   limit: int = Query(600, ge=10, le=3000)):
+    """The world's largest cities with their population through the years (estimates and projections),
+    their place and continent: for Cities > Largest cities (clusters by continent, or the map). measure
+    auto takes the UN's agglomerations when loaded, else the GHSL urban centres."""
+    if not _has_cities():
+        return {"rows": [], "measure": None, "note": NO_CITIES}
+    have = {r["indicator_id"]: r["n"] for r in rows("""SELECT indicator_id, count(DISTINCT city_id) AS n FROM city_series
+        WHERE indicator_id IN ('city_population', 'ghsl_population') GROUP BY 1""")}
+    if measure == "auto":
+        measure = max(have, key=lambda k: (have[k] >= 100, k == "city_population", have[k]), default="ghsl_population")
+    if not have.get(measure):
+        return {"rows": [], "measure": measure, "measures": have,
+                "note": "No city sizes through the years yet: .\\refresh.bat loads the GHSL urban centres (Settings > Land)."}
+    got = rows("""
+        WITH pts AS (SELECT city_id, year(period_start) AS y, value AS v, status FROM city_series WHERE indicator_id = ?),
+        rank_on AS (SELECT city_id, arg_min(v, abs(y - ?)) AS v FROM pts GROUP BY 1),
+        top AS (SELECT city_id FROM rank_on ORDER BY v DESC LIMIT ?),
+        cont AS (SELECT m.member_id, any_value(g.short_name) AS continent FROM memberships m JOIN entities g ON g.entity_id = m.group_id
+                 WHERE g.type = 'continent' AND m.valid_to IS NULL GROUP BY 1)
+        SELECT c.city_id, c.name, c.country_id, e.short_name AS country, c.lat, c.lon, cont.continent,
+               list(struct_pack(y := p.y, v := p.v, p := p.status = 'P') ORDER BY p.y) AS pts
+        FROM top JOIN cities c USING (city_id) LEFT JOIN entities e ON e.entity_id = c.country_id
+        LEFT JOIN cont ON cont.member_id = c.country_id JOIN pts p ON p.city_id = c.city_id
+        GROUP BY ALL""", [measure, year, limit])
+    for r in got:
+        r["pts"] = [[p["y"], round(p["v"]), bool(p["p"])] for p in r["pts"]]
+    years = sorted({p[0] for r in got for p in r["pts"]})
+    first_proj = min((p[0] for r in got for p in r["pts"] if p[2]), default=None)
+    return {"rows": got, "measure": measure, "source": LARGEST_MEASURES[measure], "measures": have,
+            "years": years, "first_projection": first_proj, "note": None}
+
+
 def _city(city_id: str) -> dict:
     if not _has_cities():
         raise HTTPException(404, NO_CITIES)
