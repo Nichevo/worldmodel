@@ -264,7 +264,7 @@ def _idlist(v) -> str:
 
 def _letters(v) -> str:
     """Map layer letters, each once, in the order given."""
-    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z"))[:26]
+    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z" or "A" <= c <= "Z"))[:52]
 
 
 def clean_settings(data: dict, base: dict | None = None) -> dict:

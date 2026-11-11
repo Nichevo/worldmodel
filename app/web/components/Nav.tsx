@@ -31,6 +31,8 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/storage", label: "Storage" },
     { href: "/climate", label: "Climate", hint: "Vital signs, climate zones now and ahead, storms, El Niño, nature lost and recovering" },
     { href: "/pollution", label: "Pollution", hint: "Air, water, the ocean, and pollution that crosses borders" },
+    { href: "/transport", label: "Transport", hint: "Ports, chokepoints, airports, rivers, cables, pipelines and accidents" },
+    { href: "/tourism", label: "Tourism", hint: "Visitors, what they spend, World Heritage sites" },
     { href: "/cities", label: "Cities" },
     { href: "/laws", label: "Laws" },
     { href: "/zones", label: "Beyond borders" },
