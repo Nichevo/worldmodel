@@ -10,6 +10,7 @@ never deleted.
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -57,6 +58,7 @@ def prepare(p: Paths, connectors: dict) -> list[str]:
     meta = sources()
     made = []
     root(p).mkdir(parents=True, exist_ok=True)
+    write_info(p, connectors)
     (root(p) / "_read me.txt").write_text(
         "Files you download yourself, one folder per source.\r\n\r\n"
         "Save the file in its source's folder (keep the name the site gives it), then run one of:\r\n"
@@ -83,6 +85,21 @@ def prepare(p: Paths, connectors: dict) -> list[str]:
             f"{s.manual.what if s and s.manual else ''}\r\n\r\n"
             f"{how}\r\n{keep}\r\nThen run: .\\load.bat {source_id}\r\n", encoding="utf-8")
     return made
+
+
+def write_info(p: Paths, connectors: dict) -> None:
+    """Tell the app how each source is fetched and keeps its files (manual/_sources.json):
+    the inbox, the To do list and the source table read it, since the app cannot see connectors."""
+    info = {}
+    for sid, cls in connectors.items():
+        info[sid] = {"manual": bool(cls.manual), "fallback": sid in FALLBACK, "keeps_files": bool(cls.keeps_files),
+                     "every_days": cls.fetch_every_days, "frozen": bool(getattr(cls, "frozen", False)),
+                     "needs_env": list(cls.needs_env), "needs_settings": list(cls.needs_settings),
+                     "pack": cls.pack, "switch": cls.switch, "files_only": bool(getattr(cls, "files_only", False))}
+    try:
+        (root(p) / "_sources.json").write_text(json.dumps(info, indent=1, sort_keys=True), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def keep_copy(p: Paths, source_id: str, file: Path, keeps_files: bool) -> Path:

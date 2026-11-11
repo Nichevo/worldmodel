@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
@@ -70,3 +71,34 @@ def storage_lines(paths: Paths) -> list[str]:
         lines.append(f"{lim['label']}: {lim['used'] / local.GB:.2f} GB of {lim['limit'] / local.GB:.0f} GB "
                      f"({share:.0%}). {note}".rstrip())
     return lines
+
+
+class Progress:
+    """How far a refresh has got, for the Data status page: written to
+    warehouse/refresh_progress.json as each source starts, and marked finished at the end."""
+
+    def __init__(self, paths: Paths, sources: list[str]):
+        import os
+
+        self.path = paths.home / "warehouse" / "refresh_progress.json"
+        self.data = {"pid": os.getpid(), "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                     "total": len(sources), "done": 0, "current": None, "sources": sources, "finished_at": None}
+        self._write()
+
+    def start(self, what: str) -> None:
+        if self.data["current"] is not None and not str(self.data["current"]).startswith("("):
+            self.data["done"] += 1
+        self.data["current"] = what
+        self._write()
+
+    def finish(self) -> None:
+        self.data.update(current=None, finished_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                         done=self.data["total"])
+        self._write()
+
+    def _write(self) -> None:
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(json.dumps(self.data), encoding="utf-8")
+        except OSError:
+            pass
