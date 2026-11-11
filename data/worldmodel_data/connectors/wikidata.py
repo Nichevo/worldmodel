@@ -110,6 +110,16 @@ DISASTER_TYPES = {  # English class name -> (kind, subkind)
 }
 
 
+ACCIDENT_TYPES = {  # English class name -> subkind (event kind "transport")
+    "aviation accident": "air", "airliner accident": "air", "aviation incident": "air", "mid-air collision": "air",
+    "shipwreck": "sea", "maritime incident": "sea", "maritime disaster": "sea", "ferry disaster": "sea",
+    "ship collision": "sea", "railway accident": "rail", "train wreck": "rail", "train collision": "rail",
+    "derailment": "rail", "level crossing accident": "rail",
+}
+ACCIDENT_MIN_DEATHS = 5  # fetched from 5 deaths; Settings > Transport picks what shows (10 by default)
+SITE_MIN_VISITORS = 1_000_000
+
+
 SUMMIT_SERIES = ("G7 summit", "G8 summit", "G20 summit", "NATO summit", "APEC summit", "BRICS summit",
                  "East Asia Summit", "ASEAN Summit", "Commonwealth Heads of Government Meeting", "European Council meeting",
                  "Summit of the Americas", "African Union summit", "Pacific Islands Forum", "Shanghai Cooperation Organisation summit",
@@ -214,6 +224,30 @@ SELECT ?r ?rLabel ?iso3 ?date WHERE {
   { ?r wdt:P585 ?date } UNION { ?r wdt:P577 ?date }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }""",
+    "accidents": """
+SELECT ?e ?eLabel ?typeName ?iso3 ?date ?start ?deaths ?placeLabel WHERE {
+  VALUES ?typeName { %s }
+  ?type rdfs:label ?typeName .
+  ?e wdt:P31/wdt:P279? ?type ; wdt:P1120 ?deaths .
+  FILTER(?deaths >= %d)
+  { ?e wdt:P17 ?c } UNION { ?e wdt:P276/wdt:P17 ?c }
+  ?c wdt:P298 ?iso3 .
+  OPTIONAL { ?e wdt:P585 ?date }
+  OPTIONAL { ?e wdt:P580 ?start }
+  OPTIONAL { ?e wdt:P276 ?place }
+  FILTER(BOUND(?start) || BOUND(?date))
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""" % (_names(ACCIDENT_TYPES), ACCIDENT_MIN_DEATHS),
+    "sites": """
+SELECT ?s ?sLabel ?coord ?iso3 ?visitors ?year ?article WHERE {
+  ?s p:P1174 ?st . ?st ps:P1174 ?visitors .
+  FILTER(?visitors >= %d)
+  OPTIONAL { ?st pq:P585 ?year }
+  ?s wdt:P625 ?coord ; wdt:P17 ?c .
+  ?c wdt:P298 ?iso3 .
+  OPTIONAL { ?article schema:about ?s ; schema:isPartOf <https://en.wikipedia.org/> }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}""" % SITE_MIN_VISITORS,
     "stations": """
 SELECT ?s ?sLabel ?coord ?iso3 ?opLabel ?start WHERE {
   ?s wdt:P30 wd:Q51 ; wdt:P625 ?coord ; wdt:P31/wdt:P279* ?t .
@@ -231,7 +265,7 @@ class Wikidata(Connector):
     source_id = "wikidata"
     fetch_every_days = FETCH_EVERY_DAYS
     stage_version = 2  # 2: hand-checked leaders for NZ, Australia, the UK and the US (leaders_curated)
-    fetch_version = 5  # 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties; 4: every holder of the office; 5: summits, court cases, Security Council resolutions, Antarctic stations
+    fetch_version = 6  # 6: air, sea and rail accidents, most visited places; 2: elections, leaders, sporting events and disasters as well as the facts; 3: leaders' parties; 4: every holder of the office; 5: summits, court cases, Security Council resolutions, Antarctic stations
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -272,6 +306,14 @@ class Wikidata(Connector):
                     found = json.loads(f.read_text(encoding="utf-8"))["results"]["bindings"]
                 except (json.JSONDecodeError, KeyError):
                     log.warning("wikidata: %s is not a query result; skipped", f.name)
+                    continue
+                if name == "sites":
+                    sites = site_features(found)
+                    if sites:
+                        self.layers.append({"layer_id": "visited_sites", "name": "Most visited places",
+                                            "description": "Museums, parks, monuments and other places with a million or more "
+                                                           "visitors a year (Wikidata, latest year given).",
+                                            "kind": "point", "feature_count": len(sites), "geojson": collection(sites)})
                     continue
                 if name == "stations":
                     stations = station_features(found)
@@ -481,6 +523,49 @@ def disaster_events(bindings: list[dict]) -> list[tuple]:
     return list(out.values())
 
 
+def accident_events(bindings: list[dict]) -> list[tuple]:
+    """Air, sea and rail accidents with their deaths (kind transport)."""
+    out = {}
+    for b in bindings:
+        start, prec = _day(_val(b, "date") or _val(b, "start"))
+        iso3, q = (_val(b, "iso3") or "").upper(), _qid(_val(b, "e"))
+        if not start or not iso3 or not q:
+            continue
+        sub = ACCIDENT_TYPES.get(_val(b, "typeName") or "")
+        deaths = _num(_val(b, "deaths"))
+        have = out.get((iso3, q))
+        if have:
+            deaths = max(filter(None, (deaths, have[8])), default=None)
+            sub = have[3] or sub
+        out[(iso3, q)] = (iso3, f"accident:{q}", "transport", sub, _val(b, "eLabel") or "Accident", start, None, prec,
+                          deaths, None, _val(b, "placeLabel"), f"https://www.wikidata.org/wiki/{q}")
+    return list(out.values())
+
+
+def site_features(bindings: list[dict]) -> list[dict]:
+    """Places with their latest visitors a year."""
+    best: dict[str, tuple] = {}
+    for b in bindings:
+        m = re.match(r"Point\(([-\d.]+) ([-\d.]+)\)", _val(b, "coord") or "")
+        q, v = _qid(_val(b, "s")), _num(_val(b, "visitors"))
+        if not m or not q or v is None:
+            continue
+        year = (_val(b, "year") or "")[:4]
+        y = int(year) if year.isdigit() else 0
+        if q in best and best[q][0] >= y:
+            continue
+        best[q] = (y, v, float(m.group(1)), float(m.group(2)), b)
+    out = []
+    for q, (y, v, lon, lat, b) in best.items():
+        props = {"name": _val(b, "sLabel") or q, "country": (_val(b, "iso3") or "").upper(), "visitors": round(v),
+                 "id": q, "url": _val(b, "article") or f"https://www.wikidata.org/wiki/{q}"}
+        if y:
+            props["year"] = y
+        out.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 4), round(lat, 4)]},
+                    "properties": props})
+    return out
+
+
 def summit_events(bindings: list[dict]) -> list[tuple]:
     out = {}
     for b in bindings:
@@ -584,6 +669,6 @@ def antarctic_claims() -> dict:
             "kind": "line", "feature_count": len(feats), "geojson": collection(feats)}
 
 
-EVENT_READERS = {"elections": election_events, "leaders": leader_events, "sport": sport_events,
+EVENT_READERS = {"elections": election_events, "accidents": accident_events, "leaders": leader_events, "sport": sport_events,
                  "disasters": disaster_events, "summits": summit_events, "courts": court_events,
                  "resolutions": resolution_events}

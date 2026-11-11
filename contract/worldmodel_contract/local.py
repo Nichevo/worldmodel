@@ -56,6 +56,7 @@ SETTINGS: dict[str, object] = {
     "projections_on_charts": True,   # years after the last estimate (UN projections and the like) on charts
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
+    "transport_min_deaths": 10,      # air, sea and rail accidents with fewer deaths stay off the charts and Events page
     "party_colours": False,          # country page charts coloured by the party in government
     "party_office": "government",    # whose party: the head of "government" (a prime minister) or of "state"
     "ranks_top_n": 10,               # Ranks panels show this many lines unless the panel says otherwise (0 = all)
@@ -100,6 +101,16 @@ SETTINGS: dict[str, object] = {
     "nature_pollution_fetch": True,      # UN SDG water, wastewater and protected key areas (every three months)
     "nature_species_fetch": True,        # invasive species (GRIIS), IUCN Red List and EPPO pests (the last two need keys)
     "nature_protected_fetch": True,      # WDPA protected areas (900 MB twice a year, about 150 MB kept)
+    # Transport, tourism and networks (connectors/transport.py, tourism.py, networks.py)
+    "transport_ports_fetch": True,       # IMF PortWatch ports, chokepoints and port calls (weekly), World Port Index, shipping lanes
+    "transport_air_fetch": True,         # OurAirports and Eurostat airport passengers and freight
+    "transport_waterways_fetch": True,   # inland waterways (US network, OpenStreetMap for Europe and big rivers) and Eurostat river freight
+    "tourism_fetch": True,               # UNESCO World Heritage sites
+    "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, about 100 MB kept)
+    "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
+    "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
+    "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
+    "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)
     "zones_scenario": "ssp245",          # the emissions path the climate zone maps and city twins use for future periods
     # Internet speeds
     "internet_speeds_fetch": True,     # refresh fetches Ookla's open Speedtest files (quarterly, 200-400 MB each, summed by country then deleted)
@@ -192,6 +203,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
+          "transport_min_deaths": (0, 100_000),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),

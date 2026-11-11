@@ -22,7 +22,7 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import __version__, cities, episodes, gates, history, nature_tables
+from worldmodel_data import __version__, cities, episodes, gates, history, nature_tables, network_tables
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
@@ -105,6 +105,12 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"Pollution and nature: {nat['zone_grids']} climate zone maps, "
                                               f"{nat['protected_areas']:,} protected areas, {nat['species_status']:,} "
                                               f"species by name, {nat['pest_presence']:,} pest records"))
+                net = network_tables.compute(con)
+                if any(net.values()):
+                    checks.append(gates.Check("networks:loaded", "networks", "info",
+                                              f"Transport and networks: {net['geo_features']:,} rivers, basins, waterways, "
+                                              f"cables and pipelines, {net['port_traffic']:,} port months, "
+                                              f"{net['chokepoint_traffic']:,} chokepoint days, {net['airport_traffic']:,} airport years"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]

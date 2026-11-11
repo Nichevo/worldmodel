@@ -1,0 +1,143 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1069556"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "Air New Zealand Flight 901"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "aviation accident"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "ATA"
+    },
+    "date": {
+     "type": "literal",
+     "value": "1979-11-28T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "257"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1069556"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "Air New Zealand Flight 901"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "aviation accident"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "date": {
+     "type": "literal",
+     "value": "1979-11-28T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "257"
+    },
+    "placeLabel": {
+     "type": "literal",
+     "value": "Mount Erebus"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1474893"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "TEV Wahine"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "shipwreck"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "date": {
+     "type": "literal",
+     "value": "1968-04-10T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "51"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q2073318"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "Tangiwai disaster"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "railway accident"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "date": {
+     "type": "literal",
+     "value": "1953-12-24T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "151"
+    }
+   },
+   {
+    "e": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q9999999"
+    },
+    "eLabel": {
+     "type": "literal",
+     "value": "Small ferry accident"
+    },
+    "typeName": {
+     "type": "literal",
+     "value": "maritime incident"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "date": {
+     "type": "literal",
+     "value": "2001-06-01T00:00:00Z"
+    },
+    "deaths": {
+     "type": "literal",
+     "value": "6"
+    }
+   }
+  ]
+ }
+}

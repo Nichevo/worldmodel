@@ -1,0 +1,4 @@
+ProjectID,PipelineName,SegmentName,Status,Countries,Fuel,StartYear1,CapacityBcm/y,LengthMergedKm,Owner,Wiki,WKTFormat
+P0001,Maui Pipeline,,operating,New Zealand,Gas,1979,2.0,307,First Gas,https://www.gem.wiki/Maui,"LINESTRING (174.0 -39.1, 174.8 -38.0, 174.9 -37.2)"
+P0002,Nord Stream 1,Line A,idle,"Russia, Germany",Gas,2011,27.5,1224,Nord Stream AG,https://www.gem.wiki/NS1,"MULTILINESTRING ((28.0 60.5, 20.0 57.0), (20.0 57.0, 13.6 54.1))"
+P0003,Unmapped line,,proposed,Australia,Gas,,,,,,
