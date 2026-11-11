@@ -854,16 +854,16 @@
   licence: Free to use with citation
   licence_url: https://nsidc.org/data/user-resources/use-and-copyright
   commercial_use: true
-  cadence: Monthly; checked every four weeks
+  cadence: Daily; checked every week
   attribution: "Fetterer, F., K. Knowles, W. N. Meier, M. Savoie and A. K. Windnagel, Sea Ice Index (G02135), NSIDC."
   status: active
   default_rank: 2
   standing: 5
   manual:
     by_hand: false
-    files: ["N_*_extent_v*", "S_*_extent_v*"]
+    files: ["N_*_extent_v*", "S_*_extent_v*", "N_seaice_extent_daily*", "S_seaice_extent_daily*"]
     get: https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/
-    what: "When the refresh is refused, download the monthly files (N_01_extent_v4.0.csv ... and the same from the south folder) and save them here."
+    what: "When the refresh is refused, download the monthly files (N_01_extent_v4.0.csv ... and the same from the south folder), and the daily files from the daily/data folders (N_seaice_extent_daily_v4.0.csv, S_...), and save them here."
 
 - id: celestrak_satcat
   name: CelesTrak satellite catalogue
@@ -1194,7 +1194,7 @@
   licence: US public domain
   licence_url: https://gml.noaa.gov/about/disclaimer.html
   commercial_use: true
-  cadence: Monthly; checked every four weeks
+  cadence: Daily; checked every week
   attribution: "Lan, X., Tans, P. and Thoning, K.W., Trends in atmospheric CO2, CH4 and N2O, NOAA GML."
   status: active
   default_rank: 1
@@ -1213,7 +1213,7 @@
   licence: US public domain
   licence_url: https://www.nasa.gov/nasa-brand-center/images-and-media/
   commercial_use: true
-  cadence: Monthly; checked every four weeks
+  cadence: Daily; checked every week
   attribution: "GISTEMP Team, GISS Surface Temperature Analysis (GISTEMP), version 4, NASA GISS."
   status: active
   default_rank: 1

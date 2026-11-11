@@ -8,6 +8,10 @@ nsidc_sea_ice
     newest version is tried first. Stored on the Arctic (north) and Antarctica (south):
     sea_ice_extent monthly, and per year its mean, its lowest month and its highest month
     (million km²).
+    Also the daily file of each hemisphere (every other day before July 1987):
+        https://noaadata.apps.nsidc.org/NOAA/G02135/<north|south>/daily/data/<N|S>_seaice_extent_daily_v<4.0|3.0>.csv
+    (columns Year, Month, Day, Extent, Missing, Source Data, with a second row of units),
+    stored as sea_ice_extent_daily and used for the yearly circle on Climate > Sea ice.
 
 celestrak_satcat
     CelesTrak's copy of the satellite catalogue: every object tracked in orbit since
@@ -37,6 +41,7 @@ from worldmodel_data.connectors.tabular import Rows, indicator, num
 log = logging.getLogger(__name__)
 
 NSIDC = "https://noaadata.apps.nsidc.org/NOAA/G02135/{hemi}/monthly/data/{H}_{mm:02d}_extent_v{v}.csv"
+NSIDC_DAILY = "https://noaadata.apps.nsidc.org/NOAA/G02135/{hemi}/daily/data/{H}_seaice_extent_daily_v{v}.csv"
 VERSIONS = ("4.0", "3.0")
 HEMISPHERES = (("north", "N", "arctic"), ("south", "S", "ATA"))
 
@@ -46,6 +51,9 @@ ICE_INDICATORS = [
     indicator("sea_ice_extent", "Sea ice extent (monthly)", "Area of ocean with at least 15% ice cover, the month's "
               "average, in million km².", "million km²", "climate", "nsidc_sea_ice", "extent", decimals=2,
               bounds=(0, 25), frequency="M", notes=ICE_NOTE),
+    indicator("sea_ice_extent_daily", "Sea ice extent (daily)", "Area of ocean with at least 15% ice cover that day "
+              "(five-day average from the satellite), in million km². Every other day before July 1987.", "million km²",
+              "climate", "nsidc_sea_ice", "extent_daily", decimals=2, bounds=(0, 25), frequency="D", notes=ICE_NOTE),
     indicator("sea_ice_extent_mean", "Sea ice extent (year's average)", "Average of the twelve monthly sea ice "
               "extents, in million km².", "million km²", "climate", "nsidc_sea_ice", "extent_mean", decimals=2,
               bounds=(0, 25), notes=ICE_NOTE),
@@ -80,7 +88,9 @@ SPACE_INDICATORS = [
 
 class NSIDCSeaIce(Connector):
     source_id = "nsidc_sea_ice"
-    fetch_every_days = 28
+    fetch_every_days = 7  # the daily file grows each day; the files are only fetched again when changed
+    stage_version = 2  # 2: daily extents
+    fetch_version = 2  # 2: the daily files too
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -102,12 +112,27 @@ class NSIDCSeaIce(Connector):
                         log.info("nsidc_sea_ice: %s %02d v%s: %s", hemi, mm, v, exc)
         if not got:
             raise ConnectorError("nsidc_sea_ice: no monthly file could be downloaded")
-        return f"NSIDC Sea Ice Index v{version}, {got} monthly files"
+        daily = 0
+        for hemi, h, _ in HEMISPHERES:
+            for v in [version] + [x for x in VERSIONS if x != version]:
+                try:
+                    self.get(NSIDC_DAILY.format(hemi=hemi, H=h, v=v), raw_dir / f"{h}_seaice_extent_daily.csv")
+                    daily += 1
+                    break
+                except ConnectorError as exc:
+                    log.info("nsidc_sea_ice: %s daily v%s: %s", hemi, v, exc)
+        return f"NSIDC Sea Ice Index v{version}, {got} monthly files, {daily} daily files"
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         monthly: dict[tuple[str, int, int], float] = {}
+        daily: list[tuple[str, date, float]] = []
         for p in sorted(raw_dir.glob("*_extent*.csv")):
             h = p.name[0].upper()
+            if "daily" in p.name.lower():
+                ent = next((e for _, hh, e in HEMISPHERES if hh == h), None)
+                if ent:
+                    daily += [(ent, d, v) for d, v in read_daily(p.read_text(encoding="utf-8", errors="replace"))]
+                continue
             ent = next((e for _, hh, e in HEMISPHERES if hh == h), None)
             if not ent:
                 continue
@@ -125,6 +150,7 @@ class NSIDCSeaIce(Connector):
                 out += [(e, "sea_ice_extent_mean", date(y, 1, 1), "A", round(sum(vals) / 12, 3)),
                         (e, "sea_ice_extent_min", date(y, 1, 1), "A", min(vals)),
                         (e, "sea_ice_extent_max", date(y, 1, 1), "A", max(vals))]
+        out += [(e, "sea_ice_extent_daily", d, "D", v) for e, d, v in {(e, d): (e, d, v) for e, d, v in daily}.values()]
         con.executemany("INSERT INTO ice VALUES (?, ?, ?, ?, ?)", out)
         self.listed_indicators = ICE_INDICATORS
         return (f"SELECT {sql_str(self.source_id)} AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, "
@@ -149,6 +175,27 @@ def read_extent(text: str) -> list[tuple[int, int, float]]:
         y, m, e = num(r[iy]), num(r[im]), num(r[ie])
         if y and m and e is not None and e >= 0:
             out.append((int(y), int(m), e))
+    return out
+
+
+def read_daily(text: str) -> list[tuple[date, float]]:
+    """(day, extent in million km²) from one Sea Ice Index daily file. The header row names the
+    columns (with spaces around them); the row of units under it and missing values are skipped."""
+    rows = list(csv.reader(io.StringIO(text)))
+    head_at = next((i for i, r in enumerate(rows[:5]) if [c.strip().lower() for c in r[:4]] == ["year", "month", "day", "extent"]), None)
+    if head_at is None:
+        return []
+    out = []
+    for r in rows[head_at + 1:]:
+        if len(r) < 4:
+            continue
+        y, m, d, e = num(r[0].strip()), num(r[1].strip()), num(r[2].strip()), num(r[3].strip())
+        if not (y and m and d) or e is None or not 0 <= e < 30:
+            continue
+        try:
+            out.append((date(int(y), int(m), int(d)), e))
+        except ValueError:
+            continue
     return out
 
 

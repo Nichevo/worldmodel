@@ -2830,6 +2830,13 @@ def climate_normals(entities: str = Query("NZL", description="Comma-separated co
     return climate.normals(rows, split(entities)[:8])
 
 
+@api.get("/climate/sea-ice")
+def climate_sea_ice(pole: str = Query("arctic", description="arctic or ATA (Antarctic)")):
+    """Sea ice through each year since 1978: every year's days, the 1981-2010 median and band, and each
+    year's lowest and highest day (the yearly circle on Climate > Sea ice)."""
+    return climate.sea_ice(rows, pole)
+
+
 @api.get("/climate/enso")
 def climate_enso():
     """El Niño and La Niña: the index, the Indian Ocean Dipole and the Southern Annular Mode

@@ -11,6 +11,7 @@ import ClimateCard from "@/components/ClimateCard";
 import NatureTab from "@/components/NatureTab";
 import ZonesTab from "@/components/ZonesTab";
 import WeatherCard from "@/components/WeatherCard";
+import SeaIceCard from "@/components/SeaIceCard";
 import { api, type ClimateEnso, type ClimateLive, type ClimateOverview, type ClimatePolicy, type ClimateStorms } from "@/lib/api";
 import { ensoOption, lines, stormsOption, stripesOption } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
@@ -21,8 +22,8 @@ import { useSettings } from "@/lib/settings";
 
 // The climate across the world: vital signs, an emissions map, storms, El Niño and policy.
 
-type Tab = "world" | "map" | "weather" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
-const TABS: [Tab, string][] = [["world", "The world"], ["map", "Map and rankings"], ["weather", "Weather by month"], ["zones", "Climate zones"], ["storms", "Storms and alerts"], ["enso", "El Niño"],
+type Tab = "world" | "map" | "weather" | "ice" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
+const TABS: [Tab, string][] = [["world", "The world"], ["map", "Map and rankings"], ["weather", "Weather by month"], ["ice", "Sea ice"], ["zones", "Climate zones"], ["storms", "Storms and alerts"], ["enso", "El Niño"],
   ["nature", "Nature"], ["policy", "Net zero and carbon prices"], ["country", "One country"]];
 const LIVE_TYPES: Record<string, string> = { TC: "Tropical cyclone", FL: "Flood", DR: "Drought", WF: "Wildfire", EQ: "Earthquake", VO: "Volcano", TS: "Tsunami" };
 const ALERT_COLOR: Record<string, string> = { red: "--div-neg-3", orange: "--series-6", green: "--div-pos-2" };
@@ -331,6 +332,7 @@ function ClimatePage() {
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
       {tab === "world" ? <World o={o} /> : tab === "map" ? <MapTab o={o} /> : tab === "storms" ? <Storms /> : tab === "enso" ? <Enso /> : tab === "policy" ? <Policy />
         : tab === "weather" ? <WeatherTab />
+        : tab === "ice" ? <SeaIceCard />
         : tab === "zones" ? <ZonesTab country={country} onCountry={pick} /> : tab === "nature" ? <NatureTab country={country} onCountry={pick} /> : (
         <>
           <div className="chips-row small"><CountryChoice value={country} onChange={pick} /></div>
