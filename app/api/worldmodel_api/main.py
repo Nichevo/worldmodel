@@ -37,7 +37,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, markets, news, numbeo, people, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, news, numbeo, people, relationships, sectors, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1388,8 +1388,9 @@ def scrapers():
             b = numbeo.budget()
             today = f"{b['used']} of {b['limit']} pages today"
         elif s.id == "wikipedia":
-            c, t = wiki.budget("countries"), wiki.budget("cities")
-            today = f"{c['used']} of {c['limit']} countries and {t['used']} of {t['limit']} cities today"
+            c, t, e = wiki.budget("countries"), wiki.budget("cities"), wiki.budget("empires")
+            today = (f"{c['used']} of {c['limit']} countries, {t['used']} of {t['limit']} cities and "
+                     f"{e['used']} of {e['limit']} empires today")
         last = loaded.get(s.id)
         prob = failing.get(s.id)
         out.append({"source_id": s.id, "name": s.name, "run": s.scraper.run, "reads": s.scraper.reads,
@@ -2793,6 +2794,201 @@ def entity_latest(entity_id: str, days: int = Query(30, ge=1, le=365)):
     names = {r["entity_id"]: r["short_name"] for r in rows(
         "SELECT entity_id, short_name FROM entities WHERE entity_id IN (SELECT unnest(?))", [ids])}
     return {"entity_id": entity_id, "days": days, "crisiswatch": cw, "cards": cards, "names": names}
+
+# ----------------------------------------------------------------------------- Long history
+_lh_cache: dict[tuple, object] = {}
+
+
+def _lh(key: tuple, make):
+    """Answers that take a while (who ruled where, the factors), kept until the build changes."""
+    k = (_build_id(), *key)
+    if k not in _lh_cache:
+        if len(_lh_cache) > 64:
+            _lh_cache.clear()
+        _lh_cache[k] = make()
+    return _lh_cache[k]
+
+
+def _lh_has(name: str) -> bool:
+    return _has_table(name)
+
+
+def _lh_power(power_id: str) -> None:
+    if power_id not in catalogue.history_powers():
+        raise HTTPException(404, f"no power {power_id}")
+
+
+@api.get("/long")
+def long_overview():
+    """The Long history page's set-up: powers with their span and peak, China's dynasties, regions,
+    series, the eight factors, the cycle's stages, voyages, and how much is loaded."""
+    return _lh(("overview",), lambda: longhistory.overview(rows, _lh_has))
+
+
+@api.get("/long/sizes")
+def long_sizes(powers: str | None = None):
+    """Land area over time for powers (comma-separated ids; default all), as steps."""
+    ids = split(powers) or list(catalogue.history_powers())
+    if not _lh_has("polities"):
+        return []
+    return _lh(("sizes", tuple(ids)), lambda: longhistory.sizes(rows, ids))
+
+
+@api.get("/long/power/{power_id}")
+def long_power(power_id: str):
+    """One power's card: its shapes over time (frames), size, peak, events in its area and
+    lifetime, and voyages it sponsored."""
+    _lh_power(power_id)
+    min_links = int(userdata.settings().get("history_event_min_links", 5))
+    return _lh(("power", power_id, min_links), lambda: longhistory.power_card(rows, power_id, _lh_has, min_links))
+
+
+@api.get("/long/shape/{key:path}")
+def long_shape(key: str):
+    """One state's borders for one stretch of years, as a GeoJSON feature."""
+    f = longhistory.shape(rows, key) if _lh_has("polities") else None
+    if f is None:
+        raise HTTPException(404, f"no shape {key}")
+    return Response(json.dumps(f, separators=(",", ":")), media_type="application/json",
+                    headers={"Cache-Control": "max-age=86400"})
+
+
+@api.get("/long/power/{power_id}/expansion")
+def long_expansion(power_id: str, most: int = Query(24, ge=2, le=60)):
+    """A power's shapes over its life, oldest on top, for the expansion view."""
+    _lh_power(power_id)
+    if not _lh_has("polities"):
+        return {"type": "FeatureCollection", "features": []}
+    return _lh(("expansion", power_id, most), lambda: longhistory.expansion(rows, power_id, most))
+
+
+@api.get("/long/world")
+def long_world(year: int = Query(..., ge=longhistory.FIRST_YEAR, le=longhistory.LAST_YEAR), geometry: bool = True):
+    """Every state alive in a year, named by the empire it belonged to (the World in year map).
+    geometry=false gives the properties only; get the shapes with POST /long/shapes."""
+    if not _lh_has("polities"):
+        return {"type": "FeatureCollection", "features": [], "year": year}
+    data = json.dumps(longhistory.world(rows, year, geometry), separators=(",", ":"))
+    return Response(data, media_type="application/json")
+
+
+@api.post("/long/shapes")
+def long_shapes(keys: list[str] = Body(..., embed=True)):
+    """Borders for several states at once, by key (at most 2,000)."""
+    if not _lh_has("polities"):
+        return {}
+    return Response(json.dumps(longhistory.shapes(rows, keys[:2000]), separators=(",", ":")), media_type="application/json")
+
+
+@api.get("/long/ruled")
+def long_ruled(step: int = Query(10, ge=5, le=100)):
+    """For each region, who held the most land there, period by period."""
+    if not _lh_has("polities"):
+        return {"step": step, "regions": []}
+    return _lh(("ruled", step), lambda: longhistory.ruled(rows, step))
+
+
+@api.get("/long/series")
+def long_series(entities: str = "world", series: str = "population", start: int | None = None, end: int | None = None):
+    """Figures over centuries (history.yaml series) for entities, with source and unit."""
+    if not _lh_has("long_series"):
+        return []
+    return longhistory.series(rows, split(entities), split(series), start, end)
+
+
+@api.get("/long/regions")
+def long_regions():
+    """People in each of the eight regions (and the Pacific) over time."""
+    if not _lh_has("long_series"):
+        return []
+    return _lh(("regions",), lambda: longhistory.regional_population(rows))
+
+
+@api.get("/long/events")
+def long_events(start: int | None = None, end: int | None = None, kind: str | None = None, min_links: int | None = None,
+                region: str | None = None, entity: str | None = None, bbox: str | None = None,
+                limit: int = Query(400, ge=1, le=5000)):
+    """Events far back: wars, battles, epidemics, famines, treaties, earthquakes, eruptions,
+    tsunamis. min_links defaults to the setting (Wikipedias with an article)."""
+    if not _lh_has("history_events"):
+        return []
+    links = min_links if min_links is not None else int(userdata.settings().get("history_event_min_links", 5))
+    box = None
+    if bbox:
+        try:
+            w, s_, e, n = (float(x) for x in bbox.split(","))
+            box = (w, s_, e, n)
+        except ValueError:
+            raise HTTPException(422, "bbox is west,south,east,north")
+    return longhistory.events(rows, start, end, split(kind), links, box, region, entity, limit)
+
+
+@api.get("/long/voyages")
+def long_voyages(power: str | None = None):
+    """Voyages of exploration as dated stops (rough: straight lines between them)."""
+    return longhistory.voyages(power)
+
+
+@api.get("/long/thenandnow")
+def long_then_and_now(measure: Literal["output", "people", "land"] = "output", powers: str | None = None):
+    """Each power's share of the world over time (output, people or land), with its peak."""
+    ids = split(powers) or [p["id"] for p in catalogue.history()["powers"]]
+    table = "polities" if measure == "land" else "long_series"
+    if not _lh_has(table):
+        return {"measure": measure, "name": longhistory.MEASURES[measure], "lines": [], "note": None}
+    return _lh(("thenandnow", measure, tuple(ids)), lambda: longhistory.then_and_now(rows, measure, ids))
+
+
+@api.get("/long/factors")
+def long_factors(start: int = Query(1500, ge=-500, le=2000), step: int = Query(10, ge=1, le=50)):
+    """The eight factors, rebuilt from free data, and their index."""
+    if not _lh_has("long_series"):
+        return {"countries": [], "years": [], "factors": [], "index": [], "note": None}
+    return _lh(("factors", start, step), lambda: longhistory.factors(rows, start, step))
+
+
+@api.get("/long/cycle")
+def long_cycle(entities: str | None = None):
+    """Where countries might be in the big cycle's six stages, with the reasons."""
+    ids = split(entities) or catalogue.history()["cycle"]["countries"]
+    return {"stages": catalogue.history()["cycle"]["stages"], "countries": longhistory.cycle(rows, ids, date.today().year)}
+
+
+@api.get("/long/wikipedia/{power_id}")
+def long_wikipedia(power_id: str, fetch: bool = True):
+    """The Wikipedia introduction for an empire, dynasty or voyage (its own daily limit in Settings)."""
+    p = catalogue.history_powers().get(power_id)
+    v = next((v for v in catalogue.history()["voyages"] if v["id"] == power_id), None)
+    if p is None and v is None:
+        raise HTTPException(404, f"no power or voyage {power_id}")
+    item = p or v
+    target = {"name": item["name"], "type": "empire", "article": item.get("wikipedia") or item["name"]}
+    res = wiki.page(f"long_{power_id}", target, fetch, kind="empires")
+    return {**res, "page": _with_image_urls(res["page"])}
+
+
+@api.get("/long/country/{entity_id}")
+def long_country(entity_id: str):
+    """A country's long view: its long-run figures, who ruled the place where its capital is,
+    and the best-known events there."""
+    names = rows("SELECT name FROM entities WHERE entity_id = ?", [entity_id])
+    if not names:
+        raise HTTPException(404, f"no entity {entity_id}")
+    meta = catalogue.history()["series"]
+    out = {"entity_id": entity_id, "name": names[0]["name"], "series": [], "capital": None, "ruled": [], "events": []}
+    if _lh_has("long_series"):
+        out["series"] = longhistory.series(rows, [entity_id], list(meta))
+    if _lh_has("polities") and _has_cities():
+        cap = rows("SELECT name, lat, lon FROM cities WHERE country_id = ? AND capital = 'national' "
+                   "ORDER BY population DESC LIMIT 1", [entity_id])
+        if cap:
+            out["capital"] = cap[0]
+            out["ruled"] = _lh(("ruled_here", entity_id), lambda: longhistory.ruled_here(rows, cap[0]["lat"], cap[0]["lon"]))
+    if _lh_has("history_events"):
+        links = int(userdata.settings().get("history_event_min_links", 5))
+        out["events"] = longhistory.events(rows, None, None, None, links, None, None, entity_id, 30)
+    return out
+
 
 
 @app.get("/health")

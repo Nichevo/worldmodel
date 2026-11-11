@@ -1545,3 +1545,63 @@
     optional: true
     get: https://www.hbs.edu/behavioral-finance-and-financial-stability/data/Pages/global.aspx
     what: "Download 'Global Crises Data by Country' (an Excel workbook, such as 20160923_global_crisis_data.xlsx). Banking, debt, currency and inflation crises by year since 1800."
+
+- id: cliopatria
+  name: Seshat Cliopatria (borders of states and empires, 3400 BC to 2024)
+  short_name: Cliopatria
+  publisher: Seshat Global History Databank (Complexity Science Hub)
+  url: https://github.com/Seshat-Global-History-Databank/cliopatria
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Updated now and then; checked twice a year (one 46 MB zip)
+  attribution: "Borders: Seshat Global History Databank, Cliopatria (CC BY 4.0)."
+  status: active
+  default_rank: 6
+  standing: 4
+  definition: established
+
+- id: owid_longrun
+  name: Long-run series through Our World in Data (HYDE population, Maddison GDP per person, literacy, life expectancy, schooling)
+  short_name: OWID long run
+  publisher: Our World in Data, from HYDE, the Maddison Project, Clio Infra and others
+  url: https://ourworldindata.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Checked every three months (nine chart files)
+  attribution: "Our World in Data (CC BY 4.0), from HYDE 3.3, the Maddison Project Database 2023 and others."
+  status: active
+  default_rank: 6
+  standing: 4
+  definition: established
+
+- id: wikidata_history
+  name: Wikidata history (wars, battles, sieges, epidemics, famines, revolutions, treaties)
+  short_name: Wikidata history
+  publisher: Wikimedia Foundation and Wikidata contributors
+  url: https://www.wikidata.org/
+  licence: CC0 1.0 (data)
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: Live; fetched once every four weeks in seven queries
+  attribution: "Wikidata (CC0)."
+  status: active
+  default_rank: 6
+  standing: 2
+  definition: exploratory
+
+- id: noaa_hazel
+  name: NOAA NCEI Natural Hazards (significant earthquakes, volcanic eruptions and tsunamis since antiquity)
+  short_name: NOAA hazards
+  publisher: NOAA National Centers for Environmental Information
+  url: https://www.ngdc.noaa.gov/hazel/
+  licence: Public domain (US government work)
+  licence_url: https://www.noaa.gov/disclaimer
+  commercial_use: true
+  cadence: Updated as events happen; fetched every three months (about 50 pages of 200)
+  attribution: "NOAA National Centers for Environmental Information, Global Historical Hazards Database."
+  status: active
+  default_rank: 6
+  standing: 4
+  definition: established

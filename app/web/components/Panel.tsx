@@ -461,6 +461,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         outlines={marks.outlines}
         marks={panel.layers.includes("e") || panel.layers.includes("n") ? marks.marks : []}
         legend={marks.legend}
+        areas={marks.areas}
       />
       {layersPanel?.(marks.counts)}
       <p className="caption">

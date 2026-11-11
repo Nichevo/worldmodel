@@ -130,6 +130,35 @@ PLACE_COLUMNS = {
     "facts": "VARCHAR",
 }
 
+# The long view (Long history page): tables whose years can be before AD 1, so years are
+# whole numbers (negative for BC), not dates. One parquet file per table beside a vintage.
+#   long_series:    figures over centuries (population since 10,000 BC, Maddison GDP per
+#                   person...), by the source's own country code (ISO3, or a name for regions);
+#   polities:       states and empires with their borders over time (Seshat's Cliopatria),
+#                   one row per stretch of years with unchanged borders; geojson is the
+#                   simplified geometry; composite rows (names in brackets) join their parts;
+#   history_events: wars, battles, epidemics, famines, treaties (Wikidata) and earthquakes,
+#                   eruptions and tsunamis (NOAA), with a place where known.
+HISTORY_COLUMNS = {
+    "long_series": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "source_code": "VARCHAR", "scheme": "VARCHAR",
+        "series_id": "VARCHAR", "year": "INTEGER", "value": "DOUBLE",
+    },
+    "polities": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "polity_key": "VARCHAR", "name": "VARCHAR",
+        "from_year": "INTEGER", "to_year": "INTEGER", "area_km2": "DOUBLE", "composite": "BOOLEAN",
+        "components": "VARCHAR", "member_of": "VARCHAR", "wikipedia": "VARCHAR", "wikidata": "VARCHAR",
+        "lat": "DOUBLE", "lon": "DOUBLE", "west": "DOUBLE", "south": "DOUBLE", "east": "DOUBLE", "north": "DOUBLE",
+        "geojson": "VARCHAR",
+    },
+    "history_events": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "event_key": "VARCHAR", "kind": "VARCHAR", "title": "VARCHAR",
+        "year": "INTEGER", "end_year": "INTEGER", "month": "INTEGER", "day": "INTEGER", "lat": "DOUBLE", "lon": "DOUBLE",
+        "place": "VARCHAR", "country_code": "VARCHAR", "deaths": "DOUBLE", "size": "DOUBLE", "size_unit": "VARCHAR",
+        "links": "INTEGER", "url": "VARCHAR",
+    },
+}
+
 # city_values.parquet beside a vintage: figures about cities as the source names them
 # (with its country's entity id and, where known, location). The build matches each to a city.
 CITY_VALUE_COLUMNS = {
@@ -165,6 +194,7 @@ class Manifest:
     city_count: int = 0     # rows in cities.parquet, if any
     city_value_count: int = 0  # rows in city_values.parquet, if any
     place_count: int = 0    # rows in places.parquet, if any
+    history_count: int = 0  # rows in the long-view tables (HISTORY_COLUMNS), if any
 
     def write(self, path: Path) -> None:
         path.write_text(json.dumps(asdict(self), indent=2))

@@ -246,6 +246,13 @@ export type Settings = {
   places_fetch: boolean; // refresh fetches metro and rail, universities and companies
   map_hospital_beds: number; // the Hospitals map layer shows hospitals with at least this many beds
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
+  wikipedia_empires_daily: number; // Long history: Wikipedia pages for empires, dynasties and voyages
+  history_borders_fetch: boolean; // refresh fetches Cliopatria's borders
+  history_series_fetch: boolean; // refresh fetches long-run figures (OWID)
+  history_events_fetch: boolean; // refresh fetches events far back (Wikidata) and NOAA's hazards
+  history_event_min_links: number; // events shown: articles in at least this many Wikipedias
+  history_events_on_charts: boolean; // events as marks on the long charts
+  map_history_year: number; // the year the Map's "World in year" layer shows
   pack_nz: boolean; // refresh fetches the New Zealand pack
   ai_enabled: boolean; // Ask AI buttons, AI notes page, highlight menu's Ask AI
   ollama_url: string;
@@ -300,6 +307,55 @@ export type Wikipedia = {
     images: WikiImage[]; wikidata_item: string | null; fetched_at: string; licence: string;
   } | null;
 };
+
+// The Long history page (years are whole numbers, negative for BC).
+export type LongPower = {
+  id: string; name: string; era: "then" | "now" | "dynasty"; group: string | null; entity: string | null; colour: string | null;
+  wikipedia: string | null; has_borders: boolean; from?: number; to?: number; peak_km2?: number; peak_year?: number;
+};
+export type LongSeriesMeta = { name: string; unit: string; from: string; source: string; note?: string };
+export type LongFactorMeta = { id: string; name: string; how: string; series?: string[]; periods?: string };
+export type LongOverview = {
+  counts: { polities: number; long_series: number; history_events: number };
+  powers: LongPower[]; dynasties: string[]; regions: { id: string; name: string }[];
+  pacific: { id: string; name: string; note: string }; series: Record<string, LongSeriesMeta>;
+  factors: LongFactorMeta[]; stages: { n: number; name: string; about: string }[]; event_kinds: Record<string, string>;
+  voyages: { id: string; name: string; who: string; power: string | null; from: number; to: number }[];
+};
+export type LongSize = { id: string; name: string; colour: string | null; group: string | null; points: [number, number | null][] };
+export type LongFrame = { key: string; name: string; from: number; to: number; area_km2: number };
+export type LongEvent = {
+  event_id: string; kind: string; title: string; year: number; end_year: number | null; month: number | null; day: number | null;
+  lat: number | null; lon: number | null; place: string | null; entity_id: string | null; region: string | null;
+  deaths: number | null; size: number | null; size_unit: string | null; links: number | null; url: string | null;
+  source_id: string; when: string;
+};
+export type LongVoyage = { id: string; name: string; who: string; power: string | null; wikipedia: string;
+  stops: { year: number; place: string; lat: number; lon: number }[] };
+export type LongPowerCard = {
+  id: string; name: string; era: string; group: string | null; entity: string | null; colour: string | null; wikipedia: string | null;
+  frames: LongFrame[]; bbox: [number, number, number, number] | null; from: number | null; to: number | null;
+  peak: LongFrame | null; events: LongEvent[]; voyages: LongVoyage[]; sizes: [number, number | null][];
+};
+export type GeoFeature = { type: "Feature"; geometry: GeoJSON.Geometry; properties: Record<string, unknown> };
+export type GeoCollection = { type: "FeatureCollection"; features: GeoFeature[]; year?: number };
+export type LongRuled = { step: number; regions: { id: string; name: string; note?: string | null;
+  segments: { name: string; from: number; to: number; area_km2: number; hue: number; china: boolean }[] }[] };
+export type LongLine = { entity: string; entity_name: string; series: string; name: string; unit: string; source: string;
+  note: string | null; points: [number, number][] };
+export type LongRegionPop = { id: string; name: string; points: [number, number][]; countries: number };
+export type LongFactors = {
+  countries: string[]; years: number[]; note: string | null;
+  factors: { id: string; name: string; how: string; lines: { entity: string; name: string; points: [number, number][] }[] }[];
+  index: { entity: string; name: string; points: [number, number][] }[];
+};
+export type LongThenNow = { measure: string; name: string; note: string | null;
+  lines: { id: string; name: string; colour: string | null; points: [number, number | null][]; peak: [number, number] | null }[] };
+export type LongCycle = { stages: { n: number; name: string; about: string }[];
+  countries: { entity: string; name: string; stage: number | null; reasons: string[]; order_began: number | null;
+    figures: Record<string, { value: number; year: number; avg5: number }> }[] };
+export type LongCountry = { entity_id: string; name: string; series: LongLine[]; capital: { name: string; lat: number; lon: number } | null;
+  ruled: { name: string; part: string; from: number; to: number; hue: number }[]; events: LongEvent[] };
 
 export type HistoryKind = "page" | "view" | "indicator" | "pin" | "fetch" | "ai" | "highlight";
 export type HistoryEntry = {
@@ -973,6 +1029,25 @@ export const api = {
   ranking: (indicator: string, year?: number) => get<Ranking>(`/indicators/${indicator}/ranking`, { year }),
   comparedIndicators: () => get<ComparedIndicator[]>("/sources/indicators"),
   compareSources: (indicator: string, entity: string) => get<SourceComparison>("/sources/compare", { indicator, entity }),
+  longOverview: () => get<LongOverview>("/long"),
+  longSizes: (powers?: string[]) => get<LongSize[]>("/long/sizes", { powers: powers?.join(",") }),
+  longPower: (id: string) => get<LongPowerCard>(`/long/power/${encodeURIComponent(id)}`),
+  longShape: (key: string) => get<GeoFeature>(`/long/shape/${encodeURIComponent(key)}`),
+  longExpansion: (id: string) => get<GeoCollection>(`/long/power/${encodeURIComponent(id)}/expansion`),
+  longWorld: (year: number, geometry = true) => get<GeoCollection>("/long/world", { year, geometry: geometry ? undefined : "false" }),
+  longShapes: (keys: string[]) => send<Record<string, GeoJSON.Geometry>>("POST", "/long/shapes", { keys }),
+  longRuled: (step = 10) => get<LongRuled>("/long/ruled", { step }),
+  longSeries: (entities: string[], series: string[], start?: number, end?: number) =>
+    get<LongLine[]>("/long/series", { entities: entities.join(","), series: series.join(","), start, end }),
+  longRegions: () => get<LongRegionPop[]>("/long/regions"),
+  longEvents: (q: { start?: number; end?: number; kind?: string; region?: string; entity?: string; bbox?: string; limit?: number; min_links?: number } = {}) =>
+    get<LongEvent[]>("/long/events", q),
+  longVoyages: (power?: string) => get<LongVoyage[]>("/long/voyages", { power }),
+  longFactors: (start = 1500, step = 10) => get<LongFactors>("/long/factors", { start, step }),
+  longThenNow: (measure: string, powers?: string[]) => get<LongThenNow>("/long/thenandnow", { measure, powers: powers?.join(",") }),
+  longCycle: (entities?: string[]) => get<LongCycle>("/long/cycle", { entities: entities?.join(",") }),
+  longWikipedia: (id: string) => get<Wikipedia>(`/long/wikipedia/${encodeURIComponent(id)}`),
+  longCountry: (id: string) => get<LongCountry>(`/long/country/${encodeURIComponent(id)}`),
   divergence: (q: { indicator?: string; entity?: string; flagged?: boolean; limit?: number }) =>
     get<Divergence[]>("/sources/divergence", { ...q, flagged: q.flagged ? "true" : undefined }),
 };
