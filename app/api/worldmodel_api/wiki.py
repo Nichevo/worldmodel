@@ -83,8 +83,9 @@ def now() -> datetime:
 
 
 # ----------------------------------------------------------------------------- daily limit
-# Countries (and other entities) and cities each have their own folder and daily limit.
-KINDS = ("countries", "cities")
+# Countries (and other entities), cities and the Long history page's empires and dynasties
+# each have their own folder and daily limit.
+KINDS = ("countries", "cities", "empires")
 
 
 def budget(kind: str = "countries") -> dict:
