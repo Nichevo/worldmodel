@@ -7,6 +7,7 @@ import type { ECharts, EChartsOption } from "echarts";
 import type * as maplibregl from "maplibre-gl";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
+import { useYearZoom } from "@/components/long/useYearZoom";
 import WorldMap, { type MapMark, type MapPath } from "@/components/WorldMap";
 import { api, type GeoCollection, type GeoFeature, type LongEvent, type LongOverview, type LongPowerCard, type LongSize, type LongVoyage, type Wikipedia } from "@/lib/api";
 import { useSavePicture } from "@/lib/cards";
@@ -189,6 +190,7 @@ function EmpireCard() {
 
 function SizeChart({ card, year, setYear, other }: { card: LongPowerCard; year: number | null; setYear: (y: number) => void; other: LongSize | null }) {
   const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom({ pan: false });
   const option = useCallback((): EChartsOption => {
     const base = chrome();
     const line = (name: string, pts: [number, number | null][], color: string, mark: boolean) => ({
@@ -197,7 +199,7 @@ function SizeChart({ card, year, setYear, other }: { card: LongPowerCard; year: 
       markLine: mark && year !== null ? { symbol: "none", silent: true, lineStyle: { color: cssVar("--ink"), type: "solid", width: 1.5 },
         label: { formatter: yl(year), color: cssVar("--ink") }, data: [{ xAxis: year }] } : undefined,
     });
-    return {
+    return zoom.apply({
       ...base,
       legend: other ? { top: 0, left: 0, textStyle: { color: cssVar("--ink-2") } } : undefined,
       grid: { left: 8, right: 16, top: other ? 56 : 30, bottom: 8, containLabel: true },
@@ -210,15 +212,16 @@ function SizeChart({ card, year, setYear, other }: { card: LongPowerCard; year: 
       } },
       series: [line(card.name, card.sizes, card.colour ?? seriesColor(0), true),
         ...(other ? [line(other.name, other.points, other.colour ?? seriesColor(1), false)] : [])],
-    } as EChartsOption;
-  }, [card, year, other]);
+    } as EChartsOption);
+  }, [card, year, other, zoom.apply]);
   const onReady = useCallback((c: ECharts) => {
     keep(c);
+    zoom.attach(c);
     c.getZr().on("click", (e) => {
       const p = c.convertFromPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY]) as number[] | null;
       if (p && Number.isFinite(p[0])) setYear(Math.round(Math.min(card.to ?? p[0], Math.max(card.from ?? p[0], p[0]))));
     });
-  }, [keep, setYear, card]);
+  }, [keep, setYear, card, zoom.attach]);
   const title = `${card.name}: land ruled`;
   const note = "Land ruled year by year from Seshat's Cliopatria borders.";
   return (
@@ -229,6 +232,7 @@ function SizeChart({ card, year, setYear, other }: { card: LongPowerCard; year: 
         <button className="link small" onClick={() => save(title, note, ["cliopatria"], "land-ruled", card.id)}>Save picture</button>
       </div>
       <EChart option={option} height={240} label={`${card.name}: land ruled over time`} onReady={onReady} />
+      {zoom.tools}
       <p className="caption">The black line is the year on the map; click the chart to move the map to that year.</p>
     </div>
   );
