@@ -17,6 +17,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path
@@ -37,7 +38,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, transport, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -47,10 +48,22 @@ HEADLINE = ["pop_total", "pop_growth_rate", "tfr", "median_age", "life_expectanc
 
 
 
+def _tiles_starter() -> None:
+    try:
+        s = local.load_settings()
+        if s["map_tiles_starter"] and not tiles.status()["starter_done"]:
+            tiles.start_starter()
+    except Exception:  # noqa: BLE001 - shown on Settings > Maps when it runs
+        pass
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     background = wiki.Background(wiki_targets)
     background.start()
+    starter = threading.Timer(30, _tiles_starter)  # the starter map copies, once, after the app is up
+    starter.daemon = True
+    starter.start()
     yield
     background.close()
 
@@ -661,6 +674,39 @@ def map_range(indicator: str, start: int | None = None, end: int | None = None):
             out.setdefault(r["entity_id"], [None] * len(years))[at[int(r["period"][:4])]] = r["value"]
     last_e = max((int(r["period"][:4]) for r in data if r["status"] == "E"), default=None)
     return {"indicator": indicator, "years": years, "last_estimate_year": last_e, "rows": out}
+
+
+@api.get("/size-in-countries")
+def size_in_countries(indicator: str, entity: str = "world", step: int = Query(2, ge=1, le=20), what: Literal["change", "level"] = "change",
+                      unit: str = "NZL", start: int | None = None):
+    """A total (GDP, people, emissions...) told in countries: each step's change (or level) of the
+    entity, next to the country whose own level that year is closest, and how many of the unit country it is."""
+    if not rows("SELECT 1 FROM indicators WHERE indicator_id = ?", [indicator]):
+        raise HTTPException(404, f"no indicator {indicator}")
+    data = _series(indicator, None, None, start, None, None, "", "central", False, None)
+    names = {r["entity_id"]: r["short_name"] or r["name"] for r in rows("SELECT entity_id, name, short_name FROM entities WHERE type = 'country'")}
+    by: dict[str, dict[int, float]] = {}
+    for r in data:
+        if r["value"] is not None:
+            by.setdefault(r["entity_id"], {})[int(r["period"][:4])] = r["value"]
+    base = by.get(entity, {})
+    if not base:
+        raise HTTPException(404, f"no {indicator} figures for {entity}")
+    years = sorted(base)
+    out = []
+    y = years[0] + (step if what == "change" else 0)
+    while y <= years[-1]:
+        if y in base and (what == "level" or (y - step) in base):
+            v = base[y] - base[y - step] if what == "change" else base[y]
+            pool = [(c, vals[y]) for c, vals in by.items() if c in names and c != entity and y in vals and vals[y] > 0]
+            match = min(pool, key=lambda cv: abs(cv[1] - abs(v))) if pool and v else None
+            u = by.get(unit, {}).get(y)
+            out.append({"year": y, "from": y - step if what == "change" else None, "value": v,
+                        "match": {"id": match[0], "name": names[match[0]], "value": match[1]} if match else None,
+                        "in_unit": v / u if u else None})
+        y += step
+    return {"indicator": indicator, "entity": entity, "step": step, "what": what, "unit": unit,
+            "unit_name": names.get(unit, unit), "rows": out}
 
 
 @api.get("/popup")
@@ -1522,6 +1568,89 @@ def basemap_font(stack: str, part: str):
     if not re.fullmatch(r"\d+-\d+\.pbf", part) or p.parent.parent != basemap.root() / "fonts" or not p.is_file():
         raise HTTPException(404, "no such font range")
     return FileResponse(p, media_type="application/x-protobuf", headers={"Cache-Control": "max-age=604800"})
+
+
+@api.get("/space")
+def space_status():
+    """The Solar system page's downloads: what is kept, how old, and what a fetch is doing."""
+    st = space.status()
+    if st["due"] and st["job"].get("state") != "running":
+        st["job"] = space.start()  # first visit, or older than 90 days: fetch in the background
+    return st
+
+
+@api.post("/space/fetch")
+def space_fetch():
+    return space.start(force=True)
+
+
+@api.get("/space/{name}")
+def space_data(name: Literal["asteroids", "missions", "values"]):
+    d = space.data(name)
+    if d is None:
+        raise HTTPException(404, f"no {name} yet: they download when the Solar system page first opens")
+    return JSONResponse(d, headers={"Cache-Control": "max-age=3600"})
+
+
+@api.get("/tiles")
+def tiles_status():
+    """Relief, satellite and night light pictures: the saved areas, their size, and what a save is doing."""
+    return tiles.status()
+
+
+def _area(body: dict) -> dict:
+    area = dict(body)
+    if area.get("country"):
+        box = tiles.country_box(str(area["country"]))
+        if not box:
+            raise HTTPException(404, f"no shape for {area['country']}")
+        area["bbox"] = box
+        area.setdefault("name", str(area["country"]).upper())
+    if not area.get("bbox") or len(area["bbox"]) != 4:
+        raise HTTPException(422, "give a country or a box (west, south, east, north)")
+    area.setdefault("t", "-")
+    return area
+
+
+@api.post("/tiles/check")
+def tiles_check(body: dict = Body(...)):
+    """How many tiles an area holds and roughly how big it would be, before saving."""
+    try:
+        return tiles.check(_area(body))
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.post("/tiles/save")
+def tiles_save(body: dict = Body(...)):
+    """Save an area's pictures on this PC (in the background; GET /tiles shows how it is going)."""
+    try:
+        return tiles.save(_area(body))
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.post("/tiles/starter")
+def tiles_starter():
+    """Download the starter copies now (world relief, New Zealand relief and satellite, night lights)."""
+    return tiles.start_starter()
+
+
+@api.delete("/tiles/areas/{area_id}")
+def tiles_delete(area_id: str):
+    if not tiles.remove(area_id):
+        raise HTTPException(404, f"no saved area {area_id}")
+    return {"ok": True}
+
+
+@api.get("/tiles/{set_id}/{z}/{x}/{y}")
+def tile(set_id: str, z: int, x: int, y: int, t: str | None = None):
+    """One picture tile: the saved copy, or fetched online for this view (not saved)."""
+    got = tiles.tile(set_id, z, x, y, t)
+    if not got:
+        return Response(status_code=204)
+    data, media = got
+    return Response(data, media_type=media, headers={"Cache-Control": "max-age=86400"})
 
 
 @api.get("/layers")

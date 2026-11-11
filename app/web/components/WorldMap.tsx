@@ -12,6 +12,7 @@ import { arc, countryCentres, countryShapes } from "@/lib/geo";
 import { get } from "@/lib/api";
 import { LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
+import { addLook, removeLook } from "@/lib/maplook";
 import { useSettings } from "@/lib/settings";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
@@ -65,6 +66,7 @@ type Props = {
   onArea?: (key: string) => void; // a click on one of the areas
   // Routes as dated stops joined by straight lines (voyages), with a dot at each stop.
   paths?: MapPath[];
+  pictures?: boolean; // relief, satellite or night lights under the colours when chosen (Settings > Maps); off for small maps
 };
 
 export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number; over?: boolean; opacity?: number };
@@ -122,6 +124,7 @@ export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
   raster = null, boxes = [], outlines, marks, legend = [], hideScale = false, areas = null, onArea, paths,
+  pictures = true,
 }: Props) {
   const areaPick = useRef(onArea);
   areaPick.current = onArea;
@@ -151,7 +154,14 @@ export default function WorldMap({
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
   const pick = useRef(onPick);
   pick.current = onPick;
-  const { base_map: baseMap, map_centre: mapCentre } = useSettings();
+  const settings = useSettings();
+  const { base_map: baseMap, map_centre: mapCentre } = settings;
+  const look = {
+    map_look: pictures ? settings.map_look : "plain", relief_style: settings.relief_style, relief_shading: settings.relief_shading,
+    map_colours_over: settings.map_colours_over, night_year: settings.night_year, map_3d: pictures && settings.map_3d,
+    map_3d_exaggeration: settings.map_3d_exaggeration, map_tiles: settings.map_tiles,
+  } as const;
+  const lookKey = JSON.stringify(look);
   const hover = useRef(onHover);
   hover.current = onHover;
   const dbl = useRef(doubleClick);
@@ -400,6 +410,18 @@ export default function WorldMap({
     else onLoad.current.push(apply);
     return () => { gone = true; if (map.current === m && m.getLayer("fill")) removeDetail(m); };
   }, [baseMap]);
+
+  // Relief, satellite or night lights under the colours (Settings > Maps, or the Layers panel's Background).
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => {
+      try { addLook(m, look); } catch (e) { console.warn("map background skipped", e); }
+    };
+    if (m.getSource("countries")) apply();
+    else onLoad.current.push(apply);
+    return () => { if (map.current === m && m.getLayer("fill")) removeLook(m); };
+  }, [lookKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Picture tiles under the countries, and outlined boxes over them.
   const rasterList = raster ? (Array.isArray(raster) ? raster : [raster]) : [];
