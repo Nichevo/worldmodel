@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.9.0"
+SCHEMA_VERSION = "1.10.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -52,6 +52,8 @@ EVENT_KINDS = {
     "crisiswatch": "CrisisWatch monthly ratings",
     "holiday": "Public holidays",
     "law": "Laws and rules changed",
+    "transport": "Air, sea and rail accidents",
+    "infrastructure": "Cables, pipelines, canals and shipping cut or blocked",
     "user": "Your milestones",
 }
 # How exact an event's dates are: a year-only date is stored as 1 January (start) or 31 December (end).
@@ -257,6 +259,35 @@ TABLES: dict[str, Table] = {
             "Where each pest on nature.yaml's watch list is found (EPPO): status as EPPO words it, present when it "
             "is there (present or transient). state is a state or province, or empty for the whole country. "
             "Absent before 1.9.0."),
+        Table("geo_features", {
+            "layer_id": "VARCHAR", "feature_id": "VARCHAR", "name": "VARCHAR", "rank": "INTEGER", "props": "VARCHAR",
+            "countries": "VARCHAR", "west": "DOUBLE", "south": "DOUBLE", "east": "DOUBLE", "north": "DOUBLE",
+            "geojson": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("layer_id", "feature_id"),
+            "Lines and areas too big for one map layer, sent by the box in view: rivers (HydroRIVERS, rank = flow "
+            "order, 1 biggest), river_names (Natural Earth), basins (HydroBASINS, whole river basins; props has area, "
+            "shares by country, of_country, flow, transboundary), waterways, cables (TeleGeography), gas_pipelines, "
+            "oil_pipelines (Global Energy Monitor). countries is a comma list of entity ids; props is JSON. "
+            "Absent before 1.10.0."),
+        Table("port_traffic", {
+            "port_id": "VARCHAR", "entity_id": "VARCHAR", "year": "INTEGER", "month": "INTEGER", "calls": "DOUBLE",
+            "import_t": "DOUBLE", "export_t": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("port_id", "year", "month"),
+            "Ship calls and estimated tonnes unloaded and loaded at each port a month (IMF PortWatch, from 2019). "
+            "Absent before 1.10.0."),
+        Table("chokepoint_traffic", {
+            "chokepoint_id": "VARCHAR", "name": "VARCHAR", "day": "DATE", "transits": "DOUBLE", "tankers": "DOUBLE",
+            "container": "DOUBLE", "dry_bulk": "DOUBLE", "cargo": "DOUBLE", "capacity": "DOUBLE",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("chokepoint_id", "day"),
+            "Ships through each shipping chokepoint a day, by type, and their capacity in tonnes (IMF PortWatch, "
+            "from 2019). Absent before 1.10.0."),
+        Table("airport_traffic", {
+            "airport": "VARCHAR", "name": "VARCHAR", "entity_id": "VARCHAR", "year": "INTEGER", "passengers": "DOUBLE",
+            "freight_t": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("airport", "year"),
+            "Passengers and freight a year at each airport (Eurostat; files saved by hand for other countries). "
+            "airport is the ICAO code where known. Absent before 1.10.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

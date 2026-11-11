@@ -123,3 +123,15 @@
   intro: Two centuries of banking crises, defaults, currency crashes and runaway inflation, from Reinhart and Rogoff's crisis years. Crises come in waves (the 1830s, 1870s, 1890s, 1930s, 1980s and 2008) and often together, a banking crisis leading to a default or a currency crash. Each crisis is 1 in a year it was under way and 0 when not; the count adds up the kinds at once. The Financial crises page shows them as strips by country.
   map: crisis_kinds
   indicators: [crisis_kinds, crisis_banking, crisis_default_external, crisis_default_domestic, crisis_currency, crisis_inflation, rr_inflation, govt_debt_gdp]
+
+- id: tourism
+  name: Tourism
+  intro: How many visitors countries get and send abroad, what they spend, and how much of a country's earnings come from them. COVID-19 closed borders in 2020 and arrivals fell by around three quarters; most countries were back near 2019 levels by 2024. Small islands and a few European and Asian countries earn the most from tourism for their size. The Tourism page has New Zealand in full, World Heritage sites and the WEF index.
+  map: tourism_share_exports
+  indicators: [tourist_arrivals, tourism_receipts_usd, tourism_share_exports, tourist_departures, tourism_spending_abroad_usd, unt_arrivals, unt_nights, ttdi_score, heritage_sites]
+
+- id: transport
+  name: Transport and trade routes
+  intro: How goods and people move between countries, by sea, air, rail and river. About 80% of world trade by volume goes by sea, much of it through a handful of straits and canals, so a blocked canal or a war near a strait is felt everywhere. The Transport page shows ports, chokepoints, cables, pipelines and the accidents along the way.
+  map: liner_shipping_connectivity
+  indicators: [liner_shipping_connectivity, container_port_traffic, port_calls, seaborne_imports_t, seaborne_exports_t, air_passengers, air_freight_tkm, air_departures, rail_freight_tkm, rail_passenger_km, inland_waterway_freight, road_deaths_rate]

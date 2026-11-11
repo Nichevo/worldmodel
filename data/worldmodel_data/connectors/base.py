@@ -230,6 +230,16 @@ class Connector(ABC):
         log.info("%s: %s missing from this vintage; using the copy from %s", self.source_id, name, best.parent.name)
         return best
 
+    def last_vintage_dir(self, raw_dir: Path) -> Path | None:
+        """The raw folder of this source's newest other stored vintage, so a download can skip
+        what keeps_files will carry over from it (years already complete, details already read)."""
+        root = Path(raw_dir).parent.parent
+        if root.name != self.source_id:
+            return None
+        here = Path(raw_dir).resolve()
+        dirs = [p for p in root.glob("*/*") if p.is_dir() and p.resolve() != here and p.parent.name != "_incoming"]
+        return max(dirs, key=lambda p: (p.name, p.parent.name)) if dirs else None
+
     def known_codes(self, scheme: str) -> set[str]:
         return {c["code"] for c in catalogue.entity_codes() if c["scheme"] == scheme}
 
