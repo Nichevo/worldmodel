@@ -38,7 +38,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, land, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1651,6 +1651,95 @@ def tile(set_id: str, z: int, x: int, y: int, t: str | None = None):
         return Response(status_code=204)
     data, media = got
     return Response(data, media_type=media, headers={"Cache-Control": "max-age=86400"})
+
+
+# ----------------------------------------------------------------------------- land, cities and trees
+@api.get("/land")
+def land_overview(entity: str = "world"):
+    """Land use for the world or a country: FAOSTAT since 1961, HYDE back to 1700 (modelled
+    before 1961), tree cover and loss, and people."""
+    return land.overview(rows, entity)
+
+
+@api.get("/land/ranking")
+def land_ranking(indicator: str = "land_forest_ha", start: int = 1990, end: int | None = None, per: str = "change"):
+    """Countries by change in a land figure between two years."""
+    try:
+        return land.ranking(rows, indicator, start, end, per)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.get("/land/where")
+def land_where(year: int | None = None):
+    """Where the land goes: Earth's surface down to farmland for crops and for grazing."""
+    return land.where(rows, year)
+
+
+@api.get("/land/climate/{entity}")
+def land_climate(entity: str):
+    """Land beside temperature, fires and emissions for one country."""
+    return land.against_climate(rows, entity)
+
+
+@api.get("/land/card/{sector}")
+def land_card(sector: str, entities: str | None = None):
+    """A land-based sector's Land card: land against output, intensity, comparisons, NZ regions."""
+    got = land.card(rows, sector, entities.split(",") if entities else None)
+    if got is None:
+        raise HTTPException(404, f"no Land card for {sector}")
+    return got
+
+
+@api.get("/land/cities")
+def land_cities(sort: str = "people", country: str | None = None, limit: int = 100, search: str | None = None):
+    """GHSL urban centres ranked by people, built-up area, growth or density."""
+    return land.cities(rows, sort, country, min(limit, 2000), search)
+
+
+@api.get("/land/outlines")
+def land_outlines(ids: str):
+    """Outlines of urban centres with their figures (Compare cities)."""
+    return land.outlines(rows, [i for i in ids.split(",") if i][:12])
+
+
+@api.get("/land/city/{city_id}")
+def land_city(city_id: str):
+    """The GHSL urban centre a city sits in, with its figures, outline and land cover if worked out."""
+    got = land.centre_for_city(rows, city_id)
+    if got is None:
+        raise HTTPException(404, "no urban centre for this city")
+    return got
+
+
+@api.get("/land/cover")
+def land_cover():
+    """Cities whose land cover (trees, crops, built-up) has been worked out from the WorldCover pictures."""
+    return land.city_cover(rows)
+
+
+@api.post("/land/cover")
+def land_cover_start(body: dict = Body(...)):
+    """Work out land cover for urban centres (ids), in the background; or the biggest `top` not done yet."""
+    ids = [str(i) for i in body.get("ids") or []]
+    if body.get("top"):
+        ids += [r["id"] for r in land.cities(rows, "people", body.get("country"), int(body["top"]))["rows"]]
+    try:
+        return land.city_cover_start(rows, ids[:500])
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.get("/land/nz")
+def land_nz(level: int = 2, region: str = "NZL", y0: int | None = None, y1: int | None = None):
+    """New Zealand's land cover (LCDB) by class and survey year, the changes between two surveys, and regions."""
+    return land.nz(rows, level, region, y0, y1)
+
+
+@api.get("/land/trees")
+def land_trees(council: str | None = None):
+    """A council's street tree list: how many, the commonest species, planting by year."""
+    return land.street_trees(rows, council)
 
 
 @api.get("/layers")

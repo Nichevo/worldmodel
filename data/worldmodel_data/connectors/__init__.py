@@ -22,6 +22,7 @@ from worldmodel_data.connectors.statsnz import StatsNZ
 from worldmodel_data.connectors.laws import WBL, GunPolicy, NagerHolidays, RulesCurated, UNODCCrime, WorldPolicy, WorldPrisonBrief
 from worldmodel_data.connectors.layers import GEMFaults, GVPVolcanoes, PlatesBird, USGSEarthquakes
 from worldmodel_data.connectors.migration import UNHCR, UNIMS
+from worldmodel_data.connectors.land import CouncilTrees, GFWTreeCover, GHSLUrbanCentres, HYDELand, NZForestry, NZLCDB
 from worldmodel_data.connectors.nature import (PSMSL, UNSDG, WDPA, BerkeleyEarth, EPPOPests, GRIIS, IUCNRedList, KoppenBeck,
                                                 NatureCurated, NDGAIN, WAHISOutbreaks)
 from worldmodel_data.connectors.networks import GEMInfrastructure, HydroSHEDS, SubmarineCables, Waterways
@@ -57,6 +58,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards,
     KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated,
     PortWatch, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways, TAICInquiries, TransportCurated,
-    UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure)}
+    UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure,
+    HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

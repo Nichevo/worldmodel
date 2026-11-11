@@ -425,7 +425,26 @@ def wmd_sheet(table: list[list], stages: list[str], rows: Rows, found: set[str])
 
 FAO_BULK = "https://bulks-faostat.fao.org/production/"
 FAO_FILES = ("Production_Crops_Livestock_E_All_Data_(Normalized).zip", "Inputs_FertilizersNutrient_E_All_Data_(Normalized).zip",
-             "Forestry_E_All_Data_(Normalized).zip")
+             "Forestry_E_All_Data_(Normalized).zip", "Inputs_LandUse_E_All_Data_(Normalized).zip")
+
+# Land use (Inputs_LandUse, element "Area", 1000 ha): FAOSTAT item (lower case) -> (indicator id, name).
+FAO_LAND = {
+    "land area": ("land_area_ha", "Land area"),
+    "agricultural land": ("land_agri_ha", "Agricultural land"),
+    "cropland": ("land_cropland_ha", "Cropland"),
+    "arable land": ("land_arable_ha", "Arable land"),
+    "permanent crops": ("land_permanent_crops_ha", "Permanent crops"),
+    "permanent meadows and pastures": ("land_pasture_ha", "Permanent meadows and pastures"),
+    "forest land": ("land_forest_ha", "Forest land"),
+    "naturally regenerating forest": ("land_natural_forest_ha", "Naturally regenerating forest"),
+    "planted forest": ("land_planted_forest_ha", "Planted forest"),
+}
+# Shares of land area worked out from them, for the map.
+FAO_LAND_SHARES = {"land_forest_ha": "land_forest_pct", "land_agri_ha": "land_agri_pct", "land_cropland_ha": "land_cropland_pct",
+                   "land_pasture_ha": "land_pasture_pct"}
+# Live animals (element "Stocks"); dairy cows come from raw milk of cattle, element "Milk Animals".
+FAO_STOCKS = {"cattle": "livestock_cattle_head", "sheep": "livestock_sheep_head", "goats": "livestock_goats_head",
+              "swine / pigs": "livestock_pigs_head"}
 
 
 # Units kept: weight for crops and livestock, volume for forestry (logs, sawn timber). Counts (eggs as "1000 no") are left out.
@@ -434,8 +453,10 @@ FAO_UNITS = {"t": 1.0, "tonnes": 1.0, "1000 t": 1000.0, "1000 tonnes": 1000.0, "
 
 class FAOSTAT(Connector):
     source_id = "faostat"
-    # 3: production in tonnes only (eggs also come as counts); 4: forestry in cubic metres again (3 dropped it)
-    stage_version = 4
+    # 3: production in tonnes only (eggs also come as counts); 4: forestry in cubic metres again (3 dropped it);
+    # 5: land use, live animals, dairy cows, area harvested and nitrogen per hectare (version 4, PR 6)
+    stage_version = 5
+    fetch_version = 2  # 2: the land use file
     fetch_every_days = 90
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -452,7 +473,10 @@ class FAOSTAT(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         targets = {item: [st for st, _ in opts] for item, opts in production_targets("fao").items()}
         con.execute("CREATE TABLE fao_items (item VARCHAR, stage VARCHAR)")
-        con.executemany("INSERT INTO fao_items VALUES (?, ?)", [(i, st) for i, sts in targets.items() for st in sts])
+        con.executemany("INSERT INTO fao_items VALUES (?, ?)", [(i, st) for i, sts in targets.items() for st in sts]
+                        + [(i, f"land:{ind}") for i, (ind, _) in FAO_LAND.items()]
+                        + [(i, f"stock:{ind}") for i, ind in FAO_STOCKS.items()]
+                        + [("nutrient nitrogen n (total)", "fert:fert_n_per_ha")])
         tmp = Path(tempfile.mkdtemp(prefix="fao_"))
         try:
             csvs = sorted(raw_dir.glob("*.csv"))
@@ -466,33 +490,102 @@ class FAOSTAT(Connector):
                             csvs.append(t)
             if not csvs:
                 raise ConnectorError(f"faostat: no bulk CSV in {raw_dir}")
-            con.execute("CREATE TABLE fao (m49 VARCHAR, stage VARCHAR, y INTEGER, unit VARCHAR, v DOUBLE)")
+            con.execute("CREATE TABLE fao (m49 VARCHAR, stage VARCHAR, element VARCHAR, y INTEGER, unit VARCHAR, v DOUBLE)")
             for f in csvs:
                 cols = [d[0] for d in con.execute(f"DESCRIBE SELECT * FROM read_csv({sql_str(f.as_posix())}, header = true, all_varchar = true, encoding = 'latin-1')").fetchall()]
                 m49 = next((c for c in cols if key(c) in ("areacodem49", "m49code")), None)
                 if m49 is None or "Item" not in cols or "Element" not in cols:
                     continue
                 con.execute(f"""INSERT INTO fao
-                    SELECT replace("{m49}", '''', ''), fi.stage, TRY_CAST("Year" AS INTEGER), lower("Unit"), TRY_CAST("Value" AS DOUBLE)
+                    SELECT replace("{m49}", '''', ''), fi.stage, lower(trim(r."Element")), TRY_CAST("Year" AS INTEGER),
+                           lower("Unit"), TRY_CAST("Value" AS DOUBLE)
                     FROM read_csv({sql_str(f.as_posix())}, header = true, all_varchar = true, encoding = 'latin-1') r
                     JOIN fao_items fi ON lower(trim(r."Item")) = fi.item
-                    WHERE lower(trim(r."Element")) = 'production'""")
+                    WHERE lower(trim(r."Element")) IN ('production', 'area harvested', 'stocks', 'milk animals', 'area',
+                                                       'use per area of cropland')""")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         rows, found = Rows(), set()
-        for m, st, y, unit, v in con.execute("SELECT * FROM fao WHERE v IS NOT NULL AND y IS NOT NULL").fetchall():
+        land: dict[tuple[str, int], dict[str, float]] = defaultdict(dict)
+        for m, st, element, y, unit, v in con.execute("SELECT * FROM fao WHERE v IS NOT NULL AND y IS NOT NULL").fetchall():
             ent = entity_for("m49", m)
             if not is_country(ent):
                 continue
-            if unit not in FAO_UNITS:
+            kind, _, ind = st.partition(":")
+            if ind:  # land use, animals, fertiliser
+                if kind == "land" and element == "area" and unit in ("1000 ha", "ha"):
+                    val = v * (1000.0 if unit == "1000 ha" else 1.0)
+                    land[(ent, y)][ind] = val
+                elif kind == "stock" and element == "stocks" and unit in ("an", "head", "1000 an", "1000 head"):
+                    val = v * (1000.0 if unit.startswith("1000") else 1.0)
+                elif kind == "fert" and element == "use per area of cropland":
+                    val = v
+                else:
+                    continue
+                rows.add("iso3", ent, ind, y, val)
+                found.add(ind)
+                continue
+            if element == "milk animals":
+                if st == "milk":
+                    rows.add("iso3", ent, "livestock_dairy_cows", y, v * (1000.0 if unit.startswith("1000") else 1.0))
+                    found.add("livestock_dairy_cows")
+                continue
+            if element == "area harvested":
+                if unit == "ha":
+                    rows.add("iso3", ent, f"sa_{st}", y, v)
+                    found.add(f"sa_{st}")
+                continue
+            if element != "production" or unit not in FAO_UNITS:
                 continue  # eggs also come as numbers of eggs ("1000 no")
-            scale = FAO_UNITS[unit]
-            rows.add("iso3", ent, f"sp_{st}", y, v * scale)
+            rows.add("iso3", ent, f"sp_{st}", y, v * FAO_UNITS[unit])
             found.add(st)
+        for (ent, y), got in land.items():
+            area = got.get("land_area_ha")
+            for ind, share in FAO_LAND_SHARES.items():
+                if area and got.get(ind) is not None:
+                    rows.add("iso3", ent, share, y, got[ind] / area * 100)
+                    found.add(share)
         if not len(rows):
             raise ConnectorError("faostat: no production rows for the sector items")
-        self.listed_indicators = production_indicators(self.source_id, found, "FAOSTAT (FAO), production.")
+        self.listed_indicators = production_indicators(self.source_id, found, "FAOSTAT (FAO), production.") + \
+            fao_land_indicators(self.source_id, found)
         return rows.stage(con, self.source_id, vintage)
+
+
+def fao_land_indicators(source_id: str, found: set[str]) -> list[dict]:
+    """Land use, animals, area harvested and fertiliser per hectare, as FAOSTAT gives them."""
+    out = []
+    note = "FAOSTAT (FAO): land use, crops and livestock."
+    for ind, name in FAO_LAND.values():
+        if ind in found:
+            out.append(indicator(ind, f"{name} (FAOSTAT)", f"{name} in hectares, FAOSTAT land use (from 1961).", "ha", "land",
+                                 source_id, ind, decimals=0, bounds=(0, 2e9), aggregation={"method": "sum"}, notes=note,
+                                 default_on=ind in ("land_forest_ha", "land_agri_ha", "land_cropland_ha", "land_pasture_ha")))
+    for base, ind in FAO_LAND_SHARES.items():
+        if ind in found:
+            name = next(n for i, n in FAO_LAND.values() if i == base)
+            out.append(indicator(ind, f"{name}, share of land (FAOSTAT)", f"{name} as a share of land area (FAOSTAT).", "%",
+                                 "land", source_id, ind, decimals=1, bounds=(0, 100), notes=note, default_on=True,
+                                 aggregation={"method": "ratio", "numerator": base, "denominator": "land_area_ha",
+                                              "multiplier": 100}))
+    animals = {"livestock_cattle_head": "Cattle", "livestock_sheep_head": "Sheep", "livestock_goats_head": "Goats",
+               "livestock_pigs_head": "Pigs", "livestock_dairy_cows": "Dairy cows (cows milked)"}
+    for ind, name in animals.items():
+        if ind in found:
+            out.append(indicator(ind, f"{name} (FAOSTAT)", f"{name}: live animals counted in the year (FAOSTAT).", "head", "land",
+                                 source_id, ind, decimals=0, bounds=(0, 2e9), aggregation={"method": "sum"}, notes=note,
+                                 default_on=False))
+    for _, st in sec.stages():
+        if f"sa_{st['id']}" in found:
+            out.append(indicator(f"sa_{st['id']}", f"{st['name']}: area harvested", f"Hectares of {st['name'].lower()} "
+                                 "harvested in the year (FAOSTAT).", "ha", "land", source_id, f"sa_{st['id']}", decimals=0,
+                                 bounds=(0, 5e8), aggregation={"method": "sum"}, notes=note, default_on=False))
+    if "fert_n_per_ha" in found:
+        out.append(indicator("fert_n_per_ha", "Nitrogen fertiliser per hectare of cropland (FAOSTAT)",
+                             "Nitrogen (N) put on farmland, per hectare of cropland (FAOSTAT fertilisers by nutrient).",
+                             "kg/ha", "land", source_id, "fert_n_per_ha", decimals=1, bounds=(0, 5000), notes=note,
+                             default_on=False))
+    return out
 
 
 # ----------------------------------------------------------------------------- prices

@@ -4,6 +4,7 @@
 //              Tiles (classic colours, grey shading only, or shading over the satellite picture)
 //   satellite  Sentinel-2 cloudless by EOX
 //   night      night lights (NASA Black Marble 2016 or 2012, or last night's VIIRS picture)
+//   landcover  ESA WorldCover 2021 or 2020 at 10 m (trees, crops, built-up, water...), from Terrascope
 // Tiles come through the app's server, which serves the copies saved on this PC and fetches
 // the rest online ("Saved copies first"), or straight from the sites ("Always online").
 // With a picture on, the country colours turn see-through (Settings > Maps > colours over
@@ -13,31 +14,39 @@ import type * as maplibregl from "maplibre-gl";
 import type { ExpressionSpecification } from "maplibre-gl";
 import type { Settings } from "@/lib/api";
 
-export type Look = Pick<Settings, "map_look" | "relief_style" | "relief_shading" | "map_colours_over" | "night_year" | "map_3d" | "map_3d_exaggeration" | "map_tiles">;
+export type Look = Pick<Settings, "map_look" | "relief_style" | "relief_shading" | "map_colours_over" | "night_year" | "map_3d" | "map_3d_exaggeration" | "map_tiles"> & { land_cover_year?: string };
 
 const ONLINE: Record<string, string> = {
   relief: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
   satellite: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg",
   night: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{t}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",
+  landcover: "https://services.terrascope.be/wmts/v2?layer=WORLDCOVER_{t}_MAP&style=&tilematrixset=EPSG:3857&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image%2Fpng&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}",
 };
 export const ATTRIBUTION: Record<string, string> = {
   relief: "Heights: <a href=\"https://registry.opendata.aws/terrain-tiles/\">AWS Terrain Tiles</a> (SRTM, GMTED, ETOPO1)",
   satellite: "<a href=\"https://s2maps.eu\">Sentinel-2 cloudless 2020</a> by EOX (Copernicus Sentinel data 2020)",
   night: "Night lights: NASA Earth Observatory Black Marble, VIIRS (<a href=\"https://earthdata.nasa.gov/gibs\">NASA GIBS</a>)",
+  landcover: "Land cover: <a href=\"https://esa-worldcover.org\">ESA WorldCover</a> (CC BY 4.0), Terrascope",
 };
-const MAXZOOM: Record<string, number> = { relief: 15, satellite: 15, night: 8 };
+const MAXZOOM: Record<string, number> = { relief: 15, satellite: 15, night: 8, landcover: 15 };
+// WorldCover classes and their colours in the pictures (the legend under the map).
+export const LAND_COVER: [string, string][] = [["Tree cover", "#006400"], ["Shrubland", "#ffbb22"], ["Grassland", "#ffff4c"],
+  ["Cropland", "#f096ff"], ["Built-up", "#fa0000"], ["Bare or sparse", "#b4b4b4"], ["Snow and ice", "#f0f0f0"],
+  ["Water", "#0064c8"], ["Wetland", "#0096a0"], ["Mangroves", "#00cf75"], ["Moss and lichen", "#fae6a0"]];
 export const LOOK_PREFIX = "look-";
 
 const yesterday = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 
-export function tileUrl(set: "relief" | "satellite" | "night", look: Pick<Look, "map_tiles" | "night_year">): string {
+export function tileUrl(set: "relief" | "satellite" | "night" | "landcover", look: Pick<Look, "map_tiles" | "night_year" | "land_cover_year">): string {
+  const lcYear = look.land_cover_year === "2020" ? "2020" : "2021";
   if (look.map_tiles === "online") {
+    if (set === "landcover") return ONLINE.landcover.replace("{t}", lcYear);
     if (set !== "night") return ONLINE[set];
     const [layer, t] = look.night_year === "latest" ? ["VIIRS_SNPP_DayNightBand_ENCC", yesterday()] : ["VIIRS_Black_Marble", `${look.night_year}-01-01`];
     return ONLINE.night.replace("{layer}", layer).replace("{t}", t);
   }
   const origin = typeof location !== "undefined" ? location.origin : "";
-  return `${origin}/api/v1/tiles/${set}/{z}/{x}/{y}${set === "night" ? `?t=${look.night_year}` : ""}`;
+  return `${origin}/api/v1/tiles/${set}/{z}/{x}/{y}${set === "night" ? `?t=${look.night_year}` : set === "landcover" ? `?t=${lcYear}` : ""}`;
 }
 
 // Height colours: sea depths in blues, then lowland green through brown to snow.
@@ -82,7 +91,7 @@ export function addLook(m: maplibregl.Map, look: Look): string | null {
     return null;
   }
   const before = "fill";
-  const raster = (set: "satellite" | "night", id: string, opacity = 1) => {
+  const raster = (set: "satellite" | "night" | "landcover", id: string, opacity = 1) => {
     m.addSource(id, { type: "raster", tiles: [tileUrl(set, look)], tileSize: 256, maxzoom: MAXZOOM[set], attribution: ATTRIBUTION[set] });
     m.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": opacity } }, before);
   };
@@ -93,6 +102,10 @@ export function addLook(m: maplibregl.Map, look: Look): string | null {
     m.setPaintProperty("bg", "background-color", "#05070d");
     raster("night", `${LOOK_PREFIX}night`);
     attributions.push("Night lights: NASA Black Marble / VIIRS");
+  }
+  if (look.map_look === "landcover") {
+    raster("landcover", `${LOOK_PREFIX}landcover`);
+    attributions.push(`Land cover: ESA WorldCover ${look.land_cover_year === "2020" ? "2020" : "2021"}`);
   }
   if (look.map_look === "satellite" || (look.map_look === "relief" && look.relief_style === "satellite")) {
     raster("satellite", `${LOOK_PREFIX}satellite`);

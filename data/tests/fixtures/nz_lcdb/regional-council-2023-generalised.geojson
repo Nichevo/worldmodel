@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"REGC2023_V1_00": "02", "REGC2023_V1_00_NAME": "Auckland Region"}, "geometry": {"type": "Polygon", "coordinates": [[[174.0, -37.5], [175.5, -37.5], [175.5, -36.0], [174.0, -36.0], [174.0, -37.5]]]}}]}
