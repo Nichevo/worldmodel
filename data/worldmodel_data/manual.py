@@ -23,7 +23,7 @@ FALLBACK = {"world_policy", "rbnz", "mbie_energy", "us_census_voting", "idea_tur
             "celestrak_satcat", "nager_holidays", "wbl", "unodc_crime",
             "ookla_speedtest", "baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "iea_ev",
             "cow_religion", "cldr_languages", "glottolog",
-            "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp"}
+            "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp", "cckp_normals"}
 ABOUT = "_where to get it.txt"
 OLD = "old"
 _SKIP_SUFFIXES = (".tmp", ".crdownload", ".part", ".partial")

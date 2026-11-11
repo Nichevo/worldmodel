@@ -31,6 +31,7 @@ import ReadingCard from "@/components/ReadingCard";
 import ReligionCard from "@/components/ReligionCard";
 import LongViewCard from "@/components/long/LongViewCard";
 import ClimateCard from "@/components/ClimateCard";
+import WeatherCard from "@/components/WeatherCard";
 import NatureCard from "@/components/NatureCard";
 import PollutionCard from "@/components/PollutionCard";
 import TourismCard from "@/components/TourismCard";
@@ -147,6 +148,7 @@ export default function EntityPage() {
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
     { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
     { key: "climate", title: "Climate", section: "climate", on: !isGroup || e === "world", el: <ClimateCard entity={e} name={nm} /> },
+    { key: "weather", title: "Weather through the year", section: "climate", on: !isGroup, el: <WeatherCard entities={[e]} compact /> },
     { key: "climate_zones", title: "Climate zones", section: "climate", on: !isGroup, el: <ZonesCard entity={e} name={nm} /> },
     { key: "pollution", title: "Pollution", section: "climate", on: !isGroup || e === "world", el: <PollutionCard entity={e} name={nm} /> },
     { key: "nature", title: "Nature", section: "climate", on: !isGroup, el: <NatureCard entity={e} name={nm} /> },

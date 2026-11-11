@@ -1,6 +1,7 @@
 import type { EChartsOption, SeriesOption } from "echarts";
 import { cssVar, seriesColor } from "@/lib/colors";
 import { short } from "@/lib/sectors";
+import { get } from "@/lib/api";
 
 // Climate charts: warming stripes, lines with an optional zero line, fan charts for
 // projections, El Niño with its phases shaded, and stacked areas for emissions.
@@ -117,4 +118,66 @@ export function stormsOption(years: number[], basins: string[], counts: number[]
 export function zoneTiles(period: string, path: string, groups: boolean): string {
   const origin = typeof location !== "undefined" ? location.origin : "";
   return `${origin}/api/v1/climatezones/tiles/${period}/${path}/{z}/{x}/{y}.png${groups ? "?groups=true" : ""}`;
+}
+
+// ----------------------------------------------------------------------------- the year's weather (monthly normals)
+export type Normals = { entity_id: string; name: string; temp: (number | null)[]; high: (number | null)[]; low: (number | null)[];
+  rain: (number | null)[]; summary: Record<string, number> };
+export const normalsApi = (entities: string[]) =>
+  get<{ countries: Normals[]; period: string; source: string | null }>("/climate/normals", { entities: entities.join(",") });
+export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const NORMAL_SUMMARY: [string, string, string][] = [
+  ["clim_temp_year", "Average over the year", "°C"], ["clim_high_hottest", "Daytime high, hottest month", "°C"],
+  ["clim_low_coldest", "Night-time low, coldest month", "°C"], ["clim_temp_swing", "Warmest less coldest month", "°C"],
+  ["clim_rain_year", "Rainfall in a year", "mm"], ["clim_rain_wettest", "Wettest month", "mm"], ["clim_rain_driest", "Driest month", "mm"],
+];
+
+// One country: rainfall as bars (right axis), the average temperature as a line inside a band from the
+// night-time low to the daytime high. Several countries: one line (temperature) or one set of bars
+// (rainfall) each. `from` starts the year in another month (7: July to June, for the southern summer).
+export function normalsOption(cs: Normals[], show: "both" | "temp" | "rain", from = 1): EChartsOption {
+  const order = Array.from({ length: 12 }, (_, i) => (i + from - 1) % 12);
+  const pick = (a: (number | null)[]) => order.map((i) => a[i]);
+  const cats = order.map((i) => MONTHS[i]);
+  const one = cs.length === 1;
+  const temp = show !== "rain";
+  const rain = show !== "temp";
+  const series: SeriesOption[] = [];
+  const yAxes: EChartsOption["yAxis"] = [];
+  if (temp) yAxes.push({ ...yAxis("°C", (v: number) => `${v}`), scale: false });
+  if (rain) yAxes.push({ ...yAxis("mm", (v: number) => `${v}`), scale: false, splitLine: { show: !temp } });
+  const rainAxis = temp ? 1 : 0;
+  cs.forEach((c, k) => {
+    const col = seriesColor(k);
+    if (rain) series.push({ type: "bar", name: one ? "Rainfall" : `${c.name}: rainfall`, yAxisIndex: rainAxis, data: pick(c.rain),
+      itemStyle: { color: one ? "#4a90c8" : col, opacity: one ? 0.55 : 0.8 }, barMaxWidth: 26,
+      tooltip: { valueFormatter: (v) => (v == null ? "no data" : `${Math.round(Number(v))} mm`) } });
+    if (temp) {
+      if (one && c.low.some((v) => v !== null) && c.high.some((v) => v !== null)) {
+        // the band: an invisible line at the low, then the gap up to the high stacked on it
+        series.push({ type: "line", name: "Night-time low", data: pick(c.low), stack: "band", symbol: "none", lineStyle: { opacity: 0 },
+          areaStyle: { opacity: 0 }, tooltip: { valueFormatter: (v) => (v == null ? "no data" : `${Number(v).toFixed(1)} °C`) } });
+        series.push({ type: "line", name: "Daytime high", stack: "band", symbol: "none", lineStyle: { opacity: 0 },
+          data: order.map((i) => (c.high[i] !== null && c.low[i] !== null ? (c.high[i] as number) - (c.low[i] as number) : null)),
+          areaStyle: { color: "#e6550d", opacity: 0.18 },
+          tooltip: { valueFormatter: () => "" } });
+      }
+      series.push({ type: "line", name: one ? "Average temperature" : c.name, data: pick(c.temp), smooth: true, symbolSize: 5,
+        lineStyle: { width: 2.5, color: one ? "#d94801" : col }, itemStyle: { color: one ? "#d94801" : col },
+        tooltip: { valueFormatter: (v) => (v == null ? "no data" : `${Number(v).toFixed(1)} °C`) } });
+      if (one) {
+        series.push({ type: "line", name: "Daytime high ", data: pick(c.high), symbol: "none", lineStyle: { width: 1, type: "dashed", color: "#e6550d" }, itemStyle: { color: "#e6550d" },
+          tooltip: { valueFormatter: (v) => (v == null ? "no data" : `${Number(v).toFixed(1)} °C`) } });
+        series.push({ type: "line", name: "Night-time low ", data: pick(c.low), symbol: "none", lineStyle: { width: 1, type: "dashed", color: "#3182bd" }, itemStyle: { color: "#3182bd" },
+          tooltip: { valueFormatter: (v) => (v == null ? "no data" : `${Number(v).toFixed(1)} °C`) } });
+      }
+    }
+  });
+  return {
+    ...base(),
+    legend: { top: 0, textStyle: { color: cssVar("--ink-2") }, data: series.map((s) => String(s.name)).filter((n) => !(one && (n === "Night-time low" || n === "Daytime high"))) },
+    xAxis: { type: "category", data: cats, axisLabel: { color: cssVar("--muted") }, axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    yAxis: yAxes,
+    series,
+  };
 }
