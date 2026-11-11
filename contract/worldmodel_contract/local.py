@@ -210,6 +210,19 @@ SETTINGS: dict[str, object] = {
     "world_dataverse_purpose": "Personal, non-commercial research",
     "world_dataverse_datasets": "",  # words or DOIs picking datasets (comma-separated); blank = every dataset with a data file
     "flags_on": True,                # small flags beside country names (in pickers, headings, tables and cards)
+    # Looking after the sources (To do page, inbox, backups, scheduled refresh)
+    "inbox_downloads": True,         # also file recent downloads from your Downloads folder whose source is certain (copied, never moved)
+    "inbox_downloads_days": 14,      # how far back in Downloads to look
+    "inbox_downloads_folder": "",    # blank: your own Downloads folder
+    "sources_off": "",               # sources switched off on Data status: never fetched, never on the To do list
+    "schedule_on": False,            # Windows runs refresh.bat on its own
+    "schedule_often": "weekly",
+    "schedule_day": "sun",
+    "schedule_time": "03:00",
+    "backup_on_update": True,        # update.bat backs up your saved files, settings and keys first (once a day at most)
+    "backup_folder": "",             # blank: worldmodel-backups beside the worldmodel folder
+    "backup_keep": 10,               # backups kept; older ones the app made are removed
+    "backup_big_mb": 200,            # files bigger than this (big downloads the site can give again) are left out; 0 keeps all
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
@@ -218,14 +231,16 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
            "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
-           "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y")}
+           "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y"),
+           "schedule_often": ("weekly", "daily"), "schedule_day": ("mon", "tue", "wed", "thu", "fri", "sat", "sun"),
+           "schedule_time": tuple(f"{h:02d}:{m}" for h in range(24) for m in ("00", "30"))}
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app", "world_dataverse_name",
          "world_dataverse_email", "world_dataverse_institution", "world_dataverse_position", "world_dataverse_purpose",
-         "world_dataverse_datasets"}
+         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries"}  # comma-separated ids, order kept
+IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
 LETTERS = {"map_open_layers"}  # map layer letters, each once
 LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
@@ -246,7 +261,8 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
           "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),
           "news_every_hours": (1, 720),
-          "briefing_days": (1, 90), "news_watch_outlets": (1, 5), "crowd_move_points": (1, 50), "crowd_score_days": (0, 365)}
+          "briefing_days": (1, 90), "news_watch_outlets": (1, 5), "crowd_move_points": (1, 50), "crowd_score_days": (0, 365),
+          "inbox_downloads_days": (1, 365), "backup_keep": (1, 100), "backup_big_mb": (0, 100_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.

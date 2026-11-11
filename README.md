@@ -115,6 +115,23 @@ from their folder, and when a download is refused, the file in that source's fol
 used instead. Loading the same file again changes nothing. For sources that load one file
 at a time, older files move to the folder's `old` folder; nothing is deleted.
 
+You don't have to find the folder yourself: save any file in `var\inbox`, or just leave it
+in your Downloads folder, and each refresh (or `.\load.bat`) works out its source (from its
+name, a file like it loaded before, or the site it was downloaded from), files it and loads
+it. Downloads is only ever copied from. A file it can't place waits on the **To do** page
+(Data menu), which also lists every file that is due, sources failing, keys missing and
+forms to fill in. To get every due file in one go:
+
+```bat
+.\get.bat               :: opens each due download page in your browser, files and loads each file as it lands
+```
+
+Data status > **Every source** shows each source's state, when it last worked, when it is
+next due, its size and what reads it, with a button to refresh just that one and a switch
+to turn it off. Settings > **Looking after the data** sets up a weekly (or nightly) refresh
+as a Windows scheduled task and backups of your saved files, settings and keys
+(`update.bat` makes one first, once a day at most).
+
 ### Sources read from web pages
 
 A few sources have no file or API, so the app reads their web pages: World Prison Brief,
