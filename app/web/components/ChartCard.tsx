@@ -17,12 +17,12 @@ import PredictDialog from "@/components/PredictDialog";
 import { chartPredictions, forgetChartPredictions, type Prediction, predictionSeries } from "@/lib/predictions";
 
 type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; start?: number; end?: number; height?: number;
-  events?: EventRow[]; parties?: Term[]; forecast?: boolean };
+  events?: EventRow[]; parties?: Term[]; forecast?: boolean; hideEmpty?: boolean };
 
 // One indicator for one or more entities, with its source line underneath, and
 // dated events (Settings: Events on charts) as bands and lines, optionally coloured
 // by the party in government, and a button to save it as a picture.
-export default function ChartCard({ indicator, entities, kind = "line", start, end, height = 260, events = [], parties = [], forecast = false }: Props) {
+export default function ChartCard({ indicator, entities, kind = "line", start, end, height = 260, events = [], parties = [], forecast = false, hideEmpty = false }: Props) {
   const [allRows, setRows] = useState<SeriesRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ids = entities.map((e) => e.id).join(",");
@@ -106,6 +106,8 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   const agg = (rows ?? []).filter((r) => r.is_aggregate && r.status === "E");
   const lastAgg = agg[agg.length - 1];
 
+  // A country page leaves out a chart with nothing to show rather than an empty card.
+  if (hideEmpty && rows && rows.length === 0 && !error) return null;
   return (
     <div className="card">
       <div className="card-head">

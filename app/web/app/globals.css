@@ -459,7 +459,8 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
 }
 
 /* A card title with a small action on the right (Save picture). */
-.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 8px; }
+.card-head > .link, .card-head > button, .card-head > a { white-space: nowrap; }
 .card-head h3 { margin-bottom: 0; }
 .card-head h4 { margin: 8px 0 4px; }
 /* Top partner countries: name, a bar scaled to the largest, the number. */
@@ -516,7 +517,8 @@ body.map-focus .ws-grid { height: calc(100vh - 16px); }
 @media (max-width: 900px) { body.map-focus .ws-grid { height: auto; } }
 
 /* Buttons beside a card's title (Forecast, Save picture). */
-.card-actions { display: inline-flex; gap: 12px; align-items: center; }
+.card-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 10px; align-items: center; margin-left: auto; }
+.card-actions > * { white-space: nowrap; }
 .link.on { font-weight: 600; }
 button.chip { cursor: pointer; color: var(--ink); }
 button.chip.on { background: var(--accent, #2563eb); border-color: var(--accent, #2563eb); color: #fff; }
