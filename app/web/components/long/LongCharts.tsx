@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { EChartsOption } from "echarts";
+import type { ECharts, EChartsOption } from "echarts";
 import CardAsk from "@/components/CardAsk";
 import CountryChoice from "@/components/CountryChoice";
 import EChart from "@/components/EChart";
+import { useYearZoom } from "@/components/long/useYearZoom";
 import { api, type LongEvent, type LongLine, type LongOverview, type LongRegionPop } from "@/lib/api";
 import { useSavePicture } from "@/lib/cards";
 import { chrome } from "@/lib/charts";
@@ -44,7 +45,9 @@ function PeopleCard({ o, marks }: { o: LongOverview; marks: boolean }) {
   const [world, setWorld] = useState<LongLine | null>(null);
   const [regs, setRegs] = useState<LongRegionPop[]>([]);
   const [events, setEvents] = useState<LongEvent[]>([]);
-  const { onReady, save, ask } = useSavePicture();
+  const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom();
+  const onReady = useCallback((c: ECharts) => { keep(c); zoom.attach(c); }, [keep, zoom.attach]);
   useEffect(() => {
     api.longSeries(["world"], ["population"]).then((l) => setWorld(l[0] ?? null)).catch(() => setWorld(null));
     api.longRegions().then(setRegs).catch(() => setRegs([]));
@@ -77,7 +80,7 @@ function PeopleCard({ o, marks }: { o: LongOverview; marks: boolean }) {
         tooltip: { trigger: "item", formatter: (p: unknown) => eventLine((p as { data: { ev: LongEvent } }).data.ev) },
       });
     }
-    return {
+    return zoom.apply({
       ...base,
       legend: regions ? { top: 0, left: 0, type: "scroll", textStyle: { color: cssVar("--ink-2") } } : undefined,
       grid: { left: 8, right: 16, top: regions ? 56 : 30, bottom: 8, containLabel: true },
@@ -91,8 +94,8 @@ function PeopleCard({ o, marks }: { o: LongOverview; marks: boolean }) {
         return [`<b>${yl(lines[0].value[0])}</b>`, ...lines.map((p) => `<span style="color:${p.color}">●</span> ${p.seriesName}: <b>${compact(p.value[1])}</b>`)].join("<br/>");
       } },
       series,
-    } as EChartsOption;
-  }, [world, regs, regions, from, log, events]);
+    } as EChartsOption);
+  }, [world, regs, regions, from, log, events, zoom.apply]);
   if (!world) return null;
   const title = "People since 10,000 BC";
   const note = `${o.series.population.source}. ${o.series.population.note ?? ""}`;
@@ -104,7 +107,7 @@ function PeopleCard({ o, marks }: { o: LongOverview; marks: boolean }) {
         <button className="link small" onClick={() => save(title, note, ["owid_longrun"], "people-since-10000-bc")}>Save picture</button>
       </div>
       <div className="long-tools">
-        <label className="small">From <select value={from} onChange={(e) => setFrom(+e.target.value)}>
+        <label className="small">From <select value={from} onChange={(e) => { zoom.reset(); setFrom(+e.target.value); }}>
           {FROM_CHOICES.map((c) => <option key={c.year} value={c.year}>{c.label}</option>)}
         </select></label>
         <label className="small"><input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} /> Log scale</label>
@@ -114,6 +117,7 @@ function PeopleCard({ o, marks }: { o: LongOverview; marks: boolean }) {
         )}
       </div>
       <EChart option={option} height={360} label="World population since 10,000 BC" onReady={onReady} />
+      {zoom.tools}
       {events.length > 0 && (
         <div className="legend small" style={{ marginTop: 4 }}>
           {(Object.keys(GROUP_LABEL) as (keyof typeof GROUP_LABEL)[]).map((g) => (
@@ -137,7 +141,9 @@ function ReachBack({ o }: { o: LongOverview }) {
   const [from, setFrom] = useState(1);
   const [log, setLog] = useState(true);
   const [lines, setLines] = useState<LongLine[] | null>(null);
-  const { onReady, save, ask } = useSavePicture();
+  const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom();
+  const onReady = useCallback((c: ECharts) => { keep(c); zoom.attach(c); }, [keep, zoom.attach]);
   useEffect(() => {
     let live = true;
     api.longSeries(ents, [series], from).then((l) => live && setLines(l)).catch(() => live && setLines([]));
@@ -146,7 +152,7 @@ function ReachBack({ o }: { o: LongOverview }) {
   const meta = o.series[series];
   const option = useCallback((): EChartsOption => {
     const base = chrome();
-    return {
+    return zoom.apply({
       ...base,
       legend: { top: 0, left: 0, type: "scroll", textStyle: { color: cssVar("--ink-2") } },
       grid: { left: 8, right: 16, top: 56, bottom: 8, containLabel: true },
@@ -160,8 +166,8 @@ function ReachBack({ o }: { o: LongOverview }) {
       } },
       series: (lines ?? []).map((l, i) => ({ type: "line", name: l.entity_name, showSymbol: l.points.length < 30, symbolSize: 4, connectNulls: true,
         lineStyle: { width: 2, color: seriesColor(i) }, itemStyle: { color: seriesColor(i) }, data: l.points })),
-    } as EChartsOption;
-  }, [lines, log, meta]);
+    } as EChartsOption);
+  }, [lines, log, meta, zoom.apply]);
   const title = `${meta?.name ?? series} over the centuries`;
   const note = `${meta?.unit ?? ""}. ${meta?.source ?? ""}. ${meta?.note ?? ""}`;
   return (
@@ -175,7 +181,7 @@ function ReachBack({ o }: { o: LongOverview }) {
         <label className="small">Figure <select value={series} onChange={(e) => setSeries(e.target.value)}>
           {Object.entries(o.series).map(([id, s]) => <option key={id} value={id}>{s.name} (from {s.from})</option>)}
         </select></label>
-        <label className="small">From <select value={from} onChange={(e) => setFrom(+e.target.value)}>
+        <label className="small">From <select value={from} onChange={(e) => { zoom.reset(); setFrom(+e.target.value); }}>
           {FROM_CHOICES.map((c) => <option key={c.year} value={c.year}>{c.label}</option>)}
         </select></label>
         <label className="small"><input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} /> Log scale</label>
@@ -192,6 +198,7 @@ function ReachBack({ o }: { o: LongOverview }) {
       </div>
       {lines && !lines.length ? <p className="muted">None of these countries has this figure.</p>
         : <EChart option={option} height={320} label={`${meta?.name} for chosen countries`} onReady={onReady} />}
+      {zoom.tools}
       <p className="caption">{meta?.note ? `${meta.note} ` : ""}Unit: {meta?.unit}. Source: {meta?.source}. Points are the years the
         source gives; lines join them straight, so a gap of centuries shows as a long straight stretch. Today&apos;s countries&apos;
         borders throughout. For the same figures since 1960 from other sources, see the country pages and <Link href="/compare">Compare</Link>.</p>

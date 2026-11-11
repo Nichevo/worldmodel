@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { EChartsOption } from "echarts";
+import type { ECharts, EChartsOption } from "echarts";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
+import { useYearZoom } from "@/components/long/useYearZoom";
 import Flag from "@/components/Flag";
 import { api, type LongCycle, type LongFactors, type LongOverview, type LongThenNow } from "@/lib/api";
 import { useSavePicture } from "@/lib/cards";
@@ -18,7 +19,9 @@ export function ThenAndNow({ o }: { o: LongOverview }) {
   const [aligned, setAligned] = useState(true);
   const [peak100, setPeak100] = useState(false);
   const [d, setD] = useState<LongThenNow | null>(null);
-  const { onReady, save, ask } = useSavePicture();
+  const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom();
+  const onReady = useCallback((c: ECharts) => { keep(c); zoom.attach(c); }, [keep, zoom.attach]);
   useEffect(() => {
     let live = true;
     api.longThenNow(measure).then((x) => live && setD(x)).catch(() => live && setD(null));
@@ -27,7 +30,7 @@ export function ThenAndNow({ o }: { o: LongOverview }) {
   const option = useCallback((): EChartsOption => {
     const base = chrome();
     const lines = (d?.lines ?? []).filter((l) => l.peak);
-    return {
+    return zoom.apply({
       ...base,
       legend: { top: 0, left: 0, type: "scroll", textStyle: { color: cssVar("--ink-2") } },
       grid: { left: 8, right: 16, top: 56, bottom: 8, containLabel: true },
@@ -48,8 +51,8 @@ export function ThenAndNow({ o }: { o: LongOverview }) {
           data: l.points.map(([y, v]) => [aligned ? y - py : y, v === null ? null : peak100 ? (100 * v) / pv : v, y]),
         };
       }),
-    } as EChartsOption;
-  }, [d, aligned, peak100]);
+    } as EChartsOption, aligned ? (v) => (v === 0 ? "peak" : `${v > 0 ? "+" : ""}${v} yrs`) : undefined);
+  }, [d, aligned, peak100, zoom.apply]);
   const title = `Then and now: ${d?.name ?? ""}`;
   const note = d?.note ?? "";
   const empty = d && !d.lines.some((l) => l.peak);
@@ -67,11 +70,12 @@ export function ThenAndNow({ o }: { o: LongOverview }) {
               {m === "output" ? "Share of world output" : m === "people" ? "Share of world people" : "Share of world land"}</button>
           ))}
         </div>
-        <label className="small"><input type="checkbox" checked={aligned} onChange={(e) => setAligned(e.target.checked)} /> Line up at each peak</label>
+        <label className="small"><input type="checkbox" checked={aligned} onChange={(e) => { zoom.reset(); setAligned(e.target.checked); }} /> Line up at each peak</label>
         <label className="small"><input type="checkbox" checked={peak100} onChange={(e) => setPeak100(e.target.checked)} /> Peak = 100</label>
       </div>
       {empty ? <p className="muted">Nothing loaded for this measure yet (it needs {measure === "land" ? "the borders" : "the long-run figures"}; run .\refresh.bat).</p>
         : <EChart option={option} height={360} label="Each power's share of the world over time" onReady={onReady} />}
+      {zoom.tools}
       <p className="caption">{d?.note} Output is GDP (Maddison GDP per person times population) as a share of the world&apos;s;
         before 1820 the figures are rough estimates for a few years only. Lining powers up at their peak shows how fast they rose
         and fell; it does not predict when anyone declines. Hover a line for the year.</p>
@@ -84,7 +88,9 @@ export function Factors({ o }: { o: LongOverview }) {
   const [d, setD] = useState<LongFactors | null>(null);
   const [pick, setPick] = useState("index");
   const [start, setStart] = useState(1500);
-  const { onReady, save, ask } = useSavePicture();
+  const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom();
+  const onReady = useCallback((c: ECharts) => { keep(c); zoom.attach(c); }, [keep, zoom.attach]);
   useEffect(() => {
     let live = true;
     api.longFactors(start, 10).then((x) => live && setD(x)).catch(() => live && setD(null));
@@ -93,7 +99,7 @@ export function Factors({ o }: { o: LongOverview }) {
   const lines = useMemo(() => (pick === "index" ? d?.index : d?.factors.find((f) => f.id === pick)?.lines) ?? [], [d, pick]);
   const option = useCallback((): EChartsOption => {
     const base = chrome();
-    return {
+    return zoom.apply({
       ...base,
       legend: { top: 0, left: 0, type: "scroll", textStyle: { color: cssVar("--ink-2") } },
       grid: { left: 8, right: 16, top: 56, bottom: 8, containLabel: true },
@@ -102,8 +108,8 @@ export function Factors({ o }: { o: LongOverview }) {
       tooltip: { ...(base.tooltip as object), valueFormatter: (v: unknown) => `${Number(v).toFixed(1)}%` },
       series: lines.map((l, i) => ({ type: "line", name: l.name, showSymbol: false, lineStyle: { width: 2, color: seriesColor(i) },
         itemStyle: { color: seriesColor(i) }, data: l.points.map(([y, v]) => [y, 100 * v]) })),
-    } as EChartsOption;
-  }, [lines]);
+    } as EChartsOption);
+  }, [lines, zoom.apply]);
   const f = d?.factors.find((x) => x.id === pick);
   const title = `The eight factors: ${pick === "index" ? "the index" : f?.name}`;
   const note = d?.note ?? "";
@@ -125,6 +131,7 @@ export function Factors({ o }: { o: LongOverview }) {
       </div>
       {!lines.length ? <p className="muted">{d && !d.years.length ? "No long-run figures loaded yet (run .\\refresh.bat)." : pick === "competitiveness" ? f?.how : "Working it out…"}</p>
         : <EChart option={option} height={340} label="Each country's share of the group on the chosen factor" onReady={onReady} />}
+      {zoom.tools}
       <p className="caption">{d?.note} Each factor is a country&apos;s share of the total among {d?.countries.length ?? 10} countries
         (the Netherlands, Britain, the US, China, Spain, France, Germany, Japan, Russia and India), so the lines add up to 100%.
         {pick === "index" ? " The index averages the factors a country has figures for that year (at least three)."

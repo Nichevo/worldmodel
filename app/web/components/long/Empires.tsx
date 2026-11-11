@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ECharts, EChartsOption } from "echarts";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
+import { useYearZoom } from "@/components/long/useYearZoom";
 import { api, type LongOverview, type LongPower, type LongRuled, type LongSize } from "@/lib/api";
 import { useSavePicture } from "@/lib/cards";
 import { chrome } from "@/lib/charts";
@@ -26,6 +27,7 @@ export function AgeOfEmpires({ o }: { o: LongOverview }) {
   const [share, setShare] = useState(false);
   const [sizes, setSizes] = useState<LongSize[] | null>(null);
   const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom();
   const ids = useMemo(() => {
     const ps = o.powers.filter((p) => p.has_borders);
     if (group === "china") return o.dynasties.filter((d) => ps.some((p) => p.id === d));
@@ -42,7 +44,7 @@ export function AgeOfEmpires({ o }: { o: LongOverview }) {
   const option = useCallback((): EChartsOption => {
     const base = chrome();
     const v = (x: number | null) => (x === null ? null : share ? (100 * x) / WORLD_LAND : x / 1e6);
-    return {
+    return zoom.apply({
       ...base,
       legend: { top: 0, left: 0, type: "scroll", textStyle: { color: cssVar("--ink-2") } },
       grid: { left: 8, right: 16, top: 56, bottom: 8, containLabel: true },
@@ -64,12 +66,13 @@ export function AgeOfEmpires({ o }: { o: LongOverview }) {
         emphasis: { focus: "series" },
         data: s.points.map(([y, a]) => [y, v(a)]),
       })),
-    } as EChartsOption;
-  }, [sizes, share, byId]);
+    } as EChartsOption);
+  }, [sizes, share, byId, zoom.apply]);
   const onReady = useCallback((c: ECharts) => {
     keep(c);
+    zoom.attach(c);
     c.on("click", (p) => { if (p.seriesId) router.push(`/long/empire/${p.seriesId}`); });
-  }, [keep, router]);
+  }, [keep, router, zoom.attach]);
   if (!o.counts.polities) return <NoBorders />;
   const title = `Age of empires: land ruled (${GROUPS.find((g) => g.id === group)?.label})`;
   const note = "Land ruled year by year from Seshat's Cliopatria borders (3400 BC to 2024). Thin before 500 BC.";
@@ -91,6 +94,7 @@ export function AgeOfEmpires({ o }: { o: LongOverview }) {
       </div>
       {group === "mine" && <PowerPicker o={o} value={mine} onChange={setMine} />}
       <EChart option={option} height={380} label="Land ruled by each power over time" onReady={onReady} />
+      {zoom.tools}
       <PowerList powers={ids.map((i) => byId.get(i)).filter((p): p is LongPower => !!p)} />
       <p className="caption">Each line follows the power&apos;s land year by year from Seshat&apos;s Cliopatria borders, so growth in
         jumps and sudden collapse show as they happened. Where an empire has a composite outline (its colonies and protectorates

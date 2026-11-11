@@ -96,7 +96,7 @@ const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
 
 export const DEFAULT: Workspace = {
   layout: "1",
-  panels: [panel("p0")],
+  panels: [panel("p0", { indicator: NO_INDICATOR })], // opens as a plain map; pick an indicator or layers from there
   selection: [],
   maximised: null,
   split: [0.5, 0.5],
