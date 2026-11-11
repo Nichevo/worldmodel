@@ -34,6 +34,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/pollution", label: "Pollution", hint: "Air, water, the ocean, and pollution that crosses borders" },
     { href: "/transport", label: "Transport", hint: "Ports, chokepoints, airports, rivers, cables, pipelines and accidents" },
     { href: "/tourism", label: "Tourism", hint: "Visitors, what they spend, World Heritage sites" },
+    { href: "/land", label: "Land", hint: "Land use since 1700, city outlines, trees, New Zealand land cover" },
     { href: "/cities", label: "Cities" },
     { href: "/laws", label: "Laws" },
     { href: "/zones", label: "Beyond borders" },

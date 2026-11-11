@@ -17,6 +17,17 @@ CITY_INDICATORS: dict[str, tuple[str, str, int, str, str]] = {
         "Population (urban agglomeration)", "persons", 0,
         "People living in the city and its built-up surroundings (the urban agglomeration), UN estimates every five "
         "years from 1950 and projections to 2035 (World Urbanization Prospects 2018).", "un_wup"),
+    "ghsl_population": (
+        "People in the urban centre (GHSL)", "persons", 0,
+        "People living in the urban centre: the contiguous built-up area of 1,500 people per km² or more around the "
+        "city, as the European Commission's Global Human Settlement Layer draws it (1975 to 2025, 2030 projected).",
+        "ghsl_ucdb"),
+    "ghsl_built_km2": (
+        "Built-up area (GHSL)", "km²", 1,
+        "Land covered by buildings in the urban centre, from satellite pictures (GHSL), 1975 to 2025.", "ghsl_ucdb"),
+    "ghsl_density": (
+        "People per km² built up (GHSL)", "people/km²", 0,
+        "People in the urban centre for each km² of built-up land (GHSL): how tightly the city is packed.", "ghsl_ucdb"),
     "wn_city_cost_index": (
         "Cost of living index (WhereNext)", "index", 0,
         "WhereNext's cost of living index for the city, anchored on World Bank price levels (higher is dearer).",

@@ -315,6 +315,28 @@ export default function SettingsPage() {
           on={s.live_ships} set={(v) => save({ live_ships: v })} />
       </section>
 
+      <section className="card" id="land">
+        <h2>Land, cities and trees</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The Land page, the land cards on sector and city pages and the map&apos;s city outline, street tree and New Zealand land change layers.
+          Farm and forest land from FAOSTAT comes with the sectors refresh whatever these say. Switching off keeps what is stored.
+        </p>
+        <Toggle label="Land use back to 1700 (HYDE)" hint="Two small chart files from Our World in Data every six months. Off: the land use charts start in 1961 (FAOSTAT)."
+          on={s.land_history_fetch} set={(v) => save({ land_history_fetch: v })} />
+        <Toggle label="City outlines (GHSL urban centres)" hint="One download of about 60 MB a year. Off: no city outlines layer, no city size comparison and no built-up area on city pages."
+          on={s.land_cities_fetch} set={(v) => save({ land_cities_fetch: v })} />
+        <Toggle label="Tree cover and street trees" hint="Global Forest Watch's country file once a year, and Auckland Council's tree list (pages of 2,000, a second apart, twice a year). Off: no tree cover loss charts and no street trees layer."
+          on={s.land_trees_fetch} set={(v) => save({ land_trees_fetch: v })} />
+        <Toggle label="New Zealand land cover and forestry files" hint="Reads the LCDB and MPI forestry files you save in var\manual\nz_lcdb and var\manual\nz_forestry (see Data status). Off: those files are not read again."
+          on={s.land_nz_fetch} set={(v) => save({ land_nz_fetch: v })} />
+        <Toggle label="Work out land cover inside cities" hint="When you ask on the Land page or a city page, reads the WorldCover pictures inside the city's outline (a few MB each, in the background) and keeps the result. Off: no tree, built and green shares for cities."
+          on={s.land_city_cover} set={(v) => save({ land_city_cover: v })} />
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Land cover picture of{" "}
+          <select value={s.land_cover_year} onChange={(e) => save({ land_cover_year: e.target.value as Settings["land_cover_year"] })} aria-label="Land cover year">
+            <option value="2021">2021</option><option value="2020">2020</option>
+          </select> <span className="muted">ESA WorldCover at 10 m; the map&apos;s Land cover look and city shares use it.</span></label>
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."
@@ -734,14 +756,14 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
           ))}
         </div>
       </Field>
-      <Toggle label="Starter copies" hint={`Downloaded once in the background after the app starts: world relief to zoom 6, New Zealand's relief and satellite closer in, the whole world's satellite at overview zoom and 2016 night lights (about ${st?.starter_size ?? "1 GB"}). Off: nothing is downloaded until you save an area below.`}
+      <Toggle label="Starter copies" hint={`Downloaded once in the background after the app starts: world relief to zoom 6, New Zealand's relief and satellite closer in, the whole world's satellite at overview zoom, 2016 night lights and land cover (the world at overview zoom, New Zealand closer in) (about ${st?.starter_size ?? "1 GB"}). Off: nothing is downloaded until you save an area below.`}
         on={s.map_tiles_starter} set={(v) => save({ map_tiles_starter: v })} />
       {st && !st.starter_done && <p className="small"><button onClick={() => post("starter").then(refresh)} disabled={st.job.state === "running"}>Download the starter copies now</button></p>}
 
       <h3 style={{ marginBottom: 4 }}>Save an area</h3>
       <div className="chips-row" style={{ gap: 10, alignItems: "end" }}>
         <label className="small">Picture <select value={area.set} onChange={(e) => setArea({ ...area, set: e.target.value, maxzoom: Math.min(area.maxzoom, e.target.value === "night" ? 8 : 14) })}>
-          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option></select></label>
+          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option></select></label>
         {area.set === "night" && <label className="small">Year <select value={area.t === "-" ? "2016" : area.t} onChange={(e) => setArea({ ...area, t: e.target.value })}>
           <option value="2016">2016</option><option value="2012">2012</option></select></label>}
         <label className="small">Country (ISO code) <input value={area.country} size={5} onChange={(e) => setArea({ ...area, country: e.target.value.toUpperCase().slice(0, 3) })} /></label>

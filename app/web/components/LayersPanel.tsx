@@ -9,6 +9,7 @@ import { zoneTiles } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
+import { LAND_COVER } from "@/lib/maplook";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn } from "@/lib/longYear";
@@ -181,11 +182,12 @@ const BASE_MAPS: { id: "plain" | "online" | "local"; label: string; gives: strin
   { id: "online", label: "Street detail (online)", gives: "Needs the internet; OpenFreeMap tiles." },
   { id: "local", label: "Street detail (this PC)", gives: "Only as far as the map files you made (Settings > Map)." },
 ];
-const LOOKS: { id: "plain" | "relief" | "satellite" | "night"; label: string; gives: string }[] = [
+const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; label: string; gives: string }[] = [
   { id: "plain", label: "Plain", gives: "Just the country colours." },
   { id: "relief", label: "Shaded relief", gives: "Mountains, valleys and sea depths, shaded as if lit from the north-west." },
   { id: "satellite", label: "Satellite", gives: "A cloud-free picture of the whole Earth (Sentinel-2, 2020)." },
   { id: "night", label: "Night lights", gives: "Lights seen from space at night: where people, money and power are." },
+  { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
@@ -351,6 +353,16 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
                 <option value="2016">2016 (yearly picture)</option><option value="2012">2012 (yearly picture)</option><option value="latest">Last night (clouds and moonlight show)</option>
               </select>
             </label>
+          </div>
+        )}
+        {s.map_look === "landcover" && (
+          <div className="lp-look-opts">
+            <label className="small">Year{" "}
+              <select value={s.land_cover_year} onChange={(e) => saveSettings({ land_cover_year: e.target.value as typeof s.land_cover_year }).catch(() => undefined)}>
+                <option value="2021">2021</option><option value="2020">2020</option>
+              </select>
+            </label>
+            <div className="legend small">{LAND_COVER.map(([n, c]) => <span key={n} className="legend-item"><i style={{ background: c }} />{n}</span>)}</div>
           </div>
         )}
         {s.map_look !== "plain" && (

@@ -2079,3 +2079,117 @@
     by_hand: true
     get: https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/download-data/
     what: "Fill in the short download form for the Global Gas Infrastructure Tracker, the Global Oil Infrastructure Tracker and the LNG terminals list, and save the Excel files as they come (pipelines have a WKT route column)."
+
+- id: hyde_land
+  name: HYDE 3.3 land use since 1700 (cropland and grazing land by country)
+  short_name: HYDE land use
+  publisher: Utrecht University and PBL Netherlands (Klein Goldewijk et al.), via Our World in Data
+  url: https://landuse.sites.uu.nl/hyde-project/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: New releases every few years; read once a year
+  attribution: "Klein Goldewijk et al., HYDE 3.3 (Utrecht University / PBL), via Our World in Data, CC BY 4.0."
+  status: active
+  default_rank: 6
+  standing: 4
+  definition: exploratory
+  manual:
+    by_hand: false
+    get: https://ourworldindata.org/grapher/cropland-area
+    what: "If the download fails: on the Our World in Data charts cropland-area and grazing-land, Download > Full data (CSV), saved as cropland-area.csv and grazing-land.csv. HYDE's own country tables (cropland_c.txt, grazing_c.txt, pasture_c.txt, rangeland_c.txt from the HYDE 3.3 baseline/txt folder) also load."
+
+- id: ghsl_ucdb
+  name: GHSL Urban Centre Database (people and built-up area of about 11,000 cities, 1975-2030)
+  short_name: GHSL urban centres
+  publisher: European Commission, Joint Research Centre (Global Human Settlement Layer)
+  url: https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php
+  licence: CC BY 4.0
+  licence_url: https://human-settlement.emergency.copernicus.eu/licence.php
+  commercial_use: true
+  cadence: New releases every few years; read once a year (a zip of about 300 MB, outlines and figures kept, about 30 MB)
+  attribution: "European Commission, JRC, GHSL Urban Centre Database R2024A, CC BY 4.0."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php
+    what: "If the download fails: download the GHS-UCDB R2024A zip (GeoPackage) and save it as it comes. The older R2019A zip (with its CSV table) also loads."
+
+- id: gfw_treecover
+  name: Global Forest Watch tree cover and tree cover loss by country
+  short_name: Global Forest Watch
+  publisher: World Resources Institute, Global Forest Watch (Hansen, University of Maryland)
+  url: https://www.globalforestwatch.org/dashboards/global/
+  licence: CC BY 4.0
+  licence_url: https://www.globalforestwatch.org/terms/
+  commercial_use: true
+  cadence: Yearly (new loss year each spring); read twice a year
+  attribution: "Hansen/UMD/Google/USGS/NASA, via Global Forest Watch, CC BY 4.0."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://www.globalforestwatch.org/dashboards/global/
+    what: "If the download fails: on the global dashboard, Download data (the download arrow at the top), then save the country statistics spreadsheet (global_country_stats.xlsx, or its zip) as it comes."
+
+- id: council_trees
+  name: Council street and park tree lists (Auckland first)
+  short_name: Council tree lists
+  publisher: Auckland Council (open data); other councils' lists saved by hand
+  url: https://data-aucklandcouncil.opendata.arcgis.com/
+  licence: Council open data, CC BY 4.0 (Auckland Council)
+  licence_url: https://data-aucklandcouncil.opendata.arcgis.com/
+  commercial_use: true
+  cadence: Read twice a year, 2,000 trees a request, a second apart
+  attribution: "Auckland Council open data, CC BY 4.0."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://data-aucklandcouncil.opendata.arcgis.com/search?q=trees
+    what: "If the download fails: download the council's tree list as CSV or GeoJSON and save it with a name starting with the council (auckland_trees.csv). Columns read: species or botanical name, common name, planted year or date, height, and latitude/longitude or NZTM easting/northing."
+
+- id: nz_lcdb
+  name: New Zealand Land Cover Database (LCDB)
+  short_name: NZ LCDB
+  publisher: Manaaki Whenua – Landcare Research (LRIS portal)
+  url: https://lris.scinfo.org.nz/layer/104400-lcdb-v50-land-cover-database-version-50-mainland-new-zealand/
+  licence: CC BY 4.0
+  licence_url: https://lris.scinfo.org.nz/license/landcare-data-use-licence-v1/
+  commercial_use: true
+  cadence: A new version every few years (surveys 1996, 2001, 2008, 2012, 2018 and newer); load it when one comes out
+  attribution: "Manaaki Whenua – Landcare Research, Land Cover Database, CC BY 4.0."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    get: https://lris.scinfo.org.nz/layer/104400-lcdb-v50-land-cover-database-version-50-mainland-new-zealand/
+    what: "Sign in to LRIS (free), export the latest LCDB layer as a GeoPackage or shapefile (NZTM) and save the zip as it comes. For totals by region, also save Stats NZ's Regional Council boundaries (clipped, generalised) from datafinder.stats.govt.nz as a GeoPackage or GeoJSON with 'regional' in its file name, in the same folder."
+
+- id: nz_forestry
+  name: New Zealand forestry and farm-to-forest tables
+  short_name: NZ forestry (MPI)
+  publisher: Ministry for Primary Industries (Te Uru Rākau)
+  url: https://www.mpi.govt.nz/forestry/forest-industry-and-workforce/forestry-wood-processing-data/
+  licence: NZ Crown copyright, CC BY 4.0
+  licence_url: https://www.mpi.govt.nz/legal/copyright/
+  commercial_use: true
+  cadence: Yearly; load new files when you want
+  attribution: "Ministry for Primary Industries, CC BY 4.0."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    get: https://www.mpi.govt.nz/forestry/forest-industry-and-workforce/forestry-wood-processing-data/
+    what: "Save any of: the National Exotic Forest Description tables (net stocked plantation area, harvest, new planting and replanting by year), Emissions Trading Scheme forest registrations by year, and MPI's farm-to-forest (whole farms sold for forestry) table, as Excel or CSV. A table needs a Year column (or a year per column) and headings such as 'New planting (ha)'."

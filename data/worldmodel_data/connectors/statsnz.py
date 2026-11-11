@@ -322,7 +322,7 @@ class StatsNZ(Connector):
     pack = "nz"
     needs_env = ("STATSNZ_API_KEY",)
     fetch_every_days = 30
-    fetch_version = 2  # 2: asks for the regions and totals only (whole census tables ran to gigabytes); tables named in statsnz.yaml
+    fetch_version = 3  # 2: asks for the regions and totals only (whole census tables ran to gigabytes); tables named in statsnz.yaml; 3: farm tables (version 4, PR 6)
     stage_version = 2  # 2: year columns such as CEN23_YEAR_001; bare area codes named from the structure; read a row at a time
 
     def default_release(self, fetched_at: datetime) -> str:
