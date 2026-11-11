@@ -3267,6 +3267,78 @@ def indicator_ranking(indicator_id: str, year: int | None = None):
     return {"indicator": indicator_id, "year": y, "rows": ranked, "world": world}
 
 
+# ----------------------------------------------------------------------------- electricity mix map
+ELEC_MIX = {"coal": ["coal_electricity"], "gas": ["gas_electricity"], "oil": ["oil_electricity"],
+            "nuclear": ["nuclear_electricity"], "hydro": ["hydro_electricity"], "wind": ["wind_electricity"],
+            "solar": ["solar_electricity"], "bio": ["biofuel_electricity"], "other": ["other_renewable_exc_biofuel_electricity"]}
+
+
+@api.get("/energy/electricity-mix")
+def electricity_mix(back: int = Query(10, ge=1, le=40, description="Years before the latest to compare with")):
+    """Each country's electricity generation by source in its latest year and `back` years before, as
+    shares (%), with the total in TWh; also the world and each continent (countries added up). For the
+    electricity map on the Energy topic page."""
+    ids = [i for v in ELEC_MIX.values() for i in v]
+    got = rows("""SELECT s.entity_id, s.indicator_id, year(s.period_start) AS y, s.value FROM series s
+        JOIN entities e ON e.entity_id = s.entity_id
+        WHERE s.indicator_id IN (SELECT unnest(?)) AND s.breakdown = '' AND s.variant = 'central' AND s.status = 'E'
+          AND s.value IS NOT NULL AND e.type IN ('country', 'world')
+        QUALIFY row_number() OVER (PARTITION BY s.entity_id, s.indicator_id, s.period_start ORDER BY s.source_id) = 1""", [ids])
+    kind = {i: k for k, v in ELEC_MIX.items() for i in v}
+    by: dict[str, dict[int, dict[str, float]]] = {}
+    for r in got:
+        d = by.setdefault(r["entity_id"], {}).setdefault(r["y"], {})
+        d[kind[r["indicator_id"]]] = d.get(kind[r["indicator_id"]], 0.0) + max(0.0, float(r["value"]))
+    cont = {r["member_id"]: (r["group_id"], r["name"]) for r in rows("""SELECT m.member_id, m.group_id, g.short_name AS name
+        FROM memberships m JOIN entities g ON g.entity_id = m.group_id WHERE g.type = 'continent' AND m.valid_to IS NULL""")}
+    names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities WHERE type IN ('country', 'world', 'continent')")}
+    # a group's figures: its countries added up, in years when nearly all of its generation has reported
+    groups: dict[str, dict[int, dict[str, float]]] = {}
+    for e, years in by.items():
+        if e in cont:
+            for y, d in years.items():
+                g = groups.setdefault(cont[e][0], {}).setdefault(y, {})
+                for k, v in d.items():
+                    g[k] = g.get(k, 0.0) + v
+        if e != "world" and "world" not in by:
+            for y, d in years.items():
+                g = groups.setdefault("world", {}).setdefault(y, {})
+                for k, v in d.items():
+                    g[k] = g.get(k, 0.0) + v
+
+    def one(e: str, years: dict[int, dict[str, float]], level: str) -> dict | None:
+        full = {y: d for y, d in years.items() if sum(d.values()) > 0 and len(d) >= 5}
+        if not full:
+            return None
+        if level != "country":  # a group's newest year is the newest most of its countries have reported
+            tot = {y: sum(d.values()) for y, d in full.items()}
+            best = max(tot.values())
+            full = {y: d for y, d in full.items() if tot[y] >= 0.9 * best} or full
+        y = max(full)
+        d = full[y]
+        t = sum(d.values())
+        b = full.get(y - back) or years.get(y - back)
+        tb = sum(b.values()) if b else 0
+        share = {k: round(100 * d.get(k, 0) / t, 1) for k in ELEC_MIX}
+        return {"id": e, "name": names.get(e, e), "level": level, "year": y, "twh": round(t, 1),
+                "share": share, "before_year": y - back if tb else None,
+                "before": {k: round(100 * b.get(k, 0) / tb, 1) for k in ELEC_MIX} if tb else None,
+                "top": max(share, key=lambda k: share[k])}
+
+    out = []
+    for e, years in by.items():
+        if e == "world":
+            continue
+        if (x := one(e, years, "country")):
+            out.append(x)
+    for g, years in groups.items():
+        if g != "world" and (x := one(g, years, "continent")):
+            out.append(x)
+    w = one("world", by.get("world") or groups.get("world", {}), "world")
+    return {"world": w, "rows": out, "kinds": list(ELEC_MIX), "back": back,
+            "source": "Energy Institute and Ember, via Our World in Data"}
+
+
 # ----------------------------------------------------------------------------- cities
 def _has_cities() -> bool:
     return bool(rows("SELECT 1 FROM information_schema.tables WHERE table_name = 'cities' AND table_schema = 'main'"))
