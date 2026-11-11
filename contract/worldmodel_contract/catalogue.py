@@ -218,6 +218,14 @@ def history() -> dict:
     return _yaml("history.yaml")
 
 
+@lru_cache
+def nature() -> dict:
+    """Pollution and nature set-up (nature.yaml): the pest watch list, hand-checked events
+    (animal disease, pest incursions, smoke across borders), climate pledges, species
+    comebacks and restoration projects."""
+    return _yaml("nature.yaml")
+
+
 def history_powers() -> dict[str, dict]:
     """Every power and dynasty by id, the dynasties-only ones too (group china)."""
     h = history()

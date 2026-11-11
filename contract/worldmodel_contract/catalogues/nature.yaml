@@ -1,0 +1,185 @@
+# Pollution and nature: hand-checked lists for the Pollution page, the Climate page's
+# Nature tab and the country cards. Dates are to the month where the month is well known,
+# otherwise the year. Each item has a link to read more.
+checked_until: 2026
+
+# Pests and plant diseases whose spread is followed through EPPO (needs EPPO_API_KEY).
+# code is the EPPO code.
+pests:
+  - {code: HALYHA, name: Brown marmorated stink bug, kind: insect, note: "Eats fruit and crops; New Zealand turns away ships carrying it each season."}
+  - {code: DACUTR, name: Queensland fruit fly, kind: insect, note: "Lays eggs in fruit; finds in Auckland have stopped fruit moving out of zones."}
+  - {code: CERTCA, name: Mediterranean fruit fly, kind: insect, note: "One of the world's worst fruit pests."}
+  - {code: XYLEFA, name: Xylella fastidiosa, kind: bacterium, note: "Kills olive trees, grapes and citrus; has killed millions of olive trees in southern Italy."}
+  - {code: LAPHFR, name: Fall armyworm, kind: insect, note: "Caterpillar that eats maize and other crops; spread from the Americas across Africa and Asia from 2016."}
+  - {code: LYCMDE, name: Spotted lanternfly, kind: insect, note: "Feeds on grapes and trees; spreading in the eastern United States."}
+  - {code: TROGGA, name: Khapra beetle, kind: insect, note: "Eats stored grain; one of the pests borders work hardest to keep out."}
+  - {code: PUCCPS, name: Myrtle rust, kind: fungus, note: "Attacks pōhutukawa, rātā, mānuka and eucalypts."}
+  - {code: PSDMAK, name: Psa (kiwifruit vine disease), kind: bacterium, note: "Hit New Zealand's kiwifruit industry from 2010."}
+  - {code: AGRLPL, name: Emerald ash borer, kind: insect, note: "Has killed hundreds of millions of ash trees in North America."}
+  - {code: ANOLGL, name: Asian longhorned beetle, kind: insect, note: "Bores into and kills maples and other broadleaf trees."}
+  - {code: BURSXY, name: Pine wood nematode, kind: nematode, note: "Kills pines; a threat to plantation forests."}
+
+# Dated events (kind animal_disease, pest or pollution), shown on charts and the Events
+# page like other events. countries: entity ids; start and end: YYYY or YYYY-MM.
+events:
+  # --- animal disease
+  - {kind: animal_disease, subkind: foot_and_mouth, title: Foot-and-mouth disease outbreak in Britain, start: 2001-02, end: 2001-09, countries: [GBR],
+     detail: "More than 6 million cattle, sheep and pigs killed to stop it; the countryside closed for months.", url: "https://en.wikipedia.org/wiki/2001_United_Kingdom_foot-and-mouth_outbreak"}
+  - {kind: animal_disease, subkind: foot_and_mouth, title: Foot-and-mouth disease escapes from Pirbright laboratory, start: 2007-08, end: 2007-09, countries: [GBR],
+     url: "https://en.wikipedia.org/wiki/2007_United_Kingdom_foot-and-mouth_outbreak"}
+  - {kind: animal_disease, subkind: bse, title: Mad cow disease (BSE) linked to people; beef exports banned, start: 1996-03, countries: [GBR],
+     url: "https://en.wikipedia.org/wiki/BSE_controversy"}
+  - {kind: animal_disease, subkind: bird_flu, title: H5N1 bird flu spreads through poultry in Asia, start: 2003-12, end: 2004, countries: [VNM, THA, CHN, IDN],
+     url: "https://en.wikipedia.org/wiki/Influenza_A_virus_subtype_H5N1"}
+  - {kind: animal_disease, subkind: bird_flu, title: Worst bird flu outbreak in US poultry, start: 2022-02, countries: [USA],
+     url: "https://en.wikipedia.org/wiki/2020%E2%80%932023_H5N1_outbreak"}
+  - {kind: animal_disease, subkind: bird_flu, title: H5N1 bird flu found in US dairy cattle, start: 2024-03, countries: [USA],
+     url: "https://en.wikipedia.org/wiki/2024_United_States_H5N1_outbreak"}
+  - {kind: animal_disease, subkind: swine_fever, title: African swine fever reaches China, start: 2018-08, end: 2019, countries: [CHN],
+     detail: "China's pig herd fell by around a third or more; pork prices doubled.", url: "https://en.wikipedia.org/wiki/2018%E2%80%932020_African_swine_fever_outbreak"}
+  - {kind: animal_disease, subkind: swine_fever, title: African swine fever reaches Vietnam, start: 2019-02, countries: [VNM],
+     url: "https://en.wikipedia.org/wiki/2018%E2%80%932020_African_swine_fever_outbreak"}
+  - {kind: animal_disease, subkind: m_bovis, title: Mycoplasma bovis found in New Zealand cattle, start: 2017-07, countries: [NZL],
+     detail: "The government chose in 2018 to try to wipe it out; about 180,000 cattle were killed.", url: "https://www.mpi.govt.nz/biosecurity/mycoplasma-bovis/"}
+  - {kind: animal_disease, subkind: equine_flu, title: Equine influenza outbreak in Australia, start: 2007-08, end: 2008, countries: [AUS],
+     url: "https://en.wikipedia.org/wiki/2007_Australian_equine_influenza_outbreak"}
+  - {kind: animal_disease, subkind: foot_and_mouth, title: Foot-and-mouth disease outbreak in Japan (Miyazaki), start: 2010-04, end: 2010-07, countries: [JPN],
+     url: "https://en.wikipedia.org/wiki/2010_Japan_foot-and-mouth_outbreak"}
+  - {kind: animal_disease, subkind: foot_and_mouth, title: Foot-and-mouth disease outbreak in South Korea, start: 2010-11, end: 2011-04, countries: [KOR],
+     url: "https://en.wikipedia.org/wiki/2010%E2%80%932011_South_Korea_foot-and-mouth_outbreak"}
+  - {kind: animal_disease, subkind: foot_and_mouth, title: Foot-and-mouth and lumpy skin disease reach Indonesia, start: 2022-05, countries: [IDN],
+     detail: "Watched closely by Australia and New Zealand: Bali is a short flight away.", url: "https://en.wikipedia.org/wiki/2022_Indonesia_foot-and-mouth_disease_outbreak"}
+
+  # --- pests, weeds and plant disease (New Zealand biosecurity first)
+  - {kind: pest, subkind: plant_disease, title: Psa kiwifruit vine disease found in New Zealand, start: 2010-11, countries: [NZL], place: Te Puke,
+     url: "https://en.wikipedia.org/wiki/Pseudomonas_syringae_pv._actinidiae"}
+  - {kind: pest, subkind: plant_disease, title: Myrtle rust reaches mainland New Zealand, start: 2017-05, countries: [NZL], place: Kerikeri,
+     url: "https://www.mpi.govt.nz/biosecurity/exotic-pests-and-diseases-in-new-zealand/active-surveillance-programmes/myrtle-rust/"}
+  - {kind: pest, subkind: plant_disease, title: Myrtle rust found in Australia, start: 2010-04, countries: [AUS], place: New South Wales,
+     url: "https://en.wikipedia.org/wiki/Austropuccinia_psidii"}
+  - {kind: pest, subkind: fruit_fly, title: Queensland fruit fly found in Auckland (Grey Lynn), start: 2015-02, countries: [NZL], place: Auckland,
+     url: "https://www.mpi.govt.nz/biosecurity/exotic-pests-and-diseases-in-new-zealand/fruit-flies/"}
+  - {kind: pest, subkind: fruit_fly, title: Queensland fruit flies found in Auckland (Ōtara and Devonport), start: 2019-02, countries: [NZL], place: Auckland,
+     url: "https://www.mpi.govt.nz/biosecurity/exotic-pests-and-diseases-in-new-zealand/fruit-flies/"}
+  - {kind: pest, subkind: plant_disease, title: Kauri dieback identified in the Waitākere Ranges, start: 2008, countries: [NZL],
+     url: "https://www.kauriprotection.co.nz/"}
+  - {kind: pest, subkind: insect, title: Varroa bee mite found in New Zealand, start: 2000-04, countries: [NZL], place: Auckland,
+     url: "https://en.wikipedia.org/wiki/Varroa_destructor"}
+  - {kind: pest, subkind: insect, title: Varroa bee mite found in Australia, start: 2022-06, countries: [AUS], place: Newcastle,
+     url: "https://en.wikipedia.org/wiki/Varroa_destructor"}
+  - {kind: pest, subkind: weed, title: Didymo ("rock snot") found in Southland rivers, start: 2004-10, countries: [NZL],
+     url: "https://en.wikipedia.org/wiki/Didymosphenia_geminata"}
+  - {kind: pest, subkind: insect, title: Brown marmorated stink bug — ships turned away from New Zealand, start: 2018-02, countries: [NZL],
+     url: "https://www.mpi.govt.nz/biosecurity/exotic-pests-and-diseases-in-new-zealand/brown-marmorated-stink-bug/"}
+  - {kind: pest, subkind: insect, title: Fall armyworm found in New Zealand, start: 2022, countries: [NZL],
+     url: "https://www.mpi.govt.nz/biosecurity/exotic-pests-and-diseases-in-new-zealand/fall-armyworm/"}
+  - {kind: pest, subkind: insect, title: Fall armyworm reaches Australia, start: 2020-01, countries: [AUS], place: Torres Strait,
+     url: "https://en.wikipedia.org/wiki/Fall_armyworm"}
+  - {kind: pest, subkind: insect, title: Painted apple moth found in Auckland, start: 1999, end: 2006, countries: [NZL],
+     detail: "Wiped out after years of aerial spraying over West Auckland.", url: "https://en.wikipedia.org/wiki/Painted_apple_moth"}
+  - {kind: pest, subkind: insect, title: Red imported fire ants found in Brisbane, start: 2001-02, countries: [AUS],
+     url: "https://en.wikipedia.org/wiki/Red_imported_fire_ant"}
+  - {kind: pest, subkind: plant_disease, title: Xylella starts killing olive trees in Apulia, start: 2013-10, countries: [ITA],
+     url: "https://en.wikipedia.org/wiki/Xylella_fastidiosa"}
+  - {kind: pest, subkind: insect, title: Emerald ash borer found in Michigan, start: 2002, countries: [USA],
+     url: "https://en.wikipedia.org/wiki/Emerald_ash_borer"}
+  - {kind: pest, subkind: insect, title: Spotted lanternfly found in Pennsylvania, start: 2014, countries: [USA],
+     url: "https://en.wikipedia.org/wiki/Spotted_lanternfly"}
+  - {kind: pest, subkind: locust, title: Desert locust upsurge in East Africa, start: 2019-12, end: 2020, countries: [KEN, ETH, SOM],
+     detail: "The worst in Kenya for 70 years.", url: "https://en.wikipedia.org/wiki/2019%E2%80%932021_locust_infestation"}
+  - {kind: pest, subkind: plant_disease, title: Pine wood nematode found in Portugal, start: 1999, countries: [PRT],
+     url: "https://en.wikipedia.org/wiki/Bursaphelenchus_xylophilus"}
+
+  # --- pollution, much of it across borders
+  - {kind: pollution, subkind: smoke, title: South-east Asian haze from Indonesian fires, start: 1997-07, end: 1997-10, countries: [IDN, MYS, SGP, BRN],
+     url: "https://en.wikipedia.org/wiki/1997_Southeast_Asian_haze"}
+  - {kind: pollution, subkind: smoke, title: South-east Asian haze (Singapore's worst air on record), start: 2013-06, countries: [IDN, SGP, MYS],
+     url: "https://en.wikipedia.org/wiki/2013_Southeast_Asian_haze"}
+  - {kind: pollution, subkind: smoke, title: South-east Asian haze from Indonesian fires, start: 2015-07, end: 2015-10, countries: [IDN, MYS, SGP, THA],
+     url: "https://en.wikipedia.org/wiki/2015_Southeast_Asian_haze"}
+  - {kind: pollution, subkind: smoke, title: South-east Asian haze from Indonesian fires, start: 2019-08, end: 2019-09, countries: [IDN, MYS, SGP],
+     url: "https://en.wikipedia.org/wiki/2019_Southeast_Asian_haze"}
+  - {kind: pollution, subkind: smoke, title: Australian bushfire smoke turns New Zealand skies orange, start: 2019-12, end: 2020-01, countries: [AUS, NZL],
+     detail: "Smoke crossed the Tasman and browned glaciers in the Southern Alps.", url: "https://en.wikipedia.org/wiki/2019%E2%80%9320_Australian_bushfire_season"}
+  - {kind: pollution, subkind: smoke, title: Canadian wildfire smoke over New York and the US east, start: 2023-06, countries: [CAN, USA],
+     url: "https://en.wikipedia.org/wiki/2023_Canadian_wildfires"}
+  - {kind: pollution, subkind: dust, title: Huge Saharan dust plume crosses the Atlantic, start: 2020-06, countries: [USA, CUB],
+     url: "https://en.wikipedia.org/wiki/Saharan_air_layer"}
+  - {kind: pollution, subkind: radiation, title: Chernobyl fallout across Europe, start: 1986-04, countries: [UKR, BLR, SWE],
+     detail: "Radiation was first detected abroad at a Swedish nuclear plant.", url: "https://en.wikipedia.org/wiki/Chernobyl_disaster"}
+  - {kind: pollution, subkind: chemical, title: Sandoz chemical spill turns the Rhine red, start: 1986-11, countries: [CHE, DEU, FRA, NLD],
+     url: "https://en.wikipedia.org/wiki/Sandoz_chemical_spill"}
+  - {kind: pollution, subkind: chemical, title: Baia Mare cyanide spill flows into the Danube, start: 2000-01, countries: [ROU, HUN, SRB],
+     url: "https://en.wikipedia.org/wiki/2000_Baia_Mare_cyanide_spill"}
+  - {kind: pollution, subkind: air, title: Great Smog of London, start: 1952-12, countries: [GBR],
+     detail: "About 4,000 deaths in the following days (later estimates are higher); led to the Clean Air Act 1956.", url: "https://en.wikipedia.org/wiki/Great_Smog_of_London"}
+  - {kind: pollution, subkind: chemical, title: Bhopal gas leak, start: 1984-12, countries: [IND],
+     url: "https://en.wikipedia.org/wiki/Bhopal_disaster"}
+  - {kind: pollution, subkind: air, title: Beijing's "airpocalypse" smog, start: 2013-01, countries: [CHN],
+     detail: "Led to China's 2013 air pollution action plan.", url: "https://en.wikipedia.org/wiki/2013_Eastern_China_smog"}
+  - {kind: pollution, subkind: air, title: Delhi's great smog, start: 2016-11, countries: [IND],
+     url: "https://en.wikipedia.org/wiki/2016_Delhi_smog"}
+  - {kind: pollution, subkind: oil, title: Exxon Valdez oil spill, start: 1989-03, countries: [USA],
+     url: "https://en.wikipedia.org/wiki/Exxon_Valdez_oil_spill"}
+  - {kind: pollution, subkind: oil, title: Prestige oil spill off Galicia, start: 2002-11, countries: [ESP],
+     url: "https://en.wikipedia.org/wiki/Prestige_oil_spill"}
+  - {kind: pollution, subkind: oil, title: Deepwater Horizon oil spill, start: 2010-04, end: 2010-07, countries: [USA],
+     url: "https://en.wikipedia.org/wiki/Deepwater_Horizon_oil_spill"}
+  - {kind: pollution, subkind: oil, title: Rena runs aground and spills oil off Tauranga, start: 2011-10, countries: [NZL],
+     url: "https://en.wikipedia.org/wiki/MV_Rena_oil_spill"}
+
+# Climate pledges (each country's NDC under the Paris Agreement, economy-wide targets):
+# cut (%) below emissions in base_year by year. The charts mark the point worked out from
+# the base year's emissions in the app's series, so it is a guide: pledges count some
+# things differently (forests, net or gross).
+pledges:
+  NZL:
+    - {year: 2030, base_year: 2005, cut: 50, note: "Net emissions 50% below gross 2005 emissions (2021 NDC)."}
+    - {year: 2035, base_year: 2005, cut: 51, cut_high: 55, note: "51-55% below 2005 (2025 NDC)."}
+  AUS:
+    - {year: 2030, base_year: 2005, cut: 43, note: "43% below 2005 (2022 NDC)."}
+    - {year: 2035, base_year: 2005, cut: 62, cut_high: 70, note: "62-70% below 2005 (2025 NDC)."}
+  USA:
+    - {year: 2030, base_year: 2005, cut: 50, cut_high: 52, note: "50-52% below 2005 (2021 NDC). The US left the Paris Agreement again in January 2026."}
+    - {year: 2035, base_year: 2005, cut: 61, cut_high: 66, note: "61-66% below 2005 (December 2024 NDC), before the US left the Paris Agreement."}
+  GBR:
+    - {year: 2030, base_year: 1990, cut: 68, note: "At least 68% below 1990 (2020 NDC)."}
+    - {year: 2035, base_year: 1990, cut: 81, note: "81% below 1990 (2025 NDC)."}
+  eu:
+    - {year: 2030, base_year: 1990, cut: 55, note: "At least 55% below 1990, net (2020 NDC)."}
+  JPN:
+    - {year: 2030, base_year: 2013, cut: 46, note: "46% below the 2013 fiscal year (2021 NDC)."}
+    - {year: 2035, base_year: 2013, cut: 60, note: "60% below 2013 (2025 NDC)."}
+  CAN:
+    - {year: 2030, base_year: 2005, cut: 40, cut_high: 45, note: "40-45% below 2005 (2021 NDC)."}
+    - {year: 2035, base_year: 2005, cut: 45, cut_high: 50, note: "45-50% below 2005 (2025 NDC)."}
+  KOR:
+    - {year: 2030, base_year: 2018, cut: 40, note: "40% below 2018 (2021 NDC)."}
+
+# Species coming back, for the Nature tab's Recovering view.
+comebacks:
+  - {name: Kākāpō, countries: [NZL], from: "51 birds in 1995", to: "more than 240 by the 2020s", how: "Every bird moved to predator-free islands and cared for one by one.", url: "https://www.doc.govt.nz/kakapo"}
+  - {name: Black robin, countries: [NZL], from: "5 birds in 1980, one breeding female (Old Blue)", to: "about 300", how: "Eggs moved to foster parents so pairs laid again.", url: "https://en.wikipedia.org/wiki/Chatham_robin"}
+  - {name: Takahē, countries: [NZL], from: "thought extinct until 1948", to: "about 500 by 2023", how: "Breeding, islands and sanctuaries, then back into the wild.", url: "https://www.doc.govt.nz/takahe"}
+  - {name: Humpback whale, countries: [], from: "a few thousand after whaling", to: "tens of thousands; Least Concern since 2008", how: "The end of commercial whaling (1986).", url: "https://en.wikipedia.org/wiki/Humpback_whale"}
+  - {name: Bald eagle, countries: [USA], from: "about 400 nesting pairs in 1963", to: "off the US endangered list in 2007", how: "DDT banned (1972) and nests protected.", url: "https://en.wikipedia.org/wiki/Bald_eagle"}
+  - {name: Iberian lynx, countries: [ESP, PRT], from: "fewer than 100 in 2002", to: "more than 2,000 by 2024; no longer Endangered", how: "Breeding, release and rabbits brought back.", url: "https://en.wikipedia.org/wiki/Iberian_lynx"}
+  - {name: Giant panda, countries: [CHN], from: "Endangered", to: "Vulnerable since 2016", how: "Reserves and forest replanting.", url: "https://en.wikipedia.org/wiki/Giant_panda"}
+  - {name: Mountain gorilla, countries: [RWA, UGA, COD], from: "about 250 in 1981", to: "more than 1,000; Endangered rather than Critically Endangered since 2018", how: "Ranger patrols and gorilla tourism.", url: "https://en.wikipedia.org/wiki/Mountain_gorilla"}
+  - {name: Arabian oryx, countries: [OMN, SAU, ARE, JOR], from: "extinct in the wild in 1972", to: "Vulnerable since 2011", how: "Bred in zoos and released from 1982.", url: "https://en.wikipedia.org/wiki/Arabian_oryx"}
+  - {name: California condor, countries: [USA], from: "27 birds in 1987, all taken into captivity", to: "more than 500", how: "Breeding and release.", url: "https://en.wikipedia.org/wiki/California_condor"}
+  - {name: Saiga antelope, countries: [KAZ], from: "mass die-off in 2015", to: "close to 2 million; Near Threatened since 2023", how: "Anti-poaching work in Kazakhstan.", url: "https://en.wikipedia.org/wiki/Saiga_antelope"}
+  - {name: Tiger in India, countries: [IND], from: "2,967 in 2018", to: "3,682 in 2022", how: "Tiger reserves (Project Tiger, 1973).", url: "https://en.wikipedia.org/wiki/Project_Tiger"}
+
+# Restoration that changed a landscape.
+restoration:
+  - {name: Predator Free 2050, countries: [NZL], start: 2016, what: "Aims to rid New Zealand of rats, stoats and possums by 2050.", url: "https://predatorfreenz.org/"}
+  - {name: Zealandia ecosanctuary, countries: [NZL], start: 1999, what: "A predator-proof fence round a Wellington valley; birds now spread into the city.", url: "https://www.visitzealandia.com/"}
+  - {name: Tiritiri Matangi Island, countries: [NZL], start: 1984, what: "Farmland replanted by volunteers into an open sanctuary for rare birds.", url: "https://en.wikipedia.org/wiki/Tiritiri_Matangi_Island"}
+  - {name: Loess Plateau, countries: [CHN], start: 1994, what: "Terraces and replanting on a huge eroded plateau, with the World Bank.", url: "https://en.wikipedia.org/wiki/Loess_Plateau"}
+  - {name: Great Green Wall, countries: [SEN, MLI, NER, ETH], start: 2007, what: "A belt of restored land across the Sahel, led by the African Union; far from finished.", url: "https://en.wikipedia.org/wiki/Great_Green_Wall_(Africa)"}
+  - {name: Atlantic Forest Restoration Pact, countries: [BRA], start: 2009, what: "Replanting Brazil's most cleared forest.", url: "https://en.wikipedia.org/wiki/Atlantic_Forest"}
+  - {name: Costa Rica's forests, countries: [CRI], start: 1997, what: "Paying landowners to keep and regrow forest; forest cover roughly doubled from its low in the 1980s.", url: "https://en.wikipedia.org/wiki/Deforestation_in_Costa_Rica"}
+  - {name: South Korea's reforestation, countries: [KOR], start: 1973, what: "Bare hills replanted under national forest plans.", url: "https://en.wikipedia.org/wiki/Forestry_in_South_Korea"}
+  - {name: Yellowstone wolves, countries: [USA], start: 1995, what: "Wolves brought back; elk, rivers and trees changed with them.", url: "https://en.wikipedia.org/wiki/History_of_wolves_in_Yellowstone"}
+  - {name: Knepp estate, countries: [GBR], start: 2001, what: "A farm left to rewild; turtle doves and nightingales returned.", url: "https://knepp.co.uk/"}

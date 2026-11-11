@@ -19,6 +19,8 @@ dependencies = [
     "rdata>=0.11",
     "truststore>=0.10",
     "numpy>=1.26",
+    "pillow>=10",  # reads the Köppen-Geiger climate zone GeoTIFFs
+    "pyshp>=2.3",  # reads the WDPA protected area shapefiles
     "playwright>=1.45",  # verify.bat: opens sites with a person check in your own Edge or Chrome
 ]
 

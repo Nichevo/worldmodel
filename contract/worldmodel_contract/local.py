@@ -94,6 +94,13 @@ SETTINGS: dict[str, object] = {
     "climate_fetch": True,           # refresh fetches the climate sources (temperatures, gases, storms, alerts, projections)
     "climate_storms_from": 1980,     # first year of storm tracks kept on the map (IBTrACS starts in 1980 in this file)
     "climate_live_map": True,        # the Climate page's storms map asks GDACS for the storms, floods and fires happening now
+    # Nature and pollution (connectors/nature.py)
+    "nature_zones_fetch": True,          # refresh reads the Köppen-Geiger climate zones once (a 1 GB zip, about 20 MB kept)
+    "nature_climate_extras_fetch": True,  # Berkeley Earth temperatures, PSMSL tide gauges, ND-GAIN adaptation index
+    "nature_pollution_fetch": True,      # UN SDG water, wastewater and protected key areas (every three months)
+    "nature_species_fetch": True,        # invasive species (GRIIS), IUCN Red List and EPPO pests (the last two need keys)
+    "nature_protected_fetch": True,      # WDPA protected areas (900 MB twice a year, about 150 MB kept)
+    "zones_scenario": "ssp245",          # the emissions path the climate zone maps and city twins use for future periods
     # Internet speeds
     "internet_speeds_fetch": True,     # refresh fetches Ookla's open Speedtest files (quarterly, 200-400 MB each, summed by country then deleted)
     "internet_speeds_from": 2019,      # first year of internet speeds kept (Ookla's open data starts in 2019)

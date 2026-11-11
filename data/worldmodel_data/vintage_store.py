@@ -157,6 +157,25 @@ HISTORY_COLUMNS = {
         "place": "VARCHAR", "country_code": "VARCHAR", "deaths": "DOUBLE", "size": "DOUBLE", "size_unit": "VARCHAR",
         "links": "INTEGER", "url": "VARCHAR",
     },
+    # Pollution and nature (connectors/nature.py)
+    "zone_grids": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "period": "VARCHAR", "scenario": "VARCHAR", "width": "INTEGER",
+        "height": "INTEGER", "grid": "BLOB",
+    },
+    "protected_areas": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "wdpa_id": "VARCHAR", "name": "VARCHAR", "designation": "VARCHAR",
+        "iucn_cat": "VARCHAR", "country_code": "VARCHAR", "marine": "VARCHAR", "area_km2": "DOUBLE", "year": "INTEGER",
+        "lat": "DOUBLE", "lon": "DOUBLE", "west": "DOUBLE", "south": "DOUBLE", "east": "DOUBLE", "north": "DOUBLE",
+        "geojson": "VARCHAR",
+    },
+    "species_status": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "country_code": "VARCHAR", "scientific_name": "VARCHAR",
+        "category": "VARCHAR", "year": "INTEGER", "url": "VARCHAR",
+    },
+    "pest_presence": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "pest_code": "VARCHAR", "pest_name": "VARCHAR",
+        "country_code": "VARCHAR", "state": "VARCHAR", "status": "VARCHAR", "present": "BOOLEAN",
+    },
 }
 
 # city_values.parquet beside a vintage: figures about cities as the source names them

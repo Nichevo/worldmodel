@@ -77,6 +77,26 @@
   status: active
 
 
+- source: iucn_redlist
+  name: IUCN Red List API (v4)
+  env: [IUCN_API_KEY]
+  needs_key: true
+  signup: https://api.iucnredlist.org/users/sign_up
+  how: Sign up with an email address, say what the key is for (personal research), and copy the token from your account page.
+  unlocks: Threatened and extinct species counts for New Zealand, Australia, the US and the UK, and the critically endangered species by name, on the Nature tab and country Nature cards.
+  limits: Free for non-commercial use. About 400 requests per refresh, a second apart, twice a year.
+  status: active
+
+- source: eppo_pests
+  name: EPPO Global Database API
+  env: [EPPO_API_KEY]
+  needs_key: true
+  signup: https://data.eppo.int/
+  how: Register (free), then copy the authtoken shown on your account page.
+  unlocks: Where each watched pest and plant disease is found (stink bug, fruit flies, Xylella, myrtle rust...), on the Nature tab and country Nature cards.
+  limits: Free; 12 requests per refresh, a second apart, every three months.
+  status: active
+
 - source: un_comtrade
   name: UN Comtrade API
   env: [COMTRADE_API_KEY]
