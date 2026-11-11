@@ -194,3 +194,36 @@ def test_files_as_the_sites_give_them(tmp_path):
             assert got[("NZL", "nz_temp_7station", 2018)] == 13.41 and got[("NZL", "nz_temp_anomaly_7station", 2018)] == 0.8
             assert got[("NZL", "nz_temp_anomaly_7station", 2019)] == 0.9  # a year only the monthly file has
             assert ("NZL", "nz_temp_7station", 2019) not in got
+
+
+def test_carbon_prices_by_scheme_id():
+    """Since 2025 the dashboard's price sheet gives scheme ids; the jurisdiction comes from the general info sheet."""
+    from worldmodel_data.connectors.climate import carbon_prices, scheme_places
+    info = [["Data last updated"], [None],
+            ["Unique ID", "Instrument name", "Type", "Status", "Jurisdiction covered"],
+            ["ETS_NZ", "New Zealand ETS", "ETS", "Implemented", "New Zealand"],
+            ["ETS_EU", "EU ETS", "ETS", "Implemented", "EU27+"],
+            ["ETS_CA_Alberta", "Alberta TIER", "ETS", "Implemented", "Alberta"]]
+    price = [["Data last updated"],
+             ["Unique ID", "Name of the initiative", "Instrument Type", "Region", "Income group", "Metric", 2023, 2024],
+             ["ETS_NZ", "New Zealand ETS", "ETS", "East Asia & Pacific", "High income", "US$/tCO2e", 34.2, ""],
+             ["ETS_EU", "EU ETS", "ETS", "Europe", "High income", "US$/tCO2e", 96.3, 61.3],
+             ["ETS_CA_Alberta", "Alberta TIER", "ETS", "North America", "High income", "US$/tCO2e", 50, 60]]
+    best = {}
+    carbon_prices(price, best, scheme_places(info))
+    assert best == {("NZL", 2023): 34.2, ("eu", 2023): 96.3, ("eu", 2024): 61.3}
+
+
+def test_mfe_wide_layout():
+    """The "by sector and gas" raw data workbooks: Gas, Source, one column per year; all-gas rows only."""
+    from collections import defaultdict
+    from worldmodel_data.connectors.climate import mfe_sums
+    table = [["Gas", "Source", 2015, 2016],
+             ["CO2", "Transport", 14000, 14860.3],
+             ["All gases", "Agriculture ", 38000, 38727.3],
+             ["All gases", "LULUCF", -23000, -22773.7],
+             ["CH4", "Agriculture ", 28000, 28950.3]]
+    sums = defaultdict(float)
+    mfe_sums(table, sums)
+    assert dict(sums) == {("agriculture", 2015): 38000, ("agriculture", 2016): 38727.3,
+                          ("forestry", 2015): -23000, ("forestry", 2016): -22773.7}

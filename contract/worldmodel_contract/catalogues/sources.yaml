@@ -1338,8 +1338,8 @@
   standing: 5
   manual:
     by_hand: true
-    get: https://data.mfe.govt.nz/
-    what: "Search data.mfe.govt.nz for 'greenhouse gas emissions by sector', download the table as CSV (Year, Sector, Gas, Value) and save it here."
+    get: https://environment.govt.nz/facts-and-science/climate-change/new-zealands-greenhouse-gas-inventory/
+    what: "Open the latest inventory (1990 to the latest year), download its emissions by sector and gas data table (Excel or CSV, every year from 1990, not a single year) and save it here. Either layout reads: Gas, Sector, one column per year; or Year, Sector, Gas, Value."
 
 - id: ookla_speedtest
   name: Speedtest by Ookla open data (fixed and mobile performance tiles)
