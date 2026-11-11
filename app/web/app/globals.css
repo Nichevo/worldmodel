@@ -935,3 +935,17 @@ dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border
 .health-table td { vertical-align: top; }
 .health-more { white-space: normal; max-width: 340px; margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: var(--surface-2); }
 .health-more > div { margin-bottom: 3px; }
+
+/* API page: copyable examples */
+.code-block { background: var(--surface-2, rgba(127,127,127,0.08)); border: 1px solid var(--border, rgba(127,127,127,0.25)); border-radius: 6px;
+  padding: 8px 10px; margin: 4px 0; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+
+/* Weekly digest (Briefing > Week): printable */
+.print-only { display: none; }
+.digest-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+@media print {
+  nav, header, .no-print, .topbar, .brief-lanes, .title-row button, .card-actions, .ask-box { display: none !important; }
+  .print-only { display: block; }
+  body { background: #fff; color: #000; }
+  .card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+}

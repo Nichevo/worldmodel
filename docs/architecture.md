@@ -72,7 +72,7 @@ or `none` (medians). Membership is resolved at the middle of each period.
   Endpoints: `/api/v1/meta`, `/sources`, `/build-checks`, `/entities`,
   `/entities/{id}`, `/entities/{id}/profile`, `/indicators`, `/search`,
   `/series`, `/map`, `/pyramid`, `/streams`, `/streams/{name}`. Interactive
-  docs at `/docs`.
+  docs at `/api/docs`.
 - `app/web`: Next.js with MapLibre (country outlines from Natural Earth,
   bundled; no tile server or internet needed) and ECharts. Pages: map,
   entity profile (country, region or bloc), compare, sources and data health.

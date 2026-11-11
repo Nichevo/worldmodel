@@ -40,6 +40,7 @@ import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
 import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
+import AlikeCard from "@/components/AlikeCard";
 import Flag from "@/components/Flag";
 import LatestOn from "@/components/LatestOn";
 import Timeline from "@/components/Timeline";
@@ -153,6 +154,7 @@ export default function EntityPage() {
     { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
     { key: "crowd", title: "What the crowd expects", section: "world", on: !isGroup, el: <CrowdCard entity={e} name={nm} /> },
+    { key: "alike", title: "Like this one", section: "world", on: !isGroup, el: <AlikeCard entity={e} name={nm} /> },
     { key: "laws", title: "Laws and rules", section: "laws", on: !isGroup, el: <LawsCard entity={e} name={nm} /> },
     { key: "holidays", title: "Public holidays", section: "laws", on: !isGroup, el: <HolidaysCard entity={e} name={nm} /> },
     { key: "crime", title: "Crime and prisons", section: "laws", on: !isGroup, el: <CrimeCard entity={e} name={nm} indicators={byId} /> },

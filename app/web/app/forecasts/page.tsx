@@ -15,6 +15,8 @@ import { seriesColor } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
+import AskButton from "@/components/AskButton";
+import { alikeApi, type Synthetic } from "@/lib/alike";
 
 // Forecasts: the population what-if (move fertility, life expectancy and
 // migration away from the UN projection and see the population and its age
@@ -37,7 +39,7 @@ const PRESETS: { label: string; title: string; levers: WhatIfLevers }[] = [
     levers: { ...DEFAULTS, e0: 5, phase: 25 } },
 ];
 const FORECASTERS = [["imf_weo", "IMF"], ["oecd_eo", "OECD"], ["wb_gep", "World Bank"]] as const;
-type Tab = "whatif" | "stat" | "track";
+type Tab = "whatif" | "stat" | "track" | "synth";
 const MAX_VS = 3; // countries to compare with, besides the main one
 const HELD_LABEL: Record<string, string> = {
   tfr: "fertility", e0_male: "men's life expectancy", e0_female: "women's life expectancy", net_migration: "migration",
@@ -58,7 +60,8 @@ function num(v: string | null, d: number): number {
 
 function Forecasts() {
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>(params.get("tab") === "track" ? "track" : params.get("tab") === "stat" ? "stat" : "whatif");
+  const [tab, setTab] = useState<Tab>((["track", "stat", "synth"] as const).find((t) => t === params.get("tab")) ?? "whatif");
+  const [eventYear, setEventYear] = useState(num(params.get("ey"), 2008));
   const [entity, setEntity] = useState(params.get("e") ?? "NZL");
   const [levers, setLevers] = useState<WhatIfLevers>({
     tfr: num(params.get("tfr"), 0), e0: num(params.get("e0"), 0), mig: num(params.get("mig"), 1),
@@ -89,11 +92,15 @@ function Forecasts() {
     } else if (tab === "stat") {
       q.set("tab", "stat");
       q.set("ind", indicator);
+    } else if (tab === "synth") {
+      q.set("tab", "synth");
+      q.set("ind", indicator);
+      q.set("ey", String(eventYear));
     } else {
       for (const [k, v] of Object.entries(levers)) if (v !== DEFAULTS[k as keyof WhatIfLevers]) q.set(k, String(v));
     }
     return q.toString();
-  }, [entity, vs, levers, tab, indicator, forecaster]);
+  }, [entity, vs, levers, tab, indicator, forecaster, eventYear]);
   useEffect(() => {
     if (query !== window.location.search.slice(1)) window.history.replaceState(null, "", `?${query}`);
   }, [query]);
@@ -102,7 +109,7 @@ function Forecasts() {
   const name = nameOf(entity);
   const others = vs.filter((v) => v !== entity).map((id) => ({ id, name: nameOf(id) }));
   useEffect(() => {
-    const what = tab === "track" ? "Forecast track record" : tab === "stat" ? "Statistical forecast" : "Population what-if";
+    const what = tab === "track" ? "Forecast track record" : tab === "stat" ? "Statistical forecast" : tab === "synth" ? "Synthetic comparison" : "Population what-if";
     const t = setTimeout(() => logHistory({ kind: "page", title: `${what}: ${name}`,
       url: `/forecasts?${query}`, entity, detail: "forecasts" }), 3000);
     return () => clearTimeout(t);
@@ -116,6 +123,7 @@ function Forecasts() {
           {tab === "whatif"
             ? "Change fertility, life expectancy or migration and see how the population and its ages would differ from the UN projection."
             : tab === "stat" ? "A statistical forecast of any indicator: simple models tried against the past, the best one used, with the ranges it fell inside."
+            : tab === "synth" ? "Did an event change a country's path? The mix of other countries that tracked it best before the event shows what might have happened without it."
             : "How far forecasters' past forecasts of growth and inflation were from what happened, and who forecasts best."}
         </p>
       </div>
@@ -126,6 +134,8 @@ function Forecasts() {
             onClick={() => setTab("stat")}>Statistical forecast</button>
           <button role="tab" aria-selected={tab === "track"} className={tab === "track" ? "on" : ""}
             onClick={() => { setTab("track"); if (!["gdp_growth", "inflation"].includes(indicator)) setIndicator("gdp_growth"); }}>Track record</button>
+          <button role="tab" aria-selected={tab === "synth"} className={tab === "synth" ? "on" : ""}
+            onClick={() => setTab("synth")}>Synthetic comparison</button>
         </div>
         <select value={entity} onChange={(e) => setEntity(e.target.value)} aria-label="Country">
           {!countries.some((c) => c.entity_id === entity) && <option value={entity}>{entity}</option>}
@@ -150,6 +160,7 @@ function Forecasts() {
       </div>
       {tab === "whatif" ? <WhatIfView entity={entity} levers={levers} setLevers={setLevers} others={others} />
         : tab === "stat" ? <StatView entity={entity} name={name} indicator={indicator} setIndicator={setIndicator} others={others} />
+        : tab === "synth" ? <SynthView entity={entity} indicator={indicator} setIndicator={setIndicator} year={eventYear} setYear={setEventYear} />
         : <TrackView entity={entity} indicator={indicator} setIndicator={setIndicator} source={forecaster} setSource={setForecaster} others={others} />}
     </div>
   );
@@ -676,5 +687,109 @@ function AddForecast({ fc, name, indName }: { fc: Forecast; name: string; indNam
           value: Number(p.mean.toPrecision(4)), low: Number(p.lo80.toPrecision(4)), high: Number(p.hi80.toPrecision(4)), unit: fc.unit,
           indicator: fc.indicator, entity: fc.entity, year: p.year, due: `${p.year + 1}-06-30` }} />}
     </p>
+  );
+}
+
+// ----------------------------------------------------------------------------- synthetic comparison
+function SynthView({ entity, indicator, setIndicator, year, setYear }: {
+  entity: string; indicator: string; setIndicator: (i: string) => void; year: number; setYear: (y: number) => void;
+}) {
+  const [inds, setInds] = useState<Indicator[]>([]);
+  const [start, setStart] = useState<number | "">("");
+  const [d, setD] = useState<Synthetic | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.indicators().then(setInds).catch(() => {}); }, []);
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    const t = setTimeout(() => alikeApi.synthetic(entity, indicator, year, start || undefined)
+      .then((x) => { if (live) { setD(x); setError(null); } })
+      .catch((e) => { if (live) { setD(null); setError(String(e.message || e)); } })
+      .finally(() => live && setBusy(false)), 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [entity, indicator, year, start]);
+  const ind = inds.find((i) => i.indicator_id === indicator);
+  const unit = ind?.unit ?? "";
+  const dec = ind?.decimals ?? 1;
+  const paths = useCallback(() => {
+    if (!d) return {};
+    const pts = (v: number[]) => d.years.map((y, i) => [y, v[i], "E"] as [number, number, string]);
+    return cardLinesOption([
+      { key: "actual", label: d.name, color: seriesColor(0), points: pts(d.actual) },
+      { key: "synth", label: `Synthetic ${d.name}`, color: seriesColor(1), points: d.years.map((y, i) => [y, d.synthetic[i], y >= d.event_year ? "P" : "E"] as [number, number, string]) },
+    ], { unit, decimals: dec, refX: { value: d.event_year, label: String(d.event_year) } });
+  }, [d, unit, dec]);
+  const gaps = useCallback(() => {
+    if (!d) return {};
+    const own = d.actual.map((v, i) => v - d.synthetic[i]);
+    return cardLinesOption([
+      ...d.placebos.map((p) => ({ key: p.entity_id, label: p.entity_id, color: "rgba(128,128,128,0.35)",
+        points: d.years.map((y, i) => [y, p.gap[i], "E"] as [number, number, string]) })),
+      { key: "own", label: d.name, color: seriesColor(0), points: d.years.map((y, i) => [y, own[i], "E"] as [number, number, string]) },
+    ], { unit, decimals: dec, refX: { value: d.event_year, label: String(d.event_year) }, refY: { value: 0, label: "no gap" } });
+  }, [d, unit, dec]);
+  const parts = () => d ? [
+    { key: "lines", kind: "data" as const, label: `${d.name} and its synthetic comparison: ${ind?.name ?? indicator}`,
+      text: ["Year\tActual\tSynthetic", ...d.years.map((y, i) => `${y}\t${d.actual[i]}\t${d.synthetic[i]}`)].join("\n") },
+    { key: "weights", kind: "data" as const, label: "The mix", text: d.weights.map((w) => `${w.name}: ${(w.weight * 100).toFixed(1)}%`).join("\n") },
+    { key: "test", kind: "description" as const, label: "Placebo test",
+      text: `Fit before (RMSPE): ${d.pre_rmspe}; after: ${d.post_rmspe}; ratio ${d.ratio}; rank ${d.rank} of ${d.placebos.length + 1}; p = ${d.p_value}. ${d.verdict}` },
+  ] : [];
+  const yearsAll = Array.from({ length: new Date().getFullYear() - 1965 }, (_, i) => 1966 + i);
+  return (
+    <>
+      <div className="controls">
+        <IndicatorSelect indicators={inds.filter((i) => i.enabled)} value={indicator} onChange={setIndicator} />
+        <label>Event year <select value={year} onChange={(e) => setYear(+e.target.value)}>
+          {yearsAll.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+        <label>From <select value={start} onChange={(e) => setStart(e.target.value ? +e.target.value : "")}>
+          <option value="">20 years before</option>
+          {yearsAll.filter((y) => y < year - 4).map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+        {busy && <span className="muted small">Working it out…</span>}
+      </div>
+      {error && <p className="error">{error}</p>}
+      {d && (
+        <>
+          <div className="grid two">
+            <section className="card">
+              <div className="card-head">
+                <h3>{d.name} and synthetic {d.name}: {ind?.name ?? indicator}</h3>
+                <span className="card-actions"><AskButton title={`Synthetic comparison: ${d.name}, ${ind?.name ?? indicator}, ${d.event_year}`}
+                  entity={entity} indicator={indicator} parts={parts} /></span>
+              </div>
+              <EChart option={paths} height={300} label={`${d.name} and its synthetic comparison`} />
+              <p className="caption">
+                Synthetic {d.name} is the mix below, fitted to {d.years[0]}-{d.event_year - 1}; dashed after {d.event_year}, where it shows a path
+                without the event. Average gap after: <b>{formatValue(d.mean_gap_after, unit, dec)}</b>.
+                Fit before: off by {formatValue(d.pre_rmspe, unit, dec)} on average ({(d.fit_share * 100).toFixed(0)}% of the usual level){d.fit_share > 0.2 ? ", a loose fit, so read the gap with care" : ""}.
+              </p>
+            </section>
+            <section className="card">
+              <h3>Is the gap unusual?</h3>
+              <EChart option={gaps} height={300} label="Gap between each country and its synthetic mix" />
+              <p className="small" style={{ marginBottom: 4 }}><b>{d.verdict}</b></p>
+              <p className="caption">
+                Grey: each of {d.placebos.length} pool countries run the same way, as if it had the event. Ranked by how much bigger the gap is after
+                than before: {d.name} is {d.rank} of {d.placebos.length + 1}{d.p_value !== null ? ` (p = ${d.p_value})` : ""}.
+              </p>
+            </section>
+          </div>
+          <section className="card">
+            <h3>The mix</h3>
+            <table className="small summary-table">
+              <thead><tr><th>Country</th><th className="num">Weight</th></tr></thead>
+              <tbody>{d.weights.map((w) => <tr key={w.entity_id}><td><Link href={`/entity/${w.entity_id}`}>{w.name}</Link></td>
+                <td className="num">{(w.weight * 100).toFixed(1)}%</td></tr>)}</tbody>
+            </table>
+            <p className="caption">
+              Weights from 0 to 1 adding up to 1 (Abadie&apos;s synthetic control), chosen from the {d.pool_size} countries with every year
+              that were closest to {d.name} before {d.event_year}. Only this one indicator is matched, so a mix can track for the wrong reasons:
+              check the countries make sense.
+            </p>
+          </section>
+        </>
+      )}
+    </>
   );
 }
