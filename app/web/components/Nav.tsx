@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { pageEntity } from "@/components/AIHost";
 import Search from "@/components/Search";
 import { openAsk } from "@/lib/ai";
+import { api } from "@/lib/api";
 import { useSettings } from "@/lib/settings";
 
 // The menu in five groups. Each group opens a short list; the group holding the page
@@ -52,6 +53,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/ai", label: "AI notes" },
   ] },
   { label: "Data", hint: "Sources, what is loaded, and settings", links: [
+    { href: "/todo", label: "To do", hint: "Files to save, sources failing, keys and forms: what the data needs from you" },
     { href: "/sources", label: "Sources" },
     { href: "/glossary", label: "Glossary", hint: "The terms the charts use" },
     { href: "/data", label: "Data status" },
@@ -69,6 +71,9 @@ export default function Nav() {
   const [open, setOpen] = useState<string | null>(null);
   const bar = useRef<HTMLElement>(null);
   useEffect(() => setOpen(null), [path]);
+  // How many things on the To do list need you, shown on the Data menu (asked again on each page change).
+  const [todo, setTodo] = useState(0);
+  useEffect(() => { api.todo().then((d) => setTodo(d.count)).catch(() => {}); }, [path]);
   useEffect(() => {
     const close = (e: MouseEvent) => { if (bar.current && !bar.current.contains(e.target as Node)) setOpen(null); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
@@ -93,13 +98,14 @@ export default function Nav() {
           <div key={g.label} className={`nav-group${open === g.label ? " open" : ""}`}>
             <button className={`nav-group-btn${here ? " active" : ""}`} aria-expanded={open === g.label} title={g.hint}
               onClick={() => setOpen(open === g.label ? null : g.label)}>
-              {g.label} <span aria-hidden="true" className="caret">▾</span>
+              {g.label}{g.label === "Data" && todo > 0 && <span className="badge" title={`${todo} things on the To do list`}>{todo}</span>}
+              {" "}<span aria-hidden="true" className="caret">▾</span>
             </button>
             {open === g.label && (
               <div className="nav-menu" role="menu">
                 {g.links.filter((l) => l.href !== "/shapes" || s.map_true_size).map((l) => (
                   <Link key={l.href} href={l.href} role="menuitem" className={isOn(path, l.href) ? "active" : ""} title={l.hint}>
-                    {l.label}
+                    {l.label}{l.href === "/todo" && todo > 0 && <span className="badge">{todo}</span>}
                   </Link>
                 ))}
               </div>

@@ -289,6 +289,18 @@ export type Settings = {
   crowd_categories: string; // comma list of politics, economics, geopolitics, climate, science
   crowd_move_points: number; // a move this many points in a week is news
   crowd_score_days: number; // crowd scored on its chance this many days before closing
+  inbox_downloads: boolean; // also file recent downloads whose source is certain (copied, never moved)
+  inbox_downloads_days: number;
+  inbox_downloads_folder: string; // blank: your own Downloads folder
+  sources_off: string; // comma-separated sources switched off: never fetched, never on the To do list
+  schedule_on: boolean;
+  schedule_often: "weekly" | "daily";
+  schedule_day: string;
+  schedule_time: string;
+  backup_on_update: boolean;
+  backup_folder: string;
+  backup_keep: number;
+  backup_big_mb: number;
   views_fetch: boolean; // ViEWS conflict forecasts
   predictions_on_charts: boolean; // your predictions as dots on charts
   watchlist_on: boolean; // watchlist alerts on the Briefing
@@ -724,6 +736,36 @@ export type NumbeoPrices = {
     summary: { single_without_rent?: number; family_without_rent?: number } } | null;
 };
 
+// Looking after the sources: the To do list, the inbox, jobs started from the app, every source's health.
+export type TodoItem = {
+  key: string; kind: "inbox" | "load" | "download" | "failing" | "check" | "key" | "form"; title: string; why: string;
+  source_id: string | null; link: string | null; command: string | null; button: "assign" | "load" | "get" | "refresh" | "key" | null;
+  what: string | null; folder: string | null; uses: number; uses_names: string[]; order: number;
+  name?: string; candidates?: string[]; env?: string[]; times?: number; todo_text?: string;
+  mark?: { done?: string; snooze_until?: string; at?: string };
+};
+export type TodoList = { items: TodoItem[]; count: number; hidden: TodoItem[] };
+export type InboxState = {
+  inbox: string; downloads: string | null; downloads_on: boolean; downloads_days: number;
+  waiting: { name: string; size: number; source_id: string | null; candidates: string[]; how: string; candidate_names: Record<string, string> }[];
+  recent: { at: string; name: string; from: string; source_id: string; source_name: string; how: string; to: string }[];
+  sources: { source_id: string; name: string }[];
+};
+export type Job = {
+  running: boolean; kind: "refresh" | "inbox" | "get" | "backup" | "load" | null; label: string | null; lines: string[];
+  exit_code: number | null; sources?: string[]; started_at?: string; finished_at?: string | null; by?: "app" | "outside";
+  progress?: { total: number; done: number; current: string | null; started_at: string; finished_at: string | null; seconds_left: number | null };
+};
+export type SourceHealth = {
+  source_id: string; name: string; publisher: string; cadence: string; url: string;
+  state: "failing" | "never" | "due" | "ok" | "off"; off: boolean; by_hand: boolean; method: string | null;
+  last_ok: string | null; loaded: string | null; release: string | null; rows: number | null; due: string | null; bytes: number;
+  failing: string | null; note: string; uses: number; uses_names: string[]; group: string; fetched: boolean; scraper: boolean; on_demand: boolean;
+};
+export type Upkeep = {
+  schedule: { available: boolean; exists: boolean; next_run?: string; status?: string };
+  backup_folder: string; backups: { name: string; bytes: number; at: string }[]; env_file: string;
+};
 export type ManualFile = {
   source_id: string; name: string; by_hand: boolean; optional: boolean; get: string; what: string; cadence: string; folder: string;
   files: string[]; last_loaded: string | null; todo: "download" | "load" | null; why: string; command: string;
@@ -1165,6 +1207,18 @@ export const api = {
   addDriver: (driver: string, target: string) => send<Driver>("POST", "/drivers", { driver, target }),
   deleteDriver: (id: string) => send<{ deleted: string }>("DELETE", `/drivers/${encodeURIComponent(id)}`),
   keys: () => get<ApiKey[]>("/keys"),
+  setKey: (env: string, value: string) => send<{ env: string; set: boolean; file: string }>("PUT", `/keys/${env}`, { value }),
+  todo: () => get<TodoList>("/todo"),
+  todoMark: (key: string, action: "done" | "snooze" | "clear", days?: number) =>
+    send<TodoList>("PUT", `/todo/${encodeURIComponent(key)}`, { action, days }),
+  inbox: () => get<InboxState>("/inbox"),
+  inboxAssign: (name: string, source_id: string) => send<{ filed: unknown; job: Job }>("POST", "/inbox/assign", { name, source_id }),
+  job: () => get<Job>("/jobs"),
+  startJob: (kind: Job["kind"], sources?: string[]) => send<Job>("POST", "/jobs", { kind, sources }),
+  sourceHealth: () => get<{ sources: SourceHealth[]; off: string[] }>("/source-health"),
+  upkeep: () => get<Upkeep>("/upkeep"),
+  setSchedule: (on: boolean, often: string, day: string, time: string) =>
+    send<{ ok: boolean; message: string; schedule: Upkeep["schedule"] }>("PUT", "/upkeep/schedule", { on, often, day, time }),
   laws: () => get<LawRule[]>("/laws"),
   lawMap: (indicator: string, year?: number) => get<LawMap>(`/laws/${encodeURIComponent(indicator)}`, { year }),
   entityLaws: (entity: string) => get<EntityLaws>(`/entities/${encodeURIComponent(entity)}/laws`),

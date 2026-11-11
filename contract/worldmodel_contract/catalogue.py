@@ -73,6 +73,7 @@ class ManualFile(BaseModel):
     get: str  # where to download it
     what: str  # which file, and how
     optional: bool = False  # nice to have: never listed as something to do until a file is in its folder
+    files: list[str] = []  # name patterns (pt_*.csv) that tell the inbox a downloaded file is this source's
 
 
 class Scraper(BaseModel):

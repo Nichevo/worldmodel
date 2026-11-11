@@ -75,6 +75,7 @@ def fetch(
 def load(
     source: Optional[str] = typer.Argument(None, help="A source; leave out to load every folder in the manual downloads folder."),
     file: Optional[Path] = typer.Argument(None, help="A file or folder from elsewhere; it is copied into the source's folder."),
+    build_after: bool = typer.Option(False, "--build", help="Build afterwards (as the app's Load button does)."),
 ):
     """Load files you downloaded yourself, from the manual downloads folder (<home>/manual/<source>/).
     Does not build; load.bat builds afterwards."""
@@ -97,6 +98,8 @@ def load(
                                   "vintage": manifest.vintage, "note": "loaded by hand"})
         _log(p, record)
         return
+    if not source:
+        _file_inbox(p)
     sources = [source] if source else sorted(d.name for d in manual.root(p).iterdir() if d.is_dir() and d.name in CONNECTORS)
     loaded, failed = 0, []
     # Logged so that a source the refresh could not download, and you then loaded by hand,
@@ -123,6 +126,8 @@ def load(
         _log(p, record)
     if not loaded and not failed:
         typer.echo(f"No files found in {manual.root(p)}. Save each file in its source's folder there.")
+    if build_after is True and loaded:
+        build(allow_shrink=False)
     if failed:
         raise typer.Exit(1)
 
@@ -262,12 +267,20 @@ LARGE_DOWNLOAD = 50 * 1024 ** 2  # skipped once the data folder is at its limit
 
 
 @app.command()
-def refresh(allow_shrink: bool = typer.Option(False)):
+def refresh(allow_shrink: bool = typer.Option(False),
+            only: Optional[str] = typer.Option(None, "--only", help="Comma-separated sources: fetch just these (even if not due), then build.")):
     """Fetch every active source, then build. Logs what each source brought in."""
     p = paths()
     store = VintageStore(p)
+    picked = [x.strip() for x in only.split(",") if x.strip()] if only else None
+    bad = [x for x in picked or [] if x not in CONNECTORS]
+    if bad:
+        raise typer.BadParameter(f"unknown source {', '.join(bad)}")
     record = {"kind": "refresh", "started_at": now_utc().isoformat(), "sources": []}
+    if picked:
+        record["only"] = picked
     manual.prepare(p, CONNECTORS)
+    _file_inbox(p)
     full = local.storage(p.home)["limits"][0]["level"] == "full"
     if full:
         typer.echo("The data folder is at its size limit: sources with large downloads are skipped this time. "
@@ -277,11 +290,18 @@ def refresh(allow_shrink: bool = typer.Option(False)):
     failed = []
     settings = local.load_settings(p.home)
     ways = methods.Methods(p, CONNECTORS)
-    for source_id, cls in CONNECTORS.items():
+    off = set(filter(None, str(settings.get("sources_off") or "").split(",")))
+    todo = [(k, c) for k, c in CONNECTORS.items() if not picked or k in picked]
+    progress = monitor.Progress(p, [k for k, _ in todo])
+    for source_id, cls in todo:
+        progress.start(source_id)
         last = store.latest(source_id)
         size = sum(f.get("bytes", 0) for f in last.files) if last else 0
         entry = {"source_id": source_id}
         record["sources"].append(entry)
+        if source_id in off and not picked:
+            entry.update(status="skipped", vintage=last.vintage if last else None, note="switched off on Data status", settled=True)
+            continue
         if full and size > LARGE_DOWNLOAD:
             entry.update(status="skipped", note=f"limit reached; last download {size / 1024 ** 2:.0f} MB")
             typer.echo(f"{source_id}: skipped (data folder at its limit)")
@@ -347,7 +367,7 @@ def refresh(allow_shrink: bool = typer.Option(False)):
                          seconds=round(time.monotonic() - t0, 1), vintage_rows=manifest.row_count)
             typer.echo(f"{source_id}: {'new vintage' if is_new else 'unchanged'} {manifest.vintage} (manual downloads folder)")
             continue
-        wait = _not_due(cls, last)
+        wait = _not_due(cls, last) if not (picked and not cls.manual) else None
         if wait:
             entry.update(status="skipped", vintage=last.vintage if last else None, note=wait)
             typer.echo(f"{source_id}: skipped ({wait})")
@@ -389,7 +409,11 @@ def refresh(allow_shrink: bool = typer.Option(False)):
         ways.save()
     except OSError as exc:
         typer.echo(f"could not save how each source is fetched: {exc}", err=True)
-    _build_and_log(allow_shrink, record)
+    progress.start("(building the warehouse)")
+    try:
+        _build_and_log(allow_shrink, record)
+    finally:
+        progress.finish()
     if failed:
         _echo_problems(p)
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
@@ -730,6 +754,133 @@ def prisons(since: int = typer.Option(2000, "--since"), pause: Optional[float] =
     """Old name of `scrape prisons`."""
     if not _scrape_prisons(since, pause):
         raise typer.Exit(1)
+
+
+def _file_inbox(p) -> list[str]:
+    """File what is waiting in the inbox (and recent downloads, when Settings allows): each goes
+    to its source's manual folder. Returns the sources that got a file."""
+    from worldmodel_contract import inbox
+
+    try:
+        got = inbox.file_all(p.home)
+    except OSError as exc:
+        typer.echo(f"inbox: could not file the waiting files: {exc}", err=True)
+        return []
+    for e in got["filed"]:
+        typer.echo(f"inbox: {e['name']} -> {e['source_id']} ({e['how']})")
+    if got["waiting"]:
+        typer.echo(f"inbox: {len(got['waiting'])} file(s) need you to choose their source (To do page): "
+                   + ", ".join(w["name"] for w in got["waiting"][:5]))
+    return sorted({e["source_id"] for e in got["filed"]})
+
+
+@app.command("inbox")
+def inbox_cmd(build_after: bool = typer.Option(True, "--build/--no-build", help="Build afterwards when something loaded.")):
+    """File the files waiting in var\\inbox (and recent downloads whose source is certain) into
+    their sources' folders, load them, and build."""
+    p = paths()
+    manual.prepare(p, CONNECTORS)
+    got = _file_inbox(p)
+    if not got:
+        typer.echo("Nothing new to file.")
+        return
+    failed = False
+    for s_id in got:
+        if s_id not in CONNECTORS:
+            continue
+        try:
+            load(source=s_id, file=None)
+        except typer.Exit as exc:
+            failed = failed or bool(exc.exit_code)
+    if build_after:
+        build(allow_shrink=False)
+    if failed:
+        raise typer.Exit(1)
+
+
+@app.command()
+def get(names: Optional[list[str]] = typer.Argument(None, help="Sources to open (default: every file that is due)."),
+        wait: int = typer.Option(20, help="Minutes to watch for the downloads to arrive.")):
+    """Open the download page of every file that is due, one browser tab each, then watch the
+    inbox and your Downloads folder: each file is filed and loaded as it arrives. You click
+    Download (and sign in where a site asks); the app does the rest. Builds at the end."""
+    import webbrowser
+
+    from worldmodel_contract import inbox
+
+    p = paths()
+    manual.prepare(p, CONNECTORS)
+    meta = catalogue.sources()
+    due = names or _due_downloads(p)
+    due = [s for s in due if s in meta and meta[s].manual]
+    if not due:
+        typer.echo("Nothing is due: every file you save by hand is up to date.")
+        return
+    typer.echo(f"Opening {len(due)} download page(s): {', '.join(due)}")
+    for s_id in due:
+        m = meta[s_id].manual
+        typer.echo(f"  {meta[s_id].name}: {m.what[:160]}")
+        webbrowser.open_new_tab(m.get)
+        time.sleep(1.5)
+    typer.echo(f"Save each file anywhere in Downloads or in {inbox.inbox_dir(p.home)}; watching for {wait} minutes "
+               "(Ctrl+C to stop sooner).")
+    left, loaded = set(due), set()
+    until = time.monotonic() + wait * 60
+    try:
+        while left and time.monotonic() < until:
+            time.sleep(10)
+            for s_id in _file_inbox(p):
+                if s_id in CONNECTORS:
+                    try:
+                        load(source=s_id, file=None)
+                        loaded.add(s_id)
+                    except typer.Exit:
+                        pass
+                left.discard(s_id)
+    except KeyboardInterrupt:
+        typer.echo("Stopped watching.")
+    if left:
+        typer.echo(f"Not arrived: {', '.join(sorted(left))}. Save them later; the next refresh files them.")
+    if loaded:
+        build(allow_shrink=False)
+
+
+def _due_downloads(p) -> list[str]:
+    """Files to save by hand now: by-hand sources never loaded, or older than their schedule
+    (a year when they have none), and fallback sources whose site refused the last refresh."""
+    store = VintageStore(p)
+    meta = catalogue.sources()
+    off = set(filter(None, str(local.load_settings(p.home).get("sources_off") or "").split(",")))
+    refused = {x["source_id"] for x in local.problems(p.home) if x.get("kind") == "fetch" and x.get("open")}
+    out = []
+    for s_id, cls in CONNECTORS.items():
+        m = meta.get(s_id)
+        if not m or not m.manual or s_id in off or m.manual.optional:
+            continue
+        last = store.latest(s_id)
+        if cls.manual:
+            if last is None or (now_utc() - datetime.fromisoformat(last.retrieved_at)).days >= (cls.fetch_every_days or 365):
+                out.append(s_id)
+        elif s_id in refused:
+            out.append(s_id)
+    return out
+
+
+@app.command()
+def backup(to: Optional[Path] = typer.Option(None, help="Folder for the backup (default: Settings, or worldmodel-backups beside this folder)."),
+           auto: bool = typer.Option(False, "--auto", help="As update.bat runs it: only when switched on in Settings, once a day.")):
+    """Zip the files only you can replace (var\\manual, var\\user and .env) into the backup folder."""
+    from worldmodel_contract import upkeep
+
+    p = paths()
+    s = local.load_settings(p.home)
+    if auto and (not s.get("backup_on_update", True) or upkeep.backed_up_today(s, p.home)):
+        return
+    try:
+        upkeep.backup(p.home, s, to, say=typer.echo)
+    except OSError as exc:
+        typer.echo(f"Backup failed: {exc}", err=True)
+        raise typer.Exit(1) from None
 
 
 @app.command()
