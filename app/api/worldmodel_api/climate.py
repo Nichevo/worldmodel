@@ -353,3 +353,35 @@ def policy(q: Q) -> dict:
             if "net_zero_year" in v or "carbon_price" in v]
     rows.sort(key=lambda r: -(r.get("co2_share_world") or 0))
     return {"rows": rows, "paris_count": len(paris)}
+
+
+# ----------------------------------------------------------------------------- the year's weather (monthly normals)
+NORMAL_KINDS = {"clim_temp": "temp", "clim_high": "high", "clim_low": "low", "clim_rain": "rain"}
+NORMAL_SUMMARY = ["clim_temp_year", "clim_temp_swing", "clim_high_hottest", "clim_low_coldest", "clim_rain_year",
+                  "clim_rain_wettest", "clim_rain_driest"]
+
+
+def normals(q: Q, entities: list[str]) -> dict:
+    """Each country's twelve months, 1991-2020: average, daytime high and night-time low temperature and
+    rainfall, with its year in a few figures. Countries without them are left out."""
+    if not entities:
+        return {"countries": [], "source": None}
+    got = q("""SELECT s.entity_id, s.indicator_id, s.breakdown, s.value FROM series s
+        WHERE s.indicator_id IN (SELECT unnest(?)) AND s.entity_id IN (SELECT unnest(?)) AND s.variant = 'central'
+          AND (s.breakdown LIKE 'month=%' OR s.breakdown = '')""", [list(NORMAL_KINDS) + NORMAL_SUMMARY, entities])
+    names = {r["entity_id"]: r["short_name"] for r in q(
+        "SELECT entity_id, short_name FROM entities WHERE entity_id IN (SELECT unnest(?))", [entities])}
+    by: dict[str, dict] = {}
+    for r in got:
+        e = by.setdefault(r["entity_id"], {"entity_id": r["entity_id"], "name": names.get(r["entity_id"], r["entity_id"]),
+                                           "temp": [None] * 12, "high": [None] * 12, "low": [None] * 12, "rain": [None] * 12,
+                                           "summary": {}})
+        if r["indicator_id"] in NORMAL_KINDS and r["breakdown"].startswith("month="):
+            m = int(r["breakdown"][6:8])
+            if 1 <= m <= 12:
+                e[NORMAL_KINDS[r["indicator_id"]]][m - 1] = round(float(r["value"]), 2)
+        elif r["indicator_id"] in NORMAL_SUMMARY and r["breakdown"] == "":
+            e["summary"][r["indicator_id"]] = round(float(r["value"]), 2)
+    order = {e: i for i, e in enumerate(entities)}
+    return {"countries": sorted(by.values(), key=lambda e: order.get(e["entity_id"], 999)),
+            "period": "1991-2020", "source": "World Bank Climate Change Knowledge Portal (CRU TS)"}

@@ -1300,6 +1300,26 @@
     get: https://climateknowledgeportal.worldbank.org/download-data
     what: "When the refresh is refused, save the API's JSON answers here, named like cckp_tas_ssp245_median_00.json."
 
+- id: cckp_normals
+  name: World Bank Climate Change Knowledge Portal, monthly climate normals 1991-2020 (CRU TS)
+  short_name: Monthly weather (World Bank CCKP)
+  publisher: World Bank (from the University of East Anglia's CRU TS)
+  url: https://climateknowledgeportal.worldbank.org/
+  licence: CC BY 4.0
+  licence_url: https://www.worldbank.org/en/about/legal/terms-of-use-for-datasets
+  commercial_use: true
+  cadence: Changes when a new CRU edition comes out; checked once a year (about 16 small requests)
+  attribution: "World Bank Climate Change Knowledge Portal; CRU TS (Harris et al. 2020)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+  manual:
+    by_hand: false
+    files: ["cckp_normals_*"]
+    get: https://climateknowledgeportal.worldbank.org/download-data
+    what: "When the refresh is refused, save the API's JSON answers here, named like cckp_normals_tas_00.json (also tasmax, tasmin and pr)."
+
 - id: net_zero_tracker
   name: Net Zero Tracker
   short_name: Net zero targets
