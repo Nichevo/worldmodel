@@ -59,6 +59,13 @@ def prepare(p: Paths, connectors: dict) -> list[str]:
     made = []
     root(p).mkdir(parents=True, exist_ok=True)
     write_info(p, connectors)
+    try:  # the inbox: save any download here and the app files it (worldmodel_contract.inbox)
+        from worldmodel_contract import inbox
+
+        (p.home / "inbox").mkdir(parents=True, exist_ok=True)
+        inbox._readme(p.home / "inbox")
+    except OSError:
+        pass
     (root(p) / "_read me.txt").write_text(
         "Files you download yourself, one folder per source.\r\n\r\n"
         "Save the file in its source's folder (keep the name the site gives it), then run one of:\r\n"
