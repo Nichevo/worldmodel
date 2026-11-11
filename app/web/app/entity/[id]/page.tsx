@@ -305,7 +305,7 @@ export default function EntityPage() {
           const ind = byId.get(id);
           return ind && ind.available
             ? <ChartCard key={id} indicator={ind} entities={withAverage(ind)} kind={CHART_KIND[id]} events={chartEvents}
-              parties={isGroup || withAverage(ind).length > 1 ? [] : terms} /> : null;
+              parties={isGroup || withAverage(ind).length > 1 ? [] : terms} hideEmpty /> : null;
         })}
         {show("pyramid") && byId.get("pop_by_age_sex")?.available && (
           <div className="card">
