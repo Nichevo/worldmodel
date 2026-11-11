@@ -189,7 +189,6 @@ MAIN: dict[str, tuple[str, ...]] = {
     "patent_applications_resident": ("IP.PAT.RESD",),
     "patent_applications_nonresident": ("IP.PAT.NRES",),
     "journal_articles": ("IP.JRN.ARTC.SC",),
-    "high_tech_exports_share": ("TX.VAL.TECH.MF.ZS",),
     "ip_receipts_usd": ("BX.GSR.ROYL.CD",),
     # people and places
     "urban_share": ("SP.URB.TOTL.IN.ZS",),
@@ -254,7 +253,7 @@ def indicator_id(code: str) -> str:
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 4  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series
+    stage_version = 5  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice)
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")  # the file has no release name of its own
