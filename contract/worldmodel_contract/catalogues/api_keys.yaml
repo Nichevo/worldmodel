@@ -184,3 +184,15 @@
   limits: Without an account 400 credits a day (a view the size of a country costs 1 to 3); with one 4,000. The app
     asks at most once every 60 seconds and only while the layer is on.
   status: active
+
+- source: metaculus
+  name: Metaculus API
+  env: [METACULUS_TOKEN]
+  needs_key: true
+  signup: https://www.metaculus.com/accounts/settings/
+  how: Sign in to Metaculus (free), open your account settings, and copy the API token. For a bot account, its own
+    token can go in METACULUS_BOT_TOKEN as well (optional).
+  unlocks: Metaculus questions, the community forecast over time and comments on the Crowd page, and your own Metaculus
+    forecasts scored on the Predictions page.
+  limits: Read one request at a time, a second apart; about 50 to 150 requests a refresh.
+  status: active
