@@ -15,7 +15,7 @@ import { BRIEFING_SEEN } from "@/lib/briefing";
 import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
 import {
-  LAYOUTS, MAX_PANELS, MAX_PINS, MAX_SELECTION, STARTERS, fromQuery, reducer, selectionOf, toQuery,
+  LAYOUTS, MAX_PANELS, MAX_PINS, MAX_SELECTION, NO_INDICATOR, STARTERS, fromQuery, reducer, selectionOf, toQuery,
   type Action, type Group, type Layout, type Panel as PanelState, type Workspace,
 } from "@/lib/workspace";
 
@@ -321,7 +321,7 @@ function LayoutPicker({ layout, onPick }: { layout: Layout; onPick: (l: Layout) 
 
 function SelectionBar({ ws, names, dispatch }: { ws: Workspace; names: Map<string, string>; dispatch: (a: import("@/lib/workspace").Action) => void }) {
   const full = ws.selection.length >= MAX_SELECTION;
-  const compare = useMemo(() => `/compare?ids=${ws.selection.join(",")}&indicator=${ws.panels[0]?.indicator ?? "tfr"}`, [ws]);
+  const compare = useMemo(() => `/compare?ids=${ws.selection.join(",")}&indicator=${ws.panels.find((p) => p.indicator !== NO_INDICATOR)?.indicator ?? "tfr"}`, [ws]);
   return (
     <div className="selection">
       {ws.selection.map((id, i) => (

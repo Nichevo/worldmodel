@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import type { EChartsOption } from "echarts";
+import type { ECharts, EChartsOption } from "echarts";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
+import { useYearZoom } from "@/components/long/useYearZoom";
 import { api, type LongCountry } from "@/lib/api";
 import { useSavePicture } from "@/lib/cards";
 import { chrome } from "@/lib/charts";
@@ -17,7 +18,9 @@ import { axisYear, hueColor, kindColor, yl } from "@/lib/long";
 export default function LongViewCard({ entity, name }: { entity: string; name: string }) {
   const [d, setD] = useState<LongCountry | null>(null);
   const [pick, setPick] = useState("population");
-  const { onReady, save, ask } = useSavePicture();
+  const { onReady: keep, save, ask } = useSavePicture();
+  const zoom = useYearZoom();
+  const onReady = useCallback((c: ECharts) => { keep(c); zoom.attach(c); }, [keep, zoom.attach]);
   useEffect(() => {
     let live = true;
     api.longCountry(entity).then((x) => live && setD(x)).catch(() => live && setD(null));
@@ -26,7 +29,7 @@ export default function LongViewCard({ entity, name }: { entity: string; name: s
   const line = d?.series.find((s) => s.series === pick) ?? d?.series[0];
   const option = useCallback((): EChartsOption => {
     const base = chrome();
-    return {
+    return zoom.apply({
       ...base,
       grid: { left: 8, right: 16, top: 30, bottom: 8, containLabel: true },
       xAxis: { ...(base.xAxis as object), axisLabel: { color: cssVar("--muted"), formatter: (v: number) => axisYear(v) } },
@@ -38,8 +41,8 @@ export default function LongViewCard({ entity, name }: { entity: string; name: s
       } },
       series: [{ type: "line", name: line?.name, showSymbol: (line?.points.length ?? 0) < 30, symbolSize: 4,
         lineStyle: { width: 2, color: seriesColor(0) }, itemStyle: { color: seriesColor(0) }, data: line?.points ?? [] }],
-    } as EChartsOption;
-  }, [line]);
+    } as EChartsOption);
+  }, [line, zoom.apply]);
   if (!d || (!d.series.length && !d.ruled.length && !d.events.length)) return null;
   const first = d.ruled[0]?.from ?? 0, last = 2024, span = Math.max(1, last - first + 1);
   const title = `${name}: the long view (${line?.name ?? ""})`;
@@ -57,6 +60,7 @@ export default function LongViewCard({ entity, name }: { entity: string; name: s
             {d.series.map((s) => <button key={s.series} className={s === line ? "on" : ""} onClick={() => setPick(s.series)}>{s.name}</button>)}
           </div>
           <EChart option={option} height={220} label={`${name}: ${line.name} over the centuries`} onReady={onReady} />
+          {zoom.tools}
           <p className="caption">{line.note ? `${line.note} ` : ""}Unit: {line.unit}. Source: {line.source}. Today&apos;s borders throughout.</p>
         </>
       )}
