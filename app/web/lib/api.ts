@@ -263,6 +263,18 @@ export type Settings = {
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
   live_planes: boolean; // the map's Planes now layer
   live_ships: boolean; // the map's Ships now layer
+  map_look: "plain" | "relief" | "satellite" | "night"; // under the country colours
+  relief_style: "classic" | "grey" | "satellite";
+  relief_shading: number; // 0..1
+  map_colours_over: number; // 0..1, how solid the country colours are over a picture
+  night_year: "2016" | "2012" | "latest";
+  map_3d: boolean;
+  map_3d_exaggeration: number;
+  map_tiles: "local_first" | "online";
+  map_tiles_starter: boolean;
+  map_true_size: boolean;
+  space_fetch: boolean;
+  space_values: boolean;
   zones_scenario: string; // ssp126, ssp245 or ssp585 for future climate zones
   history_series_fetch: boolean; // refresh fetches long-run figures (OWID)
   history_events_fetch: boolean; // refresh fetches events far back (Wikidata) and NOAA's hazards

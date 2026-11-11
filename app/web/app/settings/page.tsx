@@ -154,6 +154,7 @@ export default function SettingsPage() {
       </section>
 
       <MapDetail s={s} save={save} />
+      <MapPictures s={s} save={save} />
 
       <section className="card">
         <h2>Places</h2>
@@ -659,6 +660,124 @@ function ClearHistory() {
       <button onClick={clear}>Clear history</button>
       {msg && <span className="small muted"> {msg}</span>}
     </>
+  );
+}
+
+type TileArea = { id: string; set: string; t: string; name: string; bbox: number[]; minzoom: number; maxzoom: number; tiles: number; bytes: number; missing: number; saved: string };
+type TileStatus = { areas: TileArea[]; size: string; job: { state: string; step?: string; done?: number; total?: number; error?: string };
+  starter_done: boolean; starter_size: string };
+type TileCheck = { tiles: number; size: string; fits: boolean; why: string | null };
+const SET_NAME: Record<string, string> = { relief: "Relief", satellite: "Satellite", night: "Night lights" };
+
+// Relief, satellite and night lights: how they look, where they come from, and the copies saved here.
+function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
+  const [st, setSt] = useState<TileStatus | null>(null);
+  const [area, setArea] = useState<{ set: string; t: string; country: string; maxzoom: number }>({ set: "relief", t: "-", country: "NZL", maxzoom: 10 });
+  const [chk, setChk] = useState<TileCheck | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const refresh = () => fetch("/api/v1/tiles").then((r) => r.json()).then(setSt).catch(() => setSt(null));
+  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    if (st?.job.state !== "running") return;
+    const t = setInterval(refresh, 3000);
+    return () => clearInterval(t);
+  }, [st?.job.state]);
+  useEffect(() => setChk(null), [area]);
+  const post = async (path: string, body?: unknown) => {
+    setErr(null);
+    const r = await fetch(`/api/v1/tiles/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json();
+    if (!r.ok) { setErr(j.detail ?? "That did not work"); return null; }
+    return j;
+  };
+  const body = () => ({ set: area.set, t: area.set === "night" ? (area.t === "-" ? "2016" : area.t) : "-", country: area.country, minzoom: 0, maxzoom: area.maxzoom });
+  const drop = async (a: TileArea) => {
+    if (!confirm(`Delete the saved ${SET_NAME[a.set] ?? a.set} for ${a.name}? The map fetches it online again when needed.`)) return;
+    await fetch(`/api/v1/tiles/areas/${encodeURIComponent(a.id)}`, { method: "DELETE" });
+    refresh();
+  };
+  const maxz = area.set === "night" ? 8 : 14;
+  return (
+    <section className="card" id="maps">
+      <h2>Maps: relief, satellite and night lights</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        A picture under the country colours, picked here or in any map&apos;s Layers panel (Background). Shaded relief comes from AWS Terrain Tiles
+        (land heights and sea depths), the satellite picture is Sentinel-2 cloudless by EOX, and night lights are NASA&apos;s Black Marble.
+      </p>
+      <Field label="Background">
+        <div className="seg" role="group" aria-label="Background">
+          {([["plain", "Plain"], ["relief", "Shaded relief"], ["satellite", "Satellite"], ["night", "Night lights"]] as const).map(([v, t]) => (
+            <button key={v} className={s.map_look === v ? "on" : ""} aria-pressed={s.map_look === v} onClick={() => save({ map_look: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Relief style" hint="Height colours: green lowlands to brown mountains and blue seas. Grey: shading only, quiet under strong colours.">
+        <div className="seg" role="group" aria-label="Relief style">
+          {([["classic", "Height colours"], ["grey", "Grey"], ["satellite", "Over satellite"]] as const).map(([v, t]) => (
+            <button key={v} className={s.relief_style === v ? "on" : ""} aria-pressed={s.relief_style === v} onClick={() => save({ relief_style: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <NumberField label="Hill shading" value={s.relief_shading} min={0} max={1} step={0.05} note="0 to 1; stronger makes mountains stand out more." save={(v) => save({ relief_shading: v })} />
+      <NumberField label="Country colours over a picture" value={s.map_colours_over} min={0} max={1} step={0.05} note="0 shows only the picture, 1 hides it. Countries without a figure are always left clear." save={(v) => save({ map_colours_over: v })} />
+      <Field label="Night lights of" hint="NASA made whole-year pictures for 2012 and 2016; last night's picture is the newest but shows clouds and moonlight.">
+        <select value={s.night_year} onChange={(e) => save({ night_year: e.target.value as Settings["night_year"] })}>
+          <option value="2016">2016</option><option value="2012">2012</option><option value="latest">Last night</option>
+        </select>
+      </Field>
+      <Toggle label="3D" hint="Tilts the map and raises the land (right-drag or Ctrl-drag to turn and tilt). Slower on older PCs. Off: flat maps." on={s.map_3d} set={(v) => save({ map_3d: v })} />
+      <NumberField label="Raise the land by" unit="times" value={s.map_3d_exaggeration} min={1} max={5} step={0.5} save={(v) => save({ map_3d_exaggeration: v })} />
+      <Field label="Where the pictures come from" hint="Saved copies first: the map uses what is saved on this PC and fetches the rest online through the app (nothing extra is saved while you browse). Always online: straight from the sites, nothing read from this PC.">
+        <div className="seg" role="group" aria-label="Picture source">
+          {([["local_first", "Saved copies first"], ["online", "Always online"]] as const).map(([v, t]) => (
+            <button key={v} className={s.map_tiles === v ? "on" : ""} aria-pressed={s.map_tiles === v} onClick={() => save({ map_tiles: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <Toggle label="Starter copies" hint={`Downloaded once in the background after the app starts: world relief to zoom 6, New Zealand's relief and satellite closer in, the whole world's satellite at overview zoom and 2016 night lights (about ${st?.starter_size ?? "1 GB"}). Off: nothing is downloaded until you save an area below.`}
+        on={s.map_tiles_starter} set={(v) => save({ map_tiles_starter: v })} />
+      {st && !st.starter_done && <p className="small"><button onClick={() => post("starter").then(refresh)} disabled={st.job.state === "running"}>Download the starter copies now</button></p>}
+
+      <h3 style={{ marginBottom: 4 }}>Save an area</h3>
+      <div className="chips-row" style={{ gap: 10, alignItems: "end" }}>
+        <label className="small">Picture <select value={area.set} onChange={(e) => setArea({ ...area, set: e.target.value, maxzoom: Math.min(area.maxzoom, e.target.value === "night" ? 8 : 14) })}>
+          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option></select></label>
+        {area.set === "night" && <label className="small">Year <select value={area.t === "-" ? "2016" : area.t} onChange={(e) => setArea({ ...area, t: e.target.value })}>
+          <option value="2016">2016</option><option value="2012">2012</option></select></label>}
+        <label className="small">Country (ISO code) <input value={area.country} size={5} onChange={(e) => setArea({ ...area, country: e.target.value.toUpperCase().slice(0, 3) })} /></label>
+        <label className="small">Down to zoom <select value={area.maxzoom} onChange={(e) => setArea({ ...area, maxzoom: Number(e.target.value) })}>
+          {Array.from({ length: maxz - 3 }, (_, i) => i + 4).map((z) => <option key={z} value={z}>{z}{z === 8 ? " (towns)" : z === 11 ? " (suburbs)" : z === 14 ? " (streets)" : ""}</option>)}</select></label>
+        <button onClick={() => post("check", body()).then((j) => j && setChk(j))}>Check size</button>
+        <button disabled={!chk?.fits || st?.job.state === "running"} onClick={() => post("save", body()).then(refresh)}>Save</button>
+      </div>
+      {chk && <p className="small">{chk.tiles.toLocaleString()} tiles, about <b>{chk.size}</b>.{chk.why ? <span className="warn-text"> {chk.why}.</span> : " Fits within the map files limit."}</p>}
+      {st?.job.state === "running" && <p className="small"><b>Saving:</b> {st.job.step}{st.job.total ? ` (${(st.job.done ?? 0).toLocaleString()} of ${st.job.total.toLocaleString()})` : ""}. You can leave this page.</p>}
+      {st?.job.state === "failed" && <p className="small warn-text"><b>Not saved:</b> {st.job.error}</p>}
+      {err && <p className="small warn-text">{err}</p>}
+      {!!st?.areas.length && (
+        <table className="summary-table" style={{ marginTop: 8 }}>
+          <thead><tr><th>Picture</th><th>Area</th><th>Zoom</th><th className="num">Size</th><th>Saved</th><th /></tr></thead>
+          <tbody>
+            {st.areas.map((a) => (
+              <tr key={a.id}>
+                <td>{SET_NAME[a.set] ?? a.set}{a.set === "night" ? ` ${a.t}` : ""}</td>
+                <td>{a.name}</td>
+                <td>{a.minzoom}-{a.maxzoom}</td>
+                <td className="num">{a.bytes >= 1e9 ? `${(a.bytes / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(a.bytes / 1e6))} MB`}</td>
+                <td className="small">{a.saved.slice(0, 10)}{a.missing ? ` (${a.missing} tiles missing)` : ""}</td>
+                <td><button className="link" onClick={() => drop(a)}>Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="caption">Saved pictures are kept in the data folder under basemap\tiles and count toward the map files limit ({st?.size ?? "nothing"} saved now).</p>
+
+      <h3 style={{ marginBottom: 4 }}>Map shapes and space</h3>
+      <Toggle label="Map shapes page" hint="True size (drag a country over another), the equal-area map and cartograms, worked out on this PC from the borders the app has. Off: the page is hidden from the menu." on={s.map_true_size} set={(v) => save({ map_true_size: v })} />
+      <Toggle label="Solar system downloads" hint="When the Solar system page first opens, and every 90 days: about 25,000 asteroids from JPL's Small-Body Database and the paths of about 20 spacecraft from JPL Horizons, one request every two seconds (about 15 MB kept). Off: the planets and fact cards still show; no asteroids or mission paths." on={s.space_fetch} set={(v) => save({ space_fetch: v })} />
+      <Toggle label="Asteroid values" hint="Asterank's guessed dollar values for about 1,000 asteroids, shown as a separate layer. They rest on rough guesses about what each asteroid is made of. Off: no values are fetched or shown." on={s.space_values} set={(v) => save({ space_values: v })} />
+    </section>
   );
 }
 
