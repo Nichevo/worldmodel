@@ -248,6 +248,12 @@ export type Settings = {
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
   wikipedia_empires_daily: number; // Long history: Wikipedia pages for empires, dynasties and voyages
   history_borders_fetch: boolean; // refresh fetches Cliopatria's borders
+  nature_zones_fetch: boolean; // refresh reads the Köppen-Geiger climate zones once
+  nature_climate_extras_fetch: boolean; // Berkeley Earth, PSMSL tide gauges, ND-GAIN
+  nature_pollution_fetch: boolean; // UN SDG water and protected key areas
+  nature_species_fetch: boolean; // GRIIS, IUCN Red List, EPPO
+  nature_protected_fetch: boolean; // WDPA protected areas
+  zones_scenario: string; // ssp126, ssp245 or ssp585 for future climate zones
   history_series_fetch: boolean; // refresh fetches long-run figures (OWID)
   history_events_fetch: boolean; // refresh fetches events far back (Wikidata) and NOAA's hazards
   history_event_min_links: number; // events shown: articles in at least this many Wikipedias
@@ -717,6 +723,35 @@ export type ClimateLive = { rows: { id: string; type: string; name: string; aler
 export type ClimatePolicy = { rows: { entity_id: string; name: string; net_zero_year?: number; net_zero_status?: number; carbon_price?: number;
   carbon_price_year?: number; ghg_per_capita?: number; co2_share_world?: number; paris?: string | null }[]; paris_count: number };
 
+// ----------------------------------------------------------------------------- climate zones, pollution, nature
+export type ZoneDef = { n: number; code: string; name: string; colour: string; group: string };
+export type ZonesInfo = { zones: ZoneDef[]; groups: { code: string; name: string; colour: string }[]; scenarios: Record<string, string>;
+  periods: { period: string; scenario: string }[]; scenario: string };
+export type ZoneTwin = { city_id: string; name: string; population: number; now: string | null; later: string | null;
+  twin: { name: string; country_id: string; city_id: string } | null };
+// variant (central, low, high) -> year -> zone code (or group letter) -> % of land
+export type ZonesCountry = { entity: string; zones: Record<string, Record<string, Record<string, number>>>;
+  groups: Record<string, Record<string, Record<string, number>>>; people: Record<string, number>; people_note?: string;
+  twins: ZoneTwin[]; scenario?: string; legend: Omit<ZonesInfo, "periods" | "scenario"> };
+export type Pledge = { year: number; base_year: number; cut: number; cut_high?: number; note: string; base_value: number | null;
+  target: number | null; target_low: number | null };
+export type Pledges = { entity: string; indicator: string; pledges: Pledge[]; note: string };
+export type NatureEvent = { kind: string; subkind: string | null; title: string; start_date: string | null; end_date: string | null; precision?: string;
+  place: string | null; url: string | null; detail: string | null; entities: string[] };
+export type IndicatorNames = Record<string, { name: string; unit: string; decimals: number }>;
+export type Latest = Record<string, { year: number; value: number; source_id: string }>;
+export type PollutionPage = { tabs: Record<"air" | "water" | "ocean" | "borders", string[]>; names: IndicatorNames; events: NatureEvent[] };
+export type PollutionCountry = PollutionPage & { entity: string; latest: Latest };
+export type Pest = { code: string; name: string; kind: string; note: string; countries: number; loaded: boolean;
+  here?: { present: boolean; statuses: string[] } | null };
+export type Comeback = { name: string; countries: string[]; from: string; to: string; how: string; url: string };
+export type Restoration = { name: string; countries: string[]; start: number; what: string; url: string };
+export type NaturePage = { losing: string[]; invasive: string[]; recovering: string[]; names: IndicatorNames; disease: NatureEvent[];
+  pest_events: NatureEvent[]; pests: Pest[]; comebacks: Comeback[]; restoration: Restoration[]; protected: { n: number; km2: number | null } };
+export type NatureCountry = { entity: string; latest: Latest; names: IndicatorNames;
+  species: { scientific_name: string; category: string; year: number | null; url: string | null }[]; pests: Pest[];
+  events: NatureEvent[]; comebacks: Comeback[]; restoration: Restoration[] };
+
 // ----------------------------------------------------------------------------- sectors
 export type SectorRank = { entity_id: string; name: string; value: number; share: number | null };
 export type SectorMeasure = {
@@ -1002,6 +1037,15 @@ export const api = {
   climateStorms: () => get<ClimateStorms>("/climate/storms"),
   climateLive: () => get<ClimateLive>("/climate/live"),
   climatePolicy: () => get<ClimatePolicy>("/climate/policy"),
+  climatePledges: (id: string) => get<Pledges>(`/climate/pledges/${encodeURIComponent(id)}`),
+  climateZones: () => get<ZonesInfo>("/climatezones"),
+  climateZonesCountry: (id: string, scenario?: string) => get<ZonesCountry>(`/climatezones/country/${encodeURIComponent(id)}`, { scenario }),
+  pollution: () => get<PollutionPage>("/pollution"),
+  pollutionCountry: (id: string) => get<PollutionCountry>(`/pollution/country/${encodeURIComponent(id)}`),
+  nature: () => get<NaturePage>("/nature"),
+  natureCountry: (id: string) => get<NatureCountry>(`/nature/country/${encodeURIComponent(id)}`),
+  protectedAreas: (b: { west: number; south: number; east: number; north: number; limit?: number }) =>
+    get<GeoJSON.FeatureCollection>("/nature/protected", b),
   sectors: () => get<SectorList>("/sectors"),
   sector: (id: string, q: { year?: number; country?: string } = {}) => get<SectorDetail>(`/sectors/${encodeURIComponent(id)}`, q),
   sectorsByCountry: (q: { country?: string; year?: number; since?: number }) => get<SectorsByCountry>("/sectors/by-country", q),

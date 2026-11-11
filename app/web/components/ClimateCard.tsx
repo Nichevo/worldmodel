@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
 import Help from "@/components/Help";
-import { api, type ClimateCountry } from "@/lib/api";
+import { api, type ClimateCountry, type Pledges } from "@/lib/api";
 import { openAsk } from "@/lib/ai";
 import { fanOption, lines, stripesOption } from "@/lib/climate";
 
@@ -20,9 +20,11 @@ export default function ClimateCard({ entity, name }: { entity: string; name: st
   const [d, setD] = useState<ClimateCountry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [proj, setProj] = useState<"proj_temp" | "proj_rain">("proj_temp");
+  const [pledges, setPledges] = useState<Pledges | null>(null);
   useEffect(() => {
     let live = true;
     api.climateCountry(entity).then((r) => live && setD(r)).catch((e) => live && setError(String(e.message || e)));
+    api.climatePledges(entity).then((r) => live && setPledges(r)).catch(() => live && setPledges(null));
     return () => { live = false; };
   }, [entity]);
   const nm = (i: string) => d?.names[i]?.name ?? i;
@@ -39,8 +41,18 @@ export default function ClimateCard({ entity, name }: { entity: string; name: st
       (o.series as object[]).push({ type: "line", name: `Straight line to net zero by ${nz.year}`, data: [[lastYear, sum], [nz.year, 0]],
         symbol: "none", lineStyle: { type: "dotted", width: 2 } });
     }
+    const pts = (pledges?.pledges ?? []).filter((p) => p.target != null);
+    if (pts.length && tot.length) {
+      // Climate pledges (NDCs) as points: the base year's emissions cut by the pledge; a range shows as a bar.
+      (o.series as object[]).push({ type: "scatter", name: "Climate pledge (NDC)", symbol: "diamond", symbolSize: 11, z: 5,
+        data: pts.map((p) => ({ value: [p.year, p.target], name: `${p.year}: ${p.note}` })),
+        tooltip: { formatter: (x: { name: string }) => x.name } });
+      const ranged = pts.filter((p) => p.target_low != null);
+      if (ranged.length) (o.series as object[]).push({ type: "line", name: "Pledge range", symbol: "none", lineStyle: { width: 3, opacity: 0.6 },
+        data: ranged.flatMap((p) => [[p.year, p.target], [p.year, p.target_low], [null, null]]), connectNulls: false });
+    }
     return o;
-  }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [d, pledges]); // eslint-disable-line react-hooks/exhaustive-deps
   const sectors = useCallback(() => lines(Object.entries(d?.sectors ?? {}).map(([i, pts]) => ({ name: nm(i).replace(/^Greenhouse gases from |^New Zealand greenhouse gases from /, ""), points: pts })),
     d?.names[Object.keys(d?.sectors ?? {})[0]]?.unit ?? "", { decimals: 1 }), [d]); // eslint-disable-line react-hooks/exhaustive-deps
   const cons = useCallback(() => lines(["co2_gcp", "co2_consumption"].filter((i) => d?.consumption[i]).map((i) => ({ name: i === "co2_gcp" ? "Made at home" : "Counted where goods are used", points: d!.consumption[i] })),
@@ -72,6 +84,7 @@ export default function ClimateCard({ entity, name }: { entity: string; name: st
             <EChart option={gases} height={240} label={`${name} greenhouse gas emissions`} />
             {d.net_zero ? <p className="caption">Net zero target {d.net_zero.year}{d.net_zero.status != null && STATUS[d.net_zero.status] ? `, ${STATUS[d.net_zero.status]}` : ""}. The dotted line is a straight path to it, for comparison, not the country&apos;s own plan.
               {d.carbon_price.length ? ` Carbon price ${d.carbon_price[d.carbon_price.length - 1][1].toFixed(0)} US$ a tonne (${d.carbon_price[d.carbon_price.length - 1][0]}).` : ""}</p> : null}
+            {pledges?.pledges.some((p) => p.target != null) ? <p className="caption">Diamonds: climate pledges under the Paris Agreement ({pledges.pledges.map((p) => p.note).join(" ")}) {pledges.note}</p> : null}
           </div>
         ) : null}
         {Object.keys(d.sectors).length ? (

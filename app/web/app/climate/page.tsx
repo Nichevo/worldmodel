@@ -8,6 +8,8 @@ import EChart from "@/components/EChart";
 import Help from "@/components/Help";
 import WorldMap, { type MapPoint } from "@/components/WorldMap";
 import ClimateCard from "@/components/ClimateCard";
+import NatureTab from "@/components/NatureTab";
+import ZonesTab from "@/components/ZonesTab";
 import { api, type ClimateEnso, type ClimateLive, type ClimateOverview, type ClimatePolicy, type ClimateStorms } from "@/lib/api";
 import { ensoOption, lines, stormsOption, stripesOption } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
@@ -18,9 +20,9 @@ import { useSettings } from "@/lib/settings";
 
 // The climate across the world: vital signs, an emissions map, storms, El Niño and policy.
 
-type Tab = "world" | "map" | "storms" | "enso" | "policy" | "country";
-const TABS: [Tab, string][] = [["world", "The world"], ["map", "Map and rankings"], ["storms", "Storms and alerts"], ["enso", "El Niño"],
-  ["policy", "Net zero and carbon prices"], ["country", "One country"]];
+type Tab = "world" | "map" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
+const TABS: [Tab, string][] = [["world", "The world"], ["map", "Map and rankings"], ["zones", "Climate zones"], ["storms", "Storms and alerts"], ["enso", "El Niño"],
+  ["nature", "Nature"], ["policy", "Net zero and carbon prices"], ["country", "One country"]];
 const LIVE_TYPES: Record<string, string> = { TC: "Tropical cyclone", FL: "Flood", DR: "Drought", WF: "Wildfire", EQ: "Earthquake", VO: "Volcano", TS: "Tsunami" };
 const ALERT_COLOR: Record<string, string> = { red: "--div-neg-3", orange: "--series-6", green: "--div-pos-2" };
 
@@ -300,16 +302,19 @@ function ClimatePage() {
   const [o, setO] = useState<ClimateOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { api.climate().then(setO).catch((e) => setError(String(e.message || e))); }, []);
-  const go = (t: Tab) => { setTab(t); router.replace(`/climate?tab=${t}${t === "country" ? `&country=${country}` : ""}`, { scroll: false }); };
+  const withCountry = (t: Tab) => t === "country" || t === "zones" || t === "nature";
+  const go = (t: Tab) => { setTab(t); router.replace(`/climate?tab=${t}${withCountry(t) ? `&country=${country}` : ""}`, { scroll: false }); };
+  const pick = (c: string) => { setCountry(c); router.replace(`/climate?tab=${tab}&country=${c}`, { scroll: false }); };
   if (error) return <p className="error">{error}</p>;
   if (!o) return <p className="muted">Loading…</p>;
   return (
     <div className="grid sector-page">
       <div className="title-row"><h1>Climate</h1> <Help note="climate" /></div>
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
-      {tab === "world" ? <World o={o} /> : tab === "map" ? <MapTab o={o} /> : tab === "storms" ? <Storms /> : tab === "enso" ? <Enso /> : tab === "policy" ? <Policy /> : (
+      {tab === "world" ? <World o={o} /> : tab === "map" ? <MapTab o={o} /> : tab === "storms" ? <Storms /> : tab === "enso" ? <Enso /> : tab === "policy" ? <Policy />
+        : tab === "zones" ? <ZonesTab country={country} onCountry={pick} /> : tab === "nature" ? <NatureTab country={country} onCountry={pick} /> : (
         <>
-          <div className="chips-row small"><CountryChoice value={country} onChange={(c) => { setCountry(c); router.replace(`/climate?tab=country&country=${c}`, { scroll: false }); }} /></div>
+          <div className="chips-row small"><CountryChoice value={country} onChange={pick} /></div>
           <ClimateCard entity={country} name={country} />
         </>
       )}

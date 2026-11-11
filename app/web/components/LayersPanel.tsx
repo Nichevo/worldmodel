@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CW_LABEL } from "@/components/CrisisWatchCard";
-import type { MapMark, MapOutline } from "@/components/WorldMap";
+import type { MapMark, MapOutline, RasterTiles } from "@/components/WorldMap";
 import { api, type CrisisWatchMonth, type MapEvents } from "@/lib/api";
+import { zoneTiles } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
@@ -153,7 +154,18 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       all.history_world = `${world.count} states in ${yl(pastYear)}`;
       legend.push({ label: `States and empires in ${yl(pastYear)} (one colour per empire)`, color: cssVar("--series-4"), shape: "dot" });
     }
-    return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world };
+    // Picture layers over the country colours: climate zones (this app's tiles) and smoke (NASA).
+    const rasters: RasterTiles[] = [];
+    if (on("k")) {
+      rasters.push({ tiles: zoneTiles("1991-2020", "historical", true), attribution: "Climate zones: Beck et al. 2023", maxzoom: 6, over: true, opacity: 0.75 });
+      legend.push(...ZONE_GROUPS.map(([label, c]) => ({ label, color: c, shape: "dot" as const })));
+    }
+    if (on("x")) {
+      const day = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+      rasters.push({ tiles: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Combined_Value_Added_AOD/default/${day}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`,
+        attribution: "Smoke and dust: NASA GIBS", maxzoom: 6, over: true, opacity: 0.7 });
+    }
+    return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
   }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
@@ -169,7 +181,9 @@ const BASE_MAPS: { id: "plain" | "online" | "local"; label: string; gives: strin
   { id: "online", label: "Street detail (online)", gives: "Needs the internet; OpenFreeMap tiles." },
   { id: "local", label: "Street detail (this PC)", gives: "Only as far as the map files you made (Settings > Map)." },
 ];
+const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
+  climate_zones: () => "#5abe46", smoke: () => "#b4783c",
   crisiswatch: () => cssVar("--div-neg-3"), events: () => cssVar("--series-7"), news: () => cssVar("--series-4"),
   history_world: () => cssVar("--series-4"),
 };
@@ -210,6 +224,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "crisiswatch") return { ok: true, why: "", source: "Crisis Group, the latest month stored" };
       if (m.id === "events") return { ok: true, why: "", source: "Events from every source, placed on their country" };
       if (m.id === "history_world") return { ok: true, why: "", source: "Seshat Cliopatria borders (a refresh loads them)" };
+      if (m.id === "climate_zones") return { ok: true, why: "", source: "Beck et al. 2023 (a refresh loads them)" };
+      if (m.id === "smoke") return { ok: true, why: "", source: "NASA GIBS, read from the internet" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };

@@ -30,6 +30,9 @@ import ReadingCard from "@/components/ReadingCard";
 import ReligionCard from "@/components/ReligionCard";
 import LongViewCard from "@/components/long/LongViewCard";
 import ClimateCard from "@/components/ClimateCard";
+import NatureCard from "@/components/NatureCard";
+import PollutionCard from "@/components/PollutionCard";
+import ZonesCard from "@/components/ZonesCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
 import RegionsCard from "@/components/RegionsCard";
@@ -70,7 +73,7 @@ const SECTIONS = [
   { key: "money", title: "Money, prices and housing" },
   { key: "places", title: "Cities, places and the internet" },
   { key: "energy", title: "Energy" },
-  { key: "climate", title: "Climate" },
+  { key: "climate", title: "Climate and nature" },
   { key: "world", title: "In the world: votes, dealings and conflict watch" },
   { key: "laws", title: "Laws, holidays and crime" },
   { key: "history", title: "History, events and sources" },
@@ -138,6 +141,9 @@ export default function EntityPage() {
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
     { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
     { key: "climate", title: "Climate", section: "climate", on: !isGroup || e === "world", el: <ClimateCard entity={e} name={nm} /> },
+    { key: "climate_zones", title: "Climate zones", section: "climate", on: !isGroup, el: <ZonesCard entity={e} name={nm} /> },
+    { key: "pollution", title: "Pollution", section: "climate", on: !isGroup || e === "world", el: <PollutionCard entity={e} name={nm} /> },
+    { key: "nature", title: "Nature", section: "climate", on: !isGroup, el: <NatureCard entity={e} name={nm} /> },
     { key: "voting", title: "UN voting", section: "world", on: !isGroup, el: <VotingCard entity={e} name={nm} /> },
     { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },

@@ -81,6 +81,27 @@ CHARTS = (
     ("patent-applications-per-million", "Patent applications per million people (WIPO)", "patents_per_million", "science"),
     ("scholarly-publications-on-artificial-intelligence-per-million-people",
      "Scholarly publications on artificial intelligence per million people (CSET)", "ai_publications_per_million", "science"),
+    # pollution (the Pollution page)
+    ("death-rate-from-air-pollution-per-100000", "IHME Global Burden of Disease: deaths from outdoor and indoor air "
+     "pollution per 100,000 people, age-standardised", "air_pollution_death_rate", "pollution"),
+    ("share-deaths-air-pollution", "IHME Global Burden of Disease: share of all deaths caused by air pollution",
+     "air_pollution_death_share", "pollution"),
+    ("emissions-of-air-pollutants", "Community Emissions Data System (CEDS): emissions of sulphur dioxide, nitrogen "
+     "oxides, black and organic carbon, ammonia, carbon monoxide and other air pollutants, back to 1750", "airpol", "pollution"),
+    ("plastic-waste-emitted-to-the-ocean", "Meijer et al. (2021): plastic reaching the ocean from rivers and coasts, tonnes a year",
+     "ocean_plastic", "pollution"),
+    ("per-capita-ocean-plastic-waste", "Meijer et al. (2021): plastic reaching the ocean per person, kg a year",
+     "ocean_plastic_per_capita", "pollution"),
+    ("share-of-global-plastic-waste-emitted-to-the-ocean", "Meijer et al. (2021): share of the world's plastic reaching the ocean",
+     "ocean_plastic_share", "pollution"),
+    # nature (the Nature tab on the Climate page)
+    ("global-living-planet-index", "WWF and ZSL Living Planet Index: average change in tracked wild animal populations "
+     "since 1970 (1970 = 100), by region", "living_planet_index", "nature"),
+    ("red-list-index", "IUCN Red List Index: 1 = no species at risk, 0 = all extinct; falling means more species "
+     "moving towards extinction", "red_list_index_owid", "nature"),
+    ("threatened-mammal-species", "IUCN: mammal species threatened with extinction, by country", "threatened_mammals", "nature"),
+    ("threatened-bird-species", "IUCN: bird species threatened with extinction, by country", "threatened_birds", "nature"),
+    ("tree-cover-loss", "Global Forest Watch: tree cover lost each year, hectares", "tree_cover_loss", "nature"),
 )
 CHART = {c[0]: c for c in CHARTS}
 
@@ -206,7 +227,8 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 3  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains
+    stage_version = 4  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts
+    fetch_version = 2  # 2: pollution and nature charts added (fetched at the next refresh)
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:
