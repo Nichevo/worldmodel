@@ -160,10 +160,22 @@ export type SearchHit = { kind: "entity" | "indicator"; id: string; name: string
 
 export class ApiError extends Error {}
 
-export async function get<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
+// The same request already on its way is shared rather than sent twice (the menu, the banner
+// and the page often ask for /meta, /storage or /problems at the same moment).
+const inFlight = new Map<string, Promise<unknown>>();
+
+export function get<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
   const url = `/api/v1${path}${qs.toString() ? `?${qs}` : ""}`;
+  const known = inFlight.get(url);
+  if (known) return known as Promise<T>;
+  const p = fetchJson<T>(url).finally(() => inFlight.delete(url));
+  inFlight.set(url, p);
+  return p;
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
     let detail = res.statusText;
@@ -971,6 +983,39 @@ export type EntityLanguages = {
   factbook: { edition: number; content: string } | null;
 };
 
+// Series asked for within a few milliseconds of each other for the same countries and years
+// (a country page draws dozens of charts at once) go in one /series-many request: browsers
+// open only six connections at a time, so dozens of small requests queue behind each other.
+type SeriesWait = { indicator: string; resolve: (r: SeriesRow[]) => void; reject: (e: unknown) => void };
+const seriesQueue = new Map<string, { params: Record<string, string | number | undefined>; waits: SeriesWait[] }>();
+function batchedSeries(indicator: string, entities: string[], start?: number, end?: number): Promise<SeriesRow[]> {
+  const key = `${entities.join(",")}|${start ?? ""}|${end ?? ""}`;
+  return new Promise((resolve, reject) => {
+    let q = seriesQueue.get(key);
+    if (!q) {
+      q = { params: { entities: entities.join(","), start, end }, waits: [] };
+      seriesQueue.set(key, q);
+      setTimeout(() => {
+        seriesQueue.delete(key);
+        const waits = q!.waits;
+        if (waits.length === 1) {
+          get<{ rows: SeriesRow[] }>("/series", { indicator: waits[0].indicator, ...q!.params }).then((r) => waits[0].resolve(r.rows), waits[0].reject);
+          return;
+        }
+        const ids = [...new Set(waits.map((w) => w.indicator))];
+        const chunks: string[][] = [];
+        for (let i = 0; i < ids.length; i += 60) chunks.push(ids.slice(i, i + 60));
+        for (const chunk of chunks) {
+          get<Record<string, SeriesRow[]>>("/series-many", { indicators: chunk.join(","), ...q!.params })
+            .then((by) => waits.filter((w) => chunk.includes(w.indicator)).forEach((w) => w.resolve(by[w.indicator] ?? [])))
+            .catch((e) => waits.filter((w) => chunk.includes(w.indicator)).forEach((w) => w.reject(e)));
+        }
+      }, 8);
+    }
+    q.waits.push({ indicator, resolve, reject });
+  });
+}
+
 export const api = {
   briefing: (days?: number) => get<Briefing>("/briefing", { days }),
   entityLatest: (id: string, days = 30) => get<EntityLatest>(`/entities/${encodeURIComponent(id)}/latest`, { days }),
@@ -1034,8 +1079,7 @@ export const api = {
   setQuality: (id: string, change: { starred?: boolean; grade?: Grade | null }) =>
     send<IndicatorQuality>("PUT", `/quality/${encodeURIComponent(id)}`, change),
   search: (q: string) => get<SearchHit[]>("/search", { q }),
-  series: (indicator: string, entities: string[], start?: number, end?: number) =>
-    get<{ rows: SeriesRow[] }>("/series", { indicator, entities: entities.join(","), start, end }).then((r) => r.rows),
+  series: (indicator: string, entities: string[], start?: number, end?: number) => batchedSeries(indicator, entities, start, end),
   map: (indicator: string, year: number) =>
     get<{ rows: { entity_id: string; value: number; status: string }[] }>("/map", { indicator, year }).then((r) => r.rows),
   memberships: (q: { type?: string; group?: string }) =>

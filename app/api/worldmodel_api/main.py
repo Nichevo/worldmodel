@@ -385,12 +385,16 @@ def _indicator_rows() -> list[dict]:
             FROM indicators i LEFT JOIN series s USING (indicator_id) LEFT JOIN entities e USING (entity_id)
             GROUP BY ALL ORDER BY i.domain, i.name""")
         # The year a map opens on: the latest estimate year with at least half the countries
-        # of the indicator's best-covered year (the very latest year often has only a few).
+        # of the indicator's best-covered year (the very latest year often has only a few),
+        # counted in the first-ranked source, which is the one maps and rankings show.
         main_year = {r["indicator_id"]: r["y"] for r in rows("""
-            WITH n AS (
+            WITH first AS (SELECT indicator_id, arg_min(source_id, rank) AS source_id FROM indicator_sources GROUP BY 1),
+            n AS (
                 SELECT s.indicator_id, year(s.period_start) AS y, count(DISTINCT s.entity_id) AS c
                 FROM series s JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country'
-                WHERE s.status = 'E' AND s.variant = 'central' AND s.breakdown = '' GROUP BY 1, 2)
+                LEFT JOIN first f ON f.indicator_id = s.indicator_id
+                WHERE s.status = 'E' AND s.variant = 'central' AND s.breakdown = ''
+                    AND (f.source_id IS NULL OR s.source_id = f.source_id) GROUP BY 1, 2)
             SELECT indicator_id, max(y) AS y FROM n
             WHERE c >= (SELECT max(c) FROM n m WHERE m.indicator_id = n.indicator_id) / 2 GROUP BY 1""")}
         srcs = rows("SELECT r.*, s.short_name AS source_name, s.licence FROM indicator_sources r "
@@ -651,6 +655,17 @@ def series(
         raise HTTPException(404, f"no indicator {indicator}")
     data = _series(indicator, entities, members_of, start, end, source, breakdown, variant, projections, as_of)
     return _respond(data, format, f"{indicator}", {"indicator": indicator, "as_of": as_of})
+
+
+@api.get("/series-many")
+def series_many(indicators: str = Query(..., description="Comma-separated indicator ids, at most 60"),
+                entities: str | None = Query(None, description="Comma-separated entity ids"),
+                start: int | None = None, end: int | None = None):
+    """Several indicators for the same entities in one call ({indicator: rows}), so a page of
+    charts makes one request instead of dozens. Unknown indicators come back empty."""
+    ids = split(indicators)[:60]
+    known = {r["indicator_id"] for r in rows("SELECT indicator_id FROM indicators WHERE indicator_id IN (SELECT unnest(?))", [ids])}
+    return {i: (_series(i, entities, None, start, end, None, "", "central", True, None) if i in known else []) for i in ids}
 
 
 @api.get("/map")
@@ -1708,6 +1723,8 @@ def land_outlines(ids: str):
 @api.get("/land/city/{city_id}")
 def land_city(city_id: str):
     """The GHSL urban centre a city sits in, with its figures, outline and land cover if worked out."""
+    if not _has_cities():
+        raise HTTPException(404, "no city list loaded yet")
     got = land.centre_for_city(rows, city_id)
     if got is None:
         raise HTTPException(404, "no urban centre for this city")
@@ -3317,7 +3334,17 @@ def discover_entity(entity_id: str, limit: int = Query(5, ge=1, le=50)):
     mine = [f for f in _finds() if entity_id in f.get("entities", [])]
     ranked = [f for f in discover.ranked(mine, st, keys, float(s.get("discover_key_boost", 1.5)), bool(s.get("discover_tune", True)))
               if f["rating"] >= 0 and not f["never"] and entity_id in f.get("entities", [])]
-    return {"items": ranked[:limit], "total": len(ranked)}
+    # One find per kind of change on one measure: a record in population, male population
+    # and female population is one find on the card, not three.
+    seen: set[tuple] = set()
+    items = []
+    for f in ranked:
+        fam = (f.get("kind"), re.sub(r"_(total|male|female|men|women)$", "", f.get("indicator_id") or f.get("key", "")))
+        if fam in seen:
+            continue
+        seen.add(fam)
+        items.append(f)
+    return {"items": items[:limit], "total": len(items)}
 
 
 @api.post("/news/fetch")
