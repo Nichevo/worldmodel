@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import CityLandCard from "@/components/CityLandCard";
 import PlacesCard from "@/components/PlacesCard";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,7 +35,7 @@ export default function CityPage() {
   }, [id]);
 
   const pop = d?.series.find((s) => s.indicator_id === "city_population");
-  const facts = d?.series.filter((s) => s.indicator_id !== "city_population") ?? [];
+  const facts = d?.series.filter((s) => s.indicator_id !== "city_population" && !s.indicator_id.startsWith("ghsl_")) ?? [];
   const points = useMemo(() => (d ? cityPoints([d.city, ...d.others], d.city.city_id) : []), [d]);
 
   if (error) return <p className="error">{error.replace(/^404: /, "")}</p>;
@@ -116,6 +117,8 @@ export default function CityPage() {
           </section>
         )}
       </div>
+
+      <CityLandCard cityId={c.city_id} name={c.name} />
 
       <section className="card">
         <h3>Everyday prices</h3>

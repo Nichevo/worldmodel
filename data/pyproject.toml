@@ -21,6 +21,7 @@ dependencies = [
     "numpy>=1.26",
     "pillow>=10",  # reads the Köppen-Geiger climate zone GeoTIFFs
     "pyshp>=2.3",  # reads the WDPA protected area shapefiles
+    "shapely>=2.0",  # land: city outlines and NZ land cover (reprojecting, areas)
     "playwright>=1.45",  # verify.bat: opens sites with a person check in your own Edge or Chrome
 ]
 

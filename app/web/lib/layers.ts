@@ -141,6 +141,22 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-radius": zoomWidth(2.5, 6), "circle-opacity": 0.9, "circle-stroke-color": cssVar("--ink-2"), "circle-stroke-width": 0.5,
     }),
   },
+  // ---- land, cities and trees (PR 6)
+  urban_centres: {
+    legend: "City outline (darker: grew more since 1975)", swatch: () => cssVar("--series-5"), fill: true, fetch: "window", click: "feature",
+    paint: () => ({ "fill-color": cssVar("--series-5"), "fill-outline-color": cssVar("--series-5"),
+      "fill-opacity": ["interpolate", ["linear"], ["coalesce", ["get", "growth"], 0], 0, 0.15, 100, 0.35, 300, 0.6] }),
+  },
+  street_trees: {
+    legend: "Street or park tree (council list; from street level)", swatch: () => "#2d6a4f", dot: true, fetch: "window", click: "feature",
+    paint: () => ({ "circle-color": "#2d6a4f", "circle-opacity": 0.8, "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 1.5, 17, 5],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4 }),
+  },
+  nz_land_change: {
+    legend: "Land cover changed since the survey before (NZ LCDB)", swatch: () => "#c0392b", fill: true, fetch: "window", click: "feature",
+    paint: () => ({ "fill-color": ["match", ["get", "to"], [1, 2, 5, 6], "#c0392b", [64], "#e67e22", [71, 68], "#27ae60", [69, 70], "#145a32",
+      [40, 41], "#c5d86d", [30, 33], "#af7ac5", "#7f8c8d"], "fill-opacity": 0.6, "fill-outline-color": cssVar("--ink-2") }),
+  },
   // ---- transport and trade, rivers, tourism (PR 4)
   rivers: {
     legend: "River, wider for more water", swatch: () => cssVar("--series-1"), fetch: "window", click: "feature",

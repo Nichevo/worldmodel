@@ -263,7 +263,13 @@ export type Settings = {
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
   live_planes: boolean; // the map's Planes now layer
   live_ships: boolean; // the map's Ships now layer
-  map_look: "plain" | "relief" | "satellite" | "night"; // under the country colours
+  land_history_fetch: boolean; // HYDE land use back to 1700
+  land_cities_fetch: boolean; // GHSL urban centres
+  land_trees_fetch: boolean; // Global Forest Watch and council tree lists
+  land_nz_fetch: boolean; // NZ LCDB and MPI forestry files saved by hand
+  land_city_cover: boolean; // city land cover from the WorldCover pictures
+  land_cover_year: "2021" | "2020";
+  map_look: "plain" | "relief" | "satellite" | "night" | "landcover"; // under the country colours
   relief_style: "classic" | "grey" | "satellite";
   relief_shading: number; // 0..1
   map_colours_over: number; // 0..1, how solid the country colours are over a picture

@@ -6,6 +6,9 @@ with copies saved on this PC so the maps draw quickly and work offline where sav
     satellite  Sentinel-2 cloudless by EOX (contains modified Copernicus Sentinel data, CC BY-NC-SA 4.0,
                fine for a personal tool).
     night      NASA Black Marble (2012 and 2016 composites) and last night's VIIRS picture, from NASA GIBS.
+    landcover  ESA WorldCover 10 m land cover for 2020 and 2021 (CC BY 4.0), from VITO's Terrascope map service.
+               The same pictures are read back into shares of tree cover, crops and built-up land for a city
+               (land.py), by each pixel's colour.
 
 Tiles are kept as files under <data folder>/basemap/tiles/<set>/<time>/<z>/<x>/<y>.<ext>, so
 they count toward the map files limit. A saved area is a box and a zoom range; areas.json
@@ -34,6 +37,8 @@ log = logging.getLogger(__name__)
 
 USER_AGENT = "worldmodel/0.1 (personal local tool) httpx"
 GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{t}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png"
+TERRASCOPE = ("https://services.terrascope.be/wmts/v2?layer={layer}&style=&tilematrixset=EPSG:3857&Service=WMTS"
+              "&Request=GetTile&Version=1.0.0&Format=image%2Fpng&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}")
 SETS: dict[str, dict] = {
     "relief": {"url": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png", "ext": "png", "maxzoom": 15,
                "kb": 70, "label": "Shaded relief",
@@ -45,9 +50,12 @@ SETS: dict[str, dict] = {
               "times": {"2016": ("VIIRS_Black_Marble", "2016-01-01"), "2012": ("VIIRS_Black_Marble", "2012-01-01"),
                         "latest": ("VIIRS_SNPP_DayNightBand_ENCC", None)},
               "attribution": "Night lights: NASA Earth Observatory Black Marble, VIIRS (NASA GIBS)"},
+    "landcover": {"url": TERRASCOPE, "ext": "png", "maxzoom": 15, "kb": 12, "label": "Land cover",
+                  "times": {"2021": ("WORLDCOVER_2021_MAP", "2021"), "2020": ("WORLDCOVER_2020_MAP", "2020")},
+                  "attribution": "Land cover: ESA WorldCover 2020/2021 (CC BY 4.0), Terrascope"},
 }
-# The starter copies (Settings > Maps): world relief to zoom 6, New Zealand's relief and satellite
-# closer in, and the newest yearly night lights for the whole world at overview zoom.
+# The starter copies (Settings > Maps): world relief to zoom 6, New Zealand's relief, satellite and
+# land cover closer in, and the newest yearly night lights and land cover for the world at overview zoom.
 NZ = (165.8, -47.5, 178.9, -34.0)
 WORLD = (-180.0, -85.0, 180.0, 85.0)
 STARTER = [
@@ -56,6 +64,8 @@ STARTER = [
     {"id": "starter-satellite-world", "set": "satellite", "t": "-", "name": "World", "bbox": WORLD, "minzoom": 0, "maxzoom": 4},
     {"id": "starter-satellite-nzl", "set": "satellite", "t": "-", "name": "New Zealand", "bbox": NZ, "minzoom": 5, "maxzoom": 11},
     {"id": "starter-night-world", "set": "night", "t": "2016", "name": "World", "bbox": WORLD, "minzoom": 0, "maxzoom": 6},
+    {"id": "starter-landcover-world", "set": "landcover", "t": "2021", "name": "World", "bbox": WORLD, "minzoom": 0, "maxzoom": 5},
+    {"id": "starter-landcover-nzl", "set": "landcover", "t": "2021", "name": "New Zealand", "bbox": NZ, "minzoom": 6, "maxzoom": 11},
 ]
 WORKERS = 2          # tiles fetched at once while saving
 MAX_TILES = 400_000  # one saved area at most
@@ -125,7 +135,7 @@ def _time(set_id: str, t: str | None) -> tuple[str, str]:
     st = SETS[set_id]
     if "times" not in st:
         return "-", ""
-    key = t if t in st["times"] else "2016"
+    key = t if t in st["times"] else next(iter(st["times"]))
     layer, when = st["times"][key]
     if when is None:  # last night: yesterday's picture (today's is still being made)
         when = (date.today() - timedelta(days=1)).isoformat()
@@ -136,7 +146,7 @@ def _time(set_id: str, t: str | None) -> tuple[str, str]:
 def upstream(set_id: str, z: int, x: int, y: int, t: str | None = None) -> str:
     st = SETS[set_id]
     if "times" in st:
-        key = t if t in st["times"] else "2016"
+        key = t if t in st["times"] else next(iter(st["times"]))
         layer = st["times"][key][0]
         _, when = _time(set_id, key)
         return st["url"].format(layer=layer, t=when, z=z, x=x, y=y)
