@@ -16,8 +16,10 @@ export default function CrowdCard({ entity, name }: { entity: string; name: stri
     crowdApi.country(entity).then((r) => live && setD(r)).catch(() => live && setD(null));
     return () => { live = false; };
   }, [entity]);
-  if (!d || (!d.questions.length && !d.views)) return null;
-  const v = d.views;
+  if (!d) return null;
+  // ViEWS gives every country a figure; near zero (most of the world) says nothing worth a line.
+  const v = d.views && (d.views.deaths_12 >= 1 || d.views.max_chance >= 0.01) ? d.views : null;
+  if (!d.questions.length && !v) return null;
   const ask = () => openAsk({ title: `${name}: what the crowd expects`, entity, parts: [
     { key: "data", kind: "data", label: "Crowd questions", text: d.questions.map((q) => `${q.title} | ${q.site_name} | ${pct(q.chance)} | closes ${q.closes?.slice(0, 10) ?? "?"}`).join("\n") },
     ...(v ? [{ key: "views", kind: "data" as const, label: "ViEWS conflict forecast", text: v.months.map((m) => `${m.month}: ${Math.round(m.deaths ?? 0)} deaths, ${pct(m.chance_25)} chance of 25+`).join("\n") }] : [])] });

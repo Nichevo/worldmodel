@@ -63,7 +63,9 @@ class Warehouse:
         self._lock = threading.Lock()
 
     def _open(self, path: Path) -> Opened:
-        con = duckdb.connect(str(path), read_only=True)
+        # No replacement scans: a missing table must be an error, not a Python variable of the
+        # same name picked up from the calling function (a "cities" function, say).
+        con = duckdb.connect(str(path), read_only=True, config={"python_enable_replacements": False})
         try:
             meta = dict(con.execute("SELECT key, value FROM meta").fetchall())
         except duckdb.Error as exc:

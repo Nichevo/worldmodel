@@ -762,6 +762,17 @@ export function cardLinesOption(lines: CardLine[], o: CardOptions): EChartsOptio
   const surface = cssVar("--surface");
   const fmt = (v: number) => formatValue(v, o.unit, o.decimals);
   const series: SeriesOption[] = [];
+  // Stacked lines are added up point by point in order, so every line needs the same x values:
+  // a year one line lacks (a group a source left out that edition) counts as 0, or the bands
+  // would slide against each other and spill past 100%.
+  if (o.stack && lines.length > 1) {
+    const xs = [...new Set(lines.flatMap((l) => l.points.map((p) => p[0])))].sort((a, b) => a - b);
+    const projFrom = Math.min(...lines.flatMap((l) => l.points.filter((p) => p[2] === "P").map((p) => p[0])), Infinity);
+    lines = lines.map((l) => {
+      const by = new Map(l.points.map((p) => [p[0], p]));
+      return { ...l, points: xs.map((x) => by.get(x) ?? ([x, 0, x >= projFrom ? "P" : "E"] as typeof l.points[number])) };
+    });
+  }
   for (const l of lines) {
     const est = l.points.filter((p) => p[2] !== "P");
     const proj = l.points.filter((p) => p[2] === "P");
