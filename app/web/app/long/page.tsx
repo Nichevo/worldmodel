@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { AgeOfEmpires, WhoRuled } from "@/components/long/Empires";
 import LongCharts, { useLongOverview } from "@/components/long/LongCharts";
 import { Cycle, Factors, ThenAndNow } from "@/components/long/Order";
+import WorldYearMap from "@/components/long/WorldYearMap";
 import type { LongOverview } from "@/lib/api";
 import { yl } from "@/lib/long";
 
@@ -13,6 +14,7 @@ import { yl } from "@/lib/long";
 // where, then and now, the eight factors and the big cycle. Explore > Long history.
 const TABS = [
   { id: "charts", label: "Long charts" },
+  { id: "map", label: "World map by year" },
   { id: "empires", label: "Age of empires" },
   { id: "ruled", label: "Who ruled where" },
   { id: "thennow", label: "Then and now" },
@@ -45,6 +47,7 @@ function LongPage() {
         {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => go(t.id)}>{t.label}</button>)}
       </div>
       {tab === "charts" && <LongCharts o={o} />}
+      {tab === "map" && <WorldYearMap o={o} />}
       {tab === "empires" && <AgeOfEmpires o={o} />}
       {tab === "ruled" && <WhoRuled o={o} />}
       {tab === "thennow" && <ThenAndNow o={o} />}
