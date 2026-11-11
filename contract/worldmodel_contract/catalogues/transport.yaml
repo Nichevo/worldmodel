@@ -1,0 +1,131 @@
+# Transport, tourism and networks: hand-checked lists for the Transport page, the map's
+# Transport and trade layers and the country cards. Dates are to the month where the month
+# is well known, otherwise the year. Each event has a link to read more.
+checked_until: 2026
+
+# Countries on the shores of each shipping chokepoint IMF PortWatch follows. Names are
+# matched without words like Strait, Canal or Channel, so "Strait of Hormuz" and
+# "Hormuz Strait" both match. Used for chokepoint events and "what depends on this".
+chokepoints:
+  Suez Canal: [EGY]
+  Panama Canal: [PAN]
+  Bab el-Mandeb Strait: [YEM, DJI, ERI]
+  Strait of Hormuz: [IRN, OMN, ARE]
+  Malacca Strait: [MYS, SGP, IDN]
+  Bosporus Strait: [TUR]
+  Gibraltar Strait: [ESP, MAR, GIB]
+  Dover Strait: [GBR, FRA]
+  Taiwan Strait: [TWN, CHN]
+  Korea Strait: [KOR, JPN]
+  Cape of Good Hope: [ZAF]
+  Lombok Strait: [IDN]
+  Sunda Strait: [IDN]
+  Ombai Strait: [IDN, TLS]
+  Makassar Strait: [IDN]
+  Bering Strait: [USA, RUS]
+  Magellan Strait: [CHL]
+  Oresund: [DNK, SWE]
+  Kerch Strait: [RUS, UKR]
+  Torres Strait: [AUS, PNG]
+  Mona Passage: [DOM, PRI]
+  Windward Passage: [CUB, HTI]
+  Yucatan Channel: [MEX, CUB]
+  Balabac Strait: [PHL, MYS]
+  Mindoro Strait: [PHL]
+  Luzon Strait: [PHL, TWN]
+  Tsugaru Strait: [JPN]
+  Bohai Strait: [CHN]
+  Cook Strait: [NZL]
+
+# Inland waterways read from OpenStreetMap (Overpass), politely, one region at a time.
+# Europe: every waterway carrying a CEMT class (the European inland shipping classes).
+# The big rivers elsewhere are read by name; ships use them up to the place in "to".
+# The United States comes from the National Waterway Network instead.
+waterways:
+  europe: {bbox: [-11, 35, 42, 70], filter: '["CEMT"]'}
+  rivers:
+    - {name: Yangtze, to: "Yibin (ocean ships to Wuhan)", countries: [CHN]}
+    - {name: Pearl River, to: "Wuzhou and Nanning", countries: [CHN]}
+    - {name: Grand Canal, to: "Hangzhou to Jining", countries: [CHN]}
+    - {name: Mekong, to: "Phnom Penh, smaller boats to Laos and Yunnan", countries: [VNM, KHM, LAO, THA, MMR, CHN]}
+    - {name: Irrawaddy, to: Bhamo, countries: [MMR]}
+    - {name: Ganges, to: "Varanasi and Allahabad (National Waterway 1)", countries: [IND, BGD]}
+    - {name: Brahmaputra, to: "Sadiya (National Waterway 2)", countries: [IND, BGD]}
+    - {name: Indus, to: "small craft only", countries: [PAK]}
+    - {name: Amur, to: Blagoveshchensk, countries: [RUS, CHN]}
+    - {name: Ob, to: "Novosibirsk and the Irtysh", countries: [RUS]}
+    - {name: Yenisey, to: Krasnoyarsk, countries: [RUS]}
+    - {name: Lena, to: "Ust-Kut", countries: [RUS]}
+    - {name: Volga, to: "Tver (the Volga-Baltic and Volga-Don canals link it to the seas)", countries: [RUS]}
+    - {name: Kama, to: Perm, countries: [RUS]}
+    - {name: Dnieper, to: Kyiv, countries: [UKR]}
+    - {name: Nile, to: "Aswan, and Juba to Khartoum in stretches", countries: [EGY, SDN, SSD]}
+    - {name: Congo, to: "Kinshasa to Kisangani (rapids below Kinshasa)", countries: [COD, COG]}
+    - {name: Niger, to: "Koulikoro in high water", countries: [NGA, MLI, NER]}
+    - {name: Amazon, to: "Iquitos (ocean ships to Manaus)", countries: [BRA, PER, COL]}
+    - {name: Madeira, to: Porto Velho, countries: [BRA]}
+    - {name: Paraná, to: "Rosario for ocean ships; barges to Paraguay", countries: [ARG, PRY, BRA]}
+    - {name: Paraguay, to: "Cáceres (Paraná-Paraguay waterway)", countries: [PRY, BRA, BOL, ARG]}
+    - {name: Orinoco, to: Puerto Ayacucho, countries: [VEN, COL]}
+    - {name: Magdalena, to: Barrancabermeja, countries: [COL]}
+    - {name: Saint Lawrence River, to: "the Great Lakes (St Lawrence Seaway)", countries: [CAN, USA]}
+    - {name: Mackenzie River, to: "Fort Providence, in summer", countries: [CAN]}
+    - {name: Yukon River, to: "Whitehorse, in summer", countries: [CAN, USA]}
+    - {name: Murray River, to: "tourist paddle steamers only", countries: [AUS]}
+    - {name: Euphrates, to: "small craft only", countries: [IRQ, SYR]}
+    - {name: Tigris, to: "Baghdad for small craft", countries: [IRQ]}
+    - {name: Shatt al-Arab, to: Basra, countries: [IRQ, IRN]}
+
+# Dated events (kind infrastructure or transport), shown on charts and the Events page like
+# other events. countries: entity ids; start and end: YYYY, YYYY-MM or YYYY-MM-DD.
+# subkind: cable, pipeline, power_cable, canal, shipping, port, oil, gas, bridge, sea.
+events:
+  # --- undersea cables
+  - {subkind: cable, title: Earthquake off Taiwan cuts eight undersea cables, start: 2006-12-26, end: 2007-01, countries: [TWN, HKG, CHN, PHL, KOR, JPN],
+     detail: "Internet and phone links across East Asia slowed or cut for weeks while repair ships worked.", url: "https://en.wikipedia.org/wiki/2006_Hengchun_earthquakes"}
+  - {subkind: cable, title: Mediterranean cables cut off Egypt, start: 2008-01-30, end: 2008-02, countries: [EGY, IND, SAU, ARE, KWT, PAK],
+     detail: "SEA-ME-WE 4 and FLAG cables cut; much of the Middle East and South Asia lost most of its internet links to Europe.", url: "https://en.wikipedia.org/wiki/2008_submarine_cable_disruption"}
+  - {subkind: cable, title: Tonga's only undersea cable cut by the Hunga Tonga eruption, start: 2022-01-15, end: 2022-02-22, countries: [TON],
+     detail: "Tonga was almost cut off from the world for five weeks; only satellite links worked.", url: "https://en.wikipedia.org/wiki/2022_Hunga_Tonga%E2%80%93Hunga_Ha%CA%BBapai_eruption_and_tsunami"}
+  - {subkind: cable, title: Matsu Islands' two internet cables cut, start: 2023-02, end: 2023-04, countries: [TWN],
+     detail: "Cut by a Chinese fishing boat and a cargo ship within days of each other.", url: "https://en.wikipedia.org/wiki/Matsu_Islands"}
+  - {subkind: cable, title: Red Sea cables cut after the sinking Rubymar drags its anchor, start: 2024-02-24, end: 2024-07, countries: [EGY, DJI, YEM, SAU],
+     detail: "AAE-1, Seacom and EIG cut; about a quarter of traffic between Asia and Europe rerouted.", url: "https://en.wikipedia.org/wiki/Rubymar"}
+  - {subkind: cable, title: West African cables cut by an undersea landslide, start: 2024-03-14, end: 2024-04, countries: [CIV, GHA, NGA, BEN, LBR, CMR, ZAF],
+     detail: "WACS, MainOne, SAT-3 and ACE cut off Côte d'Ivoire in the Congo Canyon and Trou Sans Fond; internet slowed across West Africa.", url: "https://en.wikipedia.org/wiki/2024_West_Africa_submarine_cable_outage"}
+  - {subkind: cable, title: Two Baltic Sea data cables cut, start: 2024-11-17, end: 2024-12, countries: [FIN, DEU, LTU, SWE],
+     detail: "C-Lion1 (Finland to Germany) and BCS East-West Interlink (Lithuania to Sweden) cut on the same night.", url: "https://en.wikipedia.org/wiki/2024_Baltic_Sea_submarine_cable_disruptions"}
+  - {subkind: power_cable, title: Estlink 2 power cable and four data cables damaged in the Gulf of Finland, start: 2024-12-25, end: 2025-06, countries: [FIN, EST],
+     detail: "Finnish police boarded the tanker Eagle S, said to have dragged its anchor along the sea floor.", url: "https://en.wikipedia.org/wiki/Estlink"}
+  - {subkind: cable, title: Undersea cable off northern Taiwan damaged, start: 2025-01-03, countries: [TWN],
+     detail: "Taiwan's coast guard blamed the cargo ship Shunxin-39.", url: "https://en.wikipedia.org/wiki/Submarine_communications_cable"}
+  # --- pipelines and energy sites
+  - {subkind: pipeline, title: Nord Stream gas pipelines blown up, start: 2022-09-26, countries: [DEU, RUS, DNK, SWE],
+     detail: "Three of the four Nord Stream pipes under the Baltic broken by explosions; no gas has flowed through them since.", url: "https://en.wikipedia.org/wiki/2022_Nord_Stream_pipeline_sabotage"}
+  - {subkind: pipeline, title: Balticconnector gas pipeline damaged by an anchor, start: 2023-10-08, end: 2024-04, countries: [FIN, EST],
+     detail: "Finland's only gas link to the Baltic states shut for six months; a Hong Kong-flagged ship was blamed.", url: "https://en.wikipedia.org/wiki/Balticconnector"}
+  - {subkind: pipeline, title: Druzhba oil pipeline contaminated with organic chlorides, start: 2019-04, end: 2019-06, countries: [RUS, BLR, POL, DEU, UKR, HUN, SVK, CZE],
+     detail: "Flows to Europe stopped for weeks while bad oil was pumped out.", url: "https://en.wikipedia.org/wiki/Druzhba_pipeline"}
+  - {subkind: pipeline, title: Colonial Pipeline shut by a ransomware attack, start: 2021-05-07, end: 2021-05-12, countries: [USA],
+     detail: "The biggest fuel pipeline in the United States stopped for five days; petrol ran short along the East Coast.", url: "https://en.wikipedia.org/wiki/Colonial_Pipeline_ransomware_attack"}
+  - {subkind: oil, title: Drone and missile attack on Abqaiq oil plant, start: 2019-09-14, end: 2019-10, countries: [SAU],
+     detail: "Half of Saudi Arabia's oil output stopped for days.", url: "https://en.wikipedia.org/wiki/Abqaiq%E2%80%93Khurais_attack"}
+  - {subkind: pipeline, title: Refinery to Auckland pipeline leak leaves Auckland short of jet fuel, start: 2017-09-14, end: 2017-09-26, countries: [NZL],
+     detail: "Flights were cancelled or refuelled elsewhere for nearly two weeks; a digger had damaged the pipe.", url: "https://en.wikipedia.org/wiki/2017_Auckland_fuel_crisis"}
+  - {subkind: oil, title: Marsden Point stops refining and becomes an import terminal, start: 2022-04, countries: [NZL],
+     detail: "New Zealand's only oil refinery closed; all fuel is now imported refined.", url: "https://en.wikipedia.org/wiki/Marsden_Point_Oil_Refinery"}
+  # --- canals and shipping
+  - {subkind: canal, title: Suez Canal closed by the Suez Crisis, start: 1956-11, end: 1957-04, countries: [EGY, GBR, FRA, ISR],
+     url: "https://en.wikipedia.org/wiki/Suez_Crisis"}
+  - {subkind: canal, title: Suez Canal closed after the Six-Day War, start: 1967-06, end: 1975-06, countries: [EGY],
+     detail: "Fifteen ships (the Yellow Fleet) were trapped in the canal for eight years.", url: "https://en.wikipedia.org/wiki/Yellow_Fleet"}
+  - {subkind: canal, title: Ever Given blocks the Suez Canal, start: 2021-03-23, end: 2021-03-29, countries: [EGY],
+     detail: "More than 350 ships queued; about 12% of world trade passes the canal.", url: "https://en.wikipedia.org/wiki/2021_Suez_Canal_obstruction"}
+  - {subkind: shipping, title: Houthi attacks on Red Sea shipping, start: 2023-11-19, countries: [YEM, EGY, DJI],
+     detail: "Most container lines sent ships around the Cape of Good Hope; Suez Canal traffic fell by more than half.", url: "https://en.wikipedia.org/wiki/Red_Sea_crisis"}
+  - {subkind: canal, title: Drought limits ships through the Panama Canal, start: 2023-06, end: 2024-09, countries: [PAN],
+     detail: "Low water in Gatun Lake cut daily transits from about 36 to as few as 22.", url: "https://en.wikipedia.org/wiki/Panama_Canal"}
+  - {kind: transport, subkind: bridge, title: Container ship Dali hits and collapses Baltimore's Key Bridge, start: 2024-03-26, countries: [USA], deaths: 6,
+     detail: "The Port of Baltimore was closed to most ships for about ten weeks.", url: "https://en.wikipedia.org/wiki/Francis_Scott_Key_Bridge_collapse"}
+  - {subkind: port, title: Container ship queues at Los Angeles and Long Beach peak, start: 2021-09, end: 2022-02, countries: [USA],
+     detail: "More than 100 ships waited off southern California during the pandemic shipping jam.", url: "https://en.wikipedia.org/wiki/2021%E2%80%932023_global_supply_chain_crisis"}

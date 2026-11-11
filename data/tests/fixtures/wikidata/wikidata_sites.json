@@ -1,0 +1,87 @@
+{
+ "head": {
+  "vars": []
+ },
+ "results": {
+  "bindings": [
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q19675"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Louvre"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(2.3375 48.861)"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "FRA"
+    },
+    "visitors": {
+     "type": "literal",
+     "value": "8700000"
+    },
+    "year": {
+     "type": "literal",
+     "value": "2023-01-01T00:00:00Z"
+    },
+    "article": {
+     "type": "uri",
+     "value": "https://en.wikipedia.org/wiki/Louvre"
+    }
+   },
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q19675"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Louvre"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(2.3375 48.861)"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "FRA"
+    },
+    "visitors": {
+     "type": "literal",
+     "value": "10200000"
+    },
+    "year": {
+     "type": "literal",
+     "value": "2019-01-01T00:00:00Z"
+    }
+   },
+   {
+    "s": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1427404"
+    },
+    "sLabel": {
+     "type": "literal",
+     "value": "Te Papa"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "Point(174.782 -41.2905)"
+    },
+    "iso3": {
+     "type": "literal",
+     "value": "NZL"
+    },
+    "visitors": {
+     "type": "literal",
+     "value": "1500000"
+    }
+   }
+  ]
+ }
+}

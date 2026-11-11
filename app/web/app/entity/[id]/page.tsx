@@ -32,6 +32,8 @@ import LongViewCard from "@/components/long/LongViewCard";
 import ClimateCard from "@/components/ClimateCard";
 import NatureCard from "@/components/NatureCard";
 import PollutionCard from "@/components/PollutionCard";
+import TourismCard from "@/components/TourismCard";
+import TransportCard from "@/components/TransportCard";
 import ZonesCard from "@/components/ZonesCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
@@ -138,6 +140,8 @@ export default function EntityPage() {
     { key: "cities", title: "Major cities", section: "places", on: !isGroup, el: <CitiesCard entity={e} name={nm} /> },
     { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
     { key: "internet", title: "Internet", section: "places", on: true, el: <InternetCard entity={e} name={nm} indicators={byId} /> },
+    { key: "transport", title: "Transport and links", section: "places", on: !isGroup, el: <TransportCard entity={e} name={nm} /> },
+    { key: "tourism", title: "Tourism", section: "places", on: !isGroup, el: <TourismCard entity={e} name={nm} /> },
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
     { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
     { key: "climate", title: "Climate", section: "climate", on: !isGroup || e === "world", el: <ClimateCard entity={e} name={nm} /> },

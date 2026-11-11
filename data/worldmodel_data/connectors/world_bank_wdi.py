@@ -123,6 +123,10 @@ MAIN: dict[str, tuple[str, ...]] = {
     "remittances_received_gdp": ("BX.TRF.PWKR.DT.GD.ZS",),
     "current_account_gdp": ("BN.CAB.XOKA.GD.ZS",),
     "tourist_arrivals": ("ST.INT.ARVL",),
+    "tourist_departures": ("ST.INT.DPRT",),
+    "tourism_receipts_usd": ("ST.INT.RCPT.CD",),
+    "tourism_spending_abroad_usd": ("ST.INT.XPND.CD",),
+    "tourism_share_exports": ("ST.INT.RCPT.XP.ZS",),
     # government and finance
     "central_govt_debt_gdp": ("GC.DOD.TOTL.GD.ZS",),
     "tax_revenue_gdp": ("GC.TAX.TOTL.GD.ZS",),
@@ -205,6 +209,12 @@ MAIN: dict[str, tuple[str, ...]] = {
     "mobile_subscriptions_per_100": ("IT.CEL.SETS.P2",),
     "broadband_subscriptions_per_100": ("IT.NET.BBND.P2",),
     "air_passengers": ("IS.AIR.PSGR",),
+    "air_freight_tkm": ("IS.AIR.GOOD.MT.K1",),
+    "air_departures": ("IS.AIR.DPRT",),
+    "container_port_traffic": ("IS.SHP.GOOD.TU",),
+    "liner_shipping_connectivity": ("IS.SHP.GCNW.XQ",),
+    "rail_freight_tkm": ("IS.RRS.GOOD.MT.K6",),
+    "rail_passenger_km": ("IS.RRS.PASG.KM",),
     # land, environment and energy
     "land_area": ("AG.LND.TOTL.K2",),
     "surface_area": ("AG.SRF.TOTL.K2",),
@@ -259,7 +269,7 @@ def indicator_id(code: str) -> str:
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 6  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas
+    stage_version = 7  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas; 7: tourism, air, port and rail traffic
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")  # the file has no release name of its own

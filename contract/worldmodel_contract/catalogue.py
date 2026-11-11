@@ -226,6 +226,14 @@ def nature() -> dict:
     return _yaml("nature.yaml")
 
 
+@lru_cache
+def transport() -> dict:
+    """Transport and networks set-up (transport.yaml): which countries sit on each shipping
+    chokepoint, hand-checked events (cable cuts, pipeline damage, canal closures), the
+    waterway regions read from OpenStreetMap and the big rivers."""
+    return _yaml("transport.yaml")
+
+
 def history_powers() -> dict[str, dict]:
     """Every power and dynasty by id, the dynasties-only ones too (group china)."""
     h = history()

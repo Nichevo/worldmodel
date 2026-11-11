@@ -285,6 +285,35 @@ export default function SettingsPage() {
           on={s.nature_protected_fetch} set={(v) => save({ nature_protected_fetch: v })} />
       </section>
 
+      <section className="card" id="transport">
+        <h2>Transport, tourism and networks</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Ports, chokepoints, airports, rivers, waterways, undersea cables and pipelines for the Transport page, the map&apos;s Transport and trade layers and the
+          country cards. Air, rail, port and tourism figures from the World Bank come with the main refresh whatever these say. Switching off keeps what is stored.
+        </p>
+        <Toggle label="Ports, chokepoints and shipping lanes" hint="IMF PortWatch weekly (ports, chokepoints, ships a day since 2019, port calls a month), the World Port Index twice a year and the shipping lanes once a year. Off: no chokepoint charts or events, no port layers or port calls by country."
+          on={s.transport_ports_fetch} set={(v) => save({ transport_ports_fetch: v })} />
+        <Toggle label="Airports and airport traffic" hint="OurAirports (one 12 MB file every three months) and Eurostat passengers and freight by airport. Off: no airports layer and no busiest airports; files you save by hand still load."
+          on={s.transport_air_fetch} set={(v) => save({ transport_air_fetch: v })} />
+        <Toggle label="Inland waterways and river freight" hint="The US National Waterway Network and OpenStreetMap (Europe's classed waterways and about 30 big rivers, one query at a time, ten seconds apart, once a year), and Eurostat river freight. Off: no waterways layer and no river freight figures."
+          on={s.transport_waterways_fetch} set={(v) => save({ transport_waterways_fetch: v })} />
+        <Toggle label="Rivers and river basins (HydroSHEDS)" hint="About 700 MB downloaded once (nine regions), cut to rivers of 10 m³/s and up and whole basins, about 100 MB kept. Off before the first read: no rivers or basins layers and no basins on country cards."
+          on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
+        <Toggle label="Undersea cables (TeleGeography)" hint="The cable map monthly, and each cable's owners and landing countries read once, 150 at a time, two seconds apart. Off: no cables layer and no cables on country cards."
+          on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
+        <Toggle label="Pipelines and LNG terminals (Global Energy Monitor)" hint="Read from the files you save in var\manual\gem_infrastructure (see Data status). Off: those files are not read again."
+          on={s.energy_infrastructure_fetch} set={(v) => save({ energy_infrastructure_fetch: v })} />
+        <Toggle label="UNESCO World Heritage sites" hint="One XML list twice a year. Off: no heritage sites layer or counts."
+          on={s.tourism_fetch} set={(v) => save({ tourism_fetch: v })} />
+        <NumberField label="Air, sea and rail accidents from" unit="deaths" value={s.transport_min_deaths} min={0} max={100000} step={1}
+          note="Smaller accidents stay off the charts, the Events page and the Transport page (they are still stored). Wikidata gives those of 5 deaths or more."
+          save={(v) => save({ transport_min_deaths: v })} />
+        <Toggle label="Planes now (map layer)" hint="While the map's Planes now layer is on, the server asks OpenSky Network for the planes in the area in view, at most once a minute (400 requests a day without an account, more with an API client in .env). Off: the layer stays empty."
+          on={s.live_planes} set={(v) => save({ live_planes: v })} />
+        <Toggle label="Ships now (map layer)" hint="While the map's Ships now layer is on, the server listens to aisstream.io for ships in the area in view (needs a free AISSTREAM_API_KEY in .env); it stops five minutes after the layer is turned off. Off: the layer stays empty."
+          on={s.live_ships} set={(v) => save({ live_ships: v })} />
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."

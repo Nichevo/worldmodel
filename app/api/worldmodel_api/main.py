@@ -37,7 +37,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, transport, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -2104,6 +2104,100 @@ def nature_protected(west: float = -180, south: float = -90, east: float = 180, 
     data = nature.protected(rows, west, south, east, north, limit) if _has_table("protected_areas") else \
         {"type": "FeatureCollection", "features": []}
     return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
+
+
+# ----------------------------------------------------------------------------- transport, tourism and networks
+def _min_deaths() -> int:
+    try:
+        return int(local.load_settings().get("transport_min_deaths", 10))
+    except (TypeError, ValueError):
+        return 10
+
+
+@api.get("/transport")
+def transport_overview():
+    """The Transport page: indicators by tab (sea, air, land, safety), chokepoints with ships a
+    day now against a year before, the busiest ports and airports, cable, pipeline and canal
+    events, air, sea and rail accidents (from Settings > Transport's deaths), and what is loaded."""
+    return transport.transport(rows, _min_deaths())
+
+
+@api.get("/transport/country/{entity}")
+def transport_country(entity: str):
+    """A country's transport figures, ports, airports, accidents, cables, pipelines and river basins."""
+    return transport.transport_country(rows, entity, _min_deaths())
+
+
+@api.get("/transport/chokepoint/{ident}")
+def transport_chokepoint(ident: str, start: int | None = None):
+    """Ships through one chokepoint a day by type (weekly averages) and the countries on its shores."""
+    return transport.chokepoint(rows, ident, start)
+
+
+@api.get("/transport/port/{ident}")
+def transport_port(ident: str):
+    """One port's ship calls and estimated tonnes in and out a month (IMF PortWatch)."""
+    return transport.port(rows, ident)
+
+
+@api.get("/geo/{layer}")
+def geo_layer(layer: str, west: float = -180, south: float = -90, east: float = 180, north: float = 90,
+              zoom: float = 2, status: str | None = None):
+    """Rivers, river_names, basins, waterways, cables, gas_pipelines or oil_pipelines in a map
+    window as GeoJSON, with the detail that suits the zoom."""
+    if layer not in transport.GEO_LAYERS:
+        raise HTTPException(404, f"no geo layer {layer}; one of {', '.join(transport.GEO_LAYERS)}")
+    data = transport.geo(rows, layer, west, south, east, north, zoom, status)
+    return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
+
+
+@api.get("/geo/{layer}/{feature_id}")
+def geo_feature(layer: str, feature_id: str):
+    """One feature's card: what it is, and the countries that depend on it (for a basin, its
+    split by country with roughly how many people live in each part)."""
+    found = transport.feature(rows, layer, feature_id)
+    if not found:
+        raise HTTPException(404, f"no {layer} {feature_id}")
+    return found
+
+
+@api.get("/depends/{kind}/{ident}")
+def depends_on(kind: str, ident: str):
+    """The countries that rely on a cable, pipeline, chokepoint (by name) or basin, to highlight on the map."""
+    return transport.depends(rows, kind, ident)
+
+
+@api.get("/tourism")
+def tourism_overview():
+    """The Tourism page: indicators by tab, the most visited countries, the COVID band, layers loaded."""
+    return transport.tourism(rows)
+
+
+@api.get("/tourism/country/{entity}")
+def tourism_country(entity: str):
+    """A country's tourism figures, where its visitors come from, and its World Heritage sites."""
+    return transport.tourism_country(rows, entity)
+
+
+@api.get("/live/planes")
+def live_planes(west: float, south: float, east: float, north: float):
+    """Planes in the air in a map window now (OpenSky Network; at most one request a minute)."""
+    from worldmodel_api import live
+
+    if not local.load_settings().get("live_planes", True):
+        return {"type": "FeatureCollection", "features": [], "error": "Planes now is switched off in Settings > Transport."}
+    return live.PLANES.get(west, south, east, north)
+
+
+@api.get("/live/ships")
+def live_ships(west: float, south: float, east: float, north: float):
+    """Ships' latest positions in a map window (aisstream.io, needs AISSTREAM_API_KEY); the area
+    fills in over a few minutes as ships report."""
+    from worldmodel_api import live
+
+    if not local.load_settings().get("live_ships", True):
+        return {"type": "FeatureCollection", "features": [], "error": "Ships now is switched off in Settings > Transport."}
+    return live.SHIPS.get(west, south, east, north)
 
 
 # ----------------------------------------------------------------------------- markets and regions
