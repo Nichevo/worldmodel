@@ -83,21 +83,21 @@ class Points:
         self.rows: list[tuple] = []
 
     def add(self, code: str, ind: str, d: date, value: float | None, freq: str = "A", variant: str = "central",
-            status: str = "E") -> None:
+            status: str = "E", breakdown: str = "") -> None:
         if value is None or value != value or abs(value) == float("inf"):
             return
-        self.rows.append((code, ind, d, freq, variant, float(value), status))
+        self.rows.append((code, ind, d, freq, variant, float(value), status, breakdown))
 
     def __len__(self) -> int:
         return len(self.rows)
 
     def stage(self, con: duckdb.DuckDBPyConnection, source_id: str, vintage: str, table: str = "pts") -> str:
         con.execute(f"CREATE TABLE {table} (source_code VARCHAR, indicator_id VARCHAR, period_start DATE, freq VARCHAR, "
-                    "variant VARCHAR, value DOUBLE, status VARCHAR)")
+                    "variant VARCHAR, value DOUBLE, status VARCHAR, breakdown VARCHAR)")
         if self.rows:
-            con.executemany(f"INSERT INTO {table} VALUES (?, ?, ?, ?, ?, ?, ?)", self.rows)
+            con.executemany(f"INSERT INTO {table} VALUES (?, ?, ?, ?, ?, ?, ?, ?)", self.rows)
         return (f"SELECT {sql_str(source_id)} AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, source_code, "
-                f"indicator_id, period_start, freq, '' AS breakdown, variant, value, status FROM {table}")
+                f"indicator_id, period_start, freq, breakdown, variant, value, status FROM {table}")
 
 
 class _Yearly(Connector):
@@ -700,6 +700,129 @@ class CCKP(_Yearly):
                       unit, "climate", self.source_id, f"{v}:{ssp}", decimals=1 if v == "tas" else 0, default_on=ssp == "ssp245",
                       notes="World Bank Climate Change Knowledge Portal, CMIP6 0.25° ensemble.", bounds=(-60, 10000))
             for v, (pre, name, unit) in VARS.items() for ssp, label in SSPS.items() if f"{pre}_{ssp}" in found]
+        return pts.stage(con, self.source_id, vintage)
+
+
+# ----------------------------------------------------------------------------- monthly normals (the year's weather range)
+# The 1991-2020 average of each month, per country (CRU TS on a half-degree grid, averaged over each country by the
+# World Bank): mean, daytime high and night-time low temperature and rainfall. The API's names have changed with each
+# CRU edition, so the newest that answers is used; JSON saved by hand in var\manual\cckp_normals works too.
+NORMALS_URLS = [
+    "https://cckpapi.worldbank.org/cckp/v1/cru-x0.5_climatology_{var}_climatology_monthly_1991-2020_mean_historical_cru_ts4.08_mean/{codes}?_format=json",
+    "https://cckpapi.worldbank.org/cckp/v1/cru-x0.5_climatology_{var}_climatology_monthly_1991-2020_mean_historical_cru_ts4.07_mean/{codes}?_format=json",
+    "https://cckpapi.worldbank.org/cckp/v1/era5-x0.25_climatology_{var}_climatology_monthly_1991-2020_mean_historical_era5_x0.25_mean/{codes}?_format=json",
+]
+NORMALS_VARS = {"tas": ("clim_temp", "Average temperature", "°C"), "tasmax": ("clim_high", "Daytime high", "°C"),
+                "tasmin": ("clim_low", "Night-time low", "°C"), "pr": ("clim_rain", "Rainfall", "mm")}
+NORMALS_DAY = date(2020, 1, 1)  # the normals are dated at the end of their 1991-2020 period
+
+
+def normals_months(series: dict) -> dict[int, float]:
+    """Month (1-12) -> value from the API's {"1991-01": v, ...} (any year; the month is what counts)."""
+    out: dict[int, float] = {}
+    for when, v in series.items():
+        m = re.match(r"^\d{4}-(\d{2})", str(when))
+        val = num(v)
+        if m and val is not None and 1 <= int(m.group(1)) <= 12:
+            out[int(m.group(1))] = float(val)
+    return out
+
+
+def normals_summary(months: dict[str, dict[int, float]]) -> dict[str, float]:
+    """One country's year in a few figures (for maps and rankings), from its twelve months of each kind."""
+    out: dict[str, float] = {}
+    t, hi, lo, rain = (months.get(k, {}) for k in ("tas", "tasmax", "tasmin", "pr"))
+    if len(t) == 12:
+        out["clim_temp_year"] = sum(t.values()) / 12
+        out["clim_temp_swing"] = max(t.values()) - min(t.values())
+    if len(hi) == 12:
+        out["clim_high_hottest"] = max(hi.values())
+    if len(lo) == 12:
+        out["clim_low_coldest"] = min(lo.values())
+    if len(rain) == 12:
+        out["clim_rain_year"] = sum(rain.values())
+        out["clim_rain_wettest"] = max(rain.values())
+        out["clim_rain_driest"] = min(rain.values())
+    return out
+
+
+NORMALS_SUMMARY = {
+    "clim_temp_year": ("Average temperature over the year (1991-2020)", "The average of the twelve monthly averages, 1991-2020.", "°C", 1),
+    "clim_temp_swing": ("Gap between the warmest and coldest month (1991-2020)", "The warmest month's average temperature less the coldest month's, 1991-2020: how big the seasons are.", "°C", 1),
+    "clim_high_hottest": ("Daytime high in the hottest month (1991-2020)", "The average daily high of the hottest month, 1991-2020, over the whole country.", "°C", 1),
+    "clim_low_coldest": ("Night-time low in the coldest month (1991-2020)", "The average daily low of the coldest month, 1991-2020, over the whole country.", "°C", 1),
+    "clim_rain_year": ("Rainfall in a year (1991-2020 average)", "The twelve months' average rainfall added up, 1991-2020, over the whole country.", "mm", 0),
+    "clim_rain_wettest": ("Rainfall in the wettest month (1991-2020)", "The wettest month's average rainfall, 1991-2020.", "mm", 0),
+    "clim_rain_driest": ("Rainfall in the driest month (1991-2020)", "The driest month's average rainfall, 1991-2020.", "mm", 0),
+}
+
+
+class CCKPNormals(_Yearly):
+    source_id = "cckp_normals"
+    switch = "climate_fetch"
+    fetch_every_days = 365
+    pause_seconds = 0.5
+    CHUNK = 60
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        codes = sorted({c["code"] for c in catalogue.entity_codes() if c["scheme"] == "iso3" and len(c["code"]) == 3
+                        and is_country(c["entity_id"]) and not c.get("valid_to")})
+        last: Exception | None = None
+        for pattern in NORMALS_URLS:  # the first edition that answers for the first chunk is used for everything
+            try:
+                self.get(pattern.format(var="tas", codes=",".join(codes[:self.CHUNK])), raw_dir / "cckp_normals_tas_00.json")
+            except ConnectorError as exc:
+                last = exc
+                continue
+            got = 1
+            for var in NORMALS_VARS:
+                for i in range(0, len(codes), self.CHUNK):
+                    if var == "tas" and i == 0:
+                        continue
+                    try:
+                        self.get(pattern.format(var=var, codes=",".join(codes[i:i + self.CHUNK])),
+                                 raw_dir / f"cckp_normals_{var}_{i // self.CHUNK:02d}.json")
+                        got += 1
+                    except ConnectorError as exc:
+                        log.warning("cckp_normals: %s part %s skipped (%s)", var, i // self.CHUNK, exc)
+                    time.sleep(self.pause_seconds)
+            return pattern.split("{var}")[0]
+        raise ConnectorError(f"cckp_normals: the World Bank climate service gave no monthly normals ({last})")
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        by: dict[str, dict[str, dict[int, float]]] = defaultdict(dict)  # entity -> var -> month -> value
+        for f in sorted(raw_dir.glob("*.json")):
+            m = re.match(r"cckp_normals_(tasmax|tasmin|tas|pr)_", f.name)
+            if not m:
+                continue
+            try:
+                data = json.loads(f.read_text(encoding="utf-8")).get("data", {})
+            except ValueError:
+                continue
+            for code, series in data.items():
+                ent = entity_for("iso3", code)
+                if ent and isinstance(series, dict):
+                    got = normals_months(series)
+                    if got:
+                        by[ent].setdefault(m.group(1), {}).update(got)
+        pts = Points()
+        for ent, kinds in by.items():
+            for var, months in kinds.items():
+                for mo, v in months.items():
+                    pts.add(ent, NORMALS_VARS[var][0], NORMALS_DAY, v, breakdown=f"month={mo:02d}")
+            for ind, v in normals_summary(kinds).items():
+                pts.add(ent, ind, NORMALS_DAY, v)
+        if not len(pts):
+            raise ConnectorError(f"cckp_normals: no monthly normals read in {raw_dir}")
+        found = {r[1] for r in pts.rows}
+        note = "World Bank Climate Change Knowledge Portal: CRU TS monthly climatology 1991-2020, averaged over each country."
+        self.listed_indicators = [
+            indicator(pre, f"{name} by month (1991-2020)", f"{name} in each month of the year, averaged over 1991-2020 and over the whole country "
+                      "(breakdown month=01 to month=12).", unit, "climate", self.source_id, var, decimals=0 if var == "pr" else 1,
+                      breakdowns=["month"], notes=note, bounds=(-80, 5000), default_on=True)
+            for var, (pre, name, unit) in NORMALS_VARS.items() if pre in found
+        ] + [indicator(ind, name, desc, unit, "climate", self.source_id, ind, decimals=dec, notes=note, bounds=(-80, 20000))
+             for ind, (name, desc, unit, dec) in NORMALS_SUMMARY.items() if ind in found]
         return pts.stage(con, self.source_id, vintage)
 
 

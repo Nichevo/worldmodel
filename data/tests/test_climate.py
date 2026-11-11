@@ -16,7 +16,7 @@ from worldmodel_data.connectors.climate import enso_episodes
 from worldmodel_data.vintage_store import VintageStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SOURCES = ("owid_co2", "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp",
+SOURCES = ("owid_co2", "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp", "cckp_normals",
            "net_zero_tracker", "carbon_pricing", "niwa_7station", "mfe_ghg")
 
 
@@ -227,3 +227,15 @@ def test_mfe_wide_layout():
     mfe_sums(table, sums)
     assert dict(sums) == {("agriculture", 2015): 38000, ("agriculture", 2016): 38727.3,
                           ("forestry", 2015): -23000, ("forestry", 2016): -22773.7}
+
+
+def test_monthly_normals(con):
+    months = con.execute("""SELECT breakdown, value FROM series WHERE entity_id = 'NZL' AND indicator_id = 'clim_rain'
+        ORDER BY breakdown""").fetchall()
+    assert len(months) == 12 and months[0] == ("month=01", 120) and months[6] == ("month=07", 175)
+    assert con.execute("SELECT value FROM series WHERE entity_id = 'AUS' AND indicator_id = 'clim_high' AND breakdown = 'month=01'").fetchone()[0] == pytest.approx(34.9)
+    assert value(con, "NZL", "clim_rain_year", "2020-01-01") == 1700
+    assert value(con, "NZL", "clim_temp_swing", "2020-01-01") == pytest.approx(9.5)
+    assert value(con, "AUS", "clim_low_coldest", "2020-01-01") == pytest.approx(7.4)
+    assert value(con, "AUS", "clim_rain_driest", "2020-01-01") == 25
+    assert con.execute("SELECT breakdowns FROM indicators WHERE indicator_id = 'clim_temp'").fetchone()[0] == "month"

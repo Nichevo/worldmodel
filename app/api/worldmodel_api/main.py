@@ -2823,6 +2823,13 @@ def climate_country(entity: str):
     return climate.country(rows, entity)
 
 
+@api.get("/climate/normals")
+def climate_normals(entities: str = Query("NZL", description="Comma-separated country ids, at most 8")):
+    """The year's weather for each country: the 1991-2020 average of each month (average, daytime high and
+    night-time low temperature, and rainfall), with its year in a few figures."""
+    return climate.normals(rows, split(entities)[:8])
+
+
 @api.get("/climate/enso")
 def climate_enso():
     """El Niño and La Niña: the index, the Indian Ocean Dipole and the Southern Annular Mode
