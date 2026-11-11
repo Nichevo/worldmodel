@@ -9,7 +9,8 @@ import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
 import { arc, countryCentres, countryShapes } from "@/lib/geo";
-import { LAYER_STYLE, layerData, layerLabel } from "@/lib/layers";
+import { get } from "@/lib/api";
+import { LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
 import { useSettings } from "@/lib/settings";
 
@@ -124,6 +125,22 @@ export default function WorldMap({
 }: Props) {
   const areaPick = useRef(onArea);
   areaPick.current = onArea;
+  // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
+  const [info, setInfo] = useState<FeatureInfo | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const featurePick = useRef<(layer: string, p: Record<string, unknown>) => void>(() => {});
+  featurePick.current = (layer, p) => {
+    const st = LAYER_STYLE[layer];
+    if (st?.click === "chokepoint") {
+      setInfo({ layer, title: String(p.name ?? "Chokepoint"), loading: true });
+      get<{ countries: { id: string; name: string }[]; note?: string }>(`/depends/chokepoints/${encodeURIComponent(String(p.name ?? ""))}`)
+        .then((d) => setInfo({ layer, title: String(p.name), countries: d.countries, lines: [d.note ?? ""] }))
+        .catch(() => setInfo(null));
+      return;
+    }
+    setInfo({ layer, title: String(p.name ?? "…"), loading: true });
+    get<GeoCard>(`/geo/${layer}/${encodeURIComponent(String(p.id ?? ""))}`).then((d) => setInfo(cardOf(layer, d))).catch(() => setInfo(null));
+  };
   const outlineText = useRef<Map<string, string>>(new Map());
   outlineText.current = new Map((outlines ?? []).map((o) => [o.entity, o.label]));
   const cityPick = useRef(onCity);
@@ -213,6 +230,11 @@ export default function WorldMap({
       return typeof id === "string" ? id : null;
     };
     m.on("click", (e) => {
+      const clickable = Object.entries(LAYER_STYLE).filter(([, st]) => st.click).map(([k]) => `ov-${k}`).filter((id) => m.getLayer(id));
+      if (clickable.length) {
+        const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: clickable })[0];
+        if (f) { featurePick.current(f.layer.id.slice(3), f.properties as Record<string, unknown>); return; }
+      }
       if (m.getLayer("ov-marks")) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["ov-marks"] })[0];
         const href = f?.properties?.href;
@@ -421,34 +443,75 @@ export default function WorldMap({
     }
   }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Overlays: add the ones asked for (fetched once per page), remove the rest.
+  // Overlays: add the ones asked for (fetched once per page), remove the rest. Window layers
+  // are asked for again when the view stops moving; live ones also every so often.
   const layersKey = layers.join(",");
+  const dynamic = useRef<Record<string, () => void>>({}); // id -> stop following the view
   useEffect(() => {
     const m = map.current;
     if (!m) return;
     let live = true;
+    const addLayer = (id: string, lid: string) => {
+      const style = LAYER_STYLE[id];
+      // Areas go just over the country colours; lines under the dots; all under the hover and selection outlines.
+      const before = style.fill ? "line" : style.dot ? "hover"
+        : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
+      m.addLayer(style.fill
+        ? { id: lid, type: "fill", source: lid, paint: style.paint() as maplibregl.FillLayerSpecification["paint"] }
+        : style.dot
+          ? { id: lid, type: "circle", source: lid, paint: style.paint() as maplibregl.CircleLayerSpecification["paint"] }
+          : { id: lid, type: "line", source: lid, paint: style.paint() as maplibregl.LineLayerSpecification["paint"],
+              layout: { "line-cap": "round", "line-join": "round" } }, before);
+      const f = filters.current[id];
+      if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
+    };
+    const follow = (id: string, lid: string) => {
+      const style = LAYER_STYLE[id];
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let asked = 0;
+      const load = () => {
+        const b = m.getBounds();
+        const n = ++asked;
+        windowData(id, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom()).then((fc) => {
+          if (!live || n !== asked) return;
+          (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
+          const note = fc.error ?? (style.fetch === "live" ? `${LAYER_STYLE[id].legend}: ${fc.features.length.toLocaleString()} in view` : "");
+          setNotes((cur) => ({ ...cur, [id]: note }));
+        }).catch((e) => setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${String(e?.message ?? e)}` })));
+      };
+      const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
+      m.on("moveend", soon);
+      const every = style.fetch === "live" ? setInterval(load, (style.every ?? 60) * 1000) : null;
+      load();
+      dynamic.current[id] = () => {
+        m.off("moveend", soon);
+        if (timer) clearTimeout(timer);
+        if (every) clearInterval(every);
+        setNotes((cur) => { const { [id]: _gone, ...rest } = cur; return rest; });
+      };
+    };
     const apply = () => {
       const want = new Set(layersKey ? layersKey.split(",") : []);
       for (const id of Object.keys(LAYER_STYLE)) {
         const lid = `ov-${id}`;
         if (!want.has(id)) {
+          dynamic.current[id]?.();
+          delete dynamic.current[id];
           if (m.getLayer(lid)) m.removeLayer(lid);
           if (m.getSource(lid)) m.removeSource(lid);
           continue;
         }
         if (m.getLayer(lid)) continue;
+        if (LAYER_STYLE[id].fetch) {
+          m.addSource(lid, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+          addLayer(id, lid);
+          follow(id, lid);
+          continue;
+        }
         layerData(id).then((data) => {
           if (!live || m.getLayer(lid) || !m.getStyle()) return;
           if (!m.getSource(lid)) m.addSource(lid, { type: "geojson", data });
-          const style = LAYER_STYLE[id];
-          // Lines go under the dots; both under the hover and selection outlines.
-          const before = style.dot ? "hover" : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
-          m.addLayer(style.dot
-            ? { id: lid, type: "circle", source: lid, paint: style.paint() as maplibregl.CircleLayerSpecification["paint"] }
-            : { id: lid, type: "line", source: lid, paint: style.paint() as maplibregl.LineLayerSpecification["paint"],
-                layout: { "line-cap": "round", "line-join": "round" } }, before);
-          const f = filters.current[id];
-          if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
+          addLayer(id, lid);
         }).catch(() => {});
       }
     };
@@ -456,6 +519,24 @@ export default function WorldMap({
     else onLoad.current.push(apply);
     return () => { live = false; };
   }, [layersKey]);
+  useEffect(() => () => { Object.values(dynamic.current).forEach((stop) => stop()); }, []);
+
+  // The countries that rely on the clicked feature, outlined.
+  const dependsKey = info?.countries?.map((c) => c.id).join(",") ?? "";
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => {
+      const ids = dependsKey ? dependsKey.split(",") : [];
+      const filter: maplibregl.FilterSpecification = ["in", ["get", "iso3"], ["literal", ids]];
+      if (!m.getLayer("ov-depends")) {
+        m.addLayer({ id: "ov-depends", type: "line", source: "countries", filter, layout: { "line-join": "round" },
+          paint: { "line-color": cssVar("--series-2"), "line-width": 2.6 } });
+      } else m.setFilter("ov-depends", filter);
+    };
+    if (m.getSource("countries")) apply();
+    else onLoad.current.push(apply);
+  }, [dependsKey]);
 
   // Places to mark: a dot each, sized by its size (square root, so area follows it).
   const pointsKey = points ? points.map((p) => `${p.id}:${p.size}:${p.color ?? ""}`).join(",") : null;
@@ -679,7 +760,29 @@ export default function WorldMap({
 
   return (
     <div className={fill ? "map-fill" : undefined}>
-      <div className="map-wrap"><div ref={el} className="map" /></div>
+      <div className="map-wrap"><div ref={el} className="map" />
+        {info && (
+          <div className="map-info" role="dialog" aria-label={info.title}>
+            <div className="row"><b>{info.title}</b><span className="spacer" />
+              <button className="link small" onClick={() => setInfo(null)} aria-label="Close">×</button></div>
+            {info.loading ? <p className="small muted">Loading…</p> : (
+              <>
+                {(info.lines ?? []).filter(Boolean).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>)}
+                {info.split?.length ? (
+                  <table className="small"><thead><tr><th>Country</th><th>Of the basin</th><th>Of the country</th><th>People (rough)</th></tr></thead>
+                    <tbody>{info.split.map((x) => (
+                      <tr key={x.id}><td><a href={`/entity/${x.id}`}>{x.name}</a></td><td>{pct(x.share)}</td><td>{pct(x.of_country)}</td>
+                        <td>{x.people != null ? compact(x.people) : "…"}</td></tr>))}</tbody></table>
+                ) : info.countries?.length ? (
+                  <p className="small" style={{ margin: "4px 0" }}>{info.layer === "chokepoints" ? "On its shores" : "Countries it reaches"} (outlined):{" "}
+                    {info.countries.map((c, i) => <span key={c.id}>{i ? ", " : ""}<a href={`/entity/${c.id}`}>{c.name}</a></span>)}</p>
+                ) : null}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {Object.values(notes).some(Boolean) && <p className="caption">{Object.values(notes).filter(Boolean).join(" · ")}</p>}
       {!hideScale && <Legend scale={scale} unit={unit} />}
       {(layers.length > 0 || legend.length > 0) && (
         <div className="legend overlays" aria-label="Map layers">
@@ -718,4 +821,44 @@ function Legend({ scale, unit }: { scale: Scale; unit: string }) {
       <span className="nodata"><span /> no data</span>
     </div>
   );
+}
+
+type GeoCard = {
+  layer: string; id: string; name: string | null; props: Record<string, unknown>; countries: { id: string; name: string }[];
+  split?: { id: string; name: string; share: number; of_country: number | null; people: number | null }[]; people?: number | null;
+};
+type FeatureInfo = {
+  layer: string; title: string; loading?: boolean; lines?: string[]; countries?: { id: string; name: string }[];
+  split?: GeoCard["split"];
+};
+const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%` : "…");
+const n0 = (v: unknown) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : null);
+
+// A clicked feature's card: a few lines about it, and its countries.
+function cardOf(layer: string, d: GeoCard): FeatureInfo {
+  const p = d.props ?? {};
+  const lines: string[] = [];
+  if (layer === "basins") {
+    lines.push(`${n0(p.area)} km² of land drains to it${typeof p.flow === "number" ? `; about ${n0(p.flow)} m³ of water a second leaves it` : ""}.`);
+    if (d.people) lines.push(`Roughly ${compact(d.people)} people live in it (each country's people shared by the share of its land in the basin).`);
+    if (p.transboundary) lines.push("Shared by several countries: what one does upstream, the next one feels.");
+    if (p.endorheic) lines.push("Drains to an inland lake or sea, not the ocean.");
+  } else if (layer === "cables") {
+    if (p.rfs) lines.push(`In service from ${p.rfs}${p.planned ? " (planned)" : ""}.`);
+    if (p.length) lines.push(`Length ${p.length}.`);
+    if (p.owners) lines.push(`Owners: ${p.owners}.`);
+  } else if (layer === "gas_pipelines" || layer === "oil_pipelines") {
+    if (p.status) lines.push(`Status: ${p.status}${p.start ? `, from ${p.start}` : ""}.`);
+    if (typeof p.capacity === "number") lines.push(`Capacity ${p.capacity} ${p.capacity_unit ?? (layer === "gas_pipelines" ? "bcm a year" : "")}.`);
+    if (typeof p.length_km === "number") lines.push(`${n0(p.length_km)} km long.`);
+    if (p.owner) lines.push(`Owner: ${p.owner}.`);
+  } else if (layer === "rivers") {
+    if (typeof p.flow === "number") lines.push(`About ${n0(p.flow)} m³ of water a second where this stretch ends; ${n0(p.length)} km of river in this order.`);
+  } else if (layer === "waterways") {
+    if (p.to) lines.push(`Ships use it as far as ${p.to}.`);
+    if (p.cemt) lines.push(`European class ${p.cemt} (V and up take big barges and push convoys).`);
+    if (p.source) lines.push(`From ${p.source}.`);
+  }
+  const title = d.name ?? (layer === "rivers" ? "River" : layer === "basins" ? "River basin" : "Feature");
+  return { layer, title, lines, countries: d.countries, split: d.split };
 }

@@ -37,6 +37,8 @@ export const KINDS: { kind: string; label: string; color: string }[] = [
   { kind: "animal_disease", label: "Animal disease outbreaks", color: "--series-8" },
   { kind: "pest", label: "Pests and plant disease arriving", color: "--series-5" },
   { kind: "pollution", label: "Pollution disasters and smoke", color: "--series-4" },
+  { kind: "transport", label: "Air, sea and rail accidents", color: "--div-neg-2" },
+  { kind: "infrastructure", label: "Cables, pipelines and canals cut", color: "--series-6" },
   { kind: "user", label: "Your milestones", color: "--ink-2" },
 ];
 const BY_KIND = new Map(KINDS.map((k) => [k.kind, k]));
@@ -72,7 +74,8 @@ export function sizeText(e: EventRow): string {
 export function forCharts(events: EventRow[], s: Settings): EventRow[] {
   const kinds = new Set(s.event_kinds.split(",").filter(Boolean));
   return events.filter((e) => kinds.has(e.kind)
-    && (!["disaster", "epidemic"].includes(e.kind) || (e.deaths ?? 0) >= s.disaster_min_deaths));
+    && (!["disaster", "epidemic"].includes(e.kind) || (e.deaths ?? 0) >= s.disaster_min_deaths)
+    && (e.kind !== "transport" || (e.deaths ?? 0) >= s.transport_min_deaths));
 }
 
 // An empty series carrying the marks: bands (markArea) and lines (markLine), labelled on hover.
@@ -123,7 +126,7 @@ export function useChartEvents(entityIds: string[], kinds?: string): EventRow[] 
       .catch(() => live && setRows([]));
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, s.events_on_charts, wanted, s.disaster_min_deaths]);
+  }, [key, s.events_on_charts, wanted, s.disaster_min_deaths, s.transport_min_deaths]);
   return rows;
 }
 

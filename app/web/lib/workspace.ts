@@ -250,7 +250,7 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 // table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
 // ratings), event markers and news that names a watch word. Timed layers follow the
 // map's time window. Letters are the URL form; the group and order are the Layers panel's.
-export type LayerGroup = "events" | "earth" | "people" | "past" | "polar";
+export type LayerGroup = "events" | "earth" | "transport" | "people" | "past" | "polar";
 export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
 export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "events", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
@@ -265,6 +265,21 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "k", id: "climate_zones", label: "Climate zones", group: "earth", made: true, hint: "Köppen-Geiger zones for 1991-2020 (five main groups), over the country colours; other periods and paths on Climate > Climate zones" },
   { letter: "x", id: "smoke", label: "Smoke, dust and haze (yesterday)", group: "earth", made: true, hint: "NASA satellite aerosol map for two days ago (GIBS, MODIS); other days on the Pollution page" },
   { letter: "g", id: "tide_gauges", label: "Tide gauges (sea level trend)", group: "earth", hint: "How fast the sea has risen against the land at each long-running gauge (PSMSL)" },
+  { letter: "R", id: "rivers", label: "Rivers", group: "earth", hint: "Rivers of 10 m³/s and up (HydroRIVERS); smaller ones appear as you zoom in" },
+  { letter: "B", id: "basins", label: "River basins", group: "earth", hint: "Whole river basins (HydroBASINS); click one for its countries and people" },
+  { letter: "P", id: "ports", label: "Ports (by ship calls)", group: "transport", hint: "About 1,700 ports sized by ship calls a year (IMF PortWatch)" },
+  { letter: "E", id: "ports_all", label: "Every port", group: "transport", hint: "About 3,800 ports with harbour size (NGA World Port Index)" },
+  { letter: "C", id: "chokepoints", label: "Shipping chokepoints", group: "transport", hint: "Straits and canals, sized by ships a day; click one for the countries on its shores" },
+  { letter: "L", id: "shipping_lanes", label: "Shipping lanes", group: "transport" },
+  { letter: "A", id: "airports", label: "Airports", group: "transport", hint: "Large and medium airports with scheduled flights (OurAirports)" },
+  { letter: "I", id: "waterways", label: "Inland waterways", group: "transport", hint: "Rivers and canals ships use: the US network, Europe's classed waterways and about 30 big rivers" },
+  { letter: "K", id: "cables", label: "Undersea cables", group: "transport", hint: "Internet cables (TeleGeography); click one for the countries that rely on it" },
+  { letter: "J", id: "cable_landings", label: "Cable landing points", group: "transport" },
+  { letter: "G", id: "gas_pipelines", label: "Gas pipelines", group: "transport", hint: "Operating and planned (Global Energy Monitor, files saved by hand); click one for its countries" },
+  { letter: "O", id: "oil_pipelines", label: "Oil pipelines", group: "transport", hint: "Operating and planned (Global Energy Monitor, files saved by hand)" },
+  { letter: "N", id: "lng_terminals", label: "LNG terminals", group: "transport" },
+  { letter: "F", id: "live_planes", label: "Planes now", group: "transport", hint: "Planes in the air in the area in view (OpenSky Network), once a minute while on" },
+  { letter: "S", id: "live_ships", label: "Ships now", group: "transport", hint: "Ships' latest positions in the area in view (aisstream.io, needs a free key); fills in over a few minutes" },
   { letter: "c", id: "major_cities", label: "Major cities", group: "people" },
   { letter: "u", id: "universities", label: "Universities", group: "people" },
   { letter: "t", id: "transit_stations", label: "Metro and rail stations", group: "people" },
@@ -272,18 +287,21 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "h", id: "hospitals", label: "Hospitals", group: "people", hint: "Hospitals above the size set in Settings > Places (Wikidata)" },
   { letter: "m", id: "military_bases", label: "Military bases", group: "people", hint: "Military, air and naval bases (Wikidata; the well-known ones)" },
   { letter: "o", id: "companies", label: "Big company head offices", group: "people" },
+  { letter: "H", id: "heritage_sites", label: "World Heritage sites", group: "people", hint: "UNESCO World Heritage sites; red rings are sites in danger" },
+  { letter: "V", id: "visited_sites", label: "Most visited places", group: "people", hint: "Places with a million or more visitors a year (Wikidata)" },
   { letter: "y", id: "history_world", label: "World in year …", group: "past", made: true, hint: "States and empires as they were in a year of your choice, with its own year slider (Cliopatria borders, 3400 BC to 2024)" },
   { letter: "a", id: "antarctic_claims", label: "Antarctic claims", group: "polar" },
   { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "polar" },
 ];
 export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
-  { id: "events", label: "Events and news" }, { id: "earth", label: "Earth and hazards" },
+  { id: "events", label: "Events and news" }, { id: "earth", label: "Earth and hazards" }, { id: "transport", label: "Transport and trade" },
   { id: "people", label: "People and places" }, { id: "past", label: "The past" }, { id: "polar", label: "Antarctica" },
 ];
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
   { name: "Conflict watch", letters: "wen", hint: "CrisisWatch, events, news watch words" },
   { name: "Hazards", letters: "qzvpf", hint: "Earthquakes, storms now, volcanoes, plates, faults" },
   { name: "People and places", letters: "cutlo", hint: "Cities, universities, stations and lines, companies" },
+  { name: "Trade routes", letters: "PCLK", hint: "Ports, chokepoints, shipping lanes, undersea cables" },
 ];
 
 // The map's time window for timed layers: "7d", "30d", "90d", "1y", "year" (the year the

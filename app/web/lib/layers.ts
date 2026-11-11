@@ -2,7 +2,7 @@
 // plate boundaries and faults as lines, volcanoes and earthquakes as dots, each
 // with a line of text on hover. Fetched once per page and shared by every map.
 
-import type { CircleLayerSpecification, ExpressionSpecification, LineLayerSpecification } from "maplibre-gl";
+import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LineLayerSpecification } from "maplibre-gl";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 
@@ -26,7 +26,14 @@ export function layerData(id: string): Promise<GeoJSON.FeatureCollection> {
   return features.get(id)!;
 }
 
-type Style = { paint: () => LineLayerSpecification["paint"] | CircleLayerSpecification["paint"]; legend: string; swatch: () => string; dot?: boolean };
+// fetch: "window" layers come from /geo/<id> for the area in view (rivers, basins, cables and
+// pipelines are too big to send whole); "live" ones are asked for the area in view now and
+// again while on (planes and ships). fill: drawn as areas (basins).
+type Style = {
+  paint: () => LineLayerSpecification["paint"] | CircleLayerSpecification["paint"] | FillLayerSpecification["paint"];
+  legend: string; swatch: () => string; dot?: boolean; fill?: boolean; fetch?: "window" | "live"; every?: number;
+  click?: "feature" | "chokepoint"; // what a click on one shows: its card (geo features) or the countries on a chokepoint's shores
+};
 const zoomWidth = (w0: number, w5: number): ExpressionSpecification => ["interpolate", ["linear"], ["zoom"], 0, w0, 5, w5];
 
 export const LAYER_STYLE: Record<string, Style> = {
@@ -134,6 +141,109 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-radius": zoomWidth(2.5, 6), "circle-opacity": 0.9, "circle-stroke-color": cssVar("--ink-2"), "circle-stroke-width": 0.5,
     }),
   },
+  // ---- transport and trade, rivers, tourism (PR 4)
+  rivers: {
+    legend: "River, wider for more water", swatch: () => cssVar("--series-1"), fetch: "window", click: "feature",
+    paint: () => ({ "line-color": cssVar("--series-1"), "line-opacity": 0.75,
+      "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "rank"], 5], 1, 3.2, 3, 1.6, 5, 0.6] }),
+  },
+  basins: {
+    legend: "River basin (outlined; darker: shared by several countries)", swatch: () => cssVar("--series-1"), fill: true, fetch: "window", click: "feature",
+    paint: () => ({ "fill-color": ["case", ["boolean", ["get", "transboundary"], false], cssVar("--series-1"), cssVar("--series-3")],
+      "fill-opacity": 0.18, "fill-outline-color": cssVar("--series-1") }),
+  },
+  waterways: {
+    legend: "Inland waterway ships use", swatch: () => cssVar("--series-4"), fetch: "window", click: "feature",
+    paint: () => ({ "line-color": cssVar("--series-4"), "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 6, 2.6], "line-opacity": 0.9 }),
+  },
+  cables: {
+    legend: "Undersea cable (its own colour)", swatch: () => cssVar("--series-6"), fetch: "window", click: "feature",
+    paint: () => ({ "line-color": ["coalesce", ["get", "color"], cssVar("--series-6")], "line-width": zoomWidth(1, 2.2), "line-opacity": 0.85 }),
+  },
+  gas_pipelines: {
+    legend: "Gas pipeline (dashed: not built yet)", swatch: () => cssVar("--series-2"), fetch: "window", click: "feature",
+    paint: () => ({ "line-color": cssVar("--series-2"), "line-width": zoomWidth(1, 2.4),
+      "line-opacity": ["case", ["<=", ["coalesce", ["get", "rank"], 3], 1], 0.95, 0.45] }),
+  },
+  oil_pipelines: {
+    legend: "Oil pipeline", swatch: () => cssVar("--series-7"), fetch: "window", click: "feature",
+    paint: () => ({ "line-color": cssVar("--series-7"), "line-width": zoomWidth(1, 2.4),
+      "line-opacity": ["case", ["<=", ["coalesce", ["get", "rank"], 3], 1], 0.95, 0.45] }),
+  },
+  shipping_lanes: {
+    legend: "Shipping lane (thicker: busier)", swatch: () => cssVar("--series-1"),
+    paint: () => ({ "line-color": cssVar("--series-1"), "line-opacity": 0.55,
+      "line-width": ["match", ["get", "rank"], 1, 2.2, 2, 1.2, 0.6] }),
+  },
+  ports: {
+    legend: "Port, sized by ship calls a year", swatch: () => cssVar("--series-1"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-1"), "circle-opacity": 0.75,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "calls"], 0]], 0, 1.8, 50, 4, 150, 10],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+    }),
+  },
+  ports_all: {
+    legend: "Port (World Port Index)", swatch: () => cssVar("--muted"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--ink-2"), "circle-opacity": 0.6,
+      "circle-radius": ["match", ["get", "size"], "large", 4, "medium", 3, 2],
+    }),
+  },
+  chokepoints: {
+    legend: "Shipping chokepoint, sized by ships a day", swatch: () => cssVar("--div-neg-2"), dot: true, click: "chokepoint",
+    paint: () => ({
+      "circle-color": cssVar("--div-neg-2"), "circle-opacity": 0.8,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "daily"], 10]], 0, 4, 5, 7, 12, 14],
+      "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 1,
+    }),
+  },
+  airports: {
+    legend: "Airport (larger: large airport)", swatch: () => cssVar("--series-5"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-5"), "circle-opacity": 0.8,
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, ["match", ["get", "size"], "large", 2.5, 1.2], 5, ["match", ["get", "size"], "large", 6, 3]],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.5,
+    }),
+  },
+  cable_landings: {
+    legend: "Cable landing point", swatch: () => cssVar("--series-6"), dot: true,
+    paint: () => ({ "circle-color": cssVar("--series-6"), "circle-radius": zoomWidth(1.5, 4), "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.5 }),
+  },
+  lng_terminals: {
+    legend: "LNG terminal (hollow: not built yet)", swatch: () => cssVar("--series-2"), dot: true,
+    paint: () => ({
+      "circle-color": ["case", ["==", ["get", "status"], "operating"], cssVar("--series-2"), cssVar("--surface")],
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "capacity"], 1]], 0, 3, 5, 9],
+      "circle-stroke-color": cssVar("--series-2"), "circle-stroke-width": 1.4,
+    }),
+  },
+  heritage_sites: {
+    legend: "World Heritage site (red ring: in danger)", swatch: () => cssVar("--series-3"), dot: true,
+    paint: () => ({
+      "circle-color": ["match", ["get", "type"], "natural", cssVar("--series-3"), "mixed", cssVar("--series-5"), cssVar("--series-6")],
+      "circle-radius": zoomWidth(2, 5), "circle-opacity": 0.85,
+      "circle-stroke-color": ["case", ["has", "danger"], cssVar("--div-neg-3"), cssVar("--surface")],
+      "circle-stroke-width": ["case", ["has", "danger"], 2, 0.5],
+    }),
+  },
+  visited_sites: {
+    legend: "Place with a million or more visitors a year", swatch: () => cssVar("--series-4"), dot: true,
+    paint: () => ({
+      "circle-color": cssVar("--series-4"), "circle-opacity": 0.8,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "visitors"], 1e6]], 1000, 3, 5000, 9],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+    }),
+  },
+  live_planes: {
+    legend: "Plane in the air now (OpenSky)", swatch: () => cssVar("--series-7"), dot: true, fetch: "live", every: 60,
+    paint: () => ({ "circle-color": cssVar("--series-7"), "circle-radius": zoomWidth(1.4, 3.5), "circle-opacity": 0.85 }),
+  },
+  live_ships: {
+    legend: "Ship now (aisstream.io)", swatch: () => cssVar("--series-1"), dot: true, fetch: "live", every: 30,
+    paint: () => ({ "circle-color": cssVar("--series-1"), "circle-radius": zoomWidth(1.4, 3.5), "circle-opacity": 0.85,
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4 }),
+  },
   companies: {
     legend: "Big company head office", swatch: () => cssVar("--series-6"), dot: true,
     paint: () => ({
@@ -143,9 +253,43 @@ export const LAYER_STYLE: Record<string, Style> = {
   },
 };
 
+// Features of a "window" or "live" layer for the area in view.
+export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number) {
+  const r = (v: number) => Math.round(v * 100) / 100;
+  const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
+  const path = id === "live_planes" ? `/live/planes?${q}` : id === "live_ships" ? `/live/ships?${q}`
+    : `/geo/${encodeURIComponent(id)}?${q}&zoom=${zoom.toFixed(1)}`;
+  return get<GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number }>(path);
+}
+
+const num = (v: unknown, d = 0) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : "");
+
 // The text shown when the pointer is over one of a layer's features.
 export function layerLabel(layer: string, p: Record<string, unknown>): string {
   const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  const more = "<br/><span class=\"muted\">Click for what depends on it</span>";
+  if (layer === "rivers") return `<b>River</b>${typeof p.flow === "number" ? `<br/>${num(p.flow)} m³/s where it ends` : ""}${typeof p.length === "number" ? ` · ${num(p.length)} km` : ""}`;
+  if (layer === "basins") return `<b>${esc(p.name ?? "River basin")}</b><br/>${num(p.area)} km²${typeof p.flow === "number" ? ` · ${num(p.flow)} m³/s` : ""}`
+    + `${p.transboundary ? "<br/>Shared by several countries" : ""}<br/><span class="muted">Click for its countries and people</span>`;
+  if (layer === "waterways") return `<b>${esc(p.name)}</b> (waterway)${p.cemt ? `<br/>Class ${esc(p.cemt)}` : ""}${p.to ? `<br/>Ships go to ${esc(p.to)}` : ""}`;
+  if (layer === "cables") return `<b>${esc(p.name)}</b> (undersea cable)${p.rfs ? `<br/>In service ${esc(p.rfs)}` : ""}${p.planned ? " (planned)" : ""}${more}`;
+  if (layer === "gas_pipelines" || layer === "oil_pipelines") return `<b>${esc(p.name)}</b> (${layer === "gas_pipelines" ? "gas" : "oil"} pipeline)`
+    + `${p.status ? `<br/>${esc(p.status)}` : ""}${more}`;
+  if (layer === "shipping_lanes") return `<b>${esc(p.name)}</b>`;
+  if (layer === "ports") return `<b>${esc(p.name)}</b> (port)${typeof p.calls === "number" ? `<br/>${num(p.calls)} ship calls in ${esc(p.year)}` : ""}`
+    + (p.top ? `<br/>Biggest trade: ${esc(p.top)}` : "");
+  if (layer === "ports_all") return `<b>${esc(p.name)}</b> (port)${p.size ? `<br/>Harbour: ${esc(p.size)}` : ""}${typeof p.depth === "number" ? ` · channel ${p.depth} m` : ""}`;
+  if (layer === "chokepoints") return `<b>${esc(p.name)}</b>${typeof p.daily === "number" ? `<br/>${num(p.daily, 1)} ships a day${p.year ? ` in ${esc(p.year)}` : ""}` : ""}`
+    + "<br/><span class=\"muted\">Click for the countries on its shores</span>";
+  if (layer === "airports") return `<b>${esc(p.name)}</b>${p.iata ? ` (${esc(p.iata)})` : ""}${p.city ? `<br/>${esc(p.city)}` : ""}`;
+  if (layer === "cable_landings") return `<b>${esc(p.name)}</b> (cable landing)`;
+  if (layer === "lng_terminals") return `<b>${esc(p.name)}</b> (LNG ${esc(String(p.facility ?? "").toLowerCase() || "terminal")})`
+    + `${p.status ? `<br/>${esc(p.status)}` : ""}${typeof p.capacity === "number" ? ` · ${p.capacity} Mt a year` : ""}`;
+  if (layer === "heritage_sites") return `<b>${esc(p.name)}</b><br/>World Heritage (${esc(p.type)}), ${esc(p.year)}${p.danger ? "<br/><b>In danger</b>" : ""}`;
+  if (layer === "visited_sites") return `<b>${esc(p.name)}</b><br/>${num(p.visitors)} visitors${p.year ? ` (${esc(p.year)})` : ""}`;
+  if (layer === "live_planes") return `<b>${esc(p.callsign ?? p.id)}</b> (${esc(p.country)})${typeof p.altitude_m === "number" ? `<br/>${num(p.altitude_m)} m` : ""}`
+    + (typeof p.speed_kmh === "number" ? ` · ${p.speed_kmh} km/h` : "");
+  if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}`;
   if (layer === "volcanoes") {
     const last = typeof p.last === "number" ? (p.last < 0 ? `${-p.last} BCE` : String(p.last)) : "unknown";
     return `<b>${esc(p.name)}</b> (volcano)<br/>${esc(p.type ?? "")}${p.country ? `, ${esc(p.country)}` : ""}<br/>Last eruption: ${last}`

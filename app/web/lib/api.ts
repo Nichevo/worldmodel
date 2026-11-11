@@ -223,6 +223,7 @@ export type Settings = {
   party_office: "government" | "state";
   event_kinds: string;
   disaster_min_deaths: number;
+  transport_min_deaths: number; // air, sea and rail accidents from this many deaths
   ranks_top_n: number; // lines on a Ranks panel unless it sets its own (0 = all)
   forecast_horizon: number; // years the Forecast button looks ahead
   forecast_ranges: "80+95" | "80" | "none";
@@ -253,6 +254,15 @@ export type Settings = {
   nature_pollution_fetch: boolean; // UN SDG water and protected key areas
   nature_species_fetch: boolean; // GRIIS, IUCN Red List, EPPO
   nature_protected_fetch: boolean; // WDPA protected areas
+  transport_ports_fetch: boolean; // PortWatch, World Port Index, shipping lanes
+  transport_air_fetch: boolean; // OurAirports, Eurostat airport traffic
+  transport_waterways_fetch: boolean; // inland waterways and river freight
+  tourism_fetch: boolean; // UNESCO World Heritage sites
+  rivers_fetch: boolean; // HydroRIVERS and HydroBASINS
+  cables_fetch: boolean; // TeleGeography undersea cables
+  energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
+  live_planes: boolean; // the map's Planes now layer
+  live_ships: boolean; // the map's Ships now layer
   zones_scenario: string; // ssp126, ssp245 or ssp585 for future climate zones
   history_series_fetch: boolean; // refresh fetches long-run figures (OWID)
   history_events_fetch: boolean; // refresh fetches events far back (Wikidata) and NOAA's hazards
@@ -742,6 +752,26 @@ export type IndicatorNames = Record<string, { name: string; unit: string; decima
 export type Latest = Record<string, { year: number; value: number; source_id: string }>;
 export type PollutionPage = { tabs: Record<"air" | "water" | "ocean" | "borders", string[]>; names: IndicatorNames; events: NatureEvent[] };
 export type PollutionCountry = PollutionPage & { entity: string; latest: Latest };
+// ----------------------------------------------------------------------------- transport, tourism, networks
+export type Chokepoint = { id: string; name: string; now: number | null; year_before: number | null; change: number | null; capacity: number | null; as_of: string };
+export type PortRow = { port_id: string; name: string; entity_id: string | null; calls: number; import_t: number | null; export_t: number | null; year: number };
+export type AirportRow = { airport: string; name: string | null; entity_id: string | null; year: number; passengers: number | null; freight_t: number | null };
+export type Accident = { subkind: string | null; title: string; start_date: string | null; place: string | null; url: string | null; detail: string | null;
+  deaths: number | null; entities: string[] };
+export type TransportPage = { tabs: Record<"sea" | "air" | "land" | "safety", string[]>; names: IndicatorNames; chokepoints: Chokepoint[];
+  ports: PortRow[]; airports: AirportRow[]; infrastructure: NatureEvent[]; accidents: Accident[]; min_deaths: number;
+  loaded: Record<string, number>; chokepoint_shores: Record<string, string[]> };
+export type NetworkItem = { id: string; name: string | null; rfs?: number | null; planned?: boolean | null; status?: string | null;
+  area?: number; share?: number; of_country?: number | null; transboundary?: boolean; countries?: number };
+export type TransportCountry = { entity: string; tabs: TransportPage["tabs"]; names: IndicatorNames; latest: Latest; ports: PortRow[];
+  airports: AirportRow[]; accidents: Accident[]; infrastructure: NatureEvent[]; networks?: Record<string, NetworkItem[]>; counts?: Record<string, number> };
+export type ChokepointSeries = { id: string; name: string; points: { week: string; transits: number; tankers: number | null; container: number | null;
+  dry_bulk: number | null; cargo: number | null; capacity: number | null }[]; depends: { id: string; name: string }[] };
+export type TourismPage = { tabs: Record<"visitors" | "money" | "standing" | "nz", string[]>; names: IndicatorNames;
+  top: { entity_id: string; name: string; year: number; value: number; indicator: string }[]; loaded: Record<string, number> };
+export type HeritageSite = { name: string; type: string | null; year: number | null; danger?: number; url?: string; about?: string };
+export type TourismCountry = { entity: string; tabs: TourismPage["tabs"]; names: IndicatorNames; latest: Latest;
+  origins: { id: string; name: string; year: number; value: number; indicator: string }[]; sites: HeritageSite[] };
 export type Pest = { code: string; name: string; kind: string; note: string; countries: number; loaded: boolean;
   here?: { present: boolean; statuses: string[] } | null };
 export type Comeback = { name: string; countries: string[]; from: string; to: string; how: string; url: string };
@@ -1041,6 +1071,11 @@ export const api = {
   climateZones: () => get<ZonesInfo>("/climatezones"),
   climateZonesCountry: (id: string, scenario?: string) => get<ZonesCountry>(`/climatezones/country/${encodeURIComponent(id)}`, { scenario }),
   pollution: () => get<PollutionPage>("/pollution"),
+  transport: () => get<TransportPage>("/transport"),
+  transportCountry: (id: string) => get<TransportCountry>(`/transport/country/${encodeURIComponent(id)}`),
+  chokepoint: (id: string, start?: number) => get<ChokepointSeries>(`/transport/chokepoint/${encodeURIComponent(id)}${start ? `?start=${start}` : ""}`),
+  tourism: () => get<TourismPage>("/tourism"),
+  tourismCountry: (id: string) => get<TourismCountry>(`/tourism/country/${encodeURIComponent(id)}`),
   pollutionCountry: (id: string) => get<PollutionCountry>(`/pollution/country/${encodeURIComponent(id)}`),
   nature: () => get<NaturePage>("/nature"),
   natureCountry: (id: string) => get<NatureCountry>(`/nature/country/${encodeURIComponent(id)}`),
