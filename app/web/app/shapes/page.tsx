@@ -75,7 +75,11 @@ function TrueSize() {
         const p = f.properties as { iso3?: string; name?: string } | null;
         if (!p?.iso3 || !cs[p.iso3]) continue;
         const polys = polygons(f.geometry);
-        out[p.iso3] = { polys, centre: cs[p.iso3], area: areaKm2(polys), name: p.name ?? p.iso3 };
+        const area = areaKm2(polys);
+        // Some territories share their country's code (Ashmore and Cartier Islands are AUS):
+        // keep the biggest shape, so adding Australia adds Australia.
+        if (out[p.iso3] && out[p.iso3].area >= area) continue;
+        out[p.iso3] = { polys, centre: cs[p.iso3], area, name: p.name ?? p.iso3 };
       }
       setShapes(out);
     });
@@ -96,7 +100,9 @@ function TrueSize() {
       map.addLayer({ id: "ts-fill", type: "fill", source: "ts", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.45 } });
       map.addLayer({ id: "ts-line", type: "line", source: "ts", paint: { "line-color": ["get", "color"], "line-width": 2 } });
     };
-    if (map.isStyleLoaded() && map.getLayer("fill")) put();
+    // Once the shapes are on the map, new data goes straight in: waiting for the map to be
+    // "loaded" or "idle" again could wait for ever while base map tiles are slow or offline.
+    if (map.getSource("ts") || map.getLayer("fill")) put();
     else map.once("idle", put);
   }, [map, data]);
   useEffect(() => { // dragging a shape
