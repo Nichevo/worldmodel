@@ -11,6 +11,7 @@ import type { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
+import { refreshFill } from "@/lib/maplook";
 
 export type BaseMap = "online" | "local" | "plain";
 export type BaseMapFile = { name: string; region: string; bytes: number; made: string | null; build: string | null; maxzoom: number | null };
@@ -137,7 +138,7 @@ function localLayers(src: string): { under: LayerSpecification[]; over: LayerSpe
 export function removeDetail(m: maplibregl.Map) {
   for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith(DETAIL_PREFIX)) m.removeLayer(l.id);
   for (const s of Object.keys(m.getStyle()?.sources ?? {})) if (s.startsWith("detail-")) m.removeSource(s);
-  if (m.getLayer("fill")) m.setPaintProperty("fill", "fill-opacity", 1);
+  refreshFill(m, { detail: false });
 }
 
 // Put the detail on a map whose country layers ("fill", "line") are already there.
@@ -169,7 +170,7 @@ export async function addDetail(m: maplibregl.Map, mode: BaseMap): Promise<strin
     for (const l of s.layers.under) m.addLayer(l, "line");
   }
   for (const s of sources) for (const l of s.layers.over) m.addLayer(l);
-  m.setPaintProperty("fill", "fill-opacity", FADED_FILL);
+  refreshFill(m, { detail: true });
   return mode === "online" ? "Map detail: OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors"
     : "Map detail: Protomaps, © OpenStreetMap contributors";
 }

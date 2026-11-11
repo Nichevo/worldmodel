@@ -111,6 +111,19 @@ SETTINGS: dict[str, object] = {
     "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
     "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
     "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)
+    # Maps (Settings > Maps)
+    "map_look": "plain",                 # under the country colours: "plain", "relief" (shaded heights and sea depths), "satellite" or "night" (night lights)
+    "relief_style": "classic",           # "classic" (height colours + shading), "grey" (shading only) or "satellite" (shading over the satellite picture)
+    "relief_shading": 0.6,               # how strong the hill shading is (0 to 1)
+    "map_colours_over": 0.55,            # how solid the country colours are over relief, satellite or night lights (0 to 1)
+    "night_year": "2016",                # night lights: "2016" or "2012" (NASA Black Marble), or "latest" (last night's VIIRS picture)
+    "map_3d": False,                     # tilt the map and raise the land (right-drag or Ctrl-drag to tilt)
+    "map_3d_exaggeration": 1.5,          # how much the land is raised in 3D
+    "map_tiles": "local_first",          # relief, satellite and night pictures: "local_first" (saved copies, online for the rest) or "online"
+    "map_tiles_starter": True,           # download the starter copies once: world relief to zoom 6, NZ relief and satellite closer, newest night lights
+    "map_true_size": True,               # Map shapes page: true size, equal-area view and cartograms
+    "space_fetch": True,                 # Solar system page: asteroids (JPL), mission paths (JPL Horizons), about 50 MB
+    "space_values": False,               # Solar system page: Asterank's guessed dollar values for asteroids
     "zones_scenario": "ssp245",          # the emissions path the climate zone maps and city twins use for future periods
     # Internet speeds
     "internet_speeds_fetch": True,     # refresh fetches Ookla's open Speedtest files (quarterly, 200-400 MB each, summed by country then deleted)
@@ -181,7 +194,9 @@ SETTINGS: dict[str, object] = {
 }
 CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
-           "base_map": ("online", "local", "plain"), "map_centre": ("pacific", "atlantic"),
+           "base_map": ("online", "local", "plain"),
+           "map_look": ("plain", "relief", "satellite", "night"), "relief_style": ("classic", "grey", "satellite"),
+           "night_year": ("2016", "2012", "latest"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y")}
@@ -203,7 +218,8 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
-          "transport_min_deaths": (0, 100_000),
+          "transport_min_deaths": (0, 100_000), "relief_shading": (0, 1), "map_colours_over": (0, 1),
+          "map_3d_exaggeration": (1, 5),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),

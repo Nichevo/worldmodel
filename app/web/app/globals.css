@@ -804,6 +804,9 @@ img.flag { display: inline-block; vertical-align: -2px; border-radius: 2px; box-
 .lp-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .lp-sets, .lp-base { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .lp-base { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lp-base.lp-look { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lp-look-opts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; align-items: center; }
+.lp-look-opts input[type="range"] { width: 110px; vertical-align: middle; }
 .lp-set { font: inherit; font-size: 0.78rem; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; cursor: pointer;
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--ink); position: relative; }
 .lp-base .lp-set { flex-direction: row; align-items: center; gap: 4px; }
