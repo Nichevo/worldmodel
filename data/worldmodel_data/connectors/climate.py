@@ -761,6 +761,7 @@ class NetZeroTracker(_Yearly):
 class CarbonPricing(_Yearly):
     source_id = "carbon_pricing"
     manual = True
+    stage_version = 2  # reads the 2025-on layout
     fetch_every_days = 0
 
     def download(self, raw_dir: Path, release: str) -> str:
@@ -769,12 +770,17 @@ class CarbonPricing(_Yearly):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         best: dict[tuple[str, int], float] = {}
         for f in sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".csv", ".xlsx")):
-            sheets = [s for s in xlsx_sheet_names(f) if "price" in s.lower()] if f.suffix.lower() == ".xlsx" else [None]
-            for s in sheets or [0]:
-                table = xlsx_rows(f, s) if f.suffix.lower() == ".xlsx" else _table(f)
-                carbon_prices(table, best)
+            if f.suffix.lower() != ".xlsx":
+                carbon_prices(_table(f), best)
+                continue
+            names = xlsx_sheet_names(f)
+            # Since 2025 the price sheet names each scheme by its id; the jurisdiction is on the general info sheet.
+            info = next((s for s in names if "gen" in s.lower() and "info" in s.lower()), None)
+            places = scheme_places(xlsx_rows(f, info)) if info else {}
+            for s in [s for s in names if "price" in s.lower()] or [0]:
+                carbon_prices(xlsx_rows(f, s), best, places)
         if not best:
-            raise ConnectorError("carbon_pricing: no prices read; expected a sheet with a Jurisdiction column and one column per year")
+            raise ConnectorError("carbon_pricing: no prices read; expected a price sheet with one column per year and a Jurisdiction or Unique ID column")
         rows = Rows()
         for (ent, y), v in best.items():
             rows.add("iso3", ent, "carbon_price", y, v)
@@ -785,16 +791,46 @@ class CarbonPricing(_Yearly):
         return rows.stage(con, self.source_id, vintage)
 
 
-def carbon_prices(table: list[list], best: dict) -> None:
-    h = next((i for i, r in enumerate(table[:10]) if any(key(c).startswith("jurisdiction") for c in r if c)), None)
+def scheme_places(table: list[list]) -> dict[str, str]:
+    """Scheme id (Tax_NZ, ETS_EU ...) -> the jurisdiction it covers, from the dashboard's general info sheet."""
+    h = next((i for i, r in enumerate(table[:15]) if any(key(c) == "uniqueid" for c in r if c)), None)
+    if h is None:
+        return {}
+    head = [key(c) for c in table[h]]
+    ci = head.index("uniqueid")
+    cj = next((i for i, c in enumerate(head) if c.startswith("jurisdiction")), None)
+    if cj is None:
+        return {}
+    return {str(r[ci]).strip(): str(r[cj] or "").strip() for r in table[h + 1:] if ci < len(r) and cj < len(r) and r[ci]}
+
+
+def carbon_place(name: str) -> str | None:
+    n = name.lower()
+    if n in ("eu", "european union", "eu ets") or n.startswith("eu27"):
+        return "eu"
+    return catalogue.country_by_name(name)
+
+
+def carbon_prices(table: list[list], best: dict, places: dict[str, str] | None = None) -> None:
+    """Prices per scheme and year: the highest national price per country and year is kept. Older files name
+    the jurisdiction in a column; newer ones give a Unique ID looked up in `places`. Schemes run by a state,
+    province or city (Alberta, California, Beijing) are left out because their names are not countries."""
+    def is_head(r):
+        ks = [key(c) for c in r if c]
+        return any(k.startswith("jurisdiction") for k in ks) or ("uniqueid" in ks and places)
+    h = next((i for i, r in enumerate(table[:10]) if is_head(r)), None)
     if h is None:
         return
-    head = table[h]
-    c_j = next(i for i, c in enumerate(head) if c and key(c).startswith("jurisdiction"))
-    years = [(i, int(str(c).split(".")[0])) for i, c in enumerate(head) if c and re.fullmatch(r"(19|20)\d\d(\.0)?", str(c).strip())]
+    head = [key(c) for c in table[h]]
+    c_j = next((i for i, c in enumerate(head) if c.startswith("jurisdiction")), None)
+    c_id = head.index("uniqueid") if "uniqueid" in head else None
+    years = [(i, int(str(c).split(".")[0])) for i, c in enumerate(table[h]) if c and re.fullmatch(r"(19|20)\d\d(\.0)?", str(c).strip())]
     for r in table[h + 1:]:
-        name = str(r[c_j] or "").strip() if c_j < len(r) else ""
-        ent = "eu" if name.lower() in ("eu", "european union", "eu ets") else catalogue.country_by_name(name)
+        if c_j is not None:
+            name = str(r[c_j] or "").strip() if c_j < len(r) else ""
+        else:
+            name = (places or {}).get(str(r[c_id] or "").strip(), "") if c_id < len(r) else ""
+        ent = carbon_place(name) if name else None
         if not ent:
             continue
         for i, y in years:
@@ -862,9 +898,46 @@ MFE_SECTORS = {"energy": "energy", "agriculture": "agriculture", "industrialproc
                "industrialprocesses": "industry", "waste": "waste", "landuselandusechangeandforestry": "forestry", "lulucf": "forestry"}
 
 
+MFE_ALL_GASES = ("all", "allgases", "total", "co2e", "totalco2e", "")
+
+
+def mfe_sums(table: list[list], sums: dict) -> None:
+    """Sector totals for all gases, kt CO2e, from either layout MfE has used: long (Year, Sector, Gas, Value)
+    or wide (Gas, Source, then one column per year, as in the "by sector and gas" raw data workbooks)."""
+    h = next((i for i, r in enumerate(table[:15]) if any(key(c) in ("year", "gas") for c in r if c)), None)
+    if h is None:
+        return
+    head = [key(c) for c in table[h]]
+    cs = next((i for i, c in enumerate(head) if c in ("sector", "category", "sectorname", "source")), None)
+    cg = next((i for i, c in enumerate(head) if c in ("gas", "gasname")), None)
+    if cs is None:
+        return
+    if "year" in head:
+        cy = head.index("year")
+        cv = next((i for i, c in enumerate(head) if c.startswith(("value", "emissions", "ktco2"))), None)
+        if cv is None:
+            return
+        cells = [(r, [(num(r[cy]), r[cv])]) for r in table[h + 1:] if max(cy, cs, cv) < len(r)]
+    else:
+        years = [(i, int(str(c).split(".")[0])) for i, c in enumerate(table[h]) if c and re.fullmatch(r"(19|20)\d\d(\.0)?", str(c).strip())]
+        if not years:
+            return
+        cells = [(r, [(y, r[i]) for i, y in years if i < len(r)]) for r in table[h + 1:] if cs < len(r)]
+    for r, pairs in cells:
+        sector = MFE_SECTORS.get(key(r[cs]))
+        gas = key(r[cg]) if cg is not None and cg < len(r) else "all"
+        if not sector or gas not in MFE_ALL_GASES:
+            continue
+        for y, raw in pairs:
+            v = num(raw)
+            if y and v is not None:
+                sums[(sector, int(y))] += v
+
+
 class MfEGHG(_Yearly):
     source_id = "mfe_ghg"
     manual = True
+    stage_version = 2  # reads the 2025-on layout
     fetch_every_days = 0
 
     def download(self, raw_dir: Path, release: str) -> str:
@@ -873,27 +946,9 @@ class MfEGHG(_Yearly):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         sums: dict[tuple[str, int], float] = defaultdict(float)
         for f in sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".csv", ".xlsx")):
-            table = _table(f)
-            h = next((i for i, r in enumerate(table[:15]) if any(key(c) == "year" for c in r if c)), None)
-            if h is None:
-                continue
-            head = [key(c) for c in table[h]]
-            cy = head.index("year")
-            cs = next((i for i, c in enumerate(head) if c in ("sector", "category", "sectorname")), None)
-            cg = next((i for i, c in enumerate(head) if c in ("gas", "gasname")), None)
-            cv = next((i for i, c in enumerate(head) if c.startswith(("value", "emissions", "ktco2"))), None)
-            if cs is None or cv is None:
-                continue
-            for r in table[h + 1:]:
-                if max(cy, cs, cv) >= len(r):
-                    continue
-                sector = MFE_SECTORS.get(key(r[cs]))
-                gas = key(r[cg]) if cg is not None and cg < len(r) else "all"
-                y, v = num(r[cy]), num(r[cv])
-                if sector and y and v is not None and gas in ("all", "allgases", "total", "co2e", "totalco2e", ""):
-                    sums[(sector, int(y))] += v
+            mfe_sums(_table(f), sums)
         if not sums:
-            raise ConnectorError("mfe_ghg: no sector totals read; expected Year, Sector (Energy, Agriculture ...) and Value columns")
+            raise ConnectorError("mfe_ghg: no sector totals read; expected Gas and Sector (or Source) columns with a Year and Value column or one column per year")
         rows = Rows()
         for (s, y), v in sums.items():
             rows.add("iso3", "NZL", f"nz_ghg_{s}", y, v / 1000)  # kt to million tonnes
