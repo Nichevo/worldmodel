@@ -250,7 +250,7 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 // table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
 // ratings), event markers and news that names a watch word. Timed layers follow the
 // map's time window. Letters are the URL form; the group and order are the Layers panel's.
-export type LayerGroup = "events" | "earth" | "people" | "polar";
+export type LayerGroup = "events" | "earth" | "people" | "past" | "polar";
 export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
 export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "events", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
@@ -269,12 +269,13 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "h", id: "hospitals", label: "Hospitals", group: "people", hint: "Hospitals above the size set in Settings > Places (Wikidata)" },
   { letter: "m", id: "military_bases", label: "Military bases", group: "people", hint: "Military, air and naval bases (Wikidata; the well-known ones)" },
   { letter: "o", id: "companies", label: "Big company head offices", group: "people" },
+  { letter: "y", id: "history_world", label: "World in year …", group: "past", made: true, hint: "States and empires as they were in a year of your choice, with its own year slider (Cliopatria borders, 3400 BC to 2024)" },
   { letter: "a", id: "antarctic_claims", label: "Antarctic claims", group: "polar" },
   { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "polar" },
 ];
 export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
   { id: "events", label: "Events and news" }, { id: "earth", label: "Earth and hazards" },
-  { id: "people", label: "People and places" }, { id: "polar", label: "Antarctica" },
+  { id: "people", label: "People and places" }, { id: "past", label: "The past" }, { id: "polar", label: "Antarctica" },
 ];
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
   { name: "Conflict watch", letters: "wen", hint: "CrisisWatch, events, news watch words" },

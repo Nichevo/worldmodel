@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.7.0"
+SCHEMA_VERSION = "1.8.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -198,6 +198,33 @@ TABLES: dict[str, Table] = {
             "still going; size is the event's own measure (magnitude, cumulative fall in GDP, peak inflation) "
             "in size_unit. For a leader's term, detail is their party and color the party's colour (#RRGGBB) "
             "where Wikidata has one."),
+        Table("long_series", {
+            "entity_id": "VARCHAR", "series_id": "VARCHAR", "year": "INTEGER", "value": "DOUBLE",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("entity_id", "series_id", "year"),
+            "Figures over centuries for the Long history page (series in worldmodel_contract history.yaml): "
+            "population since 10,000 BC, GDP per person since AD 1 and others. year is a whole number, negative "
+            "for BC. Absent in warehouses built before 1.8.0."),
+        Table("polities", {
+            "polity_key": "VARCHAR", "name": "VARCHAR", "from_year": "INTEGER", "to_year": "INTEGER",
+            "area_km2": "DOUBLE", "composite": "BOOLEAN", "components": "VARCHAR", "member_of": "VARCHAR",
+            "wikipedia": "VARCHAR", "wikidata": "VARCHAR", "region": "VARCHAR", "lat": "DOUBLE", "lon": "DOUBLE",
+            "west": "DOUBLE", "south": "DOUBLE", "east": "DOUBLE", "north": "DOUBLE", "geojson": "VARCHAR",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("polity_key",),
+            "States and empires with their borders, one row per stretch of years (from_year to to_year, "
+            "inclusive) with unchanged borders (Cliopatria). Composite rows (names in brackets) join an empire's "
+            "parts; a part names its composite in member_of. region is one of history.yaml's regions, by the "
+            "centre of the largest piece. geojson is the simplified geometry. Absent before 1.8.0."),
+        Table("history_events", {
+            "event_id": "VARCHAR", "kind": "VARCHAR", "title": "VARCHAR", "year": "INTEGER", "end_year": "INTEGER",
+            "month": "INTEGER", "day": "INTEGER", "lat": "DOUBLE", "lon": "DOUBLE", "place": "VARCHAR",
+            "entity_id": "VARCHAR", "region": "VARCHAR", "deaths": "DOUBLE", "size": "DOUBLE", "size_unit": "VARCHAR",
+            "links": "INTEGER", "url": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("event_id",),
+            "Events far back in time for the Long history page: wars, battles, sieges, epidemics, famines, "
+            "revolutions and treaties (Wikidata, links = Wikipedias with an article) and earthquakes, eruptions "
+            "and tsunamis (NOAA; size is magnitude, VEI or wave height). year is negative for BC. Absent before 1.8.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

@@ -57,7 +57,15 @@ type Props = {
   // Extra legend entries for outlines and markers.
   legend?: { label: string; color: string; shape: "dot" | "ring" | "outline" }[];
   hideScale?: boolean; // colours stand for categories, so the number legend would mislead
+  // Shapes drawn over the countries (borders of past states on the Long history page): each
+  // feature's properties give color, opacity (0-1), label (hover HTML), sort (higher on top), key.
+  areas?: { key: string; data: GeoJSON.FeatureCollection } | null;
+  onArea?: (key: string) => void; // a click on one of the areas
+  // Routes as dated stops joined by straight lines (voyages), with a dot at each stop.
+  paths?: MapPath[];
 };
+
+export type MapPath = { key: string; color: string; label: string; stops: { lng: number; lat: number; label: string }[] };
 
 export type MapOutline = { entity: string; color: string; label: string };
 export type MapMark = { key: string; lng: number; lat: number; color: string; hollow?: boolean; r?: number; opacity?: number; label: string; href?: string };
@@ -109,8 +117,10 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
-  raster = null, boxes = [], outlines, marks, legend = [], hideScale = false,
+  raster = null, boxes = [], outlines, marks, legend = [], hideScale = false, areas = null, onArea, paths,
 }: Props) {
+  const areaPick = useRef(onArea);
+  areaPick.current = onArea;
   const outlineText = useRef<Map<string, string>>(new Map());
   outlineText.current = new Map((outlines ?? []).map((o) => [o.entity, o.label]));
   const cityPick = useRef(onCity);
@@ -185,10 +195,10 @@ export default function WorldMap({
 
     // The overlay feature under the pointer, if any (a few pixels' slack for thin lines and small dots).
     const overlayAt = (pt: maplibregl.Point) => {
-      const ids = [...Object.keys(LAYER_STYLE), "points", "lines", "marks"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      const ids = [...Object.keys(LAYER_STYLE), "points", "lines", "marks", "paths", "pathstops", "areas"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (!ids.length) return null;
       const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
-      if (f && (f.layer.id === "ov-lines" || f.layer.id === "ov-marks")) return String((f.properties as { label?: string }).label || "") || null;
+      if (f && ["ov-lines", "ov-marks", "ov-paths", "ov-pathstops", "ov-areas"].includes(f.layer.id)) return String((f.properties as { label?: string }).label || "") || null;
       return f ? layerLabel(f.layer.id.slice(3), f.properties as Record<string, unknown>) : null;
     };
     // The city dot under the pointer, if any: its city id.
@@ -208,6 +218,11 @@ export default function WorldMap({
           else window.location.assign(href);
           return;
         }
+      }
+      if (m.getLayer("ov-areas") && areaPick.current) {
+        const f = m.queryRenderedFeatures(e.point, { layers: ["ov-areas"] })[0];
+        const key = f?.properties?.key;
+        if (typeof key === "string" && key) { areaPick.current(key); return; }
       }
       const id = cityAt(e.point);
       if (!id) return;
@@ -556,6 +571,63 @@ export default function WorldMap({
     if (m.getLayer("hover")) apply();
     else onLoad.current.push(apply);
   }, [marksKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Shapes of past states over the countries, under the outlines and dots.
+  const areasKey = areas?.key ?? null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => {
+      const data = areas?.data ?? { type: "FeatureCollection" as const, features: [] };
+      const src = m.getSource("ov-areas") as GeoJSONSource | undefined;
+      if (src) { src.setData(data); return; }
+      if (!areas) return;
+      m.addSource("ov-areas", { type: "geojson", data });
+      m.addLayer({ id: "ov-areas", type: "fill", source: "ov-areas", layout: { "fill-sort-key": ["coalesce", ["get", "sort"], 0] },
+        paint: { "fill-color": ["get", "color"], "fill-opacity": ["coalesce", ["get", "opacity"], 0.6] } }, "line");
+      m.addLayer({ id: "ov-areas-line", type: "line", source: "ov-areas",
+        paint: { "line-color": cssVar("--ink"), "line-width": 0.6, "line-opacity": 0.55 } }, "hover");
+    };
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+  }, [areasKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pathsKey = paths ? paths.map((p) => `${p.key}:${p.stops.length}:${p.color}`).join(",") : null;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || pathsKey === null) return;
+    const apply = () => {
+      const list = paths ?? [];
+      // Lines that cross the date line are drawn the short way round (MapLibre wraps longitudes past 180).
+      const unwrap = (stops: { lng: number; lat: number }[]) => {
+        const out: [number, number][] = [];
+        for (const s of stops) {
+          let x = s.lng;
+          if (out.length) {
+            const prev = out[out.length - 1][0];
+            while (x - prev > 180) x -= 360;
+            while (prev - x > 180) x += 360;
+          }
+          out.push([x, s.lat]);
+        }
+        return out;
+      };
+      const lines: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: list.map((p) => ({
+        type: "Feature", geometry: { type: "LineString", coordinates: unwrap(p.stops) }, properties: { color: p.color, label: p.label } })) };
+      const stops: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: list.flatMap((p) => p.stops.map((s) => ({
+        type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] }, properties: { color: p.color, label: s.label } }))) };
+      const a = m.getSource("ov-paths") as GeoJSONSource | undefined;
+      if (a) { a.setData(lines); (m.getSource("ov-pathstops") as GeoJSONSource).setData(stops); return; }
+      m.addSource("ov-paths", { type: "geojson", data: lines });
+      m.addSource("ov-pathstops", { type: "geojson", data: stops });
+      m.addLayer({ id: "ov-paths", type: "line", source: "ov-paths", layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": ["get", "color"], "line-width": 2, "line-dasharray": [2, 1.5] } }, "hover");
+      m.addLayer({ id: "ov-pathstops", type: "circle", source: "ov-pathstops", paint: {
+        "circle-radius": 3.5, "circle-color": ["get", "color"], "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 1 } });
+    };
+    if (m.getLayer("hover")) apply();
+    else onLoad.current.push(apply);
+  }, [pathsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Outline the country hovered in a linked panel.
   useEffect(() => {

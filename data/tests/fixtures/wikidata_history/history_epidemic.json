@@ -1,0 +1,6 @@
+{"head":{"vars":[]},"results":{"bindings":[
+{"e":{"type":"uri","value":"http://www.wikidata.org/entity/Q42005"},"eLabel":{"type":"literal","value":"Black Death"},
+ "start":{"type":"literal","value":"1346-00-00T00:00:00Z"},"end":{"type":"literal","value":"1353-00-00T00:00:00Z"},
+ "links":{"type":"literal","value":"120"},"deaths":{"type":"literal","value":"50000000"},
+ "article":{"type":"uri","value":"https://en.wikipedia.org/wiki/Black_Death"}}
+]}}

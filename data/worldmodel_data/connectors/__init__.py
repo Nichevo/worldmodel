@@ -11,6 +11,7 @@ from worldmodel_data.connectors.crisiswatch import CrisisWatch
 from worldmodel_data.connectors.education import UNDPHDR, Wittgenstein
 from worldmodel_data.connectors.crises import CrisisHistory
 from worldmodel_data.connectors.iea_data import IEAData
+from worldmodel_data.connectors.history import Cliopatria, NOAAHazards, OWIDLongRun, WikidataHistory
 from worldmodel_data.connectors.emdat import EMDAT
 from worldmodel_data.connectors.forecasters import OECDEO, WorldBankGEP
 from worldmodel_data.connectors.housing import BIS, OECD, DallasFedIHPD, IMFGDD
@@ -46,6 +47,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     BACI, USGSMinerals, WorldMiningData, FAOSTAT, PinkSheet, IEAEV,
     OWIDCO2, OWIDClimate, NOAAGML, GISTEMP, NOAAEnso, IBTrACS, GDACS, CCKP, NetZeroTracker, CarbonPricing, NIWA7Station, MfEGHG, OoklaSpeedtest,
     ECBRates, FedH10, GIEStorage, EIAStocks, JODI, StatsNZ,
-    CLDRLanguages, Glottolog, COWReligion, PewReligion, CrisisHistory, IEAData)}
+    CLDRLanguages, Glottolog, COWReligion, PewReligion, CrisisHistory, IEAData,
+    Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

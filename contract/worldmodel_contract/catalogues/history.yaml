@@ -1,0 +1,305 @@
+# The Long history page: what it compares, and the few things typed by hand.
+#
+# Years are whole numbers, negative for BC (no year 0). Borders come from Seshat's
+# Cliopatria (source cliopatria): each power lists the Cliopatria names that make it up;
+# in any year the largest of them alive that year is the power's shape and size (the
+# composites in brackets join an empire's parts, so they win where they exist).
+
+powers:
+  # Powers then
+  - {id: rome, name: Rome, era: then, entity: ITA, colour: "#b5523b", wikipedia: Roman Empire,
+     polities: [Roman Republic, Roman Empire, Western Roman Empire]}
+  - {id: han, name: Han China, era: then, group: china, entity: CHN, colour: "#c9792b", wikipedia: Han dynasty,
+     polities: [Han Dynasty]}
+  - {id: tang, name: Tang China, era: then, group: china, entity: CHN, colour: "#d39b2a", wikipedia: Tang dynasty,
+     polities: [Tang Dynasty]}
+  - {id: song, name: Song China, era: then, group: china, entity: CHN, colour: "#b38a3d", wikipedia: Song dynasty,
+     polities: [Northern Song, Southern Song]}
+  - {id: ming, name: Ming China, era: then, group: china, entity: CHN, colour: "#e0a33a", wikipedia: Ming dynasty,
+     polities: [Ming Dynasty]}
+  - {id: qing, name: Qing China, era: then, group: china, entity: CHN, colour: "#a7652a", wikipedia: Qing dynasty,
+     polities: [Qing Dynasty]}
+  - {id: mughal, name: Mughal Empire, era: then, entity: IND, colour: "#3f8f6b", wikipedia: Mughal Empire,
+     polities: [Mughal Empire]}
+  - {id: ottoman, name: Ottoman Empire, era: then, entity: TUR, colour: "#8a3d6b", wikipedia: Ottoman Empire,
+     polities: [Ottoman Empire]}
+  - {id: spain, name: Spain, era: then, entity: ESP, colour: "#c4a000", wikipedia: Spanish Empire,
+     polities: [(Spanish Empire), Spanish Empire, (Personal union of Crown of Aragon with Crown of Castile)]}
+  - {id: netherlands, name: Netherlands, era: then, entity: NLD, colour: "#e06c1f", wikipedia: Dutch Empire,
+     polities: [(Dutch Republic), Dutch Republic, (Netherlands), Netherlands]}
+  - {id: britain, name: Britain, era: then, entity: GBR, colour: "#2f5f9e", wikipedia: British Empire,
+     polities: [(Kingdom of England), Kingdom of England, (British Empire), Kingdom of Great Britain]}
+  - {id: soviet, name: Soviet Union, era: then, entity: RUS, colour: "#a3262a", wikipedia: Soviet Union,
+     polities: [Republics of the Soviet Union, Union of Soviet Socialist Republics]}
+  # Powers now
+  - {id: usa, name: United States, era: now, entity: USA, colour: "#1f4e8c", wikipedia: United States,
+     polities: [United States of America]}
+  - {id: china, name: China, era: now, group: china, entity: CHN, colour: "#c0392b", wikipedia: China,
+     polities: [People's Republic of China]}
+  - {id: eu, name: European Union, era: now, entity: eu, colour: "#2b6cb0", wikipedia: European Union, polities: []}
+  - {id: russia, name: Russia, era: now, entity: RUS, colour: "#7b3f99", wikipedia: Russia,
+     polities: [(Russian Federation), Russian Federation]}
+  - {id: india, name: India, era: now, entity: IND, colour: "#2e8b57", wikipedia: India,
+     polities: [Republic of India]}
+
+# China's dynasties, in order: shown together as one group on the age-of-empires chart,
+# along the East Asia strip and on "China then and now". Those also in powers above are
+# referred to by id; the rest are listed here.
+china_dynasties:
+  - {id: shang, name: Shang, wikipedia: Shang dynasty, polities: [Shang Dynasty]}
+  - {id: zhou, name: Zhou, wikipedia: Zhou dynasty, polities: [Zhou Dynasty]}
+  - {id: qin, name: Qin, wikipedia: Qin dynasty, polities: [Qin Dynasty]}
+  - {id: han}
+  - {id: xin, name: Xin, wikipedia: Xin dynasty, polities: [Xin Dynasty]}
+  - {id: jin, name: Jin, wikipedia: Jin dynasty (266–420), polities: [Western Jin]}
+  - {id: liu_song, name: Liu Song, wikipedia: Liu Song dynasty, polities: [Liu Song Dynasty]}
+  - {id: sui, name: Sui, wikipedia: Sui dynasty, polities: [Sui Dynasty]}
+  - {id: tang}
+  - {id: liao, name: Liao, wikipedia: Liao dynasty, polities: [Liao Dynasty]}
+  - {id: song}
+  - {id: great_jin, name: Jurchen Jin, wikipedia: Jin dynasty (1115–1234), polities: [Great Jin]}
+  - {id: yuan, name: Yuan, wikipedia: Yuan dynasty, polities: [Yuan Dynasty]}
+  - {id: ming}
+  - {id: qing}
+  - {id: roc, name: Republic of China, wikipedia: Republic of China (1912–1949), polities: [Republic of China]}
+  - {id: china}
+
+# Eight regions for the "who ruled where" strips and the regional population lines.
+# A state counts in the region holding the centre of its largest piece (boxes are tried in
+# order: west, south, east, north in degrees). Countries count by UN M49 groups.
+regions:
+  - {id: mena, name: Middle East and North Africa,
+     boxes: [[-18, 15, 11, 37.5], [11, 15, 26, 34], [26, 12, 63, 42]],
+     groups: [western-asia, northern-africa], add: [IRN], drop: [SDN]}
+  - {id: europe, name: Europe, boxes: [[-32, 34, 45, 72]], groups: [europe], drop: [RUS]}
+  - {id: south_asia, name: South Asia, boxes: [[60, 5, 92, 37]], groups: [southern-asia], drop: [IRN]}
+  - {id: southeast_asia, name: Southeast Asia, boxes: [[92, -11, 141, 23]], groups: [south-eastern-asia]}
+  - {id: east_asia, name: East Asia, boxes: [[97, 18, 150, 55]], groups: [eastern-asia]}
+  - {id: central_asia_russia, name: Central Asia and Russia, boxes: [[45, 35, 180, 82], [26, 55, 45, 82]],
+     groups: [central-asia], add: [RUS]}
+  - {id: africa, name: Sub-Saharan Africa, boxes: [[-20, -36, 55, 15]], groups: [sub-saharan-africa], add: [SDN]}
+  - {id: americas, name: The Americas, boxes: [[-170, -56, -30, 84]], groups: [americas]}
+# Shown as a short strip with a note: Cliopatria has the Pacific only from the 1870s.
+pacific:
+  id: pacific
+  name: The Pacific
+  boxes: [[110, -50, 180, -10], [130, -12, 180, 25], [-180, -50, -120, 30]]
+  groups: [oceania]
+  note: "Borders here start in the 1870s: before that the source has no states drawn for Australia, New Zealand or the Pacific islands, though people had lived there for tens of thousands of years (Australia) and seven hundred or more (Aotearoa New Zealand)."
+
+# The long-run series (source owid_longrun, through Our World in Data), with what they are.
+series:
+  population: {name: Population, unit: people, from: "10,000 BC",
+               source: "HYDE 3.3 (to 1800), Gapminder and the UN (through Our World in Data)",
+               note: "Before 1800 these are reconstructions: estimates of how many people the land could have fed, not counts."}
+  gdp_per_capita: {name: GDP per person, unit: "international $ at 2011 prices", from: "AD 1",
+                   source: "Maddison Project Database 2023 (through Our World in Data)",
+                   note: "Before 1820 only a few countries and years; between them the line is drawn straight."}
+  literacy: {name: Literacy, unit: "% of adults", from: "1475", source: "van Zanden et al. and UNESCO (through Our World in Data)"}
+  life_expectancy: {name: Life expectancy at birth, unit: years, from: "1543", source: "Riley, Zijdeman and the UN (through Our World in Data)"}
+  schooling_years: {name: Years of schooling, unit: "years (adults)", from: "1870", source: "Lee and Lee, Barro and Lee (through Our World in Data)"}
+  exports_share_gdp: {name: Merchandise exports, unit: "% of GDP", from: "1827", source: "Fouquin and Hugot, CEPII (through Our World in Data)"}
+  military_spending: {name: Military spending, unit: "US$", from: "1816", source: "Correlates of War, SIPRI (through Our World in Data)"}
+  military_personnel: {name: Military personnel, unit: people, from: "1816", source: "Correlates of War (through Our World in Data)"}
+  urban_share: {name: Urban share, unit: "% of people", from: "1500", source: "HYDE and the UN (through Our World in Data)"}
+
+# The eight factors, rebuilt from free data. A copy of the idea in Ray Dalio's
+# "Principles for Dealing with the Changing World Order", not his figures. Each factor is a
+# country's share of the total among the countries compared (factor_countries), from the
+# series named (multiplied together where there are two), or from hand-dated periods.
+factor_countries: [NLD, GBR, USA, CHN, ESP, FRA, DEU, JPN, RUS, IND]
+factors:
+  - {id: education, name: Education, series: [schooling_years, population],
+     how: "Years of schooling times population: how much schooling the country's people have between them."}
+  - {id: innovation, name: Innovation and technology, series: [gdp_per_capita],
+     how: "Output per person, as a stand-in: free long-run figures for patents or inventions do not exist. Shares of the group total."}
+  - {id: competitiveness, name: Cost competitiveness, series: [],
+     how: "Not rebuilt: there are no free long-run figures for relative labour costs. Left out of the index."}
+  - {id: output, name: Economic output, series: [gdp_per_capita, population],
+     how: "GDP per person times population (Maddison): the size of the economy at 2011 prices."}
+  - {id: trade, name: Share of world trade, series: [exports_share_gdp, gdp_per_capita, population],
+     how: "Merchandise exports as a share of GDP, times GDP: roughly how much the country sells abroad."}
+  - {id: military, name: Military strength, series: [military_spending],
+     how: "Military spending (Correlates of War before SIPRI)."}
+  - {id: financial_centre, name: Financial centre, periods: financial_centres,
+     how: "Hand-dated from economic histories: the leading centre scores 1, the runner-up 0.5, shared out."}
+  - {id: reserve_currency, name: Reserve currency, periods: reserve_currencies,
+     how: "Hand-dated: the main currency central banks and traders held scores 1, the runner-up 0.5, shared out."}
+
+financial_centres:
+  - {entity: NLD, from: 1609, to: 1795, rank: 1, note: Amsterdam (Bank of Amsterdam 1609 to the French invasion)}
+  - {entity: GBR, from: 1700, to: 1795, rank: 2, note: London rising}
+  - {entity: GBR, from: 1796, to: 1918, rank: 1, note: London}
+  - {entity: FRA, from: 1815, to: 1914, rank: 2, note: Paris}
+  - {entity: USA, from: 1890, to: 1918, rank: 2, note: New York rising}
+  - {entity: USA, from: 1919, to: 2030, rank: 1, note: New York}
+  - {entity: GBR, from: 1919, to: 2030, rank: 2, note: London}
+reserve_currencies:
+  - {entity: NLD, from: 1640, to: 1780, rank: 1, note: Dutch guilder}
+  - {entity: GBR, from: 1781, to: 1815, rank: 2, note: Pound sterling rising}
+  - {entity: GBR, from: 1816, to: 1944, rank: 1, note: Pound sterling}
+  - {entity: FRA, from: 1816, to: 1914, rank: 2, note: French franc}
+  - {entity: USA, from: 1920, to: 1944, rank: 2, note: US dollar rising}
+  - {entity: USA, from: 1945, to: 2030, rank: 1, note: US dollar (Bretton Woods)}
+  - {entity: GBR, from: 1945, to: 1970, rank: 2, note: Pound sterling}
+  - {entity: DEU, from: 1971, to: 1998, rank: 2, note: Deutsche Mark}
+  - {entity: FRA, from: 1999, to: 2030, rank: 2, weight: 0.5, note: The euro (shown under France and Germany, half each)}
+  - {entity: DEU, from: 1999, to: 2030, rank: 2, weight: 0.5, note: The euro (shown under France and Germany, half each)}
+
+# The big cycle: where a country might be in the six stages of its internal order, by
+# simple rules on today's figures. A rough reading to argue with, not a forecast.
+cycle:
+  countries: [USA, CHN, GBR, NZL]
+  order_began: {USA: 1945, CHN: 1949, GBR: 1945, NZL: 1945, IND: 1947, RUS: 1991, JPN: 1945, DEU: 1949, FRA: 1958, AUS: 1945}
+  stages:
+    - {n: 1, name: A new order begins, about: "New leaders consolidate power after a revolution, war or collapse."}
+    - {n: 2, name: Building the system, about: "Institutions, money and government are set up; growth is fast and debt low."}
+    - {n: 3, name: Peace and prosperity, about: "Steady growth, productive borrowing, broadly shared gains."}
+    - {n: 4, name: Excess, about: "Debt and inequality build; spending runs ahead of earning; bubbles."}
+    - {n: 5, name: Bad finances and intense conflict, about: "Heavy debt, slow growth, a wide gap between rich and poor, bitter politics."}
+    - {n: 6, name: Civil war or revolution, about: "The order breaks down; the cycle starts again."}
+
+# Voyages of exploration: dated stops joined by straight lines (rough: real routes curved
+# with winds and coasts). Years as above; the power is the sponsor (an id in powers, or none).
+voyages:
+  - id: polo
+    name: Marco Polo's journey
+    who: Marco Polo
+    power: null
+    wikipedia: Marco Polo
+    stops:
+      - [1271, Venice, 45.44, 12.33]
+      - [1272, Acre, 32.93, 35.08]
+      - [1272, Hormuz, 27.1, 56.45]
+      - [1273, Balkh, 36.76, 66.9]
+      - [1274, Kashgar, 39.47, 75.99]
+      - [1275, Shangdu, 42.36, 116.18]
+      - [1276, Khanbaliq (Beijing), 39.9, 116.4]
+      - [1292, Quanzhou, 24.87, 118.68]
+      - [1293, Sumatra, 5.2, 97.0]
+      - [1294, Hormuz, 27.1, 56.45]
+      - [1295, Venice, 45.44, 12.33]
+  - id: battuta
+    name: Ibn Battuta's travels
+    who: Ibn Battuta
+    power: null
+    wikipedia: Ibn Battuta
+    stops:
+      - [1325, Tangier, 35.77, -5.8]
+      - [1326, Cairo, 30.04, 31.24]
+      - [1326, Mecca, 21.42, 39.83]
+      - [1327, Baghdad, 33.31, 44.36]
+      - [1331, Mogadishu, 2.05, 45.32]
+      - [1332, Constantinople, 41.01, 28.98]
+      - [1333, Delhi, 28.61, 77.21]
+      - [1343, Maldives, 4.17, 73.51]
+      - [1345, Quanzhou, 24.87, 118.68]
+      - [1349, Fez, 34.03, -5.0]
+      - [1352, Timbuktu, 16.77, -3.0]
+      - [1354, Fez, 34.03, -5.0]
+  - id: zheng_he
+    name: Zheng He's fourth voyage
+    who: Zheng He
+    power: ming
+    wikipedia: Zheng He
+    stops:
+      - [1413, Nanjing, 32.06, 118.8]
+      - [1413, Champa, 13.77, 109.22]
+      - [1414, Malacca, 2.19, 102.25]
+      - [1414, Calicut, 11.25, 75.78]
+      - [1414, Hormuz, 27.1, 56.45]
+      - [1415, Malindi, -3.22, 40.12]
+      - [1415, Nanjing, 32.06, 118.8]
+  - id: dias
+    name: Bartolomeu Dias rounds the Cape
+    who: Bartolomeu Dias
+    power: null
+    wikipedia: Bartolomeu Dias
+    stops:
+      - [1487, Lisbon, 38.72, -9.14]
+      - [1487, Elmina, 5.08, -1.35]
+      - [1488, Cape of Good Hope, -34.36, 18.47]
+      - [1488, Kwaaihoek, -33.7, 26.6]
+      - [1488, Lisbon, 38.72, -9.14]
+  - id: columbus
+    name: Columbus's first voyage
+    who: Christopher Columbus
+    power: spain
+    wikipedia: Voyages of Christopher Columbus
+    stops:
+      - [1492, Palos de la Frontera, 37.23, -6.89]
+      - [1492, Canary Islands, 28.1, -15.4]
+      - [1492, San Salvador, 24.05, -74.5]
+      - [1492, Cuba, 21.2, -76.0]
+      - [1492, Hispaniola, 19.75, -72.2]
+      - [1493, Azores, 37.74, -25.67]
+      - [1493, Palos de la Frontera, 37.23, -6.89]
+  - id: da_gama
+    name: Vasco da Gama reaches India
+    who: Vasco da Gama
+    power: null
+    wikipedia: Vasco da Gama
+    stops:
+      - [1497, Lisbon, 38.72, -9.14]
+      - [1497, Cape Verde, 14.93, -23.51]
+      - [1497, Cape of Good Hope, -34.36, 18.47]
+      - [1498, Mozambique Island, -15.03, 40.73]
+      - [1498, Malindi, -3.22, 40.12]
+      - [1498, Calicut, 11.25, 75.78]
+      - [1499, Lisbon, 38.72, -9.14]
+  - id: magellan
+    name: Magellan and Elcano round the world
+    who: Ferdinand Magellan, Juan Sebastián Elcano
+    power: spain
+    wikipedia: Magellan expedition
+    stops:
+      - [1519, Sanlúcar de Barrameda, 36.78, -6.35]
+      - [1519, Rio de Janeiro, -22.9, -43.2]
+      - [1520, Strait of Magellan, -53.5, -70.9]
+      - [1521, Guam, 13.44, 144.79]
+      - [1521, Cebu, 10.32, 123.9]
+      - [1521, Moluccas, 0.79, 127.38]
+      - [1522, Cape of Good Hope, -34.36, 18.47]
+      - [1522, Sanlúcar de Barrameda, 36.78, -6.35]
+  - id: tasman
+    name: Tasman's first voyage
+    who: Abel Tasman
+    power: netherlands
+    wikipedia: Abel Tasman
+    stops:
+      - [1642, Batavia, -6.13, 106.82]
+      - [1642, Mauritius, -20.3, 57.5]
+      - [1642, Tasmania, -42.9, 147.9]
+      - [1642, Golden Bay (Mohua), -40.7, 172.8]
+      - [1643, Tonga, -21.2, -175.2]
+      - [1643, Fiji, -16.6, 179.9]
+      - [1643, Batavia, -6.13, 106.82]
+  - id: cook
+    name: Cook's first voyage
+    who: James Cook
+    power: britain
+    wikipedia: First voyage of James Cook
+    stops:
+      - [1768, Plymouth, 50.37, -4.14]
+      - [1768, Rio de Janeiro, -22.9, -43.2]
+      - [1769, Tahiti, -17.65, -149.43]
+      - [1769, Tūranganui-a-Kiwa (Gisborne), -38.67, 178.02]
+      - [1770, Botany Bay, -34.0, 151.2]
+      - [1770, Batavia, -6.13, 106.82]
+      - [1771, Cape of Good Hope, -34.36, 18.47]
+      - [1771, Plymouth, 50.37, -4.14]
+  - id: beagle
+    name: The Beagle (Darwin)
+    who: Robert FitzRoy, Charles Darwin
+    power: britain
+    wikipedia: Second voyage of HMS Beagle
+    stops:
+      - [1831, Plymouth, 50.37, -4.14]
+      - [1832, Salvador, -12.97, -38.5]
+      - [1833, Falkland Islands, -51.7, -59.0]
+      - [1835, Galápagos, -0.95, -90.97]
+      - [1835, Tahiti, -17.65, -149.43]
+      - [1835, Bay of Islands, -35.25, 174.1]
+      - [1836, Sydney, -33.87, 151.21]
+      - [1836, Cape Town, -33.92, 18.42]
+      - [1836, Falmouth, 50.15, -5.07]
