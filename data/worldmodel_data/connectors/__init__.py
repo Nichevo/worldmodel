@@ -10,6 +10,7 @@ from worldmodel_data.connectors.coups import Coups
 from worldmodel_data.connectors.crisiswatch import CrisisWatch
 from worldmodel_data.connectors.education import UNDPHDR, Wittgenstein
 from worldmodel_data.connectors.crises import CrisisHistory
+from worldmodel_data.connectors.crowd import ViEWS, Manifold, Metaculus, Polymarket
 from worldmodel_data.connectors.iea_data import IEAData
 from worldmodel_data.connectors.history import Cliopatria, NOAAHazards, OWIDLongRun, WikidataHistory
 from worldmodel_data.connectors.emdat import EMDAT
@@ -59,6 +60,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated,
     PortWatch, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways, TAICInquiries, TransportCurated,
     UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure,
-    HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry)}
+    HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
+    Polymarket, Metaculus, Manifold, ViEWS)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

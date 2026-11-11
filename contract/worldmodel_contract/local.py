@@ -118,6 +118,18 @@ SETTINGS: dict[str, object] = {
     "land_nz_fetch": True,               # read the NZ Land Cover Database and MPI forestry files you save by hand
     "land_city_cover": True,             # city land cover worked out from the WorldCover map pictures (on request, a few dozen tiles a city)
     "land_cover_year": "2021",           # WorldCover year for the land cover background and city shares: "2021" or "2020"
+    # Predictions and crowd forecasts (connectors/crowd.py; your log in predictions.json)
+    "crowd_polymarket": True,            # read Polymarket's questions and prices at each refresh (no account)
+    "crowd_metaculus": True,             # read Metaculus questions and the community forecast (needs METACULUS_TOKEN in .env)
+    "crowd_manifold": True,              # read Manifold's questions and chances (no account)
+    "crowd_comments": True,              # read Metaculus comments on followed and much-discussed questions
+    "crowd_mine": True,                  # import your own Metaculus forecasts (and a bot's, with METACULUS_BOT_TOKEN)
+    "crowd_categories": "politics,economics,geopolitics,climate,science",  # which questions are read
+    "crowd_move_points": 10,             # a move this big (percentage points in a week) counts as a big move and an alert
+    "crowd_score_days": 7,               # crowd sites are scored on their chance this many days before a question closed
+    "views_fetch": True,                 # ViEWS conflict forecasts by country (monthly, about 5 MB)
+    "predictions_on_charts": True,       # your predictions as dots on the charts of the indicator they are about
+    "watchlist_on": True,                # check the watchlist after each refresh and show its alerts on the Briefing
     # Maps (Settings > Maps)
     "map_look": "plain",                 # under the country colours: "plain", "relief" (shaded heights and sea depths), "satellite", "night" (night lights) or "landcover" (ESA WorldCover)
     "relief_style": "classic",           # "classic" (height colours + shading), "grey" (shading only) or "satellite" (shading over the satellite picture)
@@ -234,7 +246,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
           "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),
           "news_every_hours": (1, 720),
-          "briefing_days": (1, 90), "news_watch_outlets": (1, 5)}
+          "briefing_days": (1, 90), "news_watch_outlets": (1, 5), "crowd_move_points": (1, 50), "crowd_score_days": (0, 365)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 
 # Disk categories, in display order. "pictures" is media/ and has its own limit.

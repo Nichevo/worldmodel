@@ -13,6 +13,8 @@ import { SOURCE_LABEL } from "@/lib/format";
 import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { useSettings } from "@/lib/settings";
 import { chartParts, keep, openAsk, seriesTable, sourcesLine, useRegisterChart } from "@/lib/ai";
+import PredictDialog from "@/components/PredictDialog";
+import { chartPredictions, forgetChartPredictions, type Prediction, predictionSeries } from "@/lib/predictions";
 
 type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; start?: number; end?: number; height?: number;
   events?: EventRow[]; parties?: Term[]; forecast?: boolean };
@@ -27,6 +29,18 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   const [forecastOn, setForecastOn] = useState(forecast);
   const settings = useSettings();
   const forecasts = useForecasts(indicator.indicator_id, entities.map((e) => e.id), forecastOn && kind === "line");
+  // Your number predictions on this indicator and these countries, as dots (Settings: Predictions on charts).
+  const [preds, setPreds] = useState<Prediction[]>([]);
+  const [predicting, setPredicting] = useState(false);
+  const [predTick, setPredTick] = useState(0);
+  useEffect(() => {
+    if (!settings.predictions_on_charts || kind !== "line") { setPreds([]); return; }
+    let live = true;
+    const want = new Set(ids.split(","));
+    chartPredictions().then((all) => live && setPreds(all.filter((p) => p.kind === "number" && p.indicator === indicator.indicator_id
+      && p.year != null && p.value != null && want.has(p.entity ?? ""))));
+    return () => { live = false; };
+  }, [indicator.indicator_id, ids, kind, settings.predictions_on_charts, predTick]);
 
   useEffect(() => {
     setRows(null);
@@ -47,10 +61,11 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
       : lineOption(rows ?? [], entities, indicator.unit, indicator.decimals);
     if (parties.length && entities.length === 1) o = withParties(o, parties, years);
     if (forecasts) o = withForecast(o, forecasts, entities, settings.forecast_ranges, rows?.[0]?.source_id);
+    if (preds.length) o = { ...o, series: [...(o.series as object[]), ...predictionSeries(preds, new Map(entities.map((e) => [e.id, e.name])))] } as typeof o;
     if (!inView.length) return o;
     const shownNames = new Map(entities.map((e) => [e.id, e.name]));
     return withEventTooltip({ ...o, series: [...(o.series as object[]), eventMarks(inView, shownNames)] } as typeof o, inView, shownNames);
-  }, [rows, entities, indicator, kind, inView.length, parties, forecasts, settings.forecast_ranges]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, entities, indicator, kind, inView.length, parties, forecasts, settings.forecast_ranges, preds]); // eslint-disable-line react-hooks/exhaustive-deps
   const chart = useRef<ECharts | null>(null);
   const onReady = useCallback((c: ECharts) => { chart.current = c; }, []);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -101,6 +116,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
               title="Extend each line with a statistical forecast and its ranges (Settings: Forecasts)"
               onClick={() => setForecastOn(!forecastOn)}>{forecastOn ? "Hide forecast" : "Forecast"}</button>}
             {settings.ai_enabled && <button className="link small" onClick={askAI} title="Ask the local AI about this chart; its figures go with the question">Ask AI</button>}
+            <button className="link small" onClick={() => setPredicting(true)} title="Add your prediction for this figure to the Predictions log; it is checked when the figure arrives">Predict</button>
             <button className="link small" onClick={keepChart} title="Keep this chart on the Highlights page">Keep</button>
             <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>
           </span>
@@ -110,6 +126,12 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
       {error && <p className="error">{error}</p>}
       {rows && rows.length === 0 && <p className="muted">No data for this indicator yet.</p>}
       {rows && rows.length > 0 && <EChart option={option} height={height} label={`${indicator.name} chart`} onReady={onReady} />}
+      {predicting && <PredictDialog title={`Predict: ${indicator.name}`} onClose={() => setPredicting(false)}
+        onSaved={() => { forgetChartPredictions(); setPredTick((t) => t + 1); }}
+        initial={{ kind: "number", indicator: indicator.indicator_id, entity: entities[0]?.id, unit: indicator.unit,
+          year: Math.max((years?.[1] ?? 0) + 1, new Date().getFullYear()),
+          due: `${Math.max((years?.[1] ?? 0) + 1, new Date().getFullYear()) + 1}-06-30`,
+          question: `${indicator.name}, ${entities[0]?.name ?? ""}, ${Math.max((years?.[1] ?? 0) + 1, new Date().getFullYear())}` }} />}
       {rows && rows.length > 0 && (
         <p className="caption">
           Source: {vintages.join("; ")}.{hasProjection ? (kind === "bar" ? " Faded bars are projections." : " Dashed lines are projections.") : ""}
@@ -117,6 +139,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
           {parties.length > 0 && entities.length === 1 ? " Coloured by the party in government (Wikidata)." : ""}
           {forecastOn && forecasts ? ` ${forecastCaption(forecasts, entities, settings.forecast_ranges)}` : ""}
           {forecastOn && !forecasts ? " Working out the forecast…" : ""}
+          {preds.length ? " Diamonds are predictions in your log." : ""}
           {lastAgg && lastAgg.coverage !== null
             ? ` Built from member countries; ${Math.round(lastAgg.coverage * 100)}% of the group's population reported in ${lastAgg.period}.`
             : ""}

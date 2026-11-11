@@ -22,6 +22,7 @@ import VotersCard from "@/components/VotersCard";
 import VotingCard from "@/components/VotingCard";
 import BetweenCard from "@/components/BetweenCard";
 import CrisisWatchCard from "@/components/CrisisWatchCard";
+import CrowdCard from "@/components/CrowdCard";
 import LawsCard from "@/components/LawsCard";
 import HolidaysCard from "@/components/HolidaysCard";
 import CrimeCard from "@/components/CrimeCard";
@@ -151,6 +152,7 @@ export default function EntityPage() {
     { key: "voting", title: "UN voting", section: "world", on: !isGroup, el: <VotingCard entity={e} name={nm} /> },
     { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
+    { key: "crowd", title: "What the crowd expects", section: "world", on: !isGroup, el: <CrowdCard entity={e} name={nm} /> },
     { key: "laws", title: "Laws and rules", section: "laws", on: !isGroup, el: <LawsCard entity={e} name={nm} /> },
     { key: "holidays", title: "Public holidays", section: "laws", on: !isGroup, el: <HolidaysCard entity={e} name={nm} /> },
     { key: "crime", title: "Crime and prisons", section: "laws", on: !isGroup, el: <CrimeCard entity={e} name={nm} indicators={byId} /> },

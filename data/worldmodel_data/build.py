@@ -22,7 +22,7 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import __version__, cities, episodes, gates, history, nature_tables, network_tables
+from worldmodel_data import __version__, cities, crowd_tables, episodes, gates, history, nature_tables, network_tables
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
@@ -111,6 +111,12 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"Transport and networks: {net['geo_features']:,} rivers, basins, waterways, "
                                               f"cables and pipelines, {net['port_traffic']:,} port months, "
                                               f"{net['chokepoint_traffic']:,} chokepoint days, {net['airport_traffic']:,} airport years"))
+                crw = crowd_tables.compute(con)
+                if any(crw.values()):
+                    checks.append(gates.Check("crowd:loaded", "crowd", "info",
+                                              f"Crowd forecasts: {crw['crowd_questions']:,} questions, {crw['crowd_points']:,} "
+                                              f"saved chances, {crw['crowd_comments']:,} comments, {crw['crowd_mine']:,} of your "
+                                              f"forecasts; {crw['conflict_forecasts']:,} ViEWS country months"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]

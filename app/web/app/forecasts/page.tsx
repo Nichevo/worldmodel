@@ -7,6 +7,7 @@ import ChartCard from "@/components/ChartCard";
 import DriversCard from "@/components/DriversCard";
 import EChart from "@/components/EChart";
 import IndicatorSelect from "@/components/IndicatorSelect";
+import PredictDialog from "@/components/PredictDialog";
 import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
   type WhatIfLevers } from "@/lib/api";
 import { cardLinesOption, inputOption, pyramidCompareOption, trackOption, whatifOption, type CardLine } from "@/lib/charts";
@@ -417,6 +418,7 @@ function StatView({ entity, name, indicator, setIndicator, others }: { entity: s
       </div>
       {ind && <ChartCard indicator={ind} entities={[{ id: entity, name }, ...others]} height={320} forecast />}
       {error && <p className="error">{error}</p>}
+      {fc && fc.points.length > 0 && <AddForecast fc={fc} name={name} indName={ind?.name ?? indicator} />}
       <DriversCard indicator={indicator} name={`${ind?.name ?? indicator}, ${name}`} fc={fc} />
       {fc && (
         <section className="card">
@@ -657,5 +659,22 @@ function ErrorTable({ stats, seasons }: { stats: ({ season: string; horizon: num
         ))}
       </tbody>
     </table>
+  );
+}
+
+// "Add as a prediction": the app's forecast for the next year, into the Predictions log, so it is
+// scored beside yours and the experts' when the figure arrives.
+function AddForecast({ fc, name, indName }: { fc: Forecast; name: string; indName: string }) {
+  const [open, setOpen] = useState(false);
+  const p = fc.points[0];
+  return (
+    <p className="small">
+      Next year&apos;s forecast: <b>{formatValue(p.mean, fc.unit, fc.decimals)}</b> ({formatValue(p.lo80, fc.unit, fc.decimals)} to {formatValue(p.hi80, fc.unit, fc.decimals)}, 80% range).{" "}
+      <button className="link small" onClick={() => setOpen(true)}>Add as a prediction</button>
+      {open && <PredictDialog title="Add the app's forecast as a prediction" onClose={() => setOpen(false)}
+        initial={{ question: `${indName}, ${name}, ${p.year}`, kind: "number", who_kind: "app", who: `Worldmodel (${fc.model_name})`,
+          value: Number(p.mean.toPrecision(4)), low: Number(p.lo80.toPrecision(4)), high: Number(p.hi80.toPrecision(4)), unit: fc.unit,
+          indicator: fc.indicator, entity: fc.entity, year: p.year, due: `${p.year + 1}-06-30` }} />}
+    </p>
   );
 }

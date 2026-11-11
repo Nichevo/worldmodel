@@ -30,15 +30,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
+from worldmodel_contract.schema import EVENT_KINDS
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
+from worldmodel_contract import crowd as crowd_terms
 from worldmodel_contract import energy_flow
 from worldmodel_contract import discover
 from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, highlights, land, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, crowd, predictions, highlights, land, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
 load_dotenv()
@@ -1742,6 +1744,262 @@ def land_trees(council: str | None = None):
     return land.street_trees(rows, council)
 
 
+# ----------------------------------------------------------------------------- Predictions (your log, scorecard, base rates, watchlist)
+def _pred_check() -> None:
+    """Settle what the app can see, at most once per build (cheap, but every page asks)."""
+    b = _build_id()
+    if _pred_state.get("build") != b:
+        _pred_state["build"] = b
+        try:
+            predictions.check(rows)
+        except Exception:  # noqa: BLE001 - a bad entry never breaks the page
+            pass
+
+
+_pred_state: dict = {}
+
+
+@api.get("/predictions")
+def predictions_list(who: str | None = None, category: str | None = None, entity: str | None = None,
+                     indicator: str | None = None, state: str | None = None):
+    """Your log: every prediction with its state (open, due, settled) and score. Outcomes the app can
+    see (an indicator's figure for the year, a crowd question's resolution) are filled in first."""
+    _pred_check()
+    items = predictions.listing({"who": who, "category": category, "entity": entity, "indicator": indicator, "state": state})
+    everyone = predictions.items()
+    return {"items": items, "who": sorted({p["who"] for p in everyone}), "categories": sorted({p["category"] for p in everyone if p.get("category")})}
+
+
+@api.post("/predictions")
+def predictions_add(p: dict = Body(..., examples=[{"question": "NZ inflation in 2026", "kind": "number", "value": 2.4, "low": 2,
+                                                   "high": 3, "due": "2027-04-30", "indicator": "inflation", "entity": "NZL", "year": 2026}])):
+    """Add a prediction: {question, kind (binary, number or date), who_kind (you, expert, app, crowd), who, link, made, due,
+    chance | value, low, high, unit | date_call, window_days, category, tags, why, indicator, entity, year, crowd_key}."""
+    try:
+        return predictions.save(p)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.put("/predictions/{pred_id}")
+def predictions_edit(pred_id: str, p: dict = Body(...)):
+    try:
+        return predictions.save(p, pred_id)
+    except KeyError:
+        raise HTTPException(404, f"no prediction {pred_id}")
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.delete("/predictions/{pred_id}")
+def predictions_delete(pred_id: str):
+    if not predictions.delete(pred_id):
+        raise HTTPException(404, f"no prediction {pred_id}")
+    return {"deleted": pred_id}
+
+
+@api.post("/predictions/{pred_id}/outcome")
+def predictions_outcome(pred_id: str, body: dict = Body(..., examples=[{"actual": True}])):
+    """How it turned out: {actual: true/false, a number or a date; null clears it}."""
+    try:
+        p = predictions.set_outcome(pred_id, body.get("actual"))
+        return {**p, "score": predictions.score(p)}
+    except KeyError:
+        raise HTTPException(404, f"no prediction {pred_id}")
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.get("/predictions/export.csv")
+def predictions_csv():
+    buf = io.StringIO()
+    cols = ["id", "question", "kind", "who_kind", "who", "made", "due", "chance", "value", "low", "high", "unit", "date_call",
+            "category", "indicator", "entity", "year", "crowd_key", "link", "why", "state", "outcome", "hit", "brier", "miss"]
+    w = csv.writer(buf)
+    w.writerow(cols)
+    for p in predictions.listing():
+        sc = p.get("score") or {}
+        w.writerow([p.get(c) if c not in ("outcome", "hit", "brier", "miss") else
+                    ((p.get("outcome") or {}).get("actual") if c == "outcome" else sc.get(c)) for c in cols])
+    return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=predictions.csv"})
+
+
+@api.get("/predictions/scorecard")
+def predictions_scorecard(category: str | None = None, entity: str | None = None, since: str | None = None):
+    """One row per forecaster (you, experts, the app, each crowd site, your Metaculus accounts): hit rate,
+    Brier score, typical miss, and calibration in tenths."""
+    _pred_check()
+    days = int(userdata.settings().get("crowd_score_days", 7))
+    return {"score_days": days, "rows": predictions.scorecard(rows, category=category, entity=entity, since=since, score_days=days)}
+
+
+@api.get("/predictions/due")
+def predictions_due(days: int = Query(30, ge=1, le=365)):
+    _pred_check()
+    return predictions.due_soon(days)
+
+
+@api.post("/predictions/draft")
+def predictions_draft(body: dict = Body(..., examples=[{"url": "https://example.org/article"}])):
+    """Draft an expert's prediction from a web page (or pasted text) with your local AI, for you to check."""
+    s = userdata.settings()
+    if not s.get("ai_enabled", True):
+        raise HTTPException(422, "Local AI is off (Settings: Local AI)")
+    text, url = (body.get("text") or "").strip(), (body.get("url") or "").strip()
+    if url and not text:
+        if not re.match(r"https?://", url):
+            raise HTTPException(422, "Paste a link starting with http:// or https://")
+        try:
+            with httpx.Client(timeout=30, follow_redirects=True, headers={"User-Agent": "worldmodel (personal research)"}) as c:
+                r = c.get(url)
+                r.raise_for_status()
+                text = predictions.page_text(r.text)
+        except httpx.HTTPError as e:
+            raise HTTPException(422, f"Could not read that page ({e.__class__.__name__}); paste its text instead")
+    if len(text) < 80:
+        raise HTTPException(422, "Not enough text to find a prediction in")
+    model = ai.default_model(s, ai.models(s))
+    if not model:
+        raise HTTPException(422, "No local AI model is installed (Settings: Local AI)")
+    try:
+        with httpx.Client(timeout=300) as c:
+            r = c.post(f"{ai.ollama_url(s)}/api/chat", json={"model": model, "stream": False, "format": "json",
+                       "messages": [{"role": "user", "content": predictions.DRAFT_PROMPT.format(url=url or "pasted text", text=text[:12000])}],
+                       "options": {"temperature": 0, "num_ctx": s["ai_context_tokens"]}})
+            r.raise_for_status()
+            answer = (r.json().get("message") or {}).get("content") or ""
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"The local AI did not answer ({e.__class__.__name__})")
+    try:
+        d = predictions.parse_draft(answer)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    if url:
+        d["link"] = url
+    d["model"] = model
+    return d
+
+
+@api.get("/predictions/base-rates")
+def base_rates_presets():
+    return {"presets": predictions.PRESETS,
+            "event_kinds": [{"kind": k, "label": v} for k, v in EVENT_KINDS.items() if k not in ("holiday", "user", "crisiswatch")]}
+
+
+@api.get("/predictions/base-rate")
+def base_rate(preset: str | None = None, event: str | None = None, indicator: str | None = None, if_op: str | None = None,
+              if_value: float | None = None, then_op: str | None = None, then_value: float | None = None,
+              within: int | None = Query(None, ge=1, le=50), entity: str | None = None, group: str | None = None,
+              start: int = Query(1960, ge=1800, le=2030)):
+    """How often something has happened before: a preset, or your own: an event kind per country-year
+    (event=coup), or an indicator rule (indicator, if_op/if_value, then_op/then_value, within years)."""
+    kind = "event" if event else "rule" if indicator else None
+    try:
+        return predictions.base_rate(rows, preset, kind=kind, event=event, indicator=indicator, if_op=if_op, if_value=if_value,
+                                     then_op=then_op, then_value=then_value, within=within, entity=entity, group=group, start=start)
+    except KeyError:
+        raise HTTPException(404, f"no preset {preset}")
+    except (ValueError, TypeError) as e:
+        raise HTTPException(422, f"Not enough to work out a base rate: {e}")
+
+
+@api.get("/watchlist")
+def watchlist_get():
+    s = userdata.settings()
+    return {"on": bool(s.get("watchlist_on", True)), "items": predictions.check_watch(rows, s.get("crowd_move_points", 10))}
+
+
+@api.post("/watchlist")
+def watchlist_add(w: dict = Body(..., examples=[{"kind": "indicator", "indicator": "inflation", "entity": "NZL", "op": "above", "threshold": 3}])):
+    """Watch an indicator crossing a line, a crowd question moving, or an IMF forecast being revised."""
+    try:
+        return predictions.add_watch(w)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@api.delete("/watchlist/{watch_id}")
+def watchlist_delete(watch_id: str):
+    if not predictions.delete_watch(watch_id):
+        raise HTTPException(404, f"no watch {watch_id}")
+    return {"deleted": watch_id}
+
+
+# ----------------------------------------------------------------------------- Crowd forecasts
+@api.get("/crowd")
+def crowd_list(site: str | None = None, category: str | None = None, country: str | None = None,
+               status: str | None = "open", q: str | None = None, indicator: str | None = None, followed: bool = False,
+               hidden: bool = False, sort: Literal["busy", "closing", "newest", "moved", "resolved"] = "busy",
+               days: int = Query(7, ge=1, le=90), limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0)):
+    """Crowd questions matched to countries, indicators and categories, each with its chance now and how far
+    it moved over `days` days. status: open, closed, resolved (or empty for all)."""
+    f = crowd_terms.load_follow()
+    out = crowd.questions(rows, site=site, category=category, country=country, status=status or None, q=q, indicator=indicator,
+                          follow=f["follow"], hide=f["hide"], only_followed=followed, show_hidden=hidden, sort=sort, days=days,
+                          limit=limit, offset=offset)
+    out["categories"] = crowd_terms.CATEGORIES
+    out["sites"] = crowd_terms.SITES
+    out["loaded"] = crowd.has_data(rows)
+    return out
+
+
+@api.get("/crowd/question")
+def crowd_question(key: str):
+    """One question: its record, chance over time (the site's own history and the app's saves), your
+    Metaculus forecasts, comments, the same question on other sites, and events in its countries."""
+    rec = crowd.question(rows, key)
+    if rec is None:
+        raise HTTPException(404, f"no question {key}")
+    f = crowd_terms.load_follow()
+    rec["followed"], rec["hidden"] = key in f["follow"], key in f["hide"]
+    rec["predictions"] = [p for p in predictions.listing() if p.get("crowd_key") == key]
+    return rec
+
+
+@api.post("/crowd/follow")
+def crowd_follow(body: dict = Body(..., examples=[{"key": "metaculus:123", "follow": True}])):
+    """Follow or hide a question: {key, follow: bool} or {key, hide: bool}. Followed questions get their full
+    history and comments read at the next refresh."""
+    key = str(body.get("key") or "")
+    if not re.fullmatch(r"(polymarket|metaculus|manifold):[\w-]{1,80}", key):
+        raise HTTPException(422, "key is <site>:<id>")
+    f = crowd_terms.load_follow()
+    for name in ("follow", "hide"):
+        if name in body:
+            lst = [k for k in f[name] if k != key]
+            if body[name]:
+                lst.append(key)
+            f[name] = lst
+    crowd_terms.save_follow(f)
+    return f
+
+
+@api.get("/crowd/moves")
+def crowd_moves(days: int = Query(7, ge=1, le=90), points: float | None = Query(None, ge=1, le=100), country: str | None = None):
+    s = userdata.settings()
+    f = crowd_terms.load_follow()
+    return crowd.moves(rows, days=days, min_points=points or s.get("crowd_move_points", 10), countries=split(country) or None,
+                       hide=f["hide"], limit=60)
+
+
+@api.get("/crowd/events")
+def crowd_events():
+    """Events against predictions: did the crowd see resolved questions coming, and how early."""
+    return crowd.events_vs(rows, int(userdata.settings().get("crowd_score_days", 7)))
+
+
+@api.get("/crowd/country/{entity_id}")
+def crowd_country(entity_id: str):
+    """A country page's "What the crowd expects" card: its busiest open questions and ViEWS conflict forecasts."""
+    return crowd.country(rows, entity_id, hide=crowd_terms.load_follow()["hide"])
+
+
+@api.get("/crowd/conflict")
+def crowd_conflict():
+    """ViEWS conflict forecasts by country for the next 12 months."""
+    return crowd.conflict_map(rows)
+
+
 @api.get("/layers")
 def layers():
     """The map overlays the warehouse holds (plate boundaries, faults, volcanoes, earthquakes), without their features."""
@@ -3145,6 +3403,37 @@ def _cw_latest() -> tuple[str | None, list[dict]]:
     return found["month"], found["rows"]
 
 
+def _briefing_predict(s: dict, keys: list[str], days: int) -> tuple[list[dict], list[dict]]:
+    """The Briefing's prediction cards: big crowd moves and watchlist alerts for Happening; followed
+    crowd questions closing and your predictions coming due for Due. Never breaks the page."""
+    happening: list[dict] = []
+    due: list[dict] = []
+    try:
+        f = crowd_terms.load_follow()
+        h, d = crowd.briefing_cards(rows, briefing.card, key_countries=keys, follow=f["follow"], hide=f["hide"],
+                                    min_points=float(s.get("crowd_move_points", 10)), days=min(days, 30))
+        happening += h
+        due += d
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if s.get("watchlist_on", True):
+            for w in predictions.check_watch(rows, s.get("crowd_move_points", 10)):
+                if w.get("alert"):
+                    happening.append(briefing.card("feed", f"watch:{w['id']}", w.get("title") or w.get("note") or
+                                                   f"{w.get('indicator')} in {w.get('entity')}",
+                                                   detail=w.get("text") or "", day=w.get("date"), group="alert",
+                                                   entities=[w["entity"]] if w.get("entity") else [], source="Your watchlist",
+                                                   href="/predictions?tab=watchlist", tone="neutral"))
+        for p in predictions.due_soon(30):
+            due.append(briefing.card("due", f"pred:{p['id']}", p["question"], detail=f"Your log: {p.get('who') or 'You'}",
+                                     day=p["due"], entities=[p["entity"]] if p.get("entity") else [], source="Predictions",
+                                     href="/predictions", group="prediction"))
+    except Exception:  # noqa: BLE001
+        pass
+    return happening, due
+
+
 @api.get("/briefing")
 def briefing_page(days: int | None = Query(None, ge=1, le=90)):
     """Everything new in four lanes, each a list of the shared card: happening (CrisisWatch's month,
@@ -3163,14 +3452,15 @@ def briefing_page(days: int | None = Query(None, ge=1, le=90)):
            if e["kind"] in ("election", "sport", "summit", "court", "un", "treaty") or e["entity_id"] in keys]
     hl = highlights.search()
     names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+    p_happening, p_due = _briefing_predict(s, keys, days)
     return {
         "days": days, "since": lo, "build_id": _build_id(), "crisiswatch_month": month, "key_countries": keys, "names": names,
         "news_due": bool(s.get("news_on", True)) and news.is_due(s),
         "lanes": {
             "happening": [*briefing.crisiswatch_cards(cw, month, keys), *briefing.watch_cards(_watch(lo, hi)),
-                          *briefing.event_cards(_starting(lo, hi)), *briefing.news_cards(news.items(), lo, 8)],
+                          *briefing.event_cards(_starting(lo, hi)), *briefing.news_cards(news.items(), lo, 8), *p_happening],
             "found": briefing.find_cards(finds, 8),
-            "due": briefing.event_cards(due, due=True)[:20],
+            "due": [*briefing.event_cards(due, due=True)[:20], *p_due],
             "yours": briefing.yours_cards(hl, 6),
         },
     }

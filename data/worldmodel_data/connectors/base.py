@@ -144,6 +144,8 @@ class Connector(ABC):
     needs_settings: tuple[str, ...] = ()  # settings it needs filled in (a guestbook form): skipped quietly until they are,
                                           # unless files were saved by hand
     fetch_every_days: int | None = None  # a refresh skips the source until its last fetch is this many days old
+    keep_vintages: int | None = None   # keep only this many newest vintages (raw and staged) of a source whose
+                                       # every vintage carries all earlier ones (crowd forecasts)
     # Raise when stage() changes in a way that alters stored output: vintages staged by an
     # older version are staged again from their raw files (by `upgrade`, or the next fetch).
     stage_version = 1
@@ -295,6 +297,10 @@ class Connector(ABC):
         )
         self._stage_vintage(store, manifest)
         log.info("%s: stored vintage %s (%s rows)", self.source_id, vintage, manifest.row_count)
+        if self.keep_vintages:
+            gone = store.prune(self.source_id, self.keep_vintages)
+            if gone:
+                log.info("%s: removed %d older vintage(s); the newest carries their history", self.source_id, gone)
         return manifest, True
 
     def restage(self, store: VintageStore, manifest: Manifest) -> Manifest:

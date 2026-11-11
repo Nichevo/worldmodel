@@ -269,6 +269,17 @@ export type Settings = {
   land_nz_fetch: boolean; // NZ LCDB and MPI forestry files saved by hand
   land_city_cover: boolean; // city land cover from the WorldCover pictures
   land_cover_year: "2021" | "2020";
+  crowd_polymarket: boolean; // refresh reads Polymarket questions
+  crowd_metaculus: boolean; // refresh reads Metaculus (needs METACULUS_TOKEN)
+  crowd_manifold: boolean; // refresh reads Manifold questions
+  crowd_comments: boolean; // Metaculus comments on followed and busy questions
+  crowd_mine: boolean; // your own Metaculus forecasts
+  crowd_categories: string; // comma list of politics, economics, geopolitics, climate, science
+  crowd_move_points: number; // a move this many points in a week is news
+  crowd_score_days: number; // crowd scored on its chance this many days before closing
+  views_fetch: boolean; // ViEWS conflict forecasts
+  predictions_on_charts: boolean; // your predictions as dots on charts
+  watchlist_on: boolean; // watchlist alerts on the Briefing
   map_look: "plain" | "relief" | "satellite" | "night" | "landcover"; // under the country colours
   relief_style: "classic" | "grey" | "satellite";
   relief_shading: number; // 0..1
@@ -645,7 +656,7 @@ export async function askStream(body: Record<string, unknown>, onEvent: (e: AskE
   if (buf.trim()) onEvent(JSON.parse(buf) as AskEvent);
 }
 
-async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
+export async function send<T>(method: "PUT" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,

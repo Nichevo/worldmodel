@@ -197,6 +197,34 @@ HISTORY_COLUMNS = {
     },
 }
 
+HISTORY_COLUMNS.update({
+    # Crowd forecasts (connectors/crowd.py): each vintage carries the whole saved history, so the
+    # latest vintage alone has every chance saved since the first refresh.
+    "crowd_questions": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "question_key": "VARCHAR", "site": "VARCHAR", "site_id": "VARCHAR",
+        "title": "VARCHAR", "url": "VARCHAR", "kind": "VARCHAR", "tags": "VARCHAR", "created": "TIMESTAMP",
+        "closes": "TIMESTAMP", "resolved_at": "TIMESTAMP", "status": "VARCHAR", "resolution": "VARCHAR", "chance": "DOUBLE",
+        "volume": "DOUBLE", "forecasters": "INTEGER", "comments": "INTEGER", "description": "VARCHAR", "options": "VARCHAR",
+    },
+    "crowd_points": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "question_key": "VARCHAR", "at_time": "TIMESTAMP", "chance": "DOUBLE",
+        "lower": "DOUBLE", "upper": "DOUBLE", "origin": "VARCHAR",
+    },
+    "crowd_comments": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "question_key": "VARCHAR", "comment_id": "VARCHAR",
+        "parent_id": "VARCHAR", "author": "VARCHAR", "created": "TIMESTAMP", "votes": "INTEGER", "forecast": "DOUBLE",
+        "text": "VARCHAR",
+    },
+    "crowd_mine": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "question_key": "VARCHAR", "forecaster": "VARCHAR",
+        "at_time": "TIMESTAMP", "chance": "DOUBLE", "community": "DOUBLE",
+    },
+    "conflict_forecasts": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "country_code": "VARCHAR", "month": "DATE", "deaths": "DOUBLE",
+        "chance_25": "DOUBLE", "kind": "VARCHAR", "run": "VARCHAR",
+    },
+})
+
 # city_values.parquet beside a vintage: figures about cities as the source names them
 # (with its country's entity id and, where known, location). The build matches each to a city.
 CITY_VALUE_COLUMNS = {
@@ -296,6 +324,15 @@ class VintageStore:
 
     def vintage_dir(self, source_id: str, vintage: str) -> Path:
         return self.paths.vintages / source_id / vintage.replace("/", "_")
+
+    def prune(self, source_id: str, keep: int) -> int:
+        """Delete all but the `keep` newest vintages of a source (raw files and staged files)."""
+        ms = self.manifests(source_id)
+        old = ms[:-keep] if keep > 0 else []
+        for m in old:
+            shutil.rmtree(self.paths.home / m.raw_dir, ignore_errors=True)
+            shutil.rmtree(self.vintage_dir(source_id, m.vintage), ignore_errors=True)
+        return len(old)
 
     def discard_raw(self, raw_dir: Path) -> None:
         shutil.rmtree(raw_dir, ignore_errors=True)
