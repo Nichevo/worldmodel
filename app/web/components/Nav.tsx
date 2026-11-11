@@ -20,6 +20,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
   ] },
   { label: "Explore", hint: "Maps, comparisons and topic pages", links: [
     { href: "/", label: "Map" },
+    { href: "/shapes", label: "Map shapes", hint: "True size, the equal-area map, cartograms and totals told in countries" },
     { href: "/compare", label: "Compare" },
     { href: "/topics", label: "Topics" },
     { href: "/religion", label: "Religion" },
@@ -36,6 +37,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/cities", label: "Cities" },
     { href: "/laws", label: "Laws" },
     { href: "/zones", label: "Beyond borders" },
+    { href: "/space", label: "Solar system", hint: "Planets on any date, asteroids by what they are made of, and where spacecraft have flown" },
     { href: "/relationships", label: "Relationships" },
   ] },
   { label: "Predict", hint: "Forecasts and what-if", links: [
@@ -92,7 +94,7 @@ export default function Nav() {
             </button>
             {open === g.label && (
               <div className="nav-menu" role="menu">
-                {g.links.map((l) => (
+                {g.links.filter((l) => l.href !== "/shapes" || s.map_true_size).map((l) => (
                   <Link key={l.href} href={l.href} role="menuitem" className={isOn(path, l.href) ? "active" : ""} title={l.hint}>
                     {l.label}
                   </Link>

@@ -181,6 +181,12 @@ const BASE_MAPS: { id: "plain" | "online" | "local"; label: string; gives: strin
   { id: "online", label: "Street detail (online)", gives: "Needs the internet; OpenFreeMap tiles." },
   { id: "local", label: "Street detail (this PC)", gives: "Only as far as the map files you made (Settings > Map)." },
 ];
+const LOOKS: { id: "plain" | "relief" | "satellite" | "night"; label: string; gives: string }[] = [
+  { id: "plain", label: "Plain", gives: "Just the country colours." },
+  { id: "relief", label: "Shaded relief", gives: "Mountains, valleys and sea depths, shaded as if lit from the north-west." },
+  { id: "satellite", label: "Satellite", gives: "A cloud-free picture of the whole Earth (Sentinel-2, 2020)." },
+  { id: "night", label: "Night lights", gives: "Lights seen from space at night: where people, money and power are." },
+];
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c",
@@ -311,7 +317,52 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
             </label>
           ))}
         </div>
-        <p className="caption">{BASE_MAPS.find((b) => b.id === s.base_map)?.gives} Satellite, night lights and relief come with the maps PR.</p>
+        <p className="caption">{BASE_MAPS.find((b) => b.id === s.base_map)?.gives}</p>
+      </div>
+
+      <div className="lp-section">
+        <div className="lp-label">Background <span className="muted">under the colours</span></div>
+        <div className="lp-base lp-look" role="radiogroup" aria-label="Background">
+          {LOOKS.map((b) => (
+            <label key={b.id} className={`lp-set${s.map_look === b.id ? " on" : ""}`} title={b.gives}>
+              <input type="radio" name={`look-${panel.id}`} checked={s.map_look === b.id} onChange={() => saveSettings({ map_look: b.id }).catch(() => undefined)} />
+              {b.label}
+            </label>
+          ))}
+        </div>
+        <p className="caption">{LOOKS.find((b) => b.id === s.map_look)?.gives}</p>
+        {s.map_look === "relief" && (
+          <div className="lp-look-opts">
+            <label className="small">Style{" "}
+              <select value={s.relief_style} onChange={(e) => saveSettings({ relief_style: e.target.value as typeof s.relief_style }).catch(() => undefined)}>
+                <option value="classic">Height colours</option><option value="grey">Grey</option><option value="satellite">Over satellite</option>
+              </select>
+            </label>
+            <label className="small">Shading{" "}
+              <input type="range" min={0} max={1} step={0.05} value={s.relief_shading}
+                onChange={(e) => saveSettings({ relief_shading: Number(e.target.value) }).catch(() => undefined)} />
+            </label>
+          </div>
+        )}
+        {s.map_look === "night" && (
+          <div className="lp-look-opts">
+            <label className="small">Lights of{" "}
+              <select value={s.night_year} onChange={(e) => saveSettings({ night_year: e.target.value as typeof s.night_year }).catch(() => undefined)}>
+                <option value="2016">2016 (yearly picture)</option><option value="2012">2012 (yearly picture)</option><option value="latest">Last night (clouds and moonlight show)</option>
+              </select>
+            </label>
+          </div>
+        )}
+        {s.map_look !== "plain" && (
+          <div className="lp-look-opts">
+            <label className="small">Country colours{" "}
+              <input type="range" min={0} max={1} step={0.05} value={s.map_colours_over}
+                onChange={(e) => saveSettings({ map_colours_over: Number(e.target.value) }).catch(() => undefined)} />
+            </label>
+            <label className="small"><input type="checkbox" checked={s.map_3d} onChange={(e) => saveSettings({ map_3d: e.target.checked }).catch(() => undefined)} /> 3D (tilt with right-drag)</label>
+          </div>
+        )}
+        <p className="caption"><Link href="/settings#maps">Saved copies</Link> make these quick and work offline; <Link href="/shapes">Map shapes</Link> has true size and cartograms.</p>
       </div>
 
       {LAYER_GROUPS.map((g) => {
