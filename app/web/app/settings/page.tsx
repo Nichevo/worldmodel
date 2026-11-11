@@ -156,6 +156,19 @@ export default function SettingsPage() {
 
       <LookingAfter s={s} save={save} />
 
+      <section className="card" id="api-access">
+        <h2>API access</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The data for your own scripts, the Python client, Excel and AI assistants (MCP), at <code>/api/public/v1</code>. Only this PC and
+          your home network can reach it; nothing is opened to the internet. <Link href="/api-access">Keys, examples and the log of calls</Link>
+        </p>
+        <Toggle label="Public API"
+          hint="Off: scripts, the Python client, the MCP server and Copy API link get a message saying it is switched off. The app's own pages are not affected. From this PC no key is needed; other PCs need a key made on the API page."
+          on={s.api_public_on} set={(v) => save({ api_public_on: v })} />
+        <NumberField label="Calls a day for each key" unit="calls" value={s.api_daily_limit} min={10} max={1000000} step={100}
+          save={(v) => save({ api_daily_limit: v })} />
+      </section>
+
       <MapDetail s={s} save={save} />
       <MapPictures s={s} save={save} />
 
@@ -626,6 +639,8 @@ function BriefingSettings({ s, save }: { s: Settings; save: (patch: Partial<Sett
       </Field>
       <NumberField label="Happening looks back" unit="days" value={s.briefing_days} min={1} max={90} step={1}
         note="The Briefing's first lane: CrisisWatch's month, news with a watch word, events and top news from this many days." save={(v) => save({ briefing_days: v })} />
+      <Toggle label="Keep a weekly digest" hint="Briefing > Week: each Monday-to-Sunday week is made on the first visit after it ends and kept, so it reads the same later. Off: weeks are still shown, worked out each time, and nothing is kept (past weeks then show what the app holds now, not what it held then)."
+        on={s.digest_on} set={(v) => save({ digest_on: v })} />
       <Field label="Layers the opening map turns on" hint="Only the map you open without a saved view; layouts and links keep their own layers. None ticked: a plain map.">
         <div>{LAYER_TEXT.map(([l, label]) => (
           <label key={l} style={{ marginRight: 10, whiteSpace: "nowrap" }}>

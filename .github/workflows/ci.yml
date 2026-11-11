@@ -14,9 +14,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install -e contract -e "data[test]" -e "app/api[test]"
+        run: pip install -e contract -e "data[test]" -e "app/api[test]" -e "client[mcp,test]"
       - name: Test contract, pipeline (on fixtures) and API (on the sample warehouse)
-        run: pytest -q contract/tests data/tests app/api/tests
+        run: pytest -q contract/tests data/tests app/api/tests client/tests
 
   web:
     runs-on: ubuntu-latest
