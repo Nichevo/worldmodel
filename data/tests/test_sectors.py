@@ -96,6 +96,8 @@ def test_faostat_production_only(con):
     assert value(con, "AUS", "sp_wheat", "2023-01-01") == 26_000_000
     assert value(con, "NZL", "sp_urea", "2022-01-01") == 120_000  # production, not agricultural use
     assert value(con, "world", "sp_milk", "2023-01-01") is None  # countries only
+    assert value(con, "NZL", "sp_logs", "2023-01-01", source="faostat") == 35_000_000  # forestry in cubic metres
+    assert value(con, "NZL", "sp_sawnwood", "2023-01-01", source="faostat") == 4_200_000
 
 
 def test_pink_sheet_prices(con):
@@ -133,3 +135,11 @@ def test_iea_ev_reads_the_yearly_excel_file(tmp_path):
     home = Paths(tmp_path / "var")
     manifest, _ = CONNECTORS["iea_ev"]().ingest(VintageStore(home), folder)
     assert manifest.row_count == 2  # the two historical car rows; projections and chargers left out
+
+
+def test_wdi_main_maps_each_code_once():
+    """A code under two names in MAIN goes to the later name only, and the earlier one's rows vanish."""
+    from collections import Counter
+    from worldmodel_data.connectors.world_bank_wdi import MAIN
+    twice = [c for c, n in Counter(c for codes in MAIN.values() for c in codes).items() if n > 1]
+    assert twice == []

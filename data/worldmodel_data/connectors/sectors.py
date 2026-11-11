@@ -428,9 +428,14 @@ FAO_FILES = ("Production_Crops_Livestock_E_All_Data_(Normalized).zip", "Inputs_F
              "Forestry_E_All_Data_(Normalized).zip")
 
 
+# Units kept: weight for crops and livestock, volume for forestry (logs, sawn timber). Counts (eggs as "1000 no") are left out.
+FAO_UNITS = {"t": 1.0, "tonnes": 1.0, "1000 t": 1000.0, "1000 tonnes": 1000.0, "m3": 1.0, "1000 m3": 1000.0}
+
+
 class FAOSTAT(Connector):
     source_id = "faostat"
-    stage_version = 3  # 2: the sectors added in version 4; 3: production in tonnes only (eggs also come as counts)
+    # 3: production in tonnes only (eggs also come as counts); 4: forestry in cubic metres again (3 dropped it)
+    stage_version = 4
     fetch_every_days = 90
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -479,9 +484,9 @@ class FAOSTAT(Connector):
             ent = entity_for("m49", m)
             if not is_country(ent):
                 continue
-            if unit not in ("t", "tonnes", "1000 t", "1000 tonnes"):
+            if unit not in FAO_UNITS:
                 continue  # eggs also come as numbers of eggs ("1000 no")
-            scale = 1000.0 if unit in ("1000 t", "1000 tonnes") else 1.0
+            scale = FAO_UNITS[unit]
             rows.add("iso3", ent, f"sp_{st}", y, v * scale)
             found.add(st)
         if not len(rows):
