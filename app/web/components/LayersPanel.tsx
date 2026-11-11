@@ -195,7 +195,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
   const s = useSettings();
   const [have, setHave] = useState<Map<string, MapLayerInfo> | null>(null);
   const [q, setQ] = useState("");
-  const [shut, setShut] = useState<Set<string>>(new Set(["earth", "polar"]));
+  const [shut, setShut] = useState<Set<string>>(new Set(["earth", "transport", "polar"]));
   const [playing, setPlaying] = useState(false);
   const [from, to] = windowDates(win || s.map_window, year);
   useEffect(() => { mapLayers().then((l) => setHave(new Map(l.map((x) => [x.layer_id, x])))).catch(() => setHave(new Map())); }, []);
@@ -229,6 +229,11 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
+    if (m.id === "live_planes") return s.live_planes ? { ok: true, why: "", source: "OpenSky Network, the area in view, once a minute" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "live_ships") return s.live_ships ? { ok: true, why: "", source: "aisstream.io, the area in view (needs AISSTREAM_API_KEY)" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (LAYER_STYLE[m.id]?.fetch === "window") return { ok: true, why: "", source: "Read for the area in view (a refresh loads them)" };
     const info = have?.get(m.id);
     if (!have) return { ok: true, why: "", source: "" };
     if (!info) return { ok: false, why: "Not loaded yet: a refresh fetches it", source: "" };

@@ -24,9 +24,13 @@ from worldmodel_data.connectors.layers import GEMFaults, GVPVolcanoes, PlatesBir
 from worldmodel_data.connectors.migration import UNHCR, UNIMS
 from worldmodel_data.connectors.nature import (PSMSL, UNSDG, WDPA, BerkeleyEarth, EPPOPests, GRIIS, IUCNRedList, KoppenBeck,
                                                 NatureCurated, NDGAIN, WAHISOutbreaks)
+from worldmodel_data.connectors.networks import GEMInfrastructure, HydroSHEDS, SubmarineCables, Waterways
 from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
 from worldmodel_data.connectors.people import CLDRLanguages, COWReligion, Glottolog, PewReligion
+from worldmodel_data.connectors.tourism import NZTourism, UNESCOHeritage, UNTourism, WEFTTDI
+from worldmodel_data.connectors.transport import (AirportTraffic, EurostatWaterways, OurAirports, PortWatch, ShippingLanes, TAICInquiries,
+                                                   TransportCurated, WorldPortIndex)
 from worldmodel_data.connectors.turnout import IDEATurnout
 from worldmodel_data.connectors.ucdp import UCDPConflicts
 from worldmodel_data.connectors.un_wpp import UNWPP
@@ -51,6 +55,8 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     ECBRates, FedH10, GIEStorage, EIAStocks, JODI, StatsNZ,
     CLDRLanguages, Glottolog, COWReligion, PewReligion, CrisisHistory, IEAData,
     Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards,
-    KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated)}
+    KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated,
+    PortWatch, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways, TAICInquiries, TransportCurated,
+    UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

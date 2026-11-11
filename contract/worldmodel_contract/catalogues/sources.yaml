@@ -1796,3 +1796,286 @@
   default_rank: 6
   standing: 3
   definition: exploratory
+
+# ---------------------------------------------------------------- Transport, tourism and networks
+- id: portwatch
+  name: IMF PortWatch (ports, chokepoints, port calls and trade estimates)
+  short_name: IMF PortWatch
+  publisher: International Monetary Fund and University of Oxford
+  url: https://portwatch.imf.org/
+  licence: Free to use with attribution (IMF terms)
+  licence_url: https://www.imf.org/external/terms.htm
+  commercial_use: true
+  cadence: Updated weekly from satellite ship tracking (AIS); read weekly, earlier years kept
+  attribution: "IMF PortWatch (portwatch.imf.org), from UN Global Platform AIS data."
+  status: active
+  default_rank: 4
+  standing: 5
+  definition: exploratory
+
+- id: world_port_index
+  name: World Port Index (Pub. 150)
+  short_name: World Port Index
+  publisher: US National Geospatial-Intelligence Agency
+  url: https://msi.nga.mil/Publications/WPI
+  licence: US government work, public domain
+  licence_url: https://msi.nga.mil/Publications/WPI
+  commercial_use: true
+  cadence: Updated now and then; read twice a year
+  attribution: "World Port Index (Pub. 150), US National Geospatial-Intelligence Agency."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://msi.nga.mil/Publications/WPI
+    what: "If the download fails: download the World Port Index as CSV and save it as it comes (UpdatedPub150.csv)."
+
+- id: shipping_lanes
+  name: Shipping lanes (major, middle and minor routes)
+  short_name: Shipping lanes
+  publisher: Benden (2022), from the CIA World Factbook's map of the oceans, on GitHub
+  url: https://github.com/newzealandpaul/Shipping-Lanes
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Fixed; read once a year
+  attribution: "Benden, P. (2022) Global Shipping Lanes, CC BY 4.0."
+  status: active
+  default_rank: 6
+  standing: 2
+  definition: exploratory
+
+- id: ourairports
+  name: OurAirports
+  short_name: OurAirports
+  publisher: OurAirports (David Megginson and volunteers)
+  url: https://ourairports.com/data/
+  licence: Public domain
+  licence_url: https://ourairports.com/about.html#faq
+  commercial_use: true
+  cadence: Updated nightly; read monthly
+  attribution: "OurAirports (ourairports.com), public domain."
+  status: active
+  default_rank: 6
+  standing: 2
+  definition: established
+
+- id: airport_traffic
+  name: Airport passengers and freight (Eurostat, and files saved by hand)
+  short_name: Airport traffic
+  publisher: Eurostat; BITRE (Australia); CAA (UK); BTS (US); airports in New Zealand
+  url: https://ec.europa.eu/eurostat/databrowser/view/avia_paoa/default/table
+  licence: Eurostat free reuse with attribution; others as their publishers say
+  licence_url: https://ec.europa.eu/eurostat/about-us/policies/copyright
+  commercial_use: true
+  cadence: Eurostat yearly, read monthly; the others when you save a new file
+  attribution: "Eurostat avia_paoa and avia_gooa; BITRE, CAA, BTS and NZ airports where saved."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    optional: true
+    get: https://www.bitre.gov.au/statistics/aviation/airport_traffic_data
+    what: "Optional, for airports outside Europe: save tables of passengers (and freight) a year by airport as CSV or Excel, one row an airport and year with its code: BITRE airport traffic (Australia), CAA airport data (UK, table 10.1), BTS T-100 airport totals (US), and Auckland, Wellington and Christchurch annual reports (NZ)."
+
+- id: eurostat_waterways
+  name: Eurostat inland waterway freight (iww_go_atygo)
+  short_name: Eurostat river freight
+  publisher: Eurostat
+  url: https://ec.europa.eu/eurostat/databrowser/view/iww_go_atygo/default/table
+  licence: Free reuse with attribution
+  licence_url: https://ec.europa.eu/eurostat/about-us/policies/copyright
+  commercial_use: true
+  cadence: Yearly; read every three months
+  attribution: "Eurostat, iww_go_atygo."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+
+- id: taic_inquiries
+  name: TAIC transport accident inquiries (New Zealand)
+  short_name: TAIC inquiries
+  publisher: Transport Accident Investigation Commission
+  url: https://www.taic.org.nz/inquiries
+  licence: NZ Crown copyright, CC BY 4.0
+  licence_url: https://www.taic.org.nz/copyright
+  commercial_use: true
+  cadence: Load a new list when you want
+  attribution: "Transport Accident Investigation Commission (TAIC), New Zealand."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    get: https://www.taic.org.nz/inquiries
+    what: "Save the inquiries list as CSV or Excel with columns for date, mode (air, maritime, rail), title and, if given, deaths and the inquiry's link. A page saved from the browser (Ctrl+S) also works."
+
+- id: transport_curated
+  name: Hand-checked cable, pipeline, canal and shipping events
+  short_name: Transport events (curated)
+  publisher: This app, from Wikipedia and news reports
+  url: https://github.com/Nichevo/worldmodel/blob/main/contract/worldmodel_contract/catalogues/transport.yaml
+  licence: Facts compiled with links to sources
+  licence_url: https://github.com/Nichevo/worldmodel
+  commercial_use: true
+  cadence: Updated with the app
+  attribution: "Hand-checked list (transport.yaml), with a link per event."
+  status: active
+  default_rank: 6
+  standing: 3
+  definition: exploratory
+
+- id: unesco_heritage
+  name: UNESCO World Heritage List
+  short_name: UNESCO World Heritage
+  publisher: UNESCO World Heritage Centre
+  url: https://whc.unesco.org/en/list/
+  licence: UNESCO terms; free for non-commercial use with attribution
+  licence_url: https://whc.unesco.org/en/syndication/
+  commercial_use: false
+  cadence: Updated each July after the committee meets; read monthly
+  attribution: "UNESCO World Heritage Centre, whc.unesco.org."
+  status: active
+  default_rank: 5
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    get: https://whc.unesco.org/en/syndication/
+    what: "If the download fails: save the World Heritage List as XML from the syndication page (whc-sites XML) as it comes."
+
+- id: un_tourism
+  name: UN Tourism statistics (arrivals, nights, spending)
+  short_name: UN Tourism
+  publisher: World Tourism Organization (UN Tourism)
+  url: https://www.unwto.org/tourism-statistics/key-tourism-statistics
+  licence: UN Tourism terms; free to view and download for personal use
+  licence_url: https://www.unwto.org/terms-of-use
+  commercial_use: false
+  cadence: Yearly; load a new download when you want
+  attribution: "UN Tourism, Key Tourism Statistics."
+  status: active
+  default_rank: 4
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    get: https://www.unwto.org/tourism-statistics/key-tourism-statistics
+    what: "Download the Excel files from Key Tourism Statistics (inbound arrivals, nights, expenditure; outbound departures and expenditure; arrivals by region of origin) and save them as they come."
+
+- id: wef_ttdi
+  name: WEF Travel and Tourism Development Index
+  short_name: WEF TTDI
+  publisher: World Economic Forum
+  url: https://www.weforum.org/publications/travel-tourism-development-index-2024/
+  licence: WEF terms of use; for personal use
+  licence_url: https://www.weforum.org/about/terms-of-use/
+  commercial_use: false
+  cadence: Every two years; load the new edition when it comes
+  attribution: "World Economic Forum, Travel & Tourism Development Index."
+  status: active
+  default_rank: 6
+  standing: 3
+  definition: established
+  manual:
+    by_hand: true
+    get: https://www.weforum.org/publications/travel-tourism-development-index-2024/
+    what: "Download the index's data (Excel) and save it as it comes; overall scores, ranks and pillar scores are read."
+
+- id: nz_tourism
+  name: New Zealand visitors, visitor spending and the Tourism Satellite Account
+  short_name: NZ tourism
+  publisher: Stats NZ and MBIE
+  url: https://www.mbie.govt.nz/immigration-and-tourism/tourism-research-and-data
+  licence: NZ Crown copyright, CC BY 4.0
+  licence_url: https://www.stats.govt.nz/about-us/copyright/
+  commercial_use: true
+  cadence: Monthly arrivals, quarterly spending, yearly satellite account; load new files when you want
+  attribution: "Stats NZ and Ministry of Business, Innovation and Employment, CC BY 4.0."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    get: https://www.stats.govt.nz/topics/tourism
+    what: "Save any of: Stats NZ International visitor arrivals by country of residence (Infoshare ITM, CSV); MBIE International Visitor Survey spend by country (CSV or Excel); Tourism Satellite Account tables (tourism's share of GDP and jobs, Excel)."
+
+- id: hydrosheds
+  name: HydroSHEDS rivers (HydroRIVERS) and basins (HydroBASINS)
+  short_name: HydroSHEDS
+  publisher: WWF and McGill University; Natural Earth for river names
+  url: https://www.hydrosheds.org/
+  licence: Free for non-commercial and commercial use with attribution (HydroSHEDS licence)
+  licence_url: https://www.hydrosheds.org/terms-of-use
+  commercial_use: true
+  cadence: Fixed (version 1); read once (about 700 MB downloaded, about 100 MB kept)
+  attribution: "Lehner, B., Grill G. (2013) HydroSHEDS; Natural Earth river names."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://www.hydrosheds.org/products/hydrorivers
+    what: "If the download fails: save the HydroRIVERS shapefile zips by region (HydroRIVERS_v10_<region>_shp.zip) and the HydroBASINS level 4 zips (hybas_<region>_lev04_v1c.zip) as they come."
+
+- id: waterways
+  name: Inland waterways (US National Waterway Network, OpenStreetMap)
+  short_name: Inland waterways
+  publisher: US Bureau of Transportation Statistics; OpenStreetMap contributors
+  url: https://geodata.bts.gov/datasets/usdot::navigable-waterway-network-lines
+  licence: US government work (public domain); OpenStreetMap ODbL
+  licence_url: https://www.openstreetmap.org/copyright
+  commercial_use: true
+  cadence: Read once a year, one Overpass query at a time
+  attribution: "US BTS National Transportation Atlas Database; © OpenStreetMap contributors (ODbL)."
+  status: active
+  default_rank: 6
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: false
+    optional: true
+    get: https://geodata.bts.gov/datasets/usdot::navigable-waterway-network-lines
+    what: "If the US network fails to download: save it as GeoJSON (name it with waterway network in the name)."
+
+- id: submarine_cables
+  name: TeleGeography Submarine Cable Map
+  short_name: Submarine Cable Map
+  publisher: TeleGeography
+  url: https://www.submarinecablemap.com/
+  licence: CC BY-NC-SA 3.0
+  licence_url: https://github.com/telegeography/www.submarinecablemap.com
+  commercial_use: false
+  cadence: Updated often; read monthly, each cable's details once
+  attribution: "TeleGeography, Submarine Cable Map, CC BY-NC-SA 3.0."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: established
+
+- id: gem_infrastructure
+  name: Global Energy Monitor gas and oil pipelines and LNG terminals
+  short_name: GEM pipelines and LNG
+  publisher: Global Energy Monitor
+  url: https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/
+  licence: CC BY 4.0
+  licence_url: https://globalenergymonitor.org/about/licensing/
+  commercial_use: true
+  cadence: Twice a year; load new files when you want
+  attribution: "Global Energy Monitor, Global Gas Infrastructure Tracker, Global Oil Infrastructure Tracker and LNG terminals, CC BY 4.0."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: established
+  manual:
+    by_hand: true
+    get: https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/download-data/
+    what: "Fill in the short download form for the Global Gas Infrastructure Tracker, the Global Oil Infrastructure Tracker and the LNG terminals list, and save the Excel files as they come (pipelines have a WKT route column)."

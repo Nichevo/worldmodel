@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<query><row><category>Natural</category><date_inscribed>1990</date_inscribed><danger></danger><http_url>https://whc.unesco.org/en/list/551</http_url>
+<iso_code>nz</iso_code><latitude>-45.0</latitude><longitude>168.0</longitude><site>Te Wahipounamu &#8211; South West New Zealand</site>
+<short_description>&lt;p&gt;Glaciers and fiords.&lt;/p&gt;</short_description></row>
+<row><category>Mixed</category><date_inscribed>1990</date_inscribed><danger></danger><iso_code>nz</iso_code><latitude>-39.29</latitude><longitude>175.56</longitude><site>Tongariro National Park</site></row>
+<row><category>Natural</category><date_inscribed>1998</date_inscribed><danger></danger><iso_code>nz,au</iso_code><latitude>-50.7</latitude><longitude>166.1</longitude><site>New Zealand Sub-Antarctic Islands</site></row>
+<row><category>Cultural</category><date_inscribed>2003</date_inscribed><danger>1</danger><iso_code>af</iso_code><latitude>34.8</latitude><longitude>67.8</longitude><site>Bamiyan Valley</site></row>
+</query>

@@ -61,6 +61,18 @@ def test_disasters_carry_deaths_affected_and_damage(built):
     assert "Atlantis" not in str(got)
 
 
+def test_wikidata_accidents_and_visited_places(built):
+    _, con = built
+    acc = {(r[0], r[1]): (r[2], r[3]) for r in con.execute(
+        "SELECT entity_id, title, subkind, deaths FROM events WHERE source_id = 'wikidata' AND kind = 'transport'").fetchall()}
+    assert acc[("NZL", "Air New Zealand Flight 901")] == ("air", 257)
+    assert acc[("NZL", "TEV Wahine")] == ("sea", 51) and acc[("NZL", "Tangiwai disaster")] == ("rail", 151)
+    row = con.execute("SELECT geojson FROM layers WHERE layer_id = 'visited_sites'").fetchone()
+    sites = {f["properties"]["name"]: f["properties"] for f in json.loads(row[0])["features"]}
+    assert sites["Louvre"]["visitors"] == 8700000 and sites["Louvre"]["year"] == 2023  # the latest year given
+    assert sites["Te Papa"]["country"] == "NZL" and "year" not in sites["Te Papa"]
+
+
 def test_wikidata_events(built):
     _, con = built
     elections = events(con, "source_id = 'wikidata' AND kind = 'election'")

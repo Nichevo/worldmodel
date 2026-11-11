@@ -176,6 +176,25 @@ HISTORY_COLUMNS = {
         "source_id": "VARCHAR", "vintage": "VARCHAR", "pest_code": "VARCHAR", "pest_name": "VARCHAR",
         "country_code": "VARCHAR", "state": "VARCHAR", "status": "VARCHAR", "present": "BOOLEAN",
     },
+    # Transport and networks (connectors/transport.py, networks.py)
+    "geo_features": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "layer_id": "VARCHAR", "feature_id": "VARCHAR", "name": "VARCHAR",
+        "rank": "INTEGER", "props": "VARCHAR", "countries": "VARCHAR", "west": "DOUBLE", "south": "DOUBLE",
+        "east": "DOUBLE", "north": "DOUBLE", "geojson": "VARCHAR",
+    },
+    "port_traffic": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "port_id": "VARCHAR", "country_code": "VARCHAR", "year": "INTEGER",
+        "month": "INTEGER", "calls": "DOUBLE", "import_t": "DOUBLE", "export_t": "DOUBLE",
+    },
+    "chokepoint_traffic": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "chokepoint_id": "VARCHAR", "name": "VARCHAR", "day": "DATE",
+        "transits": "DOUBLE", "tankers": "DOUBLE", "container": "DOUBLE", "dry_bulk": "DOUBLE", "cargo": "DOUBLE",
+        "capacity": "DOUBLE",
+    },
+    "airport_traffic": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "airport": "VARCHAR", "name": "VARCHAR", "country_code": "VARCHAR",
+        "year": "INTEGER", "passengers": "DOUBLE", "freight_t": "DOUBLE",
+    },
 }
 
 # city_values.parquet beside a vintage: figures about cities as the source names them
