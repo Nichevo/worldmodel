@@ -126,6 +126,14 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.8,
     }),
   },
+  tide_gauges: {
+    legend: "Tide gauge: sea rising faster (red) or slower (blue) than 3 mm a year", swatch: () => cssVar("--div-neg-2"), dot: true,
+    paint: () => ({
+      "circle-color": ["interpolate", ["linear"], ["coalesce", ["get", "trend30"], ["get", "trend"], 0],
+        -3, cssVar("--div-pos-3"), 0, cssVar("--div-pos-1"), 3, cssVar("--surface-2"), 6, cssVar("--div-neg-2"), 10, cssVar("--div-neg-3")],
+      "circle-radius": zoomWidth(2.5, 6), "circle-opacity": 0.9, "circle-stroke-color": cssVar("--ink-2"), "circle-stroke-width": 0.5,
+    }),
+  },
   companies: {
     legend: "Big company head office", swatch: () => cssVar("--series-6"), dot: true,
     paint: () => ({
@@ -161,6 +169,10 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
       + (p.last ? `<br/>Last position ${esc(p.last)} UTC` : "");
   }
   if (layer === "transit_lines") return `<b>${esc(p.name)}</b> (line)`;
+  if (layer === "tide_gauges") {
+    const t = (v: unknown) => (typeof v === "number" ? `${v > 0 ? "+" : ""}${v.toFixed(1)} mm a year` : "not enough years");
+    return `<b>${esc(p.name)}</b> (tide gauge)<br/>${esc(p.from)}-${esc(p.to)}: ${t(p.trend)}<br/>Last 30 years: ${t(p.trend30)}`;
+  }
   if (layer === "hospitals") {
     return `<b>${esc(p.name)}</b> (hospital)${typeof p.beds === "number" ? `<br/>${p.beds.toLocaleString()} beds` : "<br/>Beds not given"}`;
   }

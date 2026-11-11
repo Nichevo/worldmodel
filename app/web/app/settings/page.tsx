@@ -262,6 +262,29 @@ export default function SettingsPage() {
           on={s.climate_live_map} set={(v) => save({ climate_live_map: v })} />
       </section>
 
+      <section className="card" id="nature">
+        <h2>Nature and pollution</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <a href="/climate?tab=zones">Climate zones</a> and <a href="/climate?tab=nature">Nature</a> tabs, the <a href="/pollution">Pollution</a> page and the
+          Climate zones, Pollution and Nature cards on country pages. Switching a source off keeps what is stored; the pages then show what was last loaded.
+          Air pollution deaths, ocean plastic, wildlife and threatened species charts come with Our World in Data and the World Bank (Climate and the main refresh).
+        </p>
+        <Toggle label="Climate zones (Köppen-Geiger, Beck et al. 2023)" hint="One download of about 1 GB from figshare, read once and cut to about 20 MB of 0.1° grids. Off before the first read: no zones map, no country zone breakdown and no city twins."
+          on={s.nature_zones_fetch} set={(v) => save({ nature_zones_fetch: v })} />
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Emissions path for future climate zones and city twins{" "}
+          <select value={s.zones_scenario} onChange={(e) => save({ zones_scenario: e.target.value })} aria-label="Emissions path">
+            <option value="ssp126">Low emissions (SSP1-2.6)</option><option value="ssp245">Middle (SSP2-4.5)</option><option value="ssp585">Very high (SSP5-8.5)</option>
+          </select> <span className="muted">Each card can switch path too; this is where they start.</span></label>
+        <Toggle label="Berkeley Earth temperatures, PSMSL tide gauges and ND-GAIN" hint="About 200 small country files every three months, one 1 MB zip and one small zip twice a year. Off: no Berkeley Earth temperature series beside NASA's, no tide gauge map layer, no adaptation readiness scores."
+          on={s.nature_climate_extras_fetch} set={(v) => save({ nature_climate_extras_fetch: v })} />
+        <Toggle label="UN SDG water and protected nature areas" hint="Seven series from the UN SDG database every three months. Off: no treated wastewater, water quality, water stress, Red List Index (UN) or key nature areas protected."
+          on={s.nature_pollution_fetch} set={(v) => save({ nature_pollution_fetch: v })} />
+        <Toggle label="Invasive species, IUCN Red List and EPPO pests" hint="About 200 small GBIF requests twice a year; IUCN (twice a year) and EPPO (every three months) only once their free keys are in .env. Off: no introduced species counts, no named threatened species, no watched pests by country."
+          on={s.nature_species_fetch} set={(v) => save({ nature_species_fetch: v })} />
+        <Toggle label="Protected areas (World Database on Protected Areas)" hint="About 900 MB twice a year, deleted once the areas of 10 km² or more (and every area in New Zealand) are taken out, about 150 MB kept. Off: no protected areas map on the Recovering view."
+          on={s.nature_protected_fetch} set={(v) => save({ nature_protected_fetch: v })} />
+      </section>
+
       <section className="card" id="world">
         <h2>The world beyond borders, laws and holidays</h2>
         <Toggle label="CrisisWatch monthly conflict ratings" hint="International Crisis Group's page for each month, read one at a time a few seconds apart. Each refresh reads the latest two months again and fills in older ones back to August 2003. Switching off keeps what is stored."

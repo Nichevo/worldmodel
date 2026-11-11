@@ -212,6 +212,12 @@ MAIN: dict[str, tuple[str, ...]] = {
     "arable_land_share": ("AG.LND.ARBL.ZS",),
     "cereal_yield": ("AG.YLD.CREL.KG",),
     "pm25_exposure": ("EN.ATM.PM25.MC.M3",),
+    "pm25_above_who_share": ("EN.ATM.PM25.MC.ZS",),
+    "protected_land_share": ("ER.LND.PTLD.ZS",),
+    "protected_sea_share": ("ER.MRN.PTMR.ZS",),
+    "protected_total_share": ("ER.PTD.TOTL.ZS",),
+    "threatened_fish_wdi": ("EN.FSH.THRD.NO",),
+    "threatened_plants_wdi": ("EN.HPT.THRD.NO",),
     "freshwater_withdrawal_share": ("ER.H2O.FWTL.ZS",),
     "ghg_emissions_total": ("EN.GHG.ALL.MT.CE.AR5", "EN.ATM.GHGT.KT.CE"),
     "co2_emissions_total": ("EN.GHG.CO2.MT.CE.AR5", "EN.ATM.CO2E.KT"),
@@ -253,7 +259,7 @@ def indicator_id(code: str) -> str:
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 5  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice)
+    stage_version = 6  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")  # the file has no release name of its own

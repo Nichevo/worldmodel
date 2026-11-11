@@ -34,6 +34,9 @@ export const KINDS: { kind: string; label: string; color: string }[] = [
   { kind: "law", label: "Law changes", color: "--series-3" },
   { kind: "holiday", label: "Public holidays", color: "--series-2" },
   { kind: "enso", label: "El Niño and La Niña", color: "--series-6" },
+  { kind: "animal_disease", label: "Animal disease outbreaks", color: "--series-8" },
+  { kind: "pest", label: "Pests and plant disease arriving", color: "--series-5" },
+  { kind: "pollution", label: "Pollution disasters and smoke", color: "--series-4" },
   { kind: "user", label: "Your milestones", color: "--ink-2" },
 ];
 const BY_KIND = new Map(KINDS.map((k) => [k.kind, k]));

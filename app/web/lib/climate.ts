@@ -111,3 +111,10 @@ export function stormsOption(years: number[], basins: string[], counts: number[]
     ],
   };
 }
+
+// Tiles of the Köppen-Geiger climate zones drawn by the local API (absolute, as the map's
+// workers need), for a period and emissions path; groups: the five main groups only.
+export function zoneTiles(period: string, path: string, groups: boolean): string {
+  const origin = typeof location !== "undefined" ? location.origin : "";
+  return `${origin}/api/v1/climatezones/tiles/${period}/${path}/{z}/{x}/{y}.png${groups ? "?groups=true" : ""}`;
+}
