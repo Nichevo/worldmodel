@@ -12,7 +12,7 @@ import { withParties, type Term } from "@/lib/parties";
 import { SOURCE_LABEL } from "@/lib/format";
 import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { useSettings } from "@/lib/settings";
-import { chartParts, keep, openAsk, seriesTable, sourcesLine, useRegisterChart } from "@/lib/ai";
+import { chartParts, keep, openAsk, seriesTable, sourcesLine, toast, useRegisterChart } from "@/lib/ai";
 import PredictDialog from "@/components/PredictDialog";
 import { chartPredictions, forgetChartPredictions, type Prediction, predictionSeries } from "@/lib/predictions";
 
@@ -106,6 +106,16 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
   const agg = (rows ?? []).filter((r) => r.is_aggregate && r.status === "E");
   const lastAgg = agg[agg.length - 1];
 
+  // The public API address of these figures (Settings > API access); says so when the API is off.
+  const copyApiLink = () => {
+    const q = new URLSearchParams({ indicator: indicator.indicator_id, entities: ids, format: "csv" });
+    if (start) q.set("from", String(start));
+    if (end) q.set("to", String(end));
+    const link = `${window.location.origin}/api/public/v1/data?${q}`;
+    navigator.clipboard?.writeText(link).then(() => toast(settings.api_public_on ? "API link copied"
+      : "API link copied, but the public API is switched off: switch it on in Settings > API access"))
+      .catch(() => toast(link));
+  };
   // A country page leaves out a chart with nothing to show rather than an empty card.
   if (hideEmpty && rows && rows.length === 0 && !error) return null;
   return (
@@ -121,6 +131,8 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
             <button className="link small" onClick={() => setPredicting(true)} title="Add your prediction for this figure to the Predictions log; it is checked when the figure arrives">Predict</button>
             <button className="link small" onClick={keepChart} title="Keep this chart on the Highlights page">Keep</button>
             <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>
+            <button className="link small" onClick={copyApiLink}
+              title="Copy the address of these figures in the public API (CSV), for Excel, PowerShell or a script">Copy API link</button>
           </span>
         )}
       </div>

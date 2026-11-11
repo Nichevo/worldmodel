@@ -17,7 +17,7 @@ setup-data: $(BIN)/python  ## the data pipeline only
 	$(BIN)/pip install -e contract -e "data[test]"
 
 setup-app: $(BIN)/python  ## the API and web app only
-	$(BIN)/pip install -e contract -e "app/api[test]"
+	$(BIN)/pip install -e contract -e "app/api[test]" -e "client[mcp,test]"
 	cd app/web && npm install
 
 update:  ## latest code from GitHub, then any new packages (your data in var/ is untouched)

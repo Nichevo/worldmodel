@@ -31,7 +31,7 @@ git checkout -q main || goto :fail
 git pull --ff-only origin main || goto :fail
 git diff --quiet %BEFORE% HEAD -- environment.yml || set ENVCHANGED=1
 echo Installing Python packages...
-python -m pip install -q -e contract -e "data[test]" -e "app/api[test]" || goto :fail
+python -m pip install -q -e contract -e "data[test]" -e "app/api[test]" -e "client[mcp,test]" || goto :fail
 echo Installing web packages...
 pushd app\web
 call npm install --no-fund --no-audit || (popd & goto :fail)

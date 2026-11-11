@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import BriefCard, { CardGroup } from "@/components/BriefCard";
 import Flag from "@/components/Flag";
+import WeekDigest from "@/components/WeekDigest";
 import { api, type BriefCard as Card, type Briefing } from "@/lib/api";
 import { BRIEFING_SEEN, monthName } from "@/lib/briefing";
 import { useSettings } from "@/lib/settings";
@@ -18,6 +19,7 @@ export default function BriefingPage() {
   const s = useSettings();
   const [b, setB] = useState<Briefing | null>(null);
   const [days, setDays] = useState<number | null>(null);
+  const [weekView, setWeekView] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const load = (d: number | null) => api.briefing(d ?? undefined).then((x) => { setB(x); setError(null); return x; })
@@ -72,8 +74,11 @@ export default function BriefingPage() {
         <span className="muted small">since {b.since}</span>
         <div className="seg" role="group" aria-label="How far back">
           {DAYS.map(([d, label]) => (
-            <button key={d} className={(days ?? b.days) === d ? "on" : ""} aria-pressed={(days ?? b.days) === d} onClick={() => setDays(d)}>{label}</button>
+            <button key={d} className={!weekView && (days ?? b.days) === d ? "on" : ""} aria-pressed={!weekView && (days ?? b.days) === d}
+              onClick={() => { setWeekView(false); setDays(d); }}>{label}</button>
           ))}
+          <button className={weekView ? "on" : ""} aria-pressed={weekView} onClick={() => setWeekView(true)}
+            title="The weekly digest: one Monday-to-Sunday week, kept">Week</button>
         </div>
         <span className="spacer" />
         {fetching && <span className="muted small" role="status">{step ?? "Fetching news…"}</span>}
@@ -82,6 +87,7 @@ export default function BriefingPage() {
         <Link href="/?w=30d" className="small">See it on the map</Link>
         <Link href="/settings#briefing" className="small muted" title="What the app opens on, how far back, watch words">Settings</Link>
       </div>
+      {weekView ? <WeekDigest /> : <>
       {nothing && <p className="muted">Nothing new yet. Run <code>.\refresh.bat</code>, or open Discover &gt; News to fetch the news.</p>}
       <div className="brief-lanes">
         <section className="brief-lane" aria-label="Happening">
@@ -119,6 +125,7 @@ export default function BriefingPage() {
           <Link href="/highlights" className="small">All highlights</Link>
         </section>
       </div>
+      </>}
       {s.start_page !== "map" && (
         <p className="caption">The app opens here {s.start_page === "briefing" ? "every time" : "after each refresh"}; Settings &gt; Briefing changes that.</p>
       )}
