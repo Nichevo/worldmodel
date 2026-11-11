@@ -116,7 +116,7 @@
   name: Science and technology
   intro: How much countries spend on research, how many researchers they have, and what comes out of it in papers and patents. Spending on research and development is the steadiest measure; papers and patents are counted where the authors and inventors live, and counts favour large countries, so the per-person figures compare better.
   map: rd_spending_gdp
-  indicators: [rd_spending_gdp, researchers_per_million, science_articles_per_million, journal_articles, patents_per_million, patent_applications_resident, patent_applications_nonresident, high_tech_exports_share, ip_receipts_usd, ai_publications_per_million]
+  indicators: [rd_spending_gdp, researchers_per_million, science_articles_per_million, journal_articles, patents_per_million, patent_applications_resident, patent_applications_nonresident, high_tech_share_exports, ip_receipts_usd, ai_publications_per_million]
 
 - id: crises
   name: Financial crises
