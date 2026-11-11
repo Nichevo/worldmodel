@@ -242,41 +242,89 @@ function EqualArea({ indicators }: { indicators: Indicator[] }) {
 }
 
 // ---------------------------------------------------------------------------- cartogram
+type Range = { years: number[]; last_estimate_year: number | null; rows: Record<string, (number | null)[]> };
+
+// Countries as circles (or squares) sized by a figure, sitting where the country is on the map, pushed
+// apart so none overlap. One scale for every year by default, so growth shows as circles growing.
+// Hover a country for its line through the years (projections dashed); the strip under the map adds
+// them all up and is where the year is chosen.
 function Cartogram({ indicators }: { indicators: Indicator[] }) {
   const { map_centre } = useSettings();
+  const router = useRouter();
   const centre = map_centre === "atlantic" ? 0 : 150;
   const [indicator, setIndicator] = useState("pop_total");
-  const [year, setYear] = useState(2020);
+  const [year, setYear] = useState(new Date().getFullYear() - 1);
   const [shape, setShape] = useState<"circle" | "square">("circle");
+  const [land, setLand] = useState(true);
+  const [fixed, setFixed] = useState(true);
   const [playing, setPlaying] = useState(false);
-  const [range, setRange] = useState<[number, number]>([1960, new Date().getFullYear() - 1]);
+  const [range, setRange] = useState<Range | null>(null);
   const [continents, setContinents] = useState<Record<string, string>>({});
-  const values = useYearValues(indicator, year);
+  const [tip, setTip] = useState<{ id: string; x: number; y: number; w: number } | null>(null);
   const paths = usePaths(W, centre);
   const ind = indicators.find((i) => i.indicator_id === indicator);
   useEffect(() => {
     api.memberships({ type: "continent" }).then((ms) => setContinents(Object.fromEntries(ms.map((m) => [m.member_id, m.group_name])))).catch(() => undefined);
   }, []);
   useEffect(() => {
-    get<{ years: number[] }>("/map/range", { indicator }).then((r) => {
-      if (r.years.length) {
-        setRange([r.years[0], r.years[r.years.length - 1]]);
-        setYear((y) => Math.min(Math.max(y, r.years[0]), r.years[r.years.length - 1]));
-      }
-    }).catch(() => undefined);
+    let on = true;
+    get<Range>("/map/range", { indicator }).then((r) => {
+      if (!on) return;
+      setRange(r);
+      if (r.years.length) setYear((y) => Math.min(Math.max(y, r.years[0]), r.years[r.years.length - 1]));
+    }).catch(() => on && setRange({ years: [], last_estimate_year: null, rows: {} }));
+    return () => { on = false; };
   }, [indicator]);
+  const years = range?.years ?? [];
+  const yi = years.indexOf(year);
   useEffect(() => {
     if (!playing) return;
-    const t = setInterval(() => setYear((y) => { if (y >= range[1]) { setPlaying(false); return y; } return y + 1; }), 700);
+    const t = setInterval(() => setYear((y) => { const i = years.indexOf(y); if (i < 0 || i >= years.length - 1) { setPlaying(false); return y; } return years[i + 1]; }), 450);
     return () => clearInterval(t);
-  }, [playing, range]);
-  // The biggest circle is the same size every year, so growth shows as others catch up; the
-  // scale is fixed to the largest value over all years when known, else this year's.
-  const bubbles = useMemo(() => dorling(paths.filter((p) => values[p.id] > 0).map((p) => ({ id: p.id, x: p.c[0], y: p.c[1], value: values[p.id] })), 70, 120, [W, EE_H * (W / EE_W)]), [paths, values]);
+  }, [playing, years]);
+  const values = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (range && yi >= 0) for (const [id, vs] of Object.entries(range.rows)) { const v = vs[yi]; if (v !== null && v > 0) out[id] = v; }
+    return out;
+  }, [range, yi]);
+  const top = useMemo(() => Math.max(1, ...Object.values(range?.rows ?? {}).flatMap((vs) => vs.filter((v): v is number => v !== null))), [range]);
+  const H = EE_H * (W / EE_W);
+  const bubbles = useMemo(() => dorling(paths.filter((p) => values[p.id] > 0).map((p) => ({ id: p.id, x: p.c[0], y: p.c[1], value: values[p.id] })),
+    fixed ? 75 : 70, 120, [W, H], fixed ? top : undefined), [paths, values, fixed, top, H]);
   const groups = [...new Set(Object.values(continents))].sort();
   const colourOf = (id: string) => cssVar(`--series-${(groups.indexOf(continents[id]) % 7) + 1}`) || "#888";
   const names = Object.fromEntries(paths.map((p) => [p.id, p.name]));
-  const H = EE_H * (W / EE_W);
+  const fmt = (v: number) => formatValue(v, ind?.unit ?? "", ind?.decimals ?? 1);
+  const short = (v: number) => (ind?.unit === "people" || indicator === "pop_total" ? (v >= 1e9 ? `${(v / 1e9).toFixed(2)} bn` : v >= 1e6 ? `${Math.round(v / 1e6)} m` : `${Math.round(v / 1e3)} k`) : compact(v));
+  const projFrom = range?.last_estimate_year ?? null;
+  const isProj = (y: number) => projFrom !== null && y > projFrom;
+  const totals = years.map((_, i) => Object.values(range?.rows ?? {}).reduce((s, vs) => s + (vs[i] ?? 0), 0));
+  const sum = ind?.agg_method === "sum" || indicator.startsWith("pop_total") || ind?.unit === "people";
+  const line = (vs: (number | null)[], w: number, h: number, from = 0, to = years.length - 1) => {
+    const max = Math.max(1e-9, ...vs.filter((v): v is number => v !== null));
+    const x = (i: number) => (years.length > 1 ? ((years[i] - years[0]) / (years[years.length - 1] - years[0])) * w : 0);
+    let d = "", pen = false;
+    for (let i = from; i <= to; i++) { const v = vs[i]; if (v === null) { pen = false; continue; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)},${(h - (v / max) * (h - 4)).toFixed(1)}`; pen = true; }
+    return { d, x };
+  };
+  const cut = projFrom !== null ? years.findIndex((y) => y > projFrom) : -1;
+  const spark = (vs: (number | null)[], w: number, h: number) => {
+    const past = line(vs, w, h, 0, cut > 0 ? cut - 1 : years.length - 1), fut = cut > 0 ? line(vs, w, h, cut - 1) : null;
+    return (
+      <>
+        <path d={past.d} fill="none" stroke={cssVar("--ink-2")} strokeWidth={1.5} />
+        {fut && <path d={fut.d} fill="none" stroke={cssVar("--ink-2")} strokeWidth={1.2} strokeDasharray="4 3" />}
+        {yi >= 0 && <line x1={past.x(yi)} x2={past.x(yi)} y1={0} y2={h} stroke="#b5891b" strokeWidth={2} />}
+      </>
+    );
+  };
+  const pickYear = (e: React.MouseEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const f = (e.clientX - r.left) / r.width;
+    const y = Math.round(years[0] + f * (years[years.length - 1] - years[0]));
+    setPlaying(false);
+    setYear(years.reduce((b, v) => (Math.abs(v - y) < Math.abs(b - y) ? v : b), years[0]));
+  };
   return (
     <>
       <div className="chips-row" style={{ gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 8 }}>
@@ -284,29 +332,55 @@ function Cartogram({ indicators }: { indicators: Indicator[] }) {
         <div className="seg" role="group" aria-label="Shape">
           {(["circle", "square"] as const).map((v) => <button key={v} className={shape === v ? "on" : ""} aria-pressed={shape === v} onClick={() => setShape(v)}>{v === "circle" ? "Circles" : "Squares"}</button>)}
         </div>
-        <label className="small">Year <input type="range" min={range[0]} max={range[1]} value={year} onChange={(e) => setYear(Number(e.target.value))} /> <b>{year}</b></label>
-        <button onClick={() => { if (year >= range[1]) setYear(range[0]); setPlaying(!playing); }}>{playing ? "Pause" : "Play"}</button>
+        <label className="small"><input type="checkbox" checked={land} onChange={(e) => setLand(e.target.checked)} /> Map underneath</label>
+        <label className="small" title="Same for every year: circles grow as the figure grows. Biggest this year: the largest country is always the same size."><input type="checkbox" checked={fixed} onChange={(e) => setFixed(e.target.checked)} /> Same scale every year</label>
+        <button onClick={() => { if (yi >= years.length - 1) setYear(years[0]); setPlaying(!playing); }}>{playing ? "Pause" : "Play"}</button>
       </div>
-      <div className="card">
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Cartogram of ${ind?.name ?? indicator}`}>
-          <path d={eeOutline(W / EE_W, W / 2, H / 2)} fill="none" stroke={cssVar("--line")} />
+      <div className="card" style={{ position: "relative" }} onMouseLeave={() => setTip(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Cartogram of ${ind?.name ?? indicator}`} style={{ display: "block" }}>
+          <path d={eeOutline(W / EE_W, W / 2, H / 2)} fill={land ? cssVar("--surface-2") || "#f3f1ec" : "none"} stroke={cssVar("--line")} />
+          {land && paths.map((p) => <path key={p.id} d={p.d} fill={cssVar("--map-land") || "#dcd8cf"} stroke={cssVar("--surface")} strokeWidth={0.4} opacity={0.8} />)}
           {bubbles.map((b) => {
             const s = b.r * 1.772; // a square with the circle's area
-            const tip = `${names[b.id] ?? b.id}: ${formatValue(b.value, ind?.unit ?? "", ind?.decimals ?? 1)}`;
+            const col = colourOf(b.id);
+            const name = names[b.id] ?? b.id;
+            const fs = Math.min(15, b.r / 3.2);
             return (
-              <g key={b.id}>
+              <g key={b.id} className="carto-b" style={{ transform: `translate(${b.x}px, ${b.y}px)` }} onClick={() => router.push(`/entity/${b.id}`)}
+                onMouseMove={(e) => { const r = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect(); setTip({ id: b.id, x: e.clientX - r.left, y: e.clientY - r.top, w: r.width }); }}>
                 {shape === "circle"
-                  ? <circle cx={b.x} cy={b.y} r={b.r} fill={colourOf(b.id)} fillOpacity={0.8} stroke={cssVar("--surface")} strokeWidth={0.6}><title>{tip}</title></circle>
-                  : <rect x={b.x - s / 2} y={b.y - s / 2} width={s} height={s} fill={colourOf(b.id)} fillOpacity={0.8} stroke={cssVar("--surface")} strokeWidth={0.6}><title>{tip}</title></rect>}
-                {b.r > 14 && <text x={b.x} y={b.y + 4} textAnchor="middle" fontSize={Math.min(14, b.r / 2.2)} fill={cssVar("--surface")} pointerEvents="none">{b.id}</text>}
+                  ? <circle r={b.r} fill={col} fillOpacity={0.45} stroke={col} strokeWidth={1.1} />
+                  : <rect x={-s / 2} y={-s / 2} width={s} height={s} fill={col} fillOpacity={0.45} stroke={col} strokeWidth={1.1} />}
+                {b.r > 17 && <text textAnchor="middle" y={b.r > 24 ? -1 : 4} fontSize={fs} fontWeight={600} fill={cssVar("--ink")} pointerEvents="none">{name.length > 13 && b.r < 40 ? b.id : name}</text>}
+                {b.r > 24 && <text textAnchor="middle" y={fs + 3} fontSize={fs * 0.85} fill={cssVar("--ink-2")} fontFamily="ui-monospace, monospace" pointerEvents="none">{short(b.value)}</text>}
+                {b.r > 9 && b.r <= 17 && <text textAnchor="middle" y={3} fontSize={Math.max(7, b.r / 2.4)} fill={cssVar("--ink-2")} pointerEvents="none">{b.id}</text>}
               </g>
             );
           })}
         </svg>
+        {tip && range && (
+          <div className="lc-tip" style={{ left: tip.x > tip.w - 240 ? tip.x - 224 : tip.x + 14, top: tip.y + 14 }}>
+            <b>{names[tip.id] ?? tip.id}</b>
+            <div className="mono">{values[tip.id] !== undefined ? fmt(values[tip.id]) : "no figure"} <span className="muted small">{year}{isProj(year) ? " projection" : ""}</span></div>
+            <svg width={200} height={52} aria-hidden>{spark(range.rows[tip.id] ?? [], 200, 50)}</svg>
+          </div>
+        )}
+        {sum && years.length > 1 && (
+          <div className="carto-strip">
+            <div className="small"><b style={{ color: "#b5891b" }}>{year}</b> {short(totals[yi] ?? 0)} in all{isProj(year) ? <span className="muted"> (projection)</span> : null}</div>
+            <svg viewBox="0 0 1000 46" preserveAspectRatio="none" width="100%" height={46} onClick={pickYear} style={{ cursor: "pointer" }} aria-label="Total by year: click to choose a year">
+              {spark(totals, 1000, 44)}
+            </svg>
+            <div className="small muted carto-axis"><span>{years[0]}</span>{projFrom && <span>projection after {projFrom} →</span>}<span>{years[years.length - 1]}</span></div>
+          </div>
+        )}
+        {!sum && years.length > 1 && (
+          <input type="range" min={0} max={years.length - 1} value={Math.max(0, yi)} onChange={(e) => { setPlaying(false); setYear(years[Number(e.target.value)]); }} style={{ width: "100%" }} aria-label="Year" />
+        )}
         <div className="chips-row small" style={{ gap: 12, flexWrap: "wrap" }}>
-          {groups.map((g, i) => <span key={g}><span className="swatch" style={{ background: cssVar(`--series-${(i % 7) + 1}`) }} /> {g}</span>)}
+          {groups.map((g, i) => <span key={g}><span className="swatch round" style={{ background: cssVar(`--series-${(i % 7) + 1}`) }} /> {g}</span>)}
         </div>
-        <p className="caption">{ind?.name ?? indicator}, {year}. Area in proportion to the figure; countries without a figure that year are left out.</p>
+        <p className="caption">{ind?.name ?? indicator}, {year}{isProj(year) ? " (projection)" : ""}. Area in proportion to the figure{fixed ? ", on one scale for every year" : ", the largest always the same size"}; countries without a figure that year are left out. Click a country for its page.</p>
       </div>
     </>
   );
