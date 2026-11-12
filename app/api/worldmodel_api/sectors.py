@@ -172,7 +172,7 @@ def page(q: Q, sector_id: str, year: int | None = None, country: str = "NZL") ->
         })
     out = {"id": s["id"], "name": s["name"], "group": s["group"], "group_name": sec.groups().get(s["group"], s["group"]),
            "kind": s.get("kind", "chain"), "feeds": s.get("feeds", ""), "sources": s.get("sources", ""),
-           "stages": stages, "prices": _prices(q, s.get("prices", [])),
+           "stages": stages, "prices": _prices(q, sec.price_ids(s)),
            "companies": [{"nz": False, "note": "", **c, "country_name": names.get(c["country"], c["country"]),
                           "step_name": next((st["name"] for st in s["stages"] if st["id"] == c["step"]), c["step"])}
                          for c in s.get("companies", [])],
@@ -195,19 +195,332 @@ def _unit_value(exp: dict[int, dict[str, float]], exp_t: dict[int, dict[str, flo
     return out
 
 
-def _prices(q: Q, ids: list[str]) -> list[dict]:
-    if not ids:
+def _prices(q: Q, inds: list[str]) -> list[dict]:
+    """Monthly price series (indicator ids: price_*, pindex_*, ffpi_*, anz_*) with their names and units."""
+    if not inds:
         return []
-    inds = [f"price_{p}" for p in ids]
+    meta = _price_meta(q, inds)
+    by = _monthly(q, inds)
+    return [{"id": i, "name": meta[i]["name"], "unit": meta[i]["unit"], "points": by[i]} for i in inds if i in meta and by.get(i)]
+
+
+# ----------------------------------------------------------------------------- prices and the overview
+PRICE_PREFIXES = ("price_", "pindex_", "ffpi_", "anz_")
+SPARK_MONTHS = 60
+
+
+def _price_meta(q: Q, inds: list[str]) -> dict[str, dict]:
+    if not inds:
+        return {}
     ph = ", ".join("?" for _ in inds)
-    meta = {r["indicator_id"]: r for r in q(f"SELECT indicator_id, name, unit FROM indicators WHERE indicator_id IN ({ph})", inds)}
+    return {r["indicator_id"]: r for r in q(f"""SELECT i.indicator_id, i.name, i.unit, i.decimals,
+                                                 (SELECT min(source_id) FROM indicator_sources s WHERE s.indicator_id = i.indicator_id) AS source_id
+                                               FROM indicators i WHERE i.indicator_id IN ({ph})""", inds)}
+
+
+def _monthly(q: Q, inds: list[str]) -> dict[str, list[list]]:
+    """Monthly values ("YYYY-MM", value) of price series, on the World or New Zealand, oldest first."""
+    if not inds:
+        return {}
+    ph = ", ".join("?" for _ in inds)
     pts = q(f"""SELECT indicator_id AS i, strftime(period_start, '%Y-%m') AS d, value AS v FROM series
-                WHERE indicator_id IN ({ph}) AND entity_id = 'world' AND breakdown = '' AND variant = 'central'
+                WHERE indicator_id IN ({ph}) AND entity_id IN ('world', 'NZL') AND breakdown = '' AND variant = 'central'
+                  AND freq = 'M' AND value IS NOT NULL
+                QUALIFY row_number() OVER (PARTITION BY indicator_id, period_start ORDER BY entity_id = 'world' DESC, source_id) = 1
                 ORDER BY period_start""", inds)
     by: dict = defaultdict(list)
     for p in pts:
         by[p["i"]].append([p["d"], p["v"]])
-    return [{"id": i, "name": meta[i]["name"], "unit": meta[i]["unit"], "points": by[i]} for i in inds if i in meta and by[i]]
+    return dict(by)
+
+
+def _shift(ym: str, months: int) -> str:
+    y, m = int(ym[:4]), int(ym[5:7])
+    k = y * 12 + (m - 1) - months
+    return f"{k // 12:04d}-{k % 12 + 1:02d}"
+
+
+def _change(now: float, then: float | None) -> float | None:
+    return round(100 * (now / then - 1), 1) if then else None
+
+
+def price_stats(points: list[list], deflator: dict[int, float] | None = None) -> dict | None:
+    """The latest month of a price with its change over a month, a year and five years, where it
+    sits between its ten-year low (0) and high (100), the last five years for a sparkline, and
+    (given US consumer prices) how it compares with 1980 after inflation."""
+    if not points:
+        return None
+    at = {d: v for d, v in points}
+    last_d, last = points[-1]
+    ten = [v for d, v in points if d > _shift(last_d, 120)]
+    lo, hi = min(ten), max(ten)
+    out = {"date": last_d, "value": last, "m1": _change(last, at.get(_shift(last_d, 1))),
+           "y1": _change(last, at.get(_shift(last_d, 12))), "y5": _change(last, at.get(_shift(last_d, 60))),
+           "y10": _change(last, at.get(_shift(last_d, 120))),
+           "low10": lo, "high10": hi, "pos10": round(100 * (last - lo) / (hi - lo)) if hi > lo else 50,
+           "spark": [round(v, 4) for d, v in points if d > _shift(last_d, SPARK_MONTHS)], "first": points[0][0]}
+    if deflator:
+        then = [v for d, v in points if d.startswith("1980")]
+        ly = int(last_d[:4])
+        cpi_now = deflator.get(ly) or deflator.get(max(deflator))
+        if then and deflator.get(1980) and cpi_now:
+            out["real_vs_1980"] = round((last / cpi_now) / ((sum(then) / len(then)) / deflator[1980]), 2)
+    return out
+
+
+def us_prices(q: Q) -> dict[int, float]:
+    """US consumer prices as a level (each year's inflation compounded, 1980 = 1), for prices after inflation."""
+    got = q("""SELECT year(s.period_start) AS y, s.value AS v FROM series s
+               LEFT JOIN indicator_sources r ON r.indicator_id = s.indicator_id AND r.source_id = s.source_id
+               WHERE s.indicator_id = 'inflation' AND s.entity_id = 'USA' AND s.breakdown = '' AND s.variant = 'central'
+                 AND s.freq = 'A' AND s.status = 'E' AND s.value IS NOT NULL
+               QUALIFY row_number() OVER (PARTITION BY s.period_start ORDER BY r.rank NULLS LAST) = 1
+               ORDER BY 1""", [])
+    if not got:
+        return {}
+    level, out = 1.0, {}
+    for r in got:
+        level *= 1 + r["v"] / 100
+        out[r["y"]] = level
+    base = out.get(1980) or next(iter(out.values()))
+    return {y: v / base for y, v in out.items()}
+
+
+def _price_sectors() -> dict[str, list[dict]]:
+    """price indicator -> the sectors that list it."""
+    out: dict = defaultdict(list)
+    for s in sec.sectors():
+        for i in sec.price_ids(s):
+            out[i].append({"id": s["id"], "name": s["name"]})
+    return out
+
+
+def _all_price_ids(q: Q) -> list[str]:
+    return [r["indicator_id"] for r in q("""SELECT indicator_id FROM indicators WHERE frequency = 'M' AND (indicator_id LIKE 'price\\_%' ESCAPE '\\'
+              OR indicator_id LIKE 'pindex\\_%' ESCAPE '\\' OR indicator_id LIKE 'ffpi\\_%' ESCAPE '\\' OR indicator_id LIKE 'anz\\_%' ESCAPE '\\')
+              ORDER BY indicator_id""", [])]
+
+
+def _board_group(pid: str) -> str:
+    for g in sec.price_board():
+        if pid == g.get("index") or pid in [f"price_{p}" for p in g.get("prices", [])] or pid in g.get("series", []):
+            return g["id"]
+    if pid.startswith("anz_"):
+        return "nz"
+    if pid.startswith("pindex_"):
+        return "index"
+    return "other"
+
+
+def prices_table(q: Q) -> dict:
+    """Every monthly price series with its latest month and changes: the Commodity prices tab's table."""
+    ids = _all_price_ids(q)
+    meta, series, cpi, used = _price_meta(q, ids), _monthly(q, ids), us_prices(q), _price_sectors()
+    names = {g["id"]: g["name"] for g in sec.price_board()} | {"index": "Group indexes", "other": "Other"}
+    items = []
+    for i in ids:
+        st = price_stats(series.get(i, []), cpi)
+        if not st or i not in meta:
+            continue
+        st.pop("spark")
+        g = _board_group(i)
+        items.append({"id": i, "name": meta[i]["name"], "unit": meta[i]["unit"], "decimals": meta[i]["decimals"],
+                      "source_id": meta[i]["source_id"], "group": g, "group_name": names.get(g, g),
+                      "sectors": used.get(i, []), **st})
+    order = [g["id"] for g in sec.price_board()] + ["index", "other"]
+    items.sort(key=lambda r: (order.index(r["group"]) if r["group"] in order else 99, r["name"]))
+    return {"items": items, "groups": [{"id": g, "name": names[g]} for g in order if any(r["group"] == g for r in items)],
+            "deflator": [[y, round(v, 4)] for y, v in sorted(cpi.items())]}
+
+
+def price_series(q: Q, ids: list[str]) -> dict:
+    ids = [i for i in ids if i.startswith(PRICE_PREFIXES)][:12]
+    return {"series": _prices(q, ids), "deflator": [[y, round(v, 4)] for y, v in sorted(us_prices(q).items())]}
+
+
+def price_trade(q: Q, pid: str) -> dict | None:
+    """Who gains and who pays when a price moves: for the stage the price belongs to (the most
+    traded stage of the sectors listing it), the biggest sellers and buyers, their share of world
+    trade, and how much of each country's own goods exports or imports it is."""
+    sectors_ = [sec.sector(s["id"]) for s in _price_sectors().get(pid, [])]
+    stages_ = [st for s in sectors_ if s for st in s["stages"]]
+    if not stages_:
+        return None
+    names = _names(q)
+    want = [f"sx_{st['id']}" for st in stages_] + [f"sm_{st['id']}" for st in stages_]
+    by = _by(_yearly(q, want))
+    traded = [st for st in stages_ if by.get(f"sx_{st['id']}")]
+    if not traded:
+        return None
+    # the stage the price is quoted for: the one named like it (crude_oil, aluminium, urea), else a
+    # refined or metal stage named after it (copper_refined, not copper_ore), else the most traded
+    word = pid.split("_", 1)[1] if pid.startswith("price_") else ""
+    best = (next((st for st in traded if st["id"] == word), None)
+            or (next((st for st in traded if word and st["id"].startswith(word) and not st["id"].endswith("_ore")), None))
+            or max(traded, key=lambda st: sum(by[f"sx_{st['id']}"][max(by[f"sx_{st['id']}"])].values())))
+    out = {"stage": best["id"], "stage_name": best["name"], "sector": next(s["id"] for s in sectors_ if best in s["stages"])}
+    for side, ind, tot in (("sellers", f"sx_{best['id']}", "tgx_"), ("buyers", f"sm_{best['id']}", "tgm_")):
+        series = by.get(ind, {})
+        if not series:
+            out[side] = []
+            continue
+        y = max(series)
+        rows = _ranking(series[y], names, 8)
+        ids = [r["entity_id"] for r in rows]
+        totals = {}
+        if ids:
+            ph = ", ".join("?" for _ in ids)
+            for r in q(f"""SELECT entity_id AS e, sum(value) AS v FROM series WHERE indicator_id LIKE '{tot}%' AND breakdown = ''
+                           AND variant = 'central' AND freq = 'A' AND period_start = make_date(?, 1, 1) AND entity_id IN ({ph})
+                           GROUP BY 1""", [y, *ids]):
+                totals[r["e"]] = r["v"]
+        for r in rows:
+            r["of_own"] = round(100 * r["value"] / totals[r["entity_id"]], 1) if totals.get(r["entity_id"]) else None
+        out[side], out[f"{side}_year"] = rows, y
+    return out
+
+
+def overview(q: Q) -> dict:
+    """The Sectors front page: headline figures, the price board, world trade by sector group,
+    where New Zealand counts, and per sector its trade, price and biggest makers."""
+    names = _names(q)
+    board = sec.price_board()
+    sector_prices = {s["id"]: sec.price_ids(s) for s in sec.sectors()}
+    ids = sorted({g["index"] for g in board if g.get("index")} | {f"price_{p}" for g in board for p in g.get("prices", [])}
+                 | {i for g in board for i in g.get("series", [])} | {v[0] for v in sector_prices.values() if v})
+    meta, series = _price_meta(q, ids), _monthly(q, ids)
+    stats = {i: price_stats(series.get(i, [])) for i in ids}
+
+    def item(i: str) -> dict | None:
+        st = stats.get(i)
+        return st and i in meta and {"id": i, "name": meta[i]["name"], "unit": meta[i]["unit"], "decimals": meta[i]["decimals"], **st}
+
+    groups = []
+    for g in board:
+        items = [x for x in (item(f"price_{p}") for p in g.get("prices", [])) if x] + [x for x in (item(i) for i in g.get("series", [])) if x]
+        if items:
+            groups.append({"id": g["id"], "name": g["name"], "sector_group": g.get("sector_group"),
+                           "index": item(g["index"]) if g.get("index") else None, "items": items})
+    moved = [x for g in groups for x in g["items"] if x.get("y1") is not None and x["id"].startswith(("price_", "ffpi_"))]
+    moved.sort(key=lambda x: x["y1"])
+
+    # trade by stage and year (countries only), summed by sector and by group
+    totals = q("""SELECT s.indicator_id AS i, year(s.period_start) AS y, sum(s.value) AS v FROM series s JOIN entities e USING (entity_id)
+                  WHERE (s.indicator_id LIKE 'sx\\_%' ESCAPE '\\' OR s.indicator_id LIKE 'tgx\\_%' ESCAPE '\\') AND s.breakdown = ''
+                    AND s.variant = 'central' AND s.freq = 'A' AND s.value > 0 AND e.type IN ('country', 'historical_country')
+                  GROUP BY 1, 2""", [])
+    tot: dict = defaultdict(dict)
+    for r in totals:
+        tot[r["i"]][r["y"]] = r["v"]
+    world: dict[int, float] = defaultdict(float)
+    for i, ys in tot.items():
+        if i.startswith("tgx_"):
+            for y, v in ys.items():
+                world[y] += v
+    last_y = max(world) if world else None
+
+    def sum_at(inds: list[str], y: int | None) -> float:
+        return sum(tot.get(i, {}).get(y, 0) for i in inds) if y else 0
+
+    per_sector = {}
+    for s in sec.sectors():
+        inds = [f"sx_{st['id']}" for st in s["stages"]]
+        ys = sorted({y for i in inds for y in tot.get(i, {})})
+        if not ys:
+            continue
+        y = ys[-1]
+        then = max((x for x in ys if x <= y - 10), default=ys[0])
+        per_sector[s["id"]] = {"year": y, "value": sum_at(inds, y), "since": then, "then": sum_at(inds, then)}
+    trade_groups = []
+    for g, gname in sec.groups().items():
+        ss = [s for s in sec.sectors() if s["group"] == g]
+        inds = [f"sx_{st['id']}" for s in ss for st in s["stages"]]
+        ys = sorted({y for i in inds for y in tot.get(i, {})})
+        if not ys:
+            continue
+        y = ys[-1]
+        then = max((x for x in ys if x <= y - 10), default=ys[0])
+        trade_groups.append({"id": g, "name": gname, "year": y, "value": sum_at(inds, y), "since": then, "then": sum_at(inds, then),
+                             "sectors": len(ss)})
+    trade_groups.sort(key=lambda r: -r["value"])
+    if trade_groups:
+        _top_sellers(q, trade_groups, names)
+
+    # the biggest makers of each sector's first stage with production figures
+    prod = {s["id"]: next((st for st in s["stages"] if sec.production_indicator(st)), None) for s in sec.sectors()}
+    pinds = sorted({sec.production_indicator(st) for st in prod.values() if st})
+    makers = _top_makers(q, pinds, names)
+    nz_rows = _country_stages(q, "NZL", None, names)
+    nz_best: dict = {}
+    for r in nz_rows:
+        for k in ("exports", "production"):
+            m = r.get(k)
+            if m and m.get("share") and (r["sector"] not in nz_best or m["share"] > nz_best[r["sector"]]["share"]):
+                nz_best[r["sector"]] = {"stage": r["name"], "what": k, "share": m["share"], "rank": m["rank"], "of": m["of"], "year": m["year"]}
+    conc = []
+    sectors_out = {}
+    for s in sec.sectors():
+        st = prod.get(s["id"])
+        mk = makers.get(sec.production_indicator(st)) if st else None
+        pid = (sector_prices.get(s["id"]) or [None])[0]
+        sectors_out[s["id"]] = {"trade": per_sector.get(s["id"]), "price": item(pid) if pid else None,
+                                "makers": mk and {"stage": st["name"], **mk}, "nz": nz_best.get(s["id"])}
+        if mk and mk["rows"]:
+            conc.append({"sector": s["id"], "name": s["name"], "stage": st["name"], "top": mk["rows"][0]})
+    conc.sort(key=lambda r: -(r["top"]["share"] or 0))
+    nz = sorted(({"sector": k, "name": sec.sector(k)["name"], **v,
+                  "price_y1": (sectors_out[k]["price"] or {}).get("y1")} for k, v in nz_best.items() if v["what"] == "exports"),
+                key=lambda r: -r["share"])[:8]
+    heads = {"world_trade": last_y and {"year": last_y, "value": world[last_y],
+                                        "then_year": max((x for x in world if x <= last_y - 10), default=min(world)),
+                                        "then": world[max((x for x in world if x <= last_y - 10), default=min(world))]},
+             "rises": moved[::-1][:3], "falls": moved[:3], "concentrated": conc[:3]}
+    return {"heads": heads, "board": groups, "trade_groups": trade_groups, "nz": nz, "sectors": sectors_out}
+
+
+def _top_sellers(q: Q, groups: list[dict], names: dict[str, str]) -> None:
+    """The three biggest sellers in each sector group's latest year, all its stages together."""
+    stage_group = {st["id"]: s["group"] for s, st in sec.stages()}
+    years = {g["id"]: g["year"] for g in groups}
+    got = q("""SELECT substr(s.indicator_id, 4) AS st, s.entity_id AS e, year(s.period_start) AS y, s.value AS v
+               FROM series s JOIN entities en USING (entity_id)
+               WHERE s.indicator_id LIKE 'sx\\_%' ESCAPE '\\' AND s.breakdown = '' AND s.variant = 'central' AND s.freq = 'A'
+                 AND s.value > 0 AND en.type IN ('country', 'historical_country')
+                 AND year(s.period_start) = (SELECT max(year(period_start)) FROM series WHERE indicator_id LIKE 'sx\\_%' ESCAPE '\\')""", [])
+    by: dict = defaultdict(lambda: defaultdict(float))
+    for r in got:
+        g = stage_group.get(r["st"])
+        if g and years.get(g) == r["y"]:
+            by[g][r["e"]] += r["v"]
+    for g in groups:
+        vals = by.get(g["id"], {})
+        total = sum(vals.values())
+        g["top"] = [{"entity_id": e, "name": names.get(e, e), "share": round(100 * v / total, 1)}
+                    for e, v in sorted(vals.items(), key=lambda kv: -kv[1])[:3]] if total else []
+
+
+def _top_makers(q: Q, inds: list[str], names: dict[str, str]) -> dict[str, dict]:
+    """The three biggest producers (with shares) in the latest year of each production indicator."""
+    if not inds:
+        return {}
+    ph = ", ".join("?" for _ in inds)
+    got = q(f"""
+        WITH t AS (
+            SELECT s.indicator_id AS i, s.entity_id AS e, year(s.period_start) AS y, s.value AS v
+            FROM series s JOIN indicator_sources r ON r.indicator_id = s.indicator_id AND r.source_id = s.source_id
+            JOIN entities en ON en.entity_id = s.entity_id
+            WHERE s.indicator_id IN ({ph}) AND s.breakdown = '' AND s.variant = 'central' AND s.freq = 'A' AND s.status = 'E'
+              AND s.value > 0 AND en.type IN ('country', 'historical_country')
+            QUALIFY row_number() OVER (PARTITION BY s.indicator_id, s.entity_id, s.period_start ORDER BY r.rank) = 1),
+        latest AS (SELECT i, max(y) AS y FROM t GROUP BY 1),
+        ranked AS (SELECT t.*, sum(v) OVER (PARTITION BY t.i) AS total, row_number() OVER (PARTITION BY t.i ORDER BY v DESC) AS pos
+                   FROM t JOIN latest USING (i, y))
+        SELECT i, e, y, v, total, pos FROM ranked WHERE pos <= 3 ORDER BY i, pos""", inds)
+    out: dict = {}
+    for r in got:
+        m = out.setdefault(r["i"], {"year": r["y"], "rows": []})
+        m["rows"].append({"entity_id": r["e"], "name": names.get(r["e"], r["e"]), "share": round(100 * r["v"] / r["total"], 1) if r["total"] else None})
+    return out
 
 
 def electric(q: Q, names: dict[str, str]) -> dict:

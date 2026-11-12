@@ -3138,6 +3138,38 @@ def sectors_by_country(country: str = "NZL", year: int | None = None, since: int
     return sectors.by_country(rows, country, year, since)
 
 
+@api.get("/sectors/overview")
+def sectors_overview():
+    """The Sectors front page: headline figures, this month's price board (grouped, with
+    changes, ten-year range and a five-year sparkline), world trade by sector group, where
+    New Zealand counts, and for each sector its trade, price and three biggest makers."""
+    return sectors.overview(rows)
+
+
+@api.get("/sectors/prices")
+def sectors_prices():
+    """Every monthly commodity price and price index with its latest month, changes over a
+    month, a year, five and ten years, ten-year range and (US consumer prices) against 1980."""
+    return sectors.prices_table(rows)
+
+
+@api.get("/sectors/prices/series")
+def sectors_price_series(ids: str):
+    """Monthly values of up to 12 price series (comma-separated ids), with US consumer prices
+    as a yearly level (1980 = 1) for showing them after inflation."""
+    return sectors.price_series(rows, split(ids))
+
+
+@api.get("/sectors/prices/{price_id}/trade")
+def sectors_price_trade(price_id: str):
+    """Who gains and who pays when a price moves: the biggest sellers and buyers of the stage
+    it prices, with their share of world trade and of their own goods trade."""
+    out = sectors.price_trade(rows, price_id)
+    if out is None:
+        raise HTTPException(404, f"no traded stage for {price_id}")
+    return out
+
+
 @api.get("/sectors/{sector_id}")
 def sector_page(sector_id: str, year: int | None = None, country: str = "NZL"):
     """One sector: for each stage, production and exports by country (ranking, world

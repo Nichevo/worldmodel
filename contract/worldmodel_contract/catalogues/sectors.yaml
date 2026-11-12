@@ -67,6 +67,36 @@ sector_prices:
   chicken: Chicken
   sawnwood: Sawnwood, Malaysian
 
+# The World Bank's group price indexes (Pink Sheet "Monthly Indices" sheet, 2010 = 100):
+# id -> the headings or codes the column may carry. Stored as pindex_<id>.
+price_indexes:
+  energy: [Energy, iENERGY]
+  non_energy: [Non-energy, iNONFUEL]
+  agriculture: [Agriculture, iAGRICULTURE]
+  food: [Food, iFOOD]
+  beverages: [Beverages, iBEVERAGES]
+  raw_materials: [Raw Materials, iRAW_MATERIAL]
+  fertilizers: [Fertilizers, iFERTILIZERS]
+  metals: [Metals & Minerals, iMETMIN]
+  precious_metals: [Precious Metals, iPRECIOUSMET]
+
+# The price board on the Sectors overview, group by group: Pink Sheet ids (prices), other
+# price series by indicator id (series), and the group's own index (index).
+price_board:
+  - {id: energy, name: Energy, sector_group: energy, index: pindex_energy,
+     prices: [crude_oil, natural_gas_eu, natural_gas_us, lng_japan, coal_au]}
+  - {id: metals, name: Metals, sector_group: metals, index: pindex_metals,
+     prices: [aluminium, copper, iron_ore, nickel, zinc, gold, silver, platinum]}
+  - {id: food, name: Food, sector_group: food, index: pindex_food,
+     prices: [wheat, rice, maize, soybeans, palm_oil, sugar, coffee, cocoa, beef, chicken],
+     series: [ffpi_dairy, ffpi_meat]}
+  - {id: fertilizer, name: Fertiliser, sector_group: fertilizer, index: pindex_fertilizers,
+     prices: [urea, dap, potash, phosphate_rock]}
+  - {id: wood, name: Wood and fibre, sector_group: forestry, index: pindex_raw_materials,
+     prices: [logs, sawnwood, cotton, rubber]}
+  - {id: nz, name: New Zealand export prices, index: anz_all,
+     series: [anz_dairy, anz_meat, anz_forestry, anz_horticulture, anz_seafood, anz_aluminium]}
+
 sectors:
   - id: aluminium
     name: Aluminium
@@ -564,6 +594,7 @@ sectors:
     name: Lamb, mutton and wool
     group: food
     feeds: Meat; wool for clothing, carpets and insulation.
+    price_series: [anz_meat]
     sources: FAOSTAT.
     stages:
       - {id: sheep_meat, name: "Lamb and mutton", hs: ["0204"], production: {fao: "Meat of sheep, fresh or chilled"}}
@@ -576,6 +607,7 @@ sectors:
     name: Dairy
     group: food
     feeds: Food (milk powder, butter, cheese, infant formula, whey and casein for food makers).
+    price_series: [anz_dairy, ffpi_dairy]
     sources: FAOSTAT.
     stages:
       - {id: milk, name: "Raw milk", hs: ["0401"], production: {fao: "Raw milk of cattle"}}
@@ -590,6 +622,7 @@ sectors:
     name: Fish and seafood
     group: food
     feeds: Food; fishmeal for fish farms and animal feed.
+    price_series: [anz_seafood]
     sources: FAOSTAT.
     stages:
       - {id: fish, name: "Fish and seafood", hs: ["03"]}
@@ -601,6 +634,7 @@ sectors:
     name: Fruit, with kiwifruit
     group: food
     feeds: Food.
+    price_series: [anz_horticulture]
     sources: FAOSTAT.
     stages:
       - {id: kiwifruit, name: "Kiwifruit", hs: ["081050"], production: {fao: "Kiwi fruit"}}
@@ -798,6 +832,7 @@ sectors:
     name: Pork
     group: food
     feeds: Food; China eats about half the world's pork. African swine fever cut China's herd by around 40% in 2019.
+    price_series: [ffpi_meat]
     sources: FAOSTAT; BACI.
     stages:
       - {id: pork, name: "Pork", hs: ["0203"], production: {fao: "Meat of pig with the bone, fresh or chilled"}}
@@ -883,6 +918,7 @@ sectors:
     name: Infant formula
     group: food
     feeds: Food for babies; China is the biggest buyer, and New Zealand one of the biggest sellers.
+    price_series: [ffpi_dairy]
     sources: BACI.
     stages:
       - {id: infant_formula, name: "Food for infants, retail packs", hs: ["190110"]}
