@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import CardAsk from "@/components/CardAsk";
+import CommodityPrices from "@/components/CommodityPrices";
 import CountryChoice from "@/components/CountryChoice";
 import EChart from "@/components/EChart";
 import Help from "@/components/Help";
+import SectorsOverview from "@/components/SectorsOverview";
 import { api, type SectorCard, type SectorList, type SectorsByCountry } from "@/lib/api";
 import { openAsk } from "@/lib/ai";
 import { amount, chapterBars, money, yearLines } from "@/lib/sectors";
@@ -46,8 +48,12 @@ function SectorTile({ s, onHide }: { s: SectorCard; onHide: () => void }) {
   );
 }
 
-function SectorsList({ list }: { list: SectorList }) {
+function SectorsList({ list, focus }: { list: SectorList; focus?: string }) {
   const s = useSettings();
+  // opened from a group on the overview: bring that group into view
+  useEffect(() => {
+    if (focus) document.getElementById(`group-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focus]);
   const [showHidden, setShowHidden] = useState(false);
   const [q, setQ] = useState("");
   const hidden = useMemo(() => new Set((s.sectors_hidden || "").split(",").filter(Boolean)), [s.sectors_hidden]);
@@ -79,7 +85,7 @@ function SectorsList({ list }: { list: SectorList }) {
         if (!here.length) return null;
         const allHidden = list.sectors.filter((x) => x.group === g).every((x) => hidden.has(x.id));
         return (
-          <section key={g}>
+          <section key={g} id={`group-${g}`}>
             <h2>{name} <button className="link small" onClick={() => toggleGroup(g)}
               title="Hidden sectors stay loaded and keep their trade figures; they are only left off this list">
               {allHidden ? "Show this group" : "Hide this group"}</button></h2>
@@ -191,18 +197,30 @@ function ByCountry({ country, setCountry }: { country: string; setCountry: (c: s
   );
 }
 
+type Tab = "overview" | "sectors" | "prices" | "country";
+const TABS: [Tab, string][] = [["overview", "Overview"], ["sectors", "Every sector"], ["prices", "Commodity prices"], ["country", "By country"]];
+
 function SectorsPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<"sectors" | "country">(params.get("tab") === "country" ? "country" : "sectors");
+  const first = params.get("tab");
+  const [tab, setTab] = useState<Tab>(TABS.some(([t]) => t === first) ? (first as Tab) : "overview");
   const [country, setCountry] = useState(params.get("country") ?? "NZL");
+  const [ids, setIdsState] = useState<string[]>((params.get("ids") ?? "").split(",").filter(Boolean));
+  const [focus, setFocus] = useState<string | undefined>(params.get("group") ?? undefined);
   const [list, setList] = useState<SectorList | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { api.sectors().then(setList).catch((e) => setError(String(e.message || e))); }, []);
-  const go = (t: "sectors" | "country", c = country) => {
+  const url = (t: Tab, c: string, i: string[], g?: string) =>
+    t === "country" ? `/sectors?tab=country&country=${c}` : t === "prices" ? `/sectors?tab=prices${i.length ? `&ids=${i.join(",")}` : ""}`
+      : t === "sectors" ? `/sectors?tab=sectors${g ? `&group=${g}` : ""}` : "/sectors";
+  const go = (t: Tab, c = country, i = ids, g?: string) => {
     setTab(t);
     setCountry(c);
-    router.replace(t === "country" ? `/sectors?tab=country&country=${c}` : "/sectors", { scroll: false });
+    setIdsState(i);
+    setFocus(g);
+    router.replace(url(t, c, i, g), { scroll: false });
+    if (t !== "sectors" || !g) window.scrollTo({ top: 0 });
   };
   if (error) return <p className="error">{error}</p>;
   if (!list) return <p className="muted">Loading…</p>;
@@ -210,10 +228,14 @@ function SectorsPage() {
     <div className="grid sector-page">
       <div className="title-row"><h1>Sectors</h1> <Help note="sectors" /></div>
       <div className="seg" role="tablist">
-        <button role="tab" aria-selected={tab === "sectors"} className={tab === "sectors" ? "on" : ""} onClick={() => go("sectors")}>One sector worldwide</button>
-        <button role="tab" aria-selected={tab === "country"} className={tab === "country" ? "on" : ""} onClick={() => go("country")}>By country</button>
+        {TABS.map(([t, label]) => (
+          <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>
+        ))}
       </div>
-      {tab === "sectors" ? <SectorsList list={list} /> : <ByCountry country={country} setCountry={(c) => go("country", c)} />}
+      {tab === "overview" ? <SectorsOverview list={list} openPrices={(i) => go("prices", country, i)} openGroup={(g) => go("sectors", country, ids, g)} />
+        : tab === "sectors" ? <SectorsList list={list} focus={focus} />
+        : tab === "prices" ? <CommodityPrices ids={ids} setIds={(i) => { setIdsState(i); router.replace(url("prices", country, i), { scroll: false }); }} />
+        : <ByCountry country={country} setCountry={(c) => go("country", c)} />}
     </div>
   );
 }

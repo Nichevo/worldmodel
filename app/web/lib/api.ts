@@ -888,6 +888,31 @@ export type SectorCard = {
   stages: { id: string; name: string; unit: string; exports: SectorLead; production: SectorLead }[];
 };
 export type SectorList = { groups: Record<string, string>; sectors: SectorCard[]; has_trade: boolean };
+// The Sectors overview and the Commodity prices tab.
+export type PriceStats = { date: string; value: number; m1: number | null; y1: number | null; y5: number | null; y10: number | null;
+  low10: number; high10: number; pos10: number; first: string; real_vs_1980?: number };
+export type PriceItem = PriceStats & { id: string; name: string; unit: string; decimals: number; spark: number[] };
+export type PriceGroup = { id: string; name: string; sector_group: string | null; index: PriceItem | null; items: PriceItem[] };
+export type TradeGroup = { id: string; name: string; year: number; value: number; since: number; then: number; sectors: number;
+  top: { entity_id: string; name: string; share: number }[] };
+export type SectorOverview = {
+  heads: { world_trade: { year: number; value: number; then_year: number; then: number } | null;
+    rises: PriceItem[]; falls: PriceItem[];
+    concentrated: { sector: string; name: string; stage: string; top: { entity_id: string; name: string; share: number | null } }[] };
+  board: PriceGroup[]; trade_groups: TradeGroup[];
+  nz: { sector: string; name: string; stage: string; share: number; rank: number; of: number; year: number; price_y1: number | null }[];
+  sectors: Record<string, {
+    trade: { year: number; value: number; since: number; then: number } | null; price: PriceItem | null;
+    makers: { stage: string; year: number; rows: { entity_id: string; name: string; share: number | null }[] } | null;
+    nz: { stage: string; what: "exports" | "production"; share: number; rank: number; of: number; year: number } | null }>;
+};
+export type PriceRow = PriceStats & { id: string; name: string; unit: string; decimals: number; source_id: string | null;
+  group: string; group_name: string; sectors: { id: string; name: string }[] };
+export type PricesTable = { items: PriceRow[]; groups: { id: string; name: string }[]; deflator: [number, number][] };
+export type PriceSeries = { series: { id: string; name: string; unit: string; points: [string, number][] }[]; deflator: [number, number][] };
+export type PriceSide = { entity_id: string; name: string; value: number; share: number | null; of_own: number | null };
+export type PriceTrade = { stage: string; stage_name: string; sector: string; sellers: PriceSide[]; buyers: PriceSide[];
+  sellers_year?: number; buyers_year?: number };
 export type SectorRoute = { from: string; from_name: string; to: string; to_name: string; value: number };
 export type SectorReliance = { entity_id: string; name: string; production: number; imports: number; exports: number; use: number; reliance: number };
 export type SectorStage = {
@@ -1209,6 +1234,10 @@ export const api = {
   protectedAreas: (b: { west: number; south: number; east: number; north: number; limit?: number }) =>
     get<GeoJSON.FeatureCollection>("/nature/protected", b),
   sectors: () => get<SectorList>("/sectors"),
+  sectorsOverview: () => get<SectorOverview>("/sectors/overview"),
+  sectorPrices: () => get<PricesTable>("/sectors/prices"),
+  sectorPriceSeries: (ids: string[]) => get<PriceSeries>("/sectors/prices/series", { ids: ids.join(",") }),
+  sectorPriceTrade: (id: string) => get<PriceTrade>(`/sectors/prices/${encodeURIComponent(id)}/trade`),
   sector: (id: string, q: { year?: number; country?: string } = {}) => get<SectorDetail>(`/sectors/${encodeURIComponent(id)}`, q),
   sectorsByCountry: (q: { country?: string; year?: number; since?: number }) => get<SectorsByCountry>("/sectors/by-country", q),
   relationPair: (x: string, y: string) => get<RelationDetail>("/relationships/pair", { x, y }),

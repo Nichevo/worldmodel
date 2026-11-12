@@ -15,7 +15,7 @@ from worldmodel_data.connectors.sectors import to_tonnes
 from worldmodel_data.vintage_store import VintageStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SOURCES = ("baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "iea_ev")
+SOURCES = ("baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "fao_ffpi", "anz_cpi", "iea_ev")
 
 
 @pytest.fixture(scope="module")
@@ -143,3 +143,46 @@ def test_wdi_main_maps_each_code_once():
     from worldmodel_data.connectors.world_bank_wdi import MAIN
     twice = [c for c, n in Counter(c for codes in MAIN.values() for c in codes).items() if n > 1]
     assert twice == []
+
+
+def test_pink_sheet_group_indexes(con):
+    assert value(con, "world", "pindex_energy", "2024-01-01") == pytest.approx(104.5)
+    assert value(con, "world", "pindex_non_energy", "2024-02-01") == pytest.approx(109.0)
+    assert value(con, "world", "pindex_food", "2024-01-01") == pytest.approx(120.3)
+    assert value(con, "world", "pindex_metals", "2024-01-01") == pytest.approx(105.4)
+    assert value(con, "world", "pindex_precious_metals", "1960-01-01") == pytest.approx(2.4)
+    unit, freq = con.execute("SELECT unit, frequency FROM indicators WHERE indicator_id = 'pindex_energy'").fetchone()
+    assert unit == "index, 2010 = 100" and freq == "M"
+
+
+def test_fao_food_price_index(con):
+    assert value(con, "world", "ffpi_food", "1990-01-01") == pytest.approx(64.4)
+    assert value(con, "world", "ffpi_dairy", "2026-10-01") == pytest.approx(117.8)
+    assert value(con, "world", "ffpi_oils", "1990-02-01") == pytest.approx(44.5)
+
+
+def test_anz_commodity_price_index(con):
+    assert value(con, "NZL", "anz_dairy", "2026-10-01") == pytest.approx(310.0)
+    assert value(con, "NZL", "anz_dairy_nzd", "2026-10-01") == pytest.approx(515.0)
+    assert value(con, "NZL", "anz_all", "1986-01-01") == pytest.approx(55.0)
+    assert value(con, "NZL", "anz_meat_nzd", "2026-09-01") == pytest.approx(640.0)
+    assert value(con, "NZL", "anz_aluminium", "2026-10-01") == pytest.approx(225.0)
+
+
+def test_anz_reads_other_layouts():
+    from datetime import datetime
+
+    from worldmodel_data.connectors.sectors import _month, anz_rows
+
+    # a sheet per currency, months as text
+    table = [["ANZ Commodity Price Index"], ["Month", "Overall index", "Dairy", "Meat", "Forestry"],
+             ["Jan-86", 100, 90, 80, 70], ["Feb 1986", 101, 91, 81, 71]]
+    got = {(i, d.isoformat()): v for i, d, v in anz_rows(table, "NZD index")}
+    assert got[("anz_all_nzd", "1986-01-01")] == 100 and got[("anz_forestry_nzd", "1986-02-01")] == 71
+    got = {(i, d.isoformat()): v for i, d, v in anz_rows(table, "World price index")}
+    assert got[("anz_dairy", "1986-01-01")] == 90
+    # two blocks with no currency said: the second is NZ dollars
+    table = [["Date", "Dairy", "Forestry", "Seafood", "Dairy", "Forestry", "Seafood"], [datetime(2020, 5, 1), 1, 2, 3, 4, 5, 6]]
+    got = {i: v for i, _, v in anz_rows(table)}
+    assert got == {"anz_dairy": 1, "anz_forestry": 2, "anz_seafood": 3, "anz_dairy_nzd": 4, "anz_forestry_nzd": 5, "anz_seafood_nzd": 6}
+    assert _month("2026M10").isoformat() == "2026-10-01" and _month("10/2026").month == 10 and _month("Oct-99").year == 1999

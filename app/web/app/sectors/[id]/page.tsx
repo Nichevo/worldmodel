@@ -286,9 +286,10 @@ function SectorPage() {
       {d.battery ? <Battery b={d.battery} /> : null}
       {d.prices.length ? (
         <div className="card">
-          <h3>Prices <Help note="sectors_prices" /></h3>
+          <div className="card-head"><h3>Prices <Help note="sectors_prices" /></h3>
+            <Link className="small" href={`/sectors?tab=prices&ids=${d.prices.map((p) => p.id).join(",")}`}>Compare with other prices, or after inflation</Link></div>
           <EChart option={prices} height={280} label={`${d.name} prices`} />
-          <p className="caption">Monthly, nominal US dollars (not adjusted for inflation). Source: World Bank Pink Sheet. Scroll on the chart to zoom.</p>
+          <p className="caption">Monthly, nominal (not adjusted for inflation). Source: World Bank Pink Sheet{d.prices.some((p) => !p.id.startsWith("price_")) ? ", FAO food price index, ANZ commodity price index (index numbers)" : ""}. Scroll on the chart to zoom.</p>
         </div>
       ) : null}
       {d.companies.length ? (

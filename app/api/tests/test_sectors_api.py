@@ -52,6 +52,14 @@ def add_sector_rows(path):
         put("world", "ev_sales_share", y, 14 + 2 * (y - 2021), src="iea_ev")
     for m in (1, 2):
         put("world", "price_aluminium", 2024, 2200 + m, src="wb_pinksheet", freq="M", month=m)
+    for y in range(2014, 2024):  # ten years of monthly prices: 2000 rising 10 a month
+        for m in range(1, 13):
+            put("world", "price_aluminium", y, 2000 + 10 * ((y - 2014) * 12 + m - 1), src="wb_pinksheet", freq="M", month=m)
+            put("world", "pindex_metals", y, 100 + (y - 2014), src="wb_pinksheet", freq="M", month=m)
+            put("world", "ffpi_dairy", y, 120 - (y - 2014), src="fao_ffpi", freq="M", month=m)
+            put("NZL", "anz_dairy", y, 300, src="anz_cpi", freq="M", month=m)
+    for y, v in ((1980, 10), (1981, 10)) + tuple((y, 2) for y in range(1982, 2025)):
+        put("USA", "inflation", y, v, src="imf_weo")
     put("AUS", "sr_bauxite", 2023, 3.5e9, src="usgs_mcs")
     con.executemany("INSERT INTO observations VALUES (" + ", ".join("?" * 10) + ")", rows)
     for src in sorted({r[6] for r in rows}):
@@ -61,11 +69,13 @@ def add_sector_rows(path):
             "sp_bauxite": ("tonnes", "usgs_mcs"), "sp_lithium_raw": ("tonnes", "usgs_mcs"), "sr_bauxite": ("tonnes", "usgs_mcs"),
             "sx_chips": ("US dollars", "baci"), "ev_sales_share": ("%", "iea_ev"), "price_aluminium": ("US$ per mt", "wb_pinksheet"),
             "tgx_04": ("US dollars", "baci"), "tgm_04": ("US dollars", "baci"), "tgx_44": ("US dollars", "baci"),
-            "tgm_44": ("US dollars", "baci"), "tgx_87": ("US dollars", "baci"), "tgm_87": ("US dollars", "baci")}
+            "tgm_44": ("US dollars", "baci"), "tgx_87": ("US dollars", "baci"), "tgm_87": ("US dollars", "baci"),
+            "pindex_metals": ("index, 2010 = 100", "wb_pinksheet"), "ffpi_dairy": ("index, 2014-2016 = 100", "fao_ffpi"),
+            "anz_dairy": ("index", "anz_cpi")}
     for i, (unit, src) in inds.items():
         con.execute("INSERT INTO indicators BY NAME SELECT ? AS indicator_id, ? AS name, '' AS description, 'trade' AS domain, "
                     "? AS unit, 0 AS decimals, ? AS frequency, '' AS breakdowns, 'none' AS agg_method, true AS default_on",
-                    [i, i.replace("_", " "), unit, "M" if i.startswith("price") else "A"])
+                    [i, i.replace("_", " "), unit, "M" if i.startswith(("price", "pindex", "ffpi", "anz")) else "A"])
         con.execute("INSERT INTO indicator_sources BY NAME SELECT ? AS indicator_id, ? AS source_id, ? AS series, 1.0 AS scale, 1 AS rank",
                     [i, src, i])
     con.execute("INSERT INTO indicator_sources BY NAME SELECT 'sp_bauxite' AS indicator_id, 'wmd' AS source_id, 'sp_bauxite' AS series, 1.0 AS scale, 2 AS rank")
@@ -117,7 +127,7 @@ def test_sector_page(client):
     alumina = r["stages"][1]
     assert alumina["country"]["series"]["imports"][-1] == [2023, 400e6]
     assert [p[0] for p in baux["unit_value"]] == [2021, 2022, 2023]
-    assert r["prices"][0]["id"] == "price_aluminium" and r["prices"][0]["points"][0] == ["2024-01", 2201.0]
+    assert r["prices"][0]["id"] == "price_aluminium" and r["prices"][0]["points"][-1] == ["2024-02", 2202.0]
     assert any(c.get("nz") for c in r["companies"])
     assert client.get("/api/v1/sectors/nothing").status_code == 404
 
@@ -144,3 +154,38 @@ def test_by_country(client):
     chips = next(s for s in r["stages"] if s["stage"] == "chips")
     assert chips["exports"]["rank"] == 3 and chips["exports"]["of"] == 3
     assert r["totals"][-1][0] == 2023
+
+
+def test_overview(client):
+    r = client.get("/api/v1/sectors/overview").json()
+    metals = next(g for g in r["board"] if g["id"] == "metals")
+    alu = next(x for x in metals["items"] if x["id"] == "price_aluminium")
+    assert alu["date"] == "2024-02" and alu["value"] == 2202
+    assert alu["pos10"] == 100 or alu["value"] < alu["high10"]  # Jan-Feb 2024 sit below Dec 2023's 3190
+    assert len(alu["spark"]) == 60 and alu["y1"] is not None
+    assert metals["index"]["id"] == "pindex_metals"
+    food = next(g for g in r["board"] if g["id"] == "food")
+    assert any(x["id"] == "ffpi_dairy" for x in food["items"])
+    nz = next(g for g in r["board"] if g["id"] == "nz")
+    assert nz["items"][0]["id"] == "anz_dairy"
+    # trade by group, per sector, makers and New Zealand
+    metals_trade = next(g for g in r["trade_groups"] if g["id"] == "metals")
+    assert metals_trade["value"] == pytest.approx((600e6 + 900e6) * 1.2) and metals_trade["top"][0]["name"]
+    assert r["sectors"]["aluminium"]["trade"]["year"] == 2023
+    assert r["sectors"]["aluminium"]["makers"]["rows"][0]["entity_id"] == "AUS"
+    assert r["sectors"]["dairy"]["price"]["id"] == "anz_dairy"
+    assert r["heads"]["world_trade"]["year"] == 2023
+    assert r["heads"]["concentrated"]
+
+
+def test_prices_table_series_and_trade(client):
+    t = client.get("/api/v1/sectors/prices").json()
+    alu = next(x for x in t["items"] if x["id"] == "price_aluminium")
+    assert alu["group"] == "metals" and alu["sectors"][0]["id"] == "aluminium" and "spark" not in alu
+    assert t["deflator"][0] == [1980, 1.0]
+    s = client.get("/api/v1/sectors/prices/series?ids=price_aluminium,anz_dairy,nonsense").json()
+    assert [x["id"] for x in s["series"]] == ["price_aluminium", "anz_dairy"]
+    assert s["series"][0]["points"][0] == ["2014-01", 2000]
+    tr = client.get("/api/v1/sectors/prices/price_aluminium/trade").json()
+    assert tr["stage"] == "bauxite" and tr["sellers"][0]["entity_id"] == "GIN"
+    assert client.get("/api/v1/sectors/prices/price_nothing/trade").status_code == 404

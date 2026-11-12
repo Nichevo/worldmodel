@@ -49,6 +49,21 @@ def prices() -> dict[str, str]:
     return _data()["sector_prices"]
 
 
+def price_indexes() -> dict[str, list[str]]:
+    """Pink Sheet group index id -> the headings or codes its column may carry."""
+    return _data().get("price_indexes", {})
+
+
+def price_board() -> list[dict]:
+    """The Sectors overview's price board, group by group."""
+    return _data().get("price_board", [])
+
+
+def price_ids(s: dict) -> list[str]:
+    """A sector's price indicators: its Pink Sheet prices, then any other series it names."""
+    return [f"price_{p}" for p in s.get("prices", [])] + list(s.get("price_series", []))
+
+
 def battery() -> dict:
     d = _data()
     return {"materials": d["battery_materials"], "sectors": d["battery_material_sectors"], "rules": d["battery_rules"]}
@@ -114,6 +129,9 @@ def validate() -> list[str]:
         for p in s.get("prices", []):
             if p not in prices():
                 problems.append(f"sectors: {s['id']} price {p} unknown")
+        for p in s.get("price_series", []):
+            if not str(p).startswith(("ffpi_", "anz_", "pindex_", "price_")):
+                problems.append(f"sectors: {s['id']} price series {p} unknown")
         ids = {st["id"] for st in s["stages"]}
         for st in s["stages"]:
             if st["id"] in seen:
@@ -127,4 +145,10 @@ def validate() -> list[str]:
                 problems.append(f"sectors: {s['id']} company {c['name']} step {c['step']} unknown")
             if c["country"] not in ents:
                 problems.append(f"sectors: {s['id']} company {c['name']} country {c['country']} unknown")
+    for g in price_board():
+        for p in g.get("prices", []):
+            if p not in prices():
+                problems.append(f"sectors: price board {g['id']} price {p} unknown")
+        if g.get("sector_group") and g["sector_group"] not in groups():
+            problems.append(f"sectors: price board {g['id']} group {g['sector_group']} unknown")
     return problems

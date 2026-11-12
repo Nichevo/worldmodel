@@ -30,6 +30,15 @@ wb_pinksheet
     World Bank commodity prices (the Pink Sheet), monthly since 1960, in US$: one
     indicator per price, on the "world" entity.
 
+fao_ffpi
+    FAO Food Price Index, monthly since 1990 (2014-2016 = 100): the whole index and its
+    meat, dairy, cereals, oils and sugar parts, on the "world" entity.
+
+anz_cpi
+    ANZ Commodity Price Index: New Zealand's export prices since 1986, overall and by
+    sector (dairy, meat, forestry, horticulture, seafood, aluminium), in world prices and
+    in New Zealand dollars, on the NZL entity.
+
 iea_ev
     IEA Global EV Data: electric car sales and stock by country since 2010 (sales share,
     battery-electric and plug-in hybrid sales), the "Electric shift" on the Cars page.
@@ -594,7 +603,7 @@ PINK_PAGE = "https://www.worldbank.org/en/research/commodity-markets"
 
 class PinkSheet(Connector):
     source_id = "wb_pinksheet"
-    stage_version = 2  # 2: the sectors added in version 4
+    stage_version = 3  # 2: the sectors added in version 4; 3: group indexes (Monthly Indices sheet)
     fetch_every_days = 25
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -621,16 +630,281 @@ class PinkSheet(Connector):
         points, units = pink_prices(xlsx_rows(files[-1], sheet))
         if not points:
             raise ConnectorError("wb_pinksheet: no prices read; the sheet layout may have changed")
-        con.execute("CREATE TABLE pink (pid VARCHAR, d DATE, v DOUBLE)")
+        points = [("price_" + pid, d, v) for pid, d, v in points]
+        idx_sheet = next((n for n in names if key(n) == "monthlyindices"), None)
+        indexes = pink_indexes(xlsx_rows(files[-1], idx_sheet)) if idx_sheet else []
+        points += [("pindex_" + pid, d, v) for pid, d, v in indexes]
+        con.execute("CREATE TABLE pink (ind VARCHAR, d DATE, v DOUBLE)")
         con.executemany("INSERT INTO pink VALUES (?, ?, ?)", points)
         self.listed_indicators = [indicator(f"price_{pid}", f"{label.strip()} price", f"World Bank commodity price: {label.strip()}, monthly.",
                                             units.get(pid, "US$"), "prices", self.source_id, f"price_{pid}", decimals=2,
                                             frequency="M", default_on=False, bounds=(0, 1e7),
                                             notes="World Bank Commodity Price Data (The Pink Sheet), nominal US$.")
                                   for pid, label in sec.prices().items() if pid in units]
+        found = {pid for pid, _, _ in indexes}
+        self.listed_indicators += [indicator(f"pindex_{pid}", f"{PINK_INDEX_NAMES.get(pid, pid)} price index (World Bank)",
+                                             f"World Bank commodity price index for {PINK_INDEX_NAMES.get(pid, pid).lower()}, monthly, in nominal US dollars.",
+                                             "index, 2010 = 100", "prices", self.source_id, f"pindex_{pid}", decimals=1,
+                                             frequency="M", default_on=False, bounds=(0, 10000),
+                                             notes="World Bank Commodity Price Data (The Pink Sheet), Monthly Indices sheet.")
+                                   for pid in sec.price_indexes() if pid in found]
         return (f"SELECT {sql_str(self.source_id)} AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, 'world' AS source_code, "
-                "'price_' || pid AS indicator_id, d AS period_start, 'M' AS freq, '' AS breakdown, 'central' AS variant, "
+                "ind AS indicator_id, d AS period_start, 'M' AS freq, '' AS breakdown, 'central' AS variant, "
                 "v AS value, 'E' AS status FROM pink")
+
+
+PINK_INDEX_NAMES = {"energy": "Energy", "non_energy": "Non-energy", "agriculture": "Agriculture", "food": "Food",
+                    "beverages": "Drinks (coffee, cocoa, tea)", "raw_materials": "Raw materials (timber, cotton, rubber)",
+                    "fertilizers": "Fertiliser", "metals": "Metals and minerals", "precious_metals": "Precious metals"}
+
+
+def _month(cell) -> "date | None":
+    """A month from "1960M01", a date cell, "Jan-86", "Jan 1986", "1986-01" or "01/1986"."""
+    from datetime import date
+    if cell is None:
+        return None
+    if isinstance(cell, datetime):
+        return date(cell.year, cell.month, 1)
+    if hasattr(cell, "year") and hasattr(cell, "month"):
+        return date(cell.year, cell.month, 1)
+    t = str(cell).strip()
+    m = re.fullmatch(r"(\d{4})M(\d{2})", t) or re.fullmatch(r"(\d{4})-(\d{1,2})(?:-\d{1,2})?(?:[ T].*)?", t)
+    if m:
+        return date(int(m.group(1)), int(m.group(2)), 1) if 1 <= int(m.group(2)) <= 12 else None
+    m = re.fullmatch(r"(\d{1,2})/(\d{4})", t)
+    if m and 1 <= int(m.group(1)) <= 12:
+        return date(int(m.group(2)), int(m.group(1)), 1)
+    m = re.fullmatch(r"([A-Za-z]{3})[a-z]*[-\s']+(\d{2}|\d{4})", t)
+    if m:
+        mon = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+        k = m.group(1).lower()
+        if k in mon:
+            y = int(m.group(2))
+            y = y + (1900 if y >= 50 else 2000) if y < 100 else y
+            return date(y, mon.index(k) + 1, 1)
+    return None
+
+
+def pink_indexes(table: list[list]) -> list[tuple]:
+    """The Monthly Indices sheet: monthly rows under several heading rows (names, codes, base
+    year); a column is taken when any heading cell above it matches an index sectors.yaml names."""
+    first = next((i for i, r in enumerate(table) if r and re.fullmatch(r"\d{4}M\d{2}", str(r[0] or "").strip())), None)
+    if first is None:
+        return []
+    want = {pid: {key(a) for a in alts} for pid, alts in sec.price_indexes().items()}
+    cols: dict[str, int] = {}
+    width = max(len(r) for r in table[:first]) if first else 0
+    for j in range(1, width):
+        heads = {key(str(r[j] or "").replace("*", "")) for r in table[:first] if j < len(r) and r[j]}
+        pid = next((p for p, alts in want.items() if heads & alts and p not in cols), None)
+        if pid:
+            cols[pid] = j
+    out = []
+    for r in table[first:]:
+        d = _month(r[0] if r else None)
+        if d is None:
+            continue
+        for pid, j in cols.items():
+            v = num(r[j]) if j < len(r) else None
+            if v is not None:
+                out.append((pid, d, v))
+    return out
+
+
+# ----------------------------------------------------------------------------- FAO food price index
+FFPI_PAGE = "https://www.fao.org/worldfoodsituation/foodpricesindex/en/"
+FFPI_PARTS = {"foodpriceindex": ("food", "Food"), "meat": ("meat", "Meat"), "dairy": ("dairy", "Dairy"),
+              "cereals": ("cereals", "Cereals"), "oils": ("oils", "Vegetable oils"), "sugar": ("sugar", "Sugar")}
+
+
+class FAOFoodPrices(Connector):
+    source_id = "fao_ffpi"
+    stage_version = 1
+    fetch_every_days = 25
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y-%m")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        r = self.client.get(FFPI_PAGE)
+        links = re.findall(r'href="([^"]*food_price_indices_data[^"]*\.csv[^"]*)"', r.text, re.I)
+        if not links:
+            raise ConnectorError("fao_ffpi: no link to the monthly CSV (food_price_indices_data.csv) on the FAO food price index page")
+        url = links[0].replace("&amp;", "&")
+        url = url if url.startswith("http") else "https://www.fao.org" + url
+        self.get(url, raw_dir / "food_price_indices_data.csv")
+        return url
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        files = sorted(raw_dir.glob("*.csv"))
+        if not files:
+            raise ConnectorError(f"fao_ffpi: no .csv in {raw_dir}")
+        text = files[-1].read_bytes().decode("utf-8-sig", errors="replace")
+        points = ffpi_rows(list(csv.reader(io.StringIO(text))))
+        if not points:
+            raise ConnectorError("fao_ffpi: no index values read; the CSV layout may have changed")
+        con.execute("CREATE TABLE ffpi (ind VARCHAR, d DATE, v DOUBLE)")
+        con.executemany("INSERT INTO ffpi VALUES (?, ?, ?)", points)
+        found = {i for i, _, _ in points}
+        self.listed_indicators = [
+            indicator(f"ffpi_{pid}", "FAO Food Price Index" if pid == "food" else f"{label} price index (FAO)",
+                      "World food prices, monthly, nominal (FAO)." if pid == "food" else f"FAO {label.lower()} price index, monthly, nominal.",
+                      "index, 2014-2016 = 100", "prices", self.source_id, f"ffpi_{pid}", decimals=1, frequency="M",
+                      default_on=pid == "food", bounds=(0, 10000), notes="FAO Food Price Index, nominal, 2014-2016 = 100.")
+            for pid, label in FFPI_PARTS.values() if f"ffpi_{pid}" in found]
+        return (f"SELECT {sql_str(self.source_id)} AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, 'world' AS source_code, "
+                "ind AS indicator_id, d AS period_start, 'M' AS freq, '' AS breakdown, 'central' AS variant, v AS value, 'E' AS status FROM ffpi")
+
+
+def ffpi_rows(table: list[list]) -> list[tuple]:
+    """Rows of "1990-01,64.4,74.3,..." under a "Date,Food Price Index,Meat,Dairy,..." heading.
+    Only the first block is read when the file puts real indices beside the nominal ones."""
+    head_i = next((i for i, r in enumerate(table) if r and key(r[0]) == "date"), None)
+    if head_i is None:
+        return []
+    cols: dict[str, int] = {}
+    for j, c in enumerate(table[head_i]):
+        part = FFPI_PARTS.get(key(c))
+        if part and f"ffpi_{part[0]}" not in cols:
+            cols[f"ffpi_{part[0]}"] = j
+    out = []
+    for r in table[head_i + 1:]:
+        d = _month(r[0] if r else None)
+        if d is None:
+            continue
+        for ind, j in cols.items():
+            v = num(r[j]) if j < len(r) else None
+            if v is not None:
+                out.append((ind, d, v))
+    return out
+
+
+# ----------------------------------------------------------------------------- ANZ commodity price index
+ANZ_PAGE = "https://www.anz.co.nz/about-us/economic-markets-research/commodity-price-index/"
+ANZ_FILE = "https://www.anz.co.nz/content/dam/anzconz/documents/economics-and-market-research/Index_for_publication.xlsx"
+# heading words -> (id, name); the first that a heading starts with or contains wins
+ANZ_PARTS = [("dairy", "dairy", "Dairy"), ("meat", "meat", "Meat, skins and wool"), ("horti", "horticulture", "Horticulture"),
+             ("fruit", "horticulture", "Horticulture"), ("forest", "forestry", "Forestry"), ("seafood", "seafood", "Seafood"),
+             ("fish", "seafood", "Seafood"), ("alumin", "aluminium", "Aluminium"), ("overall", "all", "All commodities"),
+             ("allcommod", "all", "All commodities"), ("total", "all", "All commodities"), ("index", "all", "All commodities"),
+             ("all", "all", "All commodities")]
+ANZ_NAMES = {i: n for _, i, n in ANZ_PARTS}
+
+
+def _anz_part(cell) -> str | None:
+    k = key(cell)
+    if not k or k in ("date", "month", "period"):
+        return None
+    return next((i for w, i, _ in ANZ_PARTS if k.startswith(w) or (len(w) > 4 and w in k)), None)
+
+
+def _anz_nzd(text: str) -> bool | None:
+    """True for New Zealand dollar prices, False for world prices, None when it does not say."""
+    t = str(text or "").lower()
+    if re.search(r"\bnzd\b|nz\$|new zealand dollar|nz dollar|local currency", t):
+        return True
+    if re.search(r"\bworld\b|\busd\b|us\$|foreign currency|international price", t):
+        return False
+    return None
+
+
+class ANZCommodityPrices(Connector):
+    source_id = "anz_cpi"
+    stage_version = 1
+    fetch_every_days = 25
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y-%m")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        url = ANZ_FILE
+        try:
+            r = self.client.get(ANZ_PAGE)
+            links = re.findall(r'href="([^"]+\.xlsx)"', r.text, re.I)
+            if links:
+                url = links[0] if links[0].startswith("http") else "https://www.anz.co.nz" + links[0]
+        except Exception as e:  # the page is only for finding the link; the known file address is tried anyway
+            log.info("anz_cpi: page not read (%s); trying the file address", e)
+        self.get(url, raw_dir / "Index_for_publication.xlsx")
+        return url
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        files = sorted(raw_dir.glob("*.xlsx"))
+        if not files:
+            raise ConnectorError(f"anz_cpi: no .xlsx in {raw_dir}")
+        points = []
+        for name in xlsx_sheet_names(files[-1]):
+            points += anz_rows(xlsx_rows(files[-1], name), name)
+        seen, uniq = set(), []
+        for p in points:  # one value per index and month: the first sheet that has it
+            if (p[0], p[1]) not in seen:
+                seen.add((p[0], p[1]))
+                uniq.append(p)
+        if not uniq:
+            raise ConnectorError("anz_cpi: no index values read; the spreadsheet layout may have changed")
+        con.execute("CREATE TABLE anz (ind VARCHAR, d DATE, v DOUBLE)")
+        con.executemany("INSERT INTO anz VALUES (?, ?, ?)", uniq)
+        found = {i for i, _, _ in uniq}
+        self.listed_indicators = []
+        for pid, label in ANZ_NAMES.items():
+            for nzd in (False, True):
+                ind = f"anz_{pid}" + ("_nzd" if nzd else "")
+                if ind in found:
+                    self.listed_indicators.append(indicator(
+                        ind, f"NZ export prices: {label.lower()}" + (" (NZ$)" if nzd else ""),
+                        f"ANZ Commodity Price Index, {label.lower()}, monthly, " + ("in New Zealand dollars." if nzd else "in world prices."),
+                        "index", "prices", self.source_id, ind, decimals=1, frequency="M", default_on=pid == "all",
+                        bounds=(0, 10000), notes="ANZ Commodity Price Index (New Zealand)."))
+        return (f"SELECT {sql_str(self.source_id)} AS source_id, {sql_str(vintage)} AS vintage, 'iso3' AS scheme, 'NZL' AS source_code, "
+                "ind AS indicator_id, d AS period_start, 'M' AS freq, '' AS breakdown, 'central' AS variant, v AS value, 'E' AS status FROM anz")
+
+
+def anz_rows(table: list[list], sheet: str = "") -> list[tuple]:
+    """One sheet of the ANZ index file: a date column and a heading row naming the sectors.
+    World and NZ dollar prices are told apart by a heading above (or the sheet's name); a
+    second block of the same sectors with nothing saying which is taken as NZ dollars."""
+    first = next((i for i, r in enumerate(table) if r and any(_month(c) for c in r[:2])), None)
+    if first is None:
+        return []
+    dcol = 0 if _month(table[first][0]) else 1
+    head_i = next((i for i in range(first - 1, -1, -1) if sum(bool(_anz_part(c)) for c in table[i]) >= 3), None)
+    if head_i is None:
+        return []
+    head = table[head_i]
+    sheet_nzd = _anz_nzd(sheet)
+    cols: dict[str, int] = {}
+    for j, c in enumerate(head):
+        if j == dcol:
+            continue
+        part = _anz_part(c)
+        if not part:
+            continue
+        # what the cells above (and the heading itself) say about the currency, nearest first
+        above = [str(c)] + [str(table[i][k]) for i in range(head_i - 1, -1, -1) for k in range(j, -1, -1)
+                            if k < len(table[i]) and table[i][k]][:1]
+        nzd = next((x for x in (_anz_nzd(t) for t in above) if x is not None), sheet_nzd)
+        ind = f"anz_{part}"
+        if nzd is None:
+            nzd = ind in cols  # same sector seen already: the second block
+        ind += "_nzd" if nzd else ""
+        if ind not in cols:
+            cols[ind] = j
+    out = []
+    for r in table[first:]:
+        d = _month(r[dcol] if dcol < len(r) else None)
+        if d is None:
+            continue
+        for ind, j in cols.items():
+            v = num(r[j]) if j < len(r) else None
+            if v is not None:
+                out.append((ind, d, v))
+    return out
 
 
 def pink_prices(table: list[list]) -> tuple[list[tuple], dict[str, str]]:
