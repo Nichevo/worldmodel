@@ -29,7 +29,8 @@ const INTRO: Record<Tab, string> = {
   cartogram: "Each country as a circle or square sized by a figure, placed near where it is, nudged apart so none overlap. Play runs through the years.",
   sizes: "A world total told in countries: each step's growth set beside the country whose whole economy (or people, or emissions) is about that size, and how many New Zealands it makes.",
 };
-const GHOST_COLOURS = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-6", "--series-7"];
+// strong, fixed colours so the moved shapes stand out over the base map in light and dark themes
+const GHOST_COLOURS = ["#c62828", "#1f4fa8", "#d98a00", "#2e7d32", "#7b2f94", "#00838f"];
 type Ghost = { id: string; name: string; at: [number, number] };
 const START: Ghost[] = [{ id: "NZL", name: "New Zealand", at: [-2, 54] }, { id: "GRL", name: "Greenland", at: [20, 4] }];
 
@@ -87,7 +88,7 @@ function TrueSize() {
   const data = useMemo((): GeoJSON.FeatureCollection => ({
     type: "FeatureCollection",
     features: ghosts.filter((g) => shapes[g.id]).map((g, i) => ({
-      type: "Feature", id: i, properties: { i, color: cssVar(GHOST_COLOURS[i % GHOST_COLOURS.length]), label: g.name },
+      type: "Feature", id: i, properties: { i, color: GHOST_COLOURS[i % GHOST_COLOURS.length], label: g.name },
       geometry: { type: "MultiPolygon", coordinates: moveTo(shapes[g.id].polys, shapes[g.id].centre, g.at) },
     })),
   }), [ghosts, shapes]);
@@ -95,15 +96,20 @@ function TrueSize() {
     if (!map) return;
     const put = () => {
       const src = map.getSource("ts") as GeoJSONSource | undefined;
-      if (src) { src.setData(data); return; }
+      if (src) { src.setData(data); for (const l of ["ts-fill", "ts-casing", "ts-line"]) if (map.getLayer(l)) map.moveLayer(l); return; }
       map.addSource("ts", { type: "geojson", data });
-      map.addLayer({ id: "ts-fill", type: "fill", source: "ts", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.45 } });
-      map.addLayer({ id: "ts-line", type: "line", source: "ts", paint: { "line-color": ["get", "color"], "line-width": 2 } });
+      map.addLayer({ id: "ts-fill", type: "fill", source: "ts", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.62 } });
+      map.addLayer({ id: "ts-casing", type: "line", source: "ts", paint: { "line-color": "#111", "line-width": 4, "line-opacity": 0.55 } });
+      map.addLayer({ id: "ts-line", type: "line", source: "ts", paint: { "line-color": ["get", "color"], "line-width": 2.2 } });
     };
     // Once the shapes are on the map, new data goes straight in: waiting for the map to be
     // "loaded" or "idle" again could wait for ever while base map tiles are slow or offline.
-    if (map.getSource("ts") || map.getLayer("fill")) put();
-    else map.once("idle", put);
+    // Base map tiles that never arrive (offline, blocked) must not hold the shapes back, so check the style itself.
+    // The countries must be drawn first, or they would cover the shapes.
+    const ready = () => !!map.getSource("ts") || !!map.getLayer("selected");
+    if (ready()) { put(); return; }
+    const t = setInterval(() => { if (ready()) { clearInterval(t); put(); } }, 250);
+    return () => clearInterval(t);
   }, [map, data]);
   useEffect(() => { // dragging a shape
     if (!map) return;
@@ -156,7 +162,7 @@ function TrueSize() {
         <tbody>
           {ghosts.map((g, i) => (
             <tr key={g.id}>
-              <td><span className="swatch" style={{ background: cssVar(GHOST_COLOURS[i % GHOST_COLOURS.length]) }} /> {g.name}</td>
+              <td><span className="swatch" style={{ background: GHOST_COLOURS[i % GHOST_COLOURS.length] }} /> {g.name}</td>
               <td className="num">{shapes[g.id] ? `${compact(shapes[g.id].area)} km²` : "–"}</td>
               <td className="num">{g.at[1].toFixed(0)}°</td>
               <td className="num">{mercatorStretch(g.at[1]).toFixed(1)}×</td>
@@ -180,26 +186,49 @@ function useYearValues(indicator: string, year: number) {
   return values;
 }
 
+// The longitude in the middle of the flat maps: starts from Settings (Pacific or Atlantic), changeable here.
+const CENTRES: [string, number][] = [["Pacific", 150], ["New Zealand", 175], ["Americas", -90], ["Atlantic", 0], ["Europe and Africa", 20], ["Asia", 100]];
+function useCentre(): [number, React.ReactNode] {
+  const { map_centre } = useSettings();
+  const [centre, setCentre] = useState<number | null>(null);
+  const c = centre ?? (map_centre === "atlantic" ? 0 : 150);
+  const named = CENTRES.find(([, v]) => v === c);
+  const picker = (
+    <label className="small" title="The longitude in the middle of the map">Centre on{" "}
+      <select value={named ? String(c) : "own"} onChange={(e) => e.target.value !== "own" && setCentre(Number(e.target.value))}>
+        {CENTRES.map(([n, v]) => <option key={n} value={v}>{n}</option>)}
+        {!named && <option value="own">{c > 0 ? `${c}° E` : c < 0 ? `${-c}° W` : "0°"}</option>}
+      </select>{" "}
+      <input type="range" min={-180} max={180} step={5} value={c} onChange={(e) => setCentre(Number(e.target.value))} style={{ width: 110, verticalAlign: "middle" }} aria-label="Centre longitude" />
+    </label>
+  );
+  return [c, picker];
+}
+
 function usePaths(width: number, centre: number) {
   const [paths, setPaths] = useState<{ id: string; name: string; d: string; c: [number, number] }[]>([]);
   useEffect(() => {
     const scale = width / EE_W;
-    Promise.all([countryShapes(), countryCentres()]).then(([fc, cs]) => setPaths(fc.features.flatMap((f) => {
+    Promise.all([countryShapes(), countryCentres()]).then(([fc, cs]) => setPaths(Object.values(fc.features.flatMap((f) => {
       const p = f.properties as { iso3?: string; name?: string } | null;
       if (!p?.iso3) return [];
       const c = cs[p.iso3] ?? [0, 0];
       const [x, y] = equalEarth(c[0], c[1], centre);
       return [{ id: p.iso3, name: p.name ?? p.iso3, d: eePath(polygons(f.geometry), centre, scale, width / 2, (EE_H * scale) / 2), c: [width / 2 + x * scale, (EE_H * scale) / 2 + y * scale] as [number, number] }];
-    })));
+    }).reduce((acc, p) => { // territories that share a code (Ashmore and Cartier Islands are AUS) join their country
+      if (acc[p.id]) acc[p.id] = { ...acc[p.id], d: acc[p.id].d + p.d };
+      else acc[p.id] = p;
+      return acc;
+    }, {} as Record<string, { id: string; name: string; d: string; c: [number, number] }>))));
   }, [width, centre]);
   return paths;
 }
 
 const W = 1000;
+const MAX_R = 80; // the biggest bubble on the cartogram
 
 function EqualArea({ indicators }: { indicators: Indicator[] }) {
-  const { map_centre } = useSettings();
-  const centre = map_centre === "atlantic" ? 0 : 150;
+  const [centre, centrePicker] = useCentre();
   const [indicator, setIndicator] = useState("pop_density");
   const [year, setYear] = useState(new Date().getFullYear() - 2);
   const values = useYearValues(indicator, year);
@@ -222,6 +251,7 @@ function EqualArea({ indicators }: { indicators: Indicator[] }) {
       <div className="chips-row" style={{ gap: 10, flexWrap: "wrap", alignItems: "end", marginBottom: 8 }}>
         <label className="small">Colour by <IndicatorSelect indicators={indicators} value={indicator} onChange={setIndicator} /></label>
         <label className="small">Year <input type="number" value={year} min={1950} max={2100} onChange={(e) => setYear(Number(e.target.value))} style={{ width: 80 }} /></label>
+        {centrePicker}
       </div>
       <div className="card">
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Equal-area world map">
@@ -235,7 +265,7 @@ function EqualArea({ indicators }: { indicators: Indicator[] }) {
             ))}
           </g>
         </svg>
-        <p className="caption">{ind?.name ?? indicator}, {year}. Equal Earth projection (Šavrič, Patterson and Jenny, 2018), centred on {centre ? "the Pacific" : "Greenwich"}.</p>
+        <p className="caption">{ind?.name ?? indicator}, {year}. Equal Earth projection (Šavrič, Patterson and Jenny, 2018), centred on {CENTRES.find(([, v]) => v === centre)?.[0] ?? (centre > 0 ? `${centre}° E` : centre < 0 ? `${-centre}° W` : "Greenwich")}.</p>
       </div>
     </>
   );
@@ -249,9 +279,8 @@ type Range = { years: number[]; last_estimate_year: number | null; rows: Record<
 // Hover a country for its line through the years (projections dashed); the strip under the map adds
 // them all up and is where the year is chosen.
 function Cartogram({ indicators }: { indicators: Indicator[] }) {
-  const { map_centre } = useSettings();
   const router = useRouter();
-  const centre = map_centre === "atlantic" ? 0 : 150;
+  const [centre, centrePicker] = useCentre();
   const [indicator, setIndicator] = useState("pop_total");
   const [year, setYear] = useState(new Date().getFullYear() - 1);
   const [shape, setShape] = useState<"circle" | "square">("circle");
@@ -287,10 +316,33 @@ function Cartogram({ indicators }: { indicators: Indicator[] }) {
     if (range && yi >= 0) for (const [id, vs] of Object.entries(range.rows)) { const v = vs[yi]; if (v !== null && v > 0) out[id] = v; }
     return out;
   }, [range, yi]);
-  const top = useMemo(() => Math.max(1, ...Object.values(range?.rows ?? {}).flatMap((vs) => vs.filter((v): v is number => v !== null))), [range]);
   const H = EE_H * (W / EE_W);
-  const bubbles = useMemo(() => dorling(paths.filter((p) => values[p.id] > 0).map((p) => ({ id: p.id, x: p.c[0], y: p.c[1], value: values[p.id] })),
-    fixed ? 75 : 70, 120, [W, H], fixed ? top : undefined), [paths, values, fixed, top, H]);
+  // Size the bubbles so that together they cover about a fifth of the map, whatever the figure:
+  // with "same scale" that is in the year with the biggest total, so other years are smaller.
+  // The biggest bubble is held to MAX_R so one giant (or a figure where every country is near the top) can't fill the map.
+  const ids = useMemo(() => new Set(paths.map((p) => p.id)), [paths]);
+  const shareOf = (vals: number[]) => {
+    const tot = vals.reduce((s, v) => s + v, 0), big = Math.max(0, ...vals);
+    if (tot <= 0 || big <= 0) return null;
+    const k = Math.min(Math.sqrt((0.2 * W * H) / (Math.PI * tot)), MAX_R / Math.sqrt(big)); // radius = k * sqrt(value)
+    return { k, top: big };
+  };
+  const fixedScale = useMemo(() => {
+    if (!range) return null;
+    let best: { k: number; top: number } | null = null;
+    range.years.forEach((_, i) => {
+      const vals = Object.entries(range.rows).filter(([id]) => ids.has(id)).map(([, vs]) => vs[i]).filter((v): v is number => v !== null && v > 0);
+      const s = shareOf(vals);
+      if (s && (!best || s.k < best.k)) best = s;
+    });
+    return best;
+  }, [range, ids]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bubbles = useMemo(() => {
+    const items = paths.filter((p) => values[p.id] > 0).map((p) => ({ id: p.id, x: p.c[0], y: p.c[1], value: values[p.id] }));
+    const s = fixed && fixedScale ? fixedScale : shareOf(items.map((i) => i.value));
+    if (!s) return [];
+    return dorling(items, s.k * Math.sqrt(s.top), 120, [W, H], s.top);
+  }, [paths, values, fixed, fixedScale, H]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = [...new Set(Object.values(continents))].sort();
   const colourOf = (id: string) => cssVar(`--series-${(groups.indexOf(continents[id]) % 7) + 1}`) || "#888";
   const names = Object.fromEntries(paths.map((p) => [p.id, p.name]));
@@ -333,7 +385,8 @@ function Cartogram({ indicators }: { indicators: Indicator[] }) {
           {(["circle", "square"] as const).map((v) => <button key={v} className={shape === v ? "on" : ""} aria-pressed={shape === v} onClick={() => setShape(v)}>{v === "circle" ? "Circles" : "Squares"}</button>)}
         </div>
         <label className="small"><input type="checkbox" checked={land} onChange={(e) => setLand(e.target.checked)} /> Map underneath</label>
-        <label className="small" title="Same for every year: circles grow as the figure grows. Biggest this year: the largest country is always the same size."><input type="checkbox" checked={fixed} onChange={(e) => setFixed(e.target.checked)} /> Same scale every year</label>
+        {centrePicker}
+        <label className="small" title="Same for every year: circles grow as the figure grows. Off: bubbles are scaled to fit each year on its own."><input type="checkbox" checked={fixed} onChange={(e) => setFixed(e.target.checked)} /> Same scale every year</label>
         <button onClick={() => { if (yi >= years.length - 1) setYear(years[0]); setPlaying(!playing); }}>{playing ? "Pause" : "Play"}</button>
       </div>
       <div className="card" style={{ position: "relative" }} onMouseLeave={() => setTip(null)}>
@@ -380,7 +433,7 @@ function Cartogram({ indicators }: { indicators: Indicator[] }) {
         <div className="chips-row small" style={{ gap: 12, flexWrap: "wrap" }}>
           {groups.map((g, i) => <span key={g}><span className="swatch round" style={{ background: cssVar(`--series-${(i % 7) + 1}`) }} /> {g}</span>)}
         </div>
-        <p className="caption">{ind?.name ?? indicator}, {year}{isProj(year) ? " (projection)" : ""}. Area in proportion to the figure{fixed ? ", on one scale for every year" : ", the largest always the same size"}; countries without a figure that year are left out. Click a country for its page.</p>
+        <p className="caption">{ind?.name ?? indicator}, {year}{isProj(year) ? " (projection)" : ""}. Area in proportion to the figure{fixed ? ", on one scale for every year" : ", scaled to fit this year"}; countries without a figure that year are left out. Click a country for its page.</p>
       </div>
     </>
   );
