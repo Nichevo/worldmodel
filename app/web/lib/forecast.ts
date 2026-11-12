@@ -5,6 +5,7 @@
 // for a single country, each forecaster's own latest projections (IMF, OECD, World
 // Bank). Settings: Forecasts (how far ahead, which ranges, forecasters on or off).
 import type { CustomSeriesRenderItemAPI, CustomSeriesRenderItemParams, EChartsOption, SeriesOption } from "echarts";
+import { entityColors } from "@/lib/look";
 import { useEffect, useState } from "react";
 import { api, type Forecast } from "@/lib/api";
 import { seriesColor } from "@/lib/colors";
@@ -62,10 +63,11 @@ export function withForecast(o: EChartsOption, set: ForecastSet | null, entities
   const labels = new Map<string, string>();
   const fmt = new Map<string, (v: number) => string>();
   const single = entities.length === 1;
+  const colors = entityColors(entities.map((e) => e.id));
   entities.forEach((e, i) => {
     const f = set.byEntity.get(e.id);
     if (!f) return;
-    const color = seriesColor(i);
+    const color = colors[i];
     const start: [number, number, number] = [f.history_end, f.last_value, f.last_value];
     const show = (v: number) => formatValue(v, f.unit, f.decimals);
     if (ranges === "80+95" && single) {

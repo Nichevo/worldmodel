@@ -21,6 +21,10 @@ def test_meta_says_sample(client):
 def test_profile_and_series(client):
     prof = {r["indicator_id"]: r for r in client.get("/api/v1/entities/NZL/profile").json()}
     assert prof["pop_total"]["value"] > 4e6
+    pop = prof["pop_total"]  # headline tile extras: ten-year trend, rank among countries, which way is better
+    assert 2 <= len(pop["trend"]) <= 11 and pop["trend"][-1][0] == int(pop["period"])
+    assert pop["rank"] and pop["of"] > 100 and pop["rank"] <= pop["of"]
+    assert pop["better"] == "neither" and prof["life_expectancy"]["better"] == "higher"
     rows = client.get("/api/v1/series", params={"indicator": "tfr", "entities": "JPN,eu", "start": 2000, "end": 2030}).json()["rows"]
     assert {r["entity_id"] for r in rows} == {"JPN", "eu"}
     assert any(r["status"] == "P" for r in rows)

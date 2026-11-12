@@ -5,6 +5,7 @@ import type { EChartsOption, SeriesOption } from "echarts";
 import type { SeriesRow } from "@/lib/api";
 import { cssVar, seriesColor } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
+import { entityColors, look, shortValue } from "@/lib/look";
 
 export type Named = { id: string; name: string };
 
@@ -78,14 +79,17 @@ export type Layer = { id: string; name: string; unit: string; decimals: number; 
 // the left axis; one other unit gets a right axis (callers keep it to two units).
 // Each series is named "entity|indicator" so hover can find its entity.
 export function linesOption(layers: Layer[], entities: Named[]): EChartsOption {
-  const names = new Map(entities.map((e) => [e.id, e.name]));
   const multi = layers.length > 1;
   const units = [...new Set(layers.map((l) => l.unit))].slice(0, 2);
   const series: SeriesOption[] = [];
   const labels = new Map<string, string>();
   const fmt = new Map<string, (v: number) => string>();
+  // One indicator: each entity keeps its own colour (NZ, Australia, the UK and the US always the same).
+  const fixed = multi ? null : entityColors(entities.map((e) => e.id));
   let n = 0;
-  for (const e of entities) {
+  let projFrom: number | null = null, lastYear = -Infinity;
+  const ends: { key: string; text: string }[] = [];
+  for (const [ei, e] of entities.entries()) {
     for (const l of layers) {
       const key = `${e.id}|${l.id}`;
       labels.set(key, multi ? (entities.length > 1 ? `${e.name} · ${l.name}` : l.name) : e.name);
@@ -96,19 +100,39 @@ export function linesOption(layers: Layer[], entities: Named[]): EChartsOption {
       // Start the dashed line at the last estimate so the two parts join.
       const proj = projRows.length && est.length ? [est[est.length - 1], ...projRows.map((p) => [+p.period, p.value])]
         : projRows.map((p) => [+p.period, p.value]);
-      const base = { type: "line" as const, name: key, showSymbol: false, symbolSize: 8, color: seriesColor(n++),
+      if (projRows.length) projFrom = Math.min(projFrom ?? Infinity, est.length ? est[est.length - 1][0] : +projRows[0].period);
+      for (const p of pts) lastYear = Math.max(lastYear, +p.period);
+      const color = fixed ? fixed[ei] : seriesColor(n);
+      n++;
+      const base = { type: "line" as const, name: key, showSymbol: false, symbolSize: 8, color,
         yAxisIndex: Math.max(0, units.indexOf(l.unit)), emphasis: { focus: "series" as const } };
-      series.push({ ...base, id: `${key}:E`, data: est, lineStyle: { width: 2 } });
-      if (proj.length) series.push({ ...base, id: `${key}:P`, data: proj, lineStyle: { width: 2, type: "dashed" } });
+      // The line's name and latest value at its end (Settings > Look of charts), in place of a legend.
+      const last = proj.length ? proj[proj.length - 1] : est[est.length - 1];
+      const text = last ? `${labels.get(key)}  ${shortValue(last[1], l.unit, l.decimals)}` : "";
+      const endLabel = { show: true, formatter: () => text, color, fontSize: 11, fontWeight: 600 as const, distance: 6 };
+      const labelled = (isLast: boolean) => (look.endLabels && isLast && text ? { endLabel, labelLayout: { moveOverlap: "shiftY" as const } } : {});
+      series.push({ ...base, id: `${key}:E`, data: est, lineStyle: { width: 2 }, ...labelled(!proj.length) });
+      if (proj.length) series.push({ ...base, id: `${key}:P`, data: proj, lineStyle: { width: 2, type: "dashed" }, ...labelled(true) });
+      if (text) ends.push({ key, text });
     }
   }
   const base = chrome();
-  const legend = n > 1;
+  const endLabels = look.endLabels && ends.length > 0 && ends.length <= 12;
+  const legend = n > 1 && !endLabels;
   const right = units.length > 1 ? { ...(yAxis(units[1]) as object), position: "right", splitLine: { show: false },
     nameTextStyle: { color: cssVar("--muted"), align: "right" } } : null;
+  // Room on the right for the longest end label.
+  const room = endLabels ? Math.min(220, 14 + Math.max(...ends.map((e) => e.text.length)) * 6.6) : 16;
+  // Projected years sit on a faint band, so they never pass for data.
+  if (projFrom !== null && lastYear > projFrom && series.length) {
+    const first = series[0] as { markArea?: object };
+    first.markArea = { silent: true, itemStyle: { color: cssVar("--proj-band") },
+      label: { show: true, position: "insideTop", color: cssVar("--muted"), fontSize: 10, formatter: "projection" },
+      data: [[{ xAxis: projFrom }, { xAxis: lastYear }]] };
+  }
   return {
     ...base,
-    grid: { ...(base.grid as object), top: legend ? 60 : 36 },
+    grid: { ...(base.grid as object), top: legend ? 60 : 36, right: room + (right ? 40 : 0) },
     legend: legend ? {
       top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 8, type: "scroll",
       textStyle: { color: cssVar("--ink-2") }, formatter: (key: string) => labels.get(key) ?? key,
@@ -120,11 +144,23 @@ export function linesOption(layers: Layer[], entities: Named[]): EChartsOption {
 }
 
 export function barOption(rows: SeriesRow[], entity: Named, unit: string, decimals: number): EChartsOption {
-  const color = seriesColor(0);
+  const color = entityColors([entity.id])[0];
   const names = new Map([[entity.id, entity.name]]);
+  // Values on the bars (Settings > Look of charts): every bar when there are few, else the latest
+  // estimate and the highest and lowest, so the numbers never crowd.
+  const est = rows.filter((r) => r.status === "E");
+  const few = rows.length <= 24;
+  const keyBars = new Set<SeriesRow>();
+  if (est.length) {
+    keyBars.add(est[est.length - 1]);
+    keyBars.add(est.reduce((a, b) => (b.value > a.value ? b : a)));
+    keyBars.add(est.reduce((a, b) => (b.value < a.value ? b : a)));
+  }
   const data = rows.map((r) => ({
     value: [+r.period, r.value],
     itemStyle: { color, opacity: r.status === "P" ? 0.4 : 1, borderRadius: r.value >= 0 ? [3, 3, 0, 0] : [0, 0, 3, 3] },
+    label: { show: look.values && (few || keyBars.has(r)), position: r.value >= 0 ? "top" as const : "bottom" as const,
+      formatter: () => shortValue(r.value, unit, decimals), fontSize: 10, color: cssVar("--ink-2") },
   }));
   return {
     ...chrome(),

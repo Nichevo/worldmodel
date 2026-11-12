@@ -371,7 +371,35 @@ def profile(entity_id: str):
         QUALIFY row_number() OVER (PARTITION BY s.indicator_id ORDER BY s.period_start DESC) = 1""",
                  [entity_id, *HEADLINE])
     order = {k: i for i, k in enumerate(HEADLINE)}
-    return sorted(found, key=lambda r: order[r["indicator_id"]])
+    found = sorted(found, key=lambda r: order[r["indicator_id"]])
+    if not found:
+        return found
+    # For headline tiles: the last ten years (a sparkline and the change since the year before),
+    # the rank among countries in the same year and source, and which way is better.
+    from worldmodel_contract.discover import better_when
+    marks = ", ".join("(?, ?, ?)" for _ in found)
+    args = [x for r in found for x in (r["indicator_id"], r["source_id"], int(r["period"]))]
+    trend = rows(f"""
+        WITH want(indicator_id, source_id, y) AS (VALUES {marks})
+        SELECT s.indicator_id, year(s.period_start) AS y, s.value FROM series s JOIN want w
+            ON w.indicator_id = s.indicator_id AND w.source_id = s.source_id
+        WHERE s.entity_id = ? AND s.breakdown = '' AND s.variant = 'central' AND s.status = 'E'
+            AND year(s.period_start) BETWEEN w.y - 10 AND w.y ORDER BY 1, 2""", [*args, entity_id])
+    ranks = rows(f"""
+        WITH want(indicator_id, source_id, y) AS (VALUES {marks}),
+        r AS (SELECT s.indicator_id, s.entity_id, rank() OVER (PARTITION BY s.indicator_id ORDER BY s.value DESC) AS rank,
+                count(*) OVER (PARTITION BY s.indicator_id) AS n
+            FROM series s JOIN want w ON w.indicator_id = s.indicator_id AND w.source_id = s.source_id AND year(s.period_start) = w.y
+            JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country'
+            WHERE s.breakdown = '' AND s.variant = 'central' AND s.status = 'E')
+        SELECT indicator_id, rank, n FROM r WHERE entity_id = ?""", [*args, entity_id])
+    by_rank = {r["indicator_id"]: r for r in ranks}
+    for r in found:
+        r["trend"] = [[t["y"], t["value"]] for t in trend if t["indicator_id"] == r["indicator_id"]]
+        k = by_rank.get(r["indicator_id"])
+        r["rank"], r["of"] = (k["rank"], k["n"]) if k else (None, None)
+        r["better"] = better_when(r["indicator_id"], r["name"])
+    return found
 
 
 # ----------------------------------------------------------------------------- indicators

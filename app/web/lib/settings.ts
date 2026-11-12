@@ -3,6 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 import { api, type Settings } from "@/lib/api";
+import { look } from "@/lib/look";
 
 export const DEFAULT_SETTINGS: Settings = {
   click_mode: "popup",
@@ -20,6 +21,10 @@ export const DEFAULT_SETTINGS: Settings = {
   problem_banner: true,
   events_on_charts: true,
   projections_on_charts: true,
+  chart_end_labels: true,
+  chart_values: true,
+  chart_findings: true,
+  event_labels: true,
   profile_charts: "",
   profile_cards_hidden: "",
   profile_average: "",
@@ -192,6 +197,10 @@ const listeners = new Set<() => void>();
 
 function set(next: Settings) {
   current = next;
+  look.endLabels = next.chart_end_labels !== false;
+  look.values = next.chart_values !== false;
+  look.findings = next.chart_findings !== false;
+  look.eventLabels = next.event_labels !== false;
   listeners.forEach((l) => l());
 }
 

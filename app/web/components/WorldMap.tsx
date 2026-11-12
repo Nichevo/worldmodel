@@ -202,7 +202,7 @@ export default function WorldMap({
       m.addLayer({ id: "fill", type: "fill", source: "countries", paint: { "fill-color": cssVar("--no-data") } });
       m.addLayer({
         id: "line", type: "line", source: "countries",
-        paint: { "line-color": cssVar("--surface"), "line-width": 0.6 },
+        paint: { "line-color": cssVar("--surface"), "line-width": 0.45 },
       });
       m.addLayer({
         id: "hover", type: "line", source: "countries",
