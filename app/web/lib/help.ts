@@ -200,8 +200,8 @@ export const HELP = {
   },
   sectors_prices: {
     title: "Prices",
-    what: "World benchmark prices for the sector's goods, monthly since 1960 where the series goes back that far.",
-    how: "The World Bank's Commodity Price Data (the Pink Sheet). Nominal US dollars, so older prices look low partly because of inflation. The export value per tonne under the world chart is BACI's own average and can differ from the benchmark.",
+    what: "World benchmark prices, monthly since 1960 where the series goes back that far: single commodities, the World Bank's group indexes, the FAO food price index (meat, dairy, cereals, oils, sugar) and New Zealand's own export prices (ANZ commodity price index, in world prices and in NZ dollars). The line beside each price is its last five years; the bar shows where today sits between its ten-year low and high.",
+    how: "The World Bank's Commodity Price Data (the Pink Sheet, prices and Monthly Indices sheets), the FAO Food Price Index (2014-2016 = 100) and the ANZ Commodity Price Index. Nominal, so older prices look low partly because of inflation: After inflation on the Commodity prices tab divides by US consumer prices (IMF, World Bank) to show every month in this year's dollars. Changes compare a month with the same month a year (or five, ten years) before. The export value per tonne on a sector page is BACI's own average and can differ from the benchmark. Global Dairy Trade auction history is sold by subscription, so dairy uses the FAO and ANZ dairy indexes instead.",
     units: "US dollars per unit (in the legend)",
     sources: [{ label: "World Bank Pink Sheet" }],
   },

@@ -1113,6 +1113,44 @@
     get: https://www.worldbank.org/en/research/commodity-markets
     what: "When the refresh is refused, download 'Monthly prices' (CMO-Historical-Data-Monthly.xlsx) and save it here."
 
+- id: fao_ffpi
+  name: FAO Food Price Index
+  short_name: Food prices (FAO)
+  publisher: Food and Agriculture Organization of the United Nations
+  url: https://www.fao.org/worldfoodsituation/foodpricesindex/en/
+  licence: CC BY-NC-SA 3.0 IGO
+  licence_url: https://www.fao.org/contact-us/terms/db-terms-of-use/en/
+  commercial_use: false
+  cadence: Monthly (first Friday of the month); checked every 25 days
+  attribution: "FAO. FAO Food Price Index. Rome."
+  status: active
+  default_rank: 2
+  standing: 5
+  manual:
+    by_hand: false
+    files: ["food_price_indices_data*.csv"]
+    get: https://www.fao.org/worldfoodsituation/foodpricesindex/en/
+    what: "When the refresh is refused, download 'Nominal indices from 1990 onwards (monthly)' (CSV) and save it here."
+
+- id: anz_cpi
+  name: ANZ Commodity Price Index (New Zealand)
+  short_name: NZ export prices (ANZ)
+  publisher: ANZ Bank New Zealand
+  url: https://www.anz.co.nz/about-us/economic-markets-research/commodity-price-index/
+  licence: Free to use with attribution (bank research)
+  licence_url: https://www.anz.co.nz/about-us/economic-markets-research/commodity-price-index/
+  commercial_use: false
+  cadence: Monthly (first week of the month); checked every 25 days
+  attribution: "ANZ Bank New Zealand, ANZ Commodity Price Index."
+  status: active
+  default_rank: 2
+  standing: 4
+  manual:
+    by_hand: false
+    files: ["Index_for_publication*.xlsx"]
+    get: https://www.anz.co.nz/about-us/economic-markets-research/commodity-price-index/
+    what: "When the refresh is refused, download the index spreadsheet (Index_for_publication.xlsx) from the page and save it here."
+
 - id: iea_ev
   name: IEA Global EV Data Explorer
   short_name: Electric cars (IEA)
