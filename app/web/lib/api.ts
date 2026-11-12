@@ -90,6 +90,10 @@ export type ProfileRow = {
   vintage: string;
   is_aggregate: boolean;
   coverage: number | null;
+  trend?: [number, number][]; // the last ten years, for a sparkline and the change since the year before
+  rank?: number | null; // among countries, highest first, in the same year and source
+  of?: number | null;
+  better?: "higher" | "lower" | "neither";
 };
 
 export type Meta = {
@@ -206,6 +210,10 @@ export type Settings = {
   problem_banner: boolean;
   events_on_charts: boolean;
   projections_on_charts: boolean; // projected years (dashed) on charts
+  chart_end_labels: boolean; // names and latest values at the line ends instead of a legend
+  chart_values: boolean; // values written on bars
+  chart_findings: boolean; // chart titles say what the chart shows
+  event_labels: boolean; // event bands named on the chart
   profile_charts: string; // indicator ids charted on country pages, in order ("" = standard set, "none" = none)
   profile_cards_hidden: string; // country page cards switched off
   profile_average: string; // a group whose average joins country page charts of rates ("" for none)
@@ -974,6 +982,7 @@ export type BriefCard = {
   kind: BriefKind; key: string; title: string; detail: string; date: string | null; entities: string[]; source: string;
   url: string | null; href: string | null; tone: Tone; group: string | null;
   rating?: string | number; word?: string; confirmed?: boolean; n_outlets?: number; new?: boolean;
+  find_kind?: string; chart?: Find["chart"]; // Discover finds: their kind and small chart
 };
 export type Briefing = {
   days: number; since: string; build_id: string; crisiswatch_month: string | null; key_countries: string[];

@@ -46,8 +46,9 @@ import Flag from "@/components/Flag";
 import LatestOn from "@/components/LatestOn";
 import Timeline from "@/components/Timeline";
 import Pyramid from "@/components/Pyramid";
+import HeadlineTile from "@/components/HeadlineTile";
 import { api, type Divergence, type EntityDetail, type Indicator, type ProfileRow } from "@/lib/api";
-import { formatValue, SOURCE_LABEL, SOURCE_SHORT } from "@/lib/format";
+import { formatValue, SOURCE_LABEL } from "@/lib/format";
 import { KINDS, kindVar, useChartEvents, useProfileKinds } from "@/lib/events";
 import { useGovernments } from "@/lib/parties";
 import { saveSettings, useSettings } from "@/lib/settings";
@@ -226,13 +227,7 @@ export default function EntityPage() {
 
       {profile.length > 0 && (
         <div className="tiles">
-          {profile.map((p) => (
-            <div className="card tile" key={p.indicator_id}>
-              <div className="label">{p.name}</div>
-              <div className="value">{formatValue(p.value, p.unit, p.decimals)}</div>
-              <div className="meta">{p.period} · {SOURCE_SHORT[p.source_id] ?? p.source_id}{p.is_aggregate ? " · built from members" : ""}</div>
-            </div>
-          ))}
+          {profile.map((p) => <HeadlineTile key={p.indicator_id} p={p} entity={entity.entity_id} />)}
         </div>
       )}
 
@@ -375,7 +370,11 @@ function SourcesDiffer({ entity }: { entity: string }) {
 // this browser for every country page; "As in Settings" goes back to the default.
 function EventChips({ kinds, own, set }: { kinds: string; own: boolean; set: (k: string | null) => void }) {
   const picked = kinds.split(",").filter(Boolean);
+  // Folded to one line until opened: "Events on charts: 6 of 31 kinds".
+  const on = KINDS.filter((k) => picked.includes(k.kind));
   return (
+    <details className="small event-fold">
+      <summary className="ink-2">Events on charts: <b>{on.length} of {KINDS.length} kinds</b>{on.length ? ` (${on.slice(0, 4).map((k) => k.label.toLowerCase()).join(", ")}${on.length > 4 ? "…" : ""})` : ""}{own ? " · your choice for country pages" : ""}</summary>
     <div className="chips-row small event-chips" role="group" aria-label="Events shown on charts">
       <span className="ink-2">Which events:</span>
       {KINDS.map((k) => {
@@ -391,6 +390,7 @@ function EventChips({ kinds, own, set }: { kinds: string; own: boolean; set: (k:
       <button className="link" onClick={() => set("")} disabled={!picked.length}>None</button>
       {own && <button className="link" onClick={() => set(null)} title="Use the kinds ticked in Settings">As in Settings</button>}
     </div>
+    </details>
   );
 }
 

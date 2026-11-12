@@ -451,6 +451,26 @@ export default function SettingsPage() {
           on={s.wikipedia_background} set={(v) => save({ wikipedia_background: v })} />
       </section>
 
+      <section className="card" id="look">
+        <h2>Look of charts</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          How charts across the app show their figures. New Zealand, Australia, the UK, the US, the world and the main groups always
+          keep the same colour on every chart, and continents keep theirs on every map.
+        </p>
+        <Toggle label="Name lines at their ends"
+          hint="Each line ends with its name and latest value. Off brings back the legend at the top (charts with more than 12 lines always use it)."
+          on={s.chart_end_labels} set={(v) => save({ chart_end_labels: v })} />
+        <Toggle label="Write values on bars"
+          hint="Every bar when there are up to 24, else the latest, highest and lowest. Off leaves the numbers to the tooltip."
+          on={s.chart_values} set={(v) => save({ chart_values: v })} />
+        <Toggle label="Say the finding in chart titles"
+          hint="A line such as “1.56 in 2023, the lowest since records began in 1960” above each chart, worked out from its figures. Off shows only the measure's name."
+          on={s.chart_findings} set={(v) => save({ chart_findings: v })} />
+        <Toggle label="Name event bands on the chart"
+          hint="Recession and crisis bands carry a short name standing up their left edge (when a chart has 10 or fewer). Off leaves names to hovering."
+          on={s.event_labels} set={(v) => save({ event_labels: v })} />
+      </section>
+
       <section className="card" id="events">
         <h2>Events on charts</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>

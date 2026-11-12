@@ -54,6 +54,10 @@ SETTINGS: dict[str, object] = {
     "profile_saved": {},             # named country page set-ups: name -> {charts, hidden}
     "profile_average": "",           # a group (oecd, g20, world...) whose average joins a country page's rate charts
     "projections_on_charts": True,   # years after the last estimate (UN projections and the like) on charts
+    "chart_end_labels": True,        # line charts name each line at its end, with its latest value, instead of a legend
+    "chart_values": True,            # bar charts write their values on the bars
+    "chart_findings": True,          # chart titles lead with what the chart shows ("lowest since 1960")
+    "event_labels": True,            # event bands carry their name on the chart, not only on hover
     "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
     "transport_min_deaths": 10,      # air, sea and rail accidents with fewer deaths stay off the charts and Events page

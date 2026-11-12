@@ -208,7 +208,8 @@ def news_cards(items: list[dict], since: str, limit: int, entity: str | None = N
 def find_cards(finds: list[dict], limit: int) -> list[dict]:
     return [card("find", f["key"], f["headline"], detail=f.get("detail") or "", entities=f.get("entities") or [],
                  source=f.get("kind", ""), href=f"/discover?q={f['headline'][:60]}", tone=f.get("tone", "neutral"),
-                 group=f.get("category"), new=bool(f.get("new")), rating=f.get("rating", 0)) for f in finds[:limit]]
+                 group=f.get("category"), new=bool(f.get("new")), rating=f.get("rating", 0),
+                 find_kind=f.get("kind"), chart=f.get("chart")) for f in finds[:limit]]
 
 
 def yours_cards(items: list[dict], limit: int) -> list[dict]:
