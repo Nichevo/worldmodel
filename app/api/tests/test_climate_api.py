@@ -5,7 +5,7 @@ link), the El Niño page, storm counts, the live map switch and policy."""
 import json
 import math
 import shutil
-from datetime import date
+from datetime import date, timedelta
 
 import duckdb
 import pytest
@@ -44,13 +44,19 @@ def add_climate_rows(path):
         put("NZL", "clim_temp", date(2020, 1, 1), 10 + m, "cckp_normals", breakdown=f"month={m:02d}")
         put("NZL", "clim_rain", date(2020, 1, 1), 100 + m, "cckp_normals", breakdown=f"month={m:02d}")
     put("NZL", "clim_rain_year", date(2020, 1, 1), 1278, "cckp_normals")
+    for y, low in ((1985, 6.5), (1990, 6.0), (2012, 3.4), (2013, 5.0)):  # sea ice every 10 days, lowest on 20 Sep
+        for k in range(0, 365 if y < 2013 else 300, 10):
+            d = date(y, 1, 1) + timedelta(days=k)
+            put("arctic", "sea_ice_extent_daily", d, low + 9 * (1 - math.cos(2 * math.pi * (d - date(y, 9, 20)).days / 365)) / 2,
+                "nsidc_sea_ice", "D")
     con.executemany("INSERT INTO observations VALUES (" + ", ".join("?" * 10) + ")", rows)
     for s in sorted({r[6] for r in rows}):
         con.execute("INSERT INTO vintages BY NAME SELECT ? AS source_id, 't' AS vintage, 't' AS release, true AS is_latest", [s])
     units = {"enso_oni": ("°C", "M"), "temp_anomaly": ("°C", "A"), "temp_anomaly_world": ("°C", "A"), "co2_ppm": ("parts per million", "A"),
              "co2_gcp": ("million tonnes CO2", "A"), "methane_emissions": ("million tonnes CO2e", "A"), "ghg_sector_agriculture": ("t CO2e", "A"),
              "net_zero_year": ("year", "A"), "net_zero_status": ("level", "A"), "carbon_price": ("US$ per tonne CO2e", "A"),
-             "proj_temp_ssp245": ("°C", "A"), "clim_temp": ("°C", "A"), "clim_rain": ("mm", "A"), "clim_rain_year": ("mm", "A")}
+             "proj_temp_ssp245": ("°C", "A"), "clim_temp": ("°C", "A"), "clim_rain": ("mm", "A"), "clim_rain_year": ("mm", "A"),
+             "sea_ice_extent_daily": ("million km²", "D")}
     srcs = {r[1]: r[6] for r in rows}
     for i, (u, f) in units.items():
         con.execute("INSERT INTO indicators BY NAME SELECT ? AS indicator_id, ? AS name, '' AS description, 'climate' AS domain, ? AS unit, "
@@ -152,6 +158,17 @@ def test_active_storms_layer_says_why_when_off_or_failing(monkeypatch):
     got = climate.active_storms(True, fetch=boom)
     assert got["features"] == [] and "NOAA did not answer" in got["note"]
     climate._active.update(at=0.0, data=None)
+
+
+def test_sea_ice_circle(client):
+    d = client.get("/api/v1/climate/sea-ice", params={"pole": "arctic"}).json()
+    assert d["kind"] == "daily" and sorted(d["years"]) == ["1985", "1990", "2012", "2013"]
+    low = {r["year"]: r for r in d["low"]}
+    assert low[2012]["value"] == pytest.approx(3.4, abs=0.05) and low[2012]["day"][:7] == "2012-09" and not low[2012]["partial"]
+    assert low[2013]["partial"]  # the year in progress
+    assert d["median"] and all(m[2] <= m[1] <= m[3] for m in d["median"])  # 1981-2010: 1985 and 1990
+    assert d["latest"]["day"].startswith("2013-10") and d["latest"]["of"] >= 1
+    assert client.get("/api/v1/climate/sea-ice", params={"pole": "ATA"}).json()["kind"] is None
 
 
 def test_monthly_normals(client):

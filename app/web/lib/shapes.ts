@@ -98,8 +98,8 @@ export type Bubble = { id: string; x: number; y: number; r: number; value: numbe
 
 // Circles start at each country's centre (in Equal Earth, px) with area in proportion to the
 // figure, then are pushed apart a little at a time until they no longer overlap.
-export function dorling(items: { id: string; x: number; y: number; value: number }[], maxR: number, rounds = 120, box?: [number, number]): Bubble[] {
-  const top = Math.max(...items.map((i) => i.value), 1);
+export function dorling(items: { id: string; x: number; y: number; value: number }[], maxR: number, rounds = 120, box?: [number, number], fixedTop?: number): Bubble[] {
+  const top = fixedTop ?? Math.max(...items.map((i) => i.value), 1);
   const b: Bubble[] = items.filter((i) => i.value > 0).map((i) => ({ ...i, r: Math.max(1.2, maxR * Math.sqrt(i.value / top)) }));
   const home = b.map((c) => [c.x, c.y]);
   for (let k = 0; k < rounds; k++) {

@@ -949,3 +949,59 @@ dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border
   body { background: #fff; color: #000; }
   .card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
 }
+
+/* sea ice circle: NSIDC's map in the middle, the chosen day bottom left */
+.ice-map { position: absolute; border-radius: 50%; overflow: hidden; display: block; background: var(--surface-2, #eef2f5); }
+.ice-map img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.18); }
+.ice-map-cap { position: absolute; bottom: 8%; left: 0; right: 0; text-align: center; font-size: 11px; font-style: italic; color: #333; text-shadow: 0 0 3px #fff; }
+.ice-readout { position: absolute; left: 8px; bottom: 44px; pointer-events: none; }
+.ice-date { font-size: 1.35rem; font-style: italic; font-weight: 600; }
+.ice-value { font-family: var(--mono, ui-monospace, monospace); font-size: 1.05rem; }
+.ice-years { align-items: center; gap: 10px; }
+.ice-years input[type="range"] { flex: 1; min-width: 160px; }
+.ice-readout.flat { position: static; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.ice-readout.flat .ice-date { font-size: 1.05rem; }
+
+/* largest cities: clusters glide when the year changes */
+.lc-city { transition: transform .8s ease; cursor: pointer; }
+.lc-city circle { transition: r .8s ease, fill .5s; }
+.lc-city:hover circle { stroke: var(--ink); stroke-width: 1.5px; }
+.lc-tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 5; min-width: 190px; }
+.lc-tip .mono { font-family: ui-monospace, monospace; }
+.swatch.round { border-radius: 50%; }
+.lc-years { align-items: center; gap: 10px; margin-top: 6px; }
+.lc-years input[type="range"] { flex: 1; min-width: 160px; }
+.carto-b { transition: transform .45s ease; cursor: pointer; }
+.carto-b circle, .carto-b rect { transition: r .45s ease; }
+.carto-b:hover circle, .carto-b:hover rect { fill-opacity: .7; }
+.carto-strip { margin-top: 6px; }
+.carto-axis { display: flex; justify-content: space-between; }
+
+/* electricity mix on the map */
+.em-map { position: relative; height: 640px; display: flex; flex-direction: column; }
+.em-world { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); pointer-events: none; }
+.em-bars { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.em-cols { display: flex; align-items: flex-end; gap: 6px; border-bottom: 1.5px solid #333; padding: 0 2px; }
+.em-bars.compact .em-cols { gap: 3px; }
+.em-col { display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+.em-pair { display: flex; align-items: flex-end; gap: 1px; }
+.em-bar { position: relative; border-radius: 1px 1px 0 0; }
+.em-bar.then { opacity: .42; }
+.em-bar span { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); font: 600 11px/1.3 ui-monospace, monospace;
+  color: #1d1d1d; text-shadow: 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
+.em-bar.then span { font-weight: 400; font-size: 10px; color: #444; }
+.em-bars.compact .em-bar span { font-size: 9px; }
+.em-lab { font-size: 11px; color: #333; text-shadow: 0 0 3px #fff; margin-top: 2px; }
+.em-bars.compact .em-lab { display: none; }
+.em-name { font-weight: 700; font-size: 14px; color: #1d1d1d; text-shadow: 0 0 4px #fff, 0 0 4px #fff; margin-top: 3px; white-space: nowrap; }
+.em-world .em-name { font-family: Georgia, serif; font-size: 22px; }
+.em-world .em-bar span { font-size: 13px; }
+.em-world .em-lab { font-size: 13px; }
+.em-dot { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 12px; color: #1d1d1d; text-shadow: 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
+.em-dot span { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 .5px #555; display: inline-block; }
+.em-legend { position: absolute; left: 10px; bottom: 10px; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; font-size: 12px; max-width: 520px; }
+.em-legend-kinds { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+.em-key { display: inline-block; width: 10px; height: 10px; background: #333; vertical-align: middle; margin-left: 6px; }
+.em-key.then { opacity: .42; }

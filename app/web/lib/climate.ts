@@ -181,3 +181,114 @@ export function normalsOption(cs: Normals[], show: "both" | "temp" | "rain", fro
     series,
   };
 }
+
+// ---------------------------------------------------------------- sea ice through the year
+export type SeaIce = {
+  pole: string; name: string; kind: "daily" | "monthly" | null; base?: string; source?: string;
+  years: Record<string, [number, number][]>; // day of a 365-day year, million km²
+  median: [number, number, number, number][]; // day, median, 10th, 90th percentile
+  low: { year: number; day: string; value: number; partial: boolean }[];
+  high: { year: number; day: string; value: number; partial: boolean }[];
+  latest?: { day: string; value: number; median: number | null; rank: number | null; of: number };
+};
+export const seaIceApi = (pole: string) => get<SeaIce>("/climate/sea-ice", { pole });
+export const ICE_COLOR = "#b5891b";
+const MONTH_START = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+export const dayToDate = (year: number, x: number) => {
+  let m = 0;
+  while (m < 11 && MONTH_START[m + 1] <= x) m++;
+  return new Date(Date.UTC(year, m, x - MONTH_START[m] + 1));
+};
+export const fmtDay = (d: Date) => `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+
+// NSIDC's picture of the ice for a month, with the 1981-2010 median edge drawn on it.
+export function iceImage(pole: string, year: number, month: number, version = "4.0"): string {
+  const hemi = pole === "ATA" ? "south" : "north";
+  const mm = String(month).padStart(2, "0");
+  return `https://noaadata.apps.nsidc.org/NOAA/G02135/${hemi}/monthly/images/${mm}_${MONTHS[month - 1]}/${hemi === "south" ? "S" : "N"}_${year}${mm}_extent_v${version}.png`;
+}
+
+// Every year as a faint line, the chosen year bold, the 1981-2010 median dashed inside its 10th-90th band.
+// circle: January at the top, the year running clockwise, the ice extent outwards from an empty middle
+// (where the map goes). Otherwise an ordinary chart, January to December.
+export function seaIceOption(d: SeaIce, year: number, circle: boolean, inner = "34%"): EChartsOption {
+  const max = Math.ceil(Math.max(...Object.values(d.years).flat().map((p) => p[1]), ...d.median.map((m) => m[3])) + 0.5);
+  const ink = cssVar("--ink-2"), muted = cssVar("--muted"), axis = cssVar("--axis");
+  const pt = (p: [number, number]) => (circle ? [p[1], p[0]] : p);
+  const coord = circle ? { coordinateSystem: "polar" as const, polarIndex: 0 } : {};
+  const ys = Object.keys(d.years).map(Number).sort((a, b) => a - b);
+  const series: SeriesOption[] = [];
+  const band = d.median.map((m) => [m[0], m[2], m[3] - m[2]] as const);
+  series.push({ type: "line", ...coord, name: "band-low", data: band.map((b) => pt([b[0], b[1]])), stack: "band", symbol: "none", silent: true,
+    lineStyle: { opacity: 0 }, areaStyle: { opacity: 0 }, tooltip: { show: false }, z: 1 });
+  series.push({ type: "line", ...coord, name: "Usual range (10th to 90th percentile, " + (d.base ?? "1981-2010") + ")", data: band.map((b) => pt([b[0], b[2]])),
+    stack: "band", symbol: "none", silent: true, lineStyle: { opacity: 0 }, itemStyle: { color: muted }, areaStyle: { color: muted, opacity: 0.16 }, z: 1 });
+  for (const y of ys) {
+    if (y === year) continue;
+    series.push({ type: "line", ...coord, name: String(y), data: d.years[String(y)].map(pt), symbol: "none", silent: true,
+      lineStyle: { width: 0.7, color: muted, opacity: 0.35 }, z: 2, tooltip: { show: false } });
+  }
+  series.push({ type: "line", ...coord, name: `Median ${d.base ?? "1981-2010"}`, data: d.median.map((m) => pt([m[0], m[1]])), symbol: "none", silent: true,
+    lineStyle: { width: 1.5, type: "dashed", color: ink }, itemStyle: { color: ink }, z: 3 });
+  const lo = d.low.find((l) => l.year === year);
+  series.push({ type: "line", ...coord, name: String(year), data: (d.years[String(year)] ?? []).map(pt), symbol: "none", silent: true,
+    lineStyle: { width: 3, color: ICE_COLOR }, itemStyle: { color: ICE_COLOR }, z: 5,
+    markPoint: lo ? { symbol: "circle", symbolSize: 9, itemStyle: { color: ICE_COLOR, borderColor: "#fff", borderWidth: 1.5 }, label: { show: false },
+      data: [{ name: "lowest", coord: pt([dayOf(lo.day), lo.value]) as number[] }] } : undefined });
+  series.push({ id: "hover", type: "scatter", ...coord, data: [], symbolSize: 13, silent: true, z: 6,
+    itemStyle: { color: "transparent", borderColor: ICE_COLOR, borderWidth: 2.5 } });
+  const legend = { bottom: 0, textStyle: { color: ink }, data: [String(year), `Median ${d.base ?? "1981-2010"}`, "Usual range (10th to 90th percentile, " + (d.base ?? "1981-2010") + ")"] };
+  if (!circle) {
+    return {
+      ...base(), legend, tooltip: { show: false }, grid: { left: 8, right: 16, top: 16, bottom: 40, containLabel: true },
+      xAxis: { type: "value", min: 1, max: 365, interval: 1, axisLabel: { show: false }, splitLine: { show: false }, axisTick: { show: false },
+        axisLine: { lineStyle: { color: axis } } },
+      yAxis: { type: "value", min: 0, max, name: "million km²", nameTextStyle: { color: muted }, axisLabel: { color: muted },
+        splitLine: { lineStyle: { color: axis, opacity: 0.4 } } },
+      graphic: [],
+      series: [...series, { type: "line", data: [], markLine: { silent: true, symbol: "none", lineStyle: { color: axis, opacity: 0.5, type: "solid" },
+        label: { position: "start", formatter: (p) => MONTHS[MONTH_START.indexOf(Number((p as { value: number }).value))] ?? "", color: muted },
+        data: MONTH_START.map((s) => ({ xAxis: s })) } }],
+    };
+  }
+  return {
+    ...base(), legend, tooltip: { show: false },
+    polar: [{ radius: [inner, "78%"], center: ["50%", "47%"] }, { radius: [inner, "78%"], center: ["50%", "47%"] }],
+    angleAxis: [
+      { polarIndex: 0, type: "value", min: 1, max: 366, startAngle: 90, clockwise: true, show: false },
+      { polarIndex: 1, type: "category", data: MONTHS, startAngle: 90, clockwise: true, boundaryGap: true,
+        axisLabel: { color: ink, fontSize: 13, margin: 12 }, axisLine: { lineStyle: { color: axis } }, axisTick: { show: false },
+        splitLine: { show: true, lineStyle: { color: axis, opacity: 0.35 } } },
+    ],
+    radiusAxis: [
+      { polarIndex: 0, type: "value", min: 0, max, interval: 5, axisLabel: { color: muted, fontSize: 10 }, axisLine: { show: false }, axisTick: { show: false },
+        splitLine: { show: true, lineStyle: { color: axis, type: "dotted", opacity: 0.6 } } },
+      { polarIndex: 1, type: "value", min: 0, max, show: false },
+    ],
+    series,
+  };
+}
+
+export function dayOf(iso: string): number {
+  const d = new Date(iso + "T00:00:00Z");
+  return MONTH_START[d.getUTCMonth()] + d.getUTCDate() - 1;
+}
+
+// The lowest (or highest) day of each year, the chosen year marked: click a year to choose it.
+export function iceStripOption(d: SeaIce, year: number, which: "low" | "high"): EChartsOption {
+  const rows = d[which];
+  const muted = cssVar("--muted");
+  return {
+    ...base(), legend: { show: false },
+    grid: { left: 8, right: 16, top: 22, bottom: 4, containLabel: true },
+    tooltip: { ...base().tooltip, trigger: "axis", valueFormatter: (v) => `${Number(v).toFixed(2)} million km²` },
+    xAxis: { type: "category", data: rows.map((r) => String(r.year)), axisLabel: { color: muted }, axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    yAxis: { type: "value", scale: true, axisLabel: { color: muted }, splitLine: { show: false } },
+    series: [{ type: "line", name: which === "low" ? "Lowest day of the year" : "Highest day of the year", symbol: "circle", symbolSize: 4,
+      // the first year starts in late October, so its lowest day is not a real low; the year in progress is shown faint
+      data: rows.map((r, i) => (r.partial ? (i === 0 ? null : { value: r.value, itemStyle: { opacity: 0.4 } }) : r.value)),
+      lineStyle: { color: cssVar("--ink-2"), width: 1.5 }, itemStyle: { color: cssVar("--ink-2") },
+      markLine: { silent: true, symbol: "none", lineStyle: { color: ICE_COLOR, width: 2, type: "solid" }, label: { color: ICE_COLOR, formatter: String(year) },
+        data: [{ xAxis: String(year) }] } }],
+  };
+}

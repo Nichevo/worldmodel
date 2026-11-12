@@ -2830,6 +2830,13 @@ def climate_normals(entities: str = Query("NZL", description="Comma-separated co
     return climate.normals(rows, split(entities)[:8])
 
 
+@api.get("/climate/sea-ice")
+def climate_sea_ice(pole: str = Query("arctic", description="arctic or ATA (Antarctic)")):
+    """Sea ice through each year since 1978: every year's days, the 1981-2010 median and band, and each
+    year's lowest and highest day (the yearly circle on Climate > Sea ice)."""
+    return climate.sea_ice(rows, pole)
+
+
 @api.get("/climate/enso")
 def climate_enso():
     """El Niño and La Niña: the index, the Indian Ocean Dipole and the Southern Annular Mode
@@ -3260,6 +3267,78 @@ def indicator_ranking(indicator_id: str, year: int | None = None):
     return {"indicator": indicator_id, "year": y, "rows": ranked, "world": world}
 
 
+# ----------------------------------------------------------------------------- electricity mix map
+ELEC_MIX = {"coal": ["coal_electricity"], "gas": ["gas_electricity"], "oil": ["oil_electricity"],
+            "nuclear": ["nuclear_electricity"], "hydro": ["hydro_electricity"], "wind": ["wind_electricity"],
+            "solar": ["solar_electricity"], "bio": ["biofuel_electricity"], "other": ["other_renewable_exc_biofuel_electricity"]}
+
+
+@api.get("/energy/electricity-mix")
+def electricity_mix(back: int = Query(10, ge=1, le=40, description="Years before the latest to compare with")):
+    """Each country's electricity generation by source in its latest year and `back` years before, as
+    shares (%), with the total in TWh; also the world and each continent (countries added up). For the
+    electricity map on the Energy topic page."""
+    ids = [i for v in ELEC_MIX.values() for i in v]
+    got = rows("""SELECT s.entity_id, s.indicator_id, year(s.period_start) AS y, s.value FROM series s
+        JOIN entities e ON e.entity_id = s.entity_id
+        WHERE s.indicator_id IN (SELECT unnest(?)) AND s.breakdown = '' AND s.variant = 'central' AND s.status = 'E'
+          AND s.value IS NOT NULL AND e.type IN ('country', 'world')
+        QUALIFY row_number() OVER (PARTITION BY s.entity_id, s.indicator_id, s.period_start ORDER BY s.source_id) = 1""", [ids])
+    kind = {i: k for k, v in ELEC_MIX.items() for i in v}
+    by: dict[str, dict[int, dict[str, float]]] = {}
+    for r in got:
+        d = by.setdefault(r["entity_id"], {}).setdefault(r["y"], {})
+        d[kind[r["indicator_id"]]] = d.get(kind[r["indicator_id"]], 0.0) + max(0.0, float(r["value"]))
+    cont = {r["member_id"]: (r["group_id"], r["name"]) for r in rows("""SELECT m.member_id, m.group_id, g.short_name AS name
+        FROM memberships m JOIN entities g ON g.entity_id = m.group_id WHERE g.type = 'continent' AND m.valid_to IS NULL""")}
+    names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities WHERE type IN ('country', 'world', 'continent')")}
+    # a group's figures: its countries added up, in years when nearly all of its generation has reported
+    groups: dict[str, dict[int, dict[str, float]]] = {}
+    for e, years in by.items():
+        if e in cont:
+            for y, d in years.items():
+                g = groups.setdefault(cont[e][0], {}).setdefault(y, {})
+                for k, v in d.items():
+                    g[k] = g.get(k, 0.0) + v
+        if e != "world" and "world" not in by:
+            for y, d in years.items():
+                g = groups.setdefault("world", {}).setdefault(y, {})
+                for k, v in d.items():
+                    g[k] = g.get(k, 0.0) + v
+
+    def one(e: str, years: dict[int, dict[str, float]], level: str) -> dict | None:
+        full = {y: d for y, d in years.items() if sum(d.values()) > 0 and len(d) >= 5}
+        if not full:
+            return None
+        if level != "country":  # a group's newest year is the newest most of its countries have reported
+            tot = {y: sum(d.values()) for y, d in full.items()}
+            best = max(tot.values())
+            full = {y: d for y, d in full.items() if tot[y] >= 0.9 * best} or full
+        y = max(full)
+        d = full[y]
+        t = sum(d.values())
+        b = full.get(y - back) or years.get(y - back)
+        tb = sum(b.values()) if b else 0
+        share = {k: round(100 * d.get(k, 0) / t, 1) for k in ELEC_MIX}
+        return {"id": e, "name": names.get(e, e), "level": level, "year": y, "twh": round(t, 1),
+                "share": share, "before_year": y - back if tb else None,
+                "before": {k: round(100 * b.get(k, 0) / tb, 1) for k in ELEC_MIX} if tb else None,
+                "top": max(share, key=lambda k: share[k])}
+
+    out = []
+    for e, years in by.items():
+        if e == "world":
+            continue
+        if (x := one(e, years, "country")):
+            out.append(x)
+    for g, years in groups.items():
+        if g != "world" and (x := one(g, years, "continent")):
+            out.append(x)
+    w = one("world", by.get("world") or groups.get("world", {}), "world")
+    return {"world": w, "rows": out, "kinds": list(ELEC_MIX), "back": back,
+            "source": "Energy Institute and Ember, via Our World in Data"}
+
+
 # ----------------------------------------------------------------------------- cities
 def _has_cities() -> bool:
     return bool(rows("SELECT 1 FROM information_schema.tables WHERE table_name = 'cities' AND table_schema = 'main'"))
@@ -3307,6 +3386,45 @@ def cities(country: str | None = Query(None, description="Comma-separated countr
                      WHERE coalesce(population, geonames_population, 0) >= ?
                      ORDER BY {order} LIMIT ?""", [*params, min_population, limit])
     return {"rows": found, "note": None}
+
+
+LARGEST_MEASURES = {"city_population": "UN World Urbanization Prospects (urban agglomerations)",
+                    "ghsl_population": "GHSL Urban Centre Database (urban centres, satellite-based)"}
+
+
+@api.get("/cities/largest")
+def cities_largest(measure: Literal["auto", "city_population", "ghsl_population"] = "auto",
+                   year: int = Query(2025, description="Rank the cities by their size this year"),
+                   limit: int = Query(600, ge=10, le=3000)):
+    """The world's largest cities with their population through the years (estimates and projections),
+    their place and continent: for Cities > Largest cities (clusters by continent, or the map). measure
+    auto takes the UN's agglomerations when loaded, else the GHSL urban centres."""
+    if not _has_cities():
+        return {"rows": [], "measure": None, "note": NO_CITIES}
+    have = {r["indicator_id"]: r["n"] for r in rows("""SELECT indicator_id, count(DISTINCT city_id) AS n FROM city_series
+        WHERE indicator_id IN ('city_population', 'ghsl_population') GROUP BY 1""")}
+    if measure == "auto":
+        measure = max(have, key=lambda k: (have[k] >= 100, k == "city_population", have[k]), default="ghsl_population")
+    if not have.get(measure):
+        return {"rows": [], "measure": measure, "measures": have,
+                "note": "No city sizes through the years yet: .\\refresh.bat loads the GHSL urban centres (Settings > Land)."}
+    got = rows("""
+        WITH pts AS (SELECT city_id, year(period_start) AS y, value AS v, status FROM city_series WHERE indicator_id = ?),
+        rank_on AS (SELECT city_id, arg_min(v, abs(y - ?)) AS v FROM pts GROUP BY 1),
+        top AS (SELECT city_id FROM rank_on ORDER BY v DESC LIMIT ?),
+        cont AS (SELECT m.member_id, any_value(g.short_name) AS continent FROM memberships m JOIN entities g ON g.entity_id = m.group_id
+                 WHERE g.type = 'continent' AND m.valid_to IS NULL GROUP BY 1)
+        SELECT c.city_id, c.name, c.country_id, e.short_name AS country, c.lat, c.lon, cont.continent,
+               list(struct_pack(y := p.y, v := p.v, p := p.status = 'P') ORDER BY p.y) AS pts
+        FROM top JOIN cities c USING (city_id) LEFT JOIN entities e ON e.entity_id = c.country_id
+        LEFT JOIN cont ON cont.member_id = c.country_id JOIN pts p ON p.city_id = c.city_id
+        GROUP BY ALL""", [measure, year, limit])
+    for r in got:
+        r["pts"] = [[p["y"], round(p["v"]), bool(p["p"])] for p in r["pts"]]
+    years = sorted({p[0] for r in got for p in r["pts"]})
+    first_proj = min((p[0] for r in got for p in r["pts"] if p[2]), default=None)
+    return {"rows": got, "measure": measure, "source": LARGEST_MEASURES[measure], "measures": have,
+            "years": years, "first_projection": first_proj, "note": None}
 
 
 def _city(city_id: str) -> dict:

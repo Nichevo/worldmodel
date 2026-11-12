@@ -1,5 +1,6 @@
 "use client";
 
+import ElectricityMap from "@/components/ElectricityMap";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -68,6 +69,7 @@ export default function TopicPage() {
           <IndicatorMap indicator={mapped} />
         </section>
       )}
+      {id === "energy" && <ElectricityMap />}
       <div className="grid two">
         {topic.indicators.map((i) => inds.get(i)).filter((i): i is Indicator => !!i).map((i) => (
           <div key={i.indicator_id}>
