@@ -11,6 +11,7 @@ export const look = { endLabels: true, values: true, findings: true, eventLabels
 
 // A value short enough for a label on a chart: 4.95M, $48.2k, 1.56, 3.4%.
 export function shortValue(v: number, unit: string, decimals = 1): string {
+  if (unit.startsWith("%")) return `${v.toFixed(decimals)}%`; // "% of GDP", "% gross": the % sign, not the words
   if (Math.abs(v) < 1e4) return formatValue(v, unit, decimals).replace(/ (people|persons)$/, "");
   const c = compact(v);
   return unit === "US dollars" || unit === "US dollars per person" ? `$${c}` : c;
