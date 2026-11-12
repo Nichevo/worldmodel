@@ -139,6 +139,13 @@ def test_sea_ice_monthly_and_yearly(con):
     assert value(con, "arctic", "sea_ice_extent_mean", "2024-01-01") is None  # a part year has no mean
 
 
+def test_sea_ice_daily(con):
+    assert value(con, "arctic", "sea_ice_extent_daily", "1978-10-26") == pytest.approx(10.231)
+    assert value(con, "arctic", "sea_ice_extent_daily", "2012-09-16") == pytest.approx(3.387)
+    assert value(con, "arctic", "sea_ice_extent_daily", "2012-09-17") is None  # -9999 is missing
+    assert value(con, "arctic", "sea_ice_extent", "2012-09-01") is None  # the daily file is not read as a monthly one
+
+
 def test_satellites_by_owner_and_launch_site(con):
     assert value(con, "NZL", "sats_launched", "2018-01-01") == 1
     assert value(con, "NZL", "space_launches", "2018-01-01") == 1  # Mahia: two objects, one launch

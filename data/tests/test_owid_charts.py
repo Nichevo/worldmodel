@@ -21,3 +21,15 @@ def test_chart_ids_and_domains(tmp_path):
     listed = {i["id"]: i for i in conn.listed_indicators}
     assert listed["wid_income_top1"]["domain"] == "inequality"
     assert listed["owid_death_rate_in_armed_conflicts"]["domain"] == "conflict"
+
+
+def test_democracy_charts(tmp_path):
+    store = VintageStore(Paths(tmp_path / "var"))
+    conn = CONNECTORS["owid_grapher"]()
+    m, _ = conn.ingest(store, FIXTURES / "owid_grapher")
+    d = store.vintage_dir("owid_grapher", m.vintage)
+    got = dict(duckdb.sql(f"""SELECT indicator_id || ':' || source_code || ':' || year(period_start), value
+        FROM '{d / 'observations.parquet'}' WHERE indicator_id IN ('democracy_eiu', 'regime_row')""").fetchall())
+    assert got["democracy_eiu:NZL:2024"] == 9.61 and got["regime_row:CHN:2024"] == 0
+    listed = {i["id"]: i for i in conn.listed_indicators}
+    assert listed["democracy_eiu"]["domain"] == "democracy"

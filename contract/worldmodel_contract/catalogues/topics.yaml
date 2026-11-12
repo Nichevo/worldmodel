@@ -100,6 +100,12 @@
   indicators: [turnout_parliamentary, vap_turnout_parliamentary, turnout_presidential, us_voted, us_voted_age_18_24, us_voted_age_65_plus, nz_turnout, nz_turnout_age_18_24, nz_turnout_age_70_plus]
 
 
+- id: democracy
+  name: Democracy and autocracy
+  intro: How democratic each country is, by four measures that mostly agree. The Economist's Democracy Index scores 0 to 10 (8 and over a full democracy, under 4 authoritarian); V-Dem's Regimes of the World sorts countries into closed autocracy, electoral autocracy, electoral democracy and liberal democracy back to 1789; V-Dem's indexes run 0 to 1; Freedom House scores political rights and civil liberties. After decades of spread, more countries have moved towards autocracy than away from it since about 2010.
+  map: democracy_eiu
+  indicators: [democracy_eiu, regime_row, vdem_electoral, vdem_liberal, fh_political_rights, fh_civil_liberties]
+
 - id: inequality
   name: Inequality
   intro: How unequally income and wealth are shared. The Gini index runs from 0 (everyone the same) to 100 (one person has everything) and comes from household surveys; the World Inequality Database adds tax records and national accounts, which catch the top incomes surveys miss, so its top shares run higher. Wealth is always far less equal than income.

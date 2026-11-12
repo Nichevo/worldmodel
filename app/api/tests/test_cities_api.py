@@ -170,3 +170,12 @@ def test_fetch_methods_listed_and_chosen(client, tmp_path):
     assert json.loads((tmp_path / "user" / "fetch_methods.json").read_text()) == {"rbnz": "file"}
     assert client.put("/api/v1/fetch-methods/world_bank_wdi", json={"method": "verify"}).status_code == 422
     assert client.put("/api/v1/fetch-methods/rbnz", json={"method": "auto"}).json()["method"] == "verify"
+
+
+def test_largest_cities_through_the_years(client):
+    d = client.get("/api/v1/cities/largest", params={"year": 2025}).json()
+    assert d["measure"] == "city_population" and d["years"] == [2015, 2025, 2035] and d["first_projection"] == 2025
+    akl = d["rows"][0]
+    assert akl["name"] == "Auckland" and akl["continent"] == "Oceania" and akl["pts"][0] == [2015, 1500000, False]
+    none = client.get("/api/v1/cities/largest", params={"measure": "ghsl_population"}).json()
+    assert none["rows"] == [] and "GHSL" in none["note"]

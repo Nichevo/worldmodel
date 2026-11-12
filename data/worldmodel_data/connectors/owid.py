@@ -102,6 +102,20 @@ CHARTS = (
     ("threatened-mammal-species", "IUCN: mammal species threatened with extinction, by country", "threatened_mammals", "nature"),
     ("threatened-bird-species", "IUCN: bird species threatened with extinction, by country", "threatened_birds", "nature"),
     ("tree-cover-loss", "Global Forest Watch: tree cover lost each year, hectares", "tree_cover_loss", "nature"),
+    # democracy and autocracy (the Democracy topic)
+    ("democracy-index-eiu", "Economist Intelligence Unit Democracy Index: 0 to 10 from elections, how government works, "
+     "taking part, political culture and civil liberties; 8 and over full democracy, 6-8 flawed, 4-6 hybrid, under 4 "
+     "authoritarian", "democracy_eiu", "democracy"),
+    ("political-regime", "Regimes of the World (V-Dem): 0 closed autocracy, 1 electoral autocracy, 2 electoral democracy, "
+     "3 liberal democracy", "regime_row", "democracy"),
+    ("electoral-democracy-index", "V-Dem electoral democracy index: 0 to 1, how far rulers answer to voters in free and "
+     "fair elections with free speech and association", "vdem_electoral", "democracy"),
+    ("liberal-democracy-index", "V-Dem liberal democracy index: 0 to 1, electoral democracy plus limits on government "
+     "(courts, rights, checks)", "vdem_liberal", "democracy"),
+    ("political-rights-score-fh", "Freedom House political rights score: 0 to 40, higher is freer", "fh_political_rights",
+     "democracy"),
+    ("civil-liberties-score-fh", "Freedom House civil liberties score: 0 to 60, higher is freer", "fh_civil_liberties",
+     "democracy"),
 )
 CHART = {c[0]: c for c in CHARTS}
 
@@ -227,8 +241,8 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 4  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts
-    fetch_version = 2  # 2: pollution and nature charts added (fetched at the next refresh)
+    stage_version = 5  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy
+    fetch_version = 3  # 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:

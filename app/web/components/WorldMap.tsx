@@ -45,6 +45,7 @@ type Props = {
   layers?: string[]; // overlays to draw over the countries (ids in the layers table)
   points?: MapPoint[]; // places to mark (cities on the Cities page), sized by size
   fitPoints?: boolean; // zoom to the points whenever they change
+  pointsTop?: number; // the size drawn biggest (default the biggest point): fixed over years, so growth shows
   // A click on a city dot (the points, or the "Major cities" layer); default: open the city's page.
   onCity?: (cityId: string) => void;
   lines?: MapLine[]; // routes between countries (trade on the Sectors page), width by value
@@ -122,7 +123,7 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
-  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, onCity, lines, layerFilter,
+  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
   raster = null, boxes = [], outlines, marks, legend = [], hideScale = false, areas = null, onArea, paths,
   pictures = true,
 }: Props) {
@@ -567,7 +568,7 @@ export default function WorldMap({
     if (!m || pointsKey === null) return;
     const apply = () => {
       const pts = points ?? [];
-      const top = Math.max(1, ...pts.map((p) => p.size));
+      const top = pointsTop ?? Math.max(1, ...pts.map((p) => p.size));
       const data: GeoJSON.FeatureCollection = {
         type: "FeatureCollection",
         features: [...pts].sort((a, b) => b.size - a.size).map((p) => ({
@@ -599,7 +600,7 @@ export default function WorldMap({
     };
     if (m.getLayer("hover")) apply();
     else onLoad.current.push(apply);
-  }, [pointsKey, fitPoints]);
+  }, [pointsKey, fitPoints, pointsTop]);
 
   // Routes between countries: curved lines from each exporter to its buyer, wider for more.
   const linesKey = lines ? lines.map((l) => `${l.from}>${l.to}:${l.value}`).join(",") : null;

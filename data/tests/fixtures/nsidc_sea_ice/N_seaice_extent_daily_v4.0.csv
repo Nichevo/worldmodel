@@ -1,0 +1,6 @@
+ Year, Month, Day,     Extent,    Missing, Source Data
+ YYYY,    MM,  DD, 10^6 sq km, 10^6 sq km, Source data product web sites
+ 1978,    10,  26,     10.231,      0.000, ['https://noaadata.apps.nsidc.org/NOAA/G02202_V4/north/daily/1978/nt_19781026_n07_v1.1_n.bin']
+ 1978,    10,  28,     10.420,      0.000, ['https://noaadata.apps.nsidc.org/NOAA/G02202_V4/north/daily/1978/nt_19781028_n07_v1.1_n.bin']
+ 2012,     9,  16,      3.387,      0.000, ['https://example/a.bin', 'https://example/b.bin']
+ 2012,     9,  17,     -9999,       0.000, ['https://example/c.bin']
