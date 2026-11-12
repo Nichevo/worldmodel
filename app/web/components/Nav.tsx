@@ -23,6 +23,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/", label: "Map" },
     { href: "/shapes", label: "Map shapes", hint: "True size, the equal-area map, cartograms and totals told in countries" },
     { href: "/compare", label: "Compare" },
+    { href: "/stories", label: "Stories", hint: "Short visual stories from your own figures: the fertility fall, electricity, exploding cities, the Arctic, NZ in numbers" },
     { href: "/topics", label: "Topics" },
     { href: "/religion", label: "Religion" },
     { href: "/languages", label: "Languages" },
