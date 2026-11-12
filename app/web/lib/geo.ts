@@ -32,17 +32,20 @@ export function countryCentres(): Promise<Record<string, [number, number]>> {
   if (!centres) {
     centres = countryShapes().then((fc) => {
       const out: Record<string, [number, number]> = {};
+      const areas: Record<string, { area: number; c: [number, number] }> = {};
       for (const f of fc.features) {
         const iso = (f.properties as { iso3?: string } | null)?.iso3;
         const g = f.geometry;
         if (!iso || !g) continue;
         const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
-        let best: { area: number; c: [number, number] } | null = null;
+        // Some territories share their country's code (Ashmore and Cartier Islands are AUS), so keep
+        // the biggest polygon across all of a code's shapes, not the last shape's.
+        let best: { area: number; c: [number, number] } | null = areas[iso] ?? null;
         for (const p of polys) {
           const r = ringCentre(p[0] as number[][]);
           if (!best || r.area > best.area) best = r;
         }
-        if (best) out[iso] = best.c;
+        if (best) { out[iso] = best.c; areas[iso] = best; }
       }
       return out;
     });

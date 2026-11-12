@@ -119,8 +119,8 @@ export function dorling(items: { id: string; x: number; y: number; value: number
       }
     }
     for (let i = 0; i < b.length; i++) { // a gentle pull home keeps the world's shape
-      b[i].x += (home[i][0] - b[i].x) * 0.02;
-      b[i].y += (home[i][1] - b[i].y) * 0.02;
+      b[i].x += (home[i][0] - b[i].x) * 0.05;
+      b[i].y += (home[i][1] - b[i].y) * 0.05;
       if (box) { // keep inside the picture
         b[i].x = Math.min(box[0] - b[i].r, Math.max(b[i].r, b[i].x));
         b[i].y = Math.min(box[1] - b[i].r, Math.max(b[i].r, b[i].y));
