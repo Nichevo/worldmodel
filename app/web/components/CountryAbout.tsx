@@ -24,15 +24,15 @@ export default function CountryAbout({ entity }: { entity: string }) {
   const links = facts?.sections.find((s) => s.section === "Links")?.fields ?? [];
   const item = links.find((l) => l.field_key === "item")?.content;
   if (!wiki && !error) return <div className="card"><h3>About</h3><p className="muted small">Loading…</p></div>;
-  if (!page && factFields.length === 0) {
-    return wiki?.message || error ? <p className="small ink-2">{wiki?.message ?? error}</p> : null;
-  }
+  // Nothing to show (Wikipedia not fetched yet, or it failed) hides the card rather than showing an error.
+  if (!page && factFields.length === 0) return null;
   const photo = page?.images.find((i) => i.role === "photo" && i.src);
   const small = page?.images.filter((i) => i.role !== "photo" && i.src) ?? [];
 
   return (
-    <div className="card about">
-      <div className="about-text">
+    <div className={`card about${page ? "" : " facts-only"}`}>
+      {!page && <h3>About <Help note="about" /></h3>}
+      {page && <div className="about-text">
         <h3>About{page?.description ? <span className="small ink-2"> · {page.description}</span> : null} <Help note="about" /></h3>
         {page ? (
           <>
@@ -43,11 +43,9 @@ export default function CountryAbout({ entity }: { entity: string }) {
               {wiki?.status === "stale" ? " (due for a refresh)" : ""}
             </p>
           </>
-        ) : (
-          <p className="small ink-2">{wiki?.message ?? error ?? "No Wikipedia introduction stored yet."}</p>
-        )}
+        ) : null}
         {wiki?.message && page && <p className="caption">{wiki.message}</p>}
-      </div>
+      </div>}
       <div className="about-side">
         {photo && <Picture img={photo} wide />}
         {small.length > 0 && <div className="about-small">{small.map((i) => <Picture key={i.role} img={i} />)}</div>}

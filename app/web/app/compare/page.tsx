@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import ChartCard from "@/components/ChartCard";
+import SmallMultiples from "@/components/SmallMultiples";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import Search from "@/components/Search";
 import { api, type Entity, type Indicator, type SeriesRow } from "@/lib/api";
-import { seriesVar } from "@/lib/colors";
+import { entityColors } from "@/lib/look";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
 
@@ -19,6 +20,8 @@ function Compare() {
   const params = useSearchParams();
   const ids = useMemo(() => (params.get("ids") || "NZL,AUS").split(",").filter(Boolean).slice(0, MAX), [params]);
   const indicatorId = params.get("indicator") || "tfr";
+  // One chart with a line each, or one small chart each on the same scale.
+  const view = params.get("view") === "multiples" ? "multiples" : "one";
   const [entities, setEntities] = useState<Entity[]>([]);
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [latest, setLatest] = useState<SeriesRow[]>([]);
@@ -32,11 +35,13 @@ function Compare() {
   const named = useMemo(() => ids.map((id) => ({ id, name: names.get(id) ?? id })), [ids, names]);
   const indicator = indicators.find((i) => i.indicator_id === indicatorId);
 
-  const update = (next: string[], ind = indicatorId) =>
-    router.replace(`/compare?ids=${next.join(",")}&indicator=${ind}`);
+  const update = (next: string[], ind = indicatorId, v = view) =>
+    router.replace(`/compare?ids=${next.join(",")}&indicator=${ind}${v === "multiples" ? "&view=multiples" : ""}`);
+  const colours = entityColors(ids);
 
   useEffect(() => {
     if (!indicator || !names.size) return;
+    // (logged once per indicator and set of countries)
     logHistory({ kind: "page", title: `Compare ${ids.map((id) => names.get(id) ?? id).join(", ")}: ${indicator.name}`,
       url: `/compare?ids=${ids.join(",")}&indicator=${indicator.indicator_id}`, indicator: indicator.indicator_id, detail: "compare" });
   }, [indicator, ids, names]);
@@ -72,13 +77,22 @@ function Compare() {
       <div>
         {named.map((e, i) => (
           <span className="chip" key={e.id}>
-            <span className="swatch" style={{ background: seriesVar(i) }} />
+            <span className="swatch" style={{ background: colours[i] }} />
             <Link href={`/entity/${e.id}`}><Flag id={e.id} size={12} />{e.name}</Link>
             <button aria-label={`Remove ${e.name}`} onClick={() => update(ids.filter((x) => x !== e.id))}>×</button>
           </span>
         ))}
       </div>
-      {indicator && named.length > 0 && <ChartCard indicator={indicator} entities={named} height={380} />}
+      {named.length > 1 && (
+        <div className="seg small" role="group" aria-label="How to draw" style={{ justifySelf: "start" }}>
+          <button className={view === "one" ? "on" : ""} aria-pressed={view === "one"} onClick={() => update(ids, indicatorId, "one")}>One chart</button>
+          <button className={view === "multiples" ? "on" : ""} aria-pressed={view === "multiples"} onClick={() => update(ids, indicatorId, "multiples")}
+            title="One small chart each, on the same scale">Small multiples</button>
+        </div>
+      )}
+      {indicator && named.length > 0 && (view === "multiples" && named.length > 1
+        ? <SmallMultiples indicator={indicator} entities={named} />
+        : <ChartCard indicator={indicator} entities={named} height={380} />)}
       {indicator && latest.length > 0 && (
         <div className="card">
           <h3>Latest estimate, ranked</h3>

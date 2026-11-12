@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { api, type EventRow, type Settings } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 import { compact } from "@/lib/format";
+import { look } from "@/lib/look";
 import { useSettings } from "@/lib/settings";
 
 export const KINDS: { kind: string; label: string; color: string }[] = [
@@ -98,6 +99,16 @@ export function eventMarks(events: EventRow[], names?: Map<string, string>) {
   }
   const hoverLabel = { show: true, color: cssVar("--ink"), backgroundColor: cssVar("--surface"), padding: [2, 4], borderRadius: 3,
     formatter: (p: { name: string }) => p.name };
+  // Named on the chart (Settings > Look of charts): a short name standing up the band's left edge,
+  // when there are few enough bands to read.
+  const named = look.eventLabels && areas.length <= 10;
+  const short = (t: string) => (t.length > 22 ? `${t.slice(0, 21)}…` : t);
+  if (named) {
+    for (const a of areas as { name: string; itemStyle: { color: string } }[][]) {
+      Object.assign(a[0], { label: { show: true, position: "insideTopLeft", rotate: 90, align: "right", verticalAlign: "top",
+        offset: [2, 4], fontSize: 10, color: a[0].itemStyle.color, formatter: () => short(a[0].name) } });
+    }
+  }
   return {
     type: "line" as const, id: "events", data: [] as number[], silent: false, tooltip: { show: false },
     markArea: { silent: false, label: { show: false }, emphasis: { label: { ...hoverLabel, position: "insideTop" } }, data: areas },
