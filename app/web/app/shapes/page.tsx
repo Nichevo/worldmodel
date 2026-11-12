@@ -15,6 +15,7 @@ import { compact, formatValue } from "@/lib/format";
 import { countryCentres, countryShapes } from "@/lib/geo";
 import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
+import { continentColor, continentVar } from "@/lib/look";
 import { areaKm2, dorling, EE_H, EE_W, eeOutline, eePath, equalEarth, mercatorStretch, moveTo, polygons } from "@/lib/shapes";
 
 // Map shapes: how big countries really are. True size (drag a country over another), the
@@ -344,7 +345,7 @@ function Cartogram({ indicators }: { indicators: Indicator[] }) {
     return dorling(items, s.k * Math.sqrt(s.top), 120, [W, H], s.top);
   }, [paths, values, fixed, fixedScale, H]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = [...new Set(Object.values(continents))].sort();
-  const colourOf = (id: string) => cssVar(`--series-${(groups.indexOf(continents[id]) % 7) + 1}`) || "#888";
+  const colourOf = (id: string) => continentColor(continents[id]) || "#888";
   const names = Object.fromEntries(paths.map((p) => [p.id, p.name]));
   const fmt = (v: number) => formatValue(v, ind?.unit ?? "", ind?.decimals ?? 1);
   const short = (v: number) => (ind?.unit === "people" || indicator === "pop_total" ? (v >= 1e9 ? `${(v / 1e9).toFixed(2)} bn` : v >= 1e6 ? `${Math.round(v / 1e6)} m` : `${Math.round(v / 1e3)} k`) : compact(v));
@@ -431,7 +432,7 @@ function Cartogram({ indicators }: { indicators: Indicator[] }) {
           <input type="range" min={0} max={years.length - 1} value={Math.max(0, yi)} onChange={(e) => { setPlaying(false); setYear(years[Number(e.target.value)]); }} style={{ width: "100%" }} aria-label="Year" />
         )}
         <div className="chips-row small" style={{ gap: 12, flexWrap: "wrap" }}>
-          {groups.map((g, i) => <span key={g}><span className="swatch round" style={{ background: cssVar(`--series-${(i % 7) + 1}`) }} /> {g}</span>)}
+          {groups.map((g) => <span key={g}><span className="swatch round" style={{ background: `var(${continentVar(g)})` }} /> {g}</span>)}
         </div>
         <p className="caption">{ind?.name ?? indicator}, {year}{isProj(year) ? " (projection)" : ""}. Area in proportion to the figure{fixed ? ", on one scale for every year" : ", scaled to fit this year"}; countries without a figure that year are left out. Click a country for its page.</p>
       </div>

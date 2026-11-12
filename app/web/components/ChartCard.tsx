@@ -14,6 +14,8 @@ import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
 import { useSettings } from "@/lib/settings";
 import { chartParts, keep, openAsk, seriesTable, sourcesLine, toast, useRegisterChart } from "@/lib/ai";
 import PredictDialog from "@/components/PredictDialog";
+import MoreMenu from "@/components/MoreMenu";
+import { finding } from "@/lib/finding";
 import { chartPredictions, forgetChartPredictions, type Prediction, predictionSeries } from "@/lib/predictions";
 
 type Props = { indicator: Indicator; entities: Named[]; kind?: "line" | "bar"; start?: number; end?: number; height?: number;
@@ -116,26 +118,29 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
       : "API link copied, but the public API is switched off: switch it on in Settings > API access"))
       .catch(() => toast(link));
   };
-  // A country page leaves out a chart with nothing to show rather than an empty card.
-  if (hideEmpty && rows && rows.length === 0 && !error) return null;
+  // A country page leaves out a chart with nothing to show (or that failed) rather than an empty card.
+  if (hideEmpty && ((rows && rows.length === 0 && !error) || error)) return null;
+  // The headline says what the chart shows (Settings > Look of charts); the measure's name sits above it.
+  const headline = settings.chart_findings && rows?.length ? finding(rows, entities, indicator.unit, indicator.decimals) : null;
   return (
     <div className="card">
       <div className="card-head">
-        <h3>{indicator.name}{settings.quality_on_titles && indicator.grade && <> <span className={`grade grade-${indicator.grade}`} title="Quality grade (Indicators page)">{indicator.grade}</span></>} <Help indicator={indicator} /></h3>
+        <h3 className={headline ? "sub" : undefined}>{indicator.name}{settings.quality_on_titles && indicator.grade && <> <span className={`grade grade-${indicator.grade}`} title="Quality grade (Indicators page)">{indicator.grade}</span></>} <Help indicator={indicator} /></h3>
         {rows && rows.length > 0 && (
           <span className="card-actions">
-            {kind === "line" && <button className={`link small${forecastOn ? " on" : ""}`} aria-pressed={forecastOn}
-              title="Extend each line with a statistical forecast and its ranges (Settings: Forecasts)"
-              onClick={() => setForecastOn(!forecastOn)}>{forecastOn ? "Hide forecast" : "Forecast"}</button>}
             {settings.ai_enabled && <button className="link small" onClick={askAI} title="Ask the local AI about this chart; its figures go with the question">Ask AI</button>}
-            <button className="link small" onClick={() => setPredicting(true)} title="Add your prediction for this figure to the Predictions log; it is checked when the figure arrives">Predict</button>
-            <button className="link small" onClick={keepChart} title="Keep this chart on the Highlights page">Keep</button>
-            <button className="link small" onClick={savePicture} title="Save this chart as a picture, with its sources">Save picture</button>
-            <button className="link small" onClick={copyApiLink}
-              title="Copy the address of these figures in the public API (CSV), for Excel, PowerShell or a script">Copy API link</button>
+            <MoreMenu items={[
+              { label: forecastOn ? "Hide forecast" : "Forecast", on: forecastOn, hidden: kind !== "line", onClick: () => setForecastOn(!forecastOn),
+                title: "Extend each line with a statistical forecast and its ranges (Settings: Forecasts)" },
+              { label: "Predict…", onClick: () => setPredicting(true), title: "Add your prediction for this figure to the Predictions log; it is checked when the figure arrives" },
+              { label: "Keep on Highlights", onClick: keepChart, title: "Keep this chart on the Highlights page" },
+              { label: "Save picture", onClick: savePicture, title: "Save this chart as a picture, with its sources" },
+              { label: "Copy API link", onClick: copyApiLink, title: "Copy the address of these figures in the public API (CSV), for Excel, PowerShell or a script" },
+            ]} />
           </span>
         )}
       </div>
+      {headline && <p className="finding">{headline}</p>}
       {saveError && <p className="error small">{saveError}</p>}
       {error && <p className="error">{error}</p>}
       {rows && rows.length === 0 && <p className="muted">No data for this indicator yet.</p>}
