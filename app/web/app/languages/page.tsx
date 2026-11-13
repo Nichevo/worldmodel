@@ -7,7 +7,10 @@ import type { EChartsOption } from "echarts";
 import EChart from "@/components/EChart";
 import Flag from "@/components/Flag";
 import WorldMap from "@/components/WorldMap";
-import { api, type Languages } from "@/lib/api";
+import { api, type EntityLanguages, type Languages } from "@/lib/api";
+import CardAsk from "@/components/CardAsk";
+import { useKeys } from "@/components/PageLook";
+import { openAsk } from "@/lib/ai";
 import { chrome } from "@/lib/charts";
 import { cssVar, seriesColor } from "@/lib/colors";
 import { useEntityNames } from "@/lib/flags";
@@ -27,6 +30,9 @@ function LanguagesPage() {
   const [lang, setLang] = useState<string | undefined>(params.get("lang") ?? undefined);
   const [mode, setMode] = useState<Mode>((params.get("mode") as Mode) || "share");
   const [typed, setTyped] = useState("");
+  const home = useKeys().split(",")[0] || "NZL";
+  const [mine, setMine] = useState<EntityLanguages | null>(null);
+  useEffect(() => { api.entityLanguages(home).then(setMine).catch(() => setMine(null)); }, [home]);
   useEffect(() => {
     let live = true;
     api.languages(lang, 20).then((x) => { if (live) { setD(x); setError(null); } }).catch((e) => live && setError(String(e.message || e)));
@@ -39,15 +45,26 @@ function LanguagesPage() {
   const option = useCallback((): EChartsOption => {
     const base = chrome();
     const rows = [...top].reverse();
-    return { ...base, grid: { left: 120, right: 70, top: 8, bottom: 24 },
+    const split = rows.some((r) => r.home != null);
+    const dark = (r: (typeof rows)[number]) => (r.code === d?.lang ? seriesColor(2) : seriesColor(0));
+    return { ...base, grid: { left: 120, right: 70, top: split ? 28 : 8, bottom: 24 },
+      legend: split ? { top: 0, left: 0, textStyle: { color: cssVar("--ink-2") }, data: ["Where it is the main language", "Elsewhere"] } : undefined,
       xAxis: { type: "value", axisLabel: { color: cssVar("--muted"), formatter: (v: number) => people(v).replace(" million", "m").replace(" billion", "bn") },
         splitLine: { lineStyle: { color: cssVar("--grid") } } },
       yAxis: { type: "category", data: rows.map((r) => r.name), axisLabel: { color: cssVar("--ink-2") } },
       tooltip: { ...(base.tooltip as object), trigger: "item", formatter: (p: unknown) => {
         const r = rows[(p as { dataIndex: number }).dataIndex];
-        return `<b>${r.name}</b><br/>${people(r.speakers)} speakers in ${r.countries} countries<br/>official in ${r.official_in}`;
+        const h = r.home ?? 0;
+        return `<b>${r.name}</b><br/>${people(r.speakers)} speakers in ${r.countries} countries<br/>`
+          + (split ? `${people(h)} where it is the main language, ${people(r.speakers - h)} elsewhere<br/>` : "") + `official in ${r.official_in}`;
       } },
-      series: [{ type: "bar", data: rows.map((r) => ({ value: r.speakers, itemStyle: { color: r.code === d?.lang ? seriesColor(2) : seriesColor(0) } })),
+      series: split ? [
+        { type: "bar", name: "Where it is the main language", stack: "s", itemStyle: { color: seriesColor(0) },
+          data: rows.map((r) => ({ value: r.home ?? 0, itemStyle: { color: dark(r) } })) },
+        { type: "bar", name: "Elsewhere", stack: "s", itemStyle: { color: seriesColor(0), opacity: 0.35 },
+          data: rows.map((r) => ({ value: r.speakers - (r.home ?? 0), itemStyle: { color: dark(r), opacity: 0.35 } })),
+          label: { show: true, position: "right", color: cssVar("--muted"), formatter: (p: { dataIndex: number }) => people(rows[p.dataIndex].speakers) } },
+      ] : [{ type: "bar", data: rows.map((r) => ({ value: r.speakers, itemStyle: { color: dark(r) } })),
         label: { show: true, position: "right", color: cssVar("--muted"), formatter: (p: { value?: unknown }) => people(Number(p.value)) } }] };
   }, [top, d?.lang]);
   const values = useMemo(() => {
@@ -66,6 +83,13 @@ function LanguagesPage() {
     if (hit) { setLang(hit.code); setMode("share"); setTyped(""); }
   };
   const table = mode === "share" ? d.map.slice(0, 40) : [];
+  const first = top[0];
+  const away = first?.home != null && first.speakers ? Math.round(100 * (1 - first.home / first.speakers)) : null;
+  const finding = !first ? "The most spoken languages" : away != null && away >= 50
+    ? `${first.name} has the most speakers, but most of them (${away}%) live where it isn't the main language`
+    : `${first.name} has the most speakers: ${people(first.speakers)}`;
+  const homeNote = mine?.languages.length ? `${home === "NZL" ? "In New Zealand" : `In ${nameOf(home)}`}: ${[...mine.languages].sort((a, b) => (b.share ?? 0) - (a.share ?? 0)).slice(0, 4).map((l) =>
+    `${l.name}${l.share != null ? ` ${l.share < 10 ? l.share.toFixed(1) : Math.round(l.share)}%` : ""}${l.official ? ` (${l.official})` : ""}`).join(", ")}.` : "";
   return (
     <div className="grid">
       <div className="title-row">
@@ -73,9 +97,13 @@ function LanguagesPage() {
         <span className="muted small">Who speaks what, in each country and in the world</span>
       </div>
       <div className="card">
-        <h3>The most spoken languages</h3>
+        <div className="card-head"><h3 className="finding">{finding}</h3>
+          <CardAsk onAsk={() => openAsk({ title: "The most spoken languages", parts: [{ key: "top", kind: "data", label: "Language, speakers, where main language, countries",
+            text: top.map((r) => `${r.name} | ${Math.round(r.speakers)} | ${Math.round(r.home ?? 0)} | ${r.countries}`).join("\n") }] })} /></div>
         <EChart option={option} height={Math.max(240, top.length * 22)} label="The most spoken languages" />
-        <p className="caption">First and second language speakers together, from Unicode CLDR&apos;s share of each country&apos;s people times its population.
+        {homeNote && <p className="small">{homeNote}{mine?.endangered.length ? ` Endangered here: ${mine.endangered.slice(0, 3).map((e) => e.name).join(", ")}.` : ""}</p>}
+        <p className="caption">Dark: speakers in countries where it is the main language (mostly people who grew up with it). Light: speakers elsewhere
+          (mostly people who learned it; CLDR has no first and second language split of its own, so this is the nearest it allows). First and second language speakers together, from Unicode CLDR&apos;s share of each country&apos;s people times its population.
           Second-language counts vary a lot between sources, so treat these as estimates. Click a bar&apos;s language in the list below to map it.</p>
       </div>
       <div className="card">

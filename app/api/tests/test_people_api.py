@@ -97,6 +97,7 @@ def test_religion_country(client):
 def test_languages(client):
     r = client.get("/api/v1/languages").json()
     assert r["top"][0]["code"] == "en" and r["top"][0]["name"] == "English" and r["top"][0]["countries"] == 2
+    assert r["top"][0]["home"] == r["top"][0]["speakers"]  # English is the main language in both
     assert r["lang"] == "en" and {x["entity_id"] for x in r["map"]} == {"NZL", "USA"}
     es = client.get("/api/v1/languages", params={"lang": "es"}).json()
     assert es["lang_name"] == "Spanish" and es["map"][0]["official"] is None
