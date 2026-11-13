@@ -42,6 +42,7 @@ EVENT_KINDS = {
     "pest": "Pests, weeds and plant diseases arriving",
     "pollution": "Pollution disasters and smoke across borders",
     "notable": "Notable episodes",
+    "episode": "Big episodes (the Episodes page)",
     "un": "United Nations: Security Council seats, vetoes and resolutions",
     "sanction": "Sanctions",
     "imf": "IMF lending programmes",
