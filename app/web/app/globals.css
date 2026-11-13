@@ -1218,3 +1218,66 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
   .sx-price .sx-range { display: none; }
   .sx-bar { grid-template-columns: 100px minmax(0, 1fr) 80px; }
 }
+
+/* Electricity mix layer on the Map: pies, the key and the hover card */
+.mix-marker { line-height: 0; }
+.mix-pie { position: relative; border: 0; background: none; padding: 0; margin: 0; cursor: pointer; line-height: 0; min-height: 0; display: block; }
+.mix-pie svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+.mix-pie.dot span { display: block; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 .5px #444; }
+.mix-pie em { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); font-style: normal; font-size: 12px; font-weight: 600; line-height: 1.4;
+  color: #1d1d1d; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
+.mix-key, .mix-card { position: absolute; z-index: 500; background: var(--surface); color: var(--ink); border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.mix-key { right: 10px; bottom: 28px; width: 232px; max-height: calc(100% - 110px); overflow-y: auto; }
+.mix-key.shut { width: auto; }
+.mix-key > *, .mix-card > * { flex-shrink: 0; }
+.mix-key .caption { margin: 0; }
+.mix-key-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mix-kinds { display: flex; flex-direction: column; }
+.mix-kind { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 8px; align-items: center; border: 0; background: transparent; color: inherit;
+  padding: 4px 4px; min-height: 30px; font: inherit; text-align: left; cursor: pointer; border-bottom: 1px solid var(--border); border-radius: 0; }
+.mix-kind:hover, .mix-kind.on { background: var(--surface-2); }
+.mix-kind.on { font-weight: 600; }
+.mix-sw { width: 14px; height: 14px; border-radius: 3px; }
+.mix-steps { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
+.mix-ramp { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); height: 14px; margin-top: 8px; }
+.mix-mark { position: absolute; top: -8px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-left: -5px; }
+.mix-mark.home, .mix-tri.home { border-top: 7px solid #111; }
+.mix-mark.world, .mix-tri.world { border-top: 7px solid #8a877f; }
+.mix-tri { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; }
+.mix-edges { position: relative; height: 14px; font-size: 11px; color: var(--ink-2); }
+.mix-edges span { position: absolute; transform: translateX(-50%); }
+.mix-edges span:first-child { transform: none; }
+.mix-edges span:last-child { transform: translateX(-100%); }
+.mix-card { left: 10px; bottom: 28px; width: 250px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mix-mark.home, :root:not([data-theme="light"]) .mix-tri.home { border-top-color: #eee; } }
+:root[data-theme="dark"] .mix-mark.home, :root[data-theme="dark"] .mix-tri.home { border-top-color: #eee; }
+
+/* Climate page: headline strip, records, key countries */
+.climate-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.climate-head { text-align: left; font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--border); }
+.climate-head:hover { border-color: var(--accent); }
+.climate-head .meta { color: var(--ink-2); font-size: 0.78rem; }
+.finding { font-family: var(--serif); font-size: 1.2rem; margin: 2px 0 6px; }
+.climate-records { list-style: none; margin: 0; padding: 0; }
+.climate-records li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.climate-records i, .caption i.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.climate-records i.record, i.dot.record { background: var(--c-gbr); }
+.climate-records i.decade, i.dot.decade { background: var(--c-aus); }
+.climate-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.cc-block { display: flex; flex-direction: column; gap: 5px; }
+.cc-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 56px; gap: 8px; align-items: center; font-size: 0.82rem; }
+.cc-row .strong { font-weight: 600; }
+.cc-track { display: block; height: 12px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.cc-track span { display: block; height: 12px; border-radius: 3px; }
+.cc-row .mono, .mix-kind .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.mix-edges { font-family: var(--mono); }
+.seg.sub { font-size: 0.85rem; }
+.climate-tabs { flex-wrap: wrap; }
+.climate-tabs button { white-space: nowrap; }
+@media (max-width: 600px) {
+  .climate-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .climate-head .value { font-size: 1.3rem; }
+  .climate-tabs { display: flex; }
+  .climate-tabs button { flex: 1 1 auto; }
+}

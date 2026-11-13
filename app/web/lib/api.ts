@@ -806,6 +806,12 @@ export type ClimateOverview = {
   sea_ice: Record<string, [number, number][]>; ice_sheets: Record<string, [number, number][]>;
   enso: EnsoPhase; names: IndName; emission_maps: string[];
 };
+export type ClimateHead = { id: string; label: string; value: string; note: string; tone: string; tab: string; spark: number[] };
+export type ClimateHeadlines = {
+  keys: string[]; home: string; heads: ClimateHead[]; records: { level: "record" | "decade"; text: string; tab: string }[];
+  compare: { id: string; title: string; note?: string; rows: { entity_id: string; name: string; value: number; year: number; text: string; note?: string }[] }[];
+  lines: { id: string; name: string; points: [number, number][] }[]; finding: string;
+};
 export type ClimateDisaster = { kind: string; subkind: string; title: string; start_date: string; deaths: number | null;
   affected: number | null; damage_usd: number | null; source_id: string };
 export type ClimateCountry = {
@@ -1214,6 +1220,7 @@ export const api = {
     get<RelationList>("/relationships", { ...q, built: q.built && q.built !== "last" ? q.built : undefined, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
       hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
   climate: () => get<ClimateOverview>("/climate"),
+  climateHeadlines: (keys: string) => get<ClimateHeadlines>(`/climate/headlines?keys=${encodeURIComponent(keys)}`),
   climateCountry: (id: string) => get<ClimateCountry>(`/climate/country/${encodeURIComponent(id)}`),
   climateEnso: () => get<ClimateEnso>("/climate/enso"),
   climateStorms: () => get<ClimateStorms>("/climate/storms"),

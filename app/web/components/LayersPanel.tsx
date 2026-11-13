@@ -193,7 +193,7 @@ const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a0
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c",
   crisiswatch: () => cssVar("--div-neg-3"), events: () => cssVar("--series-7"), news: () => cssVar("--series-4"),
-  history_world: () => cssVar("--series-4"),
+  history_world: () => cssVar("--series-4"), electricity_mix: () => "#2c4f9e",
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose }: {
@@ -233,6 +233,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "events") return { ok: true, why: "", source: "Events from every source, placed on their country" };
       if (m.id === "history_world") return { ok: true, why: "", source: "Seshat Cliopatria borders (a refresh loads them)" };
       if (m.id === "climate_zones") return { ok: true, why: "", source: "Beck et al. 2023 (a refresh loads them)" };
+      if (m.id === "electricity_mix") return { ok: true, why: "", source: "Our World in Data energy, each place's latest year" };
       if (m.id === "smoke") return { ok: true, why: "", source: "NASA GIBS, read from the internet" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
