@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import BigCycles from "@/components/cycles/BigCycles";
 import { AgeOfEmpires, WhoRuled } from "@/components/long/Empires";
 import LongCharts, { useLongOverview } from "@/components/long/LongCharts";
 import { Cycle, Factors, ThenAndNow } from "@/components/long/Order";
@@ -20,6 +21,7 @@ const TABS = [
   { id: "thennow", label: "Then and now" },
   { id: "factors", label: "Eight factors" },
   { id: "cycle", label: "The cycle" },
+  { id: "bigcycles", label: "Big cycles" },
   { id: "voyages", label: "Voyages" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -53,6 +55,7 @@ function LongPage() {
       {tab === "thennow" && <ThenAndNow o={o} />}
       {tab === "factors" && <Factors o={o} />}
       {tab === "cycle" && <Cycle o={o} />}
+      {tab === "bigcycles" && <BigCycles />}
       {tab === "voyages" && <Voyages o={o} />}
       <p className="caption">
         Borders: Seshat Global History Databank, Cliopatria (CC BY 4.0). Long-run figures: Our World in Data from HYDE, the Maddison

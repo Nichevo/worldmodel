@@ -43,6 +43,7 @@ import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import AlikeCard from "@/components/AlikeCard";
 import { AttentionCard, OutlookCard } from "@/components/outlook/OutlookParts";
+import { DebtCycleCard } from "@/components/cycles/BigCycles";
 import Flag from "@/components/Flag";
 import LatestOn from "@/components/LatestOn";
 import Timeline from "@/components/Timeline";
@@ -140,6 +141,7 @@ export default function EntityPage() {
     { key: "currency", title: "Currency", section: "money", on: !isGroup || e === "eu", el: <CurrencyCard entity={e} name={nm} /> },
     { key: "outlook", title: "Outlook", section: "money", on: !isGroup, el: <OutlookCard entity={e} name={nm} /> },
     { key: "debt", title: "Debt", section: "money", on: !isGroup, el: <DebtCard entity={e} name={nm} indicators={byId} /> },
+    { key: "debtcycle", title: "Debt cycles", section: "money", on: !isGroup, el: <DebtCycleCard entity={e} name={nm} /> },
     { key: "housing", title: "House prices and household debt", section: "money", on: true, el: <HousingCard entity={e} name={nm} indicators={byId} /> },
     { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
     { key: "regions", title: "Regions", section: "places", on: !isGroup, el: <RegionsCard entity={e} name={nm} /> },
