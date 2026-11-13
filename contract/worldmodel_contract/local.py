@@ -114,6 +114,9 @@ SETTINGS: dict[str, object] = {
     "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, about 100 MB kept)
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
     "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
+    "outlook_fetch": True,               # OECD leading indicators and quarterly GDP (weekly), US yield curve and GDPNow from FRED
+    "attention_on": True,                # Wikipedia page views per country (one request per country page opened, one a day for the Briefing)
+    "calendar_live": True,               # release dates from the ONS (UK) and ABS (Australia) sites, once a day
     "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
     "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
     "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)

@@ -1340,3 +1340,33 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .score-tile .value { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; }
 .score-tile .meta { color: var(--ink-2); font-size: 0.8rem; }
 @media (max-width: 600px) { .crowd-topics { grid-template-columns: minmax(0, 1fr); } }
+
+/* Outlook: recession dials, the odds table, the release calendar, Wikipedia attention */
+.dial { margin: 0; display: flex; flex-direction: column; align-items: center; }
+.dial svg { width: 100%; height: auto; }
+.dial figcaption { text-align: center; color: var(--ink-2); }
+.dial-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.dial-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.dial-btn.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.drivers ul { margin: 4px 0 8px; padding-left: 18px; }
+.odds-table { display: flex; flex-direction: column; max-height: 420px; overflow-y: auto; }
+.odds-line { display: grid; grid-template-columns: minmax(140px, 1.2fr) minmax(80px, 2fr) 48px minmax(70px, auto); gap: 8px; align-items: center;
+  background: none; border: 0; border-bottom: 1px solid var(--border); padding: 5px 2px; text-align: left; color: var(--ink); cursor: pointer; font: inherit; }
+.odds-line.on { background: var(--hover, rgba(127,127,127,0.08)); }
+.odds-bar { height: 10px; background: var(--grid); border-radius: 3px; overflow: hidden; display: block; }
+.odds-bar i { display: block; height: 100%; }
+.outlook-mini { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.outlook-mini .small p { margin: 4px 0; }
+.cards-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.cal-list { display: flex; flex-direction: column; gap: 10px; }
+.cal-day h3.cal-date { font-size: 0.95rem; margin: 6px 0 4px; }
+.cal-day.today h3.cal-date { color: var(--accent, var(--ink)); }
+.cal-day ul { list-style: none; margin: 0; padding: 0; }
+.cal-day li { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.cal-time { font-variant-numeric: tabular-nums; min-width: 3.2em; color: var(--ink-2); }
+.attention-top { margin: 4px 0; padding-left: 22px; columns: 2 260px; }
+.attention-top li { margin: 2px 0; }
+@media (max-width: 600px) {
+  .odds-line { grid-template-columns: minmax(110px, 1.2fr) minmax(50px, 1fr) 40px; }
+  .odds-line > :last-child { display: none; }
+}

@@ -42,6 +42,7 @@ import CurrencyCard from "@/components/CurrencyCard";
 import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import AlikeCard from "@/components/AlikeCard";
+import { AttentionCard, OutlookCard } from "@/components/outlook/OutlookParts";
 import Flag from "@/components/Flag";
 import LatestOn from "@/components/LatestOn";
 import Timeline from "@/components/Timeline";
@@ -137,6 +138,7 @@ export default function EntityPage() {
     { key: "languages", title: "Languages", section: "people", on: !isGroup, el: <LanguagesCard entity={e} name={nm} /> },
     { key: "voters", title: "Who votes", section: "people", on: !isGroup, el: <VotersCard entity={e} name={nm} indicators={byId} /> },
     { key: "currency", title: "Currency", section: "money", on: !isGroup || e === "eu", el: <CurrencyCard entity={e} name={nm} /> },
+    { key: "outlook", title: "Outlook", section: "money", on: !isGroup, el: <OutlookCard entity={e} name={nm} /> },
     { key: "debt", title: "Debt", section: "money", on: !isGroup, el: <DebtCard entity={e} name={nm} indicators={byId} /> },
     { key: "housing", title: "House prices and household debt", section: "money", on: true, el: <HousingCard entity={e} name={nm} indicators={byId} /> },
     { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
@@ -156,6 +158,7 @@ export default function EntityPage() {
     { key: "voting", title: "UN voting", section: "world", on: !isGroup, el: <VotingCard entity={e} name={nm} /> },
     { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
+    { key: "attention", title: "Wikipedia attention", section: "world", on: !isGroup, el: <AttentionCard entity={e} name={nm} /> },
     { key: "crowd", title: "What the crowd expects", section: "world", on: !isGroup, el: <CrowdCard entity={e} name={nm} /> },
     { key: "alike", title: "Like this one", section: "world", on: !isGroup, el: <AlikeCard entity={e} name={nm} /> },
     { key: "laws", title: "Laws and rules", section: "laws", on: !isGroup, el: <LawsCard entity={e} name={nm} /> },

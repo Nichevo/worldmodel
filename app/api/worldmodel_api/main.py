@@ -41,7 +41,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, hazards, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, climate, crises, hazards, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -2420,6 +2420,89 @@ def _hazard_cities() -> list[dict]:
         return []
     return [{"name": r["name"], "country": r["country_id"], "lon": r["lon"], "lat": r["lat"]} for r in rows(
         "SELECT name, country_id, lat, lon FROM cities WHERE population >= 1000000 AND lat IS NOT NULL ORDER BY population DESC LIMIT 600")]
+
+
+# ----------------------------------------------------------------------------- Outlook
+def _wh_version() -> str:
+    o = warehouse.current()
+    return f"{o.path}:{o.mtime}"
+
+
+def _set(name: str, default=True) -> bool:
+    return bool(userdata.settings().get(name, default))
+
+
+@api.get("/outlook/recession")
+def outlook_recession(entities: str | None = None):
+    """The chance a recession starts within a year, for each country asked (default: the key countries),
+    with its history, its recessions and what drives the latest reading."""
+    ents = split(entities) or list(outlook.KEY)
+    got = outlook.recession_odds(rows, ents, _wh_version())
+    names = {r["entity_id"]: r["name"] for r in rows("SELECT entity_id, coalesce(short_name, name) AS name FROM entities")}
+    for c in got["countries"]:
+        c["name"] = names.get(c["entity"], c["entity"])
+    return got
+
+
+@api.get("/outlook/recession/all")
+def outlook_recession_all():
+    """Every country with a reading now, highest odds first (no histories)."""
+    ents = [r["e"] for r in rows("SELECT DISTINCT entity_id AS e FROM series WHERE indicator_id = 'gdp_growth_q'")]
+    got = outlook.recession_odds(rows, ents, _wh_version(), history_from=9999)
+    names = {r["entity_id"]: r["name"] for r in rows("SELECT entity_id, coalesce(short_name, name) AS name FROM entities")}
+    out = [{"entity": c["entity"], "name": names.get(c["entity"], c["entity"]), "odds": c["odds"], "month": c["month"],
+            "model": c["model"], "in_recession": c["in_recession"]} for c in got["countries"] if c["odds"] is not None]
+    return {"countries": sorted(out, key=lambda c: -c["odds"]), "models": got["models"]}
+
+
+@api.get("/outlook/nowcast/{entity_id}")
+def outlook_nowcast(entity_id: str):
+    """This quarter's growth estimated before the official figure, with the method's track record."""
+    return outlook.nowcast(rows, entity_id, _wh_version())
+
+
+@api.get("/outlook/calendar")
+def outlook_calendar(countries: str | None = None, days_back: int = 7, days_ahead: int = 42):
+    """Data releases and rate decisions coming up (and the last week's), with the app's nowcast where it has one."""
+    return releases.calendar(_set("calendar_live"), split(countries) or list(outlook.KEY), days_back, days_ahead,
+                             nowcasts=outlook.remembered())
+
+
+def _article(entity_id: str) -> str | None:
+    t = wiki_target(entity_id)
+    if not t or t.get("type") not in ("country", "historical_country"):
+        return None
+    return t.get("article") or t["name"]
+
+
+@api.get("/attention/top")
+def attention_top():
+    """Countries among Wikipedia's most-read articles yesterday, and the key countries' own views."""
+    on = _set("attention_on")
+    countries = rows("SELECT entity_id, name, coalesce(short_name, name) AS short FROM entities WHERE type = 'country' AND valid_to IS NULL")
+    facts = _wiki_facts([c["entity_id"] for c in countries])
+    titles = {(facts.get(c["entity_id"], {}).get("article") or c["name"]): c["entity_id"] for c in countries}
+    got = attention.top(titles, on)
+    names = {c["entity_id"]: c["short"] for c in countries}
+    for c in got["countries"]:
+        c["name"] = names.get(c["entity"], c["entity"])
+    key = []
+    for e in outlook.KEY:
+        a = _article(e)
+        if a:
+            r = attention.country(e, a, on)
+            key.append({"entity": e, "name": names.get(e, e), **{k: r.get(k) for k in ("latest", "usual", "week_avg", "ratio", "spikes", "note")},
+                        "points": r.get("points", [])[-30:]})
+    return {**got, "key": key}
+
+
+@api.get("/attention/{entity_id}")
+def attention_country(entity_id: str):
+    """How many people read the country's Wikipedia article each day over the last 90 days, and its spikes."""
+    a = _article(entity_id)
+    if not a:
+        return {"entity": entity_id, "points": [], "note": "No Wikipedia article for this kind of place."}
+    return attention.country(entity_id, a, _set("attention_on"))
 
 
 @api.get("/hazards/{entity_id}")
