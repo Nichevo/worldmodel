@@ -24,6 +24,7 @@ export const KINDS: { kind: string; label: string; color: string }[] = [
   { kind: "disaster", label: "Disasters", color: "--series-1" },
   { kind: "epidemic", label: "Epidemics", color: "--series-1" },
   { kind: "notable", label: "Notable episodes", color: "--series-7" },
+  { kind: "episode", label: "Big episodes", color: "--div-neg-2" },
   { kind: "crisiswatch", label: "CrisisWatch ratings", color: "--div-neg-2" },
   { kind: "un", label: "UN Security Council", color: "--series-2" },
   { kind: "sanction", label: "Sanctions", color: "--series-4" },
@@ -92,9 +93,9 @@ export function eventMarks(events: EventRow[], names?: Map<string, string>) {
     const x0 = e.precision === "year" && !e.end_date ? +e.start_date.slice(0, 4) : at(e.start_date);
     const x1 = e.end_date ? at(e.end_date) + 1 / 365 : null;
     if (x1 !== null && x1 - x0 > 0.05) {
-      areas.push([{ xAxis: x0, name: label(e), itemStyle: { color, opacity: 0.12 } }, { xAxis: x1 }]);
+      areas.push([{ xAxis: x0, name: label(e), url: e.url, itemStyle: { color, opacity: 0.12 } }, { xAxis: x1 }]);
     } else {
-      lines.push({ xAxis: x0, name: label(e), lineStyle: { color, type: "dotted", width: 1.5 } });
+      lines.push({ xAxis: x0, name: label(e), url: e.url, lineStyle: { color, type: "dotted", width: 1.5 } });
     }
   }
   const hoverLabel = { show: true, color: cssVar("--ink"), backgroundColor: cssVar("--surface"), padding: [2, 4], borderRadius: 3,
@@ -176,4 +177,14 @@ export function withEventTooltip<T extends { tooltip?: unknown }>(option: T, eve
       + `${e.title}${many ? ` (${names!.get(e.entity_id) ?? e.entity_id})` : ""}`).join("<br/>");
   };
   return { ...option, tooltip: { ...(option.tooltip as object), formatter } };
+}
+
+// A click on a band or line that belongs to a page in the app (a big episode's page) opens it.
+export function linkBands(chart: { on: (ev: string, fn: (p: unknown) => void) => void }, go: (url: string) => void) {
+  chart.on("click", (p) => {
+    const q = p as { componentType?: string; data?: { url?: string | null } | { url?: string | null }[] };
+    if (q.componentType !== "markArea" && q.componentType !== "markLine") return;
+    const d = Array.isArray(q.data) ? q.data[0] : q.data;
+    if (d?.url && d.url.startsWith("/")) go(d.url);
+  });
 }

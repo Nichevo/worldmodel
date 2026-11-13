@@ -1,0 +1,365 @@
+# Big episodes, typed in from economic histories (Wikipedia has the full stories).
+# Each one: dates (YYYY or YYYY-MM), its kind, the countries at its centre, a short summary,
+# a dated timeline, the charts that tell it and links to read more.
+#   kind: financial | energy | policy | collapse | disaster
+#   nz: true when it touched New Zealand directly
+#   charts: indicator ids read from the series table; "long:<id>" reads the long-run table
+#     (Maddison and others) for episodes before the yearly series start (about 1960).
+# The Episodes page also lists the recessions, booms and crises the app finds in the data itself.
+
+kinds:
+  financial: Financial
+  energy: Energy and prices
+  policy: Policy
+  collapse: Collapse and war
+  disaster: Pandemic and disaster
+
+episodes:
+  - id: inflation-surge
+    title: The inflation surge
+    kind: energy
+    nz: true
+    start: 2021-03
+    end: 2023-12
+    countries: [USA, GBR, NZL, AUS, DEU]
+    summary: >-
+      Prices rose faster than for forty years as economies reopened after COVID-19, supply chains jammed and
+      Russia's invasion of Ukraine pushed up gas, oil and grain. Central banks raised rates faster than at any time
+      since the early 1980s.
+    timeline:
+      - {date: 2021-10-06, text: "The Reserve Bank of New Zealand raises its cash rate, one of the first big central banks to do so."}
+      - {date: 2022-02-24, text: "Russia invades Ukraine; gas, oil, wheat and fertiliser prices jump."}
+      - {date: 2022-03-16, text: "The US Federal Reserve raises rates for the first time since 2018."}
+      - {date: 2022-06, text: "US consumer prices are up 9.1% on a year earlier, the peak; New Zealand's reach 7.3% in the June quarter."}
+      - {date: 2022-08, text: "European gas prices peak at about ten times their usual level."}
+      - {date: 2022-10, text: "UK inflation peaks at 11.1%."}
+      - {date: 2023-05, text: "New Zealand's cash rate reaches 5.5%, its highest since 2008."}
+    charts: [inflation, bis_policy_rate_m, pindex_energy, gdp_growth]
+    links:
+      - {title: "2021–2023 inflation surge", url: "https://en.wikipedia.org/wiki/2021%E2%80%932023_inflation_surge"}
+
+  - id: covid
+    title: COVID-19
+    kind: disaster
+    nz: true
+    start: 2020-01
+    end: 2021-12
+    countries: [world, NZL, GBR, USA, AUS, ITA, ESP]
+    summary: >-
+      Lockdowns and closed borders caused the sharpest fall in world output since the Second World War, followed by
+      a fast rebound helped by very large government spending and interest rates cut to near zero.
+    timeline:
+      - {date: 2020-01-30, text: "The World Health Organization declares a public health emergency."}
+      - {date: 2020-03-11, text: "The WHO calls it a pandemic."}
+      - {date: 2020-03-15, text: "The US Federal Reserve cuts rates to near zero."}
+      - {date: 2020-03-25, text: "New Zealand goes into its first national lockdown (alert level 4)."}
+      - {date: 2020-06, text: "Output in the June quarter falls by about a tenth or more in many countries."}
+      - {date: 2020-12-08, text: "The first vaccine outside trials is given, in the UK."}
+      - {date: 2021-08-17, text: "New Zealand locks down again for the Delta variant."}
+    charts: [gdp_growth, unemployment, govt_debt_gdp, gdp_growth_q]
+    links:
+      - {title: "COVID-19 pandemic", url: "https://en.wikipedia.org/wiki/COVID-19_pandemic"}
+      - {title: "Economic impact of the COVID-19 pandemic", url: "https://en.wikipedia.org/wiki/Economic_impact_of_the_COVID-19_pandemic"}
+
+  - id: euro-debt
+    title: Euro area debt crisis
+    kind: financial
+    nz: false
+    start: 2010
+    end: 2012
+    countries: [GRC, IRL, PRT, ESP, ITA, CYP]
+    summary: >-
+      Countries sharing the euro could not devalue or print their own money, so when lenders lost faith in their
+      debts, Greece, Ireland, Portugal and later Cyprus needed rescues and Spain's banks were propped up. Greece
+      lost about a quarter of its output.
+    timeline:
+      - {date: 2009-10, text: "Greece's new government says the budget deficit is about twice what was reported."}
+      - {date: 2010-05-02, text: "Greece gets its first rescue loan from the euro area and the IMF."}
+      - {date: 2010-11, text: "Ireland agrees a rescue after its banks fail."}
+      - {date: 2011-05, text: "Portugal agrees a rescue."}
+      - {date: 2012-03, text: "Greece's private lenders take a loss on its debt, the largest restructuring of government debt to that date."}
+      - {date: 2012-07-26, text: "Mario Draghi says the European Central Bank will do \"whatever it takes\" to preserve the euro; borrowing costs fall."}
+    charts: [gdp_growth, unemployment, govt_debt_gdp, real_interest_rate]
+    links:
+      - {title: "European debt crisis", url: "https://en.wikipedia.org/wiki/European_debt_crisis"}
+
+  - id: canterbury
+    title: Canterbury earthquakes
+    kind: disaster
+    nz: true
+    start: 2010-09
+    end: 2011-12
+    countries: [NZL]
+    summary: >-
+      Two large earthquakes and thousands of aftershocks wrecked much of central Christchurch and killed 185 people.
+      Rebuilding cost about a fifth of a year's national output and kept building busy for a decade.
+    timeline:
+      - {date: 2010-09-04, text: "A magnitude 7.1 earthquake near Darfield damages Christchurch; no one is killed."}
+      - {date: 2011-02-22, text: "A magnitude 6.3 earthquake under Christchurch kills 185 people."}
+      - {date: 2011-06-13, text: "Strong aftershocks; more of the central city is declared unsafe."}
+      - {date: 2011-12-23, text: "Another run of strong aftershocks."}
+    charts: [gdp_growth, govt_debt_gdp, unemployment]
+    links:
+      - {title: "2011 Christchurch earthquake", url: "https://en.wikipedia.org/wiki/2011_Christchurch_earthquake"}
+      - {title: "2010 Canterbury earthquake", url: "https://en.wikipedia.org/wiki/2010_Canterbury_earthquake"}
+
+  - id: gfc
+    title: Global financial crisis
+    kind: financial
+    nz: true
+    start: 2007-08
+    end: 2009-06
+    countries: [USA, GBR, IRL, ISL, ESP, NZL]
+    summary: >-
+      Losses on US home loans spread through banks that had borrowed heavily against them. After Lehman Brothers
+      failed, lending froze worldwide and governments rescued banks; rich countries had their deepest recession since
+      the 1930s and government debts rose by a third or more.
+    timeline:
+      - {date: 2007-08-09, text: "BNP Paribas freezes funds holding US home loans; banks stop lending to each other."}
+      - {date: 2007-09-14, text: "A run on Northern Rock, the first on a British bank in over a century."}
+      - {date: 2008-03-16, text: "Bear Stearns is rescued by a takeover."}
+      - {date: 2008-09-15, text: "Lehman Brothers fails."}
+      - {date: 2008-10, text: "Iceland's three big banks collapse; governments across rich countries guarantee and rescue banks."}
+      - {date: 2009-03-09, text: "Share markets reach their low, about half their 2007 peak."}
+    charts: [gdp_growth, unemployment, govt_debt_gdp, private_credit_gdp]
+    links:
+      - {title: "2007–2008 financial crisis", url: "https://en.wikipedia.org/wiki/2007%E2%80%932008_financial_crisis"}
+
+  - id: dotcom
+    title: Dot-com bust
+    kind: financial
+    nz: false
+    start: 2000-03
+    end: 2002-10
+    countries: [USA]
+    summary: >-
+      Shares in internet and technology companies rose far beyond their earnings, then fell by about three quarters.
+      Business investment dropped and the US had a short, mild recession.
+    timeline:
+      - {date: 2000-03-10, text: "The Nasdaq share index peaks."}
+      - {date: 2001-03, text: "The US recession begins (it ends in November)."}
+      - {date: 2001-09-11, text: "Terrorist attacks on New York and Washington."}
+      - {date: 2001-12-02, text: "Enron goes bankrupt after accounting fraud."}
+      - {date: 2002-10-09, text: "The Nasdaq reaches its low, down about 78% from the peak."}
+    charts: [gdp_growth, unemployment, inflation]
+    links:
+      - {title: "Dot-com bubble", url: "https://en.wikipedia.org/wiki/Dot-com_bubble"}
+
+  - id: asian-crisis
+    title: Asian financial crisis
+    kind: financial
+    nz: false
+    start: 1997-07
+    end: 1998-12
+    countries: [THA, IDN, KOR, MYS, PHL]
+    summary: >-
+      Fast-growing East Asian economies had borrowed in dollars at short term. When Thailand let its currency go,
+      money fled the region, currencies collapsed and Indonesia's output fell by about 13% in 1998.
+    timeline:
+      - {date: 1997-07-02, text: "Thailand floats the baht, which falls sharply."}
+      - {date: 1997-10, text: "Hong Kong's share market crashes."}
+      - {date: 1997-12-03, text: "South Korea agrees the IMF's largest rescue to that date."}
+      - {date: 1998-05-21, text: "Indonesia's President Suharto resigns after riots."}
+      - {date: 1998-08-17, text: "Russia defaults on its debt, spreading the panic."}
+      - {date: 1998-09-23, text: "The hedge fund Long-Term Capital Management is rescued in New York."}
+    charts: [gdp_growth, inflation, unemployment, current_account_gdp]
+    links:
+      - {title: "1997 Asian financial crisis", url: "https://en.wikipedia.org/wiki/1997_Asian_financial_crisis"}
+
+  - id: soviet-end
+    title: End of the Soviet Union
+    kind: collapse
+    nz: false
+    start: 1989
+    end: 1998
+    countries: [RUS, UKR, KAZ, BLR, POL]
+    summary: >-
+      The communist governments of eastern Europe fell and the Soviet Union broke into fifteen countries. Planned
+      economies were opened up at speed; output in Russia fell by about 40% over the 1990s and prices rose many times over.
+    timeline:
+      - {date: 1989-11-09, text: "The Berlin Wall opens."}
+      - {date: 1991-08-19, text: "A failed coup in Moscow."}
+      - {date: 1991-12-26, text: "The Soviet Union is formally dissolved."}
+      - {date: 1992-01-02, text: "Russia frees most prices; inflation that year runs into the thousands of per cent."}
+      - {date: 1998-08-17, text: "Russia defaults and lets the rouble fall."}
+    charts: [gdp_growth, inflation, unemployment]
+    links:
+      - {title: "Dissolution of the Soviet Union", url: "https://en.wikipedia.org/wiki/Dissolution_of_the_Soviet_Union"}
+
+  - id: nordic-banking
+    title: Nordic banking crises
+    kind: financial
+    nz: false
+    start: 1990
+    end: 1993
+    countries: [FIN, SWE, NOR]
+    summary: >-
+      Lending boomed after controls were lifted in the 1980s, then house and share prices fell. Finland, which also
+      lost its Soviet trade, had its worst downturn since the 1930s. Governments took over or guaranteed the banks,
+      a rescue often studied since.
+    timeline:
+      - {date: 1991-09, text: "The Bank of Finland takes over Skopbank."}
+      - {date: 1992-09-08, text: "Finland lets the markka float."}
+      - {date: 1992-09-16, text: "Sweden's central bank raises its overnight rate to 500% to defend the krona."}
+      - {date: 1992-09, text: "Sweden guarantees all its banks' debts."}
+      - {date: 1992-11-19, text: "Sweden lets the krona float."}
+    charts: [gdp_growth, unemployment, govt_debt_gdp, private_credit_gdp]
+    links:
+      - {title: "Nordic banking crisis (search)", url: "https://en.wikipedia.org/wiki/Special:Search?search=1990s+Nordic+banking+crisis"}
+
+  - id: japan-lost-decade
+    title: "Japan: bubble and lost decade"
+    kind: financial
+    nz: false
+    start: 1986
+    end: 2003
+    countries: [JPN]
+    summary: >-
+      Cheap money after the Plaza Accord inflated Japan's share and land prices to extraordinary heights. After the
+      bubble burst, banks hid bad loans for years, growth stalled and prices drifted down.
+    timeline:
+      - {date: 1985-09-22, text: "The Plaza Accord: the yen is pushed up against the dollar."}
+      - {date: 1989-05, text: "The Bank of Japan starts raising rates."}
+      - {date: 1989-12-29, text: "The Nikkei share index peaks at 38,916."}
+      - {date: 1991, text: "Land prices peak."}
+      - {date: 1997-11, text: "Hokkaido Takushoku Bank and Yamaichi Securities fail."}
+      - {date: 1999-02, text: "The Bank of Japan cuts its rate to zero."}
+      - {date: 2001-03, text: "The Bank of Japan starts buying bonds to add money (quantitative easing)."}
+      - {date: 2003-04, text: "The Nikkei reaches its low, about a fifth of its peak."}
+    charts: [gdp_growth, inflation, govt_debt_gdp, private_credit_gdp]
+    links:
+      - {title: "Japanese asset price bubble", url: "https://en.wikipedia.org/wiki/Japanese_asset_price_bubble"}
+      - {title: "Lost Decades", url: "https://en.wikipedia.org/wiki/Lost_Decades"}
+
+  - id: crash-1987
+    title: The 1987 share crash
+    kind: financial
+    nz: true
+    start: 1987-10
+    end: 1991
+    countries: [NZL, AUS, USA]
+    summary: >-
+      Share prices fell around the world in a day. The US recovered quickly, but in New Zealand, after a boom fed by
+      newly freed lending, shares fell by about 60% and did not regain their peak for decades; property companies,
+      the DFC and the Bank of New Zealand needed rescue or failed, and a long slump followed.
+    timeline:
+      - {date: 1987-10-19, text: "Black Monday: the US Dow Jones falls 22.6% in a day."}
+      - {date: 1987-10-20, text: "New Zealand's share market falls about 15% in a day."}
+      - {date: 1988-02, text: "New Zealand shares are down about 60% from the peak."}
+      - {date: 1989-10, text: "The Development Finance Corporation (DFC) collapses."}
+      - {date: 1990-09, text: "The government recapitalises the Bank of New Zealand."}
+      - {date: 1990-11-29, text: "Australia's treasurer calls the slump \"the recession we had to have\"."}
+    charts: [gdp_growth, unemployment, private_credit_gdp, inflation]
+    links:
+      - {title: "Black Monday (1987)", url: "https://en.wikipedia.org/wiki/Black_Monday_(1987)"}
+
+  - id: nz-reforms
+    title: NZ economic reforms
+    kind: policy
+    nz: true
+    start: 1984-07
+    end: 1993
+    countries: [NZL]
+    summary: >-
+      After a currency crisis, New Zealand went from one of the most controlled economies in the rich world to one of
+      the most open: the dollar was floated, subsidies and tariffs cut, state firms sold, the Reserve Bank given an
+      inflation target and labour laws rewritten. Growth was slow and unemployment high for years before recovery.
+    timeline:
+      - {date: 1984-07-14, text: "Labour wins a snap election in a currency crisis."}
+      - {date: 1984-07-18, text: "The dollar is devalued by 20%."}
+      - {date: 1985-03-04, text: "The dollar is floated."}
+      - {date: 1986-10-01, text: "GST is introduced at 10%."}
+      - {date: 1989-12, text: "The Reserve Bank Act gives the Reserve Bank an inflation target."}
+      - {date: 1991-05, text: "The Employment Contracts Act ends national awards."}
+      - {date: 1991-07-30, text: "The \"mother of all budgets\" cuts benefits."}
+    charts: [gdp_growth, inflation, unemployment, govt_debt_gdp]
+    links:
+      - {title: "Rogernomics", url: "https://en.wikipedia.org/wiki/Rogernomics"}
+      - {title: "Ruthanasia", url: "https://en.wikipedia.org/wiki/Ruthanasia"}
+
+  - id: latam-debt
+    title: Latin American debt crisis
+    kind: financial
+    nz: false
+    start: 1982-08
+    end: 1989
+    countries: [MEX, BRA, ARG, CHL, PER, VEN]
+    summary: >-
+      Latin American governments had borrowed heavily from banks in the 1970s. When US rates soared, Mexico said it
+      could not pay and lending to the region stopped. A "lost decade" of slow growth and high inflation followed.
+    timeline:
+      - {date: 1982-08, text: "Mexico says it cannot meet its debt payments."}
+      - {date: 1985-10, text: "The Baker Plan offers new loans in return for reforms."}
+      - {date: 1987-02, text: "Brazil stops paying interest on its bank debt."}
+      - {date: 1989-03, text: "The Brady Plan swaps bank loans for bonds with part of the debt written off."}
+    charts: [gdp_growth, inflation, govt_debt_gdp, current_account_gdp]
+    links:
+      - {title: "Latin American debt crisis", url: "https://en.wikipedia.org/wiki/Latin_American_debt_crisis"}
+
+  - id: volcker
+    title: Volcker and the end of high inflation
+    kind: policy
+    nz: false
+    start: 1979-08
+    end: 1982-12
+    countries: [USA, GBR]
+    summary: >-
+      To break a decade of high inflation, the US Federal Reserve under Paul Volcker let interest rates rise to about
+      20%. Two recessions followed and US unemployment passed 10%, but inflation fell from over 13% to under 4%.
+    timeline:
+      - {date: 1979-08-06, text: "Paul Volcker becomes chair of the Federal Reserve."}
+      - {date: 1979-10-06, text: "The Fed switches to targeting the money supply; rates jump."}
+      - {date: 1980-03-14, text: "Credit controls; a short recession follows."}
+      - {date: 1981-06, text: "The Fed's rate is near its peak of about 19%."}
+      - {date: 1981-07, text: "A second, deeper recession begins."}
+      - {date: 1982-11, text: "The recession ends; US unemployment peaks at 10.8% in the following weeks."}
+    charts: [inflation, real_interest_rate, unemployment, gdp_growth]
+    links:
+      - {title: "Volcker shock", url: "https://en.wikipedia.org/wiki/Volcker_shock"}
+
+  - id: oil-shocks
+    title: The oil shocks
+    kind: energy
+    nz: true
+    start: 1973-10
+    end: 1980-12
+    countries: [USA, GBR, JPN, DEU, NZL]
+    summary: >-
+      Oil prices quadrupled in 1973-74 and more than doubled again in 1979-80. Countries that imported oil had
+      recessions and high inflation at the same time ("stagflation"). New Zealand also lost much of its British
+      market and brought in carless days.
+    timeline:
+      - {date: 1973-10, text: "Arab oil producers stop selling to the US and others backing Israel; prices quadruple."}
+      - {date: 1974-03, text: "The embargo ends."}
+      - {date: 1975, text: "World recession."}
+      - {date: 1979-01, text: "The Iranian revolution; oil supply falls."}
+      - {date: 1979-07, text: "New Zealand brings in carless days to save petrol (until May 1980)."}
+      - {date: 1980-09, text: "Iraq invades Iran; oil prices peak."}
+    charts: [pindex_energy, inflation, gdp_growth, unemployment]
+    links:
+      - {title: "1973 oil crisis", url: "https://en.wikipedia.org/wiki/1973_oil_crisis"}
+      - {title: "1979 oil crisis", url: "https://en.wikipedia.org/wiki/1979_oil_crisis"}
+
+  - id: great-depression
+    title: The Great Depression
+    kind: financial
+    nz: true
+    start: 1929-10
+    end: 1939
+    countries: [USA, DEU, GBR, FRA, NZL, AUS]
+    summary: >-
+      After the 1929 share crash, bank failures, the gold standard and tariffs turned a downturn into a world
+      depression. US output fell by about a quarter and unemployment reached about 25%. In New Zealand export prices
+      halved, there were riots in Auckland in 1932, and the first Labour government was elected in 1935.
+    timeline:
+      - {date: 1929-10-24, text: "Black Thursday on Wall Street; the crash runs to 29 October."}
+      - {date: 1930-06-17, text: "The US Smoot-Hawley tariff; other countries retaliate."}
+      - {date: 1931-05-11, text: "Creditanstalt, Austria's largest bank, fails."}
+      - {date: 1931-09-21, text: "Britain leaves the gold standard."}
+      - {date: 1932-04-14, text: "The Queen Street riot in Auckland."}
+      - {date: 1933-03-06, text: "A US bank holiday closes every bank; the New Deal follows."}
+      - {date: 1935-11-27, text: "New Zealand elects its first Labour government."}
+    charts: ["long:gdp_per_capita", govt_debt_gdp_long]
+    links:
+      - {title: "Great Depression", url: "https://en.wikipedia.org/wiki/Great_Depression"}
+      - {title: "Great Depression in New Zealand", url: "https://en.wikipedia.org/wiki/Great_Depression_in_New_Zealand"}

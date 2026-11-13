@@ -41,7 +41,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, climate, crises, hazards, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, climate, crises, cycles, episodes, hazards, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -2567,6 +2567,15 @@ def events(
     for r in out:
         for k in ("start_date", "end_date"):
             r[k] = r[k].isoformat() if r[k] else None
+    if (not kind_list or "episode" in kind_list) and (not src_list or "episodes" in src_list):
+        enames = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+        for m in episodes.as_events(ents or None):
+            if (lo and m["end_date"] < lo) or (hi and m["start_date"] > hi):
+                continue
+            if q and q.lower() not in f"{m['title']} {m['detail']}".lower():
+                continue
+            out.append({**m, "entity_name": enames.get(m["entity_id"], m["entity_id"])})
+        out.sort(key=lambda r: (r["start_date"], r["entity_id"]))
     if (not kind_list or "user" in kind_list) and (not src_list or "user" in src_list):
         names = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
         group_members = set()
@@ -4350,6 +4359,64 @@ def long_cycle(entities: str | None = None):
     """Where countries might be in the big cycle's six stages, with the reasons."""
     ids = split(entities) or catalogue.history()["cycle"]["countries"]
     return {"stages": catalogue.history()["cycle"]["stages"], "countries": longhistory.cycle(rows, ids, date.today().year)}
+
+
+@api.get("/long/arcs")
+def long_arcs(start: int = Query(1500, ge=1000, le=1900)):
+    """Big cycles: each power's eight-factor index split into rise, top and decline, with crises and big wars."""
+    if not _lh_has("long_series"):
+        return {"lines": [], "note": None, "how": None}
+    return _lh(("arcs", start), lambda: cycles.arcs(rows, start))
+
+
+@api.get("/long/stages")
+def long_stages(entities: str | None = None, start: int = Query(1950, ge=1900, le=2020)):
+    """Big cycles: the cycle's stage decade by decade, by the same rules as today's placing."""
+    ids = split(entities) or catalogue.history()["cycle"]["countries"]
+    return _lh(("stages", tuple(ids), start), lambda: cycles.stages_over_time(rows, ids, start, date.today().year))
+
+
+@api.get("/cycles/debt/{entity_id}")
+def cycles_debt(entity_id: str):
+    """The long-term debt cycle for one country: government debt since 1800, crises, wars, real rates."""
+    return cycles.debt_cycle(rows, entity_id, date.today().year)
+
+
+@api.get("/cycles/clock")
+def cycles_clock(entities: str | None = None):
+    """The short-term debt cycle clock: each country's phase from its latest figures, with the reasons."""
+    ids = split(entities) or list(episodes.KEY)
+    return cycles.clock(rows, ids, date.today().year)
+
+
+@api.get("/cycles/short/{entity_id}")
+def cycles_short(entity_id: str, start: int = Query(1960, ge=1900, le=2020)):
+    """The short-term debt cycle over time: growth, private credit, the central bank rate and recessions."""
+    return cycles.short_cycle(rows, entity_id, start, date.today().year)
+
+
+@api.get("/episodes")
+def episodes_list():
+    """The typed-in big episodes, newest first, with how far output fell in the worst-hit country."""
+    return _lh(("episodes",), lambda: episodes.listing(rows, date.today().year))
+
+
+@api.get("/episodes/found")
+def episodes_found(entity: str | None = None, kinds: str | None = None, limit: int = Query(600, ge=1, le=5000)):
+    """Recessions, booms, inflation spikes, debt surges and crises the app finds in the data, and the years
+    when many countries were hit together."""
+    if not _has_table("events"):
+        return {"events": [], "waves": [], "note": "No events loaded yet (run .\\refresh.bat)."}
+    return episodes.found(rows, entity, split(kinds), limit)
+
+
+@api.get("/episodes/{episode_id}")
+def episode_page(episode_id: str):
+    """One episode: timeline, charts, who was hit, before/during/after, and does today look like it."""
+    got = _lh(("episode", episode_id), lambda: episodes.page(rows, episode_id, date.today().year))
+    if got is None:
+        raise HTTPException(404, f"no episode {episode_id}")
+    return got
 
 
 @api.get("/long/wikipedia/{power_id}")

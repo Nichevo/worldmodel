@@ -1370,3 +1370,39 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
   .odds-line { grid-template-columns: minmax(110px, 1.2fr) minmax(50px, 1fr) 40px; }
   .odds-line > :last-child { display: none; }
 }
+
+/* Big cycles and Episodes */
+.stage-grid { display: grid; gap: 3px; align-items: center; margin: 8px 0; }
+.stage-year { text-align: center; }
+.stage-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-cell { height: 26px; border: 0; border-radius: 3px; color: #fff; font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 0; }
+.stage-cell:hover, .stage-cell:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+.stage-key span { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; }
+.stage-key i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.stage-why { min-height: 3.2em; margin: 6px 0; }
+.stage-why ul { margin: 4px 0 0; padding-left: 18px; }
+.clock-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.clock-wrap svg { flex: none; }
+.clock-list { flex: 1; min-width: 240px; }
+.clock-list summary { cursor: pointer; }
+.clock-list ul { margin: 4px 0 8px; padding-left: 18px; }
+.episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.episode-card { display: flex; flex-direction: column; gap: 6px; color: inherit; text-decoration: none; }
+.episode-card:hover { border-color: var(--ink-2); }
+.episode-card b { font-size: 1.05rem; }
+.episode-timeline { margin: 0; padding-left: 20px; }
+.episode-timeline li { margin: 3px 0; }
+.ep-scroll { overflow-x: auto; }
+.episode-table th, .episode-table td { padding: 3px 6px; }
+.muted-row td { color: var(--ink-2); }
+.close-cell { background: var(--warn-bg); }
+.wave-list { display: flex; flex-direction: column; gap: 3px; }
+.wave-line { display: grid; grid-template-columns: 44px minmax(80px, 1fr) 170px minmax(0, 1.2fr); gap: 8px; align-items: center; }
+.wave-bar { display: flex; height: 10px; background: var(--grid); border-radius: 3px; overflow: hidden; }
+.wave-bar i { display: block; height: 100%; }
+@media (max-width: 600px) {
+  .stage-grid { font-size: 0.7rem; }
+  .stage-cell { height: 22px; }
+  .wave-line { grid-template-columns: 40px minmax(60px, 1fr) 1fr; }
+  .wave-line span:last-child { grid-column: 1 / -1; }
+}

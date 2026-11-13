@@ -219,6 +219,21 @@ def release_calendar() -> list[dict]:
 
 
 @lru_cache
+def episodes() -> dict:
+    """Big episodes typed in from economic histories (episodes.yaml): kinds and, for each
+    episode, its dates, countries, summary, timeline, charts and links. Dates come back as
+    text (YYYY, YYYY-MM or YYYY-MM-DD)."""
+    data = _yaml("episodes.yaml") or {}
+    out = []
+    for e in data.get("episodes", []):
+        e = dict(e)
+        e["start"], e["end"] = str(e["start"]), str(e["end"])
+        e["timeline"] = [{**t, "date": str(t["date"])} for t in e.get("timeline", [])]
+        out.append(e)
+    return {"kinds": data.get("kinds", {}), "episodes": out}
+
+
+@lru_cache
 def history() -> dict:
     """The Long history page's set-up: powers, China's dynasties, regions, series, factors,
     hand-dated periods, the cycle's stages and voyages (history.yaml)."""

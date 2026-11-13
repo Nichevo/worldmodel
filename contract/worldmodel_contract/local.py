@@ -58,7 +58,7 @@ SETTINGS: dict[str, object] = {
     "chart_values": True,            # bar charts write their values on the bars
     "chart_findings": True,          # chart titles lead with what the chart shows ("lowest since 1960")
     "event_labels": True,            # event bands carry their name on the chart, not only on hover
-    "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,user",  # kinds shown on charts
+    "event_kinds": "recession,crisis,coup,conflict,disaster,sport,notable,episode,user",  # kinds shown on charts
     "disaster_min_deaths": 100,      # smaller disasters and epidemics stay off the charts (still listed)
     "transport_min_deaths": 10,      # air, sea and rail accidents with fewer deaths stay off the charts and Events page
     "party_colours": False,          # country page charts coloured by the party in government
