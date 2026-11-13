@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
 import { openAsk } from "@/lib/ai";
-import { api, type Chokepoint, type CountryPorts, type HeadTileData, type LandMix, type Ranked, type Recovery, type SeriesRow } from "@/lib/api";
-import { linesOption } from "@/lib/charts";
+import { api, type Chokepoint, type CountryPorts, type HeadTileData, type LandCover, type LandMix, type Ranked, type Recovery, type SeriesRow } from "@/lib/api";
+import { cardLinesOption, linesOption } from "@/lib/charts";
 import { formatValue } from "@/lib/format";
 import { entityVar, sparkPath } from "@/lib/look";
 import { useSettings } from "@/lib/settings";
@@ -194,6 +194,37 @@ export function LandMixBar({ entity }: { entity: string }) {
       </div>
       <p className="small ink-2">{m.parts.filter((p) => p.share < 9).map((p) => `${p.label.split(" (")[0]} ${p.share}%`).join(" · ")}</p>
       <p className="caption">Share of land area (FAOSTAT). Other is what is left: scrub, tussock, bare ground, towns and inland water.</p>
+    </div>
+  );
+}
+
+// Land cover by year (ESA satellite maps via FAOSTAT) as stacked bands, titled by the biggest moves,
+// with chips for the key countries.
+const COVER_COLOURS: Record<string, string> = { trees: "#1b5e20", shrub: "#8aa66b", grass: "#a9d18e", crops: "#d29a00", built: "#c0392b",
+  bare: "#cfc6a8", snow: "#dfe7ec", water: "#4a90c2" };
+
+export function LandCoverCard({ entity }: { entity: string }) {
+  const keys = useKeys().split(",").filter(Boolean);
+  const [who, setWho] = useState(entity);
+  useEffect(() => setWho(entity), [entity]);
+  const [c, setC] = useState<LandCover | null>(null);
+  useEffect(() => { api.landCover(who).then(setC).catch(() => setC(null)); }, [who]);
+  const opt = useCallback(() => cardLinesOption((c?.parts ?? []).map((p) => ({ key: p.id, label: p.label, color: COVER_COLOURS[p.id] ?? "#999",
+    points: p.points.map(([y, v]) => [y, v, "E"] as [number, number, string]) })), { unit: "%", decimals: 1, stack: true, max: 100 }), [c]);
+  if (!c?.parts.length && who === entity) return null;
+  const chips = [...new Set([entity, ...keys])];
+  return (
+    <div className="card">
+      <div className="card-head"><span className="small ink-2">Land cover seen from space{c?.first ? `, ${c.first} to ${c.last}` : ""}</span>
+        <CardAsk onAsk={() => ask(`Land cover in ${c?.name ?? who}`, "Share of land by year", (c?.parts ?? []).map((p) => `${p.label}\t${p.points.map((x) => `${x[0]}:${x[1]}`).join(" ")}`).join("\n"))} /></div>
+      <h3 className="finding">{c?.finding ?? "No land cover figures for this country yet"}</h3>
+      <div className="chips-row small" role="group" aria-label="Country">
+        {chips.map((e) => <button key={e} className={`chip-btn${who === e ? " on" : ""}`} aria-pressed={who === e} onClick={() => setWho(e)}>{e}</button>)}
+      </div>
+      {c?.parts.length ? <EChart option={opt} height={260} label="Land cover by year" /> : null}
+      <p className="caption">Share of land and inland water in each kind of cover, from ESA&apos;s yearly 300 m satellite maps as FAOSTAT adds them up by
+        country. Satellite classes differ from land use above (grazed tussock counts as grassland, young plantations as shrubs). The Map&apos;s Land cover
+        picture shows the same at 10 m for 2020 and 2021.</p>
     </div>
   );
 }

@@ -99,6 +99,7 @@ SETTINGS: dict[str, object] = {
     "climate_fetch": True,           # refresh fetches the climate sources (temperatures, gases, storms, alerts, projections)
     "climate_storms_from": 1980,     # first year of storm tracks kept on the map (IBTrACS starts in 1980 in this file)
     "climate_live_map": True,        # the Climate page's storms map asks GDACS for the storms, floods and fires happening now
+    "hazards_live": True,            # the map's fires, heatwave and coral bleaching layers read NASA, Open-Meteo and NOAA when on
     # Nature and pollution (connectors/nature.py)
     "nature_zones_fetch": True,          # refresh reads the Köppen-Geiger climate zones once (a 1 GB zip, about 20 MB kept)
     "nature_climate_extras_fetch": True,  # Berkeley Earth temperatures, PSMSL tide gauges, ND-GAIN adaptation index
@@ -112,6 +113,7 @@ SETTINGS: dict[str, object] = {
     "tourism_fetch": True,               # UNESCO World Heritage sites
     "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, about 100 MB kept)
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
+    "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
     "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
     "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
     "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)

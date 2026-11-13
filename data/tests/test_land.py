@@ -63,6 +63,14 @@ def test_faostat_land_use_and_animals(built):
     assert val(con, "NZL", "sp_milk", 2023) == 21_500_000  # production still read as before
 
 
+def test_faostat_land_cover_shares(built):
+    _, con = built
+    total = 9000 + 30 + 14000 + 400 + 100 + 800 + 100 + 370  # coastal water left out; MODIS rows ignored
+    assert val(con, "NZL", "lc_trees_pct", 1992) == pytest.approx(9030 / total * 100)
+    assert val(con, "NZL", "lc_built_pct", 2022) == pytest.approx(140 / (9200 + 30 + 13600 + 450 + 140 + 810 + 90 + 380) * 100)
+    assert con.execute("SELECT count(*) FROM indicators WHERE indicator_id LIKE 'lc_%_pct'").fetchone()[0] == 7
+
+
 def test_hyde(built):
     _, con = built
     assert val(con, "NZL", "hyde_cropland_ha", 1700) == 1000
