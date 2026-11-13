@@ -277,6 +277,8 @@ export default function SettingsPage() {
           save={(v) => save({ climate_storms_from: v })} />
         <Toggle label="Live disaster alerts on the Storms tab" hint="Reads the alerts out now from GDACS when the tab opens, at most every 15 minutes."
           on={s.climate_live_map} set={(v) => save({ climate_live_map: v })} />
+        <Toggle label="Live fires, heatwaves and coral bleaching on the map" hint="When one of those map layers is on, reads NASA FIRMS (fires, every 3 hours), Open-Meteo (5-day forecasts for about 600 big cities, every 6 hours) and NOAA Coral Reef Watch (daily). Off: those three layers and the country card's line about them stay empty."
+          on={s.hazards_live} set={(v) => save({ hazards_live: v })} />
       </section>
 
       <section className="card" id="nature">
@@ -318,6 +320,8 @@ export default function SettingsPage() {
           on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
         <Toggle label="Undersea cables (TeleGeography)" hint="The cable map monthly, and each cable's owners and landing countries read once, 150 at a time, two seconds apart. Off: no cables layer and no cables on country cards."
           on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
+        <Toggle label="Power plants and power lines" hint="WRI's Global Power Plant Database (10 MB, twice a year) and gridfinder's power lines (700 MB downloaded once, about 150 MB kept). Off before the first read: no power plants or power lines layers."
+          on={s.power_fetch} set={(v) => save({ power_fetch: v })} />
         <Toggle label="Pipelines and LNG terminals (Global Energy Monitor)" hint="Read from the files you save in var\manual\gem_infrastructure (see Data status). Off: those files are not read again."
           on={s.energy_infrastructure_fetch} set={(v) => save({ energy_infrastructure_fetch: v })} />
         <Toggle label="UNESCO World Heritage sites" hint="One XML list twice a year. Off: no heritage sites layer or counts."
@@ -351,6 +355,20 @@ export default function SettingsPage() {
           <select value={s.land_cover_year} onChange={(e) => save({ land_cover_year: e.target.value as Settings["land_cover_year"] })} aria-label="Land cover year">
             <option value="2021">2021</option><option value="2020">2020</option>
           </select> <span className="muted">ESA WorldCover at 10 m; the map&apos;s Land cover look and city shares use it.</span></label>
+      </section>
+
+      <section className="card" id="outlook">
+        <h2>Outlook</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <a href="/outlook">Outlook</a> page (recession odds, nowcasts, the release calendar, Wikipedia attention), the Outlook and
+          Wikipedia attention cards on country pages, and the Briefing&apos;s &quot;Coming up&quot; and &quot;Most read&quot; lines.
+        </p>
+        <Toggle label="Download leading indicators, quarterly GDP and the US yield curve" hint="The OECD's leading indicators and quarterly GDP growth (checked weekly, a few MB) and, from FRED, the US 10-year less 3-month yield gap and the Atlanta Fed's GDPNow (every three days). Off: recession odds and nowcasts stop updating and show what was last loaded."
+          on={s.outlook_fetch} set={(v) => save({ outlook_fetch: v })} />
+        <Toggle label="Release dates from the ONS and ABS" hint="Reads the UK's and Australia's official release calendars once a day. Off: the calendar shows only the dates typed into the app (US releases, central bank decisions, Stats NZ's estimated dates)."
+          on={s.calendar_live} set={(v) => save({ calendar_live: v })} />
+        <Toggle label="Wikipedia attention" hint="Asks Wikimedia for a country article's daily readers when its page opens (kept 12 hours), and once a day for the most-read list. Off: the attention card and the Briefing's most-read line are empty."
+          on={s.attention_on} set={(v) => save({ attention_on: v })} />
       </section>
 
       <section className="card" id="predictions">

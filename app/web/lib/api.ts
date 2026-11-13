@@ -236,6 +236,11 @@ export type Settings = {
   climate_fetch: boolean; // refresh fetches the climate sources
   climate_storms_from: number; // first year of storm tracks kept
   climate_live_map: boolean; // the storms map asks GDACS for what is happening now
+  power_fetch: boolean; // refresh reads WRI power plants and gridfinder power lines
+  outlook_fetch: boolean; // OECD leading indicators, quarterly GDP, US yield curve and GDPNow downloaded at refresh
+  calendar_live: boolean; // the release calendar reads the ONS and ABS calendars once a day
+  attention_on: boolean; // Wikipedia page views per country
+  hazards_live: boolean; // the map's fires, heatwave and coral layers read NASA, Open-Meteo and NOAA when on
   internet_speeds_fetch: boolean; // refresh reads Ookla's open Speedtest files
   internet_speeds_from: number; // first year of internet speeds kept
   internet_speeds_per_refresh: number; // Ookla files read in one refresh at most
@@ -818,6 +823,10 @@ export type Ranked = { indicator: string; name: string; unit: string; decimals: 
   guide: { value: number; label: string; meeting: number | null } | null };
 export type Recovery = { indicator: string; base: number; finding: string;
   lines: { id: string; name: string; points: [number, number][]; latest: number; year: number; of_base: number | null }[] };
+export type LandCover = { entity: string; name?: string; first?: number; last?: number; finding?: string;
+  parts: { id: string; label: string; points: [number, number][]; latest: number | null; change: number | null }[] };
+export type Hazards = { fires: number | null; fires_window: string | null; enabled: boolean;
+  hot: { name: string; peak: number; day: string; days: number }[] | null; reefs: { name: string; level: number; label: string }[] | null };
 export type LandMix = { entity: string; name: string; year: number; since: number; finding: string;
   parts: { id: string; label: string; indicator: string | null; ha: number | null; share: number; year: number; change: number | null }[] } | null;
 export type CountryPorts = { entity: string; to?: string; finding: string; total_12m?: number; change?: number | null;
@@ -1232,6 +1241,8 @@ export const api = {
   climate: () => get<ClimateOverview>("/climate"),
   ranked: (indicator: string, keys: string) => get<Ranked>(`/look/ranked/${encodeURIComponent(indicator)}?keys=${encodeURIComponent(keys)}`),
   recovery: (indicator: string, keys: string) => get<Recovery>(`/look/recovery/${encodeURIComponent(indicator)}?keys=${encodeURIComponent(keys)}`),
+  landCover: (entity: string) => get<LandCover>(`/look/land-cover/${encodeURIComponent(entity)}`),
+  hazards: (entity: string) => get<Hazards>(`/hazards/${encodeURIComponent(entity)}`),
   landMix: (entity: string) => get<LandMix>(`/look/land-mix/${encodeURIComponent(entity)}`),
   transportHeads: (home: string) => get<HeadTileData[]>(`/transport/heads?home=${encodeURIComponent(home)}`),
   countryPorts: (entity: string) => get<CountryPorts>(`/transport/ports/${encodeURIComponent(entity)}`),

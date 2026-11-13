@@ -213,6 +213,12 @@ def api_keys() -> list[dict]:
 
 
 @lru_cache
+def release_calendar() -> list[dict]:
+    """Release dates typed in from official schedules (release_calendar.yaml)."""
+    return _yaml("release_calendar.yaml") or []
+
+
+@lru_cache
 def history() -> dict:
     """The Long history page's set-up: powers, China's dynasties, regions, series, factors,
     hand-dated periods, the cycle's stages and voyages (history.yaml)."""

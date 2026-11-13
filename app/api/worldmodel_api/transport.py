@@ -41,6 +41,7 @@ GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom be
     "urban_centres": ("City outlines", [(3, 1), (5, 2), (99, 3)], 3000),
     "street_trees": ("Street trees", [(12, 0), (99, 1)], 8000),
     "nz_land_change": ("Land cover change (NZ)", [(7, 1), (99, 2)], 6000),
+    "power_lines": ("Power lines", [(4, 1), (99, 2)], 6000),  # 1° squares: mapped lines (1), then predicted (2) closer in
 }
 COVID = {"kind": "band", "title": "COVID-19 border closures", "start_date": "2020-03-01", "end_date": "2022-06-30"}
 

@@ -122,6 +122,42 @@ export const LAYER_STYLE: Record<string, Style> = {
       "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "cat"], 0], 0, 2, 5, 4], "line-opacity": 0.95,
     }),
   },
+  // ---- hazards now and power (parked ideas, map layers)
+  fires_now: {
+    legend: "Fire seen from space in the last 24 hours (bigger: more fire power)", swatch: () => "#d9480f", dot: true,
+    paint: () => ({ "circle-color": "#d9480f", "circle-opacity": 0.75, "circle-stroke-color": "#7a2100", "circle-stroke-width": 0.4,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "frp"], 1]], 0, 1.6, 10, 3.5, 40, 8, 120, 14] }),
+  },
+  fires_week: {
+    legend: "Fire seen from space in the last 7 days (MODIS; bigger: more fire power)", swatch: () => "#e8590c", dot: true,
+    paint: () => ({ "circle-color": "#e8590c", "circle-opacity": 0.6, "circle-stroke-color": "#7a2100", "circle-stroke-width": 0.3,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "frp"], 1]], 0, 1.4, 10, 3, 40, 7, 120, 12] }),
+  },
+  heat_now: {
+    legend: "Big city forecast to reach 35 °C or more on 2+ of the next 5 days (darker: hotter)", swatch: () => "#c2255c", dot: true,
+    paint: () => ({ "circle-color": cssVar("--surface"), "circle-radius": zoomWidth(5, 9),
+      "circle-stroke-color": ["interpolate", ["linear"], ["coalesce", ["get", "peak"], 35], 35, "#f783ac", 40, "#c2255c", 45, "#6f0d33"],
+      "circle-stroke-width": 3 }),
+  },
+  coral_alerts: {
+    legend: "Reef region under bleaching heat stress (NOAA Coral Reef Watch: watch, warning, alert 1, alert 2)", swatch: () => "#f08c00", fill: true,
+    paint: () => ({ "fill-color": ["match", ["get", "level"], 1, "#ffe066", 2, "#f8c56a", 3, "#f08c00", 4, "#c92a2a", "#ced4da"],
+      "fill-opacity": ["match", ["get", "level"], 0, 0.12, 0.5], "fill-outline-color": "#7a3b00" }),
+  },
+  power_plants: {
+    legend: "Power plant, sized by capacity, coloured by fuel", swatch: () => "#2b8a3e", dot: true,
+    paint: () => ({
+      "circle-color": ["match", ["get", "fuel"], "Hydro", "#1c7ed6", "Geothermal", "#e8590c", "Wind", "#37b24d", "Solar", "#f59f00",
+        "Nuclear", "#7048e8", "Coal", "#343a40", "Gas", "#868e96", "Oil", "#5c3d2e", "Biomass", "#82c91e", "Waste", "#a9a9a9", "#adb5bd"],
+      "circle-opacity": 0.85, "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "mw"], 10]], 0, 1.5, 10, 3, 30, 7, 80, 14],
+    }),
+  },
+  power_lines: {
+    legend: "Power line (solid: mapped; faint: predicted from night lights)", swatch: () => "#5f3dc4", fetch: "window",
+    paint: () => ({ "line-color": "#5f3dc4", "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 8, 1.6, 12, 2.6],
+      "line-opacity": ["case", ["==", ["get", "rank"], 1], 0.85, 0.35] }),
+  },
   antarctic_claims: {
     legend: "Antarctic claim (frozen by the 1959 treaty)", swatch: () => cssVar("--series-4"),
     paint: () => ({ "line-color": cssVar("--series-4"), "line-width": zoomWidth(1.2, 2.5), "line-opacity": 0.85, "line-dasharray": [3, 2] }),
@@ -323,6 +359,13 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";
     return `<b>${esc(p.name)}</b><br/>${esc(p.basin)} · strongest: ${cat}${typeof p.wind === "number" ? ` (${p.wind} knots)` : ""}${p.land ? "<br/>Reached land" : ""}`;
   }
+  if (layer === "fires_now" || layer === "fires_week") return `<b>${num(p.n)} fire${p.n === 1 ? "" : "s"}</b> seen here${p.date ? ` (latest ${esc(p.date)})` : ""}`
+    + (typeof p.frp === "number" ? `<br/>Fire power ${num(p.frp)} MW` : "");
+  if (layer === "heat_now") return `<b>${esc(p.name)}</b><br/>Forecast high ${esc(p.peak)} °C on ${esc(p.day)}<br/>${esc(p.days)} of the next 5 days at 35 °C or more`;
+  if (layer === "coral_alerts") return `<b>${esc(p.name)}</b><br/>Coral bleaching: ${esc(p.label)} (highest in the last 7 days)`;
+  if (layer === "power_plants") return `<b>${esc(p.name)}</b><br/>${esc(p.fuel)}${typeof p.mw === "number" ? `, ${num(p.mw)} MW` : ""}`
+    + `${p.year ? ` · built ${esc(p.year)}` : ""}${p.owner ? `<br/>${esc(p.owner)}` : ""}`;
+  if (layer === "power_lines") return `<b>Power line</b>${p.rank === 1 ? " (mapped)" : " (predicted)"}${p.kv ? `<br/>${esc(p.kv)} kV` : ""}`;
   if (layer === "storms_active") {
     const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";
     return `<b>${esc(p.name)}</b> (active)<br/>${esc(p.basin)} · strongest so far: ${cat}${typeof p.wind === "number" ? ` (${p.wind} knots)` : ""}`

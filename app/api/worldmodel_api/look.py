@@ -156,3 +156,38 @@ def land_mix(q: Q, entity: str, since: int = 1990) -> dict | None:
     finding += f" since {since}" if moves else ""
     nm = q("SELECT coalesce(short_name, name) AS n FROM entities WHERE entity_id = ?", [entity])
     return {"entity": entity, "name": nm[0]["n"] if nm else entity, "year": year, "since": since, "parts": parts, "finding": finding[:1].upper() + finding[1:]}
+
+
+COVER = [("trees", "Tree cover"), ("shrub", "Shrubs and sparse plants"), ("grass", "Grassland"), ("crops", "Cropland"),
+         ("built", "Built-up land"), ("bare", "Bare land"), ("snow", "Snow and ice"), ("water", "Inland water")]
+
+
+def land_cover(q: Q, entity: str) -> dict | None:
+    """A country's land cover by year from ESA's satellite maps (FAOSTAT shares, 1992 on), and the
+    biggest moves since the first year (built-up land growing fastest, for most countries)."""
+    ids = [f"lc_{c}_pct" for c, _ in COVER]
+    got = q(f"""SELECT s.indicator_id AS i, year(s.period_start) AS y, s.value AS v FROM series s
+        WHERE s.entity_id = ? AND s.indicator_id IN ({', '.join('?' * len(ids))}) AND s.breakdown = '' AND s.variant = 'central'
+        QUALIFY row_number() OVER (PARTITION BY s.indicator_id, s.period_start ORDER BY s.source_id) = 1
+        ORDER BY s.period_start""", [entity] + ids)
+    if not got:
+        return None
+    by: dict = defaultdict(dict)
+    for g in got:
+        by[g["i"][3:-4]][g["y"]] = g["v"]
+    years = sorted({g["y"] for g in got})
+    first, last = years[0], years[-1]
+    parts = []
+    for c, label in COVER:
+        ys = by.get(c)
+        if not ys:
+            continue
+        a, b = ys.get(first), ys.get(last)
+        parts.append({"id": c, "label": label, "points": [[y, round(ys[y], 2)] for y in years if y in ys], "latest": b,
+                      "change": round(100 * (b / a - 1)) if a and b and a >= 0.2 else None})
+    moves = sorted([p for p in parts if p["change"] is not None and abs(p["change"]) >= 3], key=lambda p: -abs(p["change"]))[:2]
+    finding = "; ".join(f"{p['label'].lower()} {'up' if p['change'] > 0 else 'down'} {abs(p['change'])}%" for p in moves)
+    nm = q("SELECT coalesce(short_name, name) AS n FROM entities WHERE entity_id = ?", [entity])
+    name = nm[0]["n"] if nm else entity
+    return {"entity": entity, "name": name, "first": first, "last": last, "parts": parts,
+            "finding": f"{name}: {finding} since {first}" if finding else f"{name}'s land cover, {first} to {last}"}

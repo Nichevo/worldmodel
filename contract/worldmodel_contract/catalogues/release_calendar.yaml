@@ -1,0 +1,846 @@
+# Release dates typed in from the official schedules (checked 2026-11-13), for the Outlook
+# page's calendar. The UK (ONS) and Australia (ABS) data releases are read live from their
+# own calendars when Settings > Outlook > "Release dates from the ONS and ABS" is on.
+# estimated: true marks a date worked out from the publisher's usual timing (Stats NZ has
+# no calendar the app can read); the week is right more often than the day.
+# Add next year's dates when the publishers announce them (usually by October).
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2026-11-06'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: October 2026
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2026-12-04'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: November 2026
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-01-08'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: December 2026
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-02-05'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: January 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-03-05'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: February 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-04-02'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: March 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-05-07'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: April 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-06-04'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: May 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-07-02'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: June 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-08-06'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: July 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-09-03'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: August 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-10-08'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: September 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-11-05'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: October 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Jobs report (employment situation)
+  date: '2027-12-03'
+  time: 08:30
+  tz: America/New_York
+  kind: jobs
+  period: November 2027
+  indicator: unemployment
+  url: https://www.bls.gov/schedule/news_release/empsit.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2026-12-10'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: November 2026
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-01-13'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: December 2026
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-02-11'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: January 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-03-10'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: February 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-04-13'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: March 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-05-12'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: April 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-06-10'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: May 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-07-14'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: June 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-08-11'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: July 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-09-14'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: August 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-10-14'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: September 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-11-10'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: October 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: Consumer prices (CPI)
+  date: '2027-12-10'
+  time: 08:30
+  tz: America/New_York
+  kind: prices
+  period: November 2027
+  indicator: inflation
+  url: https://www.bls.gov/schedule/news_release/cpi.htm
+  estimated: false
+- country: USA
+  title: GDP (second estimate)
+  date: '2026-11-25'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2026 Q3
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (third estimate)
+  date: '2026-12-23'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2026 Q3
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (advance estimate)
+  date: '2027-01-28'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2026 Q4
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (second estimate)
+  date: '2027-02-25'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2026 Q4
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (third estimate)
+  date: '2027-03-31'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2026 Q4
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (advance estimate)
+  date: '2027-04-29'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q1
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (second estimate)
+  date: '2027-05-27'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q1
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (third estimate)
+  date: '2027-06-25'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q1
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (advance estimate)
+  date: '2027-07-29'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q2
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (second estimate)
+  date: '2027-08-25'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q2
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (third estimate)
+  date: '2027-09-30'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q2
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (advance estimate)
+  date: '2027-10-28'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q3
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (second estimate)
+  date: '2027-11-24'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q3
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: GDP (third estimate)
+  date: '2027-12-22'
+  time: 08:30
+  tz: America/New_York
+  kind: gdp
+  period: 2027 Q3
+  indicator: gdp_growth_q
+  url: https://www.bea.gov/news/schedule
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2026-12-09'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-01-27'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-03-17'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-04-28'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-06-09'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-07-28'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-09-15'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-10-27'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: USA
+  title: Federal Reserve rate decision (FOMC)
+  date: '2027-11-17'
+  time: '14:00'
+  tz: America/New_York
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  estimated: false
+- country: NZL
+  title: Reserve Bank OCR decision and Monetary Policy Statement
+  date: '2026-12-09'
+  time: '14:00'
+  tz: Pacific/Auckland
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028
+  estimated: false
+- country: NZL
+  title: Reserve Bank OCR decision
+  date: '2027-02-10'
+  time: '14:00'
+  tz: Pacific/Auckland
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028
+  estimated: false
+- country: NZL
+  title: Reserve Bank OCR decision and Monetary Policy Statement
+  date: '2027-03-17'
+  time: '14:00'
+  tz: Pacific/Auckland
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028
+  estimated: false
+- country: NZL
+  title: Reserve Bank OCR decision
+  date: '2027-05-05'
+  time: '14:00'
+  tz: Pacific/Auckland
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028
+  estimated: false
+- country: NZL
+  title: Reserve Bank OCR decision and Monetary Policy Statement
+  date: '2027-06-16'
+  time: '14:00'
+  tz: Pacific/Auckland
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rbnz.govt.nz/news-and-events/how-we-release-information/ocr-decision-dates-and-financial-stability-report-dates-to-feb-2028
+  estimated: false
+- country: NZL
+  title: GDP (Stats NZ)
+  date: '2026-12-17'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: gdp
+  period: 2026 Q3
+  indicator: gdp_growth_q
+  url: https://www.stats.govt.nz/
+  estimated: false
+- country: NZL
+  title: Consumers price index (Stats NZ)
+  date: '2027-01-21'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: prices
+  period: 2026 Q4
+  indicator: inflation
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: Consumers price index (Stats NZ)
+  date: '2027-04-21'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: prices
+  period: 2027 Q1
+  indicator: inflation
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: Consumers price index (Stats NZ)
+  date: '2027-07-21'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: prices
+  period: 2027 Q2
+  indicator: inflation
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: Consumers price index (Stats NZ)
+  date: '2027-10-21'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: prices
+  period: 2027 Q3
+  indicator: inflation
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: 'Labour market: unemployment (Stats NZ)'
+  date: '2027-02-03'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: jobs
+  period: 2026 Q4
+  indicator: unemployment
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: 'Labour market: unemployment (Stats NZ)'
+  date: '2027-05-05'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: jobs
+  period: 2027 Q1
+  indicator: unemployment
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: 'Labour market: unemployment (Stats NZ)'
+  date: '2027-08-04'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: jobs
+  period: 2027 Q2
+  indicator: unemployment
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: 'Labour market: unemployment (Stats NZ)'
+  date: '2027-11-03'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: jobs
+  period: 2027 Q3
+  indicator: unemployment
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: GDP (Stats NZ)
+  date: '2027-03-18'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: gdp
+  period: 2026 Q4
+  indicator: gdp_growth_q
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: GDP (Stats NZ)
+  date: '2027-06-17'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: gdp
+  period: 2027 Q1
+  indicator: gdp_growth_q
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: GDP (Stats NZ)
+  date: '2027-09-16'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: gdp
+  period: 2027 Q2
+  indicator: gdp_growth_q
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: NZL
+  title: GDP (Stats NZ)
+  date: '2027-12-16'
+  time: '10:45'
+  tz: Pacific/Auckland
+  kind: gdp
+  period: 2027 Q3
+  indicator: gdp_growth_q
+  url: https://www.stats.govt.nz/
+  estimated: true
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-02-04'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-03-18'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-04-29'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-06-17'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-07-29'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-09-16'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-11-04'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: GBR
+  title: Bank of England rate decision
+  date: '2027-12-16'
+  time: '12:00'
+  tz: Europe/London
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.bankofengland.co.uk/monetary-policy/upcoming-mpc-dates
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-02-09'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-03-23'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-05-04'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-06-22'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-08-10'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-09-21'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-11-02'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false
+- country: AUS
+  title: Reserve Bank of Australia rate decision
+  date: '2027-12-14'
+  time: '14:30'
+  tz: Australia/Sydney
+  kind: rates
+  period: ''
+  indicator: bis_policy_rate_m
+  url: https://www.rba.gov.au/schedules-events/calendar/
+  estimated: false

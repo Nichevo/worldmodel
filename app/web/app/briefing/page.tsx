@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import BriefCard, { CardGroup } from "@/components/BriefCard";
 import Flag from "@/components/Flag";
 import WeekDigest from "@/components/WeekDigest";
+import { BriefComingUp, BriefMostRead } from "@/components/outlook/OutlookParts";
 import { api, type BriefCard as Card, type Briefing } from "@/lib/api";
 import { BRIEFING_SEEN, monthName } from "@/lib/briefing";
 import { useSettings } from "@/lib/settings";
@@ -103,12 +104,14 @@ export default function BriefingPage() {
           <CardGroup title="Crowd: biggest moves" cards={crowdMoves} names={b.names}
             note={<p className="caption">Questions on your key countries or that you follow, moving at least {s.crowd_move_points} points. <Link href="/crowd?tab=moves">All moves</Link></p>} />
           {!b.lanes.happening.length && <p className="muted small">Nothing in the last {b.days} days.</p>}
+          {s.attention_on !== false && <BriefMostRead />}
         </section>
         <Lane title="Found" cards={b.lanes.found} names={b.names} empty="No finds yet: Discover looks after each refresh." more={<Link href="/discover" className="small">All finds in Discover</Link>} />
         <Lane title="Due" cards={b.lanes.due} names={b.names} empty="Nothing dated in the next 60 days." compact
           more={<Link href="/predictions" className="small">Your predictions</Link>} />
         <section className="brief-lane" aria-label="Yours">
           <h2>Yours</h2>
+          <BriefComingUp />
           {b.key_countries.length > 0 && (
             <div className="brief-keys">
               <h3 className="brief-group-head">Latest on your key countries</h3>

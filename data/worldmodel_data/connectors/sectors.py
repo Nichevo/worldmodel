@@ -434,7 +434,20 @@ def wmd_sheet(table: list[list], stages: list[str], rows: Rows, found: set[str])
 
 FAO_BULK = "https://bulks-faostat.fao.org/production/"
 FAO_FILES = ("Production_Crops_Livestock_E_All_Data_(Normalized).zip", "Inputs_FertilizersNutrient_E_All_Data_(Normalized).zip",
-             "Forestry_E_All_Data_(Normalized).zip", "Inputs_LandUse_E_All_Data_(Normalized).zip")
+             "Forestry_E_All_Data_(Normalized).zip", "Inputs_LandUse_E_All_Data_(Normalized).zip",
+             "Environment_LandCover_E_All_Data_(Normalized).zip")
+
+# Land cover (Environment_LandCover, element "Area from CCI_LC": ESA's yearly satellite land cover, 1992 on, 1000 ha):
+# FAOSTAT item (lower case) -> class. Coastal water and tidal flats are left out; the shares are of everything else.
+FAO_COVER = {
+    "artificial surfaces (including urban and associated areas)": "built", "herbaceous crops": "crops", "woody crops": "crops",
+    "multiple or layered crops": "crops", "grassland": "grass", "tree-covered areas": "trees", "mangroves": "trees",
+    "shrub-covered areas": "shrub", "shrubs and/or herbaceous vegetation, aquatic or regularly flooded": "shrub",
+    "sparsely natural vegetated areas": "shrub", "terrestrial barren land": "bare", "permanent snow and glaciers": "snow",
+    "inland water bodies": "water",
+}
+COVER_NAMES = {"trees": "Tree cover", "shrub": "Shrubs and sparse plants", "grass": "Grassland", "crops": "Cropland",
+               "built": "Built-up land", "bare": "Bare land", "snow": "Snow and ice", "water": "Inland water"}
 
 # Land use (Inputs_LandUse, element "Area", 1000 ha): FAOSTAT item (lower case) -> (indicator id, name).
 FAO_LAND = {
@@ -464,8 +477,8 @@ class FAOSTAT(Connector):
     source_id = "faostat"
     # 3: production in tonnes only (eggs also come as counts); 4: forestry in cubic metres again (3 dropped it);
     # 5: land use, live animals, dairy cows, area harvested and nitrogen per hectare (version 4, PR 6)
-    stage_version = 5
-    fetch_version = 2  # 2: the land use file
+    stage_version = 6  # 6: land cover shares by year from ESA's satellite maps (lc_*_pct)
+    fetch_version = 3  # 2: the land use file; 3: the land cover file
     fetch_every_days = 90
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -485,7 +498,8 @@ class FAOSTAT(Connector):
         con.executemany("INSERT INTO fao_items VALUES (?, ?)", [(i, st) for i, sts in targets.items() for st in sts]
                         + [(i, f"land:{ind}") for i, (ind, _) in FAO_LAND.items()]
                         + [(i, f"stock:{ind}") for i, ind in FAO_STOCKS.items()]
-                        + [("nutrient nitrogen n (total)", "fert:fert_n_per_ha")])
+                        + [("nutrient nitrogen n (total)", "fert:fert_n_per_ha")]
+                        + [(i, f"lc:{c}") for i, c in FAO_COVER.items()])
         tmp = Path(tempfile.mkdtemp(prefix="fao_"))
         try:
             csvs = sorted(raw_dir.glob("*.csv"))
@@ -511,16 +525,21 @@ class FAOSTAT(Connector):
                     FROM read_csv({sql_str(f.as_posix())}, header = true, all_varchar = true, encoding = 'latin-1') r
                     JOIN fao_items fi ON lower(trim(r."Item")) = fi.item
                     WHERE lower(trim(r."Element")) IN ('production', 'area harvested', 'stocks', 'milk animals', 'area',
-                                                       'use per area of cropland')""")
+                                                       'use per area of cropland', 'area from cci_lc')""")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         rows, found = Rows(), set()
         land: dict[tuple[str, int], dict[str, float]] = defaultdict(dict)
+        cover: dict[tuple[str, int], dict[str, float]] = defaultdict(lambda: defaultdict(float))
         for m, st, element, y, unit, v in con.execute("SELECT * FROM fao WHERE v IS NOT NULL AND y IS NOT NULL").fetchall():
             ent = entity_for("m49", m)
             if not is_country(ent):
                 continue
             kind, _, ind = st.partition(":")
+            if kind == "lc":
+                if element == "area from cci_lc" and unit in ("1000 ha", "ha"):
+                    cover[(ent, y)][ind] += v * (1000.0 if unit == "1000 ha" else 1.0)
+                continue
             if ind:  # land use, animals, fertiliser
                 if kind == "land" and element == "area" and unit in ("1000 ha", "ha"):
                     val = v * (1000.0 if unit == "1000 ha" else 1.0)
@@ -554,6 +573,12 @@ class FAOSTAT(Connector):
                 if area and got.get(ind) is not None:
                     rows.add("iso3", ent, share, y, got[ind] / area * 100)
                     found.add(share)
+        for (ent, y), got in cover.items():
+            total = sum(got.values())
+            if total > 0:
+                for c, ha in got.items():
+                    rows.add("iso3", ent, f"lc_{c}_pct", y, ha / total * 100)
+                    found.add(f"lc_{c}_pct")
         if not len(rows):
             raise ConnectorError("faostat: no production rows for the sector items")
         self.listed_indicators = production_indicators(self.source_id, found, "FAOSTAT (FAO), production.") + \
@@ -589,6 +614,12 @@ def fao_land_indicators(source_id: str, found: set[str]) -> list[dict]:
             out.append(indicator(f"sa_{st['id']}", f"{st['name']}: area harvested", f"Hectares of {st['name'].lower()} "
                                  "harvested in the year (FAOSTAT).", "ha", "land", source_id, f"sa_{st['id']}", decimals=0,
                                  bounds=(0, 5e8), aggregation={"method": "sum"}, notes=note, default_on=False))
+    for c, name in COVER_NAMES.items():
+        if f"lc_{c}_pct" in found:
+            out.append(indicator(f"lc_{c}_pct", f"{name}, share of land (satellite land cover)", f"{name} as a share of the country's "
+                                 "land and inland water, from ESA's yearly satellite land cover maps (CCI, 300 m) as FAOSTAT sums "
+                                 "them by country, 1992 on.", "%", "land", source_id, f"lc_{c}_pct", decimals=1, bounds=(0, 100),
+                                 notes="FAOSTAT land cover (ESA Climate Change Initiative land cover).", default_on=c in ("trees", "crops", "built")))
     if "fert_n_per_ha" in found:
         out.append(indicator("fert_n_per_ha", "Nitrogen fertiliser per hectare of cropland (FAOSTAT)",
                              "Nitrogen (N) put on farmland, per hectare of cropland (FAOSTAT fertilisers by nutrient).",

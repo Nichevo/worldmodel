@@ -166,6 +166,17 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       rasters.push({ tiles: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Combined_Value_Added_AOD/default/${day}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`,
         attribution: "Smoke and dust: NASA GIBS", maxzoom: 6, over: true, opacity: 0.7 });
     }
+    if (on("Q")) {
+      const day = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+      rasters.push({ tiles: `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/${day}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+        attribution: "Sea temperature against usual: NASA GIBS, GHRSST MUR", maxzoom: 7, over: true, opacity: 0.7 });
+      legend.push({ label: "Sea warmer than usual (red) or cooler (blue)", color: "#e8590c", shape: "dot" });
+    }
+    if (on("X")) {
+      rasters.push({ tiles: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GEDI_ISS_L3_Canopy_Height_Mean_RH100_201904-202104/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png",
+        attribution: "Tree height: NASA GEDI (GIBS)", maxzoom: 7, over: true, opacity: 0.8 });
+      legend.push({ label: "Tree height (darker green: taller, up to 40 m+)", color: "#1b5e20", shape: "dot" });
+    }
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
   }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear]); // eslint-disable-line react-hooks/exhaustive-deps
 }
@@ -191,7 +202,7 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; lab
 ];
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
-  climate_zones: () => "#5abe46", smoke: () => "#b4783c",
+  climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
   crisiswatch: () => cssVar("--div-neg-3"), events: () => cssVar("--series-7"), news: () => cssVar("--series-4"),
   history_world: () => cssVar("--series-4"), electricity_mix: () => "#2c4f9e",
 };
@@ -235,9 +246,14 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "climate_zones") return { ok: true, why: "", source: "Beck et al. 2023 (a refresh loads them)" };
       if (m.id === "electricity_mix") return { ok: true, why: "", source: "Our World in Data energy, each place's latest year" };
       if (m.id === "smoke") return { ok: true, why: "", source: "NASA GIBS, read from the internet" };
+      if (m.id === "marine_heat") return { ok: true, why: "", source: "NASA GIBS (GHRSST MUR), read from the internet" };
+      if (m.id === "tree_height") return { ok: true, why: "", source: "NASA GIBS (GEDI), read from the internet" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
+    if (["fires_now", "fires_week", "heat_now", "coral_alerts"].includes(m.id)) return s.hazards_live
+      ? { ok: true, why: "", source: m.id === "heat_now" ? "Open-Meteo forecasts, every 6 hours" : m.id === "coral_alerts" ? "NOAA Coral Reef Watch, daily" : "NASA FIRMS, every 3 hours" }
+      : { ok: false, why: "Switched off in Settings > Climate", source: "" };
     if (m.id === "live_planes") return s.live_planes ? { ok: true, why: "", source: "OpenSky Network, the area in view, once a minute" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
     if (m.id === "live_ships") return s.live_ships ? { ok: true, why: "", source: "aisstream.io, the area in view (needs AISSTREAM_API_KEY)" }
