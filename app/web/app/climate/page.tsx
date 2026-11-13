@@ -12,7 +12,8 @@ import NatureTab from "@/components/NatureTab";
 import ZonesTab from "@/components/ZonesTab";
 import WeatherCard from "@/components/WeatherCard";
 import SeaIceCard from "@/components/SeaIceCard";
-import { api, type ClimateEnso, type ClimateLive, type ClimateOverview, type ClimatePolicy, type ClimateStorms } from "@/lib/api";
+import { ClimateOverviewTab, ClimateStrip, KeyCountries } from "@/components/ClimateTop";
+import { api, type ClimateEnso, type ClimateHeadlines, type ClimateLive, type ClimateOverview, type ClimatePolicy, type ClimateStorms } from "@/lib/api";
 import { ensoOption, lines, stormsOption, stripesOption } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
@@ -22,9 +23,19 @@ import { useSettings } from "@/lib/settings";
 
 // The climate across the world: vital signs, an emissions map, storms, El Niño and policy.
 
-type Tab = "world" | "map" | "weather" | "ice" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
-const TABS: [Tab, string][] = [["world", "The world"], ["map", "Map and rankings"], ["weather", "Weather by month"], ["ice", "Sea ice"], ["zones", "Climate zones"], ["storms", "Storms and alerts"], ["enso", "El Niño"],
-  ["nature", "Nature"], ["policy", "Net zero and carbon prices"], ["country", "One country"]];
+type Tab = "overview" | "world" | "map" | "weather" | "ice" | "oceans" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
+// Eight groups of views; a group with more than one view shows them as a second row of buttons.
+const GROUPS: { id: string; label: string; views: [Tab, string][] }[] = [
+  { id: "overview", label: "Overview", views: [["overview", "Overview"]] },
+  { id: "warming", label: "Warming", views: [["world", "Vital signs"], ["map", "Map and rankings"]] },
+  { id: "weather", label: "Weather and zones", views: [["weather", "Weather by month"], ["zones", "Climate zones"]] },
+  { id: "ice", label: "Ice and oceans", views: [["ice", "Sea ice"], ["oceans", "Sea level, ocean heat, ice sheets"]] },
+  { id: "storms", label: "Storms and El Niño", views: [["storms", "Storms and alerts"], ["enso", "El Niño"]] },
+  { id: "nature", label: "Nature", views: [["nature", "Nature"]] },
+  { id: "emissions", label: "Emissions and pledges", views: [["policy", "Net zero, pledges and carbon prices"]] },
+  { id: "country", label: "One country", views: [["country", "One country"]] },
+];
+const groupOf = (t: Tab) => GROUPS.find((g) => g.views.some(([v]) => v === t)) ?? GROUPS[0];
 const LIVE_TYPES: Record<string, string> = { TC: "Tropical cyclone", FL: "Flood", DR: "Drought", WF: "Wildfire", EQ: "Earthquake", VO: "Volcano", TS: "Tsunami" };
 const ALERT_COLOR: Record<string, string> = { red: "--div-neg-3", orange: "--series-6", green: "--div-pos-2" };
 
@@ -49,13 +60,9 @@ function Vital({ title, points, unit, note, zero, time, decimals }: { title: str
 function World({ o }: { o: ClimateOverview }) {
   const t = o.world.temp_anomaly_world;
   const stripes = useCallback(() => stripesOption(t ?? []), [t]);
-  const ice = Object.entries(o.sea_ice).filter(([k]) => k.startsWith("sea_ice_extent_min"));
-  const iceOpt = useCallback(() => lines(ice.map(([k, pts]) => ({ name: `${k.split(":")[1][0].toUpperCase()}${k.split(":")[1].slice(1)}, year's lowest month`, points: pts })), "million km²", { decimals: 1 }), [ice]);
-  const sheets = useCallback(() => lines(Object.entries(o.ice_sheets).map(([e, pts]) => ({ name: e, points: pts })), o.names.ice_sheet_mass?.unit ?? "", { zero: true, decimals: 0 }), [o]);
   if (!Object.keys(o.world).length && !Object.keys(o.monthly).length) return <Nothing what="climate figures" />;
   return (
     <>
-      {o.enso ? <p className="small">Now: <b>{o.enso.name}{o.enso.strength ? ` (${o.enso.strength})` : ""}</b>, El Niño index {o.enso.value > 0 ? "+" : ""}{o.enso.value.toFixed(1)} °C in {o.enso.month}. <Link href="/climate?tab=enso">More on El Niño</Link></p> : null}
       {t?.length ? (
         <div className="card">
           <h3>The world&apos;s warming stripes <Help note="climate_world" /></h3>
@@ -70,14 +77,31 @@ function World({ o }: { o: ClimateOverview }) {
         <Vital title="Methane in the air" points={o.world.ch4_ppb} unit="ppb" decimals={0} note="World average (NOAA). About 720 before industry." />
         <Vital title="Nitrous oxide in the air" points={o.world.n2o_ppb} unit="ppb" decimals={1} note="World average (NOAA)." />
         <Vital title="World CO2 emissions" points={o.world.co2_gcp} unit="million t" decimals={0} note="Fossil fuels and industry (Global Carbon Project)." />
-        <Vital title="Sea level" points={o.world.sea_level} unit={o.names.sea_level?.unit ?? "mm"} zero decimals={0} />
-        <Vital title="Heat in the top 700 m of the oceans" points={o.world.ocean_heat} unit={o.names.ocean_heat?.unit ?? ""} zero decimals={1} />
-      </div>
-      <div className="grid two">
-        {ice.length ? <div className="card"><h3>Sea ice at its yearly low</h3><EChart option={iceOpt} height={220} label="Sea ice minimum" /><p className="caption">NSIDC Sea Ice Index.</p></div> : null}
-        {Object.keys(o.ice_sheets).length ? <div className="card"><h3>Ice sheets</h3><EChart option={sheets} height={220} label="Ice sheet mass" /><p className="caption">Change in mass since 2002 (NASA GRACE satellites).</p></div> : null}
       </div>
     </>
+  );
+}
+
+function IceLows({ o }: { o: ClimateOverview }) {
+  const ice = Object.entries(o.sea_ice).filter(([k]) => k.startsWith("sea_ice_extent_min"));
+  const iceOpt = useCallback(() => lines(ice.map(([k, pts]) => ({ name: `${k.split(":")[1][0].toUpperCase()}${k.split(":")[1].slice(1)}, year's lowest month`, points: pts })), "million km²", { decimals: 1 }), [ice]);
+  return (
+    <>
+      <SeaIceCard />
+      {ice.length ? <div className="card"><h3>Sea ice at its yearly low</h3><EChart option={iceOpt} height={240} label="Sea ice minimum" /><p className="caption">NSIDC Sea Ice Index.</p></div> : null}
+    </>
+  );
+}
+
+function Oceans({ o }: { o: ClimateOverview }) {
+  const sheets = useCallback(() => lines(Object.entries(o.ice_sheets).map(([e, pts]) => ({ name: e, points: pts })), o.names.ice_sheet_mass?.unit ?? "", { zero: true, decimals: 0 }), [o]);
+  if (!o.world.sea_level && !o.world.ocean_heat && !Object.keys(o.ice_sheets).length) return <Nothing what="sea level, ocean heat or ice sheet figures" />;
+  return (
+    <div className="grid three">
+      <Vital title="Sea level" points={o.world.sea_level} unit={o.names.sea_level?.unit ?? "mm"} zero decimals={0} />
+      <Vital title="Heat in the top 700 m of the oceans" points={o.world.ocean_heat} unit={o.names.ocean_heat?.unit ?? ""} zero decimals={1} />
+      {Object.keys(o.ice_sheets).length ? <div className="card"><h3>Ice sheets</h3><EChart option={sheets} height={180} label="Ice sheet mass" /><p className="caption">Change in mass since 2002 (NASA GRACE satellites).</p></div> : null}
+    </div>
   );
 }
 
@@ -316,23 +340,36 @@ function WeatherTab() {
 function ClimatePage() {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "world");
+  const s = useSettings();
+  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview");
   const [country, setCountry] = useState(params.get("country") ?? "NZL");
   const [o, setO] = useState<ClimateOverview | null>(null);
+  const [h, setH] = useState<ClimateHeadlines | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { api.climate().then(setO).catch((e) => setError(String(e.message || e))); }, []);
+  const keys = s.discover_key_countries || "NZL,AUS,GBR,USA";
+  useEffect(() => { api.climateHeadlines(keys).then(setH).catch(() => setH(null)); }, [keys]);
   const withCountry = (t: Tab) => t === "country" || t === "zones" || t === "nature";
   const go = (t: Tab) => { setTab(t); router.replace(`/climate?tab=${t}${withCountry(t) ? `&country=${country}` : ""}`, { scroll: false }); };
   const pick = (c: string) => { setCountry(c); router.replace(`/climate?tab=${tab}&country=${c}`, { scroll: false }); };
   if (error) return <p className="error">{error}</p>;
   if (!o) return <p className="muted">Loading…</p>;
+  const group = groupOf(tab);
   return (
     <div className="grid sector-page">
       <div className="title-row"><h1>Climate</h1> <Help note="climate" /></div>
-      <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
-      {tab === "world" ? <World o={o} /> : tab === "map" ? <MapTab o={o} /> : tab === "storms" ? <Storms /> : tab === "enso" ? <Enso /> : tab === "policy" ? <Policy />
+      <ClimateStrip h={h} onGo={(v) => go(v as Tab)} />
+      <div className="seg climate-tabs" role="tablist">{GROUPS.map((g) => <button key={g.id} role="tab" aria-selected={group.id === g.id} className={group.id === g.id ? "on" : ""}
+        onClick={() => go(g.views[0][0])}>{g.label}</button>)}</div>
+      {group.views.length > 1 && (
+        <div className="seg sub climate-tabs" role="tablist" aria-label={group.label}>{group.views.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t}
+          className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
+      )}
+      {tab === "overview" ? <ClimateOverviewTab h={h} onGo={(v) => go(v as Tab)} />
+        : tab === "world" ? <World o={o} /> : tab === "map" ? <MapTab o={o} /> : tab === "storms" ? <Storms /> : tab === "enso" ? <Enso />
+        : tab === "policy" ? <>{h?.compare.length ? <KeyCountries h={h} /> : null}<Policy /></>
         : tab === "weather" ? <WeatherTab />
-        : tab === "ice" ? <SeaIceCard />
+        : tab === "ice" ? <IceLows o={o} /> : tab === "oceans" ? <Oceans o={o} />
         : tab === "zones" ? <ZonesTab country={country} onCountry={pick} /> : tab === "nature" ? <NatureTab country={country} onCountry={pick} /> : (
         <>
           <div className="chips-row small"><CountryChoice value={country} onChange={pick} /></div>

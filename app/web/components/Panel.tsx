@@ -14,6 +14,7 @@ import type { CameraBus } from "@/lib/camera";
 import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
 import { flagUrl, useFlagCodes } from "@/lib/flags";
 import { mapLayers } from "@/lib/layers";
+import MixOverlay, { type MixShade } from "@/components/MixOverlay";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
 import { isStarred, passes, useStars } from "@/lib/quality";
@@ -413,7 +414,12 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
   const spark: Spark | null = useMemo(() => (range && year !== null ? { years: range.years, rows: range.rows, upTo: year } : null), [range, year]);
   const overlays: Overlay[] = popups.flatMap((p) => (p.at && "lng" in p.at ? [{ key: p.key, lng: p.at.lng, lat: p.at.lat, node: p.node }] : []));
   const map = useRef<maplibregl.Map | null>(null);
-  const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; }, []);
+  const [mapObj, setMapObj] = useState<maplibregl.Map | null>(null);
+  const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; setMapObj(m); }, []);
+  const mixOn = panel.layers.includes("M");
+  const [shade, setShade] = useState<MixShade>(null);
+  useEffect(() => { if (!mixOn) setShade(null); }, [mixOn]);
+  const shaded = mixOn && !!shade;
   const title = indicator ? `${indicator.name}, ${year}` : "Map";
   exporter.current = {
     name: indicator ? fileName(indicator.indicator_id, year ?? 0) : "map",
@@ -441,15 +447,15 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
       {error && <p className="error">{error}</p>}
       <WorldMap
         fill
-        values={values}
-        unit={indicator?.unit ?? ""}
-        decimals={indicator?.decimals ?? 0}
-        diverging={!!indicator && DIVERGING.has(indicator.indicator_id)}
-        hideScale={!indicator}
+        values={shaded ? shade.values : values}
+        unit={shaded ? "%" : indicator?.unit ?? ""}
+        decimals={shaded ? 1 : indicator?.decimals ?? 0}
+        diverging={!shaded && !!indicator && DIVERGING.has(indicator.indicator_id)}
+        hideScale={shaded || !indicator}
         selected={selection}
         onPick={(iso, e) => clicks.activate(iso, { shift: e.shift, double: e.double }, { lng: e.lngLat[0], lat: e.lngLat[1] })}
         doubleClick={clicks.mode === "select"}
-        scale={scale}
+        scale={shaded ? shade.scale : scale}
         hovered={hovered}
         onHover={onHover}
         camera={panel.links.camera ? { bus: cameraBus, id: panel.id, group: panel.group } : null}
@@ -464,9 +470,10 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         areas={marks.areas}
         raster={marks.rasters}
       />
+      {mixOn && <MixOverlay map={mapObj} onShade={setShade} />}
       {layersPanel?.(marks.counts)}
       <p className="caption">
-        {indicator ? `${sourceLine(indicator)}. ${values.length} countries with data.` : "No background indicator: only the layers."}{indicator && scale ? " Colour scale shared with linked maps." : ""}
+        {shaded ? `${shade.label}, each country's latest year (Our World in Data energy). ` : null}{shaded ? "" : indicator ? `${sourceLine(indicator)}. ${values.length} countries with data.` : "No background indicator: only the layers."}{indicator && scale ? " Colour scale shared with linked maps." : ""}
         {timed ? ` Events and timed layers: ${marks.start} to ${marks.end}.` : ""} {hint}
       </p>
     </>
