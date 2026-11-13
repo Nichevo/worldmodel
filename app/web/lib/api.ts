@@ -1054,7 +1054,7 @@ export type Religion = {
 };
 export type EntityReligion = { entity_id: string; groups: RelGroup[]; sources: { id: string; name: string; points: RelPoint[] }[] };
 export type Languages = {
-  top: { code: string; name: string; speakers: number; countries: number; official_in: number }[];
+  top: { code: string; name: string; speakers: number; home?: number; countries: number; official_in: number }[];
   lang: string; lang_name: string;
   map: { entity_id: string; share: number; official: number | null }[];
   main: { entity_id: string; code: string; name: string; share: number }[];
