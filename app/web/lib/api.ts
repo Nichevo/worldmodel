@@ -237,6 +237,9 @@ export type Settings = {
   climate_storms_from: number; // first year of storm tracks kept
   climate_live_map: boolean; // the storms map asks GDACS for what is happening now
   power_fetch: boolean; // refresh reads WRI power plants and gridfinder power lines
+  outlook_fetch: boolean; // OECD leading indicators, quarterly GDP, US yield curve and GDPNow downloaded at refresh
+  calendar_live: boolean; // the release calendar reads the ONS and ABS calendars once a day
+  attention_on: boolean; // Wikipedia page views per country
   hazards_live: boolean; // the map's fires, heatwave and coral layers read NASA, Open-Meteo and NOAA when on
   internet_speeds_fetch: boolean; // refresh reads Ookla's open Speedtest files
   internet_speeds_from: number; // first year of internet speeds kept

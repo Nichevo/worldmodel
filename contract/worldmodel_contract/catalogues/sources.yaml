@@ -2158,6 +2158,36 @@
     get: https://geodata.bts.gov/datasets/usdot::navigable-waterway-network-lines
     what: "If the US network fails to download: save it as GeoJSON (name it with waterway network in the name)."
 
+- id: oecd_cli
+  name: OECD composite leading indicators and quarterly GDP growth
+  short_name: OECD leading indicators
+  publisher: Organisation for Economic Co-operation and Development
+  url: https://www.oecd.org/en/data/indicators/composite-leading-indicator-cli.html
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Monthly (leading indicators), quarterly (GDP); checked weekly
+  attribution: "OECD (2026), Composite leading indicators (MEI); Quarterly national accounts. OECD Data Explorer."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: established
+
+- id: fred_cycle
+  name: US yield curve and Atlanta Fed GDPNow (from FRED)
+  short_name: FRED yield curve and GDPNow
+  publisher: Federal Reserve Bank of St. Louis (FRED), from the US Treasury and the Federal Reserve Bank of Atlanta
+  url: https://fred.stlouisfed.org/series/T10Y3M
+  licence: Public domain (US government data); GDPNow cited to the Atlanta Fed
+  licence_url: https://fred.stlouisfed.org/legal/
+  commercial_use: true
+  cadence: Daily (yield gap), several times a month (GDPNow); checked every three days
+  attribution: "Federal Reserve Bank of St. Louis, FRED: T10Y3M; Federal Reserve Bank of Atlanta, GDPNow."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: established
+
 - id: wri_gppd
   name: WRI Global Power Plant Database
   short_name: Global Power Plant Database

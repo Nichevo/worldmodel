@@ -44,6 +44,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/relationships", label: "Relationships" },
   ] },
   { label: "Predict", hint: "Your predictions, crowd forecasts, forecasts and what-if", links: [
+    { href: "/outlook", label: "Outlook", hint: "Recession odds, this quarter's growth before the official figure, the release calendar and Wikipedia attention" },
     { href: "/predictions", label: "Predictions", hint: "Your log of calls, scored when they come due; base rates; the watchlist" },
     { href: "/crowd", label: "Crowd forecasts", hint: "Polymarket, Metaculus and Manifold questions by country, and ViEWS conflict forecasts" },
     { href: "/forecasts", label: "Forecasts", hint: "Population what-if, statistical forecasts, track records and the synthetic comparison" },

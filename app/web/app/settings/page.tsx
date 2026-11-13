@@ -357,6 +357,20 @@ export default function SettingsPage() {
           </select> <span className="muted">ESA WorldCover at 10 m; the map&apos;s Land cover look and city shares use it.</span></label>
       </section>
 
+      <section className="card" id="outlook">
+        <h2>Outlook</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          The <a href="/outlook">Outlook</a> page (recession odds, nowcasts, the release calendar, Wikipedia attention), the Outlook and
+          Wikipedia attention cards on country pages, and the Briefing&apos;s &quot;Coming up&quot; and &quot;Most read&quot; lines.
+        </p>
+        <Toggle label="Download leading indicators, quarterly GDP and the US yield curve" hint="The OECD's leading indicators and quarterly GDP growth (checked weekly, a few MB) and, from FRED, the US 10-year less 3-month yield gap and the Atlanta Fed's GDPNow (every three days). Off: recession odds and nowcasts stop updating and show what was last loaded."
+          on={s.outlook_fetch} set={(v) => save({ outlook_fetch: v })} />
+        <Toggle label="Release dates from the ONS and ABS" hint="Reads the UK's and Australia's official release calendars once a day. Off: the calendar shows only the dates typed into the app (US releases, central bank decisions, Stats NZ's estimated dates)."
+          on={s.calendar_live} set={(v) => save({ calendar_live: v })} />
+        <Toggle label="Wikipedia attention" hint="Asks Wikimedia for a country article's daily readers when its page opens (kept 12 hours), and once a day for the most-read list. Off: the attention card and the Briefing's most-read line are empty."
+          on={s.attention_on} set={(v) => save({ attention_on: v })} />
+      </section>
+
       <section className="card" id="predictions">
         <h2>Predictions and crowd forecasts</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
