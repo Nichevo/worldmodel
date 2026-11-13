@@ -277,6 +277,8 @@ export default function SettingsPage() {
           save={(v) => save({ climate_storms_from: v })} />
         <Toggle label="Live disaster alerts on the Storms tab" hint="Reads the alerts out now from GDACS when the tab opens, at most every 15 minutes."
           on={s.climate_live_map} set={(v) => save({ climate_live_map: v })} />
+        <Toggle label="Live fires, heatwaves and coral bleaching on the map" hint="When one of those map layers is on, reads NASA FIRMS (fires, every 3 hours), Open-Meteo (5-day forecasts for about 600 big cities, every 6 hours) and NOAA Coral Reef Watch (daily). Off: those three layers and the country card's line about them stay empty."
+          on={s.hazards_live} set={(v) => save({ hazards_live: v })} />
       </section>
 
       <section className="card" id="nature">
@@ -318,6 +320,8 @@ export default function SettingsPage() {
           on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
         <Toggle label="Undersea cables (TeleGeography)" hint="The cable map monthly, and each cable's owners and landing countries read once, 150 at a time, two seconds apart. Off: no cables layer and no cables on country cards."
           on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
+        <Toggle label="Power plants and power lines" hint="WRI's Global Power Plant Database (10 MB, twice a year) and gridfinder's power lines (700 MB downloaded once, about 150 MB kept). Off before the first read: no power plants or power lines layers."
+          on={s.power_fetch} set={(v) => save({ power_fetch: v })} />
         <Toggle label="Pipelines and LNG terminals (Global Energy Monitor)" hint="Read from the files you save in var\manual\gem_infrastructure (see Data status). Off: those files are not read again."
           on={s.energy_infrastructure_fetch} set={(v) => save({ energy_infrastructure_fetch: v })} />
         <Toggle label="UNESCO World Heritage sites" hint="One XML list twice a year. Off: no heritage sites layer or counts."

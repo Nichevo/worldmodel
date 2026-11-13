@@ -47,6 +47,8 @@ export const DEFAULT_SETTINGS: Settings = {
   climate_fetch: true,
   climate_storms_from: 1980,
   climate_live_map: true,
+  hazards_live: true,
+  power_fetch: true,
   internet_speeds_fetch: true,
   internet_speeds_from: 2019,
   internet_speeds_per_refresh: 8,

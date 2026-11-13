@@ -41,7 +41,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, hazards, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -2397,6 +2397,12 @@ def layers():
 @api.get("/layers/{layer_id}")
 def layer(layer_id: str):
     """One overlay's features, as GeoJSON. storms_active is read live from NOAA (kept an hour)."""
+    if layer_id in ("fires_now", "fires_week", "heat_now", "coral_alerts"):
+        on = bool(userdata.settings().get("hazards_live", True))
+        data = (hazards.fires("7d" if layer_id == "fires_week" else "24h", on) if layer_id.startswith("fires")
+                else hazards.heat(_hazard_cities(), on) if layer_id == "heat_now" else hazards.coral(on))
+        return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
+                        headers={"Cache-Control": "max-age=900"})
     if layer_id == "storms_active":
         data = climate.active_storms(bool(userdata.settings().get("climate_live_map", True)))
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
@@ -2406,6 +2412,20 @@ def layer(layer_id: str):
         raise HTTPException(404, f"no map layer {layer_id}; a refresh loads the map layers")
     return Response(found[0]["geojson"], media_type="application/geo+json",
                     headers={"Cache-Control": "max-age=3600"})
+
+
+def _hazard_cities() -> list[dict]:
+    """The big cities the heat layer checks: a million people or more, biggest first (at most 600)."""
+    if not _has_cities():
+        return []
+    return [{"name": r["name"], "country": r["country_id"], "lon": r["lon"], "lat": r["lat"]} for r in rows(
+        "SELECT name, country_id, lat, lon FROM cities WHERE population >= 1000000 AND lat IS NOT NULL ORDER BY population DESC LIMIT 600")]
+
+
+@api.get("/hazards/{entity_id}")
+def hazards_country(entity_id: str):
+    """A country card's line on fires, heatwaves and reefs: only what the map layers already read (no waiting)."""
+    return hazards.country(entity_id, bool(userdata.settings().get("hazards_live", True)), [])
 
 
 @api.get("/events")
@@ -2864,6 +2884,12 @@ def look_ranked(indicator: str, keys: str = Query("NZL,AUS,GBR,USA", description
 def look_recovery(indicator: str, keys: str = Query("NZL,AUS,GBR,USA"), base: int = 2019, since: int = 2000):
     """Each key country's figure since `since` and its latest as a share of `base`."""
     return look.recovery(rows, indicator, split(keys)[:6], base, since)
+
+
+@api.get("/look/land-cover/{entity}")
+def look_land_cover(entity: str):
+    """A country's land cover by year (ESA satellite maps via FAOSTAT, 1992 on) and its biggest moves."""
+    return look.land_cover(rows, entity) or {"entity": entity, "parts": []}
 
 
 @api.get("/look/land-mix/{entity}")

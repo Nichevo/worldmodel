@@ -2158,6 +2158,36 @@
     get: https://geodata.bts.gov/datasets/usdot::navigable-waterway-network-lines
     what: "If the US network fails to download: save it as GeoJSON (name it with waterway network in the name)."
 
+- id: wri_gppd
+  name: WRI Global Power Plant Database
+  short_name: Global Power Plant Database
+  publisher: World Resources Institute
+  url: https://datasets.wri.org/dataset/globalpowerplantdatabase
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Version 1.3 (2021), no longer updated; read twice a year in case it is
+  attribution: "Global Energy Observatory, Google, KTH Royal Institute of Technology, Enipedia, World Resources Institute. 2021. Global Power Plant Database v1.3. World Resources Institute."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+
+- id: gridfinder
+  name: gridfinder, predictive mapping of the global power system
+  short_name: gridfinder
+  publisher: Arderne, Zorn, Nicolas, Koks (World Bank and University of Oxford), Zenodo
+  url: https://zenodo.org/records/3628142
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: One release (2020); read once
+  attribution: "Arderne, C., Zorn, C., Nicolas, C. and Koks, E. E. (2020). Predictive mapping of the global power system using open data. Scientific Data 7, 19."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: established
+
 - id: submarine_cables
   name: TeleGeography Submarine Cable Map
   short_name: Submarine Cable Map
