@@ -250,7 +250,7 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 // table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
 // ratings), event markers and news that names a watch word. Timed layers follow the
 // map's time window. Letters are the URL form; the group and order are the Layers panel's.
-export type LayerGroup = "events" | "earth" | "transport" | "people" | "past" | "polar";
+export type LayerGroup = "events" | "earth" | "energy" | "transport" | "people" | "past" | "polar";
 export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
 export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "events", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
@@ -269,6 +269,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "B", id: "basins", label: "River basins", group: "earth", hint: "Whole river basins (HydroBASINS); click one for its countries and people" },
   { letter: "D", id: "nz_land_change", label: "Land cover change (NZ)", group: "earth", hint: "Land whose cover changed between New Zealand's last two LCDB surveys, coloured by what it became (red built-up, orange harvested, green forest)" },
   { letter: "T", id: "street_trees", label: "Street trees", group: "earth", hint: "Every tree in a council's list (Auckland first), from street level (zoom 12 and closer)" },
+  { letter: "M", id: "electricity_mix", label: "Electricity mix (pies)", group: "energy", made: true, hint: "A pie of each place's electricity by source, sized by how much it makes: continents zoomed out, countries zoomed in; or main-source dots, or the map shaded by one source" },
   { letter: "P", id: "ports", label: "Ports (by ship calls)", group: "transport", hint: "About 1,700 ports sized by ship calls a year (IMF PortWatch)" },
   { letter: "E", id: "ports_all", label: "Every port", group: "transport", hint: "About 3,800 ports with harbour size (NGA World Port Index)" },
   { letter: "C", id: "chokepoints", label: "Shipping chokepoints", group: "transport", hint: "Straits and canals, sized by ships a day; click one for the countries on its shores" },
@@ -297,7 +298,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "polar" },
 ];
 export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
-  { id: "events", label: "Events and news" }, { id: "earth", label: "Earth and hazards" }, { id: "transport", label: "Transport and trade" },
+  { id: "events", label: "Events and news" }, { id: "earth", label: "Earth and hazards" }, { id: "energy", label: "Energy" }, { id: "transport", label: "Transport and trade" },
   { id: "people", label: "People and places" }, { id: "past", label: "The past" }, { id: "polar", label: "Antarctica" },
 ];
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [

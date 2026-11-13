@@ -98,6 +98,17 @@ def test_overview(client):
     assert "temp_anomaly" in r["emission_maps"] and "co2_gcp" in r["emission_maps"]
 
 
+def test_headlines(client):
+    r = client.get("/api/v1/climate/headlines?keys=NZL,AUS").json()
+    heads = {h["id"]: h for h in r["heads"]}
+    assert heads["world_temp"]["value"] == "+1.16 °C" and heads["world_temp"]["note"].startswith("warmest year on record (2023)")
+    assert heads["co2"]["value"] == "424 ppm" and "2.0 ppm on a year" in heads["co2"]["note"]
+    assert heads["home_temp"]["label"] == "New Zealand" and heads["enso"]["value"] in ("El Niño", "La Niña", "Neutral")
+    assert any(x["text"].startswith("World temperature: warmest year on record (2023") for x in r["records"])
+    assert r["compare"][0]["id"] == "warming" and r["compare"][0]["rows"][0]["entity_id"] == "NZL"
+    assert r["lines"][0]["name"] == "World" and r["finding"].startswith("2023 was the world's warmest year on record")
+
+
 def test_country(client):
     r = client.get("/api/v1/climate/country/NZL").json()
     assert r["temperature"]["temp_anomaly"][0][0] == 1980
@@ -177,3 +188,13 @@ def test_monthly_normals(client):
     nz = d["countries"][0]
     assert nz["temp"][0] == 11 and nz["temp"][11] == 22 and nz["rain"][6] == 107 and nz["high"] == [None] * 12
     assert nz["summary"]["clim_rain_year"] == 1278 and d["period"] == "1991-2020"
+
+
+def test_standing_and_record_lines():
+    assert climate.standing([[2000, 1.0], [2001, 2.0], [2002, 3.0]]) == {"when": 2002, "value": 3.0, "rank": 1, "of": 3, "since": None, "first": 2000}
+    st = climate.standing([[1990, 5.0]] + [[y, 1.0] for y in range(1991, 2010)] + [[2010, 4.0]])
+    assert st["rank"] == 2 and st["since"] == 1990
+    assert climate._record_line(st, "X", "warmest", "coolest", True, "t")["level"] == "decade"
+    low = climate.standing([[2000, 5.0], [2001, 4.0], [2002, 3.0]], high=False)
+    assert low["rank"] == 1 and climate._record_line(low, "Ice", "highest", "lowest", False, "ice")["text"].startswith("Ice: lowest on record")
+    assert climate._ordinal(2) == "2nd" and climate._ordinal(13) == "13th" and climate._ordinal(21) == "21st"
