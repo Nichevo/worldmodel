@@ -11,7 +11,7 @@ import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
-import { eventMarks, useChartEvents, withEventTooltip } from "@/lib/events";
+import { eventMarks, linkBands, useChartEvents, withEventTooltip } from "@/lib/events";
 import { flagUrl, useFlagCodes } from "@/lib/flags";
 import { mapLayers } from "@/lib/layers";
 import MixOverlay, { type MixShade } from "@/components/MixOverlay";
@@ -823,6 +823,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
   rangeRef.current = setRange;
   const onReady = useCallback((c: ECharts) => {
     chart.current = c;
+    linkBands(c, (u) => { window.location.href = u; });
     const entityOf = (p: { seriesName?: string }) => (p.seriesName && p.seriesName !== "year-marker" ? String(p.seriesName).split("|")[0] : null);
     c.on("mouseover", (p) => { const e = entityOf(p); if (e) hoverRef.current(e); });
     c.on("mouseout", () => hoverRef.current(null));

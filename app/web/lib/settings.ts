@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   internet_speeds_per_refresh: 8,
   party_colours: false,
   party_office: "government",
-  event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,user",
+  event_kinds: "recession,crisis,coup,conflict,disaster,sport,notable,episode,user",
   disaster_min_deaths: 100,
   transport_min_deaths: 10,
   ranks_top_n: 10,

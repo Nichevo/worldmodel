@@ -481,11 +481,17 @@ IMF_GDD = {
     "NFC_LS": ("imf_corporate_debt_gdp", "Corporate debt (% of GDP)",
                "Debt of non-financial companies (loans and debt securities) as a share of GDP, from the IMF Global "
                "Debt Database."),
+    # Not the Global Debt Database but the same IMF service: Public Finances in Modern History.
+    "d": ("govt_debt_gdp_long", "Government debt since 1800 (% of GDP)",
+          "Gross public debt as a share of GDP, back to 1800 where records allow, from the IMF's Public Finances in "
+          "Modern History (historical public debt). For the long-term debt cycle; recent years match the WEO figure "
+          "closely but not exactly."),
 }
 
 
 class IMFGDD(Connector):
     source_id = "imf_gdd"
+    fetch_version = 2  # 2: historical public debt (d, Public Finances in Modern History)
     fetch_every_days = 90  # checked at most this often; the site answering "not changed" also skips the download
 
     def default_release(self, fetched_at: datetime) -> str:

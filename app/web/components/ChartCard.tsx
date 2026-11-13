@@ -7,7 +7,8 @@ import EChart from "@/components/EChart";
 import { api, type EventRow, type Indicator, type SeriesRow } from "@/lib/api";
 import { barOption, lineOption, type Named } from "@/lib/charts";
 import { credits, fileName, saveUrl, sourcesOf, titledPng } from "@/lib/download";
-import { eventMarks, withEventTooltip } from "@/lib/events";
+import { eventMarks, linkBands, withEventTooltip } from "@/lib/events";
+import { useRouter } from "next/navigation";
 import { withParties, type Term } from "@/lib/parties";
 import { SOURCE_LABEL } from "@/lib/format";
 import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
@@ -69,7 +70,8 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
     return withEventTooltip({ ...o, series: [...(o.series as object[]), eventMarks(inView, shownNames)] } as typeof o, inView, shownNames);
   }, [rows, entities, indicator, kind, inView.length, parties, forecasts, settings.forecast_ranges, preds]); // eslint-disable-line react-hooks/exhaustive-deps
   const chart = useRef<ECharts | null>(null);
-  const onReady = useCallback((c: ECharts) => { chart.current = c; }, []);
+  const router = useRouter();
+  const onReady = useCallback((c: ECharts) => { chart.current = c; linkBands(c, (u) => router.push(u)); }, [router]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const title = `${indicator.name}: ${entities.map((e) => e.name).join(", ")}`;
   const picture = async (): Promise<string | null> => {
