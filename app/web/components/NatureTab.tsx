@@ -8,6 +8,7 @@ import IndicatorSet from "@/components/IndicatorSet";
 import NatureCard from "@/components/NatureCard";
 import NatureEvents from "@/components/NatureEvents";
 import WorldMap from "@/components/WorldMap";
+import { RankedCard, TargetTiles, useKeys } from "@/components/PageLook";
 import { api, type NaturePage } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 
@@ -63,6 +64,7 @@ export default function NatureTab({ country, onCountry }: { country: string; onC
   const [view, setView] = useState<View>("losing");
   const [d, setD] = useState<NaturePage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const keys = useKeys();
   useEffect(() => { api.nature().then(setD).catch((e) => setError(String(e.message || e))); }, []);
   if (error) return <p className="error">{error}</p>;
   if (!d) return <p className="muted">Loading…</p>;
@@ -74,6 +76,7 @@ export default function NatureTab({ country, onCountry }: { country: string; onC
         <>
           <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>Wildlife numbers (the Living Planet Index follows about 35,000 populations of animals since 1970),
             how close species are to extinction (the Red List Index), threatened species by country, and forest lost.</p>
+          <div className="grid two">{d.losing.filter((i) => ["threatened_birds", "red_list_index"].includes(i)).map((i) => <RankedCard key={i} indicator={i} keys={keys} />)}</div>
           <IndicatorSet ids={d.losing} empty={NOT_LOADED} />
         </>
       ) : view === "arriving" ? (
@@ -96,6 +99,7 @@ export default function NatureTab({ country, onCountry }: { country: string; onC
         </>
       ) : (
         <>
+          <TargetTiles ids={d.recovering.filter((i) => ["protected_land_share", "protected_sea_share", "kba_land_protected", "kba_sea_protected"].includes(i))} keys={keys} />
           <ProtectedMap count={d.protected.n} />
           <IndicatorSet ids={d.recovering} empty={NOT_LOADED} />
           <div className="grid two">

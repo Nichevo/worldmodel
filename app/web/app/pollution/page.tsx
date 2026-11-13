@@ -9,6 +9,7 @@ import IndicatorSet from "@/components/IndicatorSet";
 import NatureEvents from "@/components/NatureEvents";
 import PollutionCard from "@/components/PollutionCard";
 import WorldMap from "@/components/WorldMap";
+import { RankedCard, useKeys } from "@/components/PageLook";
 import { api, type NatureEvent, type PollutionPage } from "@/lib/api";
 import { logHistory } from "@/lib/history";
 
@@ -23,6 +24,9 @@ const INTRO: Record<Exclude<Tab, "country">, string> = {
   ocean: "Plastic reaching the sea from rivers and coasts (2019 estimates, Meijer et al.), and how much of the sea's key nature areas are protected.",
   borders: "Pollution does not stop at borders: haze from Indonesian fires over Singapore and Malaysia, Australian bushfire smoke over New Zealand, Saharan dust over the Caribbean, chemicals carried down the Rhine and the Danube, and emissions made in one country for goods used in another.",
 };
+// Figures shown first as where each country sits among all countries, with New Zealand's line.
+const RANKED: Partial<Record<Tab, string[]>> = { air: ["pm25_exposure", "air_pollution_death_rate"], water: ["safe_drinking_water", "wastewater_treated_share"],
+  ocean: ["ocean_plastic_per_capita", "protected_sea_share"] };
 const SUBKINDS: Partial<Record<Tab, string[]>> = { air: ["air", "smoke", "dust"], water: ["chemical"], ocean: ["oil"] };
 const GIBS_AOD = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Combined_Value_Added_AOD/default/{day}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png";
 
@@ -49,6 +53,7 @@ function PollutionView() {
   const [country, setCountry] = useState(params.get("country") ?? "NZL");
   const [p, setP] = useState<PollutionPage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const keys = useKeys();
   useEffect(() => {
     api.pollution().then(setP).catch((e) => setError(String(e.message || e)));
     logHistory({ kind: "page", title: "Pollution", url: "/pollution", detail: "page" });
@@ -74,6 +79,7 @@ function PollutionView() {
       ) : (
         <>
           <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
+          {RANKED[tab]?.length ? <div className="grid two">{RANKED[tab]!.filter((i) => p.tabs[tab].includes(i)).map((i) => <RankedCard key={i} indicator={i} keys={keys} />)}</div> : null}
           {tab === "air" || tab === "borders" ? <SmokeMap /> : null}
           <IndicatorSet ids={p.tabs[tab]} empty={<p>Nothing stored for this tab yet. Its figures come with <code>.\refresh.bat</code> (World Bank, Our World in Data and the UN SDG database;
             switch in <Link href="/settings#nature">Settings: Nature and pollution</Link>).</p>} />

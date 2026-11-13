@@ -8,6 +8,7 @@ import CountryChoice from "@/components/CountryChoice";
 import IndicatorSet from "@/components/IndicatorSet";
 import TourismCard from "@/components/TourismCard";
 import WorldMap from "@/components/WorldMap";
+import { RecoveryCard, useKeys } from "@/components/PageLook";
 import { api, type TourismPage } from "@/lib/api";
 import { compact } from "@/lib/format";
 import { logHistory } from "@/lib/history";
@@ -31,6 +32,7 @@ function TourismView() {
   const [country, setCountry] = useState(params.get("country") ?? "NZL");
   const [p, setP] = useState<TourismPage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const keys = useKeys();
   useEffect(() => {
     api.tourism().then(setP).catch((e) => setError(String(e.message || e)));
     logHistory({ kind: "page", title: "Tourism", url: "/tourism", detail: "page" });
@@ -56,6 +58,12 @@ function TourismView() {
       ) : (
         <>
           <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
+          {tab === "visitors" && (p.tabs.visitors.includes("tourist_arrivals") || p.tabs.visitors.includes("unt_arrivals")) ? (
+            <RecoveryCard indicator={p.tabs.visitors.includes("unt_arrivals") ? "unt_arrivals" : "tourist_arrivals"} keys={keys} label="Visitors from abroad a year" />
+          ) : null}
+          {tab === "money" && (p.tabs.money.includes("tourism_receipts_usd") || p.tabs.money.includes("unt_receipts_usd")) ? (
+            <RecoveryCard indicator={p.tabs.money.includes("unt_receipts_usd") ? "unt_receipts_usd" : "tourism_receipts_usd"} keys={keys} label="What visitors spend, US$" />
+          ) : null}
           {tab === "visitors" && p.top.length ? (
             <div className="card"><h3>Most visitors</h3><table className="small"><tbody>{p.top.map((t, i) => (
               <tr key={t.entity_id}><td className="num muted">{i + 1}</td><td><Link href={`/entity/${t.entity_id}`}>{t.name}</Link></td>
