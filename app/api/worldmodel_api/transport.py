@@ -257,7 +257,8 @@ def transport(q: Q, min_deaths: int = 10) -> dict:
     tabs = {k: _present(q, v) for k, v in TRANSPORT_TABS.items()}
     ids = [i for v in tabs.values() for i in v]
     accidents = [e for e in _accidents(q, None, min_deaths, 300)]
-    return {"tabs": tabs, "names": _meta(q, ids), "chokepoints": chokepoints(q), "ports": top_ports(q),
+    cps = chokepoints(q)
+    return {"tabs": tabs, "names": _meta(q, ids), "chokepoints": cps, "choke_finding": choke_finding(cps), "ports": top_ports(q),
             "airports": top_airports(q), "infrastructure": _events(q, ["infrastructure"], None, 300),
             "accidents": accidents, "min_deaths": min_deaths,
             "loaded": {**_geo_counts(q), **_layer_counts(q, ["ports", "chokepoints", "ports_all", "airports", "shipping_lanes",
@@ -350,3 +351,92 @@ def tourism_country(q: Q, entity: str) -> dict:
     return {"entity": entity, "tabs": tabs, "names": _meta(q, ids), "latest": _latest(q, ids, entity),
             "origins": origins, "sites": sites, "covid": COVID}
 
+
+
+# ----------------------------------------------------------------------------- the page's headline strip and findings
+def _pct(a, b) -> float | None:
+    return round(100 * (a / b - 1), 1) if a is not None and b else None
+
+
+def choke_finding(rows: list[dict]) -> str:
+    """The biggest fall and the biggest rise against a year before, as a sentence."""
+    moved = [r for r in rows if r.get("change") is not None and abs(r["change"]) >= 10 and (r.get("year_before") or 0) >= 2]
+    if not moved:
+        return "Ships through the main straits and canals much as a year before" if rows else ""
+    down = min(moved, key=lambda r: r["change"])
+    up = max(moved, key=lambda r: r["change"])
+    parts = []
+    if down["change"] < 0:
+        parts.append(f"{down['name']} traffic {abs(down['change']):.0f}% below a year before")
+    if up["change"] > 0:
+        parts.append(f"{up['name']} up {up['change']:.0f}%")
+    return "; ".join(parts)
+
+
+def country_ports(q: Q, entity: str, n: int = 6, months: int = 36) -> dict:
+    """A country's busiest ports: ship calls each month for the last few years, the last 12
+    months against the 12 before, and the finding."""
+    if not _has(q, "port_traffic"):
+        return {"entity": entity, "ports": [], "finding": ""}
+    got = q("""SELECT port_id, year, month, calls FROM port_traffic WHERE entity_id = ? AND calls IS NOT NULL
+               ORDER BY year, month""", [entity])
+    if not got:
+        return {"entity": entity, "ports": [], "finding": ""}
+    by: dict = defaultdict(list)
+    for g in got:
+        by[g["port_id"]].append((g["year"] * 12 + g["month"] - 1, g["calls"]))
+    last = max(k for pts in by.values() for k, _ in pts)
+    names = _port_names(q)
+    out = []
+    for pid, pts in by.items():
+        d = dict(pts)
+        now = round(sum(d.get(k, 0) for k in range(last - 11, last + 1)))
+        before = sum(d.get(k, 0) for k in range(last - 23, last - 11))
+        out.append({"port_id": pid, "name": names.get(pid, pid), "calls_12m": now, "change": _pct(now, before),
+                    "months": [[f"{k // 12}-{k % 12 + 1:02d}", d.get(k, 0)] for k in range(last - months + 1, last + 1)]})
+    out.sort(key=lambda p: -p["calls_12m"])
+    top = out[:n]
+    finding = ""
+    if top:
+        finding = f"{top[0]['name']} the busiest, {top[0]['calls_12m']:,.0f} ship calls in the last 12 months"
+        rise = max((p for p in top[1:] if p["change"] is not None), key=lambda p: abs(p["change"]), default=None)
+        if rise and abs(rise["change"]) >= 3:
+            finding += f"; {rise['name']} {'up' if rise['change'] > 0 else 'down'} {abs(rise['change']):.0f}% on a year"
+    to = f"{last // 12}-{last % 12 + 1:02d}"
+    return {"entity": entity, "to": to, "ports": top, "finding": finding,
+            "total_12m": sum(p["calls_12m"] for p in out), "change": _pct(sum(p["calls_12m"] for p in out),
+                                                                           sum(sum(dict(by[p["port_id"]]).get(k, 0) for k in range(last - 23, last - 11)) for p in out))}
+
+
+def heads(q: Q, home: str = "NZL") -> list[dict]:
+    """The Transport page's strip: ships through the chokepoints, world air passengers, the home
+    country's ship calls, and cables and pipelines cut in the last 12 months."""
+    out = []
+    cps = chokepoints(q)
+    now = sum(c["now"] or 0 for c in cps)
+    before = sum(c["year_before"] or 0 for c in cps if c["now"] is not None)
+    if now:
+        ch = _pct(now, before)
+        out.append({"id": "chokepoints", "label": "Ships through chokepoints", "value": f"{now:,.0f} a day", "tab": "sea",
+                    "note": (f"{'▲' if ch >= 0 else '▼'} {abs(ch):.0f}% on a year before" if ch is not None else "") + f" ({len(cps)} straits and canals)",
+                    "tone": "good" if (ch or 0) >= 0 else "bad"})
+    air = q("""SELECT year(period_start) AS y, value AS v FROM series WHERE indicator_id = 'air_passengers' AND entity_id = 'world'
+               AND breakdown = '' AND variant = 'central' AND status = 'E' ORDER BY period_start DESC LIMIT 2""", [])
+    if air:
+        ch = _pct(air[0]["v"], air[1]["v"]) if len(air) > 1 else None
+        out.append({"id": "air", "label": "World air passengers", "value": f"{air[0]['v'] / 1e9:.1f} bn" if air[0]["v"] >= 1e9 else f"{air[0]['v'] / 1e6:.0f} m",
+                    "tab": "air", "note": (f"{'▲' if ch >= 0 else '▼'} {abs(ch):.0f}% on a year " if ch is not None else "") + f"({air[0]['y']})",
+                    "tone": "good" if (ch or 0) >= 0 else "bad"})
+    cp = country_ports(q, home, 50, 1)
+    if cp["ports"]:
+        name = _names(q, [home]).get(home, home)
+        ch = cp["change"]
+        out.append({"id": "ports", "label": f"{name}: ship calls", "value": f"{cp['total_12m'] / 12:,.0f} a month", "tab": "sea",
+                    "note": (f"{'▲' if ch >= 0 else '▼'} {abs(ch):.0f}% on a year, " if ch is not None else "") + f"12 months to {cp['to']}",
+                    "tone": "good" if (ch or 0) >= 0 else "bad"})
+    cuts = q("""SELECT subkind, title, start_date FROM events WHERE kind = 'infrastructure'
+                AND subkind IN ('cable', 'power_cable', 'pipeline', 'oil', 'gas') AND start_date >= current_date - INTERVAL 365 DAY
+                ORDER BY start_date DESC""", [])
+    out.append({"id": "cuts", "label": "Cables and pipelines cut", "value": str(len(cuts)), "tab": "networks",
+                "note": f"in the last 12 months{': latest ' + cuts[0]['title'][:60] if cuts else ''}", "tone": "bad" if cuts else "neutral"})
+    return out
