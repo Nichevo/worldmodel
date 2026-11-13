@@ -812,6 +812,16 @@ export type ClimateHeadlines = {
   compare: { id: string; title: string; note?: string; rows: { entity_id: string; name: string; value: number; year: number; text: string; note?: string }[] }[];
   lines: { id: string; name: string; points: [number, number][] }[]; finding: string;
 };
+export type HeadTileData = { id: string; label: string; value: string; note: string; tone: string; tab: string };
+export type Ranked = { indicator: string; name: string; unit: string; decimals: number; year: number; of: number; lower_better: boolean; line: string;
+  min: number; max: number; rows: { entity_id: string; name: string; value: number; year: number; rank: number | null; key: boolean }[];
+  guide: { value: number; label: string; meeting: number | null } | null };
+export type Recovery = { indicator: string; base: number; finding: string;
+  lines: { id: string; name: string; points: [number, number][]; latest: number; year: number; of_base: number | null }[] };
+export type LandMix = { entity: string; name: string; year: number; since: number; finding: string;
+  parts: { id: string; label: string; indicator: string | null; ha: number | null; share: number; year: number; change: number | null }[] } | null;
+export type CountryPorts = { entity: string; to?: string; finding: string; total_12m?: number; change?: number | null;
+  ports: { port_id: string; name: string; calls_12m: number; change: number | null; months: [string, number][] }[] };
 export type ClimateDisaster = { kind: string; subkind: string; title: string; start_date: string; deaths: number | null;
   affected: number | null; damage_usd: number | null; source_id: string };
 export type ClimateCountry = {
@@ -858,7 +868,7 @@ export type PortRow = { port_id: string; name: string; entity_id: string | null;
 export type AirportRow = { airport: string; name: string | null; entity_id: string | null; year: number; passengers: number | null; freight_t: number | null };
 export type Accident = { subkind: string | null; title: string; start_date: string | null; place: string | null; url: string | null; detail: string | null;
   deaths: number | null; entities: string[] };
-export type TransportPage = { tabs: Record<"sea" | "air" | "land" | "safety", string[]>; names: IndicatorNames; chokepoints: Chokepoint[];
+export type TransportPage = { tabs: Record<"sea" | "air" | "land" | "safety", string[]>; names: IndicatorNames; chokepoints: Chokepoint[]; choke_finding?: string;
   ports: PortRow[]; airports: AirportRow[]; infrastructure: NatureEvent[]; accidents: Accident[]; min_deaths: number;
   loaded: Record<string, number>; chokepoint_shores: Record<string, string[]> };
 export type NetworkItem = { id: string; name: string | null; rfs?: number | null; planned?: boolean | null; status?: string | null;
@@ -1220,6 +1230,11 @@ export const api = {
     get<RelationList>("/relationships", { ...q, built: q.built && q.built !== "last" ? q.built : undefined, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
       hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
   climate: () => get<ClimateOverview>("/climate"),
+  ranked: (indicator: string, keys: string) => get<Ranked>(`/look/ranked/${encodeURIComponent(indicator)}?keys=${encodeURIComponent(keys)}`),
+  recovery: (indicator: string, keys: string) => get<Recovery>(`/look/recovery/${encodeURIComponent(indicator)}?keys=${encodeURIComponent(keys)}`),
+  landMix: (entity: string) => get<LandMix>(`/look/land-mix/${encodeURIComponent(entity)}`),
+  transportHeads: (home: string) => get<HeadTileData[]>(`/transport/heads?home=${encodeURIComponent(home)}`),
+  countryPorts: (entity: string) => get<CountryPorts>(`/transport/ports/${encodeURIComponent(entity)}`),
   climateHeadlines: (keys: string) => get<ClimateHeadlines>(`/climate/headlines?keys=${encodeURIComponent(keys)}`),
   climateCountry: (id: string) => get<ClimateCountry>(`/climate/country/${encodeURIComponent(id)}`),
   climateEnso: () => get<ClimateEnso>("/climate/enso"),

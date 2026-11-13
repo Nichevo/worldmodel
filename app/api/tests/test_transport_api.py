@@ -88,6 +88,18 @@ def test_transport_page_and_country(client):
     assert len(client.get("/api/v1/transport/port/port1").json()["months"]) == 12
 
 
+def test_heads_and_country_ports(client):
+    h = {x["id"]: x for x in client.get("/api/v1/transport/heads", params={"home": "NZL"}).json()}
+    assert h["chokepoints"]["value"] == "30 a day" and "▼" in h["chokepoints"]["note"]
+    assert h["ports"]["value"] == "100 a month" and h["ports"]["note"].endswith("12 months to 2024-12")
+    assert h["cuts"]["id"] == "cuts"
+    p = client.get("/api/v1/transport/ports/NZL").json()
+    assert p["ports"][0]["calls_12m"] == 1200 and len(p["ports"][0]["months"]) == 36 and p["ports"][0]["months"][-1] == ["2024-12", 100]
+    assert p["finding"].startswith("port1 the busiest, 1,200 ship calls")
+    t = client.get("/api/v1/transport").json()
+    assert t["choke_finding"].startswith("Suez Canal traffic") and "below a year before" in t["choke_finding"]
+
+
 def test_tourism(client):
     t = client.get("/api/v1/tourism").json()
     assert t["covid"]["start_date"] == "2020-03-01" and "visitors" in t["tabs"]
