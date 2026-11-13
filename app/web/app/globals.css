@@ -1322,3 +1322,21 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .climate-head .meta.tone-bad { color: var(--bad); }
 /* A wide map's aspect ratio with its minimum height made it wider than a phone */
 @media (max-width: 600px) { .map-box { aspect-ratio: auto; height: 320px; min-height: 0; } }
+
+/* Crowd by topic: odds bars with your own forecast marked, scorecard tiles */
+.chip-btn { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--ink); padding: 6px 12px; min-height: 34px; font: inherit; font-size: 0.85rem; }
+.chip-btn.on { background: var(--ink); color: var(--page); border-color: var(--ink); }
+.crowd-topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.odds-row { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.odds-row:last-child { border-bottom: 0; }
+.odds-row > a { color: var(--ink); font-size: 0.9rem; }
+.odds-line { display: grid; grid-template-columns: minmax(0, 1fr) 44px 64px; gap: 10px; align-items: center; }
+.odds-line .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.odds-line .strong { font-weight: 600; }
+.odds-bar { position: relative; display: block; height: 12px; background: var(--surface-2); border-radius: 6px; }
+.odds-bar span { display: block; height: 12px; background: var(--series-1); border-radius: 6px; }
+.odds-bar i { position: absolute; top: -3px; width: 3px; height: 18px; margin-left: -1px; background: #d29a00; border-radius: 1px; }
+.score-tile { padding: 4px 0; }
+.score-tile .value { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; }
+.score-tile .meta { color: var(--ink-2); font-size: 0.8rem; }
+@media (max-width: 600px) { .crowd-topics { grid-template-columns: minmax(0, 1fr); } }
