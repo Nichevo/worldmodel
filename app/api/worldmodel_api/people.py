@@ -244,9 +244,19 @@ def languages(q: Q, lang: str | None = None, top: int = 25) -> dict:
     by_e: dict[str, dict] = defaultdict(dict)
     for r in counts:
         by_e[r["entity_id"]][r["ind"]] = r["value"]
+    # Speakers living where the language is the main one (mostly first-language speakers) and
+    # elsewhere (mostly people who learned it): CLDR has no first/second split of its own.
+    home = {r["code"]: r["n"] for r in q("""
+        WITH m AS (SELECT s.entity_id, s.breakdown FROM series s WHERE s.indicator_id = 'lang_share' AND s.variant = 'central'
+                     AND NOT s.is_aggregate QUALIFY row_number() OVER (PARTITION BY s.entity_id ORDER BY s.value DESC) = 1)
+        SELECT substr(s.breakdown, 6) AS code, sum(s.value) AS n FROM series s JOIN m USING (entity_id, breakdown)
+        JOIN entities en ON en.entity_id = s.entity_id
+        WHERE s.indicator_id = 'lang_speakers' AND s.variant = 'central' AND NOT s.is_aggregate AND en.type = 'country'
+          AND s.period_start = (SELECT max(period_start) FROM series WHERE indicator_id = 'lang_speakers')
+        GROUP BY 1""", [])}
     return {
         "top": [{"code": r["code"], "name": names.get(r["code"], r["code"]), "speakers": r["speakers"],
-                 "countries": r["countries"], "official_in": off.get(r["code"], 0)} for r in tot],
+                 "home": home.get(r["code"], 0.0), "countries": r["countries"], "official_in": off.get(r["code"], 0)} for r in tot],
         "lang": lang, "lang_name": names.get(lang, lang),
         "map": [{"entity_id": r["entity_id"], "share": r["share"], "official": r["official"]} for r in shares],
         "main": [{"entity_id": r["entity_id"], "code": r["code"], "name": names.get(r["code"], r["code"]),

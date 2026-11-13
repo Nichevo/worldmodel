@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import AskButton from "@/components/AskButton";
 import CrowdRow from "@/components/CrowdRow";
+import CrowdTopics from "@/components/CrowdTopics";
 import CountryChoice from "@/components/CountryChoice";
 import Flag from "@/components/Flag";
 import WorldMap from "@/components/WorldMap";
@@ -15,9 +16,10 @@ import { useSettings } from "@/lib/settings";
 // Crowd forecasts: Polymarket, Metaculus and Manifold questions matched to countries and
 // indicators, the biggest moves, how the crowd did on what happened, and ViEWS conflict forecasts.
 
-type Tab = "questions" | "moves" | "events" | "conflict";
-const TABS: [Tab, string][] = [["questions", "Questions"], ["moves", "Biggest moves"], ["events", "Events against predictions"], ["conflict", "Conflict forecasts"]];
+type Tab = "topics" | "questions" | "moves" | "events" | "conflict";
+const TABS: [Tab, string][] = [["topics", "By topic"], ["questions", "Every question"], ["moves", "Biggest moves"], ["events", "Events against predictions"], ["conflict", "Conflict forecasts"]];
 const INTRO: Record<Tab, string> = {
+  topics: "The busiest open questions on each topic and your country, the crowd's chance as a bar, your own forecast marked where you made one, and the move this week.",
   questions: "Questions from Polymarket (a betting market), Metaculus (a forecasting community) and Manifold (play-money markets) on politics, economics, geopolitics, climate and science, matched to the countries and indicators they are about. Sport, crypto and entertainment are left out.",
   moves: "Open yes/no questions whose chance moved most, from the chances the app saves at each refresh.",
   events: "Questions that have resolved: what the crowd said beforehand, when it first leaned the right way, and the surprises.",
@@ -29,7 +31,8 @@ const NOT_LOADED = <p>No crowd questions stored yet. They come with <code>.\refr
 function CrowdView() {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "questions");
+  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "topics");
+  const [filter, setFilter] = useState<{ category: string; country: string }>({ category: "", country: params.get("country") ?? "" });
   const go = (t: Tab) => { setTab(t); router.replace(`/crowd?tab=${t}`, { scroll: false }); };
   useEffect(() => { logHistory({ kind: "page", title: "Crowd forecasts", url: "/crowd", detail: "page" }); }, []);
   return (
@@ -44,7 +47,8 @@ function CrowdView() {
         <Link href="/settings#predictions" className="small muted">Settings</Link></div>
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
       <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
-      {tab === "questions" && <QuestionsTab country={params.get("country") ?? ""} />}
+      {tab === "topics" && <CrowdTopics onMore={(category, country) => { setFilter({ category, country }); go("questions"); }} />}
+      {tab === "questions" && <QuestionsTab key={`${filter.category}|${filter.country}`} country={filter.country} category={filter.category} />}
       {tab === "moves" && <MovesTab />}
       {tab === "events" && <EventsTab />}
       {tab === "conflict" && <ConflictTab />}
@@ -52,10 +56,10 @@ function CrowdView() {
   );
 }
 
-function QuestionsTab({ country: start }: { country: string }) {
+function QuestionsTab({ country: start, category: startCategory }: { country: string; category: string }) {
   const [list, setList] = useState<CrowdList | null>(null);
   const [site, setSite] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(startCategory);
   const [country, setCountry] = useState(start);
   const [status, setStatus] = useState("open");
   const [sort, setSort] = useState("busy");

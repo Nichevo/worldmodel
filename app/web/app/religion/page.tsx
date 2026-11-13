@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import EChart from "@/components/EChart";
 import Flag from "@/components/Flag";
 import WorldMap, { type Scale } from "@/components/WorldMap";
+import ReligionCountry from "@/components/ReligionTop";
 import { api, type Religion } from "@/lib/api";
 import { useEntityNames } from "@/lib/flags";
 import { cardLinesOption } from "@/lib/charts";
@@ -66,6 +67,7 @@ function ReligionPage() {
         <h1>Religion</h1>
         <span className="muted small">Each religion&apos;s share of the world over time, and by country</span>
       </div>
+      <ReligionCountry world={d.world} groups={d.groups} />
       <div className="card">
         <div className="card-head">
           <h3>The world{latest ? `, ${latest.year}: ${people(latest.people ?? 0)} people counted` : ""}</h3>
