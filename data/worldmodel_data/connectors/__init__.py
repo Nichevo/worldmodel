@@ -39,6 +39,8 @@ from worldmodel_data.connectors.un_wpp import UNWPP
 from worldmodel_data.connectors.voters import NZElectionTurnout, USCensusVoting
 from worldmodel_data.connectors.wikidata import Wikidata
 from worldmodel_data.connectors.places import WikidataPlaces
+from worldmodel_data.connectors.outlook import FREDCycle, OECDCLI
+from worldmodel_data.connectors.power import Gridfinder, WRIPowerPlants
 from worldmodel_data.connectors.sectors import BACI, FAOSTAT, IEAEV, ANZCommodityPrices, FAOFoodPrices, PinkSheet, USGSMinerals, WorldMiningData
 from worldmodel_data.connectors.world_bank_wdi import WorldBankWDI
 from worldmodel_data.connectors.world_bodies import GlobalSanctions, IMFMona, UNGAVotes, UNTreaties, UNVetoes, WTODisputes
@@ -61,6 +63,6 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     PortWatch, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways, TAICInquiries, TransportCurated,
     UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure,
     HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
-    Polymarket, Metaculus, Manifold, ViEWS)}
+    Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OECDCLI, FREDCycle)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

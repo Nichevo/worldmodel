@@ -2158,6 +2158,66 @@
     get: https://geodata.bts.gov/datasets/usdot::navigable-waterway-network-lines
     what: "If the US network fails to download: save it as GeoJSON (name it with waterway network in the name)."
 
+- id: oecd_cli
+  name: OECD composite leading indicators and quarterly GDP growth
+  short_name: OECD leading indicators
+  publisher: Organisation for Economic Co-operation and Development
+  url: https://www.oecd.org/en/data/indicators/composite-leading-indicator-cli.html
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Monthly (leading indicators), quarterly (GDP); checked weekly
+  attribution: "OECD (2026), Composite leading indicators (MEI); Quarterly national accounts. OECD Data Explorer."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: established
+
+- id: fred_cycle
+  name: US yield curve and Atlanta Fed GDPNow (from FRED)
+  short_name: FRED yield curve and GDPNow
+  publisher: Federal Reserve Bank of St. Louis (FRED), from the US Treasury and the Federal Reserve Bank of Atlanta
+  url: https://fred.stlouisfed.org/series/T10Y3M
+  licence: Public domain (US government data); GDPNow cited to the Atlanta Fed
+  licence_url: https://fred.stlouisfed.org/legal/
+  commercial_use: true
+  cadence: Daily (yield gap), several times a month (GDPNow); checked every three days
+  attribution: "Federal Reserve Bank of St. Louis, FRED: T10Y3M; Federal Reserve Bank of Atlanta, GDPNow."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: established
+
+- id: wri_gppd
+  name: WRI Global Power Plant Database
+  short_name: Global Power Plant Database
+  publisher: World Resources Institute
+  url: https://datasets.wri.org/dataset/globalpowerplantdatabase
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Version 1.3 (2021), no longer updated; read twice a year in case it is
+  attribution: "Global Energy Observatory, Google, KTH Royal Institute of Technology, Enipedia, World Resources Institute. 2021. Global Power Plant Database v1.3. World Resources Institute."
+  status: active
+  default_rank: 5
+  standing: 4
+  definition: established
+
+- id: gridfinder
+  name: gridfinder, predictive mapping of the global power system
+  short_name: gridfinder
+  publisher: Arderne, Zorn, Nicolas, Koks (World Bank and University of Oxford), Zenodo
+  url: https://zenodo.org/records/3628142
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: One release (2020); read once
+  attribution: "Arderne, C., Zorn, C., Nicolas, C. and Koks, E. E. (2020). Predictive mapping of the global power system using open data. Scientific Data 7, 19."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: established
+
 - id: submarine_cables
   name: TeleGeography Submarine Cable Map
   short_name: Submarine Cable Map
