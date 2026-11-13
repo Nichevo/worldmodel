@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LandMixBar } from "@/components/PageLook";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
@@ -92,6 +93,7 @@ function UseTab({ entity, pick }: { entity: string; pick: (c: string) => void })
   return (
     <>
       <Picker entity={entity} pick={pick} />
+      {entity !== "world" && <LandMixBar entity={entity} />}
       {!has ? <div className="card">{NOT_LOADED}</div> : (
         <div className="card">
           <div className="card-head"><h3>What the land is used for{entity === "world" ? ", world" : ""}</h3>

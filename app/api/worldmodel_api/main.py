@@ -41,7 +41,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, crowd, predictions, highlights, land, layouts, longhistory, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, basemap, briefing, climate, crises, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -2849,6 +2849,29 @@ def climate_headlines(keys: str = Query("NZL,AUS,GBR,USA", description="Comma-se
     return climate.headlines(rows, split(keys)[:4])
 
 
+# ----------------------------------------------------------------------------- page summaries
+@api.get("/look/ranked/{indicator}")
+def look_ranked(indicator: str, keys: str = Query("NZL,AUS,GBR,USA", description="Key countries, the first is home")):
+    """Where the key countries and the world sit on a figure among all countries, with the home
+    country's line ("4th lowest of 190") and a guideline or target where there is one."""
+    r = look.ranked(rows, indicator, split(keys)[:6])
+    if r is None:
+        raise HTTPException(404, f"no country figures for {indicator}")
+    return r
+
+
+@api.get("/look/recovery/{indicator}")
+def look_recovery(indicator: str, keys: str = Query("NZL,AUS,GBR,USA"), base: int = 2019, since: int = 2000):
+    """Each key country's figure since `since` and its latest as a share of `base`."""
+    return look.recovery(rows, indicator, split(keys)[:6], base, since)
+
+
+@api.get("/look/land-mix/{entity}")
+def look_land_mix(entity: str, since: int = 1990):
+    """A country's land by use in its latest year as shares of its land area, and the change in each since `since`."""
+    return look.land_mix(rows, entity, since)
+
+
 @api.get("/climate/country/{entity}")
 def climate_country(entity: str):
     """One country's climate: temperature against normal, emissions by gas and by sector,
@@ -3004,6 +3027,19 @@ def transport_overview():
     day now against a year before, the busiest ports and airports, cable, pipeline and canal
     events, air, sea and rail accidents (from Settings > Transport's deaths), and what is loaded."""
     return transport.transport(rows, _min_deaths())
+
+
+@api.get("/transport/heads")
+def transport_heads(home: str = "NZL"):
+    """The Transport page's headline strip: ships through the chokepoints, world air passengers,
+    the home country's ship calls and cables or pipelines cut in the last 12 months."""
+    return transport.heads(rows, home)
+
+
+@api.get("/transport/ports/{entity}")
+def transport_country_ports(entity: str, n: int = Query(6, ge=1, le=20)):
+    """A country's busiest ports: ship calls a month for three years, the last 12 months against the 12 before."""
+    return transport.country_ports(rows, entity, n)
 
 
 @api.get("/transport/country/{entity}")

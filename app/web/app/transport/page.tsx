@@ -10,7 +10,8 @@ import IndicatorSet from "@/components/IndicatorSet";
 import NatureEvents from "@/components/NatureEvents";
 import TransportCard, { AccidentList } from "@/components/TransportCard";
 import WorldMap from "@/components/WorldMap";
-import { api, type ChokepointSeries, type TransportPage } from "@/lib/api";
+import { ChokeBars, HeadStrip, PortMultiples, useKeys } from "@/components/PageLook";
+import { api, type ChokepointSeries, type HeadTileData, type TransportPage } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 import { compact } from "@/lib/format";
 import { logHistory } from "@/lib/history";
@@ -65,6 +66,11 @@ function TransportView() {
   const [p, setP] = useState<TransportPage | null>(null);
   const [choke, setChoke] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const home = useKeys().split(",")[0] || "NZL";
+  const [heads, setHeads] = useState<HeadTileData[] | null>(null);
+  const [homeName, setHomeName] = useState(home);
+  useEffect(() => { api.transportHeads(home).then(setHeads).catch(() => setHeads(null)); }, [home]);
+  useEffect(() => { api.entities().then((l) => setHomeName(l.find((e) => e.entity_id === home)?.short_name ?? home)).catch(() => {}); }, [home]);
   useEffect(() => {
     api.transport().then((d) => { setP(d); setChoke((c) => c ?? d.chokepoints[0]?.id ?? null); }).catch((e) => setError(String(e.message || e)));
     logHistory({ kind: "page", title: "Transport", url: "/transport", detail: "page" });
@@ -86,6 +92,7 @@ function TransportView() {
             text: p.chokepoints.map((c) => `${c.name}: ${c.now ?? "?"} (${c.change != null ? `${c.change > 0 ? "+" : ""}${c.change}%` : "?"})`).join("\n") },
           { key: "events", kind: "events", label: "Cuts and blockages", text: p.infrastructure.map((e) => `${e.start_date?.slice(0, 7)} ${e.title}`).join("\n") },
         ]} /></div>
+      <HeadStrip heads={heads} onGo={(t) => go(t as Tab)} />
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
       {tab === "country" ? (
         <>
@@ -105,19 +112,10 @@ function TransportView() {
           ) : null}
           {tab === "sea" ? (
             <div className="grid two">
-              <div className="card"><h3>Chokepoints</h3>
-                {p.chokepoints.length ? (
-                  <table className="small"><thead><tr><th>Strait or canal</th><th className="num">Ships a day</th><th className="num">A year before</th><th className="num">Change</th></tr></thead>
-                    <tbody>{p.chokepoints.map((c) => (
-                      <tr key={c.id} className={c.id === choke ? "on" : ""} style={{ cursor: "pointer" }} onClick={() => setChoke(c.id)}>
-                        <td><button className="link" onClick={() => setChoke(c.id)}>{c.name}</button></td><td className="num">{c.now ?? ""}</td>
-                        <td className="num muted">{c.year_before ?? ""}</td>
-                        <td className="num" style={{ color: c.change != null && c.change <= -20 ? cssVar("--div-neg-3") : undefined }}>
-                          {c.change != null ? `${c.change > 0 ? "+" : ""}${c.change}%` : ""}</td></tr>))}</tbody></table>
-                ) : notLoaded}
-                {p.chokepoints[0] ? <p className="caption">Last 30 days to {p.chokepoints[0].as_of} against the same days a year before. Click one for its chart.</p> : null}
-              </div>
+              {p.chokepoints.length ? <ChokeBars rows={p.chokepoints} finding={p.choke_finding ?? ""} picked={choke} onPick={setChoke} />
+                : <div className="card"><h3>Chokepoints</h3>{notLoaded}</div>}
               <div className="card"><h3>{cp ? `Ships through ${cp.name}` : "Ships through a chokepoint"}</h3>{cp ? <ChokepointChart id={cp.id} name={cp.name} /> : notLoaded}</div>
+              <PortMultiples entity={home} name={homeName} />
               <div className="card"><h3>Busiest ports</h3>
                 {p.ports.length ? <table className="small"><thead><tr><th>Port</th><th className="num">Ship calls</th><th className="num">Tonnes in</th><th className="num">Tonnes out</th></tr></thead>
                   <tbody>{p.ports.map((r) => (
