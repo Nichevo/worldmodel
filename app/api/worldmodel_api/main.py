@@ -2842,6 +2842,13 @@ def climate_overview():
     return climate.overview(rows)
 
 
+@api.get("/climate/headlines")
+def climate_headlines(keys: str = Query("NZL,AUS,GBR,USA", description="Comma-separated key countries, the first is home; at most 4")):
+    """The Climate page's headline strip (world temperature, CO2, Arctic sea ice, the home country,
+    El Niño), records and firsts in the latest figures, and the key countries side by side."""
+    return climate.headlines(rows, split(keys)[:4])
+
+
 @api.get("/climate/country/{entity}")
 def climate_country(entity: str):
     """One country's climate: temperature against normal, emissions by gas and by sector,

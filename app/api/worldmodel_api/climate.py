@@ -9,6 +9,7 @@ import math
 import threading
 import time
 from collections import defaultdict
+from datetime import date
 from typing import Callable
 
 from worldmodel_contract import catalogue
@@ -454,3 +455,181 @@ def sea_ice(q: Q, pole: str = "arctic") -> dict:
             "years": {str(y): [p[:2] for p in pts] for y, pts in years.items()},
             "median": median, "low": low, "high": high, "latest": latest,
             "source": "NSIDC Sea Ice Index (G02135)"}
+
+
+# ----------------------------------------------------------------------------- headlines for the Climate page
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 11 <= n % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def standing(points: list, high: bool = True) -> dict | None:
+    """Where the latest value stands among all earlier ones: rank (1 = highest, or lowest when
+    high is False), how many, and the last year it was beaten or matched (None = a record)."""
+    pts = [(p[0], p[1]) for p in points if p[1] is not None]
+    if len(pts) < 2:
+        return None
+    when, v = pts[-1]
+    better = [w for w, x in pts[:-1] if (x >= v if high else x <= v)]
+    return {"when": when, "value": v, "rank": len(better) + 1, "of": len(pts), "since": better[-1] if better else None, "first": pts[0][0]}
+
+
+def _year(w) -> int:
+    return int(str(w)[:4])
+
+
+def _record_line(st: dict | None, what: str, word_high: str, word_low: str, high: bool, tab: str) -> dict | None:
+    """A record (red) or the highest/lowest in 10+ years (amber), else None."""
+    if not st:
+        return None
+    word = word_high if high else word_low
+    if st["since"] is None:
+        return {"level": "record", "text": f"{what}: {word} on record ({st['when']}, since {st['first']})", "tab": tab}
+    gap = _year(st["when"]) - _year(st["since"])
+    if gap >= 10:
+        return {"level": "decade", "text": f"{what}: {word} since {st['since']}", "tab": tab}
+    return None
+
+
+def headlines(q: Q, keys: list[str]) -> dict:
+    """The strip at the top of the Climate page, the records and firsts in the latest figures,
+    the world against the first key country, and the key countries side by side."""
+    keys = [k for k in keys if k][:4] or ["NZL", "AUS", "GBR", "USA"]
+    home = keys[0]
+    names = {r["entity_id"]: r["short_name"] or r["name"] for r in q(
+        f"SELECT entity_id, name, short_name FROM entities WHERE entity_id IN ({', '.join('?' for _ in keys)})", keys)}
+    yearly = _series(q, ["temp_anomaly_world", "co2_ppm", "temp_anomaly", "nz_temp_anomaly_7station", "ghg_per_capita", "ghg_total_gcp"],
+                     ["world"] + keys)
+    monthly = _series(q, ["temp_anomaly_world_monthly", "co2_ppm_mlo", "enso_oni"], ["world"], "M")
+    ice = _series(q, ["sea_ice_extent_min", "sea_ice_extent_max"], ["arctic", "antarctica"])
+    pick = lambda d, i, e: [p[:2] for p in d.get(i, {}).get(e, [])]  # noqa: E731
+    heads: list[dict] = []
+    records: list[dict] = []
+
+    world_t = pick(yearly, "temp_anomaly_world", "world")
+    st = standing(world_t)
+    if st:
+        heads.append({"id": "world_temp", "label": "World temperature", "value": f"{st['value']:+.2f} °C", "tone": "warm", "tab": "warming",
+                      "note": f"{'warmest' if st['rank'] == 1 else _ordinal(st['rank']) + ' warmest'} year on record ({st['when']}), against 1951-1980",
+                      "spark": [p[1] for p in world_t[-40:]]})
+    co2m = pick(monthly, "co2_ppm_mlo", "world")
+    co2 = co2m or pick(yearly, "co2_ppm", "world")
+    if co2:
+        last = co2[-1]
+        before = co2[-13] if co2m and len(co2) > 12 else (co2[-2] if len(co2) > 1 else None)
+        heads.append({"id": "co2", "label": "CO2 in the air", "value": f"{last[1]:.0f} ppm", "tone": "neutral", "tab": "warming",
+                      "note": (f"{'▲' if last[1] >= before[1] else '▼'} {abs(last[1] - before[1]):.1f} ppm on a year ({last[0]})" if before else str(last[0])),
+                      "spark": [p[1] for p in co2[-(120 if co2m else 40):]]})
+    arctic = pick(ice, "sea_ice_extent_min", "arctic")
+    st = standing(arctic, high=False)
+    if st:
+        heads.append({"id": "arctic", "label": "Arctic sea ice, yearly low", "value": f"{st['value']:.1f} m km²", "tone": "cold", "tab": "ice",
+                      "note": f"{'lowest on record' if st['rank'] == 1 else _ordinal(st['rank']) + ' lowest'} since {st['first']} ({st['when']})",
+                      "spark": [p[1] for p in arctic[-40:]]})
+    home_ids = (["nz_temp_anomaly_7station"] if home == "NZL" else []) + ["temp_anomaly"]
+    home_i = next((i for i in home_ids if pick(yearly, i, home)), None)
+    if home_i:
+        pts = pick(yearly, home_i, home)
+        st = standing(pts)
+        heads.append({"id": "home_temp", "label": names.get(home, home), "value": f"{st['value']:+.2f} °C" if st else "", "tone": "home", "tab": "country",
+                      "note": (f"{'warmest' if st['rank'] == 1 else _ordinal(st['rank']) + ' warmest'} year ({st['when']})"
+                               + (", NIWA 7-station" if home_i == "nz_temp_anomaly_7station" else "")) if st else "",
+                      "spark": [p[1] for p in pts[-40:]]})
+    oni = pick(monthly, "enso_oni", "world")
+    if oni:
+        ph = phase(oni[-1][1])
+        heads.append({"id": "enso", "label": "El Niño / La Niña", "value": ph["name"], "tone": "enso", "tab": "enso",
+                      "note": f"index {oni[-1][1]:+.1f} °C{(', ' + ph['strength']) if ph['strength'] else ''} ({oni[-1][0]})",
+                      "spark": [p[1] for p in oni[-36:]]})
+
+    # records and firsts
+    records.append(_record_line(standing(world_t), "World temperature", "warmest year", "coolest year", True, "warming"))
+    wm = pick(monthly, "temp_anomaly_world_monthly", "world")
+    if wm:
+        month = wm[-1][0][5:7]
+        same = [p for p in wm if p[0][5:7] == month]
+        st = standing(same)
+        if st and st["since"] is None:
+            records.append({"level": "record", "text": f"Warmest {MONTHS[int(month) - 1]} on record for the world ({wm[-1][0][:4]}, {st['value']:+.2f} °C)", "tab": "warming"})
+    for pole, label in (("arctic", "Arctic"), ("antarctica", "Antarctic")):
+        records.append(_record_line(standing(pick(ice, "sea_ice_extent_min", pole), high=False), f"{label} sea ice at its yearly low",
+                                    "highest", "lowest", False, "ice"))
+        records.append(_record_line(standing(pick(ice, "sea_ice_extent_max", pole), high=False), f"{label} sea ice at its yearly peak",
+                                    "highest", "lowest peak", False, "ice"))
+    for e in keys:
+        i = next((i for i in ((["nz_temp_anomaly_7station"] if e == "NZL" else []) + ["temp_anomaly"]) if pick(yearly, i, e)), None)
+        if i:
+            records.append(_record_line(standing(pick(yearly, i, e)), names.get(e, e), "warmest year", "coolest year", True, "country"))
+    try:
+        stm = storms(q)
+    except Exception:  # noqa: BLE001 - the storms layer is an extra
+        stm = {"years": []}
+    if len(stm.get("years", [])) > 1:
+        ys = stm["years"]
+        # the last full year: the newest one may only be part way through
+        pts = [[y, s] for y, s in zip(ys, stm["strong"])][:-1] if ys[-1] >= date.today().year else [[y, s] for y, s in zip(ys, stm["strong"])]
+        st = standing(pts)
+        if st and st["value"] > 0:
+            line = _record_line(st, f"Storms of category 3 and up ({st['value']} in {st['when']})", "the most", "the fewest", True, "storms")
+            records.append(line)
+    records = [r for r in records if r]
+    records.sort(key=lambda r: r["level"] != "record")
+
+    # the key countries side by side
+    def latest(i: str, e: str):
+        pts = pick(yearly, i, e)
+        return pts[-1] if pts else None
+
+    pledge = catalogue.nature().get("pledges", {})
+    compare = []
+    rows = []
+    for e in keys:
+        t = latest("temp_anomaly", e)
+        if t:
+            rows.append({"entity_id": e, "name": names.get(e, e), "value": round(t[1], 2), "year": t[0], "text": f"{t[1]:+.1f} °C"})
+    if rows:
+        compare.append({"id": "warming", "title": "Temperature against 1951-1980, latest year", "rows": rows})
+    rows = []
+    for e in keys:
+        t = latest("ghg_per_capita", e)
+        if t:
+            rows.append({"entity_id": e, "name": names.get(e, e), "value": round(t[1], 1), "year": t[0], "text": f"{t[1]:.1f} t"})
+    if rows:
+        compare.append({"id": "per_person", "title": "Emissions per person, t CO2e", "rows": rows})
+    rows = []
+    for e in keys:
+        pts = dict(pick(yearly, "ghg_total_gcp", e))
+        if 2005 in pts and pts:
+            y = max(pts)
+            c = 100 * (pts[y] / pts[2005] - 1) if pts[2005] else None
+            if c is not None:
+                rows.append({"entity_id": e, "name": names.get(e, e), "value": round(c, 1), "year": y, "text": f"{c:+.0f}%"})
+    if rows:
+        compare.append({"id": "since_2005", "title": "Emissions change since 2005", "rows": rows})
+    rows = []
+    for e in keys:
+        p = next((p for p in pledge.get(e, []) if p.get("year") == 2030), None)
+        pts = dict(pick(yearly, "ghg_total_gcp", e))
+        if p and pts and pts.get(p["base_year"]):
+            y = max(pts)
+            done = 100 * (100 * (1 - pts[y] / pts[p["base_year"]])) / p["cut"]  # the cut made, as a share of the cut pledged
+            rows.append({"entity_id": e, "name": names.get(e, e), "value": round(max(-100.0, done), 0), "year": y,
+                         "text": f"{done:.0f}%", "note": p["note"]})
+    if rows:
+        compare.append({"id": "pledge", "title": "2030 pledge reached so far", "rows": rows,
+                        "note": "The cut made since the pledge's base year, as a share of the cut pledged for 2030 (this app's emissions figures, so a guide)."})
+
+    # the world against the home country, for the finding chart
+    home_pts = pick(yearly, "temp_anomaly", home)
+    lines = ([{"id": "world", "name": "World", "points": world_t}] if world_t else []) + ([{"id": home, "name": names.get(home, home), "points": home_pts}] if home_pts else [])
+    finding = ""
+    sw, sh = standing(world_t), standing(home_pts)
+    if sw:
+        finding = f"{sw['when']} was the world's {'warmest year on record' if sw['rank'] == 1 else _ordinal(sw['rank']) + ' warmest year on record'}"
+        if sh:
+            same = sh["when"] == sw["when"]
+            finding += (f"; {names.get(home, home)}'s {'warmest' if sh['rank'] == 1 else _ordinal(sh['rank']) + ' warmest'}"
+                        + ("" if same else f" ({sh['when']})"))
+    return {"keys": keys, "home": home, "heads": heads, "records": records[:8], "compare": compare, "lines": lines, "finding": finding}

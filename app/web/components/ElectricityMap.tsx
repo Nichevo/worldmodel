@@ -12,9 +12,9 @@ import { countryCentres } from "@/lib/geo";
 // The electricity mix on the map: zoomed out, the world's bars; further in, each continent's; then each
 // country as a dot in the colour of its main source, and once zoomed in further (or for the biggest
 // producers) its own bars. Each source has two bars: the latest year, and ten years before (faded).
-type Mix = { id: string; name: string; level: "world" | "continent" | "country"; year: number; twh: number;
+export type Mix = { id: string; name: string; level: "world" | "continent" | "country"; year: number; twh: number;
   share: Record<string, number>; before_year: number | null; before: Record<string, number> | null; top: string };
-type Data = { world: Mix | null; rows: Mix[]; kinds: string[]; back: number; source: string };
+export type MixData = { world: Mix | null; rows: Mix[]; kinds: string[]; back: number; source: string };
 
 export const ELEC_KINDS: Record<string, { label: string; long: string; color: string }> = {
   coal: { label: "Coal", long: "Coal", color: "#262626" },
@@ -27,7 +27,7 @@ export const ELEC_KINDS: Record<string, { label: string; long: string; color: st
   bio: { label: "Bio", long: "Bioenergy", color: "#4f8a35" },
   other: { label: "Other", long: "Geothermal and other", color: "#2f7d63" },
 };
-const CONTINENT_AT: Record<string, [number, number]> = {
+export const CONTINENT_AT: Record<string, [number, number]> = {
   africa: [20, 2], americas: [-88, 22], asia: [92, 38], europe: [18, 54], oceania: [140, -26],
 };
 const BIG_TWH = 250; // producers this big get bars as soon as countries show
@@ -59,7 +59,7 @@ function Bars({ m, scale, compact = false }: { m: Mix; scale: number; compact?: 
 }
 
 export default function ElectricityMap() {
-  const [d, setD] = useState<Data | null>(null);
+  const [d, setD] = useState<MixData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [map, setMap] = useState<maplibregl.Map | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -70,7 +70,7 @@ export default function ElectricityMap() {
   const markers = useRef(new Map<string, maplibregl.Marker>());
 
   useEffect(() => {
-    get<Data>("/energy/electricity-mix").then(setD).catch((e) => setErr(String(e.message || e)));
+    get<MixData>("/energy/electricity-mix").then(setD).catch((e) => setErr(String(e.message || e)));
     countryCentres().then(setCentres).catch(() => undefined);
   }, []);
   useEffect(() => {
