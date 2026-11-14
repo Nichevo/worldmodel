@@ -7,14 +7,17 @@ rem   .\scrape.bat prisons 1995       World Prison Brief back to 1995
 rem   .\scrape.bat crisiswatch vetoes wto treaties corrections elections   any of these
 cd /d "%~dp0"
 echo Scrape: starting in %CD%
-if /i "%CONDA_DEFAULT_ENV%"=="worldmodel" (
-  echo Using the worldmodel environment already active.
-) else (
-  echo Finding conda...
-  call "%~dp0scripts\find-conda.bat" || (echo Could not find conda; run this from an Anaconda Prompt. & exit /b 1)
-  echo Activating the worldmodel environment...
-  call "%CONDA_BAT%" activate worldmodel || (echo Could not activate the worldmodel environment; run setup.bat first. & exit /b 1)
-)
+rem No parenthesised block here: cmd expands %CONDA_BAT% when it reads a block, before
+rem find-conda.bat has set it, so the activate call would run an empty "".
+if /i "%CONDA_DEFAULT_ENV%"=="worldmodel" goto :env_ready
+echo Finding conda...
+call "%~dp0scripts\find-conda.bat" || (echo Could not find conda; run this from an Anaconda Prompt. & exit /b 1)
+echo Activating the worldmodel environment...
+call "%CONDA_BAT%" activate worldmodel || (echo Could not activate the worldmodel environment; run setup.bat first. & exit /b 1)
+goto :env_on
+:env_ready
+echo Using the worldmodel environment already active.
+:env_on
 where worldmodel-data >nul 2>nul || (echo worldmodel-data is not installed in this environment; run update.bat first. & exit /b 1)
 set "SINCE="
 if /i "%~1"=="prisons" if not "%~2"=="" set "SINCE=--since %~2"
