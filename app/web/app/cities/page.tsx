@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
 import LargestCities from "@/components/LargestCities";
+import CityStress from "@/components/cities/CityStress";
 import WorldMap from "@/components/WorldMap";
 import { api, type CityRow, type Entity } from "@/lib/api";
 import { cityPoints, cityPopulation, growth, people } from "@/lib/cities";
@@ -29,7 +30,7 @@ function Cities() {
   const country = params.get("country") ?? "";
   const sort = params.get("sort") ?? "population";
   const min = Number(params.get("min") ?? (country ? 0 : 1_000_000));
-  const view = params.get("view") === "largest" ? "largest" : "list";
+  const view = params.get("view") === "largest" ? "largest" : params.get("view") === "stress" ? "stress" : "list";
   const [q, setQ] = useState(params.get("q") ?? "");
   const [rows, setRows] = useState<CityRow[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -76,8 +77,9 @@ function Cities() {
       <div className="seg" role="tablist">
         <button role="tab" aria-selected={view === "list"} className={view === "list" ? "on" : ""} onClick={() => set("view", "")}>List and map</button>
         <button role="tab" aria-selected={view === "largest"} className={view === "largest" ? "on" : ""} onClick={() => set("view", "largest")}>Largest cities through the years</button>
+        <button role="tab" aria-selected={view === "stress"} className={view === "stress" ? "on" : ""} onClick={() => set("view", "stress")}>City stress</button>
       </div>
-      {view === "largest" ? <LargestCities /> : <>
+      {view === "largest" ? <LargestCities /> : view === "stress" ? <CityStress /> : <>
       <div className="chips-row small">
         <select value={country} onChange={(e) => set("country", e.target.value)} aria-label="Country">
           <option value="">Every country</option>

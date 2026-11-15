@@ -69,6 +69,13 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 1.1,
     }),
   },
+  city_stress: {
+    legend: "City stress score, 0 calm (green) to 10 most stressful (red)", swatch: () => "#e8590c", dot: true,
+    paint: () => ({
+      "circle-color": ["interpolate", ["linear"], ["coalesce", ["get", "score"], 5], 0, "#2f9e44", 3.5, "#94d82d", 5, "#fcc419", 6.5, "#f76707", 10, "#c92a2a"],
+      "circle-opacity": 0.9, "circle-radius": zoomWidth(4, 8), "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 0.6,
+    }),
+  },
   transit_stations: {
     legend: "Metro and rail station", swatch: () => cssVar("--series-3"), dot: true,
     paint: () => ({
@@ -354,6 +361,10 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "major_cities") {
     const pop = typeof p.population === "number" ? `${(p.population / 1e6).toFixed(p.population >= 1e7 ? 0 : 1)} million people` : "";
     return `<b>${esc(p.name)}</b>${p.capital ? " (capital)" : ""}<br/>${pop}<br/><span class="muted">Click for the city page</span>`;
+  }
+  if (layer === "city_stress") {
+    return `<b>${esc(p.name)}</b>${p.country ? `, ${esc(p.country)}` : ""}<br/>City stress ${typeof p.score === "number" ? p.score.toFixed(1) : "–"} of 10`
+      + ` · ${esc(p.rank)} of ${esc(p.of)}${p.parts !== 5 ? ` (${esc(p.parts)} of 5 parts)` : ""}<br/><span class="muted">Click for the city page</span>`;
   }
   if (layer === "storm_tracks") {
     const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";

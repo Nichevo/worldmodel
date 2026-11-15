@@ -30,3 +30,25 @@ export function cityPoints(rows: CityRow[], current?: string): MapPoint[] {
         .filter(Boolean).join(" · ") };
   });
 }
+
+// City stress and other 0-10 city scores: green (calm) through yellow to red (most stressful),
+// the same ramp as the map layer.
+const STRESS_STOPS: [number, string][] = [[0, "#2f9e44"], [3.5, "#94d82d"], [5, "#fcc419"], [6.5, "#f76707"], [10, "#c92a2a"]];
+export function stressColor(v: number): string {
+  const x = Math.max(0, Math.min(10, v));
+  for (let i = 1; i < STRESS_STOPS.length; i++) {
+    const [b, cb] = STRESS_STOPS[i];
+    const [a, ca] = STRESS_STOPS[i - 1];
+    if (x <= b) {
+      const t = (x - a) / (b - a);
+      const mix = (k: number) => Math.round(parseInt(ca.slice(k, k + 2), 16) * (1 - t) + parseInt(cb.slice(k, k + 2), 16) * t);
+      return `rgb(${mix(1)}, ${mix(3)}, ${mix(5)})`;
+    }
+  }
+  return STRESS_STOPS[STRESS_STOPS.length - 1][1];
+}
+
+// A unit short enough for a column heading: "index (New York = 100)" -> "NY = 100".
+export function shortUnit(u: string): string {
+  return u.replace("index (New York = 100)", "NY = 100").replace("index (0-100)", "0-100").replace("minutes", "min");
+}

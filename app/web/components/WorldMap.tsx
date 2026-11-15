@@ -234,7 +234,7 @@ export default function WorldMap({
     };
     // The city dot under the pointer, if any: its city id.
     const cityAt = (pt: maplibregl.Point): string | null => {
-      const ids = ["ov-points", "ov-major_cities"].filter((id) => m.getLayer(id));
+      const ids = ["ov-points", "ov-major_cities", "ov-city_stress"].filter((id) => m.getLayer(id));
       if (!ids.length) return null;
       const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
       const id = f?.properties?.city;
@@ -478,7 +478,7 @@ export default function WorldMap({
       const style = LAYER_STYLE[id];
       // Areas go just over the country colours; lines under the dots; all under the hover and selection outlines.
       const before = style.fill ? "line" : style.dot ? "hover"
-        : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
+        : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-city_stress", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
       m.addLayer(style.fill
         ? { id: lid, type: "fill", source: lid, paint: style.paint() as maplibregl.FillLayerSpecification["paint"] }
         : style.dot

@@ -41,7 +41,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, climate, crises, cycles, episodes, hazards, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -2403,6 +2403,14 @@ def layer(layer_id: str):
                 else hazards.heat(_hazard_cities(), on) if layer_id == "heat_now" else hazards.coral(on))
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
                         headers={"Cache-Control": "max-age=900"})
+    if layer_id == "city_stress":
+        got = _city_score("stress", None)
+        data = {"type": "FeatureCollection", "features": [
+            {"type": "Feature", "geometry": {"type": "Point", "coordinates": [r["lon"], r["lat"]]},
+             "properties": {"city": r["city_id"], "name": r["name"], "country": r["country"], "score": r["score"],
+                            "rank": r["rank"], "of": len(got["rows"]), "parts": r["n_parts"]}}
+            for r in got["rows"] if r["lat"] is not None and r["lon"] is not None]}
+        return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
     if layer_id == "storms_active":
         data = climate.active_storms(bool(userdata.settings().get("climate_live_map", True)))
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
@@ -3648,6 +3656,25 @@ def cities_largest(measure: Literal["auto", "city_population", "ghsl_population"
             "years": years, "first_projection": first_proj, "note": None}
 
 
+def _city_score(score_id: str, year: int | None) -> dict:
+    if not _has_cities():
+        return {"rows": [], "parts": [], "note": NO_CITIES}
+    return _lh(("city_score", score_id, year), lambda: cityscore.compute(rows, score_id, year))
+
+
+@api.get("/cities/scores")
+def city_scores(score: str = "stress", year: int | None = Query(None, description="Score on figures up to this year")):
+    """A score made from several city figures (contract city_scores.yaml), such as City stress:
+    every city with enough parts, most stressful first, each part's figure and its 0-10 place,
+    the years with figures, and published scores to compare with."""
+    if not cityscore.config(score):
+        raise HTTPException(404, f"no city score {score}; there are {', '.join(catalogue.city_scores())}")
+    got = dict(_city_score(score, year))
+    got["years"] = cityscore.years(rows, score) if _has_cities() else []
+    got["scores"] = [{"id": k, "name": v["name"]} for k, v in catalogue.city_scores().items()]
+    return got
+
+
 def _city(city_id: str) -> dict:
     if not _has_cities():
         raise HTTPException(404, NO_CITIES)
@@ -3681,6 +3708,7 @@ def city(city_id: str):
         one["points"].append({"year": r["year"], "value": r["value"], "status": r["status"]})
     others = cities(country=c["country_id"], limit=12)["rows"]
     return {"city": c, "series": list(series.values()),
+            "scores": cityscore.for_city(rows, _city_score, city_id),
             "others": [o for o in others if o["city_id"] != city_id][:10],
             "places": places(kind=None, country=None, city=city_id, q=None, limit=60)["rows"]}
 
