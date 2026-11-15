@@ -292,6 +292,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "F", id: "live_planes", label: "Planes now", group: "transport", hint: "Planes in the air in the area in view (OpenSky Network), once a minute while on" },
   { letter: "S", id: "live_ships", label: "Ships now", group: "transport", hint: "Ships' latest positions in the area in view (aisstream.io, needs a free key); fills in over a few minutes" },
   { letter: "c", id: "major_cities", label: "Major cities", group: "people" },
+  { letter: "Z", id: "city_stress", label: "City stress", group: "people", hint: "Our City stress score: traffic, cost of living, health care, crime and air, 0 (calm) to 10 (most stressful); see Cities > City stress" },
   { letter: "U", id: "urban_centres", label: "City outlines", group: "people", hint: "The built-up outline of about 11,000 cities (GHSL), darker for those that grew more since 1975; smaller ones as you zoom in" },
   { letter: "u", id: "universities", label: "Universities", group: "people" },
   { letter: "t", id: "transit_stations", label: "Metro and rail stations", group: "people" },

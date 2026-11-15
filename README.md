@@ -456,12 +456,34 @@ get a **Major cities** layer (Layers menu; click a dot to open the city).
 | ILOSTAT | Average monthly earnings (all, women, men) and the minimum wage, in local currency, US dollars and PPP dollars | Monthly; if refused, save the files from ilostat.ilo.org in `var\manual\ilostat_earnings` |
 | Numbeo rankings | Cost of living, rent, groceries, restaurant and purchasing power indices by city and country (New York = 100) | By hand, once or twice a year (below) |
 | Numbeo prices | Everyday prices for one city or country (a meal out, rent, a transport pass, salary) | Only when you press **Get Numbeo prices** on a city or country page, at most 20 pages a day (Settings) |
+| Numbeo crime and health care | Crime and safety indices; health care index (how people rate it) by city | By hand, with the cost of living pages (below) |
+| WHO Ambient Air Quality Database | Yearly PM2.5, PM10 and NO2 from ground monitors in about 8,000 places | Every 90 days; if WHO refuses, save the Excel file in `var\manual\who_aqdb` |
+| TomTom Traffic Index | Time to drive 10 km and congestion for about 500 cities, once a year | By hand (below) |
 
 **Numbeo rankings by hand.** Open numbeo.com, *Cost of Living*, *Rankings by City*,
 pick the period (for example *2025*), and save the page (Ctrl+S, "Web page, HTML only")
 into `var\manual\numbeo`. The *Rankings by Country* page can go in the same folder. Keep
 the year in the file name if the page title lacks it, then run `.\load.bat numbeo`. Each
-year's files add to the ones before, so keep them all.
+year's files add to the ones before, so keep them all. Save *Crime*, *Rankings by City*
+(numbeo.com/crime/rankings.jsp) and *Health Care*, *Rankings by City*
+(numbeo.com/health-care/rankings.jsp) the same way, into the same folder: City stress
+uses them.
+
+**TomTom ranking by hand.** Open tomtom.com/traffic-index/ranking, show all cities, and
+either save the page (Ctrl+S, "Webpage, Complete") or select the whole table, copy it
+and paste it into a `.txt` file. Put it in `var\manual\tomtom_traffic` with the year in
+the name (for example *tomtom 2025.txt*) and run `.\load.bat tomtom_traffic`. The index
+comes out each January for the year before.
+
+**City stress** (Cities > City stress, a line on each city page and a Map layer) is our
+own score from five parts: time to drive 10 km (TomTom), cost of living without rent,
+health care and crime (Numbeo), and fine particles in the air (WHO). Each part ranks the
+cities that have it from 0 (calmest) to 10 (most stressful), and the score is the mean of
+the parts a city has (at least three). It is modelled on Remitly's 2025 "most stressed
+cities" study, whose published scores are shown beside ours. The parts live in
+`contract/worldmodel_contract/catalogues/city_scores.yaml`: add a part there (and its
+city indicator) and the score takes it in; past years build up as each year's files are
+kept, and *Figures up to* picks an earlier year.
 
 How cities are matched: each source's city is matched to a GeoNames city in the same
 country by name (including other names and spellings), or for the UN by location too, so

@@ -64,6 +64,40 @@ CITY_INDICATORS: dict[str, tuple[str, str, int, str, str]] = {
         "Local purchasing power (Numbeo)", "index (New York = 100)", 1,
         "How much the average net salary buys of goods and services in the city, relative to New York City (100).",
         "numbeo"),
+    "numbeo_crime": (
+        "Crime index (Numbeo)", "index (0-100)", 1,
+        "Numbeo's crime index: how big a problem people living in the city say crime is (0 none, 100 very high). "
+        "From surveys of visitors to the site, so a sense of crime rather than counted crimes.", "numbeo"),
+    "numbeo_safety": (
+        "Safety index (Numbeo)", "index (0-100)", 1,
+        "Numbeo's safety index: 100 minus the crime index, so higher is safer.", "numbeo"),
+    "numbeo_health_care": (
+        "Health care index (Numbeo)", "index (0-100)", 1,
+        "Numbeo's health care index: what people living in the city think of its health care (skill of staff, "
+        "waiting times, equipment, cost), from surveys. Higher is better.", "numbeo"),
+    "numbeo_health_care_exp": (
+        "Health care exp. index (Numbeo)", "index", 1,
+        "Numbeo's health care index with extra weight on the best-rated health care (exponential scale).", "numbeo"),
+    "who_pm25_city": (
+        "Fine particles in the air, PM2.5 (WHO)", "µg/m³", 1,
+        "Yearly mean of fine particles (PM2.5) measured by ground monitors in the city, from the WHO Ambient Air "
+        "Quality Database. The WHO guideline is 5 µg/m³.", "who_aqdb"),
+    "who_pm10_city": (
+        "Particles in the air, PM10 (WHO)", "µg/m³", 1,
+        "Yearly mean of particles of 10 micrometres or less (PM10) measured by ground monitors in the city (WHO "
+        "Ambient Air Quality Database). The WHO guideline is 15 µg/m³.", "who_aqdb"),
+    "who_no2_city": (
+        "Nitrogen dioxide in the air (WHO)", "µg/m³", 1,
+        "Yearly mean of nitrogen dioxide (mostly from traffic) measured by ground monitors in the city (WHO Ambient "
+        "Air Quality Database). The WHO guideline is 10 µg/m³.", "who_aqdb"),
+    "tomtom_travel_10km": (
+        "Time to drive 10 km (TomTom)", "minutes", 1,
+        "Average time to drive 10 km in the city centre over the year, from TomTom's Traffic Index (car and "
+        "phone location data).", "tomtom_traffic"),
+    "tomtom_congestion": (
+        "Traffic congestion (TomTom)", "%", 0,
+        "How much longer trips took over the year than with free-flowing traffic (TomTom Traffic Index).",
+        "tomtom_traffic"),
 }
 
 # Numbeo's table headings, compared loosely, and the indicator each one gives.
@@ -74,6 +108,10 @@ NUMBEO_COLUMNS = {
     "groceriesindex": "numbeo_groceries",
     "restaurantpriceindex": "numbeo_restaurants",
     "localpurchasingpowerindex": "numbeo_purchasing_power",
+    "crimeindex": "numbeo_crime",
+    "safetyindex": "numbeo_safety",
+    "healthcareindex": "numbeo_health_care",
+    "healthcareexpindex": "numbeo_health_care_exp",
 }
 
 

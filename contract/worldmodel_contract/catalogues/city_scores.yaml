@@ -1,0 +1,57 @@
+# Scores made from several city figures. Each part is a city indicator (contract cities.py
+# CITY_INDICATORS). How a score is worked out: for each part, every city with a figure is
+# ranked against the others on its latest year; the rank becomes 0 to 10 (10 the most
+# stressful, so parts where higher is better are turned round); the score is the weighted
+# mean of the parts a city has, if it has at least `min_parts` of them.
+#
+# To extend a score, add a part here (and its indicator to cities.py); cities get it as soon
+# as the figures are loaded. Past years build up because every year's files are kept, and the
+# score for a year uses each part's latest figure up to that year.
+#
+# `published` lists scores others have published, shown beside ours for comparison only.
+
+scores:
+  - id: stress
+    name: City stress
+    about: >-
+      How hard daily life in the city is likely to feel: slow traffic, high prices, poor health
+      care, crime and dirty air. Our own score, modelled on Remitly's "most stressed cities"
+      study (October 2025), which used the same five things but did not publish its weights.
+    unit: score (0-10)
+    high_is: more stressful
+    min_parts: 3
+    parts:
+      - indicator: tomtom_travel_10km
+        name: Traffic
+        worse_when: higher
+        weight: 1
+      - indicator: numbeo_cost_of_living
+        name: Cost of living
+        worse_when: higher
+        weight: 1
+      - indicator: numbeo_health_care
+        name: Health care
+        worse_when: lower
+        weight: 1
+      - indicator: numbeo_crime
+        name: Crime
+        worse_when: higher
+        weight: 1
+      - indicator: who_pm25_city
+        name: Air (PM2.5)
+        worse_when: higher
+        weight: 1
+    published:
+      source: Remitly, "The world's most stressed cities", October 2025
+      url: https://www.remitly.com/gb/en/insights/worlds-most-stressed-cities
+      note: >-
+        Remitly scored about 170 cities from 0 to 10 using TomTom travel times, Numbeo cost of
+        living, health care and crime, and IQAir PM2.5. Only the top and bottom of its table are
+        published as text.
+      cities:
+        - {name: New York, country: USA, score: 7.56}
+        - {name: Dublin, country: IRL, score: 7.55}
+        - {name: Mexico City, country: MEX, score: 7.38}
+        - {name: Canberra, country: AUS, score: 2.80}
+        - {name: Utrecht, country: NLD, score: 2.67}
+        - {name: Eindhoven, country: NLD, score: 2.34}

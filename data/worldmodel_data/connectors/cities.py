@@ -17,11 +17,22 @@ ILOSTAT (ilostat_earnings): mean monthly earnings of employees (local currency, 
 dollars and PPP dollars, women and men) and the statutory minimum wage. ILOSTAT's
 bulk files; if they cannot be reached, save them in var\\manual\\ilostat_earnings.
 
-Numbeo (numbeo): loaded by hand only, about once a year. Save the page "Cost of
-Living Index by City <year>" (and, if wanted, "... by Country") from numbeo.com
-with your browser (File, Save page as, HTML only) into var\\manual\\numbeo and run
+Numbeo (numbeo): loaded by hand only, about once a year. Save the pages "Cost of
+Living Index by City <year>", "Crime Index by City <year>" and "Health Care Index by
+City <year>" (and, if wanted, the "... by Country" ones) from numbeo.com with your
+browser (File, Save page as, HTML only) into var\\manual\\numbeo and run
 .\\load.bat numbeo. Each year's file is kept, so the years build up. The per-city
 prices on city pages are fetched one city at a time from the app (Settings limit).
+
+WHO Ambient Air Quality Database (who_aqdb): yearly means of PM2.5, PM10 and NO2 from
+ground monitors in about 8,000 places, one Excel file updated every year or two. The
+link is found on WHO's page; if WHO refuses, save the file in var\\manual\\who_aqdb.
+
+TomTom Traffic Index (tomtom_traffic): the time to drive 10 km and how congested each of
+about 500 cities is over a year. The ranking is drawn by the page's script, so it is
+saved by hand: open tomtom.com/traffic-index/ranking, show all cities, and save the page
+(Ctrl+S, "Webpage, Complete") or copy the table into a .txt file, in
+var\\manual\\tomtom_traffic; then .\\load.bat tomtom_traffic. Each year's file is kept.
 """
 
 from __future__ import annotations
@@ -514,8 +525,8 @@ class Numbeo(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        raise ConnectorError("numbeo: loaded by hand. Save numbeo.com's 'Cost of Living Index by City' page in "
-                             r"var\manual\numbeo and run .\load.bat numbeo")
+        raise ConnectorError("numbeo: loaded by hand. Save numbeo.com's 'Cost of Living Index by City', 'Crime Index "
+                             r"by City' and 'Health Care Index by City' pages in var\manual\numbeo and run .\load.bat numbeo")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows, city = Rows(), []
@@ -551,7 +562,8 @@ class Numbeo(Connector):
                 for i, ind in cols.items():
                     city.append((parts[0], country, None, None, ind, year, "E", num(r[i])))
         if not city and not len(rows):
-            raise ConnectorError(f"numbeo: no Cost of Living Index table found in {raw_dir}; save the page as HTML")
+            raise ConnectorError(f"numbeo: no Cost of Living, Crime or Health Care Index table found in {raw_dir}; "
+                                 "save the page as HTML")
         if city:
             self.city_values_query = _values_table(con, city)
         from worldmodel_contract.cities import CITY_INDICATORS
@@ -598,3 +610,275 @@ def numbeo_table(path: Path) -> tuple[list[list[str]], str]:
                 out.append(cells)
         return out, title
     return [], title
+
+
+# ----------------------------------------------------------------------------------------- WHO air quality
+WHO_AQ_PAGE = "https://www.who.int/data/gho/data/themes/air-pollution/who-air-quality-database"
+WHO_AQ_KNOWN = ("https://cdn.who.int/media/docs/default-source/air-pollution-documents/air-quality-and-health/"
+                "who-ambient-air-quality-database-version-2026-v8.xlsx?sfvrsn=95d122a4_5&download=true")
+WHO_AQ_LINK = re.compile(r"""href=["']([^"']*who[-_]ambient[-_]air[-_]quality[-_]database[^"']*\.xlsx[^"']*)["']""", re.I)
+WHO_AQ_FILE = "who_aqdb.xlsx"
+# Heading words (compared loosely) for each column the file has had over its versions.
+WHO_AQ_COLS = {
+    "city": ("cityorlocality", "city", "cityname", "locality"),
+    "iso3": ("iso3", "iso3code", "iso"),
+    "country": ("whocountryname", "countryname", "country"),
+    "year": ("measurementyear", "year"),
+    "lat": ("latitude", "lat"),
+    "lon": ("longitude", "lon", "long"),
+}
+WHO_AQ_POLLUTANTS = {"pm25": "who_pm25_city", "pm10": "who_pm10_city", "no2": "who_no2_city"}
+
+
+def who_aq_columns(head: list) -> dict[str, int]:
+    """Which column holds what in a WHO air quality sheet (by heading), or {} if it is not one."""
+    keys = [key(h) for h in head]
+    out: dict[str, int] = {}
+    for name, words in WHO_AQ_COLS.items():
+        hit = next((i for w in words for i, k in enumerate(keys) if k == w), None)
+        if hit is not None:
+            out[name] = hit
+    for pol in WHO_AQ_POLLUTANTS:
+        # "PM2.5 (μg/m3)" or "pm25_concentration"; not the coverage columns beside them.
+        hit = next((i for i, k in enumerate(keys) if k.startswith(pol)
+                    and not any(w in k for w in ("cov", "temporal", "station", "type"))), None)
+        if hit is not None:
+            out[pol] = hit
+    return out if {"city", "year"} <= out.keys() and any(p in out for p in WHO_AQ_POLLUTANTS) else {}
+
+
+def who_aq_rows(rows: list[list]) -> list[tuple]:
+    """City figures from the rows of a WHO air quality sheet: the mean of each place's
+    measurements for a year, as (city, country, lat, lon, indicator, year, status, value)."""
+    i = next((i for i, r in enumerate(rows[:30]) if who_aq_columns(r)), None)
+    if i is None:
+        return []
+    cols = who_aq_columns(rows[i])
+    sums: dict[tuple, list[float]] = {}
+    where: dict[tuple, tuple] = {}
+
+    def cell(r, name):
+        j = cols.get(name)
+        return r[j] if j is not None and j < len(r) else None
+
+    for r in rows[i + 1:]:
+        city = str(cell(r, "city") or "").strip()
+        city = re.sub(r"\s*/\s*[A-Z]{3}$", "", city)  # "Auckland/NZL"
+        year = re.match(r"(19|20)\d{2}", str(cell(r, "year") or "").strip())
+        if not city or not year:
+            continue
+        iso = str(cell(r, "iso3") or "").strip().upper()
+        country = entity_for("iso3", iso) if iso else None
+        country = country or country_by_name(str(cell(r, "country") or ""))
+        if not country:
+            continue
+        lat, lon = num(cell(r, "lat")), num(cell(r, "lon"))
+        for pol, ind in WHO_AQ_POLLUTANTS.items():
+            v = num(cell(r, pol))
+            if v is None or v < 0 or v > 1000:
+                continue
+            k = (city, country, ind, int(year.group(0)))
+            sums.setdefault(k, []).append(v)
+            if lat is not None and lon is not None:
+                where.setdefault((city, country), (lat, lon))
+    out = []
+    for (city, country, ind, y), vs in sums.items():
+        lat, lon = where.get((city, country), (None, None))
+        out.append((city, country, lat, lon, ind, y, "E", round(sum(vs) / len(vs), 2)))
+    return out
+
+
+class WHOAirQuality(Connector):
+    """WHO Ambient Air Quality Database: yearly PM2.5, PM10 and NO2 by city."""
+    source_id = "who_aqdb"
+    fetch_every_days = 90
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y-%m")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        urls = []
+        try:
+            r = self.client.get(WHO_AQ_PAGE)
+            if r.status_code == 200:
+                for link in WHO_AQ_LINK.findall(r.text):
+                    link = html.unescape(link)
+                    urls.append(link if link.startswith("http") else "https://www.who.int" + link)
+        except Exception as exc:  # noqa: BLE001 - the known address is tried next
+            log.info("who_aqdb: could not read %s (%s); trying the known address", WHO_AQ_PAGE, exc)
+        # The newest version first: the page lists them by year in the file name.
+        urls.sort(key=lambda u: re.findall(r"(20\d\d)", u)[-1:] or ["0"], reverse=True)
+        tried = []
+        for url in dict.fromkeys([*urls, WHO_AQ_KNOWN]):
+            try:
+                self.get(url, raw_dir / WHO_AQ_FILE)
+                return url
+            except ConnectorError as exc:
+                tried.append(str(exc))
+                (raw_dir / WHO_AQ_FILE).unlink(missing_ok=True)
+        raise ConnectorError("who_aqdb: could not download the WHO Ambient Air Quality Database; tried:\n  "
+                             + "\n  ".join(tried) + f"\nSave the Excel file from {WHO_AQ_PAGE} in var\\manual\\who_aqdb")
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        city: list[tuple] = []
+        for f in sorted(raw_dir.iterdir()):
+            if f.suffix.lower() not in (".xlsx", ".csv"):
+                continue
+            if f.suffix.lower() == ".csv":
+                text = f.read_bytes().decode("utf-8-sig", errors="replace")
+                city += who_aq_rows(list(csv.reader(io.StringIO(text))))
+                continue
+            from openpyxl import load_workbook
+
+            with open(f, "rb") as fh:
+                names = load_workbook(fh, read_only=True).sheetnames
+            for sheet in names:  # the data sheet is not always first (a read-me comes first)
+                got = who_aq_rows(xlsx_rows(f, sheet))
+                if got:
+                    city += got
+                    break
+        if not city:
+            raise ConnectorError(f"who_aqdb: no city air quality figures read from {raw_dir}; the file's layout may have changed")
+        self.city_values_query = _values_table(con, city)
+        return Rows().stage(con, self.source_id, vintage)
+
+
+# ----------------------------------------------------------------------------------------- TomTom
+TOMTOM_PAGE = "https://www.tomtom.com/traffic-index/ranking/"
+_TT_TIME = re.compile(r"(\d{1,3})\s*min(?:utes?)?\s*(?:(\d{1,2})\s*s(?:ec(?:onds?)?)?)?", re.I)
+
+
+def tomtom_minutes(v) -> float | None:
+    """"27 min 40 s" -> 27.67; a plain number is taken as minutes."""
+    if v is None:
+        return None
+    m = _TT_TIME.search(str(v))
+    if m:
+        return round(int(m.group(1)) + int(m.group(2) or 0) / 60, 2)
+    return num(str(v).replace("min", "").strip())
+
+
+def _tt_place(city: str, country: str | None) -> tuple[str, str | None] | None:
+    city = re.sub(r"\s+", " ", city).strip()
+    if country:
+        return city, country_by_name(country)
+    if "," in city:  # "Auckland, New Zealand"
+        a, b = city.rsplit(",", 1)
+        return a.strip(), country_by_name(b)
+    words = city.split()  # "Auckland New Zealand": the country is the last one to three words
+    for n in (3, 2, 1):
+        if len(words) > n and words[-n].lower() not in ("city", "of", "de") and (c := country_by_name(" ".join(words[-n:]))):
+            return " ".join(words[:-n]), c
+    return None
+
+
+def tomtom_rows(table: list[list[str]]) -> list[tuple[str, str, float | None, float | None]]:
+    """(city, country, minutes per 10 km, congestion %) from a ranking table, headings first."""
+    head = [key(h) for h in table[0]]
+
+    def find(*words):
+        return next((i for i, h in enumerate(head) if any(w in h for w in words)), None)
+
+    c_city, c_country = find("city"), find("country")
+    c_time = find("10km", "traveltime", "averagetime", "time")
+    c_cong = find("congestion")
+    if c_city is None or (c_time is None and c_cong is None):
+        return []
+    out = []
+    for r in table[1:]:
+        if len(r) <= c_city:
+            continue
+        place = _tt_place(r[c_city], r[c_country] if c_country is not None and c_country < len(r) else None)
+        if not place or not place[1] or not place[0]:
+            continue
+        t = tomtom_minutes(r[c_time]) if c_time is not None and c_time < len(r) else None
+        g = num(str(r[c_cong]).replace("%", "").strip()) if c_cong is not None and c_cong < len(r) else None
+        if t is not None or g is not None:
+            out.append((place[0], place[1], t, g))
+    return out
+
+
+def tomtom_text_rows(text: str) -> list[tuple[str, str, float | None, float | None]]:
+    """The ranking read from a page's visible text: lines such as
+    "12 | Auckland | New Zealand | 23 min 10 s | 41%" (cells split by tags or tabs)."""
+    text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", text, flags=re.S | re.I)
+    text = re.sub(r"<[^>]+>", "|", text).replace("\t", "|")
+    text = re.sub(r"\s*\|[\s|]*", "|", html.unescape(text))
+    out, seen = [], set()
+    row = re.compile(r"\|(\d{1,3})\|([^|\d][^|]{1,40})\|(?:([^|\d][^|]{1,40})\|)?(\d{1,3}\s*min[^|]*)"
+                     r"(?:\|(?:[^|%]*\|){0,3}?(\d{1,3})\s*%)?")
+    for m in row.finditer("|" + text + "|"):
+        place = _tt_place(m.group(2), m.group(3))
+        if not place or not place[1] or (place[0], place[1]) in seen:
+            continue
+        seen.add((place[0], place[1]))
+        out.append((place[0], place[1], tomtom_minutes(m.group(4)), num(m.group(5)) if m.group(5) else None))
+    return out
+
+
+def tomtom_file(path: Path) -> tuple[list[tuple], str]:
+    """The ranking in a saved TomTom page, a CSV, Excel or text copy of it; and its title."""
+    if path.suffix.lower() == ".xlsx":
+        rows = [[("" if c is None else str(c)) for c in r] for r in xlsx_rows(path)]
+        i = next((i for i, r in enumerate(rows[:20]) if any("city" in key(c) for c in r)), None)
+        return (tomtom_rows(rows[i:]) if i is not None else []), path.stem
+    text = path.read_text(encoding="utf-8", errors="replace")
+    title = _cell(m.group(1)) if (m := re.search(r"<title>(.*?)</title>", text, re.S | re.I)) else path.stem
+    if "<" not in text[:2000]:  # a CSV or text copy of the table
+        delim = "\t" if "\t" in text else ","
+        rows = list(csv.reader(io.StringIO(text), delimiter=delim))
+        i = next((i for i, r in enumerate(rows[:20]) if any("city" in key(c) for c in r)), None)
+        got = tomtom_rows(rows[i:]) if i is not None else []
+        return (got or tomtom_text_rows(text)), title
+    for t in re.findall(r"<table[^>]*>(.*?)</table>", text, re.S | re.I):
+        heads = [_cell(h) for h in re.findall(r"<th[^>]*>(.*?)</th>", t, re.S | re.I)]
+        if not any("city" in key(h) for h in heads):
+            continue
+        body = [[_cell(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S | re.I)]
+                for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", t, re.S | re.I)]
+        got = tomtom_rows([heads, *[b for b in body if b]])
+        if got:
+            return got, title
+    return tomtom_text_rows(text), title
+
+
+class TomTomTraffic(Connector):
+    """TomTom Traffic Index ranking, saved by hand once a year."""
+    source_id = "tomtom_traffic"
+    manual = True
+    keeps_files = True
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y-%m-%d")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        raise ConnectorError(f"tomtom_traffic: loaded by hand. Save the ranking at {TOMTOM_PAGE} in "
+                             r"var\manual\tomtom_traffic and run .\load.bat tomtom_traffic")
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        city: list[tuple] = []
+        for f in sorted(raw_dir.iterdir()):
+            if f.suffix.lower() not in (".html", ".htm", ".csv", ".xlsx", ".txt"):
+                continue
+            got, title = tomtom_file(f)
+            if not got:
+                log.warning("tomtom_traffic: no ranking found in %s", f.name)
+                continue
+            m = re.search(r"(19|20)\d{2}", title or "") or re.search(r"(19|20)\d{2}", f.name)
+            # The index is for a whole year and comes out early the next; a page saved in
+            # January 2026 with no year in it is the 2025 index.
+            year = int(m.group(0)) if m else int(release[:4]) - 1
+            for name, country, t, g in got:
+                city.append((name, country, None, None, "tomtom_travel_10km", year, "E", t))
+                city.append((name, country, None, None, "tomtom_congestion", year, "E", g))
+        if not city:
+            raise ConnectorError(f"tomtom_traffic: no ranking found in {raw_dir}; save the page with "
+                                 "'Webpage, Complete' or copy the table into a .txt file")
+        self.city_values_query = _values_table(con, city)
+        return Rows().stage(con, self.source_id, vintage)
