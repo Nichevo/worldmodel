@@ -1406,3 +1406,16 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
   .wave-line { grid-template-columns: 40px minmax(60px, 1fr) 1fr; }
   .wave-line span:last-child { grid-column: 1 / -1; }
 }
+
+/* ---- City stress (Cities > City stress, city pages) */
+.stress-card { min-width: 0; }
+.stress-scroll { max-height: 640px; overflow: auto; max-width: 100%; }
+.stress-table th.sortable { cursor: pointer; white-space: nowrap; }
+.stress-table td.num { white-space: nowrap; }
+.stress-score { display: inline-block; min-width: 2.6em; padding: 1px 6px; border-radius: 4px; color: #111; font-weight: 600; text-align: center; }
+.stress-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.stress-parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.stress-parts > div { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.stress-parts b { display: block; font-size: 1.05rem; }
+.stress-bar { position: relative; height: 6px; background: var(--grid); border-radius: 3px; margin-top: 4px; }
+.stress-bar i { position: absolute; top: -2px; width: 4px; height: 10px; border-radius: 2px; background: var(--ink); }

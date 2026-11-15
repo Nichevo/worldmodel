@@ -234,6 +234,15 @@ def episodes() -> dict:
 
 
 @lru_cache
+def city_scores() -> dict:
+    """Scores made from several city figures (city_scores.yaml), such as City stress: for
+    each score its parts (a city indicator, its weight, and whether higher is worse), the
+    fewest parts a city needs, and published scores to show beside ours."""
+    data = _yaml("city_scores.yaml") or {}
+    return {s["id"]: s for s in data.get("scores", [])}
+
+
+@lru_cache
 def history() -> dict:
     """The Long history page's set-up: powers, China's dynasties, regions, series, factors,
     hand-dated periods, the cycle's stages and voyages (history.yaml)."""

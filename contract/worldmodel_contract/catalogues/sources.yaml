@@ -691,13 +691,52 @@
   definition: exploratory
   manual:
     by_hand: true
-    files: ["*numbeo*"]
+    files: ["*numbeo*", "*Cost of Living Index by City*", "*Crime Index by City*", "*Health Care Index by City*"]
     get: https://www.numbeo.com/cost-of-living/rankings.jsp
-    what: "Pick the year, then save the page (Ctrl+S, Web page, HTML only). Rankings by Country can go in too. Once or twice a year; keep every year's files."
+    what: "Pick the year, then save the page (Ctrl+S, Web page, HTML only). Do the same for the Crime Index by City (numbeo.com/crime/rankings.jsp) and Health Care Index by City (numbeo.com/health-care/rankings.jsp) pages, which City stress uses. Rankings by Country can go in too. Once or twice a year; keep every year's files."
   scraper:
     run: "The Numbeo button on country and city pages"
     reads: "One page per click"
     setting: numbeo_daily
+
+- id: who_aqdb
+  name: WHO Ambient Air Quality Database
+  short_name: WHO air quality
+  publisher: World Health Organization
+  url: https://www.who.int/data/gho/data/themes/air-pollution/who-air-quality-database
+  licence: WHO copyright; free to use with attribution for non-commercial purposes
+  licence_url: https://www.who.int/about/policies/publishing/copyright
+  commercial_use: false
+  cadence: Every one to two years (version 8, June 2026); checked every 90 days
+  attribution: "World Health Organization, WHO Ambient Air Quality Database (version 8, 2026)."
+  status: active
+  default_rank: 2
+  standing: 5
+  manual:
+    by_hand: false
+    files: ["*who-ambient-air-quality*", "*who_aqdb*"]
+    get: https://www.who.int/data/gho/data/themes/air-pollution/who-air-quality-database
+    what: "Download the database's Excel file when WHO refuses the refresh."
+
+- id: tomtom_traffic
+  name: TomTom Traffic Index
+  short_name: TomTom
+  publisher: TomTom
+  url: https://www.tomtom.com/traffic-index/ranking/
+  licence: TomTom website terms; for personal use, saved by hand
+  licence_url: https://www.tomtom.com/legal/
+  commercial_use: false
+  cadence: Once a year (each January, for the year before); saved by hand (var\manual\tomtom_traffic, then .\load.bat tomtom_traffic)
+  attribution: "TomTom Traffic Index: average travel time per 10 km and congestion level."
+  status: active
+  default_rank: 3
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: true
+    files: ["*tomtom*", "*Traffic Index*"]
+    get: https://www.tomtom.com/traffic-index/ranking/
+    what: "Open the ranking, choose to show all cities, then save the page (Ctrl+S, Webpage, Complete) or select the whole table, copy it and paste it into a .txt file. Once a year; keep every year's files."
 
 - id: unga_votes
   name: United Nations General Assembly voting data (Voeten)
