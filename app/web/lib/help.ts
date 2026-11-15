@@ -272,6 +272,13 @@ export const HELP = {
     units: "Kilometres, trips a year, students, US dollars",
     sources: [{ label: "Wikidata (CC0)" }, { label: "World Bank and BIS exchange rates", indicator: "exchange_rate_usd" }],
   },
+  city_stress: {
+    title: "City stress",
+    what: "Our own score of how hard daily life in a city is likely to feel, from 0 (calm) to 10 (most stressful).",
+    how: "Five parts: time to drive 10 km (TomTom), cost of living without rent, health care and crime (Numbeo), and fine particles in the air (WHO). Each part ranks the cities that have it from 0 to 10; the score is the mean of the parts a city has, at least three. The parts are set in contract city_scores.yaml, so more can be added. It compares cities with each other, so a city's score moves as cities are added. Numbeo's crime and health care indices come from surveys of the site's visitors, not counted crimes or health records. WHO's air figures can be several years old.",
+    units: "Score 0 to 10; minutes per 10 km; Numbeo indices; µg/m³",
+    sources: [{ label: "TomTom Traffic Index" }, { label: "Numbeo (saved by hand)" }, { label: "WHO Ambient Air Quality Database" }],
+  },
   cities: {
     title: "Major cities",
     what: "The country's biggest cities, with how many people live there now and the UN's projection for 2035.",

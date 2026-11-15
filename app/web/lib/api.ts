@@ -726,7 +726,29 @@ export type CitySeries = {
 };
 export type CityDetail = {
   city: CityRow & { ascii_name: string; timezone: string | null; elevation: number | null; feature_code: string };
-  series: CitySeries[]; others: CityRow[]; places?: PlaceRow[];
+  series: CitySeries[]; others: CityRow[]; places?: PlaceRow[]; scores?: CityScoreForCity[];
+};
+// Scores made from several city figures (contract city_scores.yaml), such as City stress.
+export type CityScorePart = {
+  indicator: string; name: string; full_name: string; unit: string; decimals: number; description: string; source_id: string;
+  worse_when: "higher" | "lower"; weight: number; cities: number;
+};
+export type CityScoreRow = {
+  city_id: string; name: string; country_id: string; country: string | null; lat: number | null; lon: number | null;
+  population: number | null; score: number; rank: number; n_parts: number;
+  parts: Record<string, { value: number; year: number; points: number }>;
+};
+export type CityScores = {
+  id: string; name: string; about: string; unit: string; high_is: string; min_parts: number; year: number | null;
+  parts: CityScorePart[]; rows: CityScoreRow[]; missing_parts: string[]; how: string; note: string | null;
+  years: number[]; scores: { id: string; name: string }[];
+  published: { source: string; url: string; note: string;
+    cities: { name: string; country: string; score: number; city_id: string | null; ours: number | null; our_rank: number | null }[] } | null;
+};
+export type CityScoreForCity = {
+  id: string; name: string; about: string; score: number; rank: number; of: number; how: string;
+  parts: (CityScorePart & { value: number; year: number; points: number })[];
+  history: { year: number; score: number; rank: number; of: number }[];
 };
 // Metro and rail systems, universities and big companies (Wikidata), biggest first.
 export type PlaceKind = "transit" | "university" | "company";
@@ -1150,6 +1172,7 @@ export const api = {
   places: (q: { kind?: PlaceKind; country?: string; city?: string; q?: string; limit?: number } = {}) =>
     get<{ rows: PlaceRow[]; note: string | null }>("/places", q),
   city: (id: string) => get<CityDetail>(`/cities/${encodeURIComponent(id)}`),
+  cityScores: (score = "stress", year?: number) => get<CityScores>("/cities/scores", { score, year }),
   cityWikipedia: (id: string) => get<Wikipedia>(`/cities/${encodeURIComponent(id)}/wikipedia`),
   numbeo: (kind: "cities" | "entities", id: string) => get<NumbeoPrices>(`/${kind}/${encodeURIComponent(id)}/numbeo`),
   fetchNumbeo: (kind: "cities" | "entities", id: string, name?: string) =>
