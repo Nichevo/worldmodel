@@ -4499,6 +4499,43 @@ def _alike_indicators(preset: str | None, indicators: str | None) -> list[str]:
     return similar.PRESETS[key][1]
 
 
+@api.get("/peers/{entity_id}")
+def peers_view(entity_id: str, group: str | None = None, measures: str | None = None, countries: str | None = None):
+    """How a country ranks among a group (neighbours, like, a group's id, world, or custom with `countries`): for each
+    measure the best, this country with its rank, the group's middle and the worst. `measures` is comma-separated
+    indicator ids, each optionally :higher or :lower (which way is better); default a quality-of-life set."""
+    from worldmodel_api import peers, similar
+    groups = peers.groups_of(rows, entity_id)
+    if group is None:  # a club it belongs to, else its part of the world if that has a few countries, else neighbours
+        sizes = {g["id"]: g.get("n", 0) for g in groups}
+        group = next((g for g in ("oecd", "eu", "asean") if g in sizes), None) or next(
+            (g["id"] for g in groups if g["type"] == "subregion" and sizes[g["id"]] >= 5), "neighbours")
+    wanted = []
+    for m in split(measures) or [m for m, _ in peers.MEASURES]:
+        ind, _, way = m.partition(":")
+        way = way or peers.BETTER.get(ind) or (userdata.settings().get("discover_better") or {}).get(ind) or "higher"
+        wanted.append((ind, "lower" if way == "lower" else "higher"))
+
+    def like() -> list[str]:
+        got = similar.like(rows, _country_names(), entity_id, similar.PRESETS["everything"][1], date.today().year - 2, 15)
+        return [r["entity_id"] for r in got.get("nearest", [])]
+
+    ids = peers.members(rows, entity_id, group, like, split(countries))
+    if group != "custom":  # specks such as Christmas Island or Heard Island crowd out real neighbours
+        big = {r["e"] for r in rows("""SELECT entity_id AS e FROM series WHERE indicator_id = 'pop_total' AND variant = 'central'
+                   AND breakdown = '' GROUP BY 1 HAVING max(value) >= ?""", [peers.MIN_PEOPLE])}
+        ids = [c for c in ids if c == entity_id or c in big] if big else ids
+    names = {r["e"]: r["n"] for r in rows("SELECT entity_id AS e, coalesce(short_name, name) AS n FROM entities")}
+    near = {}
+    if group == "neighbours":
+        all_c = frozenset(ids)
+        near = dict(peers.neighbours(entity_id, all_c))
+    return {"entity_id": entity_id, "name": names.get(entity_id, entity_id), "group": group, "groups": groups,
+            "members": [{"entity_id": c, "name": names.get(c, c), "km": near.get(c)} for c in ids if c != entity_id],
+            "rows": peers.rank(rows, entity_id, ids, wanted),
+            "default_measures": [{"indicator_id": m, "better": b} for m, b in peers.MEASURES]}
+
+
 @api.get("/alike/presets")
 def alike_presets():
     """The ready-made indicator sets for countries like this one."""

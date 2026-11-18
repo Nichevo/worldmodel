@@ -113,6 +113,7 @@ SETTINGS: dict[str, object] = {
     "tourism_fetch": True,               # UNESCO World Heritage sites
     "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, about 100 MB kept)
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
+    "sea_borders_fetch": True,           # Marine Regions economic zone lines (twice a year) and VATSIM flight region outlines (every three months)
     "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
     "outlook_fetch": True,               # OECD leading indicators and quarterly GDP (weekly), US yield curve and GDPNow from FRED
     "attention_on": True,                # Wikipedia page views per country (one request per country page opened, one a day for the Briefing)

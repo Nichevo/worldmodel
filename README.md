@@ -491,6 +491,34 @@ country by name (including other names and spellings), or for the UN by location
 Canada. Figures that match no city are counted on the **Data status** page with examples.
 Wikipedia pages for cities have their own daily limit in Settings (10 by default).
 
+## Measuring, sea borders and how a country ranks
+
+**Measure distance**: the ruler button on every map. Click places, or city dots to snap to
+them, to lay out a route; each leg is drawn along the great circle (the shortest way over
+the globe) with a label giving the distance and the bearing each way, in km, nautical miles
+or miles. Points can be dragged; Backspace takes off the last one and Esc stops. A route of
+several legs shows its total and a rough flight time at 850 km/h.
+
+**Sea borders** (Map layers 1 and 2, switched off together in Settings > Sea borders):
+- *Economic zones*: the lines where countries' 200-nautical-mile zones end or meet, from
+  Marine Regions (CC BY 4.0), fetched every six months. It also gives each country's sea
+  area (its territories' zones included) as the indicator *Sea area (exclusive economic
+  zone)*. If the download fails, save the two GeoJSON files from marineregions.org into
+  `var\manual\marine_regions`.
+- *Flight information regions*: who controls the airspace, from the VATSIM VAT-Spy data
+  project (CC BY-SA 4.0), since ICAO's own file is sold. Each country's regions are shaded
+  together when zoomed out, and each region is outlined and named closer in. It is drawn for
+  flight simulators: not for navigation.
+
+**How it ranks among…** (a card on each country page, World section): for each measure the
+best country in the group, this country with its rank ("#2 of 6", the cell green near the
+top and red near the bottom), the group's middle and the worst, all with their values and
+years. Groups: Neighbours (the countries touching it, then the nearest across the sea up to
+eight, within 3,000 km, measured from the map's shapes), Like this country, its blocs and
+regions, every country, or countries picked by hand. *Pick measures* changes the rows (and
+is remembered); click a row for the whole ranked list. Countries under 100,000 people are
+left out of every group but a hand-picked one.
+
 ## Markets and storage
 
 Exchange rates day by day (ECB since 1999, US Federal Reserve H.10 from FRED since

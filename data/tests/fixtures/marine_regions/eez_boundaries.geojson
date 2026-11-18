@@ -1,0 +1,6 @@
+{"type": "FeatureCollection", "features": [
+ {"type": "Feature", "properties": {"line_id": 101, "line_name": "New Zealand 200 NM", "line_type": "200 NM", "sovereign1": "New Zealand", "sovereign2": null, "eez1": "New Zealand Exclusive Economic Zone", "eez2": null, "length_km": 5123.4},
+  "geometry": {"type": "MultiLineString", "coordinates": [[[170.0, -30.0], [175.0, -29.5], [180.0, -31.0], [184.0, -35.0], [186.0, -40.0]]]}},
+ {"type": "Feature", "properties": {"line_id": 102, "line_name": "Australia - New Zealand", "line_type": "Treaty", "sovereign1": "Australia", "sovereign2": "New Zealand", "eez1": "Australian Exclusive Economic Zone", "eez2": "New Zealand Exclusive Economic Zone", "length_km": 1890.0},
+  "geometry": {"type": "LineString", "coordinates": [[160.0, -45.0], [161.0, -40.0], [163.5, -35.0], [165.0, -30.0]]}}
+]}

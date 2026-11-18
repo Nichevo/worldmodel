@@ -1,0 +1,6 @@
+{"type": "FeatureCollection", "features": [
+ {"type": "Feature", "properties": {"mrgid": 8347, "geoname": "New Zealand Exclusive Economic Zone", "pol_type": "200NM", "iso_sov1": "NZL", "iso_ter1": "NZL", "territory1": "New Zealand", "sovereign1": "New Zealand", "area_km2": 4083744}, "geometry": null},
+ {"type": "Feature", "properties": {"mrgid": 8446, "geoname": "Tokelau Exclusive Economic Zone", "pol_type": "200NM", "iso_sov1": "NZL", "iso_ter1": "TKL", "territory1": "Tokelau", "sovereign1": "New Zealand", "area_km2": 319031}, "geometry": null},
+ {"type": "Feature", "properties": {"mrgid": 8323, "geoname": "Australian Exclusive Economic Zone", "pol_type": "200NM", "iso_sov1": "AUS", "iso_ter1": "AUS", "territory1": "Australia", "sovereign1": "Australia", "area_km2": 6048681}, "geometry": null},
+ {"type": "Feature", "properties": {"mrgid": 48961, "geoname": "Joint regime area Australia / East Timor", "pol_type": "Joint regime", "iso_sov1": "AUS", "iso_ter1": null, "territory1": "Australia", "sovereign1": "Australia", "area_km2": 34452}, "geometry": null}
+]}
