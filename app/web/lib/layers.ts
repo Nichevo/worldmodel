@@ -211,6 +211,15 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "fill-color": ["case", ["boolean", ["get", "transboundary"], false], cssVar("--series-1"), cssVar("--series-3")],
       "fill-opacity": 0.18, "fill-outline-color": cssVar("--series-1") }),
   },
+  eez_lines: {
+    legend: "Economic zone limits (200 nautical miles; darker: borders between countries' zones)", swatch: () => "#3b6ea5", fetch: "window",
+    paint: () => ({ "line-color": ["case", ["boolean", ["get", "outer"], false], "#5f8fc4", "#2c4f7c"],
+      "line-width": zoomWidth(0.8, 1.8), "line-opacity": 0.9 }),
+  },
+  airspace: {
+    legend: "Flight information region (whose air traffic control covers it; each region as you zoom in)", swatch: () => "#6a4fc2", fill: true, fetch: "window",
+    paint: () => ({ "fill-color": "#6a4fc2", "fill-opacity": ["case", ["==", ["get", "rank"], 1], 0.05, 0.02], "fill-outline-color": "#6a4fc2" }),
+  },
   waterways: {
     legend: "Inland waterway ships use", swatch: () => cssVar("--series-4"), fetch: "window", click: "feature",
     paint: () => ({ "line-color": cssVar("--series-4"), "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1, 6, 2.6], "line-opacity": 0.9 }),
@@ -334,6 +343,11 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "cables") return `<b>${esc(p.name)}</b> (undersea cable)${p.rfs ? `<br/>In service ${esc(p.rfs)}` : ""}${p.planned ? " (planned)" : ""}${more}`;
   if (layer === "gas_pipelines" || layer === "oil_pipelines") return `<b>${esc(p.name)}</b> (${layer === "gas_pipelines" ? "gas" : "oil"} pipeline)`
     + `${p.status ? `<br/>${esc(p.status)}` : ""}${more}`;
+  if (layer === "eez_lines") return `<b>${esc(p.name)}</b><br/>${p.outer ? "Outer limit of an economic zone" : esc(p.type || "Border between economic zones")}`
+    + `${p.eez1 && p.eez2 ? `<br/>${esc(p.eez1)} | ${esc(p.eez2)}` : ""}${typeof p.km === "number" ? ` · ${num(p.km)} km` : ""}`;
+  if (layer === "airspace") return p.kind === "country"
+    ? `<b>${esc(p.name)}</b><br/>Covered by its air traffic control${Array.isArray(p.firs) && p.firs.length ? `<br/><span class="muted">${esc((p.firs as string[]).slice(0, 6).join(", "))}${p.firs.length > 6 ? "…" : ""}</span>` : ""}`
+    : `<b>${esc(p.name)}</b> (${esc(p.icao)})${p.country ? `<br/>${esc(p.country)}` : ""}<br/><span class="muted">Flight information region or sector (VATSIM)</span>`;
   if (layer === "shipping_lanes") return `<b>${esc(p.name)}</b>`;
   if (layer === "ports") return `<b>${esc(p.name)}</b> (port)${typeof p.calls === "number" ? `<br/>${num(p.calls)} ship calls in ${esc(p.year)}` : ""}`
     + (p.top ? `<br/>Biggest trade: ${esc(p.top)}` : "");

@@ -42,6 +42,7 @@ import CurrencyCard from "@/components/CurrencyCard";
 import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import AlikeCard from "@/components/AlikeCard";
+import PeersCard from "@/components/PeersCard";
 import { AttentionCard, OutlookCard } from "@/components/outlook/OutlookParts";
 import { DebtCycleCard } from "@/components/cycles/BigCycles";
 import Flag from "@/components/Flag";
@@ -162,6 +163,7 @@ export default function EntityPage() {
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
     { key: "attention", title: "Wikipedia attention", section: "world", on: !isGroup, el: <AttentionCard entity={e} name={nm} /> },
     { key: "crowd", title: "What the crowd expects", section: "world", on: !isGroup, el: <CrowdCard entity={e} name={nm} /> },
+    { key: "peers", title: "How it ranks among…", section: "world", on: !isGroup, el: <PeersCard entity={e} name={nm} indicators={indicators} /> },
     { key: "alike", title: "Like this one", section: "world", on: !isGroup, el: <AlikeCard entity={e} name={nm} /> },
     { key: "laws", title: "Laws and rules", section: "laws", on: !isGroup, el: <LawsCard entity={e} name={nm} /> },
     { key: "holidays", title: "Public holidays", section: "laws", on: !isGroup, el: <HolidaysCard entity={e} name={nm} /> },

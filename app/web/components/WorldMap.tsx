@@ -13,6 +13,7 @@ import { get } from "@/lib/api";
 import { LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
+import { MeasureTool } from "@/lib/measure";
 import { useSettings } from "@/lib/settings";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
@@ -240,7 +241,15 @@ export default function WorldMap({
       const id = f?.properties?.city;
       return typeof id === "string" ? id : null;
     };
+    // Measure distance (the ruler button): while it is on, clicks lay out the route instead.
+    const measure = new MeasureTool(m, (pt) => {
+      const ids = ["ov-points", "ov-major_cities", "ov-city_stress"].filter((id) => m.getLayer(id));
+      const f = ids.length ? m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0] : undefined;
+      const g = f?.geometry;
+      return g && g.type === "Point" ? { lng: g.coordinates[0], lat: g.coordinates[1], name: String(f.properties?.name ?? "") } : null;
+    });
     m.on("click", (e) => {
+      if (measure.on) return;
       const clickable = Object.entries(LAYER_STYLE).filter(([, st]) => st.click).map(([k]) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (clickable.length) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: clickable })[0];
@@ -303,6 +312,7 @@ export default function WorldMap({
     });
     let pending: ReturnType<typeof setTimeout> | undefined;
     m.on("click", "fill", (e) => {
+      if (measure.on) return;
       const iso = e.features?.[0]?.properties?.iso3;
       if (!iso || cityAt(e.point)) return;
       const ev: PickEvent = { shift: e.originalEvent.shiftKey, double: false, lngLat: [e.lngLat.lng, e.lngLat.lat] };
@@ -311,6 +321,7 @@ export default function WorldMap({
       pending = setTimeout(() => pick.current(iso, ev), 250);
     });
     m.on("dblclick", "fill", (e) => {
+      if (measure.on) return;
       const iso = e.features?.[0]?.properties?.iso3;
       if (!iso || !dbl.current) return;
       clearTimeout(pending);
