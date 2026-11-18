@@ -320,6 +320,8 @@ export default function SettingsPage() {
           on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
         <Toggle label="Undersea cables (TeleGeography)" hint="The cable map monthly, and each cable's owners and landing countries read once, 150 at a time, two seconds apart. Off: no cables layer and no cables on country cards."
           on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
+        <Toggle label="Sea borders: economic zones and flight regions" hint="Marine Regions' maritime boundary lines and zone list (about 50 MB, twice a year) and VATSIM's flight information region outlines (3 MB, every three months). Off: no economic zones or flight regions layers and no sea area figures; what is stored stays."
+          on={s.sea_borders_fetch} set={(v) => save({ sea_borders_fetch: v })} />
         <Toggle label="Power plants and power lines" hint="WRI's Global Power Plant Database (10 MB, twice a year) and gridfinder's power lines (700 MB downloaded once, about 150 MB kept). Off before the first read: no power plants or power lines layers."
           on={s.power_fetch} set={(v) => save({ power_fetch: v })} />
         <Toggle label="Pipelines and LNG terminals (Global Energy Monitor)" hint="Read from the files you save in var\manual\gem_infrastructure (see Data status). Off: those files are not read again."

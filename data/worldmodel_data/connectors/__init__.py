@@ -5,6 +5,7 @@ from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.cia_factbook import CIAFactbook
 from worldmodel_data.connectors.internet import OoklaSpeedtest
 from worldmodel_data.connectors.climate import CCKP, CCKPNormals, GDACS, GISTEMP, IBTrACS, NIWA7Station, NOAAEnso, NOAAGML, OWIDCO2, CarbonPricing, MfEGHG, NetZeroTracker, OWIDClimate
+from worldmodel_data.connectors.seas import MarineRegionsEEZ, VatsimAirspace
 from worldmodel_data.connectors.cities import UNWUP, GeoNames, ILOEarnings, Numbeo, TomTomTraffic, WhereNext, WHOAirQuality
 from worldmodel_data.connectors.coups import Coups
 from worldmodel_data.connectors.crisiswatch import CrisisWatch
@@ -51,7 +52,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     Coups, UCDPConflicts, EMDAT, BIS, OECD, DallasFedIHPD, IMFGDD, UNIMS, UNHCR, Wittgenstein, UNDPHDR,
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
-    GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WHOAirQuality, TomTomTraffic, WikidataPlaces,
+    GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WHOAirQuality, TomTomTraffic, MarineRegionsEEZ, VatsimAirspace, WikidataPlaces,
     UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat,
     NagerHolidays, WBL, UNODCCrime, RulesCurated, WorldPolicy, GunPolicy, WorldPrisonBrief,
     BACI, USGSMinerals, WorldMiningData, FAOSTAT, PinkSheet, FAOFoodPrices, ANZCommodityPrices, IEAEV,
