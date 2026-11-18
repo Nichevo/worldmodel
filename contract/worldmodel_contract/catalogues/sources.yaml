@@ -2489,3 +2489,37 @@
     files: ["views_page_*"]
     get: https://api.viewsforecasting.org/current/cm/sb
     what: "Read through the public API, page by page; saved pages named views_page_000.json also load."
+
+- id: marine_regions
+  name: Marine Regions maritime boundaries and exclusive economic zones (v12)
+  short_name: Marine Regions
+  publisher: Flanders Marine Institute (VLIZ)
+  url: https://www.marineregions.org/
+  licence: CC BY 4.0
+  licence_url: https://www.marineregions.org/disclaimer.php
+  commercial_use: true
+  cadence: Every year or two; checked twice a year
+  attribution: "Flanders Marine Institute (2023). Maritime Boundaries Geodatabase, version 12. marineregions.org."
+  status: active
+  default_rank: 1
+  standing: 5
+  manual:
+    by_hand: false
+    files: ["*eez*"]
+    get: https://www.marineregions.org/downloads.php
+    what: "If the web feature service refuses, save GeoJSON of the maritime boundaries (eez_boundaries) and the zones (eez) here."
+
+- id: vatsim_airspace
+  name: VAT-Spy flight information region boundaries (VATSIM)
+  short_name: VATSIM airspace
+  publisher: VATSIM VAT-Spy data project
+  url: https://github.com/vatsimnetwork/vatspy-data-project
+  licence: CC BY-SA 4.0
+  licence_url: https://creativecommons.org/licenses/by-sa/4.0/
+  commercial_use: true
+  cadence: Updated by volunteers each airspace cycle; checked every three months
+  attribution: "VATSIM VAT-Spy data project, Boundaries.geojson (CC BY-SA 4.0)."
+  status: active
+  default_rank: 3
+  standing: 3
+  definition: exploratory

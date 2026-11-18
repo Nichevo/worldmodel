@@ -1419,3 +1419,41 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .stress-parts b { display: block; font-size: 1.05rem; }
 .stress-bar { position: relative; height: 6px; background: var(--grid); border-radius: 3px; margin-top: 4px; }
 .stress-bar i { position: absolute; top: -2px; width: 4px; height: 10px; border-radius: 2px; background: var(--ink); }
+
+/* ---- Measure distance (the ruler on every map; lib/measure.ts) */
+.measure-btn { display: grid; place-items: center; color: #333; }
+.measure-btn.on { background: var(--ink) !important; color: var(--surface); }
+.measure-pt { width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--ink); cursor: grab; }
+.measure-label { background: var(--ink); color: var(--surface); font: 700 12.5px/1 var(--sans, system-ui), sans-serif; letter-spacing: .02em;
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.measure-panel { position: absolute; left: 10px; top: 10px; z-index: 3; max-width: min(320px, calc(100% - 70px)); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.measure-panel p, .measure-panel ol { margin: 4px 0; }
+.measure-panel ol { padding-left: 18px; }
+.measure-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.measure-units button, .measure-actions button { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 4px;
+  padding: 1px 7px; font-size: 12px; cursor: pointer; }
+.measure-units button.on { background: var(--ink); color: var(--surface); }
+.measure-units { display: flex; gap: 3px; }
+.measure-actions { display: flex; gap: 6px; margin-top: 6px; }
+
+/* How it ranks among… (country page) */
+.peers-card { min-width: 0; }
+.peers-chip { cursor: pointer; }
+.peers-chip.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.peers-scroll { overflow-x: auto; max-width: 100%; }
+.peers-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.peers-table th, .peers-table td { text-align: left; vertical-align: top; padding: 5px 6px; border-bottom: 1px solid var(--grid); }
+.peers-table thead th { font-weight: 600; font-size: 12px; color: var(--muted); }
+.peers-table b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.peers-who, .peers-rank { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.peers-rank { color: var(--ink); font-weight: 600; }
+.peers-row { cursor: pointer; }
+.peers-row:hover th, .peers-row:focus-visible th { text-decoration: underline; }
+.peers-me { min-width: 92px; border-radius: 4px; }
+.peers-bar { display: block; position: relative; height: 4px; margin-top: 4px; border-radius: 2px;
+  background: linear-gradient(90deg, hsl(120 55% 45% / .45), hsl(45 75% 50% / .45), hsl(0 60% 48% / .45)); }
+.peers-bar i { position: absolute; top: -3px; width: 4px; height: 10px; margin-left: -2px; border-radius: 1px; outline: 1px solid var(--surface); }
+.peers-list ol { columns: 3 180px; margin: 4px 0; padding-left: 28px; font-size: 12px; }
+.peers-list li.me { font-weight: 700; }
+.peers-pick { padding: 6px; border: 1px dashed var(--border); border-radius: 6px; }
