@@ -182,7 +182,7 @@ class Oryx(Connector):
                 rows += oryx_rows(d["war"], d["side"], date.fromisoformat(d["day"]), d["totals"])
             elif f.suffix.lower() in (".html", ".htm"):  # saved by hand
                 html = f.read_text(encoding="utf-8", errors="replace")
-                side = "UKR" if re.search(r"ukrain", f.name, re.I) or re.search(r"^Ukraine\s*-\s*[\d,]+", page_text(html), re.M) else "RUS"
+                side = "UKR" if re.search(r"ukrain|(?<![a-z])ukr(?![a-z])", f.name, re.I) or re.search(r"^Ukraine\s*-\s*[\d,]+", page_text(html), re.M) else "RUS"
                 m = re.search(r"(\d{4}-\d{2}-\d{2})", f.name)
                 day = date.fromisoformat(m.group(1)) if m else datetime.fromtimestamp(f.stat().st_mtime).date()
                 war_id = next((w["id"] for w in osint.wars() if side in (w.get("oryx") or {})), "russia_ukraine")

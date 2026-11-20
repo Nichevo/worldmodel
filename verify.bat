@@ -1,10 +1,11 @@
 @echo off
 rem Sites that turn programs away with an "are you a person?" check (RBNZ, MBIE, UN, WTO,
-rem CrisisWatch): opens each page in your own Edge (or Chrome) window. Complete any check
+rem CrisisWatch, Oryx, Global Firepower): opens each page in your own Edge (or Chrome) window. Complete any check
 rem yourself; each page or file is saved into var\manual and loaded, then the app is rebuilt.
 rem   .\verify.bat                 every such site
 rem   .\verify.bat rbnz crisiswatch   only these
 rem   .\verify.bat crisiswatch_pdf   the CrisisWatch PDF archive since 2003, 40 PDFs a run
+rem   .\verify.bat gfp_china         a Global Firepower country page beyond the key four
 cd /d "%~dp0"
 rem It always waits for a key at the end, so a window opened by a double-click stays open to be read.
 echo Verify: starting in %CD%

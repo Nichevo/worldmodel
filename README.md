@@ -519,6 +519,39 @@ regions, every country, or countries picked by hand. *Pick measures* changes the
 is remembered); click a row for the whole ranked list. Countries under 100,000 people are
 left out of every group but a hand-picked one.
 
+## Fighting, wars, outages, sanctions and military strength
+
+Detail from the OSINT communities (all switchable in Settings > Fighting, wars, outages…):
+
+- **Fighting and unrest** (Map layer 3, timed): every located deadly event from UCDP (the
+  yearly GED file since 1989, plus monthly candidate events for this year) and ACLED's
+  battles, explosions, violence against civilians, protests and riots. ACLED needs a free
+  myACLED account: put `ACLED_EMAIL` and `ACLED_PASSWORD` in `.env` (the password then sits in
+  `.env` and in backups in plain text), or save its CSV export in `var\manual\acled`. Click an
+  event for **Look closer** links (Copernicus Browser, NASA FIRMS, GeoConfirmed, Liveuamap,
+  Google Earth). Each country page has *Fighting, unrest and outages by month* (UCDP and ACLED
+  side by side, never added), and the yearly indicators `fighting_deaths`,
+  `civilians_killed`, `acled_protests` and `acled_riots` come from them.
+- **War trackers** (Today > War trackers): equipment lost, seen in photos (Oryx, read once a
+  day, older months from the Internet Archive) against what the other side claims (Ukraine's
+  General Staff, from GitHub); DeepStateMap's front line day by day (GitHub) with the land
+  held; aid by donor (Kiel Institute file in `var\manual\kiel_ukraine`). Map layer 4 shows the
+  latest front line. Other wars are a row in `contract/.../catalogues/wars.yaml`.
+- **Internet outages**: IODA (no key), Cloudflare Radar (free `CLOUDFLARE_API_TOKEN`) and
+  Access Now's KeepItOn file (`var\manual\keepiton`), as `outage` events and the indicators
+  `internet_outage_hours` and `internet_shutdowns`.
+- **Sanctions now** (Today menu): OpenSanctions' weekly file, kept as counts by target
+  country and list (New Zealand, Australia, UK, US, EU, Canada, Japan, Switzerland, UN) and
+  names with the date first listed. Sanctioned ships are marked on Ships now.
+- **Military strength** (Explore menu): Global Firepower's counts for about 145 countries
+  (troops, aircraft, tanks, ships, budget; its PowerIndex shown as its own score), read a few
+  pages a refresh, key countries first; `.\verify.bat gfp` saves pages it blocks. SIPRI's arms
+  transfers (trade register CSV in `var\manual\sipri_arms`) and nuclear warheads (Our World in
+  Data, from the Federation of American Scientists) show on each country's *Military strength
+  and arms* card. **Military planes now** (Map layer 5) asks adsb.lol's volunteer receivers.
+- **CrisisWatch**: each month's rating shows what these sources recorded that month, and a
+  month whose rating and recorded violence point different ways is marked for a second look.
+
 ## Markets and storage
 
 Exchange rates day by day (ECB since 1999, US Federal Reserve H.10 from FRED since

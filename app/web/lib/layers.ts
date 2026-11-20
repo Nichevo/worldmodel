@@ -5,6 +5,7 @@
 import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LineLayerSpecification } from "maplibre-gl";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
+import { EVENT_KIND, fightingQuery, lookCloser, SOURCE_NAME } from "@/lib/osint";
 
 export type MapLayerInfo = {
   layer_id: string; name: string; description: string; kind: "line" | "point"; feature_count: number;
@@ -32,7 +33,11 @@ export function layerData(id: string): Promise<GeoJSON.FeatureCollection> {
 type Style = {
   paint: () => LineLayerSpecification["paint"] | CircleLayerSpecification["paint"] | FillLayerSpecification["paint"];
   legend: string; swatch: () => string; dot?: boolean; fill?: boolean; fetch?: "window" | "live"; every?: number;
-  click?: "feature" | "chokepoint"; // what a click on one shows: its card (geo features) or the countries on a chokepoint's shores
+  // what a click on one shows: its card (geo features), the countries on a chokepoint's shores, or a card made
+  // from the feature itself with "Look closer" links (located events, military planes)
+  click?: "feature" | "chokepoint" | "here";
+  timed?: boolean; // asked again when the map's time window changes (the fighting layer)
+  once?: boolean; // a "window" layer read once, whatever the view (the front line: one shape)
 };
 const zoomWidth = (w0: number, w5: number): ExpressionSpecification => ["interpolate", ["linear"], ["zoom"], 0, w0, 5, w5];
 
@@ -312,6 +317,26 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "circle-color": cssVar("--series-1"), "circle-radius": zoomWidth(1.4, 3.5), "circle-opacity": 0.85,
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4 }),
   },
+  // ---- detail from the OSINT communities
+  conflict_events: {
+    legend: "Fighting and unrest in the time window (UCDP, ACLED): bigger for more deaths; red fighting, purple civilians killed, blue protests",
+    swatch: () => "#c92a2a", dot: true, fetch: "window", click: "here", timed: true,
+    paint: () => ({
+      "circle-color": ["match", ["get", "kind"], ...Object.entries(EVENT_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification,
+      "circle-opacity": ["case", ["==", ["get", "group"], "unrest"], 0.55, 0.75],
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "deaths"], 0]], 0, 2.4, 3, 4, 10, 8, 30, 15],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.5,
+    }),
+  },
+  front_line: {
+    legend: "Land held by Russia in Ukraine (DeepState, latest day; War trackers has the date slider)", swatch: () => "#c92a2a", fill: true, fetch: "window", once: true,
+    paint: () => ({ "fill-color": "#c92a2a", "fill-opacity": 0.22, "fill-outline-color": "#8a1c1c" }),
+  },
+  live_military: {
+    legend: "Military plane now (adsb.lol; only those that broadcast)", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 60, click: "here",
+    paint: () => ({ "circle-color": "#2b8a3e", "circle-radius": zoomWidth(2.4, 5), "circle-opacity": 0.9,
+      "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 0.8 }),
+  },
   companies: {
     legend: "Big company head office", swatch: () => cssVar("--series-6"), dot: true,
     paint: () => ({
@@ -326,8 +351,11 @@ export function windowData(id: string, b: { west: number; south: number; east: n
   const r = (v: number) => Math.round(v * 100) / 100;
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
   const path = id === "live_planes" ? `/live/planes?${q}` : id === "live_ships" ? `/live/ships?${q}`
+    : id === "live_military" ? `/live/military-planes?${q}`
+    : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
+    : id === "front_line" ? "/osint/front/russia_ukraine"
     : `/geo/${encodeURIComponent(id)}?${q}&zoom=${zoom.toFixed(1)}`;
-  return get<GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number }>(path);
+  return get<GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean }>(path);
 }
 
 const num = (v: unknown, d = 0) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : "");
@@ -362,7 +390,17 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "visited_sites") return `<b>${esc(p.name)}</b><br/>${num(p.visitors)} visitors${p.year ? ` (${esc(p.year)})` : ""}`;
   if (layer === "live_planes") return `<b>${esc(p.callsign ?? p.id)}</b> (${esc(p.country)})${typeof p.altitude_m === "number" ? `<br/>${num(p.altitude_m)} m` : ""}`
     + (typeof p.speed_kmh === "number" ? ` · ${p.speed_kmh} km/h` : "");
-  if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}`;
+  if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}`
+    + (p.sanctioned ? "<br/><b style=\"color:#c92a2a\">On a sanctions list</b> (OpenSanctions)" : "");
+  if (layer === "conflict_events") {
+    const k = EVENT_KIND[String(p.kind)];
+    return `<b>${esc(k?.label ?? p.kind)}</b> · ${esc(p.day)}<br/>${esc(p.place ?? "")}${p.admin1 && p.admin1 !== p.place ? `, ${esc(p.admin1)}` : ""}`
+      + (typeof p.deaths === "number" && p.deaths > 0 ? `<br/>${num(p.deaths)} killed` : "")
+      + `<br/><span class="muted">${esc(SOURCE_NAME[String(p.source)] ?? p.source)} · click for more and Look closer links</span>`;
+  }
+  if (layer === "front_line") return `<b>Held by Russia</b> on ${esc(p.day)}${typeof p.area_km2 === "number" ? `<br/>${num(p.area_km2)} km²` : ""}<br/><span class="muted">DeepStateMap</span>`;
+  if (layer === "live_military") return `<b>${esc(p.callsign || p.id)}</b>${p.type ? ` (${esc(p.type)})` : ""}${typeof p.altitude_m === "number" ? `<br/>${num(p.altitude_m)} m` : ""}`
+    + (typeof p.speed_kmh === "number" ? ` · ${p.speed_kmh} km/h` : "") + "<br/><span class=\"muted\">Military (adsb.lol)</span>";
   if (layer === "volcanoes") {
     const last = typeof p.last === "number" ? (p.last < 0 ? `${-p.last} BCE` : String(p.last)) : "unknown";
     return `<b>${esc(p.name)}</b> (volcano)<br/>${esc(p.type ?? "")}${p.country ? `, ${esc(p.country)}` : ""}<br/>Last eruption: ${last}`
@@ -427,4 +465,29 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     return `<b>${esc(p.name)}</b> (fault)${p.slip ? `<br/>${esc(p.slip)}` : ""}${typeof p.rate === "number" ? ` · ${p.rate} mm a year` : ""}`;
   }
   return `<b>${esc(p.name)}</b>${p.type ? `<br/>${esc(p.type)}` : ""}`;
+}
+
+// The card a click on a "here" feature opens: a few lines about it and links to look closer.
+export function hereCard(layer: string, p: Record<string, unknown>, at: { lng: number; lat: number }):
+  { title: string; lines: string[]; links: { label: string; href: string; hint: string }[] } {
+  if (layer === "live_military") {
+    const hex = String(p.id ?? "");
+    return { title: String(p.callsign || hex || "Military plane"),
+      lines: [p.type ? `Type ${p.type}` : "", typeof p.altitude_m === "number" ? `${num(p.altitude_m)} m up` : "",
+        typeof p.speed_kmh === "number" ? `${p.speed_kmh} km/h` : "", "Seen by adsb.lol's volunteer receivers. Many military flights switch their transponder off, so this is never the whole picture."].filter(Boolean),
+      links: [{ label: "Follow it on adsb.lol", hint: "The plane's track on the volunteer map", href: `https://globe.adsb.lol/?icao=${encodeURIComponent(hex)}` },
+        ...lookCloser(at.lat, at.lng).slice(0, 1)] };
+  }
+  const k = EVENT_KIND[String(p.kind)];
+  return {
+    title: `${k?.label ?? p.kind} · ${p.day}`,
+    lines: [
+      [p.place, p.admin1].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", "),
+      typeof p.deaths === "number" ? `${num(p.deaths)} killed${p.subkind ? ` · ${p.subkind}` : ""}` : String(p.subkind ?? ""),
+      typeof p.actors === "string" && p.actors ? `Who: ${p.actors}` : "",
+      typeof p.note === "string" ? p.note.slice(0, 400) : "",
+      `Source: ${SOURCE_NAME[String(p.source)] ?? p.source}`,
+    ].filter(Boolean),
+    links: lookCloser(at.lat, at.lng, String(p.day ?? "")),
+  };
 }

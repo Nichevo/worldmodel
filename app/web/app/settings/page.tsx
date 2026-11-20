@@ -335,6 +335,35 @@ export default function SettingsPage() {
           on={s.live_planes} set={(v) => save({ live_planes: v })} />
         <Toggle label="Ships now (map layer)" hint="While the map's Ships now layer is on, the server listens to aisstream.io for ships in the area in view (needs a free AISSTREAM_API_KEY in .env); it stops five minutes after the layer is turned off. Off: the layer stays empty."
           on={s.live_ships} set={(v) => save({ live_ships: v })} />
+        <Toggle label="Military planes now (map layer)" hint="While the map's Military planes now layer is on, the server asks adsb.lol (volunteer receivers, no key) for military planes, at most once a minute, and keeps those in the area in view. Many military flights do not broadcast, so it is never the whole picture. Off: the layer stays empty."
+          on={s.live_military_planes} set={(v) => save({ live_military_planes: v })} />
+      </section>
+
+      <section className="card" id="osint">
+        <h2>Fighting, wars, outages, sanctions and military strength</h2>
+        <p className="caption">Detail from the OSINT communities, read at each refresh. Switching a source off keeps what is stored; the pages and map layers that use it stop getting newer.</p>
+        <Toggle label="UCDP located events" hint="Every deadly event since 1989 with a place and a death count (the yearly file, about 30 MB, and monthly candidate events for this year). Off: the Fighting and unrest layer, the fighting-by-month cards and the CrisisWatch detail stop getting newer."
+          on={s.conflict_events_fetch} set={(v) => save({ conflict_events_fetch: v })} />
+        <Toggle label="ACLED battles, protests and riots" hint="Needs a free myACLED account: ACLED_EMAIL and ACLED_PASSWORD in .env (or Settings > Keys). Or save its CSV export in var\manual\acled. Off: no protests or riots, and no second death count beside UCDP's."
+          on={s.acled_on} set={(v) => save({ acled_on: v })} />
+        <NumberField label="ACLED events from" value={s.acled_from_year} min={1997} max={2030} step={1}
+          note="Each year is about 300,000 events worldwide (roughly 30 MB kept). Earlier years take longer on the first refresh."
+          save={(v) => save({ acled_from_year: v })} />
+        <Toggle label="War trackers" hint="Oryx's two pages of photographed losses (once a day), Ukraine's claimed Russian losses and DeepState's front line (both from GitHub). Off: War trackers stops getting newer."
+          on={s.wars_fetch} set={(v) => save({ wars_fetch: v })} />
+        <Toggle label="Fill in Oryx's earlier months" hint="Reads older copies of the Oryx pages from the Internet Archive, six a refresh, so the seen-losses lines reach back to 2022. Off: the lines start from the first day the app read Oryx."
+          on={s.oryx_backfill} set={(v) => save({ oryx_backfill: v })} />
+        <Toggle label="Internet outages" hint="IODA's outage alerts (every two days, no key) and Cloudflare Radar's verified outages (needs a free CLOUDFLARE_API_TOKEN). They show on country cards, under CrisisWatch months and as events on charts. Off: no newer outages."
+          on={s.outages_fetch} set={(v) => save({ outages_fetch: v })} />
+        <NumberField label="Internet outages from" value={s.ioda_from_year} min={2020} max={2030} step={1}
+          save={(v) => save({ ioda_from_year: v })} />
+        <Toggle label="Sanctions in force (OpenSanctions)" hint="A 100 MB file once a week; only counts by target country and list, and names with their dates, are kept (a few MB). Also marks sanctioned ships on Ships now. Off: Relationships > Sanctions now stops getting newer."
+          on={s.sanctions_now_fetch} set={(v) => save({ sanctions_now_fetch: v })} />
+        <Toggle label="Military strength (Global Firepower)" hint="Its country listing and a few country pages each refresh, politely, stopping at the first refusal; verify.bat saves pages it blocks. Off: Military strength stops getting newer."
+          on={s.gfp_fetch} set={(v) => save({ gfp_fetch: v })} />
+        <NumberField label="Global Firepower pages per refresh" value={s.gfp_pages_per_refresh} min={0} max={145} step={1}
+          note="New Zealand, Australia, the UK and the US first, then the rest in turn. 12 a refresh covers all 145 countries in about two weeks of daily refreshes."
+          save={(v) => save({ gfp_pages_per_refresh: v })} />
       </section>
 
       <section className="card" id="land">

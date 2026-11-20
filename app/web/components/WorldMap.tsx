@@ -10,7 +10,7 @@ import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
 import { arc, countryCentres, countryShapes } from "@/lib/geo";
 import { get } from "@/lib/api";
-import { LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
+import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool } from "@/lib/measure";
@@ -133,9 +133,14 @@ export default function WorldMap({
   // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
   const [info, setInfo] = useState<FeatureInfo | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const featurePick = useRef<(layer: string, p: Record<string, unknown>) => void>(() => {});
-  featurePick.current = (layer, p) => {
+  const featurePick = useRef<(layer: string, p: Record<string, unknown>, at: { lng: number; lat: number }) => void>(() => {});
+  featurePick.current = (layer, p, at) => {
     const st = LAYER_STYLE[layer];
+    if (st?.click === "here") {
+      const c = hereCard(layer, p, at);
+      setInfo({ layer, title: c.title, lines: c.lines, links: c.links });
+      return;
+    }
     if (st?.click === "chokepoint") {
       setInfo({ layer, title: String(p.name ?? "Chokepoint"), loading: true });
       get<{ countries: { id: string; name: string }[]; note?: string }>(`/depends/chokepoints/${encodeURIComponent(String(p.name ?? ""))}`)
@@ -253,7 +258,12 @@ export default function WorldMap({
       const clickable = Object.entries(LAYER_STYLE).filter(([, st]) => st.click).map(([k]) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (clickable.length) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: clickable })[0];
-        if (f) { featurePick.current(f.layer.id.slice(3), f.properties as Record<string, unknown>); return; }
+        if (f) {
+          const g = f.geometry;
+          const at = g.type === "Point" ? { lng: g.coordinates[0], lat: g.coordinates[1] } : { lng: e.lngLat.lng, lat: e.lngLat.lat };
+          featurePick.current(f.layer.id.slice(3), f.properties as Record<string, unknown>, at);
+          return;
+        }
       }
       if (m.getLayer("ov-marks")) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["ov-marks"] })[0];
@@ -508,17 +518,21 @@ export default function WorldMap({
         const n = ++asked;
         windowData(id, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom()).then((fc) => {
           if (!live || n !== asked) return;
+          if (style.timed && fc.loaded === false) fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
           (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
-          const note = fc.error ?? (style.fetch === "live" ? `${LAYER_STYLE[id].legend}: ${fc.features.length.toLocaleString()} in view` : "");
+          const note = fc.error ?? (style.fetch === "live" ? `${LAYER_STYLE[id].legend}: ${fc.features.length.toLocaleString()} in view`
+            : style.timed ? `Fighting and unrest: ${fc.features.length.toLocaleString()}${fc.capped ? " biggest" : ""} in view${fc.note ? ` (${fc.note})` : ""}` : "");
           setNotes((cur) => ({ ...cur, [id]: note }));
         }).catch((e) => setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${String(e?.message ?? e)}` })));
       };
       const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
-      m.on("moveend", soon);
+      if (!style.once) m.on("moveend", soon);
+      if (style.timed) window.addEventListener("wm-layer-window", soon);
       const every = style.fetch === "live" ? setInterval(load, (style.every ?? 60) * 1000) : null;
       load();
       dynamic.current[id] = () => {
         m.off("moveend", soon);
+        window.removeEventListener("wm-layer-window", soon);
         if (timer) clearTimeout(timer);
         if (every) clearInterval(every);
         setNotes((cur) => { const { [id]: _gone, ...rest } = cur; return rest; });
@@ -811,6 +825,12 @@ export default function WorldMap({
                   <p className="small" style={{ margin: "4px 0" }}>{info.layer === "chokepoints" ? "On its shores" : "Countries it reaches"} (outlined):{" "}
                     {info.countries.map((c, i) => <span key={c.id}>{i ? ", " : ""}<a href={`/entity/${c.id}`}>{c.name}</a></span>)}</p>
                 ) : null}
+                {info.links?.length ? (
+                  <div className="small" style={{ marginTop: 4 }}><b>Look closer</b> <span className="muted">(opens in a new tab)</span>
+                    <ul className="plain" style={{ margin: "2px 0 0", paddingLeft: 16 }}>
+                      {info.links.map((l) => <li key={l.href}><a href={l.href} target="_blank" rel="noreferrer" title={l.hint}>{l.label}</a></li>)}
+                    </ul></div>
+                ) : null}
               </>
             )}
           </div>
@@ -863,7 +883,7 @@ type GeoCard = {
 };
 type FeatureInfo = {
   layer: string; title: string; loading?: boolean; lines?: string[]; countries?: { id: string; name: string }[];
-  split?: GeoCard["split"];
+  split?: GeoCard["split"]; links?: { label: string; href: string; hint: string }[];
 };
 const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%` : "…");
 const n0 = (v: unknown) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : null);

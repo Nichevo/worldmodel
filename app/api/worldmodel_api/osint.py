@@ -145,28 +145,57 @@ def _flag(items: list[dict]) -> None:
 
 
 def crisiswatch_month(rows: Rows, month: str) -> dict:
-    """For one month on the CrisisWatch map: each country's deaths, events, outages and new sanctions."""
+    """For one month on the CrisisWatch map: each country's deaths, events, outages and new sanctions, and
+    whether its rating and the recorded events point different ways (against the three months before)."""
     y, mo = int(month[:4]), int(month[5:7])
     first = date(y, mo, 1)
     nxt = date(y + (mo == 12), mo % 12 + 1, 1)
-    by: dict[str, dict] = defaultdict(lambda: {"ucdp_deaths": None, "acled_deaths": None, "events": 0, "protests": 0,
-                                               "outages": 0, "sanctions_added": 0})
-    for r in _safe(rows, """SELECT entity_id, source_id, kind, count(*) AS n, sum(deaths) AS d FROM conflict_events
-            WHERE day >= ? AND day < ? AND entity_id IS NOT NULL GROUP BY 1, 2, 3""", [first, nxt]):
-        b = by[r["entity_id"]]
+    back = date(y - (mo <= 3), (mo - 4) % 12 + 1, 1)  # three months before
+    cells: dict[str, dict[str, dict]] = defaultdict(dict)
+
+    def cell(ent: str, m: str) -> dict:
+        return cells[ent].setdefault(m, {"month": m, "ucdp_deaths": None, "acled_deaths": None, "violence": 0, "protests": 0,
+                                         "riots": 0, "outages": 0, "sanctions_added": 0, "crisiswatch": None})
+
+    for r in _safe(rows, """SELECT entity_id, strftime(day, '%Y-%m') AS m, source_id, kind, count(*) AS n, sum(deaths) AS d
+            FROM conflict_events WHERE day >= ? AND day < ? AND entity_id IS NOT NULL GROUP BY 1, 2, 3, 4""", [back, nxt]):
+        c = cell(r["entity_id"], r["m"])
         if r["source_id"].startswith("ucdp"):
-            b["ucdp_deaths"] = (b["ucdp_deaths"] or 0) + (r["d"] or 0)
+            c["ucdp_deaths"] = (c["ucdp_deaths"] or 0) + (r["d"] or 0)
         elif r["kind"] in osint.VIOLENCE:
-            b["acled_deaths"] = (b["acled_deaths"] or 0) + (r["d"] or 0)
-            b["events"] += r["n"]
-        elif r["kind"] in osint.UNREST:
-            b["protests"] += r["n"]
-    for r in _safe(rows, """SELECT entity_id, count(*) AS n FROM events WHERE kind = 'outage' AND start_date >= ?
-            AND start_date < ? GROUP BY 1""", [first, nxt]):
-        by[r["entity_id"]]["outages"] += r["n"]
+            c["acled_deaths"] = (c["acled_deaths"] or 0) + (r["d"] or 0)
+            c["violence"] += r["n"]
+        elif r["kind"] == "protest":
+            c["protests"] += r["n"]
+        elif r["kind"] == "riot":
+            c["riots"] += r["n"]
+    for r in _safe(rows, """SELECT entity_id, strftime(start_date, '%Y-%m') AS m, kind, subkind, count(*) AS n FROM events
+            WHERE kind IN ('outage', 'crisiswatch') AND start_date >= ? AND start_date < ? GROUP BY 1, 2, 3, 4""", [back, nxt]):
+        c = cell(r["entity_id"], r["m"])
+        if r["kind"] == "outage":
+            c["outages"] += r["n"]
+        else:
+            c["crisiswatch"] = r["subkind"]
     for r in _safe(rows, """SELECT t AS entity_id, count(*) AS n FROM (SELECT unnest(string_split(targets, ',')) AS t
             FROM sanction_listings WHERE first_seen >= ? AND first_seen < ?) WHERE t <> '' GROUP BY 1""", [first, nxt]):
-        by[r["entity_id"]]["sanctions_added"] += r["n"]
+        cell(r["entity_id"], month)["sanctions_added"] += r["n"]
+    months = []
+    d = back
+    while d < nxt:
+        months.append(d.strftime("%Y-%m"))
+        d = date(d.year + (d.month == 12), d.month % 12 + 1, 1)
+    by: dict[str, dict] = {}
+    for ent, got in cells.items():
+        items = [got.get(m) or {"month": m, "ucdp_deaths": None, "acled_deaths": None, "violence": 0, "protests": 0, "riots": 0,
+                                "outages": 0, "sanctions_added": 0, "crisiswatch": None} for m in months]
+        _flag(items)
+        now = items[-1]
+        if not any((now["ucdp_deaths"], now["acled_deaths"], now["violence"], now["protests"], now["riots"], now["outages"],
+                    now["sanctions_added"], now["mismatch"])):
+            continue
+        by[ent] = {"ucdp_deaths": now["ucdp_deaths"], "acled_deaths": now["acled_deaths"], "events": now["violence"],
+                   "protests": now["protests"] + now["riots"], "outages": now["outages"], "sanctions_added": now["sanctions_added"],
+                   "mismatch": now["mismatch"]}
     return {"month": month, "countries": by}
 
 

@@ -63,7 +63,9 @@ def _crisiswatch(today: date) -> list[Target]:
 
 
 def targets(today: date | None = None) -> list[Target]:
+    from worldmodel_contract import osint
     from worldmodel_data.connectors.crisiswatch import ARCHIVE as CW_ARCHIVE
+    from worldmodel_data.connectors.military import GFP, GFP_LISTING, KEY_FIRST
     from worldmodel_data.connectors.nz import MBIE_PAGE, RBNZ_FILES, RBNZ_URL
     from worldmodel_data.connectors.world_bodies import MEMBERS_PAGE, VETO_PAGE, WTO_PAGE
 
@@ -82,6 +84,11 @@ def targets(today: date | None = None) -> list[Target]:
         *_crisiswatch(today),
         Target("crisiswatch", "CrisisWatch PDF archive (every month since 2003)", CW_ARCHIVE, "pdf-archive.html",
                r"(?i)\.pdf", by_hand=True, name="crisiswatch_pdf", pdf_archive=True, only_by_name=True),
+        *[Target("oryx", f"Oryx losses, {side}", url, f"oryx_{side}_{today.isoformat()}.html", r"(?i)of which", name=f"oryx_{side.lower()}")
+          for w in osint.wars() for side, url in (w.get("oryx") or {}).items()],
+        Target("gfp", "Global Firepower countries listing", GFP_LISTING, "gfp_listing.html", r"country_id="),
+        *[Target("gfp", f"Global Firepower: {slug}", f"{GFP}country-military-strength-detail.php?country_id={slug}", f"gfp_{slug}.html",
+                 r"(?i)military strength", name=f"gfp_{slug}", only_by_name=slug not in KEY_FIRST[:4]) for slug in KEY_FIRST],
     ]
 
 
