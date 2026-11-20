@@ -7,6 +7,7 @@ import { openAsk } from "@/lib/ai";
 import { api, type Chokepoint, type CountryPorts, type HeadTileData, type LandCover, type LandMix, type Ranked, type Recovery, type SeriesRow } from "@/lib/api";
 import { cardLinesOption, linesOption } from "@/lib/charts";
 import { formatValue } from "@/lib/format";
+import { COVER_COLOURS } from "@/lib/land";
 import { entityVar, sparkPath } from "@/lib/look";
 import { useSettings } from "@/lib/settings";
 
@@ -200,9 +201,6 @@ export function LandMixBar({ entity }: { entity: string }) {
 
 // Land cover by year (ESA satellite maps via FAOSTAT) as stacked bands, titled by the biggest moves,
 // with chips for the key countries.
-const COVER_COLOURS: Record<string, string> = { trees: "#1b5e20", shrub: "#8aa66b", grass: "#a9d18e", crops: "#d29a00", built: "#c0392b",
-  bare: "#cfc6a8", snow: "#dfe7ec", water: "#4a90c2" };
-
 export function LandCoverCard({ entity }: { entity: string }) {
   const keys = useKeys().split(",").filter(Boolean);
   const [who, setWho] = useState(entity);

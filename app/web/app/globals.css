@@ -1457,3 +1457,14 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .peers-list ol { columns: 3 180px; margin: 4px 0; padding-left: 28px; font-size: 12px; }
 .peers-list li.me { font-weight: 700; }
 .peers-pick { padding: 6px; border: 1px dashed var(--border); border-radius: 6px; }
+/* Land: countries' land cover side by side */
+.lc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+.lc-panel { position: relative; padding: 10px; }
+.lc-name { display: inline-block; color: #fff; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 12px; border-radius: 8px; margin-bottom: 8px; }
+.lc-body { display: flex; gap: 10px; align-items: flex-start; }
+.lc-map { flex: 1 1 auto; min-width: 0; border-radius: 10px; overflow: hidden; }
+.lc-bar-col { flex: 0 0 170px; padding-top: 18px; }
+.lc-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.lc-chip { display: inline-flex; align-items: center; gap: 6px; border-width: 2px; }
+.lc-table tr.on td { background: var(--grid); }
+@media (max-width: 600px) { .lc-body { flex-direction: column; } .lc-map { width: 100%; } .lc-bar-col { flex: none; } }

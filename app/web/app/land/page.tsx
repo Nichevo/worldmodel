@@ -8,6 +8,7 @@ import AskButton from "@/components/AskButton";
 import CountryChoice from "@/components/CountryChoice";
 import EChart from "@/components/EChart";
 import IndicatorSet from "@/components/IndicatorSet";
+import LandCompare from "@/components/LandCompare";
 import WorldMap from "@/components/WorldMap";
 import { compact } from "@/lib/format";
 import { logHistory } from "@/lib/history";
@@ -21,11 +22,12 @@ import { useSettings } from "@/lib/settings";
 // Land: what the world's land is used for since 1700, where it goes, cities and how they
 // spread, trees, New Zealand's land cover in detail, and land beside climate.
 
-type Tab = "use" | "where" | "cities" | "trees" | "nz" | "climate";
-const TABS: [Tab, string][] = [["use", "Land use"], ["where", "Where the land goes"], ["cities", "Cities"], ["trees", "Trees"],
+type Tab = "use" | "compare" | "where" | "cities" | "trees" | "nz" | "climate";
+const TABS: [Tab, string][] = [["use", "Land use"], ["compare", "Compare countries"], ["where", "Where the land goes"], ["cities", "Cities"], ["trees", "Trees"],
   ["nz", "New Zealand"], ["climate", "Land and climate"]];
 const INTRO: Record<Tab, string> = {
   use: "Cropland, meadows and pastures, and forest by country or for the world: FAOSTAT from 1961, and HYDE's long run back to 1700 (dashed; modelled from population and old maps, so rough).",
+  compare: "Two to four countries side by side: each outline beside a bar of its land cover seen from space. Pick a kind of cover (in a bar, the table or the chips) and every map shows where it is.",
   where: "Earth's surface down to the farmland that feeds us. Most farmland is grazing for animals, which give far less of our food than crops do.",
   cities: "About 11,000 urban centres from the European Commission's Global Human Settlement Layer: people and built-up land from 1975 to 2025 (2030 projected), and their outlines.",
   trees: "Tree cover and what is lost each year (Global Forest Watch), tree cover in cities worked out from the land cover pictures, and council street-tree lists (Auckland first).",
@@ -51,6 +53,9 @@ function LandView() {
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
       <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
       {tab === "use" && <UseTab entity={entity} pick={pickCountry} />}
+      {tab === "compare" && <LandCompare initial={(params.get("with") ?? "").split(",").filter(Boolean).length ? (params.get("with") ?? "").split(",").filter(Boolean)
+        : [entity === "world" ? "NZL" : entity, entity === "AUS" ? "NZL" : "AUS"]}
+        onChange={(ids) => router.replace(`/land?tab=compare&with=${ids.join(",")}`, { scroll: false })} />}
       {tab === "where" && <WhereTab />}
       {tab === "cities" && <CitiesTab />}
       {tab === "trees" && <TreesTab entity={entity === "world" ? "NZL" : entity} pick={pickCountry} />}
