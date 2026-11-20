@@ -1972,7 +1972,7 @@ def space_fetch():
 
 
 @api.get("/space/{name}")
-def space_data(name: Literal["asteroids", "missions", "values"]):
+def space_data(name: Literal["asteroids", "missions", "moons", "values"]):
     d = space.data(name)
     if d is None:
         raise HTTPException(404, f"no {name} yet: they download when the Solar system page first opens")
