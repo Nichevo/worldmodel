@@ -256,6 +256,8 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "events", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
   { letter: "e", id: "events", label: "Events", group: "events", timed: true, made: true, hint: "Coups, conflicts, disasters, elections and other dated events in the time window" },
   { letter: "n", id: "news", label: "Reported in the news", group: "events", timed: true, made: true, hint: "News naming one of your watch words, placed on a city it names or its country; hollow until a dataset confirms it" },
+  { letter: "3", id: "conflict_events", label: "Fighting and unrest", group: "events", timed: true, hint: "Every located battle, bombing, killing of civilians, protest and riot in the time window (UCDP and ACLED); click one for Look closer links. Follows the time window below" },
+  { letter: "4", id: "front_line", label: "Front line (Ukraine)", group: "events", hint: "Land held by Russia in Ukraine on the latest day (DeepStateMap); War trackers has every day with a slider" },
   { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)", group: "events", timed: true },
   { letter: "s", id: "storm_tracks", label: "Storm tracks (history)", group: "events", timed: true, hint: "Every tropical storm in the time window, from the monthly NOAA file" },
   { letter: "z", id: "storms_active", label: "Storms active now", group: "events", hint: "Tropical storms going on now (NOAA IBTrACS, read when turned on, at most hourly)" },
@@ -292,6 +294,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "N", id: "lng_terminals", label: "LNG terminals", group: "transport" },
   { letter: "2", id: "airspace", label: "Flight information regions", group: "transport", hint: "The airspace each country's air traffic control covers, joined up per country, and each region as you zoom in (VATSIM's outlines, drawn from official charts; not for navigation)" },
   { letter: "F", id: "live_planes", label: "Planes now", group: "transport", hint: "Planes in the air in the area in view (OpenSky Network), once a minute while on" },
+  { letter: "5", id: "live_military", label: "Military planes now", group: "transport", hint: "Military planes in the air in the area in view (adsb.lol's volunteer receivers, no key), once a minute while on; only planes that broadcast their position show" },
   { letter: "S", id: "live_ships", label: "Ships now", group: "transport", hint: "Ships' latest positions in the area in view (aisstream.io, needs a free key); fills in over a few minutes" },
   { letter: "c", id: "major_cities", label: "Major cities", group: "people" },
   { letter: "Z", id: "city_stress", label: "City stress", group: "people", hint: "Our City stress score: traffic, cost of living, health care, crime and air, 0 (calm) to 10 (most stressful); see Cities > City stress" },
@@ -313,7 +316,7 @@ export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
   { id: "people", label: "People and places" }, { id: "past", label: "The past" }, { id: "polar", label: "Antarctica" },
 ];
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
-  { name: "Conflict watch", letters: "wen", hint: "CrisisWatch, events, news watch words" },
+  { name: "Conflict watch", letters: "wen34", hint: "CrisisWatch, events, news watch words, fighting and unrest, the front line" },
   { name: "Hazards", letters: "qzvpf", hint: "Earthquakes, storms now, volcanoes, plates, faults" },
   { name: "Hazards now", letters: "izjr", hint: "Fires, storms, heatwaves and coral bleaching happening now" },
   { name: "People and places", letters: "cutlo", hint: "Cities, universities, stations and lines, companies" },
@@ -659,3 +662,8 @@ export const STARTERS: { name: string; query: string }[] = [
       { view: "ranks", indicator: "gdp_ppp_per_capita", rk: "1990:5,a,,15" },
     ], ["NZL", "AUS", "CHN", "IND"]) },
 ];
+
+// A link to the map with some layers on (and a time window for the timed ones), for other pages.
+export function mapLayersHref(letters: string, win = ""): string {
+  return `/?${toQuery({ ...DEFAULT, win, panels: [panel("p0", { layers: letters })] })}`;
+}

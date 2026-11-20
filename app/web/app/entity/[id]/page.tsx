@@ -22,6 +22,8 @@ import VotersCard from "@/components/VotersCard";
 import VotingCard from "@/components/VotingCard";
 import BetweenCard from "@/components/BetweenCard";
 import CrisisWatchCard from "@/components/CrisisWatchCard";
+import FightingCard from "@/components/FightingCard";
+import MilitaryCard from "@/components/MilitaryCard";
 import CrowdCard from "@/components/CrowdCard";
 import LawsCard from "@/components/LawsCard";
 import HolidaysCard from "@/components/HolidaysCard";
@@ -161,6 +163,8 @@ export default function EntityPage() {
     { key: "voting", title: "UN voting", section: "world", on: !isGroup, el: <VotingCard entity={e} name={nm} /> },
     { key: "between", title: "Between countries", section: "world", on: !isGroup || e === "eu", el: <BetweenCard entity={e} name={nm} /> },
     { key: "crisiswatch", title: "CrisisWatch", section: "world", on: !isGroup, el: <CrisisWatchCard entity={e} name={nm} /> },
+    { key: "fighting", title: "Fighting, unrest and outages", section: "world", on: !isGroup, el: <FightingCard entity={e} name={nm} /> },
+    { key: "military", title: "Military strength and arms", section: "world", on: !isGroup, el: <MilitaryCard entity={e} name={nm} /> },
     { key: "attention", title: "Wikipedia attention", section: "world", on: !isGroup, el: <AttentionCard entity={e} name={nm} /> },
     { key: "crowd", title: "What the crowd expects", section: "world", on: !isGroup, el: <CrowdCard entity={e} name={nm} /> },
     { key: "peers", title: "How it ranks among…", section: "world", on: !isGroup, el: <PeersCard entity={e} name={nm} indicators={indicators} /> },

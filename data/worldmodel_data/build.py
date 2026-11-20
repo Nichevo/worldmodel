@@ -22,7 +22,7 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import __version__, cities, crowd_tables, episodes, gates, history, nature_tables, network_tables
+from worldmodel_data import __version__, cities, crowd_tables, episodes, gates, history, nature_tables, network_tables, osint_tables
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
@@ -117,6 +117,12 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"Crowd forecasts: {crw['crowd_questions']:,} questions, {crw['crowd_points']:,} "
                                               f"saved chances, {crw['crowd_comments']:,} comments, {crw['crowd_mine']:,} of your "
                                               f"forecasts; {crw['conflict_forecasts']:,} ViEWS country months"))
+                osn = osint_tables.compute(con)
+                if any(osn.values()):
+                    checks.append(gates.Check("osint:loaded", "osint", "info",
+                                              f"OSINT detail: {osn['conflict_events']:,} located events, {osn['war_losses']:,} loss "
+                                              f"totals, {osn['war_areas']:,} front-line days, {osn['sanction_listings']:,} sanctions "
+                                              f"listings, {osn['military_strength']:,} military figures, {osn['arms_deals']:,} arms deals"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]

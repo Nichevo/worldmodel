@@ -10,6 +10,7 @@ import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
+import { setFightingWindow } from "@/lib/osint";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn } from "@/lib/longYear";
@@ -51,6 +52,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const on = (l: string) => letters.includes(l);
   const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized } = useSettings();
   const [start, end] = windowDates(win, year);
+  useEffect(() => { if (on("3")) setFightingWindow(start, end); }, [start, end, on("3")]); // eslint-disable-line react-hooks/exhaustive-deps
   const [cw, setCw] = useState<CrisisWatchMonth | null>(null);
   const [ev, setEv] = useState<MapEvents | null>(null);
   const [centres, setCentres] = useState<Record<string, [number, number]> | null>(null);
@@ -78,7 +80,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   // Counts in the window for earthquakes and storms, from their layers.
   useEffect(() => {
     let live = true;
-    const want = MAP_LAYERS.filter((m) => m.timed && !m.made && on(m.letter));
+    const want = MAP_LAYERS.filter((m) => m.timed && !m.made && !LAYER_STYLE[m.id]?.fetch && on(m.letter));
     Promise.all(want.map((m) => layerData(m.id).then((fc) => [m.id, fc] as const).catch(() => null))).then((got) => {
       if (!live) return;
       const out: LayerCounts = {};
@@ -257,6 +259,10 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       : { ok: false, why: "Switched off in Settings > Climate", source: "" };
     if (m.id === "live_planes") return s.live_planes ? { ok: true, why: "", source: "OpenSky Network, the area in view, once a minute" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "live_military") return s.live_military_planes ? { ok: true, why: "", source: "adsb.lol volunteer receivers, the area in view, once a minute" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "conflict_events") return { ok: true, why: "", source: "UCDP and ACLED, the area in view (a refresh loads them; ACLED needs a free account)" };
+    if (m.id === "front_line") return { ok: true, why: "", source: "DeepStateMap via GitHub (a refresh loads it)" };
     if (m.id === "live_ships") return s.live_ships ? { ok: true, why: "", source: "aisstream.io, the area in view (needs AISSTREAM_API_KEY)" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
     if (LAYER_STYLE[m.id]?.fetch === "window") return { ok: true, why: "", source: "Read for the area in view (a refresh loads them)" };

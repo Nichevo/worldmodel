@@ -121,6 +121,18 @@ SETTINGS: dict[str, object] = {
     "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
     "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
     "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)
+    "live_military_planes": True,        # Planes now can show military planes only, from adsb.lol's volunteer receivers (no key)
+    # Detail from the OSINT communities (connectors/conflict_events.py, wars.py, outages.py, sanctions_now.py, military.py)
+    "conflict_events_fetch": True,       # UCDP located events: the yearly dataset (about 30 MB) and monthly candidate events
+    "acled_on": True,                    # ACLED battles, protests and riots (needs a free myACLED account in .env)
+    "acled_from_year": 2024,             # the first year of ACLED events read (each year is about 300,000 events)
+    "wars_fetch": True,                  # Oryx losses (two pages a day), Ukraine's claimed losses and DeepState's front line (GitHub)
+    "oryx_backfill": True,               # fill in Oryx's earlier months from the Internet Archive, a few pages a refresh
+    "outages_fetch": True,               # IODA internet outages (every two days) and Cloudflare Radar's (needs a free token)
+    "ioda_from_year": 2022,              # the first year of internet outages read
+    "sanctions_now_fetch": True,         # OpenSanctions sanctions in force (a 100 MB file once a week, counts and names kept)
+    "gfp_fetch": True,                   # Global Firepower military strength: its listing and a few countries' pages a week
+    "gfp_pages_per_refresh": 12,         # Global Firepower country pages read per refresh (key countries first)
     # Land, cities and trees (connectors/land.py; FAOSTAT land use comes with the sectors' FAOSTAT files)
     "land_history_fetch": True,          # HYDE cropland and grazing land by country back to 1700 (via Our World in Data, once a year)
     "land_cities_fetch": True,           # GHSL urban centres: people, built-up area and outlines of about 11,000 cities (300 MB once a year)
@@ -271,7 +283,8 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "map_3d_exaggeration": (1, 5),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
-          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60), "ai_temperature": (0, 2),
+          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60),
+          "acled_from_year": (1997, 2030), "ioda_from_year": (2020, 2030), "gfp_pages_per_refresh": (0, 145), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
           "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),

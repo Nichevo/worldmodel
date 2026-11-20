@@ -108,14 +108,32 @@
   status: optional, not used yet
 
 - source: acled
-  name: ACLED API
-  env: [ACLED_API_KEY, ACLED_EMAIL]
+  name: ACLED API (myACLED account)
+  env: [ACLED_EMAIL, ACLED_PASSWORD]
   needs_key: true
-  signup: https://acleddata.com/
-  how: Not needed now. ACLED closed its old developer site (developer.acleddata.com); its newer API signs in with your account password, which the app does not store, so nothing uses ACLED yet.
-  unlocks: Conflict events week by week (optional; UCDP covers conflicts without a key).
-  limits: Registration required; terms restrict commercial use and redistribution.
-  status: optional, not used yet
+  signup: https://acleddata.com/register/
+  how: Register a free myACLED account and confirm it. ACLED's API signs in with the account's email and password, so
+    both go in .env (or Settings > Keys). The password then sits in .env in plain text, like the other keys, and in
+    backups of .env. If you would rather not keep it there, leave these blank and save CSV exports from ACLED's Data
+    Export Tool in var\manual\acled instead.
+  unlocks: Located battles, explosions, attacks on civilians, protests and riots week by week on the map, the country
+    page's fighting-by-month card and the CrisisWatch month detail, and yearly protest and riot counts. UCDP covers
+    deadly fighting without a key.
+  limits: Free accounts for non-commercial use; since 2025 a free account may only read some years or less detail.
+    Read 5,000 events a page, two seconds apart, a year at a time.
+  status: active
+
+- source: cloudflare_radar
+  name: Cloudflare Radar API
+  env: [CLOUDFLARE_API_TOKEN]
+  needs_key: true
+  signup: https://dash.cloudflare.com/profile/api-tokens
+  how: Optional. Sign up for a free Cloudflare account, create an API token with the "Radar read" permission (a custom
+    token; no website or payment needed) and copy it.
+  unlocks: Internet outages checked by Cloudflare's staff, with their cause (a government order, a cable cut, power,
+    weather, war), beside IODA's detected outages.
+  limits: Free; one request a year of outages, every two days.
+  status: active
 
 - source: ember
   name: Ember API

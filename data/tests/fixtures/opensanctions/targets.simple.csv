@@ -1,0 +1,5 @@
+id,schema,name,aliases,birth_date,countries,addresses,identifiers,sanctions,phones,emails,dataset,first_seen,last_seen,last_change
+NK-1,Person,Ivan Petrov,,1970-01-01,ru,,,,,,"US OFAC Specially Designated Nationals (SDN) List;New Zealand Russia Sanctions Register",2022-03-01T00:00:00,2026-11-19T00:00:00,2022-03-01T00:00:00
+NK-2,Company,Example Oil LLC,,,ru;ae,,,,,,EU Financial Sanctions Files (FSF),2026-06-01T00:00:00,2026-11-19T00:00:00,2026-06-01T00:00:00
+NK-3,Vessel,SEA SHADOW,,,ir,,9123456;412345678,,,,UK HM Treasury Financial Sanctions;Australian DFAT Consolidated List,2026-02-01T00:00:00,2026-11-19T00:00:00,2026-02-01T00:00:00
+NK-4,Person,Kim Example,,,kp,,,,,,UN Security Council Consolidated List,2010-01-01T00:00:00,2026-11-19T00:00:00,2015-01-01T00:00:00

@@ -83,7 +83,8 @@ function RelationshipsPage() {
   const scan = list.scan;
   return (
     <div className="grid">
-      <div className="title-row"><h1>Relationships</h1> <Help note="relationships" /></div>
+      <div className="title-row"><h1>Relationships</h1> <Help note="relationships" /><span className="spacer" />
+        <Link className="small" href="/sanctions">Sanctions now →</Link></div>
       {!scan ? (
         <div className="card">
           <p>No scan yet. It runs after each refresh (<code>.\refresh.bat</code>), and once after <code>.\update.bat</code>.

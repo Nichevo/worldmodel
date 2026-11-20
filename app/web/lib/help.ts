@@ -93,9 +93,9 @@ export const HELP = {
   crisiswatch: {
     title: "CrisisWatch",
     what: "International Crisis Group's monthly rating of the country's conflict situation since 2003, with what happened that month.",
-    how: "Each month Crisis Group marks a situation as deteriorated, improved or unchanged, and flags a conflict risk alert or resolution opportunity for the month ahead. The strip shows every month stored: red worse, blue better, grey unchanged, blank not rated. Refresh reads one month's page at a time, a few seconds apart, and fills in older months a few each time (Settings: CrisisWatch).",
+    how: "Each month Crisis Group marks a situation as deteriorated, improved or unchanged, and flags a conflict risk alert or resolution opportunity for the month ahead. The strip shows every month stored: red worse, blue better, grey unchanged, blank not rated. Refresh reads one month's page at a time, a few seconds apart, and fills in older months a few each time (Settings: CrisisWatch). Under each month: what the OSINT sources recorded that month (deaths in fighting from UCDP and ACLED, protests and riots, internet outages, new sanctions listings). A month is outlined, and marked worth a second look, when the rating says worse but recorded violence fell to under two-thirds of the three months before, or says better while it rose by half or more (months with fewer than 5 deaths or events either side are left alone).",
     units: "Ratings, one per month",
-    sources: [{ label: "International Crisis Group, CrisisWatch" }],
+    sources: [{ label: "International Crisis Group, CrisisWatch" }, { label: "UCDP Georeferenced Event Dataset", indicator: "fighting_deaths" }, { label: "ACLED" }, { label: "IODA, Cloudflare Radar, Access Now KeepItOn", indicator: "internet_outage_hours" }, { label: "OpenSanctions" }],
   },
   laws: {
     title: "Laws and rules",
