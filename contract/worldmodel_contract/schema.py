@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.11.0"
+SCHEMA_VERSION = "1.12.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -55,6 +55,7 @@ EVENT_KINDS = {
     "law": "Laws and rules changed",
     "transport": "Air, sea and rail accidents",
     "infrastructure": "Cables, pipelines, canals and shipping cut or blocked",
+    "outage": "Internet outages and shutdowns",
     "user": "Your milestones",
 }
 # How exact an event's dates are: a year-only date is stored as 1 January (start) or 31 December (end).
@@ -328,6 +329,59 @@ TABLES: dict[str, Table] = {
             "ViEWS (Uppsala and PRIO) monthly forecasts of conflict deaths by country for the next three years: deaths "
             "is the predicted number, chance_25 the chance of 25 or more; kind sb is fighting between a state and an "
             "armed group. Absent before 1.11.0."),
+        Table("conflict_events", {
+            "event_id": "VARCHAR", "entity_id": "VARCHAR", "day": "DATE", "end_day": "DATE", "kind": "VARCHAR",
+            "subkind": "VARCHAR", "deaths": "DOUBLE", "deaths_low": "DOUBLE", "deaths_high": "DOUBLE", "civilians": "DOUBLE",
+            "lat": "DOUBLE", "lon": "DOUBLE", "place": "VARCHAR", "admin1": "VARCHAR", "actors": "VARCHAR", "note": "VARCHAR",
+            "geo_precision": "INTEGER", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("source_id", "event_id"),
+            "Located events of fighting and unrest, one row per event: UCDP's Georeferenced Event Dataset (ucdp_ged, "
+            "and ucdp_candidate for the months since its last yearly release; deaths is UCDP's best estimate with low "
+            "and high) and ACLED (acled; battles, explosions, violence against civilians, protests, riots and strategic "
+            "developments; deaths is reported fatalities). kind is one of worldmodel_contract.osint.EVENT_KINDS; "
+            "geo_precision 1 is the exact place, larger numbers coarser (a district, a province, the country). "
+            "Absent before 1.12.0."),
+        Table("war_losses", {
+            "war_id": "VARCHAR", "side": "VARCHAR", "day": "DATE", "category": "VARCHAR", "status": "VARCHAR",
+            "count": "DOUBLE", "basis": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("war_id", "side", "day", "category", "status", "basis"),
+            "Running totals of equipment (and claimed personnel) a side has lost in a war of wars.yaml. basis seen is "
+            "Oryx (photo or video proof; status destroyed, damaged, abandoned, captured or total); claimed is the other "
+            "side's government's figure (status total). category is an id of osint.LOSS_CATEGORIES. Absent before 1.12.0."),
+        Table("war_areas", {
+            "war_id": "VARCHAR", "day": "DATE", "holder": "VARCHAR", "land_of": "VARCHAR", "area_km2": "DOUBLE",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("war_id", "day", "holder"),
+            "Land of one side held by the other, by day (DeepState for Ukraine). The shapes are in geo_features, layer "
+            "front_line, feature_id <war_id>:<day>. Absent before 1.12.0."),
+        Table("sanction_counts", {
+            "target": "VARCHAR", "authority": "VARCHAR", "schema": "VARCHAR", "listed": "INTEGER", "added_365": "INTEGER",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("target", "authority", "schema"),
+            "Sanctions in force from OpenSanctions: how many people, companies, ships and aircraft (schema) linked to a "
+            "country (target, an entity id) each authority lists (an entity id, eu, un or other), and how many of them it "
+            "added in the last 365 days. Absent before 1.12.0."),
+        Table("sanction_listings", {
+            "os_id": "VARCHAR", "name": "VARCHAR", "schema": "VARCHAR", "targets": "VARCHAR", "authorities": "VARCHAR",
+            "first_seen": "DATE", "last_change": "DATE", "identifiers": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("os_id",),
+            "Each sanctioned person, company, ship or aircraft in OpenSanctions: targets and authorities are comma lists "
+            "of entity ids (as in sanction_counts); identifiers keeps ships' IMO and MMSI numbers. Absent before 1.12.0."),
+        Table("military_strength", {
+            "entity_id": "VARCHAR", "edition": "INTEGER", "measure": "VARCHAR", "value": "DOUBLE", "source_id": "VARCHAR",
+            "vintage": "VARCHAR",
+        }, ("entity_id", "edition", "measure"),
+            "Global Firepower's counts by country and yearly edition (measure ids in osint.GFP_MEASURES; gfp_power_index "
+            "is its own score, lower is stronger, method not published). The counts are also yearly series. "
+            "Absent before 1.12.0."),
+        Table("arms_deals", {
+            "supplier": "VARCHAR", "recipient": "VARCHAR", "ordered": "INTEGER", "delivered_from": "INTEGER",
+            "delivered_to": "INTEGER", "weapon": "VARCHAR", "description": "VARCHAR", "number": "DOUBLE", "tiv": "DOUBLE",
+            "status": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, (),
+            "SIPRI's trade register of major arms: who supplied what to whom, when ordered and delivered, how many, and "
+            "SIPRI's trend-indicator value (tiv, millions, a measure of military capability transferred, not price). "
+            "supplier and recipient are entity ids (or a name where SIPRI's is not a country). Absent before 1.12.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),
