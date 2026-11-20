@@ -225,6 +225,43 @@ HISTORY_COLUMNS.update({
     },
 })
 
+HISTORY_COLUMNS.update({
+    # Detail from the OSINT communities (connectors/conflict_events.py, wars.py, sanctions_now.py,
+    # military.py); made into the warehouse tables by osint_tables.py. Countries are ISO alpha-3
+    # codes (country_code) or, for war sides and sanction authorities, entity ids.
+    "conflict_events": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "event_id": "VARCHAR", "country_code": "VARCHAR", "day": "DATE",
+        "end_day": "DATE", "kind": "VARCHAR", "subkind": "VARCHAR", "deaths": "DOUBLE", "deaths_low": "DOUBLE",
+        "deaths_high": "DOUBLE", "civilians": "DOUBLE", "lat": "DOUBLE", "lon": "DOUBLE", "place": "VARCHAR",
+        "admin1": "VARCHAR", "actors": "VARCHAR", "note": "VARCHAR", "geo_precision": "INTEGER",
+    },
+    "war_losses": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "war_id": "VARCHAR", "side": "VARCHAR", "day": "DATE",
+        "category": "VARCHAR", "status": "VARCHAR", "count": "DOUBLE", "basis": "VARCHAR",
+    },
+    "war_areas": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "war_id": "VARCHAR", "day": "DATE", "holder": "VARCHAR",
+        "land_of": "VARCHAR", "area_km2": "DOUBLE",
+    },
+    "sanction_counts": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "target": "VARCHAR", "authority": "VARCHAR", "schema": "VARCHAR",
+        "listed": "INTEGER", "added_365": "INTEGER",
+    },
+    "sanction_listings": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "os_id": "VARCHAR", "name": "VARCHAR", "schema": "VARCHAR",
+        "targets": "VARCHAR", "authorities": "VARCHAR", "first_seen": "DATE", "last_change": "DATE", "identifiers": "VARCHAR",
+    },
+    "military_strength": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "country_code": "VARCHAR", "edition": "INTEGER", "measure": "VARCHAR",
+        "value": "DOUBLE",
+    },
+    "arms_deals": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "supplier": "VARCHAR", "recipient": "VARCHAR", "ordered": "INTEGER",
+        "delivered_from": "INTEGER", "delivered_to": "INTEGER", "weapon": "VARCHAR", "description": "VARCHAR",
+        "number": "DOUBLE", "tiv": "DOUBLE", "status": "VARCHAR",
+    },
+})
+
 # city_values.parquet beside a vintage: figures about cities as the source names them
 # (with its country's entity id and, where known, location). The build matches each to a city.
 CITY_VALUE_COLUMNS = {

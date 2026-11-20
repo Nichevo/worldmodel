@@ -112,6 +112,52 @@ class Planes:
         return {**found, "features": feats, "count": len(feats), "source": "OpenSky Network"}
 
 
+# ----------------------------------------------------------------------------- military planes (adsb.lol)
+ADSB_LOL_MIL = "https://api.adsb.lol/v2/mil"
+
+
+class MilitaryPlanes:
+    """Every plane adsb.lol's receivers flag as military, worldwide, asked for at most once a minute
+    and filtered to the window. ODbL; volunteers' receivers, so coverage is thin over the sea."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.last_at = 0.0
+        self.last: dict | None = None
+
+    def get(self, west: float, south: float, east: float, north: float) -> dict:
+        bx = boxes(west, south, east, north)
+        with self.lock:
+            if not self.last or time.time() - self.last_at >= PLANE_EVERY:
+                try:
+                    with httpx.Client(timeout=20, headers={"User-Agent": "worldmodel (personal research tool)"}) as client:
+                        r = client.get(ADSB_LOL_MIL)
+                        r.raise_for_status()
+                        ac = r.json().get("ac") or []
+                except (httpx.HTTPError, ValueError) as exc:
+                    if not self.last:
+                        return {"type": "FeatureCollection", "features": [], "error": f"adsb.lol did not answer ({exc.__class__.__name__})."}
+                    ac = None
+                if ac is not None:
+                    feats = []
+                    for a in ac:
+                        lat, lon = a.get("lat"), a.get("lon")
+                        if lat is None or lon is None or a.get("alt_baro") == "ground":
+                            continue
+                        alt = a.get("alt_baro")
+                        feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 4), round(lat, 4)]},
+                                      "properties": {"id": a.get("hex"), "callsign": (a.get("flight") or "").strip() or None,
+                                                     "registration": a.get("r"), "aircraft": a.get("t"), "description": a.get("desc"),
+                                                     "military": True,
+                                                     "altitude_m": round(alt * 0.3048) if isinstance(alt, (int, float)) else None,
+                                                     "speed_kmh": round(a["gs"] * 1.852) if isinstance(a.get("gs"), (int, float)) else None,
+                                                     "heading": round(a.get("track") or 0)}})
+                    self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
+                    self.last_at = time.time()
+            feats = [f for f in self.last["features"] if inside(*f["geometry"]["coordinates"], bx)]
+            return {**self.last, "features": feats, "count": len(feats), "source": "adsb.lol (military)"}
+
+
 # ----------------------------------------------------------------------------- ships (aisstream.io)
 class Ships:
     def __init__(self) -> None:
@@ -142,7 +188,7 @@ class Ships:
             for k in [k for k, v in self.ships.items() if now - v["seen"] > SHIP_KEEP]:
                 del self.ships[k]
             feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [v["lon"], v["lat"]]},
-                      "properties": {k: v[k] for k in ("id", "name", "speed_kn", "heading", "seen") if v.get(k) is not None}}
+                      "properties": {k: v[k] for k in ("id", "name", "imo", "speed_kn", "heading", "seen") if v.get(k) is not None}}
                      for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)][:MAX_SHIPS]
         out = {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "aisstream.io",
                "note": "Ships appear as they report; a new area fills in over a few minutes."}
@@ -191,6 +237,8 @@ class Ships:
             if name:
                 s["name"] = name
             if msg.get("MessageType") == "ShipStaticData":
+                if body.get("ImoNumber"):
+                    s["imo"] = body["ImoNumber"]
                 return
             lat, lon = meta.get("latitude"), meta.get("longitude")
             if lat is None or lon is None:
@@ -200,4 +248,5 @@ class Ships:
 
 
 PLANES = Planes()
+MIL_PLANES = MilitaryPlanes()
 SHIPS = Ships()

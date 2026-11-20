@@ -41,7 +41,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
@@ -2387,6 +2387,81 @@ def crowd_conflict():
     return crowd.conflict_map(rows)
 
 
+# ----------------------------------------------------------------------------- OSINT detail
+@api.get("/osint/events")
+def osint_events(west: float = -180, south: float = -90, east: float = 180, north: float = 90,
+                 days: int = Query(30, ge=1, le=3650), end: str | None = None, kinds: str | None = None,
+                 sources: str | None = None, limit: int = Query(4000, ge=1, le=20000)):
+    """Located fighting and unrest in a map window (UCDP and ACLED), the biggest first, as GeoJSON points.
+    `days` back from `end` (a date; default the newest event held)."""
+    return osint.map_events(rows, west, south, east, north, days=days, end=end, kinds=split(kinds) or None,
+                            sources=split(sources) or None, limit=limit)
+
+
+@api.get("/osint/country/{entity_id}")
+def osint_country(entity_id: str, months: int = Query(24, ge=3, le=240)):
+    """A country month by month: deaths in fighting (UCDP and ACLED, apart), protests and riots, internet outages,
+    sanctions newly listed, and the CrisisWatch rating, with months where the rating and events disagree."""
+    return osint.country_months(rows, entity_id, months)
+
+
+@api.get("/osint/crisiswatch-month")
+def osint_crisiswatch_month(month: str = Query(..., pattern=r"^\d{4}-\d{2}$")):
+    """For the CrisisWatch map's month: each country's deaths, events, outages and new sanctions."""
+    return osint.crisiswatch_month(rows, month)
+
+
+@api.get("/osint/wars")
+def osint_wars():
+    """The wars followed (contract wars.yaml) with their latest loss totals and ground held."""
+    return osint.wars(rows)
+
+
+@api.get("/osint/wars/{war_id}")
+def osint_war(war_id: str):
+    """One war: losses by side, category and what happened, seen (Oryx) and claimed; ground held by day;
+    aid by donor; deaths in fighting by month."""
+    w = osint.war(rows, war_id)
+    if w is None:
+        raise HTTPException(404, f"no war {war_id}")
+    return w
+
+
+@api.get("/osint/front/{war_id}")
+def osint_front(war_id: str, day: str | None = None):
+    """The land held on a day (the nearest kept day on or before it), as GeoJSON, with the days kept."""
+    return osint.front_line(rows, war_id, day)
+
+
+@api.get("/osint/sanctions")
+def osint_sanctions(schema: str | None = None):
+    """Sanctions in force (OpenSanctions): listings by target country and sanctioning authority, and the newest."""
+    return osint.sanctions(rows, schema)
+
+
+@api.get("/osint/sanctions/search")
+def osint_sanctions_search(q: str = Query(..., min_length=2, max_length=80)):
+    return {"items": osint.sanctions_search(rows, q)}
+
+
+@api.get("/osint/military")
+def osint_military(entities: str = "NZL,AUS,GBR,USA"):
+    """Global Firepower's counts for the countries asked for, with ranks, the change since the edition before,
+    and a second source where the app has one."""
+    return osint.military(rows, split(entities)[:12])
+
+
+@api.get("/osint/military/map")
+def osint_military_map(measure: str = "gfp_personnel_active"):
+    return osint.military_map(rows, measure)
+
+
+@api.get("/osint/arms/{entity_id}")
+def osint_arms(entity_id: str, since: int = Query(2000, ge=1950, le=2100)):
+    """Who a country buys major weapons from and sells them to (SIPRI trade register)."""
+    return osint.arms(rows, entity_id, since)
+
+
 @api.get("/layers")
 def layers():
     """The map overlays the warehouse holds (plate boundaries, faults, volcanoes, earthquakes), without their features."""
@@ -3243,7 +3318,25 @@ def live_ships(west: float, south: float, east: float, north: float):
 
     if not local.load_settings().get("live_ships", True):
         return {"type": "FeatureCollection", "features": [], "error": "Ships now is switched off in Settings > Transport."}
-    return live.SHIPS.get(west, south, east, north)
+    out = live.SHIPS.get(west, south, east, north)
+    banned = osint.sanctioned_ship_ids(rows)
+    if banned:
+        for f in out.get("features") or []:
+            p = f.get("properties") or {}
+            if str(p.get("id")) in banned or (p.get("imo") and str(p["imo"]) in banned):
+                p["sanctioned"] = True
+    return out
+
+
+@api.get("/live/military-planes")
+def live_military_planes(west: float, south: float, east: float, north: float):
+    """Military planes in the air in a map window now, from adsb.lol's volunteer receivers (no key; one
+    request a minute at most). Only planes that broadcast their position show: many military flights do not."""
+    from worldmodel_api import live
+
+    if not local.load_settings().get("live_military_planes", True):
+        return {"type": "FeatureCollection", "features": [], "error": "Military planes are switched off in Settings > Transport."}
+    return live.MIL_PLANES.get(west, south, east, north)
 
 
 # ----------------------------------------------------------------------------- markets and regions

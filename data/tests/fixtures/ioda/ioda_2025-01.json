@@ -1,0 +1,1 @@
+{"type": "outages.events", "error": null, "data": [{"location": "country/IR", "location_name": "Iran", "start": 1736900000, "duration": 36000, "score": 52000.5}, {"location": "country/TO", "location_name": "Tonga", "start": 1737000000, "duration": 1800, "score": 900}, {"location": "country/TO", "location_name": "Tonga", "start": 1737300000, "duration": 7200, "score": 4000}]}
