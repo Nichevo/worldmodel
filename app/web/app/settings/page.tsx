@@ -959,7 +959,7 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
 
       <h3 style={{ marginBottom: 4 }}>Map shapes and space</h3>
       <Toggle label="Map shapes page" hint="True size (drag a country over another), the equal-area map and cartograms, worked out on this PC from the borders the app has. Off: the page is hidden from the menu." on={s.map_true_size} set={(v) => save({ map_true_size: v })} />
-      <Toggle label="Solar system downloads" hint="When the Solar system page first opens, and every 90 days: about 25,000 asteroids from JPL's Small-Body Database and the paths of about 20 spacecraft from JPL Horizons, one request every two seconds (about 15 MB kept). Off: the planets and fact cards still show; no asteroids or mission paths." on={s.space_fetch} set={(v) => save({ space_fetch: v })} />
+      <Toggle label="Solar system downloads" hint="When the Solar system page first opens, and every 90 days: about 25,000 asteroids from JPL's Small-Body Database, the paths of about 20 spacecraft from JPL Horizons and the sizes of all known moons from JPL, one request every two seconds (about 15 MB kept). Off: the planets, fact cards and the built-in list of named moons still show; no asteroids, mission paths or unnamed moons." on={s.space_fetch} set={(v) => save({ space_fetch: v })} />
       <Toggle label="Asteroid values" hint="Asterank's guessed dollar values for about 1,000 asteroids, shown as a separate layer. They rest on rough guesses about what each asteroid is made of. Off: no values are fetched or shown." on={s.space_values} set={(v) => save({ space_values: v })} />
     </section>
   );

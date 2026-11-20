@@ -99,3 +99,16 @@ def test_size_in_countries(client):
     lv = client.get("/api/v1/size-in-countries", params={"indicator": "pop_total", "what": "level", "entity": "NZL", "start": 2020}).json()
     assert lv["rows"][0]["in_unit"] == pytest.approx(1.0)
     assert client.get("/api/v1/size-in-countries", params={"indicator": "nonsense"}).status_code == 404
+
+
+def test_moon_rows():
+    page = """<html><table>
+    <tr><th>Planet</th><th>Satellite</th><th>GM (km<sup>3</sup>/s<sup>2</sup>)</th><th>Mean radius (km)</th><th>Density</th></tr>
+    <tr><td>Earth</td><td>Moon</td><td>4902.8</td><td>1737.4</td><td>3.34</td></tr>
+    <tr><td>Mars</td><td>Phobos</td><td>0.0007</td><td>11.08</td><td>1.87</td></tr>
+    <tr><td></td><td>Deimos</td><td>0.0001</td><td>6.2</td><td>1.47</td></tr>
+    <tr><td>Saturn</td><td>S/2004 S 21</td><td></td><td>~1.5</td><td></td></tr>
+    </table><table><tr><th>Satellite</th><th>Mean radius</th></tr>
+    <tr><td colspan="2">Uranus</td></tr><tr><td>Miranda</td><td>235.8</td></tr><tr><td>Cupid</td><td>n/a</td></tr></table></html>"""
+    assert space.moon_rows(page) == [["Earth", "Moon", 1737.4], ["Mars", "Phobos", 11.08], ["Mars", "Deimos", 6.2],
+                                      ["Saturn", "S/2004 S 21", 1.5], ["Uranus", "Miranda", 235.8], ["Uranus", "Cupid", None]]
