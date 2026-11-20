@@ -5,6 +5,9 @@
                 orbits, spectral type where measured, size and brightness (albedo).
     missions    JPL Horizons: where each spacecraft in MISSIONS was, every 15 days from launch
                 to the end of its mission (or 2030), seen from above the Sun (ecliptic, AU).
+    moons       JPL's planetary satellite physical parameters table: every known moon with its
+                mean radius (one page, read again every 90 days). The page shows its own built-in list
+                of named moons until this is in.
     values      Asterank's guessed dollar values for asteroids (only with Settings > Maps >
                 "Asteroid values"; they are rough guesses, kept apart from the rest).
 
@@ -21,6 +24,8 @@ import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from html.parser import HTMLParser
+
 import httpx
 
 from worldmodel_contract import local
@@ -30,6 +35,9 @@ log = logging.getLogger(__name__)
 SBDB = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
 HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
 ASTERANK = "https://www.asterank.com/api/asterank"
+SATS = "https://ssd.jpl.nasa.gov/sats/phys_par/"
+HOSTS = {"mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto", "eris", "haumea",
+         "makemake", "orcus", "quaoar", "gonggong", "sedna", "ceres"}
 USER_AGENT = "worldmodel/0.1 (personal local tool) httpx"
 GAP = 2.0
 KEEP_DAYS = 90
@@ -120,11 +128,11 @@ def status() -> dict:
     with _lock:
         job = dict(_job)
     out = {"job": job, "on": s["space_fetch"], "values_on": s["space_values"], "missions": MISSIONS}
-    for name in ("asteroids", "missions", "values"):
+    for name in ("asteroids", "missions", "moons", "values"):
         d = _read(f"{name}.json")
         out[name + "_have"] = {"fetched": d.get("fetched"), "count": len(d.get("rows", [])),
                                "bytes": (root() / f"{name}.json").stat().st_size} if d else None
-    out["due"] = s["space_fetch"] and any(_age_days(_read(f"{n}.json")) > KEEP_DAYS for n in ("asteroids", "missions"))
+    out["due"] = s["space_fetch"] and any(_age_days(_read(f"{n}.json")) > KEEP_DAYS for n in ("asteroids", "missions", "moons"))
     return out
 
 
@@ -190,6 +198,76 @@ def horizons_rows(answer: dict) -> list[list[float]]:
             out.append([round(float(parts[0]), 1), round(float(parts[2]), 4), round(float(parts[3]), 4), round(float(parts[4]), 4)])
         except (IndexError, ValueError):
             continue
+    return out
+
+
+class _Table(HTMLParser):
+    """Every table row on a page as a list of cell texts (header and data cells alike)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[str]] = []
+        self._row: list[str] | None = None
+        self._cell: list[str] | None = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._row = []
+        elif tag in ("td", "th") and self._row is not None:
+            self._cell = []
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self._row is not None and self._cell is not None:
+            self._row.append(" ".join("".join(self._cell).split()))
+            self._cell = None
+        elif tag == "tr" and self._row is not None:
+            if self._row:
+                self.rows.append(self._row)
+            self._row = None
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+
+def moon_rows(html: str) -> list[list]:
+    """JPL's satellite physical parameters page into [host, moon, mean radius km or None].
+    The host is named either in its own column or in a row of its own above its moons."""
+    t = _Table()
+    t.feed(html)
+    out: list[list] = []
+    head: dict[str, int] | None = None
+    host = None
+    for row in t.rows:
+        low = [c.lower() for c in row]
+        if head is None or any("radius" in c for c in low):
+            if any("satellite" in c for c in low) and any("radius" in c for c in low):
+                head = {}
+                for i, c in enumerate(low):
+                    for key in ("planet", "satellite", "radius"):
+                        if key in c and key not in head:
+                            head[key] = i
+            continue
+        if len(row) == 1 or (len(row) <= 2 and row[0].lower() in HOSTS):
+            if row[0].strip().lower() in HOSTS:
+                host = row[0].strip().title()
+            continue
+        if "planet" in head and head["planet"] < len(row) and row[head["planet"]].strip():
+            h = row[head["planet"]].strip()
+            if h.lower() in HOSTS:
+                host = h.title()
+        if head["satellite"] >= len(row) or not host:
+            continue
+        name = row[head["satellite"]].strip()
+        if not name or name.lower() in HOSTS:
+            continue
+        radius = None
+        if head["radius"] < len(row):
+            try:
+                radius = float(row[head["radius"]].replace(",", "").split()[0].lstrip("~<>"))
+            except (ValueError, IndexError):
+                radius = None
+        out.append([host, name, radius])
     return out
 
 
@@ -259,6 +337,19 @@ def _fetch(force: bool) -> None:
                 with _lock:
                     _job["skipped"] = skipped
                 _write("missions.json", {"fetched": now, "source": "JPL Horizons", "rows": kept, "skipped": skipped})
+            if force or _age_days(_read("moons.json")) > KEEP_DAYS:
+                _step("Moons (JPL)")
+                try:
+                    r = client.get(SATS)
+                    r.raise_for_status()
+                    rows = moon_rows(r.text)
+                    if len(rows) < 100:  # the page changed shape: keep what we had, the built-in list still shows
+                        raise ValueError(f"only {len(rows)} moons read from the page")
+                    _write("moons.json", {"fetched": now, "source": "JPL Solar System Dynamics, planetary satellite physical parameters", "rows": rows})
+                except (httpx.HTTPError, ValueError) as exc:
+                    with _lock:
+                        _job["skipped"] = _job.get("skipped", []) + [f"Moons: {exc}"[:200]]
+                time.sleep(GAP)
             if s["space_values"] and (force or _age_days(_read("values.json")) > KEEP_DAYS):
                 _step("Asteroid values (Asterank)")
                 r = client.get(ASTERANK, params={"query": json.dumps({"price": {"$gt": 1}}), "limit": "1000"})

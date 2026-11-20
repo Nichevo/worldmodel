@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AskButton from "@/components/AskButton";
+import MoonsView from "@/components/MoonsView";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 import { logHistory } from "@/lib/history";
@@ -19,7 +20,7 @@ type Mission = { id: string; name: string; start: string; stop: string; country:
 type Have = { fetched: string; count: number; bytes: number } | null;
 type SpaceStatus = {
   job: { state: string; step?: string; error?: string; skipped?: string[] }; on: boolean; values_on: boolean; missions: Mission[];
-  asteroids_have: Have; missions_have: Have; values_have: Have;
+  asteroids_have: Have; missions_have: Have; moons_have?: Have; values_have: Have;
 };
 type View = "inner" | "jupiter" | "outer" | "far";
 const SPAN: Record<View, number> = { inner: 2.2, jupiter: 6, outer: 33, far: 160 };
@@ -41,10 +42,19 @@ export default function SpacePage() {
   const [tilt, setTilt] = useState(0);
   const [show, setShow] = useState({ asteroids: true, neo: true, trojans: true, missions: true });
   const [fact, setFact] = useState<Fact | null>(FACTS.find((f) => f.id === "earth") ?? null);
+  const [tab, setTab] = useState<"above" | "moons">("above");
+  const [jplMoons, setJplMoons] = useState<[string, string, number | null][] | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const spots = useRef<{ id: string; x: number; y: number }[]>([]);
 
   const status = () => get<SpaceStatus>("/space").then(setSt).catch(() => setSt(null));
+  useEffect(() => { if (new URLSearchParams(location.search).get("view") === "moons") setTab("moons"); }, []);
+  const pickTab = (t: "above" | "moons") => {
+    setTab(t);
+    const u = new URL(location.href);
+    if (t === "moons") u.searchParams.set("view", "moons"); else u.searchParams.delete("view");
+    history.replaceState(null, "", u);
+  };
   useEffect(() => { status(); logHistory({ kind: "page", title: "Solar system", url: "/space", detail: "page" }); }, []);
   useEffect(() => {
     if (st?.job.state !== "running") return;
@@ -54,8 +64,9 @@ export default function SpacePage() {
   useEffect(() => {
     if (st?.asteroids_have) get<{ rows: AsteroidRow[] }>("/space/asteroids").then((d) => setAsteroids(d.rows)).catch(() => undefined);
     if (st?.missions_have) get<{ rows: Record<string, [number, number, number, number][]> }>("/space/missions").then((d) => setPaths(d.rows)).catch(() => undefined);
+    if (st?.moons_have) get<{ rows: [string, string, number | null][] }>("/space/moons").then((d) => setJplMoons(d.rows)).catch(() => undefined);
     if (st?.values_have && s.space_values) get<{ rows: [string, number, string | null][] }>("/space/values").then((d) => setValues(d.rows)).catch(() => undefined);
-  }, [st?.asteroids_have?.fetched, st?.missions_have?.fetched, st?.values_have?.fetched, s.space_values]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [st?.asteroids_have?.fetched, st?.missions_have?.fetched, st?.moons_have?.fetched, st?.values_have?.fetched, s.space_values]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!playing) return;
     const t = setInterval(() => setDay((d) => (d + 20 > END ? (setPlaying(false), d) : d + 20)), 60);
@@ -146,7 +157,7 @@ export default function SpacePage() {
     // Scale
     g.fillStyle = "#9aa4b2"; g.font = "11px system-ui";
     g.fillText(log ? "Distances squeezed (log scale) so the inner and outer planets both show" : `Width: ${(span * 2).toFixed(0)} AU (1 AU = Earth to Sun, 150 million km)`, 10, h - 10);
-  }, [day, view, log, tilt, show, asteroids, paths, missions, orbits]);
+  }, [day, view, log, tilt, show, asteroids, paths, missions, orbits, tab]);
 
   const click = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -182,9 +193,14 @@ export default function SpacePage() {
           ...(fact ? [{ key: "fact", kind: "data" as const, label: fact.name, text: `${fact.facts.map((f) => f.join(": ")).join("; ")}. ${fact.note}` }] : []),
         ]} /></div>
       <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>
-        The planets from above on any date since Sputnik, the asteroids coloured by what they are made of, and where spacecraft have flown. Click a planet or a spacecraft for its card.
+        The planets from above on any date since Sputnik, the asteroids coloured by what they are made of, and where spacecraft have flown; or every planet with its moons packed around it. Click a planet, moon or spacecraft for its card.
         Part of <Link href="/zones">Beyond borders</Link>; launches and satellites by country are on <Link href="/sectors/space">Sectors &gt; Space</Link>.
       </p>
+      <div><div className="seg" role="tablist" aria-label="Views">
+        <button role="tab" className={tab === "above" ? "on" : ""} aria-selected={tab === "above"} onClick={() => pickTab("above")}>From above</button>
+        <button role="tab" className={tab === "moons" ? "on" : ""} aria-selected={tab === "moons"} onClick={() => pickTab("moons")}>Planets and moons</button>
+      </div></div>
+      {tab === "moons" ? <MoonsView jpl={jplMoons} fetched={st?.moons_have?.fetched} /> : (<>
       <div className="chips-row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div className="seg" role="group" aria-label="How far out">
           {VIEW_TEXT.map(([v, t]) => <button key={v} className={view === v ? "on" : ""} aria-pressed={view === v} onClick={() => setView(v)}>{t}</button>)}
@@ -254,6 +270,7 @@ export default function SpacePage() {
           </div>
         </div>
       </div>
+      </>)}
     </div>
   );
 }
