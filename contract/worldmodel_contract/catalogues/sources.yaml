@@ -2523,3 +2523,247 @@
   default_rank: 3
   standing: 3
   definition: exploratory
+
+# ----------------------------------------------------------------------------- OSINT detail (schema 1.12.0)
+- id: ucdp_ged
+  name: UCDP Georeferenced Event Dataset (GED)
+  short_name: UCDP events
+  publisher: Uppsala Conflict Data Program, Uppsala University
+  url: https://ucdp.uu.se/downloads/
+  licence: Free to use with citation
+  licence_url: https://ucdp.uu.se/downloads/
+  commercial_use: true
+  cadence: Yearly (each June); checked every two months
+  attribution: "Sundberg, R. and E. Melander (2013), Introducing the UCDP Georeferenced Event Dataset, Journal of Peace Research 50(4); Davies, S., T. Pettersson and M. Öberg (2025), Organized violence 1989-2024, Journal of Peace Research."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: false
+    files: ["ged*"]
+    get: https://ucdp.uu.se/downloads/
+    what: "If the download fails, save the GED CSV zip (ged<version>-csv.zip) here."
+
+- id: ucdp_candidate
+  name: UCDP Candidate Events (monthly)
+  short_name: UCDP candidate events
+  publisher: Uppsala Conflict Data Program, Uppsala University
+  url: https://ucdp.uu.se/downloads/
+  licence: Free to use with citation
+  licence_url: https://ucdp.uu.se/downloads/
+  commercial_use: true
+  cadence: Monthly, about a month behind; checked every two weeks
+  attribution: "Hegre, H., M. Croicu, K. Eck and S. Högbladh (2020), Introducing the UCDP Candidate Events Dataset, Research & Politics."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: exploratory
+
+- id: acled
+  name: Armed Conflict Location & Event Data (ACLED)
+  short_name: ACLED
+  publisher: ACLED (Armed Conflict Location & Event Data)
+  url: https://acleddata.com/
+  licence: Free account for non-commercial use (terms of use); what a free account can read was narrowed in 2025
+  licence_url: https://acleddata.com/terms-of-use/
+  commercial_use: false
+  cadence: Weekly; read every seven days
+  attribution: "Armed Conflict Location & Event Data (ACLED), acleddata.com."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    files: ["*acled*", "*.csv"]
+    get: https://acleddata.com/data-export-tool/
+    what: "Sign in to myACLED, export events from the Data Export Tool as CSV (any countries and years) and save the file here."
+
+- id: oryx
+  name: Oryx, documenting equipment losses with photo or video proof
+  short_name: Oryx
+  publisher: Oryx (Stijn Mitzer, Jakub Janovsky and volunteers)
+  url: https://www.oryxspioenkop.com/
+  licence: Free to read; totals only are kept, read two pages at a time
+  licence_url: https://www.oryxspioenkop.com/
+  commercial_use: false
+  cadence: Updated most days; read once a day at most, older months filled in from the Internet Archive
+  attribution: "Oryx, Attack On Europe: Documenting Equipment Losses (oryxspioenkop.com)."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: exploratory
+  manual:
+    by_hand: false
+    files: ["*oryx*", "*attack-on-europe*"]
+    get: https://www.oryxspioenkop.com/2022/02/attack-on-europe-documenting-equipment.html
+    what: "If the refresh is refused, save each side's page (Ctrl+S, Web page, HTML only), with the date in the name: oryx_RUS_2026-11-21.html and oryx_UKR_2026-11-21.html."
+  scraper:
+    run: "Refresh, once a day, or now with .\\scrape.bat"
+    reads: "Two pages (one per side), plus a few Internet Archive copies of them to fill in earlier months"
+    setting: oryx_backfill
+
+- id: ua_claimed_losses
+  name: Russian losses claimed by the General Staff of Ukraine (2022 Ukraine Russia War Dataset)
+  short_name: Claimed losses (Ukraine)
+  publisher: General Staff of the Armed Forces of Ukraine; collected by Petro Ivaniuk on GitHub and Kaggle
+  url: https://github.com/PetroIvaniuk/2022-Ukraine-Russia-War-Dataset
+  licence: CC0 (the collection); official figures
+  licence_url: https://www.kaggle.com/datasets/piterfm/2022-ukraine-russian-war
+  commercial_use: true
+  cadence: Daily
+  attribution: "General Staff of the Armed Forces of Ukraine, via P. Ivaniuk, 2022 Ukraine Russia War Dataset."
+  status: active
+  default_rank: 5
+  standing: 2
+  definition: exploratory
+
+- id: deepstate
+  name: DeepStateMap occupied territory of Ukraine (daily shapes)
+  short_name: DeepState
+  publisher: DeepState (deepstatemap.live); daily GeoJSON saved by the deepstate-map-data project
+  url: https://github.com/cyterat/deepstate-map-data
+  licence: Free to use with credit to DeepStateMap
+  licence_url: https://deepstatemap.live/
+  commercial_use: false
+  cadence: Daily
+  attribution: "DeepStateMap.Live; daily shapes from cyterat/deepstate-map-data."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: exploratory
+
+- id: kiel_ukraine
+  name: Kiel Institute Ukraine Support Tracker
+  short_name: Ukraine Support Tracker
+  publisher: Kiel Institute for the World Economy
+  url: https://www.ifw-kiel.de/topics/war-against-ukraine/ukraine-support-tracker/
+  licence: Free to use with citation
+  licence_url: https://www.ifw-kiel.de/topics/war-against-ukraine/ukraine-support-tracker/
+  commercial_use: true
+  cadence: A new release every two or three months; load it when it comes out
+  attribution: "Trebesch, C. et al., The Ukraine Support Tracker, Kiel Institute for the World Economy."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+  manual:
+    by_hand: true
+    files: ["*Ukraine_Support_Tracker*", "*.xlsx"]
+    get: https://www.ifw-kiel.de/topics/war-against-ukraine/ukraine-support-tracker/
+    what: "Download the latest data file (Excel, 'Ukraine Support Tracker Data') and save it here."
+
+- id: ioda
+  name: IODA Internet Outage Detection and Analysis
+  short_name: IODA
+  publisher: Internet Intelligence Lab, Georgia Institute of Technology
+  url: https://ioda.inetintel.cc.gatech.edu/
+  licence: Free to use with credit
+  licence_url: https://ioda.inetintel.cc.gatech.edu/
+  commercial_use: true
+  cadence: Live; read every two days, a month at a time
+  attribution: "IODA, Internet Intelligence Lab, Georgia Tech."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+
+- id: cloudflare_radar
+  name: Cloudflare Radar Outage Center
+  short_name: Cloudflare Radar
+  publisher: Cloudflare
+  url: https://radar.cloudflare.com/outage-center
+  licence: CC BY-NC 4.0
+  licence_url: https://developers.cloudflare.com/radar/
+  commercial_use: false
+  cadence: As outages happen; read every two days
+  attribution: "Cloudflare Radar (radar.cloudflare.com), CC BY-NC 4.0."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: established
+
+- id: keepiton
+  name: Access Now #KeepItOn internet shutdown tracker
+  short_name: "#KeepItOn"
+  publisher: Access Now and the #KeepItOn coalition
+  url: https://www.accessnow.org/keepiton/
+  licence: Free to use with credit
+  licence_url: https://www.accessnow.org/keepiton-data-methodology/
+  commercial_use: true
+  cadence: A yearly dataset each spring; load it when it comes out
+  attribution: "Access Now, #KeepItOn Shutdown Tracker Optimization Project (STOP)."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+  manual:
+    by_hand: true
+    files: ["*keepiton*", "*STOP*", "*.csv", "*.xlsx"]
+    get: https://www.accessnow.org/keepiton-data-dashboard/
+    what: "Download the #KeepItOn shutdown data (the STOP dataset, CSV or Excel) and save it here. Several years' files can sit here together."
+
+- id: opensanctions
+  name: OpenSanctions consolidated sanctions targets
+  short_name: OpenSanctions
+  publisher: OpenSanctions Datenbanken GmbH, from more than 300 official lists
+  url: https://www.opensanctions.org/datasets/sanctions/
+  licence: CC BY-NC 4.0 (free for non-commercial use)
+  licence_url: https://www.opensanctions.org/licensing/
+  commercial_use: false
+  cadence: Daily; read once a week
+  attribution: "OpenSanctions (opensanctions.org), CC BY-NC 4.0."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    files: ["targets.simple*"]
+    get: https://www.opensanctions.org/datasets/sanctions/
+    what: "If the download fails, save the 'Targets: simplified CSV' file of the sanctions collection here."
+
+- id: gfp
+  name: Global Firepower military strength ranking
+  short_name: Global Firepower
+  publisher: Global Firepower (globalfirepower.com)
+  url: https://www.globalfirepower.com/countries-listing.php
+  licence: Free to read; figures kept for personal use, read a few pages at a time
+  licence_url: https://www.globalfirepower.com/
+  commercial_use: false
+  cadence: A new edition each January; read a few countries a week until each has this year's edition
+  attribution: "Global Firepower (globalfirepower.com). PowerIndex is its own score; its method is not published."
+  status: active
+  default_rank: 4
+  standing: 2
+  definition: exploratory
+  manual:
+    by_hand: false
+    files: ["*gfp*", "*countries-listing*", "*military-strength*"]
+    get: https://www.globalfirepower.com/countries-listing.php
+    what: "If the refresh is refused, run .\\verify.bat or save the countries listing and any country's page (Ctrl+S, Web page, HTML only) here."
+  scraper:
+    run: "Refresh, every seven days, or now with .\\scrape.bat"
+    reads: "The countries listing, then a few countries' pages a refresh until all have this year's edition"
+    setting: gfp_pages_per_refresh
+
+- id: sipri_arms
+  name: SIPRI Arms Transfers Database (trade register)
+  short_name: SIPRI arms transfers
+  publisher: Stockholm International Peace Research Institute
+  url: https://armstransfers.sipri.org/
+  licence: Free to use with citation
+  licence_url: https://www.sipri.org/about/terms-and-conditions
+  commercial_use: true
+  cadence: Yearly (each March); load it when it comes out
+  attribution: "SIPRI Arms Transfers Database, Stockholm International Peace Research Institute."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: true
+    files: ["*trade*register*", "*Trade-Register*", "*.csv"]
+    get: https://armstransfers.sipri.org/ArmsTransfer/TradeRegister
+    what: "Choose every supplier and recipient and the years you want, then download the trade register as CSV and save it here."

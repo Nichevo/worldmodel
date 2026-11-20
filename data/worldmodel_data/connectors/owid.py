@@ -102,6 +102,9 @@ CHARTS = (
     ("threatened-mammal-species", "IUCN: mammal species threatened with extinction, by country", "threatened_mammals", "nature"),
     ("threatened-bird-species", "IUCN: bird species threatened with extinction, by country", "threatened_birds", "nature"),
     ("tree-cover-loss", "Global Forest Watch: tree cover lost each year, hectares", "tree_cover_loss", "nature"),
+    # military (the Military strength page): the Federation of American Scientists' estimates
+    ("nuclear-warhead-stockpiles", "Federation of American Scientists: estimated nuclear warheads by country since 1945",
+     "nuclear_warheads", "military"),
     # democracy and autocracy (the Democracy topic)
     ("democracy-index-eiu", "Economist Intelligence Unit Democracy Index: 0 to 10 from elections, how government works, "
      "taking part, political culture and civil liberties; 8 and over full democracy, 6-8 flawed, 4-6 hybrid, under 4 "
@@ -241,8 +244,8 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 5  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy
-    fetch_version = 3  # 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts
+    stage_version = 6  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
+    fetch_version = 4  # 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts; 4: nuclear warheads
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:

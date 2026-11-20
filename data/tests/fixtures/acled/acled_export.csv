@@ -1,0 +1,3 @@
+event_id_cnty,event_date,event_type,sub_event_type,actor1,actor2,iso,country,admin1,location,latitude,longitude,geo_precision,fatalities,notes
+AUS5,05 March 2025,Riots,Violent demonstration,Rioters (Australia),,36,Australia,New South Wales,Sydney,-33.87,151.21,1,0,Clash at rally.
+UKR78,2024-11-01,Battles,Armed clash,Military Forces of Russia (2000-),Military Forces of Ukraine (2019-),804,Ukraine,Donetsk,Kurakhove,47.98,37.28,1,12,Clashes.

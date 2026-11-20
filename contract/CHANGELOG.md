@@ -3,6 +3,23 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.12.0 (2026-11-21)
+
+- New tables `conflict_events` (located events from UCDP GED, UCDP Candidate and ACLED),
+  `war_losses` (seen and claimed losses by war, side, category, status and day),
+  `war_areas` (land held by day), `sanction_counts` and `sanction_listings`
+  (OpenSanctions), `military_strength` (Global Firepower by edition) and `arms_deals`
+  (SIPRI). All absent before 1.12.0; readers should treat them as empty.
+- Event kind `outage` (internet outages and shutdowns: IODA, Cloudflare Radar, KeepItOn).
+- `geo_features` layer `front_line` (DeepState, feature_id `<war>:<day>`).
+- New module `osint` and catalogue `wars.yaml`.
+- New sources: ucdp_ged, ucdp_candidate, acled, oryx, ua_claimed_losses, deepstate,
+  kiel_ukraine, ioda, cloudflare_radar, keepiton, opensanctions, gfp, sipri_arms; owid
+  adds `nuclear_warheads`.
+- `local`: settings `live_military_planes`, `conflict_events_fetch`, `acled_on`,
+  `acled_from_year`, `wars_fetch`, `oryx_backfill`, `outages_fetch`, `ioda_from_year`,
+  `sanctions_now_fetch`, `gfp_fetch`, `gfp_pages_per_refresh`.
+
 ## 1.5.1 (2026-11-01)
 
 No change to the warehouse tables, so existing warehouses stay readable.

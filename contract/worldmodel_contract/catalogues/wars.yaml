@@ -1,0 +1,31 @@
+# Wars followed on the War trackers page (worldmodel_contract.osint.wars).
+#
+# Each war names its two sides (entity ids), when it began, and where each kind of data
+# comes from. Adding a war is adding an entry here; a source key left out means the page
+# leaves that part out for that war.
+#
+#   oryx:      Oryx's pages listing each side's equipment losses with photo or video proof
+#              (side entity id -> page address). Read politely, one page per side.
+#   claimed:   a side's losses as claimed by the other side's government:
+#              {side: entity id whose losses are claimed, by: who claims them, source: source id}
+#   front:     a source of the ground one side holds in the other's country:
+#              {holder: entity id, land_of: entity id, source: source id}
+#   aid:       a source of aid given to one side by other countries: {to: entity id, source: source id}
+
+wars:
+  - id: russia_ukraine
+    name: Russia's war on Ukraine
+    short: Russia–Ukraine
+    sides: [RUS, UKR]
+    began: 2022-02-24
+    note: >-
+      Full-scale invasion from 24 February 2022, after Russia's seizure of Crimea and part of the
+      Donbas in 2014. Oryx counts only losses with photo or video proof, so true losses are higher;
+      the claimed figures are the Ukrainian General Staff's and are not checked.
+    oryx:
+      RUS: https://www.oryxspioenkop.com/2022/02/attack-on-europe-documenting-equipment.html
+      UKR: https://www.oryxspioenkop.com/2022/02/attack-on-europe-documenting-ukrainian.html
+    claimed: {side: RUS, by: UKR, source: ua_claimed_losses}
+    front: {holder: RUS, land_of: UKR, source: deepstate}
+    aid: {to: UKR, source: kiel_ukraine}
+    map: {west: 22, south: 44, east: 41, north: 53}

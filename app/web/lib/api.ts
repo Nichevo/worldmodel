@@ -289,6 +289,17 @@ export type Settings = {
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
   live_planes: boolean; // the map's Planes now layer
   live_ships: boolean; // the map's Ships now layer
+  live_military_planes: boolean; // the map's Military planes now layer (adsb.lol)
+  conflict_events_fetch: boolean; // UCDP located events
+  acled_on: boolean; // ACLED battles, protests and riots (free account)
+  acled_from_year: number;
+  wars_fetch: boolean; // Oryx, claimed losses, DeepState front line
+  oryx_backfill: boolean;
+  outages_fetch: boolean; // IODA and Cloudflare Radar
+  ioda_from_year: number;
+  sanctions_now_fetch: boolean; // OpenSanctions
+  gfp_fetch: boolean; // Global Firepower
+  gfp_pages_per_refresh: number;
   land_history_fetch: boolean; // HYDE land use back to 1700
   land_cities_fetch: boolean; // GHSL urban centres
   land_trees_fetch: boolean; // Global Forest Watch and council tree lists

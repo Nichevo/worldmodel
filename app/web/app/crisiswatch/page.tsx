@@ -6,9 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Help from "@/components/Help";
 import WorldMap, { type Scale } from "@/components/WorldMap";
-import { CW_COLOR, CW_LABEL } from "@/components/CrisisWatchCard";
+import { CW_COLOR, CW_LABEL, monthDetail } from "@/components/CrisisWatchCard";
+import { osintApi, type OsintCwMonth } from "@/lib/osint";
 import { api, type CrisisWatchMonth } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
+import { mapLayersHref } from "@/lib/workspace";
 
 // CrisisWatch on a world map, a month at a time: drag the slider through the months since 2003.
 const ORDER = ["deteriorated", "risk_alert", "unchanged", "improved", "resolution_opportunity"];
@@ -19,11 +21,17 @@ function CrisisWatchPage() {
   const [data, setData] = useState<CrisisWatchMonth | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [month, setMonth] = useState<string | undefined>(params.get("m") ?? undefined);
+  const [detail, setDetail] = useState<OsintCwMonth | null>(null);
   useEffect(() => {
     let live = true;
     api.crisiswatch(month).then((d) => live && setData(d)).catch((e) => live && setError(String(e.message || e)));
     return () => { live = false; };
   }, [month]);
+  useEffect(() => {
+    let live = true;
+    if (data?.month) osintApi.cwMonth(data.month).then((d) => live && setDetail(d)).catch(() => live && setDetail(null));
+    return () => { live = false; };
+  }, [data?.month]);
   // Scores -2..2 (deteriorated .. resolution opportunity), one colour each.
   const scale: Scale = useMemo(() => ({ breaks: [-1.5, -0.5, 0.5, 1.5],
     colors: ORDER.map((k) => cssVar(CW_COLOR[k].slice(4, -1))) }), []);
@@ -70,12 +78,21 @@ function CrisisWatchPage() {
                 <td style={{ whiteSpace: "nowrap" }}><i className="dot" style={{ background: CW_COLOR[r.subkind] }} /> <Link href={`/entity/${r.entity_id}#crisiswatch`}><Flag id={r.entity_id} />{r.name}</Link>
                   {r.place ? <span className="muted"> ({r.place})</span> : null}</td>
                 <td style={{ whiteSpace: "nowrap" }}>{CW_LABEL[r.subkind] ?? r.subkind}</td>
-                <td>{r.detail}</td>
+                <td>{r.detail}
+                  {detail?.countries[r.entity_id] && (
+                    <div className="muted" style={{ marginTop: 3, paddingLeft: 8, borderLeft: "3px solid var(--grid)" }}>
+                      Recorded that month: {monthDetail(detail.countries[r.entity_id]) || "nothing in the event sources"}
+                      {detail.countries[r.entity_id].mismatch ? <> · <b style={{ color: "var(--ink)" }}>Worth a second look: {detail.countries[r.entity_id].mismatch!.toLowerCase()}</b></> : null}
+                    </div>
+                  )}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="caption">International Crisis Group, CrisisWatch. An entry covering two countries (Israel/Palestine, say) shows on both.</p>
+        <p className="caption">International Crisis Group, CrisisWatch. An entry covering two countries (Israel/Palestine, say) shows on both.
+          Under each rating, what UCDP, ACLED, the internet-outage monitors and OpenSanctions recorded in the same month; &quot;worth a second look&quot;
+          marks a rating that points the other way from the recorded violence against the three months before.
+          {" "}<Link href={mapLayersHref("34w", `${data.month}-01~${new Date(Date.UTC(+data.month!.slice(0, 4), +data.month!.slice(5, 7), 0)).toISOString().slice(0, 10)}`)}>This month&apos;s fighting and unrest on the map →</Link></p>
       </div>
     </div>
   );

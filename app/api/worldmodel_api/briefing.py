@@ -39,6 +39,7 @@ KIND_GROUP = {
     "leader": "politics", "summit": "politics", "un": "politics", "court": "politics", "treaty": "politics",
     "disaster": "hazard", "earthquake": "hazard", "storm": "hazard", "epidemic": "hazard",
     "crisis": "economy", "recession": "economy", "imf": "economy", "trade_dispute": "economy",
+    "outage": "conflict",
 }
 
 # Kinds that are not news on a map or in a briefing: long episodes worked out from yearly data,
