@@ -151,7 +151,8 @@ def test_verify_lists_the_pages_with_person_checks():
     from worldmodel_data.connectors import CONNECTORS
 
     ts = verify.targets(date(2026, 11, 6))
-    assert {t.source for t in ts} == {"rbnz", "mbie_energy", "un_vetoes", "wto_disputes", "crisiswatch"}
+    assert {t.source for t in ts} == {"rbnz", "mbie_energy", "un_vetoes", "wto_disputes", "crisiswatch", "oryx", "gfp"}
+    assert [t.key for t in ts if t.source == "gfp" and not t.only_by_name][:2] == ["gfp", "gfp_new-zealand"]
     assert all(t.source in CONNECTORS for t in ts)
     assert [t.save_as for t in ts if t.key == "crisiswatch"] == ["october-2026.html", "september-2026.html"]
     assert [t.key for t in ts if t.pdf_archive] == ["crisiswatch_pdf"]

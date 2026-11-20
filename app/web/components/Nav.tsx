@@ -17,7 +17,9 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/briefing", label: "Briefing", hint: "Everything new since the last refresh, in four lanes" },
     { href: "/discover", label: "Discover", hint: "Interesting finds in the data, and the news" },
     { href: "/events", label: "Events", hint: "Elections, coups, disasters and other dated events" },
-    { href: "/crisiswatch", label: "CrisisWatch", hint: "Crisis Group's monthly ratings, on a map" },
+    { href: "/crisiswatch", label: "CrisisWatch", hint: "Crisis Group's monthly ratings, on a map, with what was recorded each month" },
+    { href: "/wars", label: "War trackers", hint: "Equipment lost (seen and claimed), the front line day by day and aid given" },
+    { href: "/sanctions", label: "Sanctions now", hint: "Who sanctions whom today, by target country and list (OpenSanctions); search a name" },
   ] },
   { label: "Explore", hint: "Maps, comparisons and topic pages", links: [
     { href: "/", label: "Map" },
@@ -42,6 +44,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/laws", label: "Laws" },
     { href: "/zones", label: "Beyond borders" },
     { href: "/space", label: "Solar system", hint: "Planets on any date, asteroids by what they are made of, and where spacecraft have flown" },
+    { href: "/military", label: "Military strength", hint: "Troops, aircraft, tanks, ships and budgets side by side, with ranks (Global Firepower)" },
     { href: "/relationships", label: "Relationships" },
   ] },
   { label: "Predict", hint: "Your predictions, crowd forecasts, forecasts and what-if", links: [

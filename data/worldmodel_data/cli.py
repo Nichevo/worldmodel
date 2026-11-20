@@ -692,8 +692,9 @@ def scrape(names: Optional[list[str]] = typer.Argument(None, help="Sources to re
 
 @app.command()
 def verify(names: Optional[list[str]] = typer.Argument(None, help="Sources to open (default: all): rbnz mbie_energy "
-                                                                 "un_vetoes wto_disputes crisiswatch; crisiswatch_pdf "
-                                                                 "(the PDF archive since 2003) only when named"),
+                                                                 "un_vetoes wto_disputes crisiswatch oryx gfp; crisiswatch_pdf "
+                                                                 "(the PDF archive since 2003) and gfp_<country> pages beyond "
+                                                                 "the key four (gfp_china, say) only when named"),
            wait: int = typer.Option(240, help="Seconds to wait on each page while you complete a check."),
            pdfs: int = typer.Option(40, help="PDFs of an archive opened in one run (it carries on next time).")):
     """Open the sites that turn programs away in a browser window on your screen, one page at
