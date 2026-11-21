@@ -477,7 +477,8 @@ class FAOSTAT(Connector):
     source_id = "faostat"
     # 3: production in tonnes only (eggs also come as counts); 4: forestry in cubic metres again (3 dropped it);
     # 5: land use, live animals, dairy cows, area harvested and nitrogen per hectare (version 4, PR 6)
-    stage_version = 6  # 6: land cover shares by year from ESA's satellite maps (lc_*_pct)
+    stage_version = 7  # 6: land cover shares by year from ESA's satellite maps (lc_*_pct); 7: land areas allow world and region
+    # totals (the world has about 13 billion hectares of land; the old upper bound of 2 billion fitted one country only)
     fetch_version = 3  # 2: the land use file; 3: the land cover file
     fetch_every_days = 90
 
@@ -593,7 +594,7 @@ def fao_land_indicators(source_id: str, found: set[str]) -> list[dict]:
     for ind, name in FAO_LAND.values():
         if ind in found:
             out.append(indicator(ind, f"{name} (FAOSTAT)", f"{name} in hectares, FAOSTAT land use (from 1961).", "ha", "land",
-                                 source_id, ind, decimals=0, bounds=(0, 2e9), aggregation={"method": "sum"}, notes=note,
+                                 source_id, ind, decimals=0, bounds=(0, 2e10), aggregation={"method": "sum"}, notes=note,
                                  default_on=ind in ("land_forest_ha", "land_agri_ha", "land_cropland_ha", "land_pasture_ha")))
     for base, ind in FAO_LAND_SHARES.items():
         if ind in found:
