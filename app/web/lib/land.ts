@@ -8,6 +8,10 @@ import { cssVar, seriesColor } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 
 export type Pt = [number, number];
+// Colours for the kinds of land cover (ESA satellite maps via FAOSTAT), shared by the Land cover
+// card and the side-by-side comparison.
+export const COVER_COLOURS: Record<string, string> = { trees: "#1b5e20", shrub: "#8aa66b", grass: "#a9d18e", crops: "#d29a00",
+  built: "#c0392b", bare: "#b08a5a", snow: "#9fb6c3", water: "#2f7fc1" };
 export type LandOverview = { entity: string; series: Record<string, Pt[]>; names: IndicatorNames; modelled_before: number; hyde: string[] };
 export type LandRanking = { indicator: string; start: number; end: number;
   rows: { entity_id: string; name: string; from: number; to: number; change: number; pct: number | null }[] };
