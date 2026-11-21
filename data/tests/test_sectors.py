@@ -186,3 +186,13 @@ def test_anz_reads_other_layouts():
     got = {i: v for i, _, v in anz_rows(table)}
     assert got == {"anz_dairy": 1, "anz_forestry": 2, "anz_seafood": 3, "anz_dairy_nzd": 4, "anz_forestry_nzd": 5, "anz_seafood_nzd": 6}
     assert _month("2026M10").isoformat() == "2026-10-01" and _month("10/2026").month == 10 and _month("Oct-99").year == 1999
+
+
+def test_fao_land_bounds_fit_world_totals():
+    """FAOSTAT also gives world, continent and G20 totals: the world has about 13 billion hectares of land."""
+    from worldmodel_data.connectors.sectors import fao_land_indicators
+
+    found = {"land_area_ha", "land_agri_ha", "land_forest_ha"}
+    for ind in fao_land_indicators("faostat", found):
+        if ind["unit"] == "ha":
+            assert ind["bounds"][1] >= 1.4e10, ind

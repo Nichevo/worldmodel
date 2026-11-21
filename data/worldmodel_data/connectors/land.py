@@ -280,7 +280,7 @@ class HYDELand(Connector):
         self.listed_indicators = [
             indicator(i, n, f"{d}, in hectares, from {HYDE_FROM} (HYDE 3.3). Before FAOSTAT starts in 1961 these are "
                       "modelled from population and historical maps, so treat them as rough.", "ha", "land", self.source_id,
-                      i, decimals=0, bounds=(0, 2e9), aggregation={"method": "sum"}, default_on=False,
+                      i, decimals=0, bounds=(0, 2e10), aggregation={"method": "sum"}, default_on=False,
                       notes="HYDE 3.3 (Klein Goldewijk et al.), via Our World in Data.")
             for i, (n, d) in names.items() if i in used]
         return rows.stage(con, self.source_id, vintage)
@@ -550,7 +550,7 @@ class GFWTreeCover(Connector):
         note = "Global Forest Watch (Hansen/UMD/Google/USGS/NASA), trees taller than 5 m covering 30% or more of a 30 m cell."
         self.listed_indicators = [
             indicator("gfw_tree_cover_ha", "Tree cover (Global Forest Watch)", "Area with tree canopy of 30% or more, in 2000 "
-                      "and 2010.", "ha", "land", self.source_id, "gfw_tree_cover_ha", decimals=0, bounds=(0, 2e9),
+                      "and 2010.", "ha", "land", self.source_id, "gfw_tree_cover_ha", decimals=0, bounds=(0, 2e10),
                       aggregation={"method": "sum"}, notes=note),
             indicator("gfw_tree_cover_pct", "Tree cover, share of land (Global Forest Watch)", "Tree cover (30% canopy) as a "
                       "share of the country's land, 2000 and 2010.", "%", "land", self.source_id, "gfw_tree_cover_pct",
