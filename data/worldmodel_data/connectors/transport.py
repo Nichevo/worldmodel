@@ -621,6 +621,7 @@ class EurostatWaterways(Connector):
     source_id = "eurostat_waterways"
     switch = "transport_waterways_fetch"
     fetch_every_days = 182
+    stage_version = 2  # 2: only the all-goods, all-packaging total (the table also splits by type of goods and container)
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -629,7 +630,8 @@ class EurostatWaterways(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        url = EUROSTAT.format(code="iww_go_atygo", query=urlencode({"format": "JSON", "lang": "EN", "unit": "THS_T", "tra_cov": "TOTAL"}))
+        url = EUROSTAT.format(code="iww_go_atygo", query=urlencode({"format": "JSON", "lang": "EN", "unit": "THS_T", "tra_cov": "TOTAL",
+                                                                  "nst07": "TOTAL", "typpack": "TOTAL"}))
         self.get(url, raw_dir / "eurostat_iww_go_atygo.json")
         return url
 
@@ -640,7 +642,9 @@ class EurostatWaterways(Connector):
         rows = Rows()
         for cell, v in jsonstat_rows(json.loads(p.read_text(encoding="utf-8"))):
             ent, year = eu_entity(cell.get("geo") or ""), num(cell.get("time"))
-            if ent and year is not None and (cell.get("tra_cov") in (None, "TOTAL")):
+            # The table splits the total by type of goods (nst07) and by container (typpack), and
+            # earlier downloads asked for every split: keep only the cell that is the total of each.
+            if ent and year is not None and all(cell.get(d) in (None, "TOTAL") for d in ("tra_cov", "nst07", "typpack")):
                 rows.add("iso3", ent, "inland_waterway_freight", int(year), v * 1000)
         self.listed_indicators = [indicator(
             "inland_waterway_freight", "Freight carried on rivers and canals", "Tonnes of goods carried on the country's "
