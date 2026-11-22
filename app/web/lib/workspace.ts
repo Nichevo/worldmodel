@@ -287,6 +287,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "L", id: "shipping_lanes", label: "Shipping lanes", group: "transport" },
   { letter: "A", id: "airports", label: "Airports", group: "transport", hint: "Large and medium airports with scheduled flights (OurAirports)" },
   { letter: "I", id: "waterways", label: "Inland waterways", group: "transport", hint: "Rivers and canals ships use: the US network, Europe's classed waterways and about 30 big rivers" },
+  { letter: "6", id: "railways", label: "Railways", group: "transport", hint: "Intercity and freight railway lines across each country (Natural Earth); city metro lines are under People and places" },
   { letter: "K", id: "cables", label: "Undersea cables", group: "transport", hint: "Internet cables (TeleGeography); click one for the countries that rely on it" },
   { letter: "J", id: "cable_landings", label: "Cable landing points", group: "transport" },
   { letter: "G", id: "gas_pipelines", label: "Gas pipelines", group: "transport", hint: "Operating and planned (Global Energy Monitor, files saved by hand); click one for its countries" },

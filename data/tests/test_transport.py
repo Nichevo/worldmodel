@@ -19,7 +19,7 @@ from worldmodel_data.vintage_store import VintageStore
 FIXTURES = Path(__file__).parent / "fixtures"
 SOURCES = ("un_wpp", "portwatch", "world_port_index", "shipping_lanes", "ourairports", "airport_traffic",
            "eurostat_waterways", "taic_inquiries", "unesco_heritage", "un_tourism", "wef_ttdi", "nz_tourism",
-           "hydrosheds", "waterways", "submarine_cables", "gem_infrastructure")
+           "hydrosheds", "waterways", "submarine_cables", "gem_infrastructure", "ne_railways")
 
 
 @pytest.fixture(scope="module")
@@ -177,3 +177,12 @@ def test_waterways_cables_pipelines(built):
     assert _geo(con, "oil_pipelines")["O0001"][0] == "Refinery to Auckland Pipeline"
     lng = {f["properties"]["name"]: f["properties"] for f in _layer(con, "lng_terminals")}
     assert lng["Gladstone LNG"]["capacity"] == 7.8 and lng["Marsden Point LNG"]["status"] == "proposed"
+
+
+def test_railways(built):
+    _, con = built
+    geo = _geo(con, "railways")
+    assert geo and all(name == "Railways" for name, _, _ in geo.values())
+    ranks = {props["rank"] for _, props, _ in geo.values()}
+    assert ranks == {1, 2, 3}  # the fixture has New Zealand lines from scalerank 5 to 10
+    assert any("NZL" in (c or "") for _, _, c in geo.values())
