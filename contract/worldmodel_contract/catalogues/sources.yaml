@@ -2272,6 +2272,21 @@
   standing: 3
   definition: established
 
+- id: ne_railways
+  name: Natural Earth railroads (the world's railway lines)
+  short_name: Natural Earth railroads
+  publisher: Natural Earth
+  url: https://www.naturalearthdata.com/downloads/10m-cultural-vectors/railroads/
+  licence: Public domain
+  licence_url: https://www.naturalearthdata.com/about/terms-of-use/
+  commercial_use: true
+  cadence: Rarely changes; read yearly
+  attribution: "Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: established
+
 - id: gem_infrastructure
   name: Global Energy Monitor gas and oil pipelines and LNG terminals
   short_name: GEM pipelines and LNG

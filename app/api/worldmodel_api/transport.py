@@ -36,6 +36,7 @@ GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom be
     "basins": ("River basins", [(3, 1), (5, 2), (99, 3)], 1500),
     "waterways": ("Inland waterways", [(4, 1), (99, 3)], 4000),
     "cables": ("Undersea cables", [(99, 9)], 1500),
+    "railways": ("Railways", [(3.5, 1), (5, 2), (99, 3)], 3000),
     "gas_pipelines": ("Gas pipelines", [(3, 1), (99, 5)], 4000),
     "oil_pipelines": ("Oil pipelines", [(3, 1), (99, 5)], 4000),
     "urban_centres": ("City outlines", [(3, 1), (5, 2), (99, 3)], 3000),
