@@ -17,6 +17,7 @@ from worldmodel_data.connectors.crisiswatch import CrisisWatch
 from worldmodel_data.connectors.education import UNDPHDR, Wittgenstein
 from worldmodel_data.connectors.crises import CrisisHistory
 from worldmodel_data.connectors.crowd import ViEWS, Manifold, Metaculus, Polymarket
+from worldmodel_data.connectors.pundits import PredictionArchive
 from worldmodel_data.connectors.iea_data import IEAData
 from worldmodel_data.connectors.history import Cliopatria, NOAAHazards, OWIDLongRun, WikidataHistory
 from worldmodel_data.connectors.emdat import EMDAT
@@ -58,7 +59,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
     GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WHOAirQuality, TomTomTraffic, MarineRegionsEEZ, VatsimAirspace,
-    UCDPGED, UCDPCandidate, ACLED, Oryx, UAClaimedLosses, DeepState, KielUkraine, IODA, CloudflareRadar, KeepItOn,
+    UCDPGED, UCDPCandidate, ACLED, Oryx, UAClaimedLosses, DeepState, KielUkraine, PredictionArchive, IODA, CloudflareRadar, KeepItOn,
     OpenSanctions, GlobalFirepower, SIPRIArms, WikidataPlaces,
     UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat,
     NagerHolidays, WBL, UNODCCrime, RulesCurated, WorldPolicy, GunPolicy, WorldPrisonBrief,

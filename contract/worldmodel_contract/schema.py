@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.12.0"
+SCHEMA_VERSION = "1.13.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -382,6 +382,26 @@ TABLES: dict[str, Table] = {
             "SIPRI's trade register of major arms: who supplied what to whom, when ordered and delivered, how many, and "
             "SIPRI's trend-indicator value (tiv, millions, a measure of military capability transferred, not price). "
             "supplier and recipient are entity ids (or a name where SIPRI's is not a country). Absent before 1.12.0."),
+        Table("pundits", {
+            "predictor_id": "VARCHAR", "name": "VARCHAR", "about": "VARCHAR", "site_rank": "INTEGER", "accuracy": "DOUBLE",
+            "correct": "INTEGER", "incorrect": "INTEGER", "indeterminate": "INTEGER", "pending": "INTEGER", "total": "INTEGER",
+            "calls_held": "INTEGER", "from_site": "BOOLEAN", "url": "VARCHAR", "seen": "DATE", "source_id": "VARCHAR",
+            "vintage": "VARCHAR",
+        }, ("predictor_id",),
+            "Named forecasters on Prediction Archive and how their calls were graded by the site's AI reader: accuracy is "
+            "correct / (correct + incorrect), indeterminate calls left out. from_site is true when the counts are the "
+            "site's own (from its ranking or the forecaster's page), false when counted from the calls saved here only. "
+            "site_rank is the site's Wilson-score rank. Absent before 1.13.0."),
+        Table("pundit_calls", {
+            "call_key": "VARCHAR", "prediction_id": "VARCHAR", "predictor_id": "VARCHAR", "predictor": "VARCHAR",
+            "title": "VARCHAR", "made": "DATE", "outcome": "VARCHAR", "next_check": "DATE", "evaluated": "DATE",
+            "verbatim": "VARCHAR", "reasoning": "VARCHAR", "checked_against": "INTEGER", "source_url": "VARCHAR",
+            "source_title": "VARCHAR", "horizon": "VARCHAR", "countries": "VARCHAR", "category": "VARCHAR", "url": "VARCHAR",
+            "seen": "DATE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("call_key",),
+            "One forecaster's call on Prediction Archive: outcome is correct, incorrect, indeterminate, pending or empty "
+            "(seen only in search results); countries is a comma list of entity ids named in the title. url is the "
+            "call's own page when known, else a site search for its title. Absent before 1.13.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

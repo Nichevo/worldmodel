@@ -262,6 +262,23 @@ HISTORY_COLUMNS.update({
     },
 })
 
+HISTORY_COLUMNS.update({
+    # Pundits (connectors/pundits.py): Prediction Archive pages saved by hand; made into the
+    # warehouse tables pundits and pundit_calls by crowd_tables.py.
+    "pundit_scores": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "predictor_id": "VARCHAR", "name": "VARCHAR", "about": "VARCHAR",
+        "rank": "INTEGER", "accuracy": "DOUBLE", "correct": "DOUBLE", "incorrect": "DOUBLE", "indeterminate": "DOUBLE",
+        "evaluated": "DOUBLE", "total": "DOUBLE", "pending": "DOUBLE", "seen": "DATE", "page": "VARCHAR",
+    },
+    "pundit_calls": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "call_key": "VARCHAR", "prediction_id": "VARCHAR",
+        "predictor_id": "VARCHAR", "predictor": "VARCHAR", "title": "VARCHAR", "made": "DATE", "outcome": "VARCHAR",
+        "next_check": "DATE", "evaluated": "DATE", "verbatim": "VARCHAR", "reasoning": "VARCHAR",
+        "checked_against": "INTEGER", "source_url": "VARCHAR", "source_title": "VARCHAR", "web_content_id": "VARCHAR",
+        "horizon": "VARCHAR", "first_seen": "DATE", "seen": "DATE", "page": "VARCHAR",
+    },
+})
+
 # city_values.parquet beside a vintage: figures about cities as the source names them
 # (with its country's entity id and, where known, location). The build matches each to a city.
 CITY_VALUE_COLUMNS = {
