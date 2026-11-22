@@ -45,6 +45,11 @@ function LandView() {
   const go = (t: Tab) => { setTab(t); router.replace(`/land?tab=${t}${entity !== "world" ? `&country=${entity}` : ""}`, { scroll: false }); };
   const pickCountry = (c: string) => { setEntity(c); router.replace(`/land?tab=${tab}${c !== "world" ? `&country=${c}` : ""}`, { scroll: false }); };
   useEffect(() => { logHistory({ kind: "page", title: "Land", url: "/land", detail: "page" }); }, []);
+  // Links within the page (a country in "Biggest changes", say) change the address only: follow it.
+  const urlTab = params.get("tab") as Tab | null;
+  const urlCountry = params.get("country");
+  useEffect(() => { if (urlTab && TABS.some(([t]) => t === urlTab)) setTab(urlTab); }, [urlTab]);
+  useEffect(() => { setEntity(urlCountry ?? "world"); }, [urlCountry]);
   return (
     <div className="grid sector-page">
       <div className="title-row"><h1>Land</h1>
