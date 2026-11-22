@@ -2384,7 +2384,28 @@ def crowd_events():
 @api.get("/crowd/country/{entity_id}")
 def crowd_country(entity_id: str):
     """A country page's "What the crowd expects" card: its busiest open questions and ViEWS conflict forecasts."""
-    return crowd.country(rows, entity_id, hide=crowd_terms.load_follow()["hide"])
+    out = crowd.country(rows, entity_id, hide=crowd_terms.load_follow()["hide"])
+    out["pundits"] = crowd.pundit_country(rows, entity_id)
+    return out
+
+
+@api.get("/crowd/pundits")
+def crowd_pundits(country: str | None = None, q: str | None = None, min_graded: int = Query(10, ge=0, le=10000),
+                  sort: Literal["accuracy", "graded", "rank", "name", "pending"] = "accuracy", limit: int = Query(200, ge=1, le=2000)):
+    """Pundits: named forecasters on Prediction Archive (pages saved by hand) with their hit rates, their open
+    calls on your key countries (Settings > Discover) or on `country`, and calls graded lately."""
+    s = userdata.settings()
+    keys = [k for k in (s.get("discover_key_countries") or "").split(",") if k] or ["NZL", "AUS", "GBR", "USA"]
+    return crowd.pundits(rows, countries=keys, country=country, q=q, min_graded=min_graded, sort=sort, limit=limit)
+
+
+@api.get("/crowd/pundits/{predictor_id}")
+def crowd_pundit(predictor_id: str):
+    """One forecaster on Prediction Archive and every call of theirs held."""
+    got = crowd.pundit(rows, predictor_id)
+    if got is None:
+        raise HTTPException(404, f"no forecaster {predictor_id}")
+    return got
 
 
 @api.get("/crowd/conflict")

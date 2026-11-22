@@ -117,6 +117,11 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"Crowd forecasts: {crw['crowd_questions']:,} questions, {crw['crowd_points']:,} "
                                               f"saved chances, {crw['crowd_comments']:,} comments, {crw['crowd_mine']:,} of your "
                                               f"forecasts; {crw['conflict_forecasts']:,} ViEWS country months"))
+                pdt = crowd_tables.compute_pundits(con)
+                if any(pdt.values()):
+                    checks.append(gates.Check("pundits:loaded", "crowd", "info",
+                                              f"Pundits: {pdt['pundits']:,} forecasters, {pdt['pundit_calls']:,} calls "
+                                              "from saved Prediction Archive pages"))
                 osn = osint_tables.compute(con)
                 if any(osn.values()):
                     checks.append(gates.Check("osint:loaded", "osint", "info",

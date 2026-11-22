@@ -155,7 +155,7 @@ def categorise(text: str, tags: list[str], site: str) -> str | None:
     tags = {t.lower() for t in tags or []}
     if GEO_STRONG.search(text or ""):
         return "geopolitics"
-    for cat, by_site in ((c, SITE_TAGS[site].get(c, [])) for c in CATEGORIES):
+    for cat, by_site in ((c, SITE_TAGS.get(site, {}).get(c, [])) for c in CATEGORIES):
         if tags & set(by_site):
             return cat
     for cat, words in CATEGORY_WORDS.items():

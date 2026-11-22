@@ -3,6 +3,14 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.13.0 (2026-11-23)
+
+- New tables `pundits` (named forecasters on Prediction Archive, with their graded counts
+  and accuracy) and `pundit_calls` (their calls: outcome, dates, the words used, the
+  grader's reasoning, countries named). Both absent before 1.13.0; readers should treat
+  them as empty.
+- New source: prediction_archive (pages saved by hand).
+
 ## 1.12.0 (2026-11-21)
 
 - New tables `conflict_events` (located events from UCDP GED, UCDP Candidate and ACLED),
