@@ -1,6 +1,6 @@
 @echo off
 rem Sites that turn programs away with an "are you a person?" check (RBNZ, MBIE, UN, WTO,
-rem CrisisWatch, Oryx, Global Firepower): opens each page in your own Edge (or Chrome) window. Complete any check
+rem CrisisWatch, Oryx, Global Firepower, Prediction Archive): opens each page in your own Edge (or Chrome) window. Complete any check
 rem yourself; each page or file is saved into var\manual and loaded, then the app is rebuilt.
 rem   .\verify.bat                 every such site
 rem   .\verify.bat rbnz crisiswatch   only these
