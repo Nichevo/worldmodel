@@ -2485,6 +2485,26 @@
     get: https://api.manifold.markets/v0/search-markets?term=&filter=open
     what: "Read through the public API; nothing to save by hand."
 
+- id: prediction_archive
+  name: Prediction Archive (named forecasters' calls, graded by an AI reader)
+  short_name: Prediction Archive
+  publisher: PredictionArchive
+  url: https://predictionarchive.com
+  licence: Site terms of use (pages saved by hand for personal use; no download or API offered)
+  licence_url: https://predictionarchive.com/terms-of-service
+  commercial_use: false
+  cadence: New calls and grades daily; save pages whenever you like (a month is plenty)
+  attribution: "Forecasters' calls and grades from PredictionArchive (predictionarchive.com)."
+  status: active
+  default_rank: 8
+  standing: 2
+  definition: exploratory
+  manual:
+    by_hand: true
+    files: ["*PredictionArchive*.htm", "*PredictionArchive*.html"]
+    get: https://predictionarchive.com/top-predictors
+    what: "The site turns programs away, so save its pages yourself: in Edge press Ctrl+S and keep the name it offers (ending '_ PredictionArchive'). Save the Top Predictors page, the page of each forecaster you care about (click Pending first to list their open calls), any prediction pages, and searches such as 'New Zealand'. Every saved page is loaded together, so keep them all. .\\verify.bat prediction_archive opens the ranking and a search for each of your key countries for you."
+
 - id: views
   name: ViEWS conflict forecasts (Uppsala University and PRIO)
   short_name: ViEWS

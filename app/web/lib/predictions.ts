@@ -59,8 +59,18 @@ export type CrowdEvents = { score_days: number; n: number;
     surprise: boolean }[];
   by_category: { key: string; n: number; brier: number | null; surprises: number; median_lead: number | null }[];
   by_site: { key: string; n: number; brier: number | null; surprises: number; median_lead: number | null }[] };
-export type CrowdCountry = { entity_id: string; questions: CrowdQ[];
+export type CrowdCountry = { entity_id: string; questions: CrowdQ[]; pundits?: PunditCall[];
   views: { months: { month: string; deaths: number | null; chance_25: number | null }[]; deaths_12: number; max_chance: number } | null };
+export type PunditCall = { call_key: string; prediction_id: string | null; predictor_id: string | null; predictor: string | null;
+  title: string; made: string | null; outcome: "correct" | "incorrect" | "indeterminate" | "pending" | null; next_check: string | null;
+  evaluated: string | null; verbatim: string | null; reasoning: string | null; checked_against: number | null; source_url: string | null;
+  source_title: string | null; horizon: string | null; countries: string[]; category: string | null; url: string; seen: string | null;
+  accuracy?: number | null; graded?: number | null };
+export type Pundit = { predictor_id: string; name: string; about: string | null; site_rank: number | null; accuracy: number | null;
+  correct: number | null; incorrect: number | null; indeterminate: number | null; pending: number | null; total: number | null;
+  calls_held: number; from_site: boolean; url: string | null; seen: string | null; graded: number; open_held: number };
+export type PunditsView = { loaded: boolean; people: Pundit[]; hidden: number; min_graded: number; open: PunditCall[]; graded: PunditCall[];
+  countries: string[]; key_countries: string[]; n_people: number; n_calls: number; seen: string | null };
 export type ConflictRow = { entity_id: string; deaths: number; chance: number; first: string; run: string };
 
 export const pred = {
@@ -87,7 +97,17 @@ export const crowdApi = {
   events: () => get<CrowdEvents>("/crowd/events"),
   country: (id: string) => get<CrowdCountry>(`/crowd/country/${id}`),
   conflict: () => get<{ rows: ConflictRow[] }>("/crowd/conflict"),
+  pundits: (q: Record<string, string | number | undefined> = {}) => get<PunditsView>("/crowd/pundits", q),
+  pundit: (id: string) => get<Pundit & { calls: PunditCall[] }>(`/crowd/pundits/${encodeURIComponent(id)}`),
 };
+
+/** The 95% Wilson interval of a hit rate: how sure it is, given how many calls were graded. */
+export function wilson(hits: number, n: number): [number, number] | null {
+  if (!n) return null;
+  const z = 1.96, p = hits / n, d = 1 + (z * z) / n;
+  const mid = (p + (z * z) / (2 * n)) / d, half = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / d;
+  return [Math.max(0, mid - half), Math.min(1, mid + half)];
+}
 
 export const pct = (v: number | null | undefined, d = 0) => (v == null ? "–" : `${(v * 100).toFixed(d)}%`);
 export const pts = (v: number | null | undefined) => (v == null || Math.abs(v) < 0.005 ? "" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)} pts`);

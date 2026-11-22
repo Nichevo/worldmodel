@@ -1468,3 +1468,21 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .lc-chip { display: inline-flex; align-items: center; gap: 6px; border-width: 2px; }
 .lc-table tr.on td { background: var(--grid); }
 @media (max-width: 600px) { .lc-body { flex-direction: column; } .lc-map { width: 100%; } .lc-bar-col { flex: none; } }
+
+/* Pundits (Crowd > Pundits, country crowd card) */
+.pundit-calls { display: grid; gap: 4px; }
+.pundit-call { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 0.9rem; }
+.pundit-call .meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.pundit-call .meta button.link { font-size: inherit; padding: 0; }
+.pundit-more { margin-top: 4px; padding-left: 8px; border-left: 3px solid var(--border); }
+.pundit-more p { margin: 4px 0; }
+.pundit-badge { display: inline-block; font-size: 0.72rem; padding: 0 6px; border-radius: 8px; border: 1px solid currentColor; white-space: nowrap; margin-left: 4px; }
+.pundit-badge.good { color: var(--good); }
+.pundit-badge.bad { color: var(--bad); }
+.pundit-badge.muted { color: var(--muted); }
+.pundit-hit { display: grid; grid-template-columns: 110px 3.2em auto; gap: 6px; align-items: center; white-space: nowrap; }
+.pundit-hit .fill.good { background: var(--good); }
+.pundit-hit .fill.bad { background: var(--bad); }
+.pundit-hit .fill.muted { background: var(--muted); opacity: 0.5; }
+.pundit-table td { vertical-align: top; }
+.pundit-person { padding: 4px 0 8px; }

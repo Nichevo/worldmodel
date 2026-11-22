@@ -62,6 +62,33 @@ def _crisiswatch(today: date) -> list[Target]:
     return out
 
 
+def _pundits() -> list[Target]:
+    """Prediction Archive: its ranking, and a search for each of your key countries (Settings > Discover)."""
+    from urllib.parse import quote_plus
+
+    from worldmodel_data.connectors.pundits import RANKING, SEARCH
+
+    try:
+        from worldmodel_contract.catalogue import entities
+        from worldmodel_contract.local import load_settings
+        from worldmodel_data.config import paths
+
+        keys = [k for k in str(load_settings(paths().home).get("discover_key_countries") or "").split(",") if k]
+        names = {k: e.short_name or e.name for k, e in entities().items()}
+    except Exception:  # noqa: BLE001 - settings or catalogue unreadable: the usual four
+        keys, names = [], {}
+    keys = keys or ["NZL", "AUS", "GBR", "USA"]
+    names = {"NZL": "New Zealand", "AUS": "Australia", "GBR": "United Kingdom", "USA": "United States", **names}
+    out = [Target("prediction_archive", "Prediction Archive: Top Predictors", RANKING, "Top Predictors _ PredictionArchive.htm",
+                  r"(?i)<small>\s*Ranking\s*</small>", name="prediction_archive")]
+    for k in keys[:8]:
+        name = names.get(k.upper())
+        if name:
+            out.append(Target("prediction_archive", f"Prediction Archive: calls about {name}", SEARCH.format(q=quote_plus(name)),
+                              f"Search {name} _ PredictionArchive.htm", r"(?i)Showing Results for", name="prediction_archive"))
+    return out
+
+
 def targets(today: date | None = None) -> list[Target]:
     from worldmodel_contract import osint
     from worldmodel_data.connectors.crisiswatch import ARCHIVE as CW_ARCHIVE
@@ -89,6 +116,7 @@ def targets(today: date | None = None) -> list[Target]:
         Target("gfp", "Global Firepower countries listing", GFP_LISTING, "gfp_listing.html", r"country_id="),
         *[Target("gfp", f"Global Firepower: {slug}", f"{GFP}country-military-strength-detail.php?country_id={slug}", f"gfp_{slug}.html",
                  r"(?i)military strength", name=f"gfp_{slug}", only_by_name=slug not in KEY_FIRST[:4]) for slug in KEY_FIRST],
+        *_pundits(),
     ]
 
 

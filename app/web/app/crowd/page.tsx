@@ -8,6 +8,7 @@ import CrowdRow from "@/components/CrowdRow";
 import CrowdTopics from "@/components/CrowdTopics";
 import CountryChoice from "@/components/CountryChoice";
 import Flag from "@/components/Flag";
+import PunditsTab from "@/components/PunditsTab";
 import WorldMap from "@/components/WorldMap";
 import { logHistory } from "@/lib/history";
 import { CATEGORY_TEXT, type ConflictRow, crowdApi, type CrowdEvents, type CrowdList, type CrowdQ, pct } from "@/lib/predictions";
@@ -16,13 +17,14 @@ import { useSettings } from "@/lib/settings";
 // Crowd forecasts: Polymarket, Metaculus and Manifold questions matched to countries and
 // indicators, the biggest moves, how the crowd did on what happened, and ViEWS conflict forecasts.
 
-type Tab = "topics" | "questions" | "moves" | "events" | "conflict";
-const TABS: [Tab, string][] = [["topics", "By topic"], ["questions", "Every question"], ["moves", "Biggest moves"], ["events", "Events against predictions"], ["conflict", "Conflict forecasts"]];
+type Tab = "topics" | "questions" | "moves" | "events" | "pundits" | "conflict";
+const TABS: [Tab, string][] = [["topics", "By topic"], ["questions", "Every question"], ["moves", "Biggest moves"], ["events", "Events against predictions"], ["pundits", "Pundits"], ["conflict", "Conflict forecasts"]];
 const INTRO: Record<Tab, string> = {
   topics: "The busiest open questions on each topic and your country, the crowd's chance as a bar, your own forecast marked where you made one, and the move this week.",
   questions: "Questions from Polymarket (a betting market), Metaculus (a forecasting community) and Manifold (play-money markets) on politics, economics, geopolitics, climate and science, matched to the countries and indicators they are about. Sport, crypto and entertainment are left out.",
   moves: "Open yes/no questions whose chance moved most, from the chances the app saves at each refresh.",
   events: "Questions that have resolved: what the crowd said beforehand, when it first leaned the right way, and the surprises.",
+  pundits: "Named forecasters (commentators, economists, officials) and how often their calls came true, as graded by Prediction Archive, with their open calls on your key countries. From Prediction Archive pages you save.",
   conflict: "ViEWS (Uppsala and the Peace Research Institute Oslo) forecasts deaths in state-based conflict for every country, month by month, for the next three years.",
 };
 const NOT_LOADED = <p>No crowd questions stored yet. They come with <code>.\refresh.bat</code>; Metaculus needs a free token
@@ -51,6 +53,7 @@ function CrowdView() {
       {tab === "questions" && <QuestionsTab key={`${filter.category}|${filter.country}`} country={filter.country} category={filter.category} />}
       {tab === "moves" && <MovesTab />}
       {tab === "events" && <EventsTab />}
+      {tab === "pundits" && <PunditsTab country={filter.country} />}
       {tab === "conflict" && <ConflictTab />}
     </div>
   );

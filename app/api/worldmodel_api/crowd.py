@@ -257,3 +257,65 @@ def briefing_cards(rows: Rows, card, *, key_countries: list[str], follow: list[s
                 day=(c.get("closes") or "")[:10], entities=c["countries"], source=c["site_name"], url=c["url"],
                 href=f"/crowd/question?key={c['question_key']}", group="crowd") for c in closing(rows, follow)]
     return happening, due
+
+
+# ----------------------------------------------------------------------------- Pundits (Prediction Archive)
+def _call(r: dict) -> dict:
+    r = dict(r)
+    r["countries"] = [c for c in (r.get("countries") or "").split(",") if c]
+    for k in ("made", "next_check", "evaluated", "seen"):
+        if r.get(k) is not None:
+            r[k] = str(r[k])[:10]
+    return r
+
+
+def pundits(rows: Rows, *, countries: list[str], country: str | None = None, q: str | None = None, min_graded: int = 10,
+            sort: str = "accuracy", limit: int = 200) -> dict:
+    """The Pundits tab: forecasters with their hit rates; open calls on your key countries (or one country);
+    calls graded lately. Calls seen only in search results have no grade yet (outcome empty) and count as open."""
+    held = _safe(rows, "SELECT count(*) AS n, max(seen) AS seen FROM pundit_calls")
+    people_n = _safe(rows, "SELECT count(*) AS n, max(seen) AS seen FROM pundits")
+    if not (people_n and people_n[0]["n"]):
+        return {"loaded": False, "people": [], "open": [], "graded": [], "countries": countries, "n_calls": 0, "n_people": 0}
+    order = {"accuracy": "accuracy DESC NULLS LAST, graded DESC", "graded": "graded DESC", "rank": "site_rank NULLS LAST, graded DESC",
+             "name": "lower(name)", "pending": "pending DESC NULLS LAST"}.get(sort, "accuracy DESC NULLS LAST, graded DESC")
+    where, params = ["coalesce(correct, 0) + coalesce(incorrect, 0) >= ?"], [min_graded]
+    if q:
+        where.append("(name ILIKE ? OR about ILIKE ?)")
+        params += [f"%{q}%", f"%{q}%"]
+    people = _safe(rows, f"""SELECT predictor_id, name, about, site_rank, accuracy, correct, incorrect, indeterminate, pending, total,
+        calls_held, from_site, url, CAST(seen AS VARCHAR) AS seen, coalesce(correct, 0) + coalesce(incorrect, 0) AS graded,
+        (SELECT count(*) FROM pundit_calls c WHERE c.predictor_id = p.predictor_id AND coalesce(c.outcome, 'pending') = 'pending') AS open_held
+        FROM pundits p WHERE {' AND '.join(where)} ORDER BY {order} LIMIT ?""", params + [limit])
+    hidden = _safe(rows, "SELECT count(*) AS n FROM pundits WHERE coalesce(correct, 0) + coalesce(incorrect, 0) < ?", [min_graded])
+    wanted = [country] if country else countries
+    rate = """(SELECT p.accuracy FROM pundits p WHERE p.predictor_id = c.predictor_id) AS accuracy,
+              (SELECT coalesce(p.correct, 0) + coalesce(p.incorrect, 0) FROM pundits p WHERE p.predictor_id = c.predictor_id) AS graded"""
+    open_calls = _safe(rows, f"""SELECT c.*, {rate} FROM pundit_calls c
+        WHERE coalesce(c.outcome, 'pending') = 'pending' AND list_has_any(string_split(c.countries, ','), ?)
+        ORDER BY c.next_check NULLS LAST, c.made DESC NULLS LAST LIMIT 200""", [wanted]) if wanted else []
+    graded = _safe(rows, f"""SELECT c.*, {rate} FROM pundit_calls c WHERE c.outcome IN ('correct', 'incorrect', 'indeterminate')
+        ORDER BY (c.countries <> '' AND list_has_any(string_split(c.countries, ','), ?)) DESC, c.evaluated DESC NULLS LAST,
+        c.made DESC NULLS LAST LIMIT 60""", [wanted or ['']])
+    return {"loaded": True, "people": people, "hidden": hidden[0]["n"] if hidden else 0, "min_graded": min_graded,
+            "open": [_call(r) for r in open_calls], "graded": [_call(r) for r in graded], "countries": wanted, "key_countries": countries,
+            "n_people": people_n[0]["n"], "n_calls": held[0]["n"] if held else 0,
+            "seen": str(max((x for x in (people_n[0]["seen"], held[0]["seen"] if held else None) if x), default=""))[:10] or None}
+
+
+def pundit(rows: Rows, predictor_id: str) -> dict | None:
+    """One forecaster: counts and every call held, newest first."""
+    got = _safe(rows, "SELECT *, CAST(seen AS VARCHAR) AS seen FROM pundits WHERE predictor_id = ?", [predictor_id])
+    if not got:
+        return None
+    calls = _safe(rows, """SELECT * FROM pundit_calls WHERE predictor_id = ? ORDER BY made DESC NULLS LAST LIMIT 500""", [predictor_id])
+    return {**got[0], "calls": [_call(r) for r in calls]}
+
+
+def pundit_country(rows: Rows, entity: str, limit: int = 6) -> list[dict]:
+    """Open pundit calls naming a country, for its page's crowd card."""
+    got = _safe(rows, """SELECT c.*, (SELECT p.accuracy FROM pundits p WHERE p.predictor_id = c.predictor_id) AS accuracy,
+        (SELECT coalesce(p.correct, 0) + coalesce(p.incorrect, 0) FROM pundits p WHERE p.predictor_id = c.predictor_id) AS graded
+        FROM pundit_calls c WHERE coalesce(c.outcome, 'pending') = 'pending' AND list_contains(string_split(c.countries, ','), ?)
+        ORDER BY c.made DESC NULLS LAST LIMIT ?""", [entity, limit])
+    return [_call(r) for r in got]

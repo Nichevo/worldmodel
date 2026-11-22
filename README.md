@@ -378,6 +378,17 @@ how the nearest changed decade by decade, and groups of countries whose yearly
 changes in one indicator go up and down together, on a map. Code:
 `app/api/worldmodel_api/similar.py`.
 
+**Pundits** (Crowd forecasts > Pundits): named forecasters (commentators, economists,
+officials) from Prediction Archive, which grades each call with an AI reader against later
+news: how often their graded calls came true, with a 95% range for how sure that is, their
+open calls on your key countries (also on each country's crowd card), and calls graded
+lately with the words used, the source and the grader's reasoning. The site turns programs
+away, so its pages are saved by hand into `var\manual\prediction_archive` (Ctrl+S in Edge:
+Top Predictors, a forecaster's page, a prediction's page, or a search such as "New
+Zealand"), or `.\verify.bat prediction_archive` opens the ranking and a search for each key
+country for you. Every saved page is loaded together. API: `/api/v1/crowd/pundits`,
+`/api/v1/crowd/pundits/{id}`.
+
 **Briefing > Week** is the weekly digest: one Monday-to-Sunday week (new
 figures for your key countries, Discover finds, big crowd moves, predictions
 due and settled, CrisisWatch changes, events, top news), made on the first
