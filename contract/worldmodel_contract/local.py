@@ -112,6 +112,7 @@ SETTINGS: dict[str, object] = {
     "transport_waterways_fetch": True,   # inland waterways (US network, OpenStreetMap for Europe and big rivers) and Eurostat river freight
     "tourism_fetch": True,               # UNESCO World Heritage sites
     "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, about 100 MB kept)
+    "railways_fetch": True,              # Natural Earth railways (about 40 MB once a year)
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
     "sea_borders_fetch": True,           # Marine Regions economic zone lines (twice a year) and VATSIM flight region outlines (every three months)
     "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
