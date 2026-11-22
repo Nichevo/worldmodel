@@ -12,6 +12,8 @@ as ordinary map layers.
   each cable's owners, year and landing countries, read a few at a time and kept).
 - gem_infrastructure: Global Energy Monitor's gas and oil pipeline and LNG terminal
   trackers, saved by hand (the files sit behind a short form).
+- ne_railways: Natural Earth's railroads (the world's main and through lines, intercity and
+  freight), gathered by 1° square.
 """
 
 from __future__ import annotations
@@ -768,4 +770,66 @@ class GEMInfrastructure(Connector):
         if rows:
             self.history_queries = {"geo_features": stage_geo(con, rows)}
         log.info("gem_infrastructure: %s pipelines, %s LNG terminals", len(rows), len(lng))
+        return NO_ROWS
+
+
+# ----------------------------------------------------------------------------- railways
+NE_RAIL_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_railroads.geojson"
+NE_RAIL_FILE = "ne_10m_railroads.geojson"
+RAIL_TOL = 0.005  # degrees (about 500 m)
+
+
+def rail_rank(scalerank) -> int:
+    """Natural Earth draws its most important lines from the smallest scales: 1 main lines
+    (scalerank 5 and under), 2 other through lines (6-7), 3 the rest (8 and up)."""
+    try:
+        s = int(scalerank)
+    except (TypeError, ValueError):
+        return 3
+    return 1 if s <= 5 else 2 if s <= 7 else 3
+
+
+def rail_rows(path: Path, grids: "Grids | None") -> list[tuple]:
+    """geo_features rows: railway lines simplified and gathered by 1° square and rank, so the
+    map asks only for the squares in view."""
+    squares: dict[tuple[int, int, int], list] = defaultdict(list)
+    for ft in json.loads(path.read_text(encoding="utf-8")).get("features") or []:
+        rank = rail_rank((ft.get("properties") or {}).get("scalerank"))
+        for ln in lines_of(ft.get("geometry")):
+            d = dp_line(ln, RAIL_TOL, 3)
+            if d:
+                squares[(int(d[0][0] // 1), int(d[0][1] // 1), rank)].append(d)
+    rows = []
+    for (x, y, rank), lines in squares.items():
+        countries = entity_ids(grids.along(lines, every=4)) if grids else []
+        rows.append(("railways", f"{x}_{y}_{rank}", "Railways", rank, {"rank": rank}, countries, multiline(lines)))
+    return rows
+
+
+class NERailways(Connector):
+    """Natural Earth railroads (public domain): the world's railway lines, intercity and freight,
+    at about 1:10 million."""
+    source_id = "ne_railways"
+    switch = "railways_fetch"
+    fetch_every_days = 365  # Natural Earth changes rarely
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        get_countries(raw_dir, self)
+        self.get(NE_RAIL_URL, raw_dir / NE_RAIL_FILE)
+        return "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/railroads/"
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        path = raw_dir / NE_RAIL_FILE
+        if not path.exists():
+            raise ConnectorError(f"ne_railways: {NE_RAIL_FILE} missing from {raw_dir}")
+        cf = countries_file(raw_dir, self)
+        rows = rail_rows(path, Grids(cf) if cf else None)
+        self.history_queries = {"geo_features": stage_geo(con, rows)}
+        log.info("ne_railways: %s squares of railway lines", len(rows))
         return NO_ROWS

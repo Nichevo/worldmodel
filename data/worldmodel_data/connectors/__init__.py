@@ -32,7 +32,7 @@ from worldmodel_data.connectors.migration import UNHCR, UNIMS
 from worldmodel_data.connectors.land import CouncilTrees, GFWTreeCover, GHSLUrbanCentres, HYDELand, NZForestry, NZLCDB
 from worldmodel_data.connectors.nature import (PSMSL, UNSDG, WDPA, BerkeleyEarth, EPPOPests, GRIIS, IUCNRedList, KoppenBeck,
                                                 NatureCurated, NDGAIN, WAHISOutbreaks)
-from worldmodel_data.connectors.networks import GEMInfrastructure, HydroSHEDS, SubmarineCables, Waterways
+from worldmodel_data.connectors.networks import GEMInfrastructure, HydroSHEDS, NERailways, SubmarineCables, Waterways
 from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
 from worldmodel_data.connectors.people import CLDRLanguages, COWReligion, Glottolog, PewReligion
@@ -69,7 +69,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards,
     KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated,
     PortWatch, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways, TAICInquiries, TransportCurated,
-    UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure,
+    UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure, NERailways,
     HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
     Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OECDCLI, FREDCycle)}
 

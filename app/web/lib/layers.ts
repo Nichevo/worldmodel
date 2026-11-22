@@ -165,6 +165,11 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "mw"], 10]], 0, 1.5, 10, 3, 30, 7, 80, 14],
     }),
   },
+  railways: {
+    legend: "Railway (thicker: main lines)", swatch: () => "#7b2d26", fetch: "window",
+    paint: () => ({ "line-color": "#7b2d26", "line-opacity": 0.85,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 2, ["match", ["get", "rank"], 1, 1.1, 0.6], 8, ["match", ["get", "rank"], 1, 2.4, 2, 1.6, 1.1]] }),
+  },
   power_lines: {
     legend: "Power line (solid: mapped; faint: predicted from night lights)", swatch: () => "#5f3dc4", fetch: "window",
     paint: () => ({ "line-color": "#5f3dc4", "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 8, 1.6, 12, 2.6],
@@ -428,6 +433,7 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "coral_alerts") return `<b>${esc(p.name)}</b><br/>Coral bleaching: ${esc(p.label)} (highest in the last 7 days)`;
   if (layer === "power_plants") return `<b>${esc(p.name)}</b><br/>${esc(p.fuel)}${typeof p.mw === "number" ? `, ${num(p.mw)} MW` : ""}`
     + `${p.year ? ` · built ${esc(p.year)}` : ""}${p.owner ? `<br/>${esc(p.owner)}` : ""}`;
+  if (layer === "railways") return `<b>Railway</b>${p.rank === 1 ? " (main line)" : ""}`;
   if (layer === "power_lines") return `<b>Power line</b>${p.rank === 1 ? " (mapped)" : " (predicted)"}${p.kv ? `<br/>${esc(p.kv)} kV` : ""}`;
   if (layer === "storms_active") {
     const cat = typeof p.cat === "number" ? (p.cat > 0 ? `category ${p.cat}` : "tropical storm") : "";

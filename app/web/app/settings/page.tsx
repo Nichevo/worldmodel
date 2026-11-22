@@ -318,6 +318,8 @@ export default function SettingsPage() {
           on={s.transport_waterways_fetch} set={(v) => save({ transport_waterways_fetch: v })} />
         <Toggle label="Rivers and river basins (HydroSHEDS)" hint="About 700 MB downloaded once (nine regions), cut to rivers of 10 m³/s and up and whole basins, about 100 MB kept. Off before the first read: no rivers or basins layers and no basins on country cards."
           on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
+        <Toggle label="Railways (Natural Earth)" hint="The world's main and through railway lines, intercity and freight, about 40 MB once a year. Off: no Railways map layer."
+          on={s.railways_fetch} set={(v) => save({ railways_fetch: v })} />
         <Toggle label="Undersea cables (TeleGeography)" hint="The cable map monthly, and each cable's owners and landing countries read once, 150 at a time, two seconds apart. Off: no cables layer and no cables on country cards."
           on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
         <Toggle label="Sea borders: economic zones and flight regions" hint="Marine Regions' maritime boundary lines and zone list (about 50 MB, twice a year) and VATSIM's flight information region outlines (3 MB, every three months). Off: no economic zones or flight regions layers and no sea area figures; what is stored stays."
