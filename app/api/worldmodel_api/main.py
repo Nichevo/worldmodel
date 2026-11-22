@@ -12,6 +12,7 @@ The public API for scripts, the Python client and MCP is in public.py, under /ap
 
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import json
@@ -2030,12 +2031,17 @@ def tiles_delete(area_id: str):
     return {"ok": True}
 
 
+_BLANK_PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=")  # 1x1, fully see-through
+
+
 @api.get("/tiles/{set_id}/{z}/{x}/{y}")
 def tile(set_id: str, z: int, x: int, y: int, t: str | None = None):
     """One picture tile: the saved copy, or fetched online for this view (not saved)."""
     got = tiles.tile(set_id, z, x, y, t)
     if not got:
-        return Response(status_code=204)
+        # A see-through picture rather than an empty answer: maps try to decode whatever comes
+        # back, and an empty body shows up in the browser as "The image could not be decoded".
+        return Response(_BLANK_PNG, media_type="image/png", headers={"Cache-Control": "max-age=300", "X-Tile-Missing": "1"})
     data, media = got
     return Response(data, media_type=media, headers={"Cache-Control": "max-age=86400"})
 
