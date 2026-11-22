@@ -48,11 +48,13 @@ def _pts(data: dict, ind: str, ent: str) -> list:
 
 
 def _world(q: Q, ids: list[str]) -> dict:
-    """indicator -> [[year, sum over countries]] for indicators with no world total of their own."""
+    """indicator -> [[year, sum over countries]] for indicators with no world total of their own.
+    Countries that no longer exist (the Soviet Union, Yugoslavia, Czechoslovakia) count for the
+    years they have figures, so the world doesn't jump when they split."""
     if not ids:
         return {}
     got = q(f"""SELECT s.indicator_id AS i, year(s.period_start) AS y, sum(s.value) AS v, count(*) AS n
-                FROM series s JOIN entities e ON e.entity_id = s.entity_id AND e.type = 'country'
+                FROM series s JOIN entities e ON e.entity_id = s.entity_id AND e.type IN ('country', 'historical_country')
                 WHERE s.indicator_id IN ({', '.join('?' * len(ids))}) AND s.breakdown = '' AND s.variant = 'central'
                 GROUP BY 1, 2 HAVING count(*) >= 20 ORDER BY 2""", ids)
     out: dict = defaultdict(list)

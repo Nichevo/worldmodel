@@ -112,3 +112,14 @@ def test_moon_rows():
     <tr><td colspan="2">Uranus</td></tr><tr><td>Miranda</td><td>235.8</td></tr><tr><td>Cupid</td><td>n/a</td></tr></table></html>"""
     assert space.moon_rows(page) == [["Earth", "Moon", 1737.4], ["Mars", "Phobos", 11.08], ["Mars", "Deimos", 6.2],
                                       ["Saturn", "S/2004 S 21", 1.5], ["Uranus", "Miranda", 235.8], ["Uranus", "Cupid", None]]
+
+
+def test_missing_tile_is_a_blank_picture(client, monkeypatch):
+    class ErrorPage:
+        def get(self, url, params=None):
+            return httpx.Response(200, content=b"<ExceptionReport/>", headers={"content-type": "text/xml"},
+                                  request=httpx.Request("GET", url))
+    monkeypatch.setattr(tiles, "_http", lambda: ErrorPage())
+    r = client.get("/api/v1/tiles/landcover/3/7/4?t=2021")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png" and r.headers["x-tile-missing"] == "1"
+    assert r.content.startswith(b"\x89PNG")

@@ -170,11 +170,25 @@ def tile(set_id: str, z: int, x: int, y: int, t: str | None = None, online: bool
         return None
     try:
         r = _http().get(upstream(set_id, z, x, y, t))
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        _warn_once(set_id, f"could not reach the {SETS[set_id]['label']} map service ({type(exc).__name__})")
         return None
-    if r.status_code != 200 or not r.content:
+    kind = r.headers.get("content-type", media)
+    # Map services can answer 200 with an XML or HTML error page: only pass on pictures.
+    if r.status_code != 200 or not r.content or not kind.startswith("image/"):
+        _warn_once(set_id, f"{SETS[set_id]['label']} map service answered {r.status_code} {kind.split(';')[0]}")
         return None
-    return r.content, r.headers.get("content-type", media)
+    return r.content, kind
+
+
+_warned: set[str] = set()
+
+
+def _warn_once(set_id: str, msg: str) -> None:
+    """One console line per tile set, not one per tile."""
+    if set_id not in _warned:
+        _warned.add(set_id)
+        log.warning("tiles: %s; tiles without a saved copy are left blank", msg)
 
 
 # ----------------------------------------------------------------------------- saved areas
