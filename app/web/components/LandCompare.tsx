@@ -13,9 +13,10 @@ import { api, type LandCover } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 import { countryShapes } from "@/lib/geo";
 import {
-  addCoverProtocol, barLayout, COVER_COLOURS, COVER_ORDER, type CoverId, fitBox, maskOf, pct, polysOf, sameScaleZooms,
+  addCoverProtocol, barLayout, onTileCount, tileCount, COVER_COLOURS, COVER_ORDER, type CoverId, fitBox, maskOf, pct, polysOf, sameScaleZooms,
 } from "@/lib/landcompare";
 import { entityColors, entityVar } from "@/lib/look";
+import { windowData } from "@/lib/layers";
 import { tileUrl } from "@/lib/maplook";
 import { useSettings } from "@/lib/settings";
 
@@ -36,8 +37,11 @@ export default function LandCompare({ initial, onChange }: { initial: string[]; 
   const [show, setShow] = useState<Show>(null);
   const [year, setYear] = useState<number | null>(null);
   const [same, setSame] = useState(false);
+  const [rivers, setRivers] = useState(false);
   const [fits, setFits] = useState<Record<string, Fit>>({});
   const [adding, setAdding] = useState("");
+  const [tilesMissing, setTilesMissing] = useState(false);
+  useEffect(() => onTileCount(() => setTilesMissing(tileCount.missing > 0 && tileCount.ok === 0)), []);
 
   useEffect(() => { onChange?.(ids); }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -92,6 +96,7 @@ export default function LandCompare({ initial, onChange }: { initial: string[]; 
           {years.length > 1 && <select value={y ?? ""} onChange={(e) => setYear(+e.target.value)} aria-label="Year">
             {[...years].reverse().map((v) => <option key={v} value={v}>{v}</option>)}</select>}
           <label className="small"><input type="checkbox" checked={same} onChange={(e) => setSame(e.target.checked)} /> Same scale</label>
+          <label className="small"><input type="checkbox" checked={rivers} onChange={(e) => setRivers(e.target.checked)} /> Rivers</label>
         </div>
         <div className="chips-row small" role="group" aria-label="Show on the maps">
           <span className="muted">Show on the maps:</span>
@@ -107,7 +112,7 @@ export default function LandCompare({ initial, onChange }: { initial: string[]; 
           <div key={id} className="card lc-panel">
             <div className="lc-name" style={{ background: entityVar(id, i) }}>{name(id)}</div>
             <div className="lc-body">
-              <CoverMap geometry={shapes[id]} colour={colours[i]} show={show} zoom={zooms?.[id] ?? null}
+              <CoverMap geometry={shapes[id]} colour={colours[i]} show={show} rivers={rivers} zoom={zooms?.[id] ?? null}
                 onFit={(f) => setFits((o) => (o[id]?.zoom === f.zoom ? o : { ...o, [id]: f }))} />
               {covers[id] === undefined ? <p className="muted small lc-bar-col">Loading…</p>
                 : !covers[id]?.parts.length ? <p className="muted small lc-bar-col">No land cover figures for {name(id)} yet (FAOSTAT, with <code>.\refresh.bat</code>).</p>
@@ -115,12 +120,15 @@ export default function LandCompare({ initial, onChange }: { initial: string[]; 
             </div>
           </div>))}
       </div>
+      {show !== null && tilesMissing && <p className="notice small">The land cover pictures didn&apos;t come: there are no saved copies on this PC and
+        Terrascope (ESA WorldCover&apos;s map service) didn&apos;t answer. The bars and table still hold. Try again later, or save an area&apos;s
+        Land cover pictures in Settings &gt; Maps.</p>}
       {ids.length > 1 && <CompareTable ids={ids} names={ids.map(name)} shares={ids.map(shareOf)} show={show} pick={(c) => setShow(show === c ? null : c)} />}
       <p className="caption">Bars: share of land and inland water in each kind of cover, from ESA&apos;s yearly 300 m satellite maps as FAOSTAT adds them up
         by country (coastal water and tidal flats left out). Borders: Natural Earth. Maps: ESA WorldCover at 10 m for {useSettings().land_cover_year === "2020" ? 2020 : 2021} (CC BY 4.0), the
         same picture as the Map&apos;s Land cover look, recoloured to match the bars. The two sort land a little differently (WorldCover counts sparse plants as bare;
         flooded shrubs and moss go with shrubs here), and small patches such as towns fade when zoomed out, so zoom in to see them. Same scale draws every
-        country at the same km per pixel at its centre.</p>
+        country at the same km per pixel at its centre. Rivers: HydroRIVERS, rivers of 10 m³/s and up (the Map&apos;s Rivers layer; needs Settings &gt; Rivers and river basins on and a refresh).</p>
     </>
   );
 }
@@ -167,7 +175,7 @@ function CompareTable({ ids, names, shares, show, pick }: { ids: string[]; names
 }
 
 // One country's outline on a plain background, with the land cover picked drawn inside it.
-function CoverMap({ geometry, colour, show, zoom, onFit }: { geometry?: GeoJSON.Geometry; colour: string; show: Show; zoom: number | null;
+function CoverMap({ geometry, colour, show, rivers, zoom, onFit }: { geometry?: GeoJSON.Geometry; colour: string; show: Show; rivers: boolean; zoom: number | null;
   onFit: (f: Fit) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -218,6 +226,32 @@ function CoverMap({ geometry, colour, show, zoom, onFit }: { geometry?: GeoJSON.
   }, [show, ready, tiles]);
 
   useEffect(() => { if (map.current && ready) map.current.setPaintProperty("outline", "line-color", colour); }, [colour, ready]);
+
+  // Rivers (HydroRIVERS, as on the Map's Rivers layer) for the area in view, under the mask so
+  // only the country's own rivers show; asked again after each move with the detail for the zoom.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const empty: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+    if (!m.getSource("rivers")) {
+      m.addSource("rivers", { type: "geojson", data: empty });
+      m.addLayer({ id: "rivers", type: "line", source: "rivers", layout: { visibility: "none" },
+        paint: { "line-color": "#2e86c1", "line-opacity": 0.85,
+          "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "rank"], 5], 1, 2.4, 3, 1.2, 5, 0.5] } }, "mask");
+    }
+    m.setLayoutProperty("rivers", "visibility", rivers ? "visible" : "none");
+    if (!rivers) return;
+    let live = true;
+    const load = () => {
+      const b = m.getBounds();
+      windowData("rivers", { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom())
+        .then((fc) => { if (live) (m.getSource("rivers") as maplibregl.GeoJSONSource | undefined)?.setData(fc.features ? fc : empty); })
+        .catch(() => undefined);
+    };
+    load();
+    m.on("moveend", load);
+    return () => { live = false; m.off("moveend", load); };
+  }, [rivers, ready]);
 
   useEffect(() => {
     const m = map.current;

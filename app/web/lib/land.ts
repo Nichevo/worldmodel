@@ -97,20 +97,28 @@ export function landUseOption(o: LandOverview, mode: "ha" | "pct" | "person", fr
     if (mode === "pct") { const a = area.get(y) ?? [...area.values()].at(-1); return a ? (v / a) * 100 : null; }
     const p = pop.get(y); return p ? v / p : null;
   };
-  const series: SeriesOption[] = LAND_KINDS.filter((k) => s[k.id]?.length).map((k) => ({
+  // ECharts stacks by position in the data, not by year, so every stacked band is laid on one
+  // list of years (forest only starts in 1990; years without a figure are left as gaps).
+  const kinds = LAND_KINDS.filter((k) => s[k.id]?.length);
+  const hyde = [["hyde_cropland_ha", "Cropland, HYDE (modelled)", "#d9a441"], ["hyde_grazing_ha", "Grazing, HYDE (modelled)", "#6a994e"]] as const;
+  const hydePts = hyde.map(([id]) => (s[id] ?? []).filter(([y]) => y >= from && y <= o.modelled_before + 10));
+  const years = [...new Set([...kinds.flatMap((k) => s[k.id].map(([y]) => y)), ...hydePts.flatMap((p) => p.map(([y]) => y))])]
+    .filter((y) => y >= from).sort((a, b) => a - b);
+  const on = (pts: [number, number][]) => { const m = new Map(pts); return years.map((y) => { const v = m.get(y); return v === undefined ? null : scale(y, v); }); };
+  const series: SeriesOption[] = kinds.map((k) => ({
     type: "line", name: k.label, stack: "land", color: k.color(), symbol: "none", areaStyle: { opacity: 0.85 },
     lineStyle: { width: 1, color: cssVar("--surface") }, emphasis: { focus: "series" },
-    data: s[k.id].filter(([y]) => y >= from).map(([y, v]) => [y, scale(y, v)]),
+    data: on(s[k.id] as [number, number][]),
   }));
-  const hyde = [["hyde_cropland_ha", "Cropland, HYDE (modelled)", "#d9a441"], ["hyde_grazing_ha", "Grazing, HYDE (modelled)", "#6a994e"]] as const;
-  for (const [id, label, color] of hyde) {
-    const pts = (s[id] ?? []).filter(([y]) => y >= from && y <= o.modelled_before + 10);
-    if (pts.length) series.push({ type: "line", name: label, color, symbol: "none", lineStyle: { width: 2, type: "dashed" },
-      data: pts.map(([y, v]) => [y, scale(y, v)]) });
-  }
+  hyde.forEach(([, label, color], i) => {
+    if (hydePts[i].length) series.push({ type: "line", name: label, color, symbol: "none", lineStyle: { width: 2, type: "dashed" },
+      data: on(hydePts[i] as [number, number][]) });
+  });
   const unit = mode === "ha" ? "ha" : mode === "pct" ? "%" : "ha a person";
   return {
     ...base, grid: { ...(base.grid as object), top: 52 }, legend: legend(series.map((x) => String(x.name))),
+    xAxis: { type: "category", data: years.map(String), boundaryGap: false,
+      axisLabel: { color: cssVar("--muted") }, axisLine: { lineStyle: { color: cssVar("--axis") } } },
     yAxis: { type: "value", name: unit, axisLabel: { color: cssVar("--muted"), formatter: (v: number) => compact(v) },
       splitLine: { lineStyle: { color: cssVar("--grid") } }, nameTextStyle: { color: cssVar("--muted"), align: "left" } },
     series,

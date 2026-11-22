@@ -64,7 +64,17 @@ export function recolour(px: Uint8ClampedArray, show: "all" | CoverId[]): void {
 
 // A map tile source that reads WorldCover tiles and recolours them: the source's tile address is
 // lcpick://<kinds or all>@<the real address with {z}/{x}/{y}>.
+// A tile the app's server has no saved copy of and can't fetch comes back as a see-through
+// picture marked X-Tile-Missing; that, an empty answer or one that isn't a picture is drawn
+// see-through instead of failing to decode, and counted so the page can say the pictures didn't come.
 let added = false;
+let blank: ImageBitmap | null = null;
+const blankTile = async () => (blank ??= await createImageBitmap(new ImageData(1, 1)));
+export const tileCount = { ok: 0, missing: 0 };
+const listeners = new Set<() => void>();
+export function onTileCount(f: () => void): () => void { listeners.add(f); return () => { listeners.delete(f); }; }
+const counted = (ok: boolean) => { if (ok) tileCount.ok++; else tileCount.missing++; listeners.forEach((f) => f()); };
+
 export function addCoverProtocol(): void {
   if (added || typeof window === "undefined") return;
   added = true;
@@ -75,7 +85,14 @@ export function addCoverProtocol(): void {
     const url = rest.slice(at + 1);
     const r = await fetch(url, { signal: abort.signal });
     if (!r.ok) throw new Error(`land cover tile: ${r.status}`);
-    const bmp = await createImageBitmap(await r.blob());
+    const body = await r.blob();
+    if (r.status === 204 || r.headers.get("x-tile-missing") || !body.size || !(r.headers.get("content-type") ?? "image/").startsWith("image/")) {
+      counted(false);
+      return { data: await blankTile() };
+    }
+    let bmp: ImageBitmap;
+    try { bmp = await createImageBitmap(body); } catch { counted(false); return { data: await blankTile() }; }
+    counted(true);
     const canvas = new OffscreenCanvas(bmp.width, bmp.height);
     const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
     ctx.drawImage(bmp, 0, 0);
