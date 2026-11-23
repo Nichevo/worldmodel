@@ -2802,3 +2802,205 @@
     files: ["*trade*register*", "*Trade-Register*", "*.csv"]
     get: https://armstransfers.sipri.org/ArmsTransfer/TradeRegister
     what: "Choose every supplier and recipient and the years you want, then download the trade register as CSV and save it here."
+
+# ----------------------------------------------------------------- US states and counties (usreg_* figures)
+- id: us_census_pep
+  name: US Census Bureau population estimates, states and counties
+  short_name: Census population estimates
+  publisher: US Census Bureau
+  url: https://www.census.gov/programs-surveys/popest.html
+  licence: Public domain (US government work)
+  licence_url: https://www.census.gov/about/policies/open-gov/open-data.html
+  commercial_use: true
+  cadence: Yearly (vintage released each spring); checked monthly
+  attribution: "US Census Bureau, Population Estimates Program: county population totals and components of change."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: us_acs
+  name: US Census Bureau American Community Survey 5-year estimates (Census API)
+  short_name: American Community Survey
+  publisher: US Census Bureau
+  url: https://www.census.gov/programs-surveys/acs
+  licence: Public domain (US government work)
+  licence_url: https://www.census.gov/data/developers/about/terms-of-service.html
+  commercial_use: true
+  cadence: Yearly (each December); checked monthly. Needs a free CENSUS_API_KEY
+  attribution: "US Census Bureau, American Community Survey 5-year estimates, via the Census Data API. This product uses the Census Bureau Data API but is not endorsed or certified by the Census Bureau."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: bea_regional
+  name: BEA regional economic accounts (state and county GDP, personal income, price parities)
+  short_name: BEA regional accounts
+  publisher: US Bureau of Economic Analysis
+  url: https://apps.bea.gov/regional/downloadzip.htm
+  licence: Public domain (US government work)
+  licence_url: https://www.bea.gov/open-data
+  commercial_use: true
+  cadence: Quarterly and yearly releases; checked monthly
+  attribution: "US Bureau of Economic Analysis, Regional Economic Accounts: SAGDP1, CAGDP1, SAINC1, CAINC1, SARPP."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: us_unemployment
+  name: State unemployment rates (BLS local area statistics, from FRED)
+  short_name: State unemployment (FRED)
+  publisher: US Bureau of Labor Statistics, via the Federal Reserve Bank of St. Louis (FRED)
+  url: https://fred.stlouisfed.org/series/CAUR
+  licence: Public domain (US government data)
+  licence_url: https://fred.stlouisfed.org/legal/
+  commercial_use: true
+  cadence: Monthly; checked every two weeks
+  attribution: "US Bureau of Labor Statistics, Local Area Unemployment Statistics; retrieved from FRED, Federal Reserve Bank of St. Louis."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: bls_laus_county
+  name: BLS local area unemployment statistics, county yearly averages
+  short_name: BLS county unemployment
+  publisher: US Bureau of Labor Statistics
+  url: https://www.bls.gov/lau/tables.htm
+  licence: Public domain (US government work)
+  licence_url: https://www.bls.gov/opub/copyright-information.htm
+  commercial_use: true
+  cadence: Yearly (each April); checked monthly
+  attribution: "US Bureau of Labor Statistics, Local Area Unemployment Statistics, labor force data by county, annual averages."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    files: ["laucnty*"]
+    get: https://www.bls.gov/lau/tables.htm
+    what: "If BLS turns the refresh away, open 'Labor force data by county, annual averages' for each year wanted and save the XLSX files (laucnty23.xlsx and so on) here."
+
+- id: fhfa_hpi
+  name: FHFA house price index, states and counties
+  short_name: FHFA house prices
+  publisher: Federal Housing Finance Agency
+  url: https://www.fhfa.gov/data/hpi/datasets
+  licence: Public domain (US government work)
+  licence_url: https://www.fhfa.gov/data/hpi
+  commercial_use: true
+  cadence: Quarterly (states), yearly (counties); checked monthly
+  attribution: "Federal Housing Finance Agency, All-Transactions House Price Index (states quarterly, counties annual)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+  manual:
+    by_hand: false
+    files: ["hpi_at_state*", "hpi_at_county*"]
+    get: https://www.fhfa.gov/data/hpi/datasets?tab=additional-data
+    what: "If the refresh is refused, save 'All-Transactions Indexes: States (CSV)' and 'Counties (annual, XLSX)' here."
+
+- id: mit_elections
+  name: MIT Election Lab, US presidential returns by state 1976-
+  short_name: MIT Election Lab (states)
+  publisher: MIT Election Data and Science Lab, Harvard Dataverse
+  url: https://doi.org/10.7910/DVN/42MVDX
+  licence: CC0 1.0
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: After each presidential election; checked every three months
+  attribution: "MIT Election Data and Science Lab, U.S. President 1976-2024, Harvard Dataverse, doi:10.7910/DVN/42MVDX."
+  status: active
+  default_rank: 1
+  standing: 4
+  definition: standard
+
+- id: mit_county_elections
+  name: MIT Election Lab, US presidential returns by county 2000-
+  short_name: MIT Election Lab (counties)
+  publisher: MIT Election Data and Science Lab, Harvard Dataverse
+  url: https://doi.org/10.7910/DVN/VOQCHQ
+  licence: CC0 1.0
+  licence_url: https://creativecommons.org/publicdomain/zero/1.0/
+  commercial_use: true
+  cadence: After each presidential election; load it by hand
+  attribution: "MIT Election Data and Science Lab, County Presidential Election Returns 2000-2024, Harvard Dataverse, doi:10.7910/DVN/VOQCHQ."
+  status: active
+  default_rank: 1
+  standing: 4
+  definition: standard
+  manual:
+    by_hand: true
+    optional: true
+    files: ["countypres*"]
+    get: https://doi.org/10.7910/DVN/VOQCHQ
+    what: "Download countypres_2000-2024.tab (Dataverse asks a few guestbook questions first) and save it here."
+
+- id: chr_health
+  name: County Health Rankings analytic data
+  short_name: County Health Rankings
+  publisher: University of Wisconsin Population Health Institute
+  url: https://www.countyhealthrankings.org/health-data/methodology-and-sources/data-documentation
+  licence: Free to use with credit
+  licence_url: https://www.countyhealthrankings.org/
+  commercial_use: true
+  cadence: Yearly release (each spring); checked every three months
+  attribution: "University of Wisconsin Population Health Institute, County Health Rankings & Roadmaps."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    files: ["analytic_data*"]
+    get: https://www.countyhealthrankings.org/health-data/methodology-and-sources/data-documentation
+    what: "If the refresh is refused, save the 'National Data & Documentation' analytic data CSV (analytic_dataYYYY.csv) here."
+
+- id: eia_seds
+  name: EIA State Energy Data System (energy used and produced by state)
+  short_name: EIA State Energy Data
+  publisher: US Energy Information Administration
+  url: https://www.eia.gov/state/seds/
+  licence: Public domain (US government work)
+  licence_url: https://www.eia.gov/about/copyrights_reuse.php
+  commercial_use: true
+  cadence: Yearly (each June); checked monthly. Uses EIA_API_KEY
+  attribution: "US Energy Information Administration, State Energy Data System (SEDS)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: us_shapes
+  name: Census cartographic boundary files, states and counties
+  short_name: Census boundaries
+  publisher: US Census Bureau
+  url: https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html
+  licence: Public domain (US government work)
+  licence_url: https://www.census.gov/about/policies/open-gov/open-data.html
+  commercial_use: true
+  cadence: Yearly; checked once a year
+  attribution: "US Census Bureau, Cartographic Boundary Files (1:5,000,000)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: ne_admin1
+  name: Natural Earth admin-1 states and provinces
+  short_name: Natural Earth regions
+  publisher: Natural Earth
+  url: https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-1-states-provinces/
+  licence: Public domain
+  licence_url: https://www.naturalearthdata.com/about/terms-of-use/
+  commercial_use: true
+  cadence: Changes rarely; checked once a year
+  attribution: "Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: standard

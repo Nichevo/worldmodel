@@ -109,6 +109,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tourism_fetch: true,
   rivers_fetch: true,
   railways_fetch: true,
+  us_fetch: true,
   cables_fetch: true,
   sea_borders_fetch: true,
   energy_infrastructure_fetch: true,

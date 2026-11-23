@@ -286,6 +286,7 @@ export type Settings = {
   tourism_fetch: boolean; // UNESCO World Heritage sites
   rivers_fetch: boolean; // HydroRIVERS and HydroBASINS
   railways_fetch: boolean; // Natural Earth railways
+  us_fetch: boolean; // US states and counties
   cables_fetch: boolean; // TeleGeography undersea cables
   sea_borders_fetch: boolean; // Marine Regions economic zones and VATSIM flight regions
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
