@@ -398,7 +398,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
             <label className="small"><input type="checkbox" checked={s.map_3d} onChange={(e) => saveSettings({ map_3d: e.target.checked }).catch(() => undefined)} /> 3D (tilt with right-drag)</label>
           </div>
         )}
-        <p className="caption"><Link href="/settings#maps">Saved copies</Link> make these quick and work offline; <Link href="/shapes">Map shapes</Link> has true size and cartograms.</p>
+        <p className="caption"><Link href="/settings#maps">Saved copies</Link> make these quick and work offline; <Link href="/shapes">Map shapes</Link> has true size and cartograms; <Link href="/regions">Regions inside a country</Link> maps US states and counties and New Zealand's regions.</p>
       </div>
 
       {LAYER_GROUPS.map((g) => {
