@@ -169,6 +169,17 @@ export default function SettingsPage() {
           save={(v) => save({ api_daily_limit: v })} />
       </section>
 
+      <section className="card" id="console">
+        <h2>Data console</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Ask the warehouse questions in SQL and see the answer as a table, with CSV export and saved queries. Read-only: it cannot change
+          or delete anything, read other files or reach the internet. Works only on this PC, not from other devices on your network.
+        </p>
+        <Toggle label="Data console"
+          hint="On: Data console appears in the Data menu. Off: the menu item is hidden and the page says it is switched off; nothing else changes."
+          on={s.data_console} set={(v) => save({ data_console: v })} />
+      </section>
+
       <MapDetail s={s} save={save} />
       <MapPictures s={s} save={save} />
 

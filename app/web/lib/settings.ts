@@ -157,6 +157,7 @@ export const DEFAULT_SETTINGS: Settings = {
   backup_big_mb: 200,
   views_fetch: true,
   predictions_on_charts: true,
+  data_console: false,
   api_public_on: false,
   api_daily_limit: 2000,
   digest_on: true,

@@ -339,7 +339,7 @@ export default function EntityPage() {
         return (
           <section key={sec.key} className="profile-section" id={sec.key}>
             <h2 className="section-head">{sec.title}</h2>
-            {here.map((c) => <div key={c.key}>{c.el}</div>)}
+            {here.map((c) => <div key={c.key} id={`card-${c.key}`}>{c.el}</div>)}
           </section>
         );
       })}

@@ -46,7 +46,7 @@ from worldmodel_contract.cities import CITY_INDICATORS
 from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
-from worldmodel_api import grid
+from worldmodel_api import grid, learn
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
@@ -865,6 +865,100 @@ def grid_now(country: str):
 def power_links_layer(year: int | None = None):
     """Electricity traded between European countries in a year, as lines between capitals."""
     return grid.power_links(rows, year)
+
+
+# ----------------------------------------------------------------------------- learn
+@api.get("/learn/quiz")
+def learn_quiz(topic: str | None = None, n: int = Query(10, ge=1, le=30), seed: int | None = None, familiar: bool = True):
+    """Quiz questions made from the warehouse's figures (topics in learn.yaml): which of two is higher, which of
+    four is highest, did a figure go up or down. Each carries the real values, unit and source."""
+    try:
+        return learn.quiz(rows, topic, n, seed, familiar)
+    except KeyError:
+        raise HTTPException(404, f"No quiz topic '{topic}'. Topics: {', '.join(t['id'] for t in learn.topics())}")
+
+
+@api.get("/learn/guess")
+def learn_guess(entity: str, indicator: str, hide_from: int):
+    """A "draw your guess" chart: the line up to hide_from, and the axis range to draw on."""
+    try:
+        return learn.guess_chart(rows, entity, indicator, hide_from)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@api.post("/learn/guess")
+def learn_guess_check(body: dict = Body(...)):
+    """Score a drawn line against the real one, show the real one, and keep the score in your record."""
+    try:
+        g = learn.guess_chart(rows, str(body.get("entity", "")), str(body.get("indicator", "")), int(body.get("hide_from", 0)))
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(404, str(exc))
+    full = learn.figures(rows, [g["indicator_id"]], [g["entity_id"]], since=1900)[g["indicator_id"]][g["entity_id"]]
+    hidden = [[y, v] for y, v in sorted(full.items()) if y > g["hide_from"]]
+    drawn = [p for p in body.get("drawn") or [] if isinstance(p, (list, tuple)) and len(p) == 2][:400]
+    got = learn.score_guess(hidden, drawn, g["y_max"] - g["y_min"])
+    learn.remember("guesses", {"entity": g["entity_id"], "indicator": g["indicator_id"], "hide_from": g["hide_from"], "score": got["score"]})
+    return {**got, "actual": hidden}
+
+
+@api.post("/learn/quiz/score")
+def learn_quiz_score(body: dict = Body(...)):
+    """Keep a finished quiz round in your record."""
+    topic = str(body.get("topic", "all"))[:40]
+    right, asked = int(body.get("right", 0)), int(body.get("asked", 0))
+    if not 0 <= right <= asked <= 30:
+        raise HTTPException(422, "right must be between 0 and asked (at most 30)")
+    return learn.remember("quiz", {"topic": topic, "right": right, "asked": asked})
+
+
+@api.get("/learn")
+def learn_page():
+    """Everything the Learn page lists: quiz topics, ready-made guesses, tours and your record."""
+    cat = catalogue.learn()
+    return {"topics": [{"id": t["id"], "name": t["name"], "indicators": [i["id"] for i in t["indicators"]]} for t in cat.get("quiz", [])],
+            "guesses": learn.presets(), "tours": cat.get("tours", []), "record": learn.record()}
+
+
+# ----------------------------------------------------------------------------- data console
+def _console(request: Request) -> None:
+    if not userdata.settings().get("data_console"):
+        raise HTTPException(403, "The Data console is switched off. Settings > Data console turns it on.")
+    if not public_api.is_local(request):
+        raise HTTPException(403, "The Data console works only on the PC running the app, not from other devices.")
+
+
+@api.get("/console/tables")
+def console_tables(request: Request):
+    """The warehouse's tables and views with their columns, and your saved queries."""
+    _console(request)
+    return {"tables": learn.tables(cursor()), "saved": learn.saved_queries(), "max_rows": learn.MAX_ROWS}
+
+
+@api.post("/console/query")
+def console_query(request: Request, body: dict = Body(...)):
+    """One read-only question in SQL (SELECT, WITH or FROM), with a row limit and a 20-second time limit."""
+    _console(request)
+    try:
+        return learn.run_sql(cursor(), str(body.get("sql", "")), int(body.get("limit", 1000)))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.post("/console/saved")
+def console_save(request: Request, body: dict = Body(...)):
+    _console(request)
+    try:
+        learn.check_sql(str(body.get("sql", "")))
+        return learn.save_query(str(body.get("name", "")), str(body.get("sql", "")))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.delete("/console/saved")
+def console_drop(request: Request, name: str):
+    _console(request)
+    return learn.drop_query(name)
 
 
 @api.get("/partners")
