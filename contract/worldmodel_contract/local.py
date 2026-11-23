@@ -253,6 +253,7 @@ SETTINGS: dict[str, object] = {
     "backup_keep": 10,               # backups kept; older ones the app made are removed
     "backup_big_mb": 200,            # files bigger than this (big downloads the site can give again) are left out; 0 keeps all
     # The public API (/api/public/v1) for scripts, the Python client, Excel and AI assistants (Settings > API access)
+    "data_console": False,           # off: no Data console page; on: read-only questions in SQL to the warehouse, from this PC only
     "api_public_on": False,          # off: nothing outside the app itself can read the data through the public API
     "api_daily_limit": 2000,         # calls a day for each key (calls from this PC need no key and are not limited)
     # The weekly digest (Briefing > Week)

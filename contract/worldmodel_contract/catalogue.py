@@ -454,3 +454,9 @@ def country_by_name(name: str, on: date | None = None) -> str | None:
         if key in _names():
             return _names()[key]
     return None
+
+
+@lru_cache
+def learn() -> dict:
+    """The Learn page's quiz topics (indicators questions are made from) and guided tours (learn.yaml)."""
+    return _yaml("learn.yaml") or {"quiz": [], "tours": []}
