@@ -138,7 +138,7 @@ export default function CityDistanceCard({ cityId, name }: { cityId: string; nam
         </div>
         <div style={{ minWidth: 0 }}>
           <div className="city-map small">
-            <WorldMap fill values={[]} unit="" decimals={0} diverging={false} onPick={() => {}} points={points} fitPoints paths={paths} />
+            <WorldMap fill values={[]} unit="" decimals={0} diverging={false} onPick={() => {}} points={points} paths={paths} />
           </div>
           {d.nearest.length > 0 && (
             <>

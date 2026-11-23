@@ -9,6 +9,7 @@ import CountryChoice from "@/components/CountryChoice";
 import EChart from "@/components/EChart";
 import IndicatorSet from "@/components/IndicatorSet";
 import LandCompare from "@/components/LandCompare";
+import LandYears from "@/components/land/LandYears";
 import WorldMap from "@/components/WorldMap";
 import { compact } from "@/lib/format";
 import { logHistory } from "@/lib/history";
@@ -22,14 +23,15 @@ import { useSettings } from "@/lib/settings";
 // Land: what the world's land is used for since 1700, where it goes, cities and how they
 // spread, trees, New Zealand's land cover in detail, and land beside climate.
 
-type Tab = "use" | "compare" | "where" | "cities" | "trees" | "nz" | "climate";
-const TABS: [Tab, string][] = [["use", "Land use"], ["compare", "Compare countries"], ["where", "Where the land goes"], ["cities", "Cities"], ["trees", "Trees"],
+type Tab = "use" | "maps" | "compare" | "where" | "cities" | "trees" | "nz" | "climate";
+const TABS: [Tab, string][] = [["use", "Land use"], ["maps", "Land cover maps"], ["compare", "Compare countries"], ["where", "Where the land goes"], ["cities", "Cities"], ["trees", "Trees"],
   ["nz", "New Zealand"], ["climate", "Land and climate"]];
 const INTRO: Record<Tab, string> = {
   use: "Cropland, meadows and pastures, and forest by country or for the world: FAOSTAT from 1961, and HYDE's long run back to 1700 (dashed; modelled from population and old maps, so rough).",
   compare: "Two to four countries side by side: each outline beside a bar of its land cover seen from space. Pick a kind of cover (in a bar, the table or the chips) and every map shows where it is.",
   where: "Earth's surface down to the farmland that feeds us. Most farmland is grazing for animals, which give far less of our food than crops do.",
   cities: "About 11,000 urban centres from the European Commission's Global Human Settlement Layer: people and built-up land from 1975 to 2025 (2030 projected), and their outlines.",
+  maps: "Land cover maps for every year: ESA's 300 m maps from 1992 to 2020 and Esri's 10 m maps from 2017, with a year slider, what changed between two years, and how much land turned from one kind of cover into another.",
   trees: "Tree cover and what is lost each year (Global Forest Watch), tree cover in cities worked out from the land cover pictures, and council street-tree lists (NZ councils, Sydney, Melbourne, New York).",
   nz: "New Zealand's Land Cover Database at every survey since 1996, what changed into what, by region, and forestry and farm figures.",
   climate: "Land change beside temperature, fires and emissions, both ways round: clearing and farming add emissions and forests take them up; drought and heat change the land.",
@@ -61,6 +63,7 @@ function LandView() {
       {tab === "compare" && <LandCompare initial={(params.get("with") ?? "").split(",").filter(Boolean).length ? (params.get("with") ?? "").split(",").filter(Boolean)
         : [entity === "world" ? "NZL" : entity, entity === "AUS" ? "NZL" : "AUS"]}
         onChange={(ids) => router.replace(`/land?tab=compare&with=${ids.join(",")}`, { scroll: false })} />}
+      {tab === "maps" && <LandYears entity={entity === "world" ? "NZL" : entity} pick={pickCountry} />}
       {tab === "where" && <WhereTab />}
       {tab === "cities" && <CitiesTab />}
       {tab === "trees" && <TreesTab entity={entity === "world" ? "NZL" : entity} pick={pickCountry} />}
@@ -352,7 +355,7 @@ function TreesTab({ entity, pick }: { entity: string; pick: (c: string) => void 
                     <td><button type="button" className="link" onClick={() => setCouncil(r.c)}>{r.name}</button></td>
                     <td className="num">{r.n.toLocaleString()}</td><td>{r.common ?? ""}</td>
                     <td className="num">{r.population ? compact(r.population) : "–"}</td>
-                    <td className="num">{r.per_1000 !== null ? r.per_1000.toFixed(0) : "–"}</td>
+                    <td className="num">{r.per_1000 !== null ? r.per_1000.toFixed(r.per_1000 < 10 ? 1 : 0) : "–"}</td>
                     <td className="small muted">{r.note ?? ""}</td></tr>))}</tbody>
               </table>
             </div>

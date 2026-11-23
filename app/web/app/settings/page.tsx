@@ -914,13 +914,15 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
     if (!r.ok) { setErr(j.detail ?? "That did not work"); return null; }
     return j;
   };
-  const body = () => ({ set: area.set, t: area.set === "night" ? (area.t === "-" ? "2016" : area.t) : "-", country: area.country, minzoom: 0, maxzoom: area.maxzoom });
+  const yearOf = (set: string, t: string) => (set === "night" ? (t === "-" ? "2016" : t) : set === "lcyears" ? (/^\d{4}$/.test(t) ? t : "2020")
+    : set === "lc10" ? (/^\d{4}$/.test(t) ? t : "2024") : "-");
+  const body = () => ({ set: area.set, t: yearOf(area.set, area.t), country: area.country, minzoom: 0, maxzoom: area.maxzoom });
   const drop = async (a: TileArea) => {
     if (!confirm(`Delete the saved ${SET_NAME[a.set] ?? a.set} for ${a.name}? The map fetches it online again when needed.`)) return;
     await fetch(`/api/v1/tiles/areas/${encodeURIComponent(a.id)}`, { method: "DELETE" });
     refresh();
   };
-  const maxz = area.set === "night" ? 8 : 14;
+  const maxz = area.set === "night" ? 8 : area.set === "lcyears" ? 9 : 14;
   return (
     <section className="card" id="maps">
       <h2>Maps: relief, satellite and night lights</h2>
@@ -960,12 +962,22 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
       </Field>
       <Toggle label="Starter copies" hint={`Downloaded once in the background after the app starts: world relief to zoom 6, New Zealand's relief and satellite closer in, the whole world's satellite at overview zoom, 2016 night lights and land cover (the world at overview zoom, New Zealand closer in) (about ${st?.starter_size ?? "1 GB"}). Off: nothing is downloaded until you save an area below.`}
         on={s.map_tiles_starter} set={(v) => save({ map_tiles_starter: v })} />
+      <Field label="Yearly land cover maps" hint="ESA's land cover maps for the whole world to zoom 6, saved with the starter copies so the Land page's year slider is quick. Online only: each year is fetched as you look (slower, nothing stored). Esri's 10 m maps are always online unless you save an area below.">
+        <div className="seg" role="group" aria-label="Yearly land cover maps">
+          {([["every5", "Every 5 years (about 350 MB)"], ["every", "Every year (about 1.5 GB)"], ["none", "Online only"]] as const).map(([v, t]) => (
+            <button key={v} className={s.land_cover_years_keep === v ? "on" : ""} aria-pressed={s.land_cover_years_keep === v} onClick={() => save({ land_cover_years_keep: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
       {st && !st.starter_done && <p className="small"><button onClick={() => post("starter").then(refresh)} disabled={st.job.state === "running"}>Download the starter copies now</button></p>}
 
       <h3 style={{ marginBottom: 4 }}>Save an area</h3>
       <div className="chips-row" style={{ gap: 10, alignItems: "end" }}>
         <label className="small">Picture <select value={area.set} onChange={(e) => setArea({ ...area, set: e.target.value, maxzoom: Math.min(area.maxzoom, e.target.value === "night" ? 8 : 14) })}>
-          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option></select></label>
+          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option>
+          <option value="lcyears">Land cover by year (ESA, 300 m)</option><option value="lc10">Land cover by year (Esri, 10 m)</option></select></label>
+        {(area.set === "lcyears" || area.set === "lc10") && <label className="small">Year <select value={yearOf(area.set, area.t)} onChange={(e) => setArea({ ...area, t: e.target.value })}>
+          {(area.set === "lcyears" ? Array.from({ length: 29 }, (_, i) => 2020 - i) : Array.from({ length: 9 }, (_, i) => 2025 - i)).map((y) => <option key={y} value={String(y)}>{y}</option>)}</select></label>}
         {area.set === "night" && <label className="small">Year <select value={area.t === "-" ? "2016" : area.t} onChange={(e) => setArea({ ...area, t: e.target.value })}>
           <option value="2016">2016</option><option value="2012">2012</option></select></label>}
         <label className="small">Country (ISO code) <input value={area.country} size={5} onChange={(e) => setArea({ ...area, country: e.target.value.toUpperCase().slice(0, 3) })} /></label>

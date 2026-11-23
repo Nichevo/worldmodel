@@ -194,3 +194,24 @@ COUNCILS: dict[str, dict] = {
                "url": "https://data.london.gov.uk/dataset/local-authority-maintained-trees",
                "note": "Trees the boroughs look after (saved by hand: london_trees.csv)"},
 }
+
+
+# ESA CCI / C3S land cover classes (1992-2020, 300 m) with the colour Microsoft Planetary
+# Computer draws each in (its esa-cci-lc colour map), and the broad kind of cover each belongs
+# to (the Land page's kinds: trees, crops, grass, shrub, bare, snow, built, water).
+CCI_CLASSES: dict[int, tuple[str, str, str]] = {
+    10: ("Cropland, rainfed", "#ffff64", "crops"), 11: ("Cropland, herbaceous", "#ffff64", "crops"),
+    12: ("Cropland, tree or shrub", "#ffff00", "crops"), 20: ("Cropland, irrigated", "#aaf0f0", "crops"),
+    30: ("Mostly cropland, some natural plants", "#dcf064", "crops"), 40: ("Mostly natural plants, some cropland", "#c8c864", "shrub"),
+    50: ("Broadleaved evergreen trees", "#006400", "trees"), 60: ("Broadleaved deciduous trees", "#00a000", "trees"),
+    62: ("Broadleaved deciduous trees, open", "#aac800", "trees"), 70: ("Needleleaved evergreen trees", "#003c00", "trees"),
+    72: ("Needleleaved evergreen trees, open", "#005000", "trees"), 80: ("Needleleaved deciduous trees", "#285000", "trees"),
+    82: ("Needleleaved deciduous trees, open", "#286400", "trees"), 90: ("Mixed trees", "#788200", "trees"),
+    100: ("Trees and shrubs with some grass", "#8ca000", "trees"), 110: ("Grass with some trees and shrubs", "#be9600", "grass"),
+    120: ("Shrubland", "#966400", "shrub"), 130: ("Grassland", "#ffb432", "grass"), 140: ("Lichens and mosses", "#ffdcd2", "bare"),
+    150: ("Sparse plants", "#ffebaf", "bare"), 151: ("Sparse trees", "#ffc864", "bare"), 152: ("Sparse shrubs", "#ffd278", "bare"),
+    160: ("Flooded trees, fresh water", "#00785a", "trees"), 170: ("Flooded trees, salt water (mangroves)", "#009678", "trees"),
+    180: ("Flooded shrubs or grass", "#00dc82", "shrub"), 190: ("Urban areas", "#c31400", "built"),
+    200: ("Bare areas", "#fff5d7", "bare"), 201: ("Bare rock", "#dcdcdc", "bare"), 210: ("Water", "#0046c8", "water"),
+    220: ("Permanent snow and ice", "#ffffff", "snow"),
+}
