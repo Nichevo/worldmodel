@@ -535,7 +535,7 @@ class MBIEEnergy(Connector):
                       "Each row of the energy balance: supply, transformation and use by sector, for each fuel "
                       "(breakdown flow=<row>|fuel=<fuel>). Drawn as the energy flow chart. " + note,
                       "PJ", "energy", self.source_id, "Data: Gross PJ", decimals=2, breakdowns=["flow", "fuel"],
-                      default_on=False),
+                      default_on=False, aggregation={"method": "sum"}),
             indicator("nz_energy_primary_supply", "Primary energy supply (NZ)",
                       "Total primary energy supply: production plus imports, less exports, stock building and fuel for "
                       "international transport. " + note, "PJ", "energy", self.source_id, "TPES", decimals=0),

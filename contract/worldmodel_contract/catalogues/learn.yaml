@@ -1,0 +1,99 @@
+# The Learn page: quiz topics and guided tours. Plain text, so new ones are easy to add.
+#
+# quiz: topics, each a list of indicators questions are made from. Only indicators the
+#   warehouse holds figures for are used. `higher` says what a higher figure means in plain
+#   words, used in the question ("Which had more people in 2023?"); its first word becomes
+#   "most", "highest" and so on when four countries are asked about.
+# tours: a tour is a short list of stops. Each stop opens `path`, scrolls to `target` (a CSS
+#   selector; card wrappers on country pages are #card-<key>, sections #people, #money ...)
+#   and shows `text`. Keep a stop to one or two sentences.
+# guess: ready-made "draw your guess" charts: the line is shown up to `hide_from`, you draw the
+#   rest, then the real line appears. Any country and indicator can be picked on the page too.
+
+quiz:
+  - id: people
+    name: People
+    indicators:
+      - {id: pop_total, higher: "more people"}
+      - {id: tfr, higher: "a higher fertility rate (children per woman)"}
+      - {id: median_age, higher: "an older population (higher median age)"}
+      - {id: life_expectancy, higher: "a longer life expectancy"}
+      - {id: pop_share_65_plus, higher: "a larger share of people aged 65 and over"}
+      - {id: infant_mortality, higher: "higher infant mortality"}
+      - {id: urban_share, higher: "a larger share living in towns and cities"}
+      - {id: net_migration_rate, higher: "a higher net migration rate"}
+  - id: economy
+    name: Economy
+    indicators:
+      - {id: gdp_per_capita_usd, higher: "a higher GDP per person (US$)"}
+      - {id: gdp_ppp_per_capita, higher: "a higher GDP per person at local prices (PPP)"}
+      - {id: gdp_usd, higher: "a bigger economy (GDP in US$)"}
+      - {id: gdp_growth, higher: "faster growth"}
+      - {id: inflation, higher: "higher inflation"}
+      - {id: unemployment, higher: "a higher unemployment rate"}
+      - {id: govt_debt_gdp, higher: "higher government debt (share of GDP)"}
+  - id: energy
+    name: Energy
+    indicators:
+      - {id: energy_per_capita, higher: "higher energy use per person"}
+      - {id: primary_energy_consumption, higher: "higher total energy use"}
+      - {id: energy_renewable_share_primary, higher: "a larger renewable share of energy"}
+      - {id: nuclear_electricity, higher: "more electricity from nuclear"}
+  - id: security
+    name: Military and refugees
+    indicators:
+      - {id: military_spending_gdp, higher: "higher military spending (share of GDP)"}
+      - {id: refugees_hosted, higher: "more refugees hosted"}
+      - {id: refugees_from, higher: "more refugees from it living abroad"}
+
+guess:
+  - {entity: NZL, indicator: tfr, hide_from: 1990, ask: "How has the number of children per woman in New Zealand changed since 1990?"}
+  - {entity: KOR, indicator: tfr, hide_from: 1990, ask: "And in South Korea?"}
+  - {entity: CHN, indicator: life_expectancy, hide_from: 1980, ask: "How long have people in China expected to live since 1980?"}
+  - {entity: NZL, indicator: median_age, hide_from: 2010, ask: "Has New Zealand's median age gone up since 2010, and by how much?"}
+  - {entity: GBR, indicator: govt_debt_gdp, hide_from: 2007, ask: "What happened to UK government debt after 2007?"}
+  - {entity: USA, indicator: inflation, hide_from: 2019, ask: "Draw US inflation from 2019."}
+  - {entity: AUS, indicator: urban_share, hide_from: 1980, ask: "How much of Australia lives in towns and cities, since 1980?"}
+  - {entity: IND, indicator: gdp_per_capita_usd, hide_from: 2000, ask: "India's GDP per person since 2000."}
+
+tours:
+  - id: first-look
+    name: A first look round the app
+    stops:
+      - {path: "/", text: "The world map colours every country by one figure. Pick the figure at the top, drag the year, and open Layers for things like power plants, ports or the front line."}
+      - {path: "/entity/NZL", target: "#charts", text: "Each country has a page: headline charts first, then cards by topic. The card list at the side hides what you don't need."}
+      - {path: "/compare", text: "Compare puts countries side by side on any figures, with their fixed colours (NZ black, Australia gold, UK red, US blue)."}
+      - {path: "/discover", text: "Discover lists finds in the data: records, turning points and countries moving opposite ways."}
+      - {path: "/briefing", text: "The Briefing gathers what is new since the last refresh: data, events, news and crowd forecasts."}
+      - {path: "/settings", text: "Settings switch whole sources and behaviours on and off, and each one says what it changes."}
+  - id: nz-economy
+    name: New Zealand's economy
+    stops:
+      - {path: "/entity/NZL", target: "#money", text: "The Money section of the NZ page: growth, inflation, the Reserve Bank's rate and the exchange rate."}
+      - {path: "/entity/NZL", target: "#card-housing", text: "House prices against incomes and household debt, beside other countries'."}
+      - {path: "/entity/NZL", target: "#card-debt", text: "Government and private debt as shares of GDP, with the long history behind them."}
+      - {path: "/outlook", text: "Outlook: the odds of a recession, this quarter's growth before the official figure, and when the next figures are due."}
+      - {path: "/sectors", text: "Sectors: dairy, meat, wood and the other things New Zealand sells, with their world prices."}
+  - id: energy
+    name: Energy, from fuel to plug
+    stops:
+      - {path: "/entity/NZL", target: "#card-energy_mix", text: "Where New Zealand's electricity and energy come from, year by year."}
+      - {path: "/entity/NZL", target: "#card-energy_flow", text: "The energy flow: fuels on the left, power stations in the middle, the sectors using it on the right. Notice how much oil goes straight to transport."}
+      - {path: "/entity/NZL", target: "#card-grid_now", text: "The grid right now: what is generating, demand, and the link between the islands."}
+      - {path: "/entity/world", target: "#card-energy_flow", text: "The same flow for the whole world, from the UN's figures added up."}
+      - {path: "/entity/GBR", target: "#card-grid_now", text: "Great Britain's grid over the last two days, with its links to France, Norway and others."}
+  - id: people
+    name: People and how they change
+    stops:
+      - {path: "/entity/NZL", target: "#people", text: "New Zealand's people: births, deaths, ages and migration."}
+      - {path: "/stories", text: "Stories: short visual stories, such as the fall in children per woman almost everywhere."}
+      - {path: "/forecasts", text: "Forecasts: population what-ifs and statistical forecasts, with how well past forecasts did."}
+      - {path: "/alike", text: "Countries like this one: the nearest countries on a set of figures, decade by decade."}
+  - id: wars
+    name: Wars and tension
+    stops:
+      - {path: "/crisiswatch", text: "CrisisWatch: Crisis Group's monthly ratings of where things are getting worse or better."}
+      - {path: "/wars", text: "War trackers: equipment lost, the front line day by day, and aid given."}
+      - {path: "/entity/UKR", target: "#card-fighting", text: "A country's fighting, unrest and internet outages, month by month."}
+      - {path: "/military", text: "Military strength side by side: troops, aircraft, ships and budgets, with ranks."}
+      - {path: "/sanctions", text: "Who sanctions whom today, by target country and by list."}

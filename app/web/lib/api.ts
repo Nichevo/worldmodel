@@ -145,10 +145,22 @@ export type EnergyFlow = {
   unit?: string;
   source_id?: string | null;
   vintage?: string | null;
+  coverage?: number | null; // for a group: the share of its people whose countries are in the sum
+  population?: number | null;
+  sources?: { source_id: string; name: string; first: number; last: number }[];
   nodes: { name: string; kind: "source" | "electricity" | "use" | "loss" }[];
   links: { source: string; target: string; value: number }[];
   totals: { primary_supply: number; supply_by_group: Record<string, number>; electricity_generated: number;
-    use_by_sector: Record<string, number> } | null;
+    heat_generated?: number; use_by_sector: Record<string, number> } | null;
+};
+
+export type GridNow = {
+  country: string; name: string; tz: string; source: string; read_at?: string; at?: string | null; error?: string; note?: string;
+  series: { fuel: string; points: [string, number][] }[]; // generation by fuel, MW
+  mix: { fuel: string; mw: number; capacity?: number }[]; // the latest reading
+  lines: { name: string; unit: string; points: [string, number][] }[]; // demand, links over time
+  links: { name: string; mw: number }[];
+  demand_mw?: number | null; renewable_share?: number | null; carbon_g_kwh?: number | null;
 };
 
 export type Pyramid = {
@@ -239,6 +251,8 @@ export type Settings = {
   climate_storms_from: number; // first year of storm tracks kept
   climate_live_map: boolean; // the storms map asks GDACS for what is happening now
   power_fetch: boolean; // refresh reads WRI power plants and gridfinder power lines
+  energy_flows_fetch: boolean; // refresh reads UN energy statistics and Eurostat power trade
+  grid_now: boolean; // Grid now cards read live while open
   outlook_fetch: boolean; // OECD leading indicators, quarterly GDP, US yield curve and GDPNow downloaded at refresh
   calendar_live: boolean; // the release calendar reads the ONS and ABS calendars once a day
   attention_on: boolean; // Wikipedia page views per country
@@ -333,6 +347,7 @@ export type Settings = {
   backup_big_mb: number;
   views_fetch: boolean; // ViEWS conflict forecasts
   predictions_on_charts: boolean; // your predictions as dots on charts
+  data_console: boolean; // read-only SQL questions to the warehouse, from this PC only
   api_public_on: boolean; // the public API for scripts, Python, Excel and AI assistants
   api_daily_limit: number; // calls a day per key
   digest_on: boolean; // the weekly digest on the Briefing
@@ -1242,7 +1257,19 @@ export const api = {
   memberships: (q: { type?: string; group?: string }) =>
     get<{ group_id: string; group_name: string; member_id: string }[]>("/memberships", q),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),
-  energyFlow: (entity: string, year?: number) => get<EnergyFlow>("/energy-flow", year ? { entity, year } : { entity }),
+  energyFlow: (entity: string, year?: number, source?: string) =>
+    get<EnergyFlow>("/energy-flow", { entity, ...(year ? { year } : {}), ...(source ? { source } : {}) }),
+  gridNow: (country: string) => get<GridNow>(`/grid-now/${country}`),
+  learn: () => get<LearnPage>("/learn", { t: Date.now() }),
+  quiz: (topic?: string, seed?: number, familiar = true) => get<Quiz>("/learn/quiz", { topic, seed, familiar: String(familiar) }),
+  quizScore: (topic: string, right: number, asked: number) => send<LearnRecord>("POST", "/learn/quiz/score", { topic, right, asked }),
+  guess: (entity: string, indicator: string, hide_from: number) => get<GuessChart>("/learn/guess", { entity, indicator, hide_from }),
+  guessCheck: (entity: string, indicator: string, hide_from: number, drawn: [number, number][]) =>
+    send<GuessResult>("POST", "/learn/guess", { entity, indicator, hide_from, drawn }),
+  consoleTables: () => get<ConsoleTables>("/console/tables"),
+  consoleQuery: (sql: string, limit: number) => send<ConsoleResult>("POST", "/console/query", { sql, limit }),
+  consoleSave: (name: string, sql: string) => send<SavedQuery[]>("POST", "/console/saved", { name, sql }),
+  consoleDrop: (name: string) => send<SavedQuery[]>("DELETE", `/console/saved?name=${encodeURIComponent(name)}`),
   partners: (indicator: string, entity: string, direction: "in" | "out", year?: number, limit = 10) =>
     get<Partners>("/partners", { indicator, entity, direction, year, limit }),
   layouts: () => get<SavedLayout[]>("/layouts"),
@@ -1399,3 +1426,21 @@ export type CityLeg = { city_id: string; name: string; country_id: string; count
   timezone: string | null; population: number; kind: "key" | "added" | "nearest"; km: number; bearing: number };
 export type CityDistances = { city: { city_id: string; name: string; country_id: string; lat: number; lon: number; timezone: string | null };
   key: CityLeg[]; added: CityLeg[]; nearest: CityLeg[]; key_names: string[]; missing: string[] };
+
+// The Learn page (learn.yaml) and the Data console.
+export type TourStop = { path: string; target?: string; text: string };
+export type Tour = { id: string; name: string; stops: TourStop[] };
+export type GuessPreset = { entity: string; indicator: string; hide_from: number; ask: string };
+export type LearnRecord = { guesses: { entity: string; indicator: string; hide_from: number; score: number; at: string }[];
+  quiz: { topic: string; right: number; asked: number; at: string }[] };
+export type LearnPage = { topics: { id: string; name: string; indicators: string[] }[]; guesses: GuessPreset[]; tours: Tour[]; record: LearnRecord };
+export type QuizQuestion = { kind: "higher" | "top" | "risefall"; question: string; year: number; from_year?: number; country?: string;
+  choices: { id: string; label: string; value: number | null }[]; answer: string; values?: [number, number][];
+  indicator_id: string; indicator: string; unit: string; decimals: number; source_id: string | null };
+export type Quiz = { seed: number; topic: string; questions: QuizQuestion[]; topics: { id: string; name: string }[] };
+export type GuessChart = { entity_id: string; name: string; indicator_id: string; indicator: string; unit: string; decimals: number | null;
+  source_id: string; hide_from: number; first: number; last: number; shown: [number, number][]; y_min: number; y_max: number };
+export type GuessResult = { score: number; years: number; gap: number | null; actual: [number, number][] };
+export type SavedQuery = { name: string; sql: string; at: string };
+export type ConsoleTables = { tables: { table: string; columns: { name: string; type: string }[] }[]; saved: SavedQuery[]; max_rows: number };
+export type ConsoleResult = { columns: string[]; rows: (string | number | boolean | null)[][]; more: boolean; limit: number };

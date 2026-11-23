@@ -6,6 +6,7 @@ import Nav from "@/components/Nav";
 import { ProblemBanner } from "@/components/Problems";
 import SampleBanner from "@/components/SampleBanner";
 import StorageBanner from "@/components/StorageBanner";
+import TourBar from "@/components/TourBar";
 
 export const metadata: Metadata = {
   title: "Worldmodel",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ProblemBanner />
         <main>{children}</main>
         <AIHost />
+        <TourBar />
       </body>
     </html>
   );

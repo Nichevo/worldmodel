@@ -27,6 +27,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/regions", label: "Regions inside a country", hint: "US states and counties, New Zealand's regions: a map and every figure, each with its rank" },
     { href: "/compare", label: "Compare" },
     { href: "/stories", label: "Stories", hint: "Short visual stories from your own figures: the fertility fall, electricity, exploding cities, the Arctic, NZ in numbers" },
+    { href: "/learn", label: "Learn", hint: "Draw your guess, a quiz from your own figures, and guided tours round the app" },
     { href: "/topics", label: "Topics" },
     { href: "/religion", label: "Religion" },
     { href: "/languages", label: "Languages" },
@@ -66,6 +67,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/sources", label: "Sources" },
     { href: "/glossary", label: "Glossary", hint: "The terms the charts use" },
     { href: "/data", label: "Data status" },
+    { href: "/console", label: "Data console", hint: "Ask the warehouse questions in SQL, read-only (switched on in Settings)" },
     { href: "/settings", label: "Settings" },
   ] },
 ];
@@ -112,7 +114,7 @@ export default function Nav() {
             </button>
             {open === g.label && (
               <div className="nav-menu" role="menu">
-                {g.links.filter((l) => l.href !== "/shapes" || s.map_true_size).map((l) => (
+                {g.links.filter((l) => (l.href !== "/shapes" || s.map_true_size) && (l.href !== "/console" || s.data_console)).map((l) => (
                   <Link key={l.href} href={l.href} role="menuitem" className={isOn(path, l.href) ? "active" : ""} title={l.hint}>
                     {l.label}{l.href === "/todo" && todo > 0 && <span className="badge">{todo}</span>}
                   </Link>

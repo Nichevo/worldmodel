@@ -169,6 +169,17 @@ export default function SettingsPage() {
           save={(v) => save({ api_daily_limit: v })} />
       </section>
 
+      <section className="card" id="console">
+        <h2>Data console</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Ask the warehouse questions in SQL and see the answer as a table, with CSV export and saved queries. Read-only: it cannot change
+          or delete anything, read other files or reach the internet. Works only on this PC, not from other devices on your network.
+        </p>
+        <Toggle label="Data console"
+          hint="On: Data console appears in the Data menu. Off: the menu item is hidden and the page says it is switched off; nothing else changes."
+          on={s.data_console} set={(v) => save({ data_console: v })} />
+      </section>
+
       <MapDetail s={s} save={save} />
       <MapPictures s={s} save={save} />
 
@@ -328,6 +339,10 @@ export default function SettingsPage() {
           on={s.sea_borders_fetch} set={(v) => save({ sea_borders_fetch: v })} />
         <Toggle label="Power plants and power lines" hint="WRI's Global Power Plant Database (10 MB, twice a year) and gridfinder's power lines (700 MB downloaded once, about 150 MB kept). Off before the first read: no power plants or power lines layers."
           on={s.power_fetch} set={(v) => save({ power_fetch: v })} />
+        <Toggle label="Energy flows and power links" hint="UN energy statistics for every country since 1990 (about 100 MB, every three months), drawn as each country's and group's energy flow chart, and Eurostat's yearly electricity trade between European countries for the Power links map layer. Off: no new figures; what is stored stays."
+          on={s.energy_flows_fetch} set={(v) => save({ energy_flows_fetch: v })} />
+        <Toggle label="Grid now cards (live)" hint="New Zealand (Transpower), Australia (Open Electricity, free OPENELECTRICITY_API_KEY), Great Britain (Elexon and the Carbon Intensity API) and the US (EIA, your EIA_API_KEY): read only while a card is open, at most every five minutes, and not saved. Off: the cards are hidden."
+          on={s.grid_now} set={(v) => save({ grid_now: v })} />
         <Toggle label="Pipelines and LNG terminals (Global Energy Monitor)" hint="Read from the files you save in var\manual\gem_infrastructure (see Data status). Off: those files are not read again."
           on={s.energy_infrastructure_fetch} set={(v) => save({ energy_infrastructure_fetch: v })} />
         <Toggle label="UNESCO World Heritage sites" hint="One XML list twice a year. Off: no heritage sites layer or counts."

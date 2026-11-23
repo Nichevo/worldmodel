@@ -12,13 +12,13 @@ export type ProfileCard = { key: string; title: string };
 // Ready-made set-ups: charts in order, and the cards they leave out.
 const READY: { name: string; charts: string[]; hidden: string[] }[] = [
   { name: "Economy", charts: ["gdp_growth", "gdp_per_capita_usd", "inflation", "unemployment", "govt_debt_gdp", "current_account_gdp"],
-    hidden: ["education", "voters", "energy_mix", "energy_flow", "cities", "places", "crisiswatch"] },
+    hidden: ["education", "voters", "energy_mix", "energy_flow", "grid_now", "cities", "places", "crisiswatch"] },
   { name: "People", charts: ["pop_total", "tfr", "life_expectancy", "median_age", "pop_share_65_plus", "net_migration_rate"],
-    hidden: ["debt", "housing", "energy_mix", "energy_flow", "sources_differ"] },
+    hidden: ["debt", "housing", "energy_mix", "energy_flow", "grid_now", "sources_differ"] },
   { name: "Energy and climate", charts: ["renewables_share_elec", "co2_per_capita", "energy_per_capita", "sea_ice_extent_min"],
     hidden: ["migration", "education", "voters", "debt", "housing", "prices", "voting", "between"] },
   { name: "World affairs", charts: ["military_spending_gdp", "gdp_growth", "sanctions_active", "treaties_joined"],
-    hidden: ["education", "housing", "prices", "energy_flow", "cities", "places"] },
+    hidden: ["education", "housing", "prices", "energy_flow", "grid_now", "cities", "places"] },
 ];
 
 export default function ProfilePicker({ open, onClose, indicators, charts, defaults, setCharts, cards, hidden, setHidden }: {

@@ -1486,3 +1486,46 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .pundit-hit .fill.muted { background: var(--muted); opacity: 0.5; }
 .pundit-table td { vertical-align: top; }
 .pundit-person { padding: 4px 0 8px; }
+
+/* Grid now card: chart beside the "right now" table, stacked on narrow screens */
+.grid-now-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 760px) { .grid-now-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* Learn: draw your guess, quiz, guided tours */
+.learn-cols { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .learn-cols { grid-template-columns: 1fr; } }
+.guess-svg { width: 100%; height: auto; touch-action: none; cursor: crosshair; user-select: none; display: block; }
+.guess-zone { fill: var(--surface-2); }
+.guess-grid { stroke: var(--grid); stroke-width: 1; }
+.guess-axis { fill: var(--muted); font-size: 11px; }
+.guess-label { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.guess-hint { fill: var(--muted); font-size: 15px; }
+.guess-real { fill: none; stroke: var(--ink); stroke-width: 2.5; }
+.guess-real.reveal { stroke: var(--accent); stroke-width: 3; }
+.guess-mine { fill: none; stroke: var(--warn-ink); stroke-width: 2.5; stroke-dasharray: 6 4; }
+.guess-dot { fill: var(--ink); }
+b.good { color: var(--good); } b.bad { color: var(--bad); }
+.quiz-q { margin: 6px 0 10px; font-size: 1.15rem; }
+.quiz-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.quiz-choice { display: flex; justify-content: space-between; gap: 8px; padding: 10px 12px; text-align: left; font-size: 1rem; }
+.quiz-choice .num { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.quiz-choice.right { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--surface)); color: var(--ink); }
+.quiz-choice.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); color: var(--ink); }
+.quiz-choice:disabled { opacity: 1; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tour-bar { position: fixed; z-index: 60; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px));
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); padding: 10px 14px; }
+.tour-bar p { margin: 4px 0 8px; }
+.tour-bar .spacer { flex: 1; }
+.tour-target { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 8px; scroll-margin-top: 80px; }
+/* Data console */
+.console-cols { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .console-cols { grid-template-columns: 1fr; } }
+.console-sql { width: 100%; min-height: 140px; font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; padding: 8px; box-sizing: border-box;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+.console-result { overflow: auto; max-height: 60vh; }
+.console-result table { white-space: nowrap; }
+.console-tables details { margin: 2px 0; }
+.console-tables summary { cursor: pointer; }
+.console-tables code { font-size: 0.8rem; }
+.console-tables button.link { text-align: left; }
