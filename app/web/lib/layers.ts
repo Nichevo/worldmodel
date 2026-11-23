@@ -165,6 +165,11 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "mw"], 10]], 0, 1.5, 10, 3, 30, 7, 80, 14],
     }),
   },
+  power_links: {
+    legend: "Electricity traded between countries in a year (thicker: more; hover for which way)", swatch: () => "#e8590c",
+    paint: () => ({ "line-color": "#e8590c", "line-opacity": 0.8,
+      "line-width": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "total"], 0]], 0, 0.8, 100, 3, 200, 7, 300, 12] }),
+  },
   railways: {
     legend: "Railway (thicker: main lines)", swatch: () => "#7b2d26", fetch: "window",
     paint: () => ({ "line-color": "#7b2d26", "line-opacity": 0.85,
@@ -433,6 +438,8 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "coral_alerts") return `<b>${esc(p.name)}</b><br/>Coral bleaching: ${esc(p.label)} (highest in the last 7 days)`;
   if (layer === "power_plants") return `<b>${esc(p.name)}</b><br/>${esc(p.fuel)}${typeof p.mw === "number" ? `, ${num(p.mw)} MW` : ""}`
     + `${p.year ? ` · built ${esc(p.year)}` : ""}${p.owner ? `<br/>${esc(p.owner)}` : ""}`;
+  if (layer === "power_links") return `<b>${esc(p.from_name)} → ${esc(p.to_name)}</b>, ${esc(p.year)}<br/>${num(p.sent)} GWh sent, `
+    + `${num(p.back)} GWh back<br/>Net ${num(p.net)} GWh to ${esc(p.to_name)}`;
   if (layer === "railways") return `<b>Railway</b>${p.rank === 1 ? " (main line)" : ""}`;
   if (layer === "power_lines") return `<b>Power line</b>${p.rank === 1 ? " (mapped)" : " (predicted)"}${p.kv ? `<br/>${esc(p.kv)} kV` : ""}`;
   if (layer === "storms_active") {

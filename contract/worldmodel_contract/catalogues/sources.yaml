@@ -3004,3 +3004,33 @@
   default_rank: 3
   standing: 4
   definition: standard
+
+- id: unsd_energy
+  name: UN Statistics Division energy statistics (SDMX API, DF_UNDATA_ENERGY)
+  short_name: UN energy statistics
+  publisher: United Nations Statistics Division
+  url: https://unstats.un.org/unsd/energystats/data/
+  licence: Free to copy and redistribute, not for profit, with UNSD cited
+  licence_url: https://www.un.org/en/about-us/terms-of-use
+  commercial_use: false
+  cadence: Yearly; read every three months
+  attribution: "United Nations Statistics Division, Energy Statistics Database (UNdata API, DF_UNDATA_ENERGY)."
+  status: active
+  default_rank: 3
+  standing: 5
+  definition: standard
+
+- id: eurostat_power_trade
+  name: Eurostat electricity imports and exports by partner country (nrg_ti_eh, nrg_te_eh)
+  short_name: Eurostat power trade
+  publisher: Eurostat
+  url: https://ec.europa.eu/eurostat/databrowser/view/nrg_ti_eh/default/table
+  licence: Free reuse with attribution
+  licence_url: https://ec.europa.eu/eurostat/about-us/policies/copyright
+  commercial_use: true
+  cadence: Yearly; read every three months
+  attribution: "Eurostat, nrg_ti_eh and nrg_te_eh."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard

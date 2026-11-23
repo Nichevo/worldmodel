@@ -252,6 +252,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "tree_height") return { ok: true, why: "", source: "NASA GIBS (GEDI), read from the internet" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
+    if (m.id === "power_links") return { ok: true, why: "", source: "Eurostat electricity trade by partner, the latest year (a refresh loads it)" };
     if (m.id === "city_stress") return { ok: true, why: "", source: "Our score from Numbeo, TomTom and WHO figures (Cities > City stress)" };
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
     if (["fires_now", "fires_week", "heat_now", "coral_alerts"].includes(m.id)) return s.hazards_live

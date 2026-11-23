@@ -117,6 +117,8 @@ SETTINGS: dict[str, object] = {
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
     "sea_borders_fetch": True,           # Marine Regions economic zone lines (twice a year) and VATSIM flight region outlines (every three months)
     "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
+    "energy_flows_fetch": True,          # UN energy statistics for every country (about 100 MB, every three months) and Eurostat power trade
+    "grid_now": True,                    # Grid now cards (NZ, Australia, Great Britain, US): read live only while a card is open
     "outlook_fetch": True,               # OECD leading indicators and quarterly GDP (weekly), US yield curve and GDPNow from FRED
     "attention_on": True,                # Wikipedia page views per country (one request per country page opened, one a day for the Briefing)
     "calendar_live": True,               # release dates from the ONS (UK) and ABS (Australia) sites, once a day
@@ -251,6 +253,7 @@ SETTINGS: dict[str, object] = {
     "backup_keep": 10,               # backups kept; older ones the app made are removed
     "backup_big_mb": 200,            # files bigger than this (big downloads the site can give again) are left out; 0 keeps all
     # The public API (/api/public/v1) for scripts, the Python client, Excel and AI assistants (Settings > API access)
+    "data_console": False,           # off: no Data console page; on: read-only questions in SQL to the warehouse, from this PC only
     "api_public_on": False,          # off: nothing outside the app itself can read the data through the public API
     "api_daily_limit": 2000,         # calls a day for each key (calls from this PC need no key and are not limited)
     # The weekly digest (Briefing > Week)
