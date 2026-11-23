@@ -11,6 +11,7 @@ import CountryAbout from "@/components/CountryAbout";
 import DebtCard from "@/components/DebtCard";
 import EducationCard from "@/components/EducationCard";
 import EnergyFlowCard from "@/components/EnergyFlowCard";
+import GridNowCard, { GRID_COUNTRIES } from "@/components/GridNowCard";
 import EnergyMix from "@/components/EnergyMix";
 import FactbookCard from "@/components/FactbookCard";
 import HousingCard from "@/components/HousingCard";
@@ -158,7 +159,8 @@ export default function EntityPage() {
     { key: "transport", title: "Transport and links", section: "places", on: !isGroup, el: <TransportCard entity={e} name={nm} /> },
     { key: "tourism", title: "Tourism", section: "places", on: !isGroup, el: <TourismCard entity={e} name={nm} /> },
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
-    { key: "energy_flow", title: "Energy flow", section: "energy", on: !isGroup && !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
+    { key: "energy_flow", title: "Energy flow", section: "energy", on: !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
+    { key: "grid_now", title: "Grid now", section: "energy", on: GRID_COUNTRIES.includes(e), el: <GridNowCard entity={e} name={nm} /> },
     { key: "climate", title: "Climate", section: "climate", on: !isGroup || e === "world", el: <ClimateCard entity={e} name={nm} /> },
     { key: "weather", title: "Weather through the year", section: "climate", on: !isGroup, el: <WeatherCard entities={[e]} compact /> },
     { key: "climate_zones", title: "Climate zones", section: "climate", on: !isGroup, el: <ZonesCard entity={e} name={nm} /> },

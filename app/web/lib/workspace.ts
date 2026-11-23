@@ -281,6 +281,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "M", id: "electricity_mix", label: "Electricity mix (pies)", group: "energy", made: true, hint: "A pie of each place's electricity by source, sized by how much it makes: continents zoomed out, countries zoomed in; or main-source dots, or the map shaded by one source" },
   { letter: "W", id: "power_plants", label: "Power plants", group: "energy", hint: "About 35,000 power plants sized by capacity and coloured by fuel (WRI Global Power Plant Database)" },
   { letter: "Y", id: "power_lines", label: "Power lines", group: "energy", hint: "High and medium voltage lines: mapped (OpenStreetMap) and predicted from night lights (World Bank gridfinder)" },
+  { letter: "7", id: "power_links", label: "Power links between countries", group: "energy", hint: "Electricity traded between European countries in the latest year, a line between capitals, thicker for more, from the net exporter to the importer (Eurostat); hover a line for both directions" },
   { letter: "P", id: "ports", label: "Ports (by ship calls)", group: "transport", hint: "About 1,700 ports sized by ship calls a year (IMF PortWatch)" },
   { letter: "E", id: "ports_all", label: "Every port", group: "transport", hint: "About 3,800 ports with harbour size (NGA World Port Index)" },
   { letter: "C", id: "chokepoints", label: "Shipping chokepoints", group: "transport", hint: "Straits and canals, sized by ships a day; click one for the countries on its shores" },

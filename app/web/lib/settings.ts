@@ -53,6 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   calendar_live: true,
   attention_on: true,
   power_fetch: true,
+  energy_flows_fetch: true,
+  grid_now: true,
   internet_speeds_fetch: true,
   internet_speeds_from: 2019,
   internet_speeds_per_refresh: 8,
