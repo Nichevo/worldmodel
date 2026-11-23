@@ -304,16 +304,52 @@ def doy(d: date, monthly: bool) -> int:
 
 
 # ----------------------------------------------------------------------------------- regions
-def regions(q: Q, country: str) -> dict:
-    """The country's regions with every figure held for them, by year."""
+def regions(q: Q, country: str, level: str | None = None, indicator: str | None = None) -> dict:
+    """The regions inside a country or state with every figure held for them, by year. level 'county'
+    under USA gives every county of every state. With `indicator`, only that figure's values are
+    sent (the others are listed with their years but no values), which keeps 3,000 counties light."""
     try:
-        subs = q("""SELECT d.entity_id, e.short_name AS name, d.code FROM subdivisions d JOIN entities e USING (entity_id)
-                    WHERE d.parent_id = ? ORDER BY e.short_name""", [country])
+        if level and level not in ("state", "region"):
+            subs = q("""SELECT c.entity_id, e.short_name AS name, c.code, c.level, c.parent_id FROM subdivisions s
+                        JOIN subdivisions c ON c.parent_id = s.entity_id JOIN entities e ON e.entity_id = c.entity_id
+                        WHERE s.parent_id = ? AND c.level = ? AND e.valid_to IS NULL ORDER BY e.short_name""", [country, level])
+        else:
+            subs = q("""SELECT d.entity_id, e.short_name AS name, d.code, d.level, d.parent_id FROM subdivisions d
+                        JOIN entities e USING (entity_id) WHERE d.parent_id = ? AND e.valid_to IS NULL ORDER BY e.short_name""", [country])
     except Exception:  # noqa: BLE001 - a warehouse built before 1.7.0 has no subdivisions table
         subs = []
-    out = {"country": country, "regions": subs, "measures": []}
+    out = {"country": country, "level": level or (subs[0]["level"] if subs else None), "regions": subs, "measures": []}
     if not subs:
         return out
+    ids = [s["entity_id"] for s in subs]
+    data: list[dict] = []
+    years_of: dict[str, set[int]] = {}
+    for i in range(0, len(ids), 1000):
+        part = ids[i:i + 1000]
+        marks = ", ".join("?" * len(part))
+        for r in q(f"""SELECT DISTINCT s.indicator_id, year(s.period_start) AS y FROM series s WHERE s.entity_id IN ({marks})
+                       AND s.breakdown = '' AND s.variant = 'central' AND s.freq = 'A'""", part):
+            years_of.setdefault(r["indicator_id"], set()).add(r["y"])
+        extra, params = ("AND s.indicator_id = ?", part + [indicator]) if indicator else ("", part)
+        data += q(f"""SELECT s.indicator_id, s.entity_id, year(s.period_start) AS y, s.value
+                      FROM series s WHERE s.entity_id IN ({marks}) AND s.breakdown = '' AND s.variant = 'central' AND s.freq = 'A'
+                      {extra} ORDER BY 1, 3""", params)
+    if not years_of:
+        return out
+    inds = sorted(years_of)
+    meta = {r["indicator_id"]: r for r in q(f"""SELECT i.indicator_id, i.name, i.unit, i.decimals, i.domain, s.name AS source,
+        x.source_id FROM indicators i LEFT JOIN indicator_sources x ON x.indicator_id = i.indicator_id AND x.rank = 1
+        LEFT JOIN sources s ON s.source_id = x.source_id WHERE i.indicator_id IN ({', '.join('?' * len(inds))})""", inds)}
+    by: dict[str, dict[str, dict[int, float]]] = {}
+    for r in data:
+        by.setdefault(r["indicator_id"], {}).setdefault(r["entity_id"], {})[r["y"]] = r["value"]
+    for i in inds:
+        m = meta.get(i, {})
+        out["measures"].append({"indicator_id": i, "name": m.get("name", i), "unit": m.get("unit"), "decimals": m.get("decimals"),
+                                "source": m.get("source"), "source_id": m.get("source_id"), "domain": m.get("domain"),
+                                "years": sorted(years_of[i]),
+                                "values": {e: {str(y): v for y, v in ys.items()} for e, ys in by.get(i, {}).items()}})
+    return out
     ids = [s["entity_id"] for s in subs]
     marks = ", ".join("?" * len(ids))
     data = q(f"""SELECT s.indicator_id, s.entity_id, year(s.period_start) AS y, s.value, s.source_id
@@ -322,8 +358,8 @@ def regions(q: Q, country: str) -> dict:
     if not data:
         return out
     inds = sorted({r["indicator_id"] for r in data})
-    meta = {r["indicator_id"]: r for r in q(f"""SELECT i.indicator_id, i.name, i.unit, i.decimals, i.domain, s.name AS source
-        FROM indicators i LEFT JOIN indicator_sources x ON x.indicator_id = i.indicator_id AND x.rank = 1
+    meta = {r["indicator_id"]: r for r in q(f"""SELECT i.indicator_id, i.name, i.unit, i.decimals, i.domain, s.name AS source,
+        x.source_id FROM indicators i LEFT JOIN indicator_sources x ON x.indicator_id = i.indicator_id AND x.rank = 1
         LEFT JOIN sources s ON s.source_id = x.source_id WHERE i.indicator_id IN ({', '.join('?' * len(inds))})""", inds)}
     by: dict[str, dict[str, dict[int, float]]] = {}
     for r in data:
@@ -332,6 +368,6 @@ def regions(q: Q, country: str) -> dict:
         m = meta.get(i, {})
         years = sorted({y for v in by[i].values() for y in v})
         out["measures"].append({"indicator_id": i, "name": m.get("name", i), "unit": m.get("unit"), "decimals": m.get("decimals"),
-                                "source": m.get("source"), "years": years,
+                                "source": m.get("source"), "source_id": m.get("source_id"), "domain": m.get("domain"), "years": years,
                                 "values": {e: {str(y): v for y, v in ys.items()} for e, ys in by[i].items()}})
     return out

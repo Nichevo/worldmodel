@@ -45,6 +45,7 @@ from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
 from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
+from worldmodel_api import regions as region_tools
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
@@ -232,7 +233,8 @@ def entity(entity_id: str, on: date | None = None):
     codes = rows("SELECT scheme, code, valid_from, valid_to FROM entity_codes WHERE entity_id = ? ORDER BY scheme",
                  [entity_id])
     return {**found[0], "groups": groups, "members": members, "membership_history": history,
-            "successions": succession, "codes": codes, "as_of": on}
+            "successions": succession, "codes": codes, "as_of": on,
+            "subdivision": region_tools.place(rows, entity_id) if found[0]["type"] == "subnational" else None}
 
 
 # ----------------------------------------------------------------------------- texts: Factbook, Wikidata
@@ -3417,9 +3419,30 @@ def storage_series(indicator: str, entity: str, years: int | None = Query(None, 
 
 
 @api.get("/regions/{country}")
-def regions(country: str):
-    """The country's regions (New Zealand's 16) with every figure held for them, by year."""
-    return markets.regions(rows, country)
+def regions(country: str, level: str | None = None, indicator: str | None = None):
+    """The regions inside a country or state (New Zealand's 16, the US states, a state's counties)
+    with every figure held for them, by year; level=county under USA for every county, and
+    indicator=... to send only that figure's values."""
+    return markets.regions(rows, country, level, indicator)
+
+
+@api.get("/region-countries")
+def region_countries():
+    """Countries whose regions the app holds (the US, New Zealand), with how many."""
+    return region_tools.countries(rows)
+
+
+@api.get("/region-shapes/{parent}")
+def region_shapes(parent: str, level: str | None = None):
+    """Outlines of the regions inside a country or state, for the "Regions inside a country" maps;
+    level=county under USA gives every county."""
+    return region_tools.shapes(rows, parent, level)
+
+
+@api.get("/region-facts/{entity_id}")
+def region_facts(entity_id: str):
+    """A region's figures, each with its rank among the regions beside it (#n of N) and their middle value."""
+    return region_tools.facts(rows, entity_id)
 
 
 # ----------------------------------------------------------------------------- sectors

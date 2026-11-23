@@ -77,6 +77,16 @@
   status: active
 
 
+- source: us_acs
+  name: US Census Data API (American Community Survey)
+  env: [CENSUS_API_KEY]
+  needs_key: true
+  signup: https://api.census.gov/data/key_signup.html
+  how: Give your organisation name ("personal" is fine) and email; the key arrives by email and must be activated from the link in it.
+  unlocks: Income, poverty, degrees, home values, rents, inequality, age, born abroad and language for every US state and county (2009 onward).
+  limits: Free. The API no longer answers without a key. One refresh asks about 260 questions the first time, about 40 after.
+  status: active
+
 - source: iucn_redlist
   name: IUCN Red List API (v4)
   env: [IUCN_API_KEY]
