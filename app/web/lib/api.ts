@@ -145,10 +145,22 @@ export type EnergyFlow = {
   unit?: string;
   source_id?: string | null;
   vintage?: string | null;
+  coverage?: number | null; // for a group: the share of its people whose countries are in the sum
+  population?: number | null;
+  sources?: { source_id: string; name: string; first: number; last: number }[];
   nodes: { name: string; kind: "source" | "electricity" | "use" | "loss" }[];
   links: { source: string; target: string; value: number }[];
   totals: { primary_supply: number; supply_by_group: Record<string, number>; electricity_generated: number;
-    use_by_sector: Record<string, number> } | null;
+    heat_generated?: number; use_by_sector: Record<string, number> } | null;
+};
+
+export type GridNow = {
+  country: string; name: string; tz: string; source: string; read_at?: string; at?: string | null; error?: string; note?: string;
+  series: { fuel: string; points: [string, number][] }[]; // generation by fuel, MW
+  mix: { fuel: string; mw: number; capacity?: number }[]; // the latest reading
+  lines: { name: string; unit: string; points: [string, number][] }[]; // demand, links over time
+  links: { name: string; mw: number }[];
+  demand_mw?: number | null; renewable_share?: number | null; carbon_g_kwh?: number | null;
 };
 
 export type Pyramid = {
@@ -239,6 +251,8 @@ export type Settings = {
   climate_storms_from: number; // first year of storm tracks kept
   climate_live_map: boolean; // the storms map asks GDACS for what is happening now
   power_fetch: boolean; // refresh reads WRI power plants and gridfinder power lines
+  energy_flows_fetch: boolean; // refresh reads UN energy statistics and Eurostat power trade
+  grid_now: boolean; // Grid now cards read live while open
   outlook_fetch: boolean; // OECD leading indicators, quarterly GDP, US yield curve and GDPNow downloaded at refresh
   calendar_live: boolean; // the release calendar reads the ONS and ABS calendars once a day
   attention_on: boolean; // Wikipedia page views per country
@@ -1242,7 +1256,9 @@ export const api = {
   memberships: (q: { type?: string; group?: string }) =>
     get<{ group_id: string; group_name: string; member_id: string }[]>("/memberships", q),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),
-  energyFlow: (entity: string, year?: number) => get<EnergyFlow>("/energy-flow", year ? { entity, year } : { entity }),
+  energyFlow: (entity: string, year?: number, source?: string) =>
+    get<EnergyFlow>("/energy-flow", { entity, ...(year ? { year } : {}), ...(source ? { source } : {}) }),
+  gridNow: (country: string) => get<GridNow>(`/grid-now/${country}`),
   partners: (indicator: string, entity: string, direction: "in" | "out", year?: number, limit = 10) =>
     get<Partners>("/partners", { indicator, entity, direction, year, limit }),
   layouts: () => get<SavedLayout[]>("/layouts"),

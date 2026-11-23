@@ -224,3 +224,13 @@
     forecasts scored on the Predictions page.
   limits: Read one request at a time, a second apart; about 50 to 150 requests a refresh.
   status: active
+
+- source: grid_now_au
+  name: Open Electricity (Australia's grid now)
+  env: [OPENELECTRICITY_API_KEY]
+  needs_key: true
+  signup: https://platform.openelectricity.org.au
+  how: Sign in, open API keys and create a key.
+  unlocks: "The Grid now card for Australia (the National Electricity Market): generation by fuel for the last two days."
+  limits: Free for personal use. Asked only while the card is open, at most every five minutes.
+  status: active

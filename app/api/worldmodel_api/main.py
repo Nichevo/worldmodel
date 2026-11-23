@@ -46,6 +46,7 @@ from worldmodel_contract.cities import CITY_INDICATORS
 from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
+from worldmodel_api import grid
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
@@ -819,23 +820,51 @@ def pyramid(entity: str, year: int):
 
 
 @api.get("/energy-flow")
-def energy_flow_chart(entity: str, year: int | None = None):
-    """Where a country's energy comes from and goes (a Sankey chart), from its energy
-    balance (energy_balance_pj, breakdown flow=<row>|fuel=<fuel>). Without a year, or for
-    a year without a balance, the latest year before it; `years` lists them all."""
+def energy_flow_chart(entity: str, year: int | None = None, source: str | None = None):
+    """Where a country's or group's energy comes from and goes (a Sankey chart), from its energy
+    balance (energy_balance_pj, breakdown flow=<row>|fuel=<fuel>). A country's own balance
+    (MBIE for New Zealand) is drawn first where held, else the UN's; `sources` lists the
+    others to switch to. Without a year, or for a year without a balance, the latest year
+    before it; `years` lists them all. `population` lets the chart show energy per person."""
     base = ("FROM series WHERE indicator_id = 'energy_balance_pj' AND entity_id = ? AND variant = 'central' "
             "AND breakdown LIKE 'flow=%'")
-    years = [r["y"] for r in rows(f"SELECT DISTINCT year(period_start) AS y {base} ORDER BY 1", [entity])]
-    if not years:
-        return {"entity": entity, "year": None, "years": [], "nodes": [], "links": [], "totals": None}
+    held = rows(f"""SELECT s.source_id, coalesce(src.short_name, s.source_id) AS name, min(year(s.period_start)) AS first,
+            max(year(s.period_start)) AS last, bool_or(s.is_aggregate) AS summed, max(s.coverage) AS coverage
+        FROM ({base.replace('FROM series', 'SELECT * FROM series')}) s LEFT JOIN sources src ON src.source_id = s.source_id
+        GROUP BY 1, 2""", [entity])
+    if not held:
+        return {"entity": entity, "year": None, "years": [], "nodes": [], "links": [], "totals": None, "sources": []}
+    # the country's own balance first; for a group the source summed over the most members
+    held.sort(key=lambda r: (r["source_id"] != "mbie_energy", -(r["coverage"] or 0), r["source_id"] != "unsd_energy"))
+    src = source if any(r["source_id"] == source for r in held) else held[0]["source_id"]
+    years = [r["y"] for r in rows(f"SELECT DISTINCT year(period_start) AS y {base} AND source_id = ? ORDER BY 1", [entity, src])]
     if year not in years:
         year = max((y for y in years if y <= (year or years[-1])), default=years[-1])
     data = rows(f"""SELECT split_part(split_part(breakdown, '|', 1), '=', 2) AS flow,
-            split_part(split_part(breakdown, '|', 2), '=', 2) AS fuel, value, source_id, vintage
-        {base} AND year(period_start) = ?""", [entity, year])
+            split_part(split_part(breakdown, '|', 2), '=', 2) AS fuel, value, source_id, vintage, coverage
+        {base} AND source_id = ? AND year(period_start) = ?""", [entity, src, year])
     out = energy_flow.flow([(r["flow"], r["fuel"], r["value"]) for r in data])
-    return {"entity": entity, "year": year, "years": years, "unit": "PJ",
-            "source_id": data[0]["source_id"] if data else None, "vintage": data[0]["vintage"] if data else None, **out}
+    pop = rows("""SELECT value FROM series WHERE entity_id = ? AND indicator_id = 'pop_total' AND variant = 'central'
+        AND breakdown = '' AND year(period_start) = ? ORDER BY source_id = 'un_wpp' DESC LIMIT 1""", [entity, year])
+    return {"entity": entity, "year": year, "years": years, "unit": "PJ", "source_id": src,
+            "vintage": data[0]["vintage"] if data else None, "coverage": data[0]["coverage"] if data else None,
+            "population": pop[0]["value"] if pop else None,
+            "sources": [{"source_id": r["source_id"], "name": r["name"], "first": r["first"], "last": r["last"]} for r in held],
+            **out}
+
+
+@api.get("/grid-now/{country}")
+def grid_now(country: str):
+    """A country's electricity grid as it runs: generation by fuel for the last two days, demand,
+    links to neighbours (New Zealand, Australia, Great Britain, the US). Read live while the
+    card is open, kept five minutes, never saved."""
+    return grid.grid_now(country.upper(), bool(userdata.settings().get("grid_now", True)))
+
+
+@api.get("/power-links")
+def power_links_layer(year: int | None = None):
+    """Electricity traded between European countries in a year, as lines between capitals."""
+    return grid.power_links(rows, year)
 
 
 @api.get("/partners")
@@ -2527,6 +2556,9 @@ def layer(layer_id: str):
              "properties": {"city": r["city_id"], "name": r["name"], "country": r["country"], "score": r["score"],
                             "rank": r["rank"], "of": len(got["rows"]), "parts": r["n_parts"]}}
             for r in got["rows"] if r["lat"] is not None and r["lon"] is not None]}
+        return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
+    if layer_id == "power_links":
+        data = grid.power_links(rows)
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
     if layer_id == "storms_active":
         data = climate.active_storms(bool(userdata.settings().get("climate_live_map", True)))

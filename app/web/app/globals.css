@@ -1486,3 +1486,7 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .pundit-hit .fill.muted { background: var(--muted); opacity: 0.5; }
 .pundit-table td { vertical-align: top; }
 .pundit-person { padding: 4px 0 8px; }
+
+/* Grid now card: chart beside the "right now" table, stacked on narrow screens */
+.grid-now-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 760px) { .grid-now-cols { grid-template-columns: minmax(0, 1fr); } }

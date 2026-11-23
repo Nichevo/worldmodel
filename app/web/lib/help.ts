@@ -72,10 +72,11 @@ export const HELP = {
   },
   energyflow: {
     title: "Where energy comes from and goes",
-    what: "One year of the country's energy balance as a flow: the fuels it produced or imported and kept (left), what was turned into electricity (middle), and the sectors that used the energy (right), with the losses on the way.",
+    what: "One year of the country's or group's energy balance as a flow: the fuels it produced or imported and kept (left), what was turned into electricity and heat (middle), and the sectors that used the energy (right), with the losses on the way. Every country comes from the UN's energy statistics; New Zealand also from MBIE's own balance, chosen with the Source box.",
     how: "Primary supply is production plus imports, less exports, stock building and fuel for international ships and planes. Conversion losses are the fuel going into power stations less the electricity coming out; geothermal counts at the heat drawn from the ground, so most of it shows as a loss. 'Losses and own use' covers refining, the energy industry's own use and losses in the grid and gas network.",
-    units: "Petajoules (PJ), gross calorific value. 1 PJ is about 278 GWh.",
-    sources: [{ label: "MBIE energy balance tables (New Zealand pack)", indicator: "nz_energy_primary_supply" }],
+    units: "Petajoules (PJ), gross calorific value (the UN's figures are net calorific value, a few per cent lower for fossil fuels). 1 PJ is about 278 GWh. Per person is in gigajoules (1 PJ is a million GJ). Nuclear counts at its heat (33% efficient) and geothermal at its heat.",
+    sources: [{ label: "UN Statistics Division energy statistics (every country)", indicator: "energy_primary_supply_pj" },
+      { label: "MBIE energy balance tables (New Zealand pack)", indicator: "nz_energy_primary_supply" }],
   },
   voting: {
     title: "UN voting",
