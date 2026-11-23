@@ -41,6 +41,7 @@ import TransportCard from "@/components/TransportCard";
 import ZonesCard from "@/components/ZonesCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
+import RegionFactsCard from "@/components/RegionFactsCard";
 import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import AlikeCard from "@/components/AlikeCard";
@@ -95,6 +96,7 @@ const TYPE_LABEL: Record<string, string> = {
   subregion: "UN sub-region", intermediate_region: "UN region", bloc: "Bloc", alliance: "Alliance", group: "Group", income_group: "Income group",
   zone: "Beyond borders", organisation: "International organisation", armed_group: "Armed group", subnational: "Region within a country",
 };
+const SUB_LABEL: Record<string, string> = { state: "State", county: "County", region: "Region" };
 
 export default function EntityPage() {
   const { id } = useParams<{ id: string }>();
@@ -136,6 +138,7 @@ export default function EntityPage() {
   // and the "Choose charts and cards" panel can switch any of them off.
   const e = entity.entity_id, nm = entity.short_name;
   const cards: { key: string; title: string; section: string; on: boolean; el: React.ReactNode }[] = [
+    { key: "region_facts", title: "Among the regions beside it", section: "people", on: entity.type === "subnational", el: <RegionFactsCard entity={e} name={nm} /> },
     { key: "migration", title: "Migration in and out", section: "people", on: true, el: <MigrationCard entity={e} name={nm} indicators={byId} /> },
     { key: "education", title: "Education", section: "people", on: true, el: <EducationCard entity={e} name={nm} indicators={byId} /> },
     { key: "religion", title: "Religion", section: "people", on: !isGroup, el: <ReligionCard entity={e} name={nm} /> },
@@ -147,7 +150,8 @@ export default function EntityPage() {
     { key: "debtcycle", title: "Debt cycles", section: "money", on: !isGroup, el: <DebtCycleCard entity={e} name={nm} /> },
     { key: "housing", title: "House prices and household debt", section: "money", on: true, el: <HousingCard entity={e} name={nm} indicators={byId} /> },
     { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
-    { key: "regions", title: "Regions", section: "places", on: !isGroup, el: <RegionsCard entity={e} name={nm} /> },
+    { key: "regions", title: "Regions", section: "places", on: !isGroup || (entity.subdivision?.children ?? 0) > 0,
+      el: <RegionsCard entity={e} name={nm} levels={e === "USA" ? ["state", "county"] : undefined} /> },
     { key: "cities", title: "Major cities", section: "places", on: !isGroup, el: <CitiesCard entity={e} name={nm} /> },
     { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
     { key: "internet", title: "Internet", section: "places", on: true, el: <InternetCard entity={e} name={nm} indicators={byId} /> },
@@ -199,7 +203,8 @@ export default function EntityPage() {
           }} />
         </div>
         <div className="ink-2">
-          {TYPE_LABEL[entity.type] ?? entity.type}
+          {entity.subdivision ? <>{SUB_LABEL[entity.subdivision.level] ?? "Region"} of <Link href={`/entity/${entity.subdivision.parent_id}`}>{entity.subdivision.parent_name}</Link></>
+            : TYPE_LABEL[entity.type] ?? entity.type}
           {entity.name !== entity.short_name ? ` · ${entity.name}` : ""}
           {entity.valid_to ? ` · existed until ${entity.valid_to}` : ""}
           {!entity.valid_to && (entity.type === "country" || entity.type === "world") && (
@@ -317,7 +322,7 @@ export default function EntityPage() {
             ? <ChartCard key={id} indicator={ind} entities={withAverage(ind)} kind={CHART_KIND[id]} events={chartEvents}
               parties={isGroup || withAverage(ind).length > 1 ? [] : terms} hideEmpty /> : null;
         })}
-        {show("pyramid") && byId.get("pop_by_age_sex")?.available && (
+        {show("pyramid") && entity.type !== "subnational" && byId.get("pop_by_age_sex")?.available && (
           <div className="card">
             <h3>Population by age and sex <Help note="pyramid" /></h3>
             <Pyramid entity={entity.entity_id} name={entity.short_name} />

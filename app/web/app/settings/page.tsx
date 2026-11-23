@@ -320,6 +320,8 @@ export default function SettingsPage() {
           on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
         <Toggle label="Railways (Natural Earth)" hint="The world's main and through railway lines, intercity and freight, about 40 MB once a year. Off: no Railways map layer."
           on={s.railways_fetch} set={(v) => save({ railways_fetch: v })} />
+        <Toggle label="US states and counties" hint="Population, income, GDP, prices, jobs, house prices, votes, health and energy for the 50 states, DC and about 3,100 counties (Census, BEA, FRED, BLS, FHFA, MIT Election Lab, County Health Rankings, EIA), and their outlines: about 150 MB at first, checked monthly. Income and the other survey figures need a free CENSUS_API_KEY (Settings > Keys). Off: no new US region figures; what is stored stays."
+          on={s.us_fetch} set={(v) => save({ us_fetch: v })} />
         <Toggle label="Undersea cables (TeleGeography)" hint="The cable map monthly, and each cable's owners and landing countries read once, 150 at a time, two seconds apart. Off: no cables layer and no cables on country cards."
           on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
         <Toggle label="Sea borders: economic zones and flight regions" hint="Marine Regions' maritime boundary lines and zone list (about 50 MB, twice a year) and VATSIM's flight information region outlines (3 MB, every three months). Off: no economic zones or flight regions layers and no sea area figures; what is stored stays."

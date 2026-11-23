@@ -106,8 +106,9 @@ TABLES: dict[str, Table] = {
         Table("subdivisions", {
             "entity_id": "VARCHAR", "parent_id": "VARCHAR", "level": "VARCHAR", "code": "VARCHAR",
         }, ("entity_id",), "Areas inside a country (entities of type subnational), with the country they are in: "
-            "New Zealand's 16 regions (level region, code the Stats NZ regional council code). Absent in warehouses "
-            "built before 1.7.0."),
+            "New Zealand's 16 regions (level region, code the Stats NZ regional council code), the US states and DC "
+            "(level state, parent USA, code the FIPS state code) and US counties (level county, parent their state, "
+            "code the 5-digit FIPS code). Absent in warehouses built before 1.7.0."),
         Table("successions", {
             "predecessor_id": "VARCHAR", "successor_id": "VARCHAR", "date": "DATE", "kind": "VARCHAR",
         }, ("predecessor_id", "successor_id"), "Splits, mergers and dissolutions of states."),

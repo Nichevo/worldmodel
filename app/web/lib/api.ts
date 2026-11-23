@@ -20,6 +20,7 @@ export type EntityDetail = Entity & {
   members: GroupRef[];
   membership_history: { member_id: string; short_name: string; valid_from: string | null; valid_to: string | null }[];
   successions: { predecessor_id: string; successor_id: string; date: string; kind: string }[];
+  subdivision?: RegionPlace | null; // where a region sits: its level and parent
 };
 
 export type Indicator = {
@@ -286,6 +287,7 @@ export type Settings = {
   tourism_fetch: boolean; // UNESCO World Heritage sites
   rivers_fetch: boolean; // HydroRIVERS and HydroBASINS
   railways_fetch: boolean; // Natural Earth railways
+  us_fetch: boolean; // US states and counties
   cables_fetch: boolean; // TeleGeography undersea cables
   sea_borders_fetch: boolean; // Marine Regions economic zones and VATSIM flight regions
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
@@ -1037,10 +1039,15 @@ export type StorageSeries = {
   events: { title: string; kind: string; date: string; day: number }[];
 };
 export type Regions = {
-  country: string; regions: { entity_id: string; name: string; code: string }[];
-  measures: { indicator_id: string; name: string; unit: string; decimals: number; source: string | null; years: number[];
-    values: Record<string, Record<string, number>> }[];
+  country: string; level: string | null; regions: { entity_id: string; name: string; code: string; level: string; parent_id: string }[];
+  measures: { indicator_id: string; name: string; unit: string; decimals: number; source: string | null; source_id: string | null;
+    domain: string | null; years: number[]; values: Record<string, Record<string, number>> }[];
 };
+export type RegionPlace = { level: string; parent_id: string; parent_name: string; parent_level: string | null; children: number };
+export type RegionFact = { indicator_id: string; name: string; unit: string; decimals: number; domain: string | null; source_id: string | null;
+  year: number; value: number; rank: number; of: number; lowest: number; highest: number; middle: number; parent_value: number | null;
+  spark: [number, number][] };
+export type RegionFacts = { entity_id: string; place: RegionPlace | null; facts: RegionFact[] };
 
 export type Tone = "good" | "bad" | "neutral";
 export type Find = {
@@ -1178,7 +1185,12 @@ export const api = {
     get<StorageSeries>(`/storage-levels/${encodeURIComponent(indicator)}/${encodeURIComponent(entity)}`, { years }),
   storageTotals: (indicator: string, o: { by?: string; group?: string; step?: string; top?: number } = {}) =>
     get<StorageTotals>(`/storage-levels/${encodeURIComponent(indicator)}/totals`, o),
-  regions: (country: string) => get<Regions>(`/regions/${encodeURIComponent(country)}`),
+  regions: (country: string, opts: { level?: string; indicator?: string } = {}) =>
+    get<Regions>(`/regions/${encodeURIComponent(country)}`, { level: opts.level, indicator: opts.indicator }),
+  regionShapes: (parent: string, level?: string) =>
+    get<GeoJSON.FeatureCollection>(`/region-shapes/${encodeURIComponent(parent)}`, { level }),
+  regionCountries: () => get<{ entity_id: string; name: string; regions: number; level: string; below: number }[]>("/region-countries"),
+  regionFacts: (id: string) => get<RegionFacts>(`/region-facts/${encodeURIComponent(id)}`),
   manualFiles: () => get<ManualFile[]>("/manual-files"),
   scrapers: () => get<Scrapers>("/scrapers"),
   fetchMethods: () => get<FetchWays>("/fetch-methods"),
