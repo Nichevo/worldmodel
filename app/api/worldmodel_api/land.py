@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from worldmodel_contract import local
-from worldmodel_contract.land import (COMPARE, LAND_CARDS, LCDB_CLASSES, LCDB_LEVELS, TREES_PER_HA_CANOPY,
+from worldmodel_contract.land import (COUNCILS, COMPARE, LAND_CARDS, LCDB_CLASSES, LCDB_LEVELS, TREES_PER_HA_CANOPY,
                                       WHERE_LAND_GOES, WORLDCOVER, lcdb_level)
 
 from worldmodel_api import tiles
@@ -491,7 +491,23 @@ def street_trees(q: Q, council: str | None = None) -> dict:
                     WHERE layer_id = 'street_trees' GROUP BY 1 ORDER BY 2 DESC""", [])
     if not councils:
         return {"councils": [], "total": 0}
-    c = council or councils[0]["c"]
+    for r in councils:
+        meta = COUNCILS.get(r["c"]) or {}
+        r["name"] = meta.get("name") or r["c"].title()
+        r["country"] = meta.get("country")
+        r["note"] = meta.get("note")
+        r["population"] = meta.get("population")
+        if meta.get("city") and _has(q, "cities"):
+            found = q("""SELECT max(population) AS p FROM cities WHERE country_id = ? AND (lower(name) = lower(?) OR lower(ascii_name) = lower(?))""",
+                      [meta.get("country"), meta["city"], meta["city"]])
+            if found and found[0]["p"]:
+                r["population"] = found[0]["p"]
+        r["per_1000"] = round(r["n"] / r["population"] * 1000, 1) if r.get("population") else None
+        r["common"] = (q("""SELECT coalesce(json_extract_string(props, '$.common'), json_extract_string(props, '$.species')) AS name,
+                                   count(*) AS n FROM geo_features WHERE layer_id = 'street_trees' AND json_extract_string(props, '$.council') = ?
+                            AND name IS NOT NULL AND lower(name) NOT IN ('unknown', 'vacant', 'not known') GROUP BY 1 ORDER BY 2 DESC LIMIT 1""", [r["c"]])
+                       or [{"name": None}])[0]["name"]
+    c = council if council in {r["c"] for r in councils} else councils[0]["c"]
     species = q("""SELECT coalesce(json_extract_string(props, '$.common'), json_extract_string(props, '$.species'), 'Not named') AS name,
                           any_value(json_extract_string(props, '$.species')) AS species, count(*) AS n,
                           avg(TRY_CAST(json_extract_string(props, '$.height') AS DOUBLE)) AS height

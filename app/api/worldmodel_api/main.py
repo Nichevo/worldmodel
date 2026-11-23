@@ -16,6 +16,7 @@ import base64
 import csv
 import io
 import json
+import math
 import os
 import re
 import tempfile
@@ -3831,6 +3832,63 @@ def city(city_id: str):
             "scores": cityscore.for_city(rows, _city_score, city_id),
             "others": [o for o in others if o["city_id"] != city_id][:10],
             "places": places(kind=None, country=None, city=city_id, q=None, limit=60)["rows"]}
+
+
+DIST_KM = """2 * 6371.0088 * asin(least(1, sqrt(pow(sin(radians(c.lat - ?) / 2), 2)
+    + cos(radians(?)) * cos(radians(c.lat)) * pow(sin(radians(c.lon - ?) / 2), 2))))"""
+DIST_COLS = "c.city_id, c.name, c.country_id, e.short_name AS country, c.lat, c.lon, c.timezone, coalesce(c.population, 0) AS population"
+
+
+def _key_city(name: str) -> dict | None:
+    """A city named in Settings > Cities > Key cities: "London" (the biggest London) or
+    "London GBR" / "London, GBR" (that country's)."""
+    name = name.strip()
+    m = re.match(r"^(.*?)[,\s]+([A-Za-z]{3})$", name)
+    where, params = "(lower(c.name) = lower(?) OR lower(c.ascii_name) = lower(?))", [name, name]
+    if m and not rows(f"SELECT 1 FROM cities c WHERE {where} LIMIT 1", params):
+        where += " AND c.country_id = ?"
+        params = [m.group(1), m.group(1), m.group(2).upper()]
+    found = rows(f"""SELECT {DIST_COLS} FROM cities c LEFT JOIN entities e ON e.entity_id = c.country_id
+                     WHERE {where} ORDER BY population DESC LIMIT 1""", params)
+    return found[0] if found else None
+
+
+@api.get("/cities/{city_id}/distances")
+def city_distances(city_id: str, add: str | None = Query(None, description="Comma-separated city ids to add"),
+                   near: int = Query(8, ge=0, le=30), near_min_population: float = 100_000):
+    """How far this city is from the key cities (Settings > Cities), from any cities added, and
+    which big cities are nearest: great-circle km, the bearing to set off on, and each city's
+    time zone (the page works out today's time difference)."""
+    c = _city(city_id)
+    lat, lon = c["lat"], c["lon"]
+    names = [n for n in str(userdata.settings().get("distance_key_cities") or "").split(",") if n.strip()]
+    keys, seen = [], {city_id}
+    for n in names:
+        k = _key_city(n)
+        if k and k["city_id"] not in seen:
+            seen.add(k["city_id"])
+            keys.append(k)
+    extra = [x for x in split(add) if x not in seen][:20]
+    added = rows(f"""SELECT {DIST_COLS} FROM cities c LEFT JOIN entities e ON e.entity_id = c.country_id
+                     WHERE c.city_id IN ({', '.join('?' * len(extra))})""", extra) if extra else []
+    seen |= {a["city_id"] for a in added}
+    nearest = rows(f"""SELECT * FROM (SELECT {DIST_COLS}, {DIST_KM} AS km FROM cities c LEFT JOIN entities e ON e.entity_id = c.country_id
+                       WHERE coalesce(c.population, 0) >= ? AND c.city_id <> ? AND c.lat IS NOT NULL)
+                       ORDER BY km LIMIT ?""", [lat, lat, lon, near_min_population, city_id, near + len(seen)]) if near else []
+    nearest = [r for r in nearest if r["city_id"] not in seen][:near]
+
+    def leg(r: dict, kind: str) -> dict:
+        la1, la2, dl = map(math.radians, (lat, r["lat"], r["lon"] - lon))
+        km = 2 * 6371.0088 * math.asin(min(1, math.sqrt(math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin(dl / 2) ** 2)))
+        brg = (math.degrees(math.atan2(math.sin(dl) * math.cos(la2),
+                                       math.cos(la1) * math.sin(la2) - math.sin(la1) * math.cos(la2) * math.cos(dl))) + 360) % 360
+        out = {k: r[k] for k in ("city_id", "name", "country_id", "country", "lat", "lon", "timezone", "population")}
+        return {**out, "kind": kind, "km": round(km, 1), "bearing": round(brg)}
+
+    return {"city": {k: c[k] for k in ("city_id", "name", "country_id", "lat", "lon", "timezone")},
+            "key": [leg(k, "key") for k in keys], "added": [leg(a, "added") for a in added],
+            "nearest": [leg(n, "nearest") for n in nearest], "key_names": names,
+            "missing": [n.strip() for n in names if not _key_city(n)]}
 
 
 PLACE_KINDS = Literal["transit", "university", "company"]

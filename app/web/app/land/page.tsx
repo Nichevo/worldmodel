@@ -30,11 +30,11 @@ const INTRO: Record<Tab, string> = {
   compare: "Two to four countries side by side: each outline beside a bar of its land cover seen from space. Pick a kind of cover (in a bar, the table or the chips) and every map shows where it is.",
   where: "Earth's surface down to the farmland that feeds us. Most farmland is grazing for animals, which give far less of our food than crops do.",
   cities: "About 11,000 urban centres from the European Commission's Global Human Settlement Layer: people and built-up land from 1975 to 2025 (2030 projected), and their outlines.",
-  trees: "Tree cover and what is lost each year (Global Forest Watch), tree cover in cities worked out from the land cover pictures, and council street-tree lists (Auckland first).",
+  trees: "Tree cover and what is lost each year (Global Forest Watch), tree cover in cities worked out from the land cover pictures, and council street-tree lists (NZ councils, Sydney, Melbourne, New York).",
   nz: "New Zealand's Land Cover Database at every survey since 1996, what changed into what, by region, and forestry and farm figures.",
   climate: "Land change beside temperature, fires and emissions, both ways round: clearing and farming add emissions and forests take them up; drought and heat change the land.",
 };
-const NOT_LOADED = <p>Nothing stored for this yet. It comes with <code>.\refresh.bat</code> (FAOSTAT, HYDE, GHSL, Global Forest Watch, Auckland trees);
+const NOT_LOADED = <p>Nothing stored for this yet. It comes with <code>.\refresh.bat</code> (FAOSTAT, HYDE, GHSL, Global Forest Watch, council tree lists);
   the NZ Land Cover Database and MPI forestry tables are saved by hand (see <Link href="/data">Data status</Link>).</p>;
 
 function LandView() {
@@ -292,10 +292,11 @@ function TreesTab({ entity, pick }: { entity: string; pick: (c: string) => void 
   const [o, setO] = useState<LandOverview | null>(null);
   const [cover, setCover] = useState<CoverList | null>(null);
   const [trees, setTrees] = useState<StreetTrees | null>(null);
+  const [council, setCouncil] = useState<string | undefined>(undefined);
   const [msg, setMsg] = useState<string | null>(null);
   const settings = useSettings();
   useEffect(() => { land.overview(entity).then(setO).catch(() => setO(null)); }, [entity]);
-  useEffect(() => { land.trees().then(setTrees).catch(() => setTrees(null)); }, []);
+  useEffect(() => { land.trees(council).then(setTrees).catch(() => setTrees(null)); }, [council]);
   useEffect(() => {
     let t: ReturnType<typeof setTimeout>;
     const poll = () => land.cover().then((c) => { setCover(c); if (c.job.state === "running") t = setTimeout(poll, 4000); }).catch(() => undefined);
@@ -339,16 +340,35 @@ function TreesTab({ entity, pick }: { entity: string; pick: (c: string) => void 
           Tree counts are estimates: tree cover area times {cover?.trees_per_ha ?? 150} trees a hectare of canopy (street and park trees have crowns of 50 to 100 m²).</p>
       </div>
       <div className="card">
-        <h3>Council street trees{trees?.council ? `: ${trees.council[0].toUpperCase()}${trees.council.slice(1)}` : ""}</h3>
+        <h3>Council street trees</h3>
         {!trees?.total ? NOT_LOADED : (
-          <div className="grid two">
-            <div><p className="small"><b>{trees.total.toLocaleString()}</b> trees listed. The commonest:</p>
-              <table className="small"><tbody>{(trees.species ?? []).slice(0, 15).map((s) => (
-                <tr key={s.name}><td>{s.name}{s.species && s.species !== s.name ? <span className="muted"> ({s.species})</span> : null}</td>
-                  <td className="num">{s.n.toLocaleString()}</td><td className="num muted">{s.height ? `${s.height.toFixed(0)} m` : ""}</td></tr>))}</tbody></table></div>
-            <div>{trees.planted?.length ? <EChart option={planted} height={240} label="Trees planted by year" /> : <p className="muted small">The list gives no planting years.</p>}
-              <p className="caption">Planting years where the council records them. Every tree is on the Map from street level (Layers: Earth, Street trees).</p></div>
-          </div>
+          <>
+            <div className="table-wrap">
+              <table className="small">
+                <thead><tr><th>Council or city</th><th className="num">Trees listed</th><th>Commonest</th><th className="num">People</th>
+                  <th className="num">Trees per 1,000 people</th><th>What the list holds</th></tr></thead>
+                <tbody>{trees.councils.map((r) => (
+                  <tr key={r.c} className={r.c === trees.council ? "selected" : ""} onClick={() => setCouncil(r.c)} style={{ cursor: "pointer" }}>
+                    <td><button type="button" className="link" onClick={() => setCouncil(r.c)}>{r.name}</button></td>
+                    <td className="num">{r.n.toLocaleString()}</td><td>{r.common ?? ""}</td>
+                    <td className="num">{r.population ? compact(r.population) : "–"}</td>
+                    <td className="num">{r.per_1000 !== null ? r.per_1000.toFixed(0) : "–"}</td>
+                    <td className="small muted">{r.note ?? ""}</td></tr>))}</tbody>
+              </table>
+            </div>
+            <p className="caption">Councils list different things (street trees only, parks too, or only big trees), so compare trees per person with the note beside it.
+              People: the city&apos;s own figure (GeoNames), or the council area&apos;s where the list covers a whole district. Pick a row to see its list below.
+              Lists that can&apos;t be read automatically can be saved by hand in var\manual\council_trees (see Data status).</p>
+            <h4 style={{ margin: "12px 0 4px" }}>{trees.councils.find((r) => r.c === trees.council)?.name ?? trees.council}</h4>
+            <div className="grid two">
+              <div><p className="small"><b>{trees.total.toLocaleString()}</b> trees listed. The commonest:</p>
+                <table className="small"><tbody>{(trees.species ?? []).slice(0, 15).map((s) => (
+                  <tr key={s.name}><td>{s.name}{s.species && s.species !== s.name ? <span className="muted"> ({s.species})</span> : null}</td>
+                    <td className="num">{s.n.toLocaleString()}</td><td className="num muted">{s.height ? `${s.height.toFixed(0)} m` : ""}</td></tr>))}</tbody></table></div>
+              <div>{trees.planted?.length ? <EChart option={planted} height={240} label="Trees planted by year" /> : <p className="muted small">The list gives no planting years.</p>}
+                <p className="caption">Planting years where the council records them. Every tree is on the Map from street level (Layers: Earth, Street trees).</p></div>
+            </div>
+          </>
         )}
       </div>
     </>
