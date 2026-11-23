@@ -378,8 +378,10 @@ export default function SettingsPage() {
           on={s.land_history_fetch} set={(v) => save({ land_history_fetch: v })} />
         <Toggle label="City outlines (GHSL urban centres)" hint="One download of about 60 MB a year. Off: no city outlines layer, no city size comparison and no built-up area on city pages."
           on={s.land_cities_fetch} set={(v) => save({ land_cities_fetch: v })} />
-        <Toggle label="Tree cover and street trees" hint="Global Forest Watch's country file once a year, and Auckland Council's tree list (pages of 2,000, a second apart, twice a year). Off: no tree cover loss charts and no street trees layer."
+        <Toggle label="Tree cover and street trees" hint="Global Forest Watch's country file once a year, and council tree lists (Auckland, Wellington, Christchurch, Palmerston North, Hastings, New Plymouth, Waipā; pages of 2,000, a second apart, twice a year). Off: no tree cover loss charts and no street trees layer."
           on={s.land_trees_fetch} set={(v) => save({ land_trees_fetch: v })} />
+        <Toggle label="Overseas tree lists too" hint="Also Sydney, Melbourne and New York (about 900,000 trees, roughly 150 MB stored). Off: only New Zealand councils' lists (and any you save by hand)."
+          on={s.council_trees_overseas} set={(v) => save({ council_trees_overseas: v })} />
         <Toggle label="New Zealand land cover and forestry files" hint="Reads the LCDB and MPI forestry files you save in var\manual\nz_lcdb and var\manual\nz_forestry (see Data status). Off: those files are not read again."
           on={s.land_nz_fetch} set={(v) => save({ land_nz_fetch: v })} />
         <Toggle label="Work out land cover inside cities" hint="When you ask on the Land page or a city page, reads the WorldCover pictures inside the city's outline (a few MB each, in the background) and keeps the result. Off: no tree, built and green shares for cities."
@@ -500,6 +502,13 @@ export default function SettingsPage() {
         <Toggle label="Fetch Wikipedia pages in the background"
           hint="Fills in countries you have not opened yet, a few an hour, most-populous first, using at most half of the daily Wikipedia limit so the pages you open always have room."
           on={s.wikipedia_background} set={(v) => save({ wikipedia_background: v })} />
+      </section>
+
+      <section className="card" id="city-pages">
+        <h2>City pages</h2>
+        <TextField label="Key cities for Distance to…" value={s.distance_key_cities} placeholder="Auckland, Sydney, London, Los Angeles, Tokyo, Singapore"
+          note="Each city page lists how far these are. Separate with commas. A name picks the biggest city of that name; add a country code to pick another (London CAN)."
+          save={(v) => save({ distance_key_cities: v })} />
       </section>
 
       <section className="card" id="look">
@@ -905,13 +914,15 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
     if (!r.ok) { setErr(j.detail ?? "That did not work"); return null; }
     return j;
   };
-  const body = () => ({ set: area.set, t: area.set === "night" ? (area.t === "-" ? "2016" : area.t) : "-", country: area.country, minzoom: 0, maxzoom: area.maxzoom });
+  const yearOf = (set: string, t: string) => (set === "night" ? (t === "-" ? "2016" : t) : set === "lcyears" ? (/^\d{4}$/.test(t) ? t : "2020")
+    : set === "lc10" ? (/^\d{4}$/.test(t) ? t : "2024") : "-");
+  const body = () => ({ set: area.set, t: yearOf(area.set, area.t), country: area.country, minzoom: 0, maxzoom: area.maxzoom });
   const drop = async (a: TileArea) => {
     if (!confirm(`Delete the saved ${SET_NAME[a.set] ?? a.set} for ${a.name}? The map fetches it online again when needed.`)) return;
     await fetch(`/api/v1/tiles/areas/${encodeURIComponent(a.id)}`, { method: "DELETE" });
     refresh();
   };
-  const maxz = area.set === "night" ? 8 : 14;
+  const maxz = area.set === "night" ? 8 : area.set === "lcyears" ? 9 : 14;
   return (
     <section className="card" id="maps">
       <h2>Maps: relief, satellite and night lights</h2>
@@ -951,12 +962,22 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
       </Field>
       <Toggle label="Starter copies" hint={`Downloaded once in the background after the app starts: world relief to zoom 6, New Zealand's relief and satellite closer in, the whole world's satellite at overview zoom, 2016 night lights and land cover (the world at overview zoom, New Zealand closer in) (about ${st?.starter_size ?? "1 GB"}). Off: nothing is downloaded until you save an area below.`}
         on={s.map_tiles_starter} set={(v) => save({ map_tiles_starter: v })} />
+      <Field label="Yearly land cover maps" hint="ESA's land cover maps for the whole world to zoom 6, saved with the starter copies so the Land page's year slider is quick. Online only: each year is fetched as you look (slower, nothing stored). Esri's 10 m maps are always online unless you save an area below.">
+        <div className="seg" role="group" aria-label="Yearly land cover maps">
+          {([["every5", "Every 5 years (about 350 MB)"], ["every", "Every year (about 1.5 GB)"], ["none", "Online only"]] as const).map(([v, t]) => (
+            <button key={v} className={s.land_cover_years_keep === v ? "on" : ""} aria-pressed={s.land_cover_years_keep === v} onClick={() => save({ land_cover_years_keep: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
       {st && !st.starter_done && <p className="small"><button onClick={() => post("starter").then(refresh)} disabled={st.job.state === "running"}>Download the starter copies now</button></p>}
 
       <h3 style={{ marginBottom: 4 }}>Save an area</h3>
       <div className="chips-row" style={{ gap: 10, alignItems: "end" }}>
         <label className="small">Picture <select value={area.set} onChange={(e) => setArea({ ...area, set: e.target.value, maxzoom: Math.min(area.maxzoom, e.target.value === "night" ? 8 : 14) })}>
-          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option></select></label>
+          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option>
+          <option value="lcyears">Land cover by year (ESA, 300 m)</option><option value="lc10">Land cover by year (Esri, 10 m)</option></select></label>
+        {(area.set === "lcyears" || area.set === "lc10") && <label className="small">Year <select value={yearOf(area.set, area.t)} onChange={(e) => setArea({ ...area, t: e.target.value })}>
+          {(area.set === "lcyears" ? Array.from({ length: 29 }, (_, i) => 2020 - i) : Array.from({ length: 9 }, (_, i) => 2025 - i)).map((y) => <option key={y} value={String(y)}>{y}</option>)}</select></label>}
         {area.set === "night" && <label className="small">Year <select value={area.t === "-" ? "2016" : area.t} onChange={(e) => setArea({ ...area, t: e.target.value })}>
           <option value="2016">2016</option><option value="2012">2012</option></select></label>}
         <label className="small">Country (ISO code) <input value={area.country} size={5} onChange={(e) => setArea({ ...area, country: e.target.value.toUpperCase().slice(0, 3) })} /></label>

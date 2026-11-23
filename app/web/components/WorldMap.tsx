@@ -13,7 +13,7 @@ import { get } from "@/lib/api";
 import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
-import { MeasureTool } from "@/lib/measure";
+import { MeasureTool, greatCircle } from "@/lib/measure";
 import { useSettings } from "@/lib/settings";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
@@ -73,7 +73,8 @@ type Props = {
 
 export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number; over?: boolean; opacity?: number };
 
-export type MapPath = { key: string; color: string; label: string; stops: { lng: number; lat: number; label: string }[] };
+// curve: draw each leg along the great circle (the shortest way over the globe) rather than straight on the map.
+export type MapPath = { key: string; color: string; label: string; stops: { lng: number; lat: number; label: string }[]; curve?: boolean };
 
 export type MapOutline = { entity: string; color: string; label: string };
 export type MapMark = { key: string; lng: number; lat: number; color: string; hollow?: boolean; r?: number; opacity?: number; label: string; href?: string };
@@ -746,8 +747,10 @@ export default function WorldMap({
         }
         return out;
       };
+      const arcs = (stops: { lng: number; lat: number }[]) => unwrap(stops.slice(1).flatMap((b, i) =>
+        greatCircle([stops[i].lng, stops[i].lat], [b.lng, b.lat], 48).slice(i ? 1 : 0).map(([lng, lat]) => ({ lng, lat }))));
       const lines: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: list.map((p) => ({
-        type: "Feature", geometry: { type: "LineString", coordinates: unwrap(p.stops) }, properties: { color: p.color, label: p.label } })) };
+        type: "Feature", geometry: { type: "LineString", coordinates: p.curve ? arcs(p.stops) : unwrap(p.stops) }, properties: { color: p.color, label: p.label } })) };
       const stops: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: list.flatMap((p) => p.stops.map((s) => ({
         type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [s.lng, s.lat] }, properties: { color: p.color, label: s.label } }))) };
       const a = m.getSource("ov-paths") as GeoJSONSource | undefined;

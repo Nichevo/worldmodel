@@ -104,10 +104,19 @@ def test_tree_cover(built):
     assert val(con, "NZL", "gfw_tree_cover_ha", 2010) == 10_100_000
     assert val(con, "BRA", "gfw_tree_cover_pct", 2000) == pytest.approx(520 / 851 * 100)
     trees = con.execute("SELECT name, props FROM geo_features WHERE layer_id = 'street_trees' ORDER BY feature_id").fetchall()
-    assert len(trees) == 4  # three in Auckland, one in Wellington (NZTM), one row without a place left out
+    # three in Auckland, one in Wellington (NZTM; a row without a place left out), one living tree in
+    # Christchurch (Esri JSON; a removed one left out), two in New York, one in Melbourne
+    assert len(trees) == 8
     props = [json.loads(p) for _, p in trees]
     assert [p["council"] for p in props].count("auckland") == 3
     assert {p.get("planted") for p in props if p["council"] == "auckland"} == {2000, 2010, None}
+    assert [p["council"] for p in props].count("newyork") == 2
+    assert next(p for p in props if p["council"] == "christchurch")["species"] == "Platanus orientalis"
+    m = next(p for p in props if p["council"] == "melbourne")
+    assert m["planted"] == 2008 and m["common"] == "Peppercorn Tree"
+    countries = dict(con.execute("""SELECT json_extract_string(props, '$.council'), any_value(countries) FROM geo_features
+                                    WHERE layer_id = 'street_trees' GROUP BY 1""").fetchall())
+    assert countries["newyork"] == "USA" and countries["melbourne"] == "AUS" and countries["auckland"] == "NZL"
     w = next(p for p in props if p["council"] == "wellington")
     assert w["planted"] == 1995 and w["species"] == "Sophora microphylla"
 
@@ -129,3 +138,50 @@ def test_nz_forestry(built):
     assert val(con, "NZL", "nz_harvest_area_ha", 2021) == 47000
     assert val(con, "NZL", "nz_plantation_ha", 2022) == 1_760_000
     assert val(con, "NZL", "nz_ets_forest_ha", 2022) == 410000
+
+
+def test_council_trees_download(tmp_path, monkeypatch):
+    """Each council read its own way; one that fails is skipped, the rest are kept."""
+    import httpx
+    from worldmodel_contract import land as contract_land
+    from worldmodel_data.connectors import land as land_mod
+
+    monkeypatch.setattr(land_mod, "_settings", lambda: {"council_trees_overseas": True})
+    monkeypatch.setattr(land_mod, "COUNCILS", {k: contract_land.COUNCILS[k] for k in ("auckland", "wellington", "christchurch", "newyork", "melbourne", "london")})
+    seen = []
+
+    def handler(request: httpx.Request):
+        url = str(request.url)
+        seen.append(url)
+        if "aucklandcouncil" in url:
+            return httpx.Response(200, json={"features": [
+                {"properties": {"title": "Notable trees", "url": "https://x.arcgis.com/Notable/FeatureServer"}},
+                {"properties": {"title": "Auckland Council Trees", "url": "https://x.arcgis.com/Trees/FeatureServer"}}]})
+        if "x.arcgis.com/Trees/FeatureServer/0/query" in url:
+            off = int(request.url.params["resultOffset"])
+            feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [174.7, -36.8]}, "properties": {"OBJECTID": off + i}}
+                     for i in range(3 if off == 0 else 0)]
+            return httpx.Response(200, json={"type": "FeatureCollection", "features": feats, "properties": {"exceededTransferLimit": off == 0}})
+        if "gis.wcc.govt.nz" in url:
+            if request.url.params["f"] == "geojson":
+                return httpx.Response(200, json={"error": {"code": 400, "message": "Invalid format"}})
+            return httpx.Response(200, json={"features": [{"attributes": {"OBJECTID": 1}, "geometry": {"x": 174.78, "y": -41.29}}]})
+        if "gis.ccc.govt.nz" in url:
+            return httpx.Response(503)
+        if "cityofnewyork" in url:
+            assert request.url.params["$where"] == "status='Alive'"
+            off = int(request.url.params["$offset"])
+            return httpx.Response(200, json=[{"tree_id": "1", "spc_latin": "Acer", "latitude": "40.7", "longitude": "-73.9"}] if off == 0 else [])
+        if "melbourne" in url:
+            return httpx.Response(200, content=b"com_id,latitude,longitude\n1,-37.8,144.9\n2,-37.81,144.91\n")
+        return httpx.Response(404)
+
+    c = land_mod.CouncilTrees(client=httpx.Client(transport=httpx.MockTransport(handler)))
+    c.pause_seconds = 0
+    got = c.download(tmp_path, "2026-11")
+    assert got == "auckland,melbourne,newyork,wellington"
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert names == ["auckland_000.geojson", "melbourne_000.csv", "newyork_000.csv", "wellington_000.json"]
+    assert not any("Notable" in u for u in seen)
+    assert len(land_mod.tree_records(tmp_path / "wellington_000.json")) == 1
+    assert not any("london" in u for u in seen)  # saved by hand only

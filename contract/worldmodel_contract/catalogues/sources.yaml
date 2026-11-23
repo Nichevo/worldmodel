@@ -2368,15 +2368,15 @@
     what: "If the download fails: on the global dashboard, Download data (the download arrow at the top), then save the country statistics spreadsheet (global_country_stats.xlsx, or its zip) as it comes."
 
 - id: council_trees
-  name: Council street and park tree lists (Auckland first)
+  name: Council street and park tree lists (NZ councils, Sydney, Melbourne, New York)
   short_name: Council tree lists
-  publisher: Auckland Council (open data); other councils' lists saved by hand
-  url: https://data-aucklandcouncil.opendata.arcgis.com/
-  licence: Council open data, CC BY 4.0 (Auckland Council)
-  licence_url: https://data-aucklandcouncil.opendata.arcgis.com/
+  publisher: "Auckland, Wellington, Christchurch, Palmerston North, Hastings, New Plymouth and Waipā councils; City of Sydney; City of Melbourne; NYC Parks"
+  url: https://catalogue.data.govt.nz/dataset?q=trees
+  licence: "Council open data: mostly CC BY 4.0 (some councils' own terms, which allow re-use with credit)"
+  licence_url: https://catalogue.data.govt.nz/dataset?q=trees
   commercial_use: true
-  cadence: Read twice a year, 2,000 trees a request, a second apart
-  attribution: "Auckland Council open data, CC BY 4.0."
+  cadence: Read twice a year, 2,000 trees a request (New York 50,000), a second apart
+  attribution: "Council open data (Auckland Council, Wellington City Council, Christchurch City Council, Palmerston North City Council, Hastings District Council, New Plymouth District Council, Waipā District Council, City of Sydney, City of Melbourne, NYC Parks)."
   status: active
   default_rank: 5
   standing: 4
@@ -2384,8 +2384,8 @@
   manual:
     by_hand: false
     files: ["*_trees.*"]
-    get: https://data-aucklandcouncil.opendata.arcgis.com/search?q=trees
-    what: "If the download fails: download the council's tree list as CSV or GeoJSON and save it with a name starting with the council (auckland_trees.csv). Columns read: species or botanical name, common name, planted year or date, height, and latitude/longitude or NZTM easting/northing."
+    get: https://catalogue.data.govt.nz/dataset?q=trees
+    what: "If a council's list fails, or for another council (London: the London Datastore's local authority maintained trees): download the tree list as CSV or GeoJSON and save it with a name starting with the council in one word (auckland_trees.csv, london_trees.csv). Columns read: species or botanical name, common name, planted year or date, height, and latitude/longitude or NZTM easting/northing."
 
 - id: nz_lcdb
   name: New Zealand Land Cover Database (LCDB)

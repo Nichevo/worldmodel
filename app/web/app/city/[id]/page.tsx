@@ -3,6 +3,7 @@
 import Link from "next/link";
 import CityLandCard from "@/components/CityLandCard";
 import CityStressCard from "@/components/cities/CityStressCard";
+import CityDistanceCard from "@/components/cities/CityDistanceCard";
 import PlacesCard from "@/components/PlacesCard";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -120,6 +121,8 @@ export default function CityPage() {
       </div>
 
       {(d.scores ?? []).map((sc) => <CityStressCard key={sc.id} s={sc} name={c.name} />)}
+
+      <CityDistanceCard cityId={c.city_id} name={c.name} />
 
       <CityLandCard cityId={c.city_id} name={c.name} />
 

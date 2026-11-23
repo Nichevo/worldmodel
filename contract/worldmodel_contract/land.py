@@ -151,3 +151,67 @@ WHERE_LAND_GOES = {
               "The shares of calories and protein from livestock (18% and 37%) are from Poore and Nemecek (2018), "
               "as Our World in Data shows them; they do not change with the year."),
 }
+
+
+# Council street and park tree lists (source council_trees). The id is the start of each
+# file's name in var/raw/council_trees (and of lists saved by hand: london_trees.csv), so it
+# has no spaces, dashes or dots. how: "hub" searches the council's ArcGIS open data for a tree
+# layer; "layer" reads that ArcGIS layer; "socrata" and "ods" are New York's and Melbourne's
+# open data APIs; "manual" is read only from a saved file. city/country find the population
+# for trees per person (GeoNames city, else the figure here). note: what the list holds.
+COUNCILS: dict[str, dict] = {
+    "auckland": {"name": "Auckland", "country": "NZL", "city": "Auckland", "how": "hub",
+                 "url": "https://data-aucklandcouncil.opendata.arcgis.com/api/search/v1/collections/dataset/items?q=trees&limit=30",
+                 "note": "Street and park trees"},
+    "wellington": {"name": "Wellington", "country": "NZL", "city": "Wellington", "how": "layer",
+                   "url": "https://gis.wcc.govt.nz/arcgis/rest/services/Parks/Parks/MapServer/53",
+                   "note": "Trees the Parks, Sport and Recreation unit looks after"},
+    "christchurch": {"name": "Christchurch", "country": "NZL", "city": "Christchurch", "how": "layer",
+                     "url": "https://gis.ccc.govt.nz/server/rest/services/OpenData/Tree/FeatureServer/0",
+                     "note": "Big trees only (6 m or more, trunk 25 cm or more)"},
+    "palmerstonnorth": {"name": "Palmerston North", "country": "NZL", "city": "Palmerston North", "how": "layer",
+                        "url": "https://geosite.pncc.govt.nz/arcgis/rest/services/Public/WEB_Open_Data/MapServer/18",
+                        "note": "Street and park trees"},
+    "hastings": {"name": "Hastings", "country": "NZL", "city": "Hastings", "how": "layer", "population": 90_000,
+                 "url": "https://services1.arcgis.com/8L3DQUzjrkgEmDpQ/arcgis/rest/services/Hastings_DC_Trees/FeatureServer/0",
+                 "note": "Road side and park trees (whole district)"},
+    "newplymouth": {"name": "New Plymouth", "country": "NZL", "city": "New Plymouth", "how": "layer", "population": 89_000,
+                    "url": "https://services2.arcgis.com/JthOmqz8HxPqljUO/arcgis/rest/services/OpenData_Infrastructure_Parks/FeatureServer/12",
+                    "note": "Park trees (whole district)"},
+    "waipa": {"name": "Waipā (Cambridge, Te Awamutu)", "country": "NZL", "city": None, "how": "layer", "population": 60_000,
+              "url": "https://services9.arcgis.com/OsxSXqmTWVTZQ9ie/arcgis/rest/services/Parks_and_Community_Asset_Tree_Points/FeatureServer/0",
+              "note": "Park and reserve trees (whole district)"},
+    "sydney": {"name": "Sydney (City of Sydney)", "country": "AUS", "city": None, "how": "hub", "population": 230_000, "overseas": True,
+               "url": "https://data.cityofsydney.nsw.gov.au/api/search/v1/collections/dataset/items?q=trees&limit=10",
+               "note": "Street and park trees in the City of Sydney council area (not all of Sydney)"},
+    "melbourne": {"name": "Melbourne (City of Melbourne)", "country": "AUS", "city": None, "how": "ods", "population": 180_000, "overseas": True,
+                  "url": "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/trees-with-species-and-dimensions-urban-forest/exports/csv?delimiter=%2C",
+                  "note": "Urban forest in the City of Melbourne council area (not all of Melbourne)"},
+    "newyork": {"name": "New York", "country": "USA", "city": "New York City", "how": "socrata", "overseas": True,
+                "url": "https://data.cityofnewyork.us/resource/uvpi-gqnh.json",
+                "note": "Street trees only (2015 street tree census, living trees)"},
+    "london": {"name": "London", "country": "GBR", "city": "London", "how": "manual", "overseas": True,
+               "url": "https://data.london.gov.uk/dataset/local-authority-maintained-trees",
+               "note": "Trees the boroughs look after (saved by hand: london_trees.csv)"},
+}
+
+
+# ESA CCI / C3S land cover classes (1992-2020, 300 m) with the colour Microsoft Planetary
+# Computer draws each in (its esa-cci-lc colour map), and the broad kind of cover each belongs
+# to (the Land page's kinds: trees, crops, grass, shrub, bare, snow, built, water).
+CCI_CLASSES: dict[int, tuple[str, str, str]] = {
+    10: ("Cropland, rainfed", "#ffff64", "crops"), 11: ("Cropland, herbaceous", "#ffff64", "crops"),
+    12: ("Cropland, tree or shrub", "#ffff00", "crops"), 20: ("Cropland, irrigated", "#aaf0f0", "crops"),
+    30: ("Mostly cropland, some natural plants", "#dcf064", "crops"), 40: ("Mostly natural plants, some cropland", "#c8c864", "shrub"),
+    50: ("Broadleaved evergreen trees", "#006400", "trees"), 60: ("Broadleaved deciduous trees", "#00a000", "trees"),
+    62: ("Broadleaved deciduous trees, open", "#aac800", "trees"), 70: ("Needleleaved evergreen trees", "#003c00", "trees"),
+    72: ("Needleleaved evergreen trees, open", "#005000", "trees"), 80: ("Needleleaved deciduous trees", "#285000", "trees"),
+    82: ("Needleleaved deciduous trees, open", "#286400", "trees"), 90: ("Mixed trees", "#788200", "trees"),
+    100: ("Trees and shrubs with some grass", "#8ca000", "trees"), 110: ("Grass with some trees and shrubs", "#be9600", "grass"),
+    120: ("Shrubland", "#966400", "shrub"), 130: ("Grassland", "#ffb432", "grass"), 140: ("Lichens and mosses", "#ffdcd2", "bare"),
+    150: ("Sparse plants", "#ffebaf", "bare"), 151: ("Sparse trees", "#ffc864", "bare"), 152: ("Sparse shrubs", "#ffd278", "bare"),
+    160: ("Flooded trees, fresh water", "#00785a", "trees"), 170: ("Flooded trees, salt water (mangroves)", "#009678", "trees"),
+    180: ("Flooded shrubs or grass", "#00dc82", "shrub"), 190: ("Urban areas", "#c31400", "built"),
+    200: ("Bare areas", "#fff5d7", "bare"), 201: ("Bare rock", "#dcdcdc", "bare"), 210: ("Water", "#0046c8", "water"),
+    220: ("Permanent snow and ice", "#ffffff", "snow"),
+}

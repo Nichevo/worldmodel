@@ -137,7 +137,8 @@ SETTINGS: dict[str, object] = {
     # Land, cities and trees (connectors/land.py; FAOSTAT land use comes with the sectors' FAOSTAT files)
     "land_history_fetch": True,          # HYDE cropland and grazing land by country back to 1700 (via Our World in Data, once a year)
     "land_cities_fetch": True,           # GHSL urban centres: people, built-up area and outlines of about 11,000 cities (300 MB once a year)
-    "land_trees_fetch": True,            # Global Forest Watch tree cover and loss by country; council tree lists (Auckland)
+    "land_trees_fetch": True,            # Global Forest Watch tree cover and loss by country; council tree lists (contract land.py COUNCILS)
+    "council_trees_overseas": True,      # also Sydney, Melbourne and New York's tree lists (about 900,000 trees)
     "land_nz_fetch": True,               # read the NZ Land Cover Database and MPI forestry files you save by hand
     "land_city_cover": True,             # city land cover worked out from the WorldCover map pictures (on request, a few dozen tiles a city)
     "land_cover_year": "2021",           # WorldCover year for the land cover background and city shares: "2021" or "2020"
@@ -163,6 +164,7 @@ SETTINGS: dict[str, object] = {
     "map_3d_exaggeration": 1.5,          # how much the land is raised in 3D
     "map_tiles": "local_first",          # relief, satellite and night pictures: "local_first" (saved copies, online for the rest) or "online"
     "map_tiles_starter": True,           # download the starter copies once: world relief to zoom 6, NZ relief, satellite and land cover closer, newest night lights
+    "land_cover_years_keep": "every5",   # yearly land cover maps saved for the world to zoom 6: "every5" (1992, 1995 ... 2020, about 350 MB), "every" (about 1.5 GB) or "none" (online only)
     "map_true_size": True,               # Map shapes page: true size, equal-area view and cartograms
     "space_fetch": True,                 # Solar system page: asteroids (JPL), mission paths (JPL Horizons), about 50 MB
     "space_values": False,               # Solar system page: Asterank's guessed dollar values for asteroids
@@ -202,6 +204,7 @@ SETTINGS: dict[str, object] = {
     "discover_on": True,             # look for finds after each refresh (and once after update.bat)
     "discover_checks": "record,mover,turning,overtake,outlier,disagree,forecast,together,after,revised,opposite",
     "discover_keep": 500,            # finds kept per build, best first
+    "distance_key_cities": "Auckland, Sydney, London, Los Angeles, Tokyo, Singapore",  # the city page's Distance to… card (a name, or "Name ISO3" for one country's)
     "discover_key_countries": "NZL,AUS,GBR,USA",  # boosted, and the ones checked for overtakes, revisions and forecasts
     "discover_key_boost": 1.5,       # how much a key country's finds are lifted (1 = not at all)
     "discover_merge": True,          # the same find in several countries shown once, as lines against the world (off: one card per country)
@@ -256,7 +259,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
            "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
-           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
+           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "land_cover_years_keep": ("every5", "every", "none"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y"),
@@ -265,7 +268,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app", "world_dataverse_name",
          "world_dataverse_email", "world_dataverse_institution", "world_dataverse_position", "world_dataverse_purpose",
-         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder"}
+         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept

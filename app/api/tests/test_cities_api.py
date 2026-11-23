@@ -179,3 +179,21 @@ def test_largest_cities_through_the_years(client):
     assert akl["name"] == "Auckland" and akl["continent"] == "Oceania" and akl["pts"][0] == [2015, 1500000, False]
     none = client.get("/api/v1/cities/largest", params={"measure": "ghsl_population"}).json()
     assert none["rows"] == [] and "GHSL" in none["note"]
+
+
+def test_city_distances(client):
+    client.put("/api/v1/settings", json={"distance_key_cities": "Auckland, Portland USA, Nowhere"})
+    d = client.get("/api/v1/cities/gn2179537/distances", params={"add": "gn5746545", "near_min_population": 100000}).json()
+    assert [k["name"] for k in d["key"]] == ["Auckland", "Portland"]
+    assert d["added"] == []  # already a key city
+    assert d["missing"] == ["Nowhere"]
+    akl = d["key"][0]
+    assert 480 < akl["km"] < 500 and (akl["bearing"] >= 355 or akl["bearing"] <= 5)
+    assert akl["timezone"] == "Pacific/Auckland"
+    assert [n["name"] for n in d["nearest"]] == []  # the only big cities are already listed
+    d = client.get("/api/v1/cities/gn2179537/distances", params={"near_min_population": 0}).json()
+    assert [n["name"] for n in d["nearest"]] == []
+    client.put("/api/v1/settings", json={"distance_key_cities": ""})
+    d = client.get("/api/v1/cities/gn2179537/distances", params={"near_min_population": 0}).json()
+    assert [n["name"] for n in d["nearest"]] == ["Auckland", "Portland"]
+    assert client.get("/api/v1/cities/nope/distances").status_code == 404
