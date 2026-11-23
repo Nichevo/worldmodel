@@ -20,7 +20,7 @@ ENTITY_TYPES = ("country", "historical_country", "world", "continent", "subregio
 # Zones (the Arctic, space, the high seas) are places beyond any one country, and organisations
 # (the UN, Comecon) and armed groups (Al-Qaeda) are not countries either: none is a group of members.
 BEYOND_TYPES = ("zone", "organisation", "armed_group")
-# Areas inside a country (New Zealand's regions), listed in subdivisions.csv with their country.
+# Areas inside a country (New Zealand's regions, US states and counties), listed in subdivisions.csv with their parent.
 SUB_TYPES = ("subnational",)
 GROUP_TYPES = tuple(t for t in ENTITY_TYPES if t not in ("country", "historical_country") + BEYOND_TYPES + SUB_TYPES)
 
