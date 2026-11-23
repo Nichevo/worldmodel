@@ -202,6 +202,7 @@ export type Settings = {
   disk_limit_gb: number;
   pictures_limit_gb: number;
   numbeo_daily: number;
+  distance_key_cities: string;
   wikipedia_countries_daily: number;
   wikipedia_cities_daily: number;
   wikipedia_background: boolean;
@@ -304,6 +305,7 @@ export type Settings = {
   land_history_fetch: boolean; // HYDE land use back to 1700
   land_cities_fetch: boolean; // GHSL urban centres
   land_trees_fetch: boolean; // Global Forest Watch and council tree lists
+  council_trees_overseas: boolean;
   land_nz_fetch: boolean; // NZ LCDB and MPI forestry files saved by hand
   land_city_cover: boolean; // city land cover from the WorldCover pictures
   land_cover_year: "2021" | "2020";
@@ -342,6 +344,7 @@ export type Settings = {
   map_3d_exaggeration: number;
   map_tiles: "local_first" | "online";
   map_tiles_starter: boolean;
+  land_cover_years_keep: "every5" | "every" | "none";
   map_true_size: boolean;
   space_fetch: boolean;
   space_values: boolean;
@@ -1185,6 +1188,8 @@ export const api = {
   places: (q: { kind?: PlaceKind; country?: string; city?: string; q?: string; limit?: number } = {}) =>
     get<{ rows: PlaceRow[]; note: string | null }>("/places", q),
   city: (id: string) => get<CityDetail>(`/cities/${encodeURIComponent(id)}`),
+  cityDistances: (id: string, add: string[] = []) =>
+    get<CityDistances>(`/cities/${encodeURIComponent(id)}/distances`, add.length ? { add: add.join(",") } : {}),
   cityScores: (score = "stress", year?: number) => get<CityScores>("/cities/scores", { score, year }),
   cityWikipedia: (id: string) => get<Wikipedia>(`/cities/${encodeURIComponent(id)}/wikipedia`),
   numbeo: (kind: "cities" | "entities", id: string) => get<NumbeoPrices>(`/${kind}/${encodeURIComponent(id)}/numbeo`),
@@ -1377,3 +1382,8 @@ export const apiAccess = {
   make: (name: string) => send<{ id: string; name: string; key: string }>("POST", "/api-access/keys", { name }),
   revoke: (id: string) => send<{ ok: boolean }>("DELETE", `/api-access/keys/${id}`),
 };
+
+export type CityLeg = { city_id: string; name: string; country_id: string; country: string | null; lat: number; lon: number;
+  timezone: string | null; population: number; kind: "key" | "added" | "nearest"; km: number; bearing: number };
+export type CityDistances = { city: { city_id: string; name: string; country_id: string; lat: number; lon: number; timezone: string | null };
+  key: CityLeg[]; added: CityLeg[]; nearest: CityLeg[]; key_names: string[]; missing: string[] };

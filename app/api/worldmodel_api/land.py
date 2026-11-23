@@ -17,10 +17,11 @@ import math
 import threading
 from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable
 
 from worldmodel_contract import local
-from worldmodel_contract.land import (COMPARE, LAND_CARDS, LCDB_CLASSES, LCDB_LEVELS, TREES_PER_HA_CANOPY,
+from worldmodel_contract.land import (CCI_CLASSES, COUNCILS, COMPARE, LAND_CARDS, LCDB_CLASSES, LCDB_LEVELS, TREES_PER_HA_CANOPY,
                                       WHERE_LAND_GOES, WORLDCOVER, lcdb_level)
 
 from worldmodel_api import tiles
@@ -413,6 +414,98 @@ def _cover_work(year: str) -> None:
                 _cover_job.update(error=f"{name}: {exc}")
 
 
+# ----------------------------------------------------------------------------- land cover change
+KINDS = ("trees", "crops", "grass", "shrub", "bare", "snow", "built", "water")
+CHANGE_MAX_TILES = 160
+_change_cache: dict[tuple, dict] = {}
+
+
+def cci_kinds(img, mask):
+    """Each pixel's kind of cover (index into KINDS, -1 for none) from an ESA CCI picture, by its
+    nearest colour in the Planetary Computer colour map, where mask is true."""
+    import numpy as np
+
+    a = np.asarray(img.convert("RGBA"), dtype=np.int32)
+    rgb, alpha = a[:, :, :3], a[:, :, 3]
+    codes = list(CCI_CLASSES)
+    cols = np.array([[int(CCI_CLASSES[c][1][i:i + 2], 16) for i in (1, 3, 5)] for c in codes], dtype=np.int32)
+    kind_of = np.array([KINDS.index(CCI_CLASSES[c][2]) for c in codes])
+    d = ((rgb[:, :, None, :] - cols[None, None, :, :]) ** 2).sum(-1)
+    out = kind_of[d.argmin(-1)]
+    out[~(mask & (alpha > 0) & (d.min(-1) < 30 ** 2))] = -1
+    return out
+
+
+def country_geometry(iso3: str) -> dict | None:
+    shapes = Path(__file__).resolve().parents[2] / "web" / "public" / "geo" / "countries.json"
+    try:
+        geo = json.loads(shapes.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    return next((f["geometry"] for f in geo.get("features", []) if (f.get("properties") or {}).get("iso3") == iso3.upper()), None)
+
+
+def cover_change(entity: str, y0: str, y1: str, fetch=None, geometry: dict | None = None) -> dict:
+    """How much land changed from each kind of cover to each other between two years in a
+    country, from ESA's yearly 300 m maps (hectares), and each kind's total in both years. Read
+    at the most detailed zoom that keeps to about 160 pictures a year, so big countries are coarse."""
+    import numpy as np
+    from PIL import Image
+    from shapely import contains_xy
+    from shapely.geometry import shape
+
+    years = tiles.SETS["lcyears"]["times"]
+    if y0 not in years or y1 not in years:
+        raise ValueError(f"years must be between {min(years)} and {max(years)}")
+    key = (entity, y0, y1)
+    if key in _change_cache and fetch is None:
+        return _change_cache[key]
+    geometry = geometry or country_geometry(entity)
+    if not geometry:
+        raise ValueError(f"no outline for {entity}")
+    geom = shape(geometry)
+    w, s, e, n = geom.bounds
+    if e - w > 300:  # across the date line: the map's own pieces are each read
+        w, e = -180.0, 180.0
+    zoom = 8
+    while zoom > 3 and tiles.count((w, s, e, n), zoom, zoom) > CHANGE_MAX_TILES:
+        zoom -= 1
+    fetch = fetch or (lambda z, x, y, t: tiles.tile("lcyears", z, x, y, t))
+    flows = np.zeros((len(KINDS), len(KINDS)))
+    got = missing = 0
+    circ = 40_075_016.686
+    for x, y in tiles.tiles_in((w, s, e, n), zoom):
+        a, b = fetch(zoom, x, y, y0), fetch(zoom, x, y, y1)
+        if not a or not b:
+            missing += 1
+            continue
+        ia, ib = Image.open(io.BytesIO(a[0])), Image.open(io.BytesIO(b[0]))
+        size = ia.size[0]
+        lon0, lat0, lon1, lat1 = _tile_bounds(zoom, x, y)
+        px = (np.arange(size) + 0.5) / size
+        lons = lon0 + px * (lon1 - lon0)
+        lats = np.degrees(np.arctan(np.sinh(np.pi * (1 - 2 * (y + px) / 2 ** zoom))))
+        lon_g, lat_g = np.meshgrid(lons, lats)
+        mask = contains_xy(geom, lon_g, lat_g)
+        if not mask.any():
+            continue
+        got += 1
+        ka, kb = cci_kinds(ia, mask), cci_kinds(ib.resize(ia.size), mask)
+        ha = ((circ / 2 ** zoom / size) * np.cos(np.radians(lat_g))) ** 2 / 10_000
+        ok = (ka >= 0) & (kb >= 0)
+        np.add.at(flows, (ka[ok], kb[ok]), ha[ok])
+    if not got:
+        raise RuntimeError("no land cover pictures could be read for this place (check the map service in Settings > Maps)")
+    out = {"entity": entity, "y0": y0, "y1": y1, "zoom": zoom, "pixel_km": round(circ / 2 ** zoom / 256 / 1000 * math.cos(math.radians((s + n) / 2)), 2),
+           "tiles": got, "missing": missing, "kinds": list(KINDS),
+           "totals": {k: {"from": round(float(flows[i].sum())), "to": round(float(flows[:, i].sum()))} for i, k in enumerate(KINDS)},
+           "changes": sorted(({"from": KINDS[i], "to": KINDS[j], "ha": round(float(flows[i, j]))}
+                              for i in range(len(KINDS)) for j in range(len(KINDS)) if i != j and flows[i, j] >= 1),
+                             key=lambda r: -r["ha"])}
+    _change_cache[key] = out
+    return out
+
+
 def _area_km2(geom: dict) -> float:
     from shapely.geometry import shape
 
@@ -491,7 +584,24 @@ def street_trees(q: Q, council: str | None = None) -> dict:
                     WHERE layer_id = 'street_trees' GROUP BY 1 ORDER BY 2 DESC""", [])
     if not councils:
         return {"councils": [], "total": 0}
-    c = council or councils[0]["c"]
+    for r in councils:
+        meta = COUNCILS.get(r["c"]) or {}
+        r["name"] = meta.get("name") or r["c"].title()
+        r["country"] = meta.get("country")
+        r["note"] = meta.get("note")
+        r["population"] = meta.get("population")
+        if meta.get("city") and _has(q, "cities"):
+            found = q("""SELECT max(population) AS p FROM cities WHERE country_id = ? AND (lower(name) = lower(?) OR lower(ascii_name) = lower(?))""",
+                      [meta.get("country"), meta["city"], meta["city"]])
+            if found and found[0]["p"]:
+                r["population"] = found[0]["p"]
+        r["per_1000"] = round(r["n"] / r["population"] * 1000, 1) if r.get("population") else None
+        r["common"] = (q("""SELECT coalesce(json_extract_string(props, '$.common'), json_extract_string(props, '$.species')) AS name,
+                                   count(*) AS n FROM geo_features WHERE layer_id = 'street_trees' AND json_extract_string(props, '$.council') = ?
+                            AND name IS NOT NULL AND lower(name) NOT IN ('unknown', 'vacant', 'not known') GROUP BY 1 ORDER BY 2 DESC LIMIT 1""", [r["c"]])
+                       or [{"name": None}])[0]["name"]
+    have = {r["c"] for r in councils}
+    c = council if council in have else "auckland" if "auckland" in have else councils[0]["c"]
     species = q("""SELECT coalesce(json_extract_string(props, '$.common'), json_extract_string(props, '$.species'), 'Not named') AS name,
                           any_value(json_extract_string(props, '$.species')) AS species, count(*) AS n,
                           avg(TRY_CAST(json_extract_string(props, '$.height') AS DOUBLE)) AS height

@@ -53,7 +53,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import duckdb
-from worldmodel_contract.land import LCDB_CLASSES, nz_region
+import httpx
+from worldmodel_contract.land import COUNCILS, LCDB_CLASSES, nz_region
 
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.cities import _values_table
@@ -564,11 +565,15 @@ class GFWTreeCover(Connector):
 
 
 # ----------------------------------------------------------------------------- council street trees
-AUCKLAND_SEARCH = ("https://data-aucklandcouncil.opendata.arcgis.com/api/search/v1/collections/dataset/items"
-                   "?q=trees&limit=30")
+def _settings() -> dict:
+    from worldmodel_contract.local import load_settings
+    from worldmodel_data.config import paths
+    return load_settings(paths().home)
+
+
 PAGE = 2000
-MAX_PAGES = 200
-COUNCIL_ENTITY = {"auckland": "NZL", "wellington": "NZL", "christchurch": "NZL"}
+MAX_PAGES = 400
+SOCRATA_PAGE = 50_000
 
 
 def tree_records(path: Path) -> list[dict]:
@@ -611,12 +616,15 @@ def tree_records(path: Path) -> list[dict]:
             else:
                 m = re.search(r"(1[89]\d\d|20\d\d)", str(planted))
                 py = int(m[1]) if m else None
-        species = _pick(p, "botanicalname", "species", "scientificname", "speciesname", "botanical", "latinname", "taxon", "genusspecies")
-        common = _pick(p, "commonname", "common", "speciescommonname")
+        if str(_pick(p, "status") or "").strip().lower() in ("dead", "stump", "removed"):
+            continue
+        species = _pick(p, "botanicalname", "species", "scientificname", "speciesname", "botanical", "latinname", "taxon",
+                        "genusspecies", "spclatin", "taxonname", "speciesbotanical", "treespecies", "speciesname1")
+        common = _pick(p, "commonname", "common", "speciescommonname", "spccommon")
         out.append({"lon": round(x, 6), "lat": round(y, 6), "species": str(species).strip() if species else None,
                     "common": str(common).strip() if common else None, "planted": py,
                     "height": num(_pick(p, "heightm", "height", "treeheight", "heightmetres")),
-                    "id": _pick(p, "objectid", "assetid", "treeid", "id", "fid")})
+                    "id": _pick(p, "treeid", "assetid", "comid", "objectid", "id", "fid")})
     return out
 
 
@@ -632,6 +640,7 @@ class CouncilTrees(Connector):
     switch = "land_trees_fetch"
     keeps_files = True
     fetch_every_days = 180
+    stage_version = 2  # 2: every council in COUNCILS, dead trees and stumps left out
     pause_seconds = 1.0
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -641,45 +650,114 @@ class CouncilTrees(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        """Auckland Council's open data: the tree dataset its search finds, read a page at a time."""
-        r = self.client.get(AUCKLAND_SEARCH)
+        """Each council's list in COUNCILS (contract land.py), read slowly. A council whose site
+        fails is skipped with a warning (its list from the last fetch, or one saved by hand, is
+        kept); the fetch fails only when no council gave any trees."""
+        overseas = bool(_settings().get("council_trees_overseas", True))
+        got, failed = {}, []
+        for cid, c in COUNCILS.items():
+            if c["how"] == "manual" or (c.get("overseas") and not overseas):
+                continue
+            try:
+                n = {"hub": self._hub, "layer": self._layer, "socrata": self._socrata, "ods": self._ods}[c["how"]](raw_dir, cid, c)
+                got[cid] = n
+                log.info("council_trees: %s %s trees", c["name"], f"{n:,}")
+            except (ConnectorError, httpx.HTTPError, ValueError) as exc:
+                failed.append(f"{c['name']} ({exc})")
+                log.warning("council_trees: %s skipped: %s", c["name"], exc)
+        if not got:
+            raise ConnectorError("council_trees: no council's tree list could be read: " + "; ".join(failed)[:600])
+        if failed:
+            log.warning("council_trees: not read this time: %s", "; ".join(failed)[:600])
+        return ",".join(sorted(got))
+
+    def _hub(self, raw_dir: Path, cid: str, c: dict) -> int:
+        """An ArcGIS open data site: the first tree dataset with a map service its search finds."""
+        r = self.client.get(c["url"])
         if r.status_code != 200:
-            raise ConnectorError(f"council_trees: Auckland open data search answered {r.status_code}")
-        items = (r.json() or {}).get("features") or []
-        best = None
-        for it in items:
+            raise ConnectorError(f"open data search answered {r.status_code}")
+        for it in (r.json() or {}).get("features") or []:
             props = it.get("properties") or {}
             title, url = str(props.get("title") or ""), str(props.get("url") or "")
-            if "tree" in title.lower() and "featureserver" in url.lower() and "notable" not in title.lower():
-                best = (title, url if re.search(r"/\d+$", url) else url.rstrip("/") + "/0")
-                break
-        if not best:
-            raise ConnectorError("council_trees: Auckland's open data lists no tree dataset with a map service; "
-                                 "save a tree list by hand (see Data status)")
-        title, url = best
-        n = 0
+            low = title.lower()
+            if "tree" in low and "featureserver" in url.lower() and not any(w in low for w in ("notable", "donat", "heritage", "protected", "canopy", "cover")):
+                return self._layer(raw_dir, cid, {**c, "url": url if re.search(r"/\d+$", url) else url.rstrip("/") + "/0"})
+        raise ConnectorError("open data lists no tree dataset with a map service; save the list by hand (see Data status)")
+
+    def _layer(self, raw_dir: Path, cid: str, c: dict) -> int:
+        """An ArcGIS map or feature layer, a page at a time in longitude/latitude (GeoJSON, or
+        Esri JSON from servers that can't give GeoJSON)."""
+        url, n, fmt = c["url"].rstrip("/"), 0, "geojson"
         for page in range(MAX_PAGES):
             if page:
                 time.sleep(self.pause_seconds)
-            resp = self.client.get(f"{url}/query", params={"where": "1=1", "outFields": "*", "outSR": 4326, "f": "geojson",
-                                                          "resultOffset": page * PAGE, "resultRecordCount": PAGE})
+            resp = self.client.get(f"{url}/query", params={"where": "1=1", "outFields": "*", "outSR": 4326, "f": fmt,
+                                                          "resultOffset": n, "resultRecordCount": PAGE})
             if resp.status_code != 200:
                 if page == 0:
-                    raise ConnectorError(f"council_trees: {title} answered {resp.status_code}")
-                log.warning("council_trees: stopped at page %s (%s)", page, resp.status_code)
+                    raise ConnectorError(f"map service answered {resp.status_code}")
+                log.warning("council_trees: %s stopped at page %s (%s)", c["name"], page, resp.status_code)
                 break
-            feats = (resp.json() or {}).get("features") or []
+            body = resp.json() or {}
+            if page == 0 and fmt == "geojson" and ("error" in body or "features" not in body):
+                fmt = "json"  # older servers: Esri JSON (attributes + x/y)
+                resp = self.client.get(f"{url}/query", params={"where": "1=1", "outFields": "*", "outSR": 4326, "f": fmt,
+                                                              "resultOffset": 0, "resultRecordCount": PAGE})
+                body = resp.json() or {}
+            if "error" in body:
+                raise ConnectorError(f"map service error: {str(body['error'].get('message', body['error']))[:120]}")
+            feats = body.get("features") or []
             if not feats:
                 break
-            (raw_dir / f"auckland_{page:03d}.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": feats}),
-                                                                  encoding="utf-8")
+            (raw_dir / f"{cid}_{page:03d}.{fmt}").write_text(json.dumps({"type": "FeatureCollection", "features": feats}), encoding="utf-8")
             n += len(feats)
-            if len(feats) < PAGE:
+            more = body.get("exceededTransferLimit") or (body.get("properties") or {}).get("exceededTransferLimit")
+            if len(feats) < PAGE and not more:
                 break
         if not n:
-            raise ConnectorError(f"council_trees: {title} gave no trees")
-        log.info("council_trees: %s Auckland trees from %s", n, title)
-        return url
+            raise ConnectorError("the tree list is empty")
+        return n
+
+    def _socrata(self, raw_dir: Path, cid: str, c: dict) -> int:
+        """New York's open data (Socrata): living trees, 50,000 a request, a second apart."""
+        n = 0
+        for page in range(40):
+            if page:
+                time.sleep(self.pause_seconds)
+            resp = self.client.get(c["url"], params={"$select": "tree_id,spc_latin,spc_common,latitude,longitude,status",
+                                                     "$where": "status='Alive'", "$order": "tree_id",
+                                                     "$limit": SOCRATA_PAGE, "$offset": n})
+            if resp.status_code != 200:
+                if page == 0:
+                    raise ConnectorError(f"open data answered {resp.status_code}")
+                break
+            got = resp.json() or []
+            if not got:
+                break
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(["tree_id", "spc_latin", "spc_common", "latitude", "longitude"])
+            for t in got:
+                w.writerow([t.get(k, "") for k in ("tree_id", "spc_latin", "spc_common", "latitude", "longitude")])
+            (raw_dir / f"{cid}_{page:03d}.csv").write_text(buf.getvalue(), encoding="utf-8")
+            n += len(got)
+            if len(got) < SOCRATA_PAGE:
+                break
+        if not n:
+            raise ConnectorError("the tree list is empty")
+        return n
+
+    def _ods(self, raw_dir: Path, cid: str, c: dict) -> int:
+        """An Opendatasoft portal's whole-dataset CSV export (one download)."""
+        resp = self.client.get(c["url"])
+        if resp.status_code != 200:
+            raise ConnectorError(f"open data answered {resp.status_code}")
+        path = raw_dir / f"{cid}_000.csv"
+        path.write_bytes(resp.content)
+        n = max(0, resp.content.count(b"\n") - 1)
+        if not n:
+            raise ConnectorError("the tree list is empty")
+        return n
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         geo, counts = [], defaultdict(int)
@@ -693,7 +771,7 @@ class CouncilTrees(Connector):
                 props = {"council": council, "species": t["species"], "common": t["common"], "planted": t["planted"],
                          "height": t["height"]}
                 geo.append(("street_trees", fid, t["common"] or t["species"] or "Tree", 1,
-                            {k: v for k, v in props.items() if v is not None}, [COUNCIL_ENTITY.get(council, "")],
+                            {k: v for k, v in props.items() if v is not None}, [(COUNCILS.get(council) or {}).get("country", "")],
                             {"type": "Point", "coordinates": [t["lon"], t["lat"]]}))
         if not geo:
             raise ConnectorError(f"council_trees: no trees with a location in {raw_dir}")

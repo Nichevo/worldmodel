@@ -37,7 +37,8 @@ export type CoverList = { rows: (CityCover & { id: string })[]; job: { state: st
 export type NzLand = { years: number[]; level: number; levels: Record<string, string>; region: string; y0: number; y1: number;
   classes: string[]; cover: Record<string, Record<string, number>>; flows: { from: string; to: string; ha: number }[];
   regions: { id: string; name: string; cover: Record<string, number>; total: number }[] };
-export type StreetTrees = { council?: string; councils: { c: string; n: number }[]; total: number;
+export type StreetTrees = { council?: string; total: number;
+  councils: { c: string; n: number; name: string; country: string | null; note: string | null; population: number | null; per_1000: number | null; common: string | null }[];
   species?: { name: string; species: string | null; n: number; height: number | null }[]; planted?: { y: number; n: number }[];
   bbox?: [number, number, number, number] | null };
 

@@ -9,6 +9,10 @@ with copies saved on this PC so the maps draw quickly and work offline where sav
     landcover  ESA WorldCover 10 m land cover for 2020 and 2021 (CC BY 4.0), from VITO's Terrascope map service.
                The same pictures are read back into shares of tree cover, crops and built-up land for a city
                (land.py), by each pixel's colour.
+    lcyears    ESA Climate Change Initiative / Copernicus land cover, 300 m, every year 1992-2020, drawn by
+               Microsoft Planetary Computer from its copies (one picture per 45-degree square, put together here).
+    lc10       Esri Land Cover 10 m (Impact Observatory, Microsoft and Esri; CC BY 4.0), every year from 2017,
+               drawn by Esri's ArcGIS image service.
 
 Tiles are kept as files under <data folder>/basemap/tiles/<set>/<time>/<z>/<x>/<y>.<ext>, so
 they count toward the map files limit. A saved area is a box and a zoom range; areas.json
@@ -19,6 +23,7 @@ browsing, only by "Save this area" and the starter copies.
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import math
@@ -53,7 +58,20 @@ SETS: dict[str, dict] = {
     "landcover": {"url": TERRASCOPE, "ext": "png", "maxzoom": 15, "kb": 12, "label": "Land cover",
                   "times": {"2021": ("WORLDCOVER_2021_MAP", "2021"), "2020": ("WORLDCOVER_2020_MAP", "2020")},
                   "attribution": "Land cover: ESA WorldCover 2020/2021 (CC BY 4.0), Terrascope"},
+    "lcyears": {"url": "cci", "ext": "png", "maxzoom": 9, "kb": 9, "label": "Land cover by year (ESA CCI)",
+                "times": {str(y): (str(y), str(y)) for y in range(2020, 1991, -1)},
+                "attribution": "Land cover: ESA Climate Change Initiative and Copernicus C3S, 300 m (Microsoft Planetary Computer)"},
+    "lc10": {"url": "esri", "ext": "png", "maxzoom": 14, "kb": 12, "label": "Land cover 10 m by year (Esri)",
+             "times": {str(y): (str(y), str(y)) for y in range(2025, 2016, -1)},
+             "attribution": "Land cover: Esri Land Cover 10 m (Impact Observatory, Microsoft, Esri), CC BY 4.0"},
 }
+# ESA CCI on Microsoft Planetary Computer: one item per year and 45-degree square (S90W180 ... N45E135).
+PC_TILE = ("https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x"
+           "?collection=esa-cci-lc&item={item}&assets=lccs_class&colormap_name=esa-cci-lc&format=png")
+ESRI_LC = ("https://ic.imagery1.arcgis.com/arcgis/rest/services/Sentinel2_10m_LandCover/ImageServer/exportImage"
+           "?bbox={bbox}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&time={t0},{t1}"
+           "&renderingRule=%7B%22rasterFunction%22%3A%22Cartographic%20Renderer%20for%20Visualization%20and%20Analysis%22%7D&f=image")
+LCYEARS_STORED = ("1992", "1995", "2000", "2005", "2010", "2015", "2020")  # Settings > Maps: "every 5 years"
 # The starter copies (Settings > Maps): world relief to zoom 6, New Zealand's relief, satellite and
 # land cover closer in, and the newest yearly night lights and land cover for the world at overview zoom.
 NZ = (165.8, -47.5, 178.9, -34.0)
@@ -67,6 +85,17 @@ STARTER = [
     {"id": "starter-landcover-world", "set": "landcover", "t": "2021", "name": "World", "bbox": WORLD, "minzoom": 0, "maxzoom": 5},
     {"id": "starter-landcover-nzl", "set": "landcover", "t": "2021", "name": "New Zealand", "bbox": NZ, "minzoom": 6, "maxzoom": 11},
 ]
+
+
+def starter() -> list[dict]:
+    """The starter copies, plus the yearly land cover maps for the world to zoom 6 (about 50 MB a
+    year): every 5 years, every year, or none (Settings > Maps > Yearly land cover maps)."""
+    keep = local.load_settings().get("land_cover_years_keep", "every5")
+    years = [] if keep == "none" else list(SETS["lcyears"]["times"]) if keep == "every" else list(LCYEARS_STORED)
+    return STARTER + [{"id": f"starter-lcyears-{y}", "set": "lcyears", "t": y, "name": f"World {y}", "bbox": WORLD,
+                       "minzoom": 0, "maxzoom": 6} for y in sorted(years)]
+
+
 WORKERS = 2          # tiles fetched at once while saving
 MAX_TILES = 400_000  # one saved area at most
 
@@ -143,6 +172,73 @@ def _time(set_id: str, t: str | None) -> tuple[str, str]:
     return key, when
 
 
+def merc_box(z: int, x: int, y: int) -> tuple[float, float, float, float]:
+    """A tile's box in Web Mercator metres (xmin, ymin, xmax, ymax)."""
+    half = 20037508.342789244
+    size = 2 * half / 2 ** z
+    return (-half + x * size, half - (y + 1) * size, -half + (x + 1) * size, half - y * size)
+
+
+def lonlat_box(z: int, x: int, y: int) -> tuple[float, float, float, float]:
+    """A tile's box in degrees (west, south, east, north)."""
+    n = 2 ** z
+    lat = lambda yy: math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * yy / n))))  # noqa: E731
+    return (x / n * 360 - 180, lat(y + 1), (x + 1) / n * 360 - 180, lat(y))
+
+
+def cci_item(year: str, lon: float, lat: float) -> str:
+    """The Planetary Computer item holding a point in a year: ESACCI ... v2.0.7cds up to 2015, C3S ... v2.1.1 after."""
+    cell_lat = math.floor(max(-90, min(89.999, lat)) / 45) * 45
+    cell_lon = math.floor(max(-180, min(179.999, lon)) / 45) * 45
+    cell = f"{'S' if cell_lat < 0 else 'N'}{abs(cell_lat):02d}{'W' if cell_lon < 0 else 'E'}{abs(cell_lon):03d}"
+    if int(year) <= 2015:
+        return f"ESACCI-LC-L4-LCCS-Map-300m-P1Y-{year}-v2.0.7cds-{cell}"
+    return f"C3S-LC-L4-LCCS-Map-300m-P1Y-{year}-v2.1.1-{cell}"
+
+
+def cci_items(year: str, z: int, x: int, y: int) -> list[str]:
+    """The 45-degree squares a tile touches (one at zoom 3 and up, up to 32 at zoom 0)."""
+    w, s_, e, n = lonlat_box(z, x, y)
+    out = []
+    for la in range(math.floor(max(-90, s_) / 45) * 45, math.ceil(min(90, n) / 45) * 45, 45):
+        for lo in range(math.floor(w / 45) * 45, math.ceil(e / 45) * 45, 45):
+            out.append(cci_item(year, lo + 1, la + 1))
+    return out
+
+
+def fetch_upstream(set_id: str, z: int, x: int, y: int, t: str | None = None) -> tuple[int, bytes, str]:
+    """(status, bytes, media type) of a tile from its map service. ESA CCI tiles touching several
+    45-degree squares are put together from each square's picture."""
+    st = SETS[set_id]
+    if st["url"] == "cci":
+        from PIL import Image
+        key = t if t in st["times"] else next(iter(st["times"]))
+        out, got, status = None, 0, 404
+        for item in cci_items(key, z, x, y):
+            r = _http().get(PC_TILE.format(z=z, x=x, y=y, item=item))
+            if r.status_code != 200 or not r.headers.get("content-type", "").startswith("image/"):
+                if r.status_code not in (404, 424):  # 424: the tile is outside that square
+                    status = r.status_code
+                continue
+            im = Image.open(io.BytesIO(r.content)).convert("RGBA")
+            out = im if out is None else Image.alpha_composite(out, im)
+            got += 1
+        if out is None:
+            return status, b"", "text/plain"
+        buf = io.BytesIO()
+        out.save(buf, "PNG", optimize=True)
+        return 200, buf.getvalue(), "image/png"
+    if st["url"] == "esri":
+        key = t if t in st["times"] else next(iter(st["times"]))
+        t0 = int(datetime(int(key), 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+        t1 = int(datetime(int(key) + 1, 1, 1, tzinfo=timezone.utc).timestamp() * 1000) - 1000
+        url = ESRI_LC.format(bbox=",".join(f"{v:.2f}" for v in merc_box(z, x, y)), t0=t0, t1=t1)
+    else:
+        url = upstream(set_id, z, x, y, t)
+    r = _http().get(url)
+    return r.status_code, r.content, r.headers.get("content-type", "")
+
+
 def upstream(set_id: str, z: int, x: int, y: int, t: str | None = None) -> str:
     st = SETS[set_id]
     if "times" in st:
@@ -169,16 +265,17 @@ def tile(set_id: str, z: int, x: int, y: int, t: str | None = None, online: bool
     if not online:
         return None
     try:
-        r = _http().get(upstream(set_id, z, x, y, t))
+        status, content, kind = fetch_upstream(set_id, z, x, y, t)
     except httpx.HTTPError as exc:
         _warn_once(set_id, f"could not reach the {SETS[set_id]['label']} map service ({type(exc).__name__})")
         return None
-    kind = r.headers.get("content-type", media)
+    kind = kind or media
     # Map services can answer 200 with an XML or HTML error page: only pass on pictures.
-    if r.status_code != 200 or not r.content or not kind.startswith("image/"):
-        _warn_once(set_id, f"{SETS[set_id]['label']} map service answered {r.status_code} {kind.split(';')[0]}")
+    if status != 200 or not content or not kind.startswith("image/"):
+        if status != 404:
+            _warn_once(set_id, f"{SETS[set_id]['label']} map service answered {status} {kind.split(';')[0]}")
         return None
-    return r.content, kind
+    return content, kind
 
 
 _warned: set[str] = set()
@@ -218,7 +315,7 @@ def status() -> dict:
                       "times": list(v.get("times", {}))} for k, v in SETS.items()],
             "areas": rows, "bytes": sum(a.get("bytes", 0) for a in rows), "size": _human(sum(a.get("bytes", 0) for a in rows)),
             "job": job, "mode": s["map_tiles"], "starter": s["map_tiles_starter"],
-            "starter_done": all(a["id"] in have for a in STARTER), "starter_size": _human(sum(estimate_bytes(a) for a in STARTER))}
+            "starter_done": all(a["id"] in have for a in starter()), "starter_size": _human(sum(estimate_bytes(a) for a in starter()))}
 
 
 def estimate_bytes(area: dict) -> float:
@@ -262,7 +359,7 @@ def save(area: dict) -> dict:
 
 def start_starter() -> dict:
     have = {a["id"] for a in areas()}
-    todo = [dict(a) for a in STARTER if a["id"] not in have]
+    todo = [dict(a) for a in starter() if a["id"] not in have]
     return _queue(todo) if todo else status()["job"]
 
 
@@ -315,16 +412,16 @@ def _save_one(area: dict) -> None:
         if p.is_file():
             return p.stat().st_size, False
         try:
-            r = _http().get(upstream(set_id, z, x, y, None if t == "-" else t))
+            status, content, kind = fetch_upstream(set_id, z, x, y, None if t == "-" else t)
         except httpx.HTTPError:
             return 0, True
-        if r.status_code == 404:  # nothing there (open sea at depth on some sets): fine
+        if status == 404:  # nothing there (open sea at depth on some sets): fine
             return 0, False
-        if r.status_code != 200:
+        if status != 200 or (kind and not kind.startswith("image/")):
             return 0, True
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(r.content)
-        return len(r.content), False
+        p.write_bytes(content)
+        return len(content), False
 
     with ThreadPoolExecutor(WORKERS) as pool:
         for i, (n, bad) in enumerate(pool.map(one, todo), 1):
