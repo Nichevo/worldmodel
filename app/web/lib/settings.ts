@@ -167,6 +167,7 @@ export const DEFAULT_SETTINGS: Settings = {
   map_3d_exaggeration: 1.5,
   map_tiles: "local_first",
   map_tiles_starter: true,
+  land_cover_years_keep: "every5",
   map_true_size: true,
   space_fetch: true,
   space_values: false,

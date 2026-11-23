@@ -344,6 +344,7 @@ export type Settings = {
   map_3d_exaggeration: number;
   map_tiles: "local_first" | "online";
   map_tiles_starter: boolean;
+  land_cover_years_keep: "every5" | "every" | "none";
   map_true_size: boolean;
   space_fetch: boolean;
   space_values: boolean;

@@ -2132,6 +2132,18 @@ def land_nz(level: int = 2, region: str = "NZL", y0: int | None = None, y1: int 
     return land.nz(rows, level, region, y0, y1)
 
 
+@api.get("/land/cover-change")
+def land_cover_change(entity: str = "NZL", y0: str = "1992", y1: str = "2020"):
+    """Land that changed from each kind of cover to another between two years in a country (ESA's
+    yearly 300 m maps, read from the land cover pictures), with each kind's total both years."""
+    try:
+        return land.cover_change(entity.upper(), y0, y1)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+
+
 @api.get("/land/trees")
 def land_trees(council: str | None = None):
     """A council's street tree list: how many, the commonest species, planting by year."""
@@ -3883,7 +3895,7 @@ def city_distances(city_id: str, add: str | None = Query(None, description="Comm
         brg = (math.degrees(math.atan2(math.sin(dl) * math.cos(la2),
                                        math.cos(la1) * math.sin(la2) - math.sin(la1) * math.cos(la2) * math.cos(dl))) + 360) % 360
         out = {k: r[k] for k in ("city_id", "name", "country_id", "country", "lat", "lon", "timezone", "population")}
-        return {**out, "kind": kind, "km": round(km, 1), "bearing": round(brg)}
+        return {**out, "kind": kind, "km": round(km, 1), "bearing": round(brg) % 360}
 
     return {"city": {k: c[k] for k in ("city_id", "name", "country_id", "lat", "lon", "timezone")},
             "key": [leg(k, "key") for k in keys], "added": [leg(a, "added") for a in added],

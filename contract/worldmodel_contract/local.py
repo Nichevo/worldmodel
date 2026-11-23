@@ -164,6 +164,7 @@ SETTINGS: dict[str, object] = {
     "map_3d_exaggeration": 1.5,          # how much the land is raised in 3D
     "map_tiles": "local_first",          # relief, satellite and night pictures: "local_first" (saved copies, online for the rest) or "online"
     "map_tiles_starter": True,           # download the starter copies once: world relief to zoom 6, NZ relief, satellite and land cover closer, newest night lights
+    "land_cover_years_keep": "every5",   # yearly land cover maps saved for the world to zoom 6: "every5" (1992, 1995 ... 2020, about 350 MB), "every" (about 1.5 GB) or "none" (online only)
     "map_true_size": True,               # Map shapes page: true size, equal-area view and cartograms
     "space_fetch": True,                 # Solar system page: asteroids (JPL), mission paths (JPL Horizons), about 50 MB
     "space_values": False,               # Solar system page: Asterank's guessed dollar values for asteroids
@@ -258,7 +259,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
            "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
-           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
+           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "land_cover_years_keep": ("every5", "every", "none"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y"),
