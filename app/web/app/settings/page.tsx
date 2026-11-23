@@ -378,8 +378,10 @@ export default function SettingsPage() {
           on={s.land_history_fetch} set={(v) => save({ land_history_fetch: v })} />
         <Toggle label="City outlines (GHSL urban centres)" hint="One download of about 60 MB a year. Off: no city outlines layer, no city size comparison and no built-up area on city pages."
           on={s.land_cities_fetch} set={(v) => save({ land_cities_fetch: v })} />
-        <Toggle label="Tree cover and street trees" hint="Global Forest Watch's country file once a year, and Auckland Council's tree list (pages of 2,000, a second apart, twice a year). Off: no tree cover loss charts and no street trees layer."
+        <Toggle label="Tree cover and street trees" hint="Global Forest Watch's country file once a year, and council tree lists (Auckland, Wellington, Christchurch, Palmerston North, Hastings, New Plymouth, Waipā; pages of 2,000, a second apart, twice a year). Off: no tree cover loss charts and no street trees layer."
           on={s.land_trees_fetch} set={(v) => save({ land_trees_fetch: v })} />
+        <Toggle label="Overseas tree lists too" hint="Also Sydney, Melbourne and New York (about 900,000 trees, roughly 150 MB stored). Off: only New Zealand councils' lists (and any you save by hand)."
+          on={s.council_trees_overseas} set={(v) => save({ council_trees_overseas: v })} />
         <Toggle label="New Zealand land cover and forestry files" hint="Reads the LCDB and MPI forestry files you save in var\manual\nz_lcdb and var\manual\nz_forestry (see Data status). Off: those files are not read again."
           on={s.land_nz_fetch} set={(v) => save({ land_nz_fetch: v })} />
         <Toggle label="Work out land cover inside cities" hint="When you ask on the Land page or a city page, reads the WorldCover pictures inside the city's outline (a few MB each, in the background) and keeps the result. Off: no tree, built and green shares for cities."
@@ -500,6 +502,13 @@ export default function SettingsPage() {
         <Toggle label="Fetch Wikipedia pages in the background"
           hint="Fills in countries you have not opened yet, a few an hour, most-populous first, using at most half of the daily Wikipedia limit so the pages you open always have room."
           on={s.wikipedia_background} set={(v) => save({ wikipedia_background: v })} />
+      </section>
+
+      <section className="card" id="city-pages">
+        <h2>City pages</h2>
+        <TextField label="Key cities for Distance to…" value={s.distance_key_cities} placeholder="Auckland, Sydney, London, Los Angeles, Tokyo, Singapore"
+          note="Each city page lists how far these are. Separate with commas. A name picks the biggest city of that name; add a country code to pick another (London CAN)."
+          save={(v) => save({ distance_key_cities: v })} />
       </section>
 
       <section className="card" id="look">

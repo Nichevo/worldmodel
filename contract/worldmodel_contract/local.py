@@ -137,7 +137,8 @@ SETTINGS: dict[str, object] = {
     # Land, cities and trees (connectors/land.py; FAOSTAT land use comes with the sectors' FAOSTAT files)
     "land_history_fetch": True,          # HYDE cropland and grazing land by country back to 1700 (via Our World in Data, once a year)
     "land_cities_fetch": True,           # GHSL urban centres: people, built-up area and outlines of about 11,000 cities (300 MB once a year)
-    "land_trees_fetch": True,            # Global Forest Watch tree cover and loss by country; council tree lists (Auckland)
+    "land_trees_fetch": True,            # Global Forest Watch tree cover and loss by country; council tree lists (contract land.py COUNCILS)
+    "council_trees_overseas": True,      # also Sydney, Melbourne and New York's tree lists (about 900,000 trees)
     "land_nz_fetch": True,               # read the NZ Land Cover Database and MPI forestry files you save by hand
     "land_city_cover": True,             # city land cover worked out from the WorldCover map pictures (on request, a few dozen tiles a city)
     "land_cover_year": "2021",           # WorldCover year for the land cover background and city shares: "2021" or "2020"
@@ -202,6 +203,7 @@ SETTINGS: dict[str, object] = {
     "discover_on": True,             # look for finds after each refresh (and once after update.bat)
     "discover_checks": "record,mover,turning,overtake,outlier,disagree,forecast,together,after,revised,opposite",
     "discover_keep": 500,            # finds kept per build, best first
+    "distance_key_cities": "Auckland, Sydney, London, Los Angeles, Tokyo, Singapore",  # the city page's Distance to… card (a name, or "Name ISO3" for one country's)
     "discover_key_countries": "NZL,AUS,GBR,USA",  # boosted, and the ones checked for overtakes, revisions and forecasts
     "discover_key_boost": 1.5,       # how much a key country's finds are lifted (1 = not at all)
     "discover_merge": True,          # the same find in several countries shown once, as lines against the world (off: one card per country)
@@ -265,7 +267,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app", "world_dataverse_name",
          "world_dataverse_email", "world_dataverse_institution", "world_dataverse_position", "world_dataverse_purpose",
-         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder"}
+         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept

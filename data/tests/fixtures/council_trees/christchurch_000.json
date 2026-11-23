@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"attributes": {"OBJECTID": 7, "TreeSpecies": "Platanus orientalis", "CommonName": "Oriental plane", "Status": "Existing"}, "geometry": {"x": 172.62, "y": -43.53}}, {"attributes": {"OBJECTID": 8, "TreeSpecies": "Quercus robur", "Status": "Removed"}, "geometry": {"x": 172.63, "y": -43.531}}]}

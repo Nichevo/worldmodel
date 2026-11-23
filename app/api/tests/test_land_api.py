@@ -104,6 +104,9 @@ def test_cities_outlines_and_trees(client):
     assert {f["properties"]["name"] for f in g["features"]} == {"Auckland", "Sydney"}
     t = client.get("/api/v1/land/trees").json()
     assert t["council"] == "auckland" and t["total"] == 2 and t["planted"] == [{"y": 2000, "n": 1}]
+    row = t["councils"][0]
+    assert row["name"] == "Auckland" and row["country"] == "NZL" and row["common"] in ("English oak", "Pōhutukawa")
+    assert client.get("/api/v1/land/trees", params={"council": "nowhere"}).json()["council"] == "auckland"
     nz = client.get("/api/v1/land/nz", params={"level": 1}).json()
     assert nz["years"] == [2012, 2018] and nz["cover"]["2018"]["Forest"] == 500
     assert {(f["from"], f["to"]) for f in nz["flows"]} == {("Grassland, sedge and saltmarsh", "Forest"),
