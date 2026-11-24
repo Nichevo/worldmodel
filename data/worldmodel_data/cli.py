@@ -177,6 +177,9 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
                  "build_id": exc.report.stem if exc.report else None, "failures": exc.failures})
         _echo_problems(p)
         raise typer.Exit(1)
+    except KeyboardInterrupt:  # Ctrl+C: nothing went wrong, so leave no empty "-stopped" file behind
+        _close_crash(fh, crash)
+        raise
     except Exception as exc:  # noqa: BLE001 - say what stopped it, keep the details in the file
         faulthandler.disable()
         fh.write("The build stopped with this error:\n\n" + traceback.format_exc())

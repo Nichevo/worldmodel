@@ -136,3 +136,18 @@ def test_military(con):
     assert s and s[0] == 2
     deals = con.execute("SELECT supplier, recipient, weapon FROM arms_deals ORDER BY recipient").fetchall()
     assert ("USA", "AUS", "Virginia") in deals and ("USA", "NZL", "P-8A Poseidon") in deals
+
+
+def test_ioda_download_asks_the_ioda_address(tmp_path, monkeypatch):
+    """The class IODA once shadowed the module's IODA address, so every download asked for
+    "<class ...>?entityType=..." and failed."""
+    from worldmodel_data.connectors import outages
+
+    monkeypatch.setattr(outages, "_settings", lambda: {"ioda_from_year": date.today().year})
+    asked = []
+    c = outages.IODA()
+    c.pause_seconds = 0
+    monkeypatch.setattr(c, "last_vintage_dir", lambda raw: None)
+    monkeypatch.setattr(c, "get", lambda url, dest, **kw: asked.append(url))
+    assert c.download(tmp_path, "x").startswith("https://api.ioda")
+    assert asked and all(u.startswith("https://api.ioda.inetintel.cc.gatech.edu/v2/outages/events?entityType=country") for u in asked)

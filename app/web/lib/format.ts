@@ -51,3 +51,10 @@ export const SOURCE_SHORT: Record<string, string> = {
   cia_factbook: "Factbook", wikidata: "Wikidata", powell_thyne: "Powell & Thyne", ucdp_acd: "UCDP", emdat: "EM-DAT",
   notable: "Curated", worldmodel: "From the data",
 };
+
+// The date on this computer's calendar as YYYY-MM-DD. toISOString() gives the UTC date, which
+// in New Zealand (UTC+12/13) is still yesterday until midday or 1 pm.
+export function localDay(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}

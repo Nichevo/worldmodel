@@ -13,12 +13,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
 import shutil
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 from worldmodel_data.config import Paths
+
+log = logging.getLogger(__name__)
 
 STAGED_COLUMNS = {
     "source_id": "VARCHAR",
@@ -324,11 +328,14 @@ class Manifest:
     history_count: int = 0  # rows in the long-view tables (HISTORY_COLUMNS), if any
 
     def write(self, path: Path) -> None:
-        path.write_text(json.dumps(asdict(self), indent=2))
+        # Through a temporary file, so a window closed mid-write cannot leave half a manifest.
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
+        os.replace(tmp, path)
 
     @classmethod
     def read(cls, path: Path) -> "Manifest":
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         known = cls.__dataclass_fields__
         return cls(**{k: v for k, v in data.items() if k in known})
 
@@ -357,7 +364,13 @@ class VintageStore:
     def manifests(self, source_id: str | None = None) -> list[Manifest]:
         root = self.paths.vintages
         pattern = f"{source_id}/*/manifest.json" if source_id else "*/*/manifest.json"
-        return sorted((Manifest.read(p) for p in root.glob(pattern)), key=lambda m: (m.source_id, m.retrieved_at))
+        out = []
+        for p in root.glob(pattern):
+            try:
+                out.append(Manifest.read(p))
+            except (ValueError, TypeError, OSError) as exc:  # one damaged file must not stop every command
+                log.warning("skipped a damaged manifest %s (%s); delete that vintage folder or fetch the source again", p, exc)
+        return sorted(out, key=lambda m: (m.source_id, m.retrieved_at))
 
     def latest(self, source_id: str) -> Manifest | None:
         ms = self.manifests(source_id)

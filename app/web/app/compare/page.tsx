@@ -37,7 +37,11 @@ function Compare() {
 
   const update = (next: string[], ind = indicatorId, v = view) =>
     router.replace(`/compare?ids=${next.join(",")}&indicator=${ind}${v === "multiples" ? "&view=multiples" : ""}`);
-  const colours = entityColors(ids);
+  // Colours come from the page's CSS, which the server cannot read: worked out after the page
+  // opens, or the swatches stayed blank (React does not patch a mismatched style).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const colours = useMemo(() => (mounted ? entityColors(ids) : []), [mounted, ids]);
 
   useEffect(() => {
     if (!indicator || !names.size) return;

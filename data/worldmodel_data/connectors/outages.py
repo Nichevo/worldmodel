@@ -39,7 +39,7 @@ from worldmodel_data.connectors.tabular import Rows, entity_for, indicator, num,
 
 log = logging.getLogger(__name__)
 
-IODA = "https://api.ioda.inetintel.cc.gatech.edu/v2/outages/events"
+IODA_URL = "https://api.ioda.inetintel.cc.gatech.edu/v2/outages/events"
 IODA_MIN_SECONDS = 3600
 CLOUDFLARE = "https://api.cloudflare.com/client/v4/radar/annotations/outages"
 
@@ -118,9 +118,9 @@ class IODA(Connector):
             end = date(m.year + (m.month == 12), m.month % 12 + 1, 1)
             if n:
                 time.sleep(self.pause_seconds)
-            self.get(f"{IODA}?entityType=country&from={_ts(m)}&until={_ts(end)}&limit=5000", raw_dir / name, cached=False)
+            self.get(f"{IODA_URL}?entityType=country&from={_ts(m)}&until={_ts(end)}&limit=5000", raw_dir / name, cached=False)
             n += 1
-        return IODA
+        return IODA_URL
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         recs = []

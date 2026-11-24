@@ -102,9 +102,10 @@ export default function Panel({
       const left = Math.min(Math.max(4, p.at.clientX - r.left + 8), Math.max(4, r.width - 300));
       const top = Math.min(Math.max(4, p.at.clientY - r.top + 8), Math.max(4, r.height - 260));
       // A short panel: the card scrolls inside it, so its buttons can always be reached.
-      return { left, top, maxHeight: `calc(100% - ${top + 4}px)` };
+      return { left, top, maxHeight: `max(140px, calc(100% - ${top + 4}px))` };
     }
-    return { right: 6 + i * 14, top: 6 + i * 26, maxHeight: `calc(100% - ${12 + i * 26}px)` };
+    // At least 140px tall, so with many pins in a short panel no card shrinks to nothing (it may then run past the panel's foot).
+    return { right: 6 + i * 14, top: 6 + i * 26, maxHeight: `max(140px, calc(100% - ${12 + i * 26}px))` };
   };
 
   return (

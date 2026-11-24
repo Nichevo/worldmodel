@@ -212,3 +212,31 @@ def test_metaculus_too_many_requests_on_comments_keeps_the_rest(tmp_path, monkey
                                                                 "origin": "site"}], []) if post.get("id") == 1 else (None, [], []))
     c.download(tmp_path, "2026-11-24")  # does not stop
     assert calls["comments"] == 2  # asked once, waited as told, asked again, then left the comments for next time
+
+
+def test_metaculus_resolved_list_keeps_only_recent_and_survives_a_refused_filter(tmp_path, monkeypatch):
+    """Questions settled long ago (but due later) are left out of the resolved list, and a 400 on
+    the resolved query leaves the open questions in place instead of calling the category unknown."""
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    assert cc._resolved_since({"question": {"actual_resolve_time": "2021-03-01T00:00:00Z"}}, "2026-09-25") is False
+    assert cc._resolved_since({"question": {"actual_resolve_time": "2026-11-01T00:00:00Z"}}, "2026-09-25") is True
+    assert cc._resolved_since({"question": {}}, "2026-09-25") is True
+
+    def handler(req):
+        q = dict(req.url.params)
+        if req.url.path.endswith("/users/me/"):
+            return httpx.Response(200, json={"id": None})
+        if q.get("statuses") == "resolved":
+            return httpx.Response(400, json={"order_by": ["not a valid order"]})
+        return httpx.Response(200, json={"results": [], "next": None})
+
+    c = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.gap = 0
+    monkeypatch.setenv("METACULUS_TOKEN", "test")
+    monkeypatch.setattr(c, "_settings", lambda raw: {"crowd_categories": "economics", "crowd_comments": False})
+    monkeypatch.setattr(c, "_follow", lambda raw: set())
+    monkeypatch.setattr(c, "_last", lambda raw: None)
+    c.download(tmp_path, "2026-11-24")  # no "every category was turned down"

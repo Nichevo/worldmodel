@@ -13,7 +13,7 @@ import { api, type Around, type EventKind, type EventRow, type Milestone } from 
 import { aroundOption } from "@/lib/charts";
 import { KINDS, kindColor, kindLabel, kindVar, sizeText, when, yearOf } from "@/lib/events";
 import { cssVar } from "@/lib/colors";
-import { compact, formatValue, SOURCE_LABEL } from "@/lib/format";
+import { compact, formatValue, SOURCE_LABEL, localDay } from "@/lib/format";
 
 // Events across countries: a year at a glance, an indicator in the years around a
 // kind of event (World Cups, coups, disasters...) and your own milestones.
@@ -184,7 +184,7 @@ function EventTimeline({ rows, places, first, last }: { rows: EventRow[]; places
   const lanes = [...new Set(rows.map(rowOf))].sort();
   const few = rows.length <= LABEL_MAX;
   const option = useCallback(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDay();
     const seen = new Map<number, number>();  // names alternate above and below within each row
     const pts = rows.map((r) => {
       const x0 = yearOf(r.start_date), x1 = yearOf(r.end_date ?? r.start_date);
