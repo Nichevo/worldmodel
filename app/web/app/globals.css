@@ -1530,6 +1530,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .console-tables code { font-size: 0.8rem; }
 .console-tables button.link { text-align: left; }
 /* Layers panel: Layers / Map look tabs, one line per layer with its Details link. */
+.layers-panel > * { flex-shrink: 0; }
 .lp-tabs { align-self: flex-start; }
 .lp-find { width: 100%; }
 .lp-name { min-width: 0; cursor: pointer; }

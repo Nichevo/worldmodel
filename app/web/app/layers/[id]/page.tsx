@@ -19,6 +19,7 @@ const TABS: [Tab, string][] = [["countries", "By country"], ["groups", "By group
 const GROUP_TYPES: [string, string][] = [["bloc", "Blocs"], ["alliance", "Alliances"], ["continent", "Continents"], ["subregion", "Regions"],
   ["income_group", "Income groups"], ["group", "Other groups"]];
 const KEYS = KEY_COUNTRIES.map((k) => k.id);
+const an = (s: string) => `${/^[aeiou]/i.test(s) && !/^(uni|eu)/i.test(s) ? "an" : "a"} ${s}`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function LayerPage() {
@@ -48,7 +49,7 @@ function LayerPage() {
       <p className="small"><Link href="/layers">All map layers</Link></p>
       <div className="title-row">
         <h1>{title}</h1>
-        <span className="row small" style={{ gap: 12 }}>
+        <span className="small" style={{ display: "inline-flex", gap: 14, alignItems: "baseline" }}>
           {mapHref && <Link href={mapHref}>Show on the map</Link>}
           <AskButton title={`${title} by country`} parts={() => [
             { key: "about", kind: "description", label: "What this layer is", text: `${L.description ?? title}. ${L.note}` },
@@ -140,10 +141,10 @@ function ByTable({ layer, rows, groups, onPick }: { layer: LayerInfo; rows: Laye
   );
   const csv = () => {
     const h = [layer.group_label, "Count", "Per million people", "Per 10,000 km2", ...(S ? [`With ${S.label.toLowerCase()}`, `${S.label} (${S.unit})`] : []),
-      ...(sums ? [`${S!.label} per 1,000 people`] : []), ...layer.official.flatMap((o) => [o.label, ...(o.coverage ? ["Coverage"] : [])]), "Largest"];
+        ...(sums ? [`${S!.label} per 1,000 people`] : []), ...layer.official.flatMap((o) => [o.label, ...(o.coverage ? ["Coverage"] : [])]), ...(S ? ["Largest"] : [])];
     saveText(csvText(h, shown.map((r) => [r.name, r.count, r.per_m, r.per_10k_km2, ...(S ? [r.with_size, r.size_total] : []),
       ...(sums ? [r.size_per_1000] : []), ...layer.official.flatMap((o, i) => [r.official[i]?.value ?? null, ...(o.coverage ? [r.official[i]?.coverage ?? null] : [])]),
-      r.largest?.name ?? ""])), `${fileName(layer.id, groups ? "by-group" : "by-country")}.csv`);
+      ...(S ? [r.largest?.name ?? ""] : [])])), `${fileName(layer.id, groups ? "by-group" : "by-country")}.csv`);
   };
   const isCouncil = layer.group_label === "Council";
   return (
@@ -171,7 +172,7 @@ function ByTable({ layer, rows, groups, onPick }: { layer: LayerInfo; rows: Laye
               o.coverage ? <th key={`c${i}`} style={{ textAlign: "right", cursor: "pointer" }} onClick={() => { setSort("coverage0"); setDown(true); }}
                 title={`How much of the official figure the map layer lists`}>Coverage{sort === "coverage0" ? (down ? " ▼" : " ▲") : ""}</th> : null,
             ])}
-            <th style={{ textAlign: "left" }}>Largest</th>
+            {S && <th style={{ textAlign: "left" }}>Largest</th>}
           </tr></thead>
           <tbody>
             {(all ? shown : shown.slice(0, 60)).map((r) => (
@@ -193,8 +194,8 @@ function ByTable({ layer, rows, groups, onPick }: { layer: LayerInfo; rows: Laye
                   o.coverage ? <td key={`c${i}`} style={{ textAlign: "right", fontWeight: 600, color: coverColour(r.official[i]?.coverage) }}>
                     {r.official[i]?.coverage === null || r.official[i]?.coverage === undefined ? "–" : `${Math.round(r.official[i]!.coverage! * 100)}%`}</td> : null,
                 ])}
-                <td className="muted" style={{ whiteSpace: "nowrap", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {r.largest ? `${r.largest.name} (${fmt(r.largest.size, S?.decimals)})` : ""}</td>
+                {S && <td className="muted" style={{ whiteSpace: "nowrap", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {r.largest ? `${r.largest.name} (${fmt(r.largest.size, S.decimals)})` : ""}</td>}
               </tr>
             ))}
           </tbody>
@@ -242,7 +243,7 @@ function Items({ layer, country, name, onBack }: { layer: LayerInfo; country?: s
         {onBack && <button className="link small" onClick={onBack}>Back to the table</button>}
       </div>
       <div className="chips-row small">
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Find a ${layer.one}`} aria-label={`Find a ${layer.one}`} />
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Find ${an(layer.one)}`} aria-label={`Find ${an(layer.one)}`} />
         {S && <div className="seg">{(["size", "name"] as const).map((s) => <button key={s} className={sort === s ? "on" : ""} aria-pressed={sort === s}
           onClick={() => setSort(s)}>{s === "size" ? `Biggest ${S.label.toLowerCase()} first` : "By name"}</button>)}</div>}
         <button className="link small" onClick={csv}>Download CSV</button>
