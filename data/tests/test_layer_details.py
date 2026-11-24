@@ -113,6 +113,31 @@ def test_a_slip_in_layer_details_does_not_stop_the_build(tmp_path, monkeypatch):
     assert con.execute("SELECT count(*) FROM series").fetchone()[0] > 0
 
 
+def test_a_slip_after_a_good_build_does_not_fail_the_shrinkage_check(tmp_path, monkeypatch):
+    """The live build has map layer figures; the next build's layer step fails. Losing those
+    figures on purpose must not fail the 'series shrank' check and stop the build."""
+    from worldmodel_data import layer_tables
+
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    for source in SOURCES:
+        CONNECTORS[source]().ingest(store, FIXTURES / source)
+    first = build(home)
+    con = duckdb.connect(str(first.path), read_only=True)
+    had = con.execute("SELECT count(*) FROM series WHERE source_id = 'map_layers'").fetchone()[0]
+    con.close()
+
+    def boom(con, raw, today=None):
+        raise RuntimeError("bad layer")
+
+    monkeypatch.setattr(layer_tables, "prepare", boom)
+    second = build(home)
+    shrunk = [c for c in second.checks if c.check_id.startswith("shrinkage:map_layers")]
+    assert all(c.status == "warn" for c in shrunk)
+    if had:
+        assert shrunk
+
+
 def test_a_layer_without_figures_of_its_own_is_skipped_for_indicators():
     """Chokepoints have a details page but no count indicators; one placed in a country must not stop the step."""
     from datetime import date

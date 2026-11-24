@@ -45,8 +45,9 @@ class Check:
     examples: list[str] = field(default_factory=list)  # sample failing rows
 
 
-def run(con: duckdb.DuckDBPyConnection, previous: Path | None, allow_shrink: bool = False) -> list[Check]:
-    return [*coverage(con), *spot_checks(con), *shrinkage(con, previous, allow_shrink), *unmapped(con),
+def run(con: duckdb.DuckDBPyConnection, previous: Path | None, allow_shrink: bool = False,
+        shrink_ok: set[str] | frozenset[str] = frozenset()) -> list[Check]:
+    return [*coverage(con), *spot_checks(con), *shrinkage(con, previous, allow_shrink, shrink_ok), *unmapped(con),
             *implausible_variants(con), *divergence(con),
             *whatif_model(con), manual_sample(con)]
 
@@ -98,7 +99,9 @@ def spot_checks(con) -> list[Check]:
     return out
 
 
-def shrinkage(con, previous: Path | None, allow_shrink: bool) -> list[Check]:
+def shrinkage(con, previous: Path | None, allow_shrink: bool, shrink_ok: set[str] | frozenset[str] = frozenset()) -> list[Check]:
+    """Series that lost more than MAX_SHRINK of their rows since the live build. Sources in
+    `shrink_ok` (left out of this build on purpose) only warn."""
     if previous is None:
         return [Check("shrinkage", "shrinkage", "skip", "no previous build to compare with")]
     now = dict(((s, i), n) for s, i, n in con.execute(
@@ -114,7 +117,7 @@ def shrinkage(con, previous: Path | None, allow_shrink: bool) -> list[Check]:
     for key, n_before in sorted(before.items()):
         n_now = now.get(key, 0)
         if n_now < n_before * (1 - MAX_SHRINK):
-            status = "warn" if allow_shrink else "fail"
+            status = "warn" if allow_shrink or key[0] in shrink_ok else "fail"
             out.append(Check(f"shrinkage:{key[0]}:{key[1]}", "shrinkage", status,
                              f"{n_before:,} rows before, {n_now:,} now"))
     return out or [Check("shrinkage", "shrinkage", "pass", f"no series lost more than {MAX_SHRINK:.0%} of its rows")]

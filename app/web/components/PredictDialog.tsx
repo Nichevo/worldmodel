@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "@/lib/ai";
 import { CATEGORY_TEXT, pred, type Prediction } from "@/lib/predictions";
 import { useSettings } from "@/lib/settings";
+import { localDay } from "@/lib/format";
 
 // Add or edit a prediction: yours, an expert's, the app's or a crowd site's. Opened from the
 // Predictions page, a chart's Predict button, a forecast, or a crowd question. "Paste a link"
@@ -22,7 +23,7 @@ export default function PredictDialog({ initial, onClose, onSaved, title = "Add 
   );
 }
 
-const inYear = (n: number) => { const d = new Date(); d.setFullYear(d.getFullYear() + n); return d.toISOString().slice(0, 10); };
+const inYear = (n: number) => { const d = new Date(); d.setFullYear(d.getFullYear() + n); return localDay(d); };
 
 export function PredictForm({ initial, onSaved }: { initial?: Partial<Prediction>; onSaved: (p: Prediction) => void }) {
   const s = useSettings();

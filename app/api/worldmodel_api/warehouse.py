@@ -83,8 +83,9 @@ class Warehouse:
             path = resolve(self.setting)
             o = self._opened
             if o is None or o.path != path or o.mtime != path.stat().st_mtime:
-                if o is not None:
-                    o.con.close()
+                # The old connection is not closed here: requests still running on its cursors
+                # (another thread) would fail with "connection closed". It closes itself once
+                # nothing uses it any more.
                 self._opened = o = self._open(path)
             return o
 

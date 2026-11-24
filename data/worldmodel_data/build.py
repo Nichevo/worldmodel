@@ -72,7 +72,7 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
     try:
         con = duckdb.connect(str(tmp))
         try:
-            _load_sources(con, paths, manifests)
+            left_out = _load_sources(con, paths, manifests)
         finally:
             con.close()
 
@@ -134,7 +134,7 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                     checks.append(gates.Check("layer_items:loaded", "map layers", "info",
                                               f"Map layer details: {sum(lay.values()):,} items in {len(lay)} layers "
                                               f"({', '.join(f'{k} {v:,}' for k, v in sorted(lay.items()))})"))
-                checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
+                checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink, shrink_ok=left_out)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]
             if not failed and dbt_ok:
@@ -143,7 +143,10 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
             con.close()
         if failed or not dbt_ok:
             kept = paths.builds / f"{build_id}.failed.duckdb"
-            os.replace(tmp, kept)
+            try:
+                os.replace(tmp, kept)
+            except OSError:  # Windows can hold the file a moment after closing: report on it where it is
+                kept = tmp
             gates.write_report(report_path, build_id, checks, kept)
             failures = [{"check_id": c.check_id, "kind": c.kind, "detail": c.detail, "examples": c.examples[:12]}
                         for c in checks if c.status == "fail"]
@@ -153,8 +156,11 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
     except BuildFailed:
         raise
     except Exception:
-        tmp.unlink(missing_ok=True)
-        compact.unlink(missing_ok=True)
+        for f in (tmp, compact):
+            try:
+                f.unlink(missing_ok=True)
+            except OSError:  # locked on Windows: keep the error that stopped the build, not this one
+                pass
         raise
 
     os.replace(compact, final)
@@ -168,8 +174,9 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
     return BuildResult(build_id, final, report_path, checks)
 
 
-def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> None:
-    """Copy the contract catalogues and every staged vintage into schema src."""
+def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> set[str]:
+    """Copy the contract catalogues and every staged vintage into schema src. Returns the
+    sources deliberately left out of this build (their lost rows are a warning, not a failure)."""
     con.execute("CREATE SCHEMA src")
     cat = catalogue.CATALOGUE_DIR
     for name in ("entities", "entity_codes", "memberships", "successions", "subdivisions"):
@@ -246,10 +253,16 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
         log.warning("map layer details left out of this build: %s", exc)
         con.execute("DROP TABLE IF EXISTS src.raw_layer_items")
         src_id = layer_tables.spec.SOURCE_ID
+        # By the ids the layers give (indicators may be written before their indicator_sources rows).
+        ids = [i["id"] for i in layer_tables.spec.indicators()]
         con.execute("DELETE FROM src.indicators WHERE indicator_id IN "
-                    "(SELECT indicator_id FROM src.indicator_sources WHERE source_id = ?)", [src_id])
+                    "(SELECT indicator_id FROM src.indicator_sources WHERE source_id = ?) OR list_contains(?, indicator_id)",
+                    [src_id, ids])
         for t in ("raw_observations", "indicator_sources", "vintages"):
             con.execute(f"DELETE FROM src.{t} WHERE source_id = ?", [src_id])
+        # Its figures are gone from this build on purpose: that must not fail the shrinkage check.
+        return {src_id}
+    return set()
 
 
 def all_indicators(paths: Paths, latest) -> list:
@@ -381,13 +394,21 @@ def _finish(con: duckdb.DuckDBPyConnection, build_id: str, started, checks: list
     con.execute("CREATE OR REPLACE TABLE build_checks (check_id VARCHAR, kind VARCHAR, status VARCHAR, detail VARCHAR)")
     con.executemany("INSERT INTO build_checks VALUES (?, ?, ?, ?)",
                     [(c.check_id, c.kind, c.status, c.detail) for c in checks])
+    # dbt makes `vintages`; when dbt stopped before making it, read the loaded copy instead, so the
+    # failed build still gets its report (with dbt's own error) rather than a missing-table error.
+    try:
+        latest = con.execute("SELECT source_id, vintage FROM vintages WHERE is_latest ORDER BY 1").fetchall()
+    except duckdb.CatalogException:
+        try:
+            latest = con.execute("SELECT source_id, vintage FROM src.vintages WHERE is_latest ORDER BY 1").fetchall()
+        except duckdb.CatalogException:
+            latest = []
     meta = {
         "schema_version": SCHEMA_VERSION,
         "build_id": build_id,
         "built_at": started.isoformat(),
         "builder": f"worldmodel-data {__version__}",
-        "vintages": json.dumps([list(r) for r in con.execute(
-            "SELECT source_id, vintage FROM vintages WHERE is_latest ORDER BY 1").fetchall()]),
+        "vintages": json.dumps([list(r) for r in latest]),
     }
     con.execute("CREATE OR REPLACE TABLE meta (key VARCHAR, value VARCHAR)")
     con.executemany("INSERT INTO meta VALUES (?, ?)", list(meta.items()))

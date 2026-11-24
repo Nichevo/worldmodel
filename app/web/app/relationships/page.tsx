@@ -48,7 +48,7 @@ function RelationshipsPage() {
   const [indicator] = useState(params.get("indicator") ?? "");
   const [q, setQ] = useState("");
   // "" any pair; "any" one comes first; "1".."5" one comes first by that many years
-  const [lead, setLead] = useState(params.get("lead") ?? "");
+  const [lead, setLead] = useState(() => { const l = params.get("lead") ?? ""; return /^(any|[1-5])?$/.test(l) ? l : ""; });
   const [drivers, setDrivers] = useState(false);
   const [showSame, setShowSame] = useState(false);
   const [hideSource, setHideSource] = useState(false);

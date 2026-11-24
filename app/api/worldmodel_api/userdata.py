@@ -340,7 +340,8 @@ def save_ratio(data: dict, known: set[str], ratio_id: str | None = None) -> dict
         if v not in known:
             raise ValueError(f"{k}: no indicator {v or '(none)'}")
     try:
-        mult = float(data.get("multiplier", 1) or 1)
+        m = data.get("multiplier")
+        mult = 1.0 if m is None or m == "" else float(m)  # 0 must reach the check below, not become 1
         decimals = int(data.get("decimals", 2))
     except (TypeError, ValueError):
         raise ValueError("multiplier and decimals must be numbers")

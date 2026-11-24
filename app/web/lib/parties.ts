@@ -7,6 +7,7 @@ import type { EChartsOption } from "echarts";
 import { api, type EventRow } from "@/lib/api";
 import { cssVar, seriesColor } from "@/lib/colors";
 import { yearOf } from "@/lib/events";
+import { localDay } from "@/lib/format";
 
 export type Term = { from: string; to: string | null; x0: number; x1: number; leader: string; party: string; color: string };
 
@@ -22,7 +23,7 @@ function partyColor(party: string): string {
 export function termsOf(events: EventRow[], office: "government" | "state"): Term[] {
   const rows = events.filter((e) => e.kind === "leader" && (e.subkind ?? "").endsWith(office))
     .sort((a, b) => a.start_date.localeCompare(b.start_date));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDay();
   return rows.map((e, i) => {
     const next = rows[i + 1]?.start_date;
     const to = next && (!e.end_date || next < e.end_date) ? next : e.end_date;

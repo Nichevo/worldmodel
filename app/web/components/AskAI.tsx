@@ -36,13 +36,15 @@ export default function AskAI() {
   const box = useRef<HTMLTextAreaElement>(null);
 
   // Before, a failed or slow fetch left the drop-down on "No models" with nothing to say why.
-  const loadStatus = (compare: boolean, compareWith: string) => {
+  // `retry`: Try again keeps the second model already picked, if it is still there.
+  const loadStatus = (compare: boolean, compareWith: string, retry = false) => {
     setStatus(null);
     setStatusError(null);
     api.aiStatus().then((st) => {
       setStatus(st);
       setModel((m) => m || st.default_model || "");
-      setSecond(compare ? compareModel(st, compareWith, st.default_model ?? "") : "");
+      const fresh = compare ? compareModel(st, compareWith, st.default_model ?? "") : "";
+      setSecond((cur) => (retry && cur && st.models.some((m) => m.name === cur) ? cur : fresh));
     }).catch((e) => setStatusError(String((e as Error).message || e).replace(/^\d+: /, "")));
   };
 
@@ -160,13 +162,13 @@ export default function AskAI() {
       {statusError && (
         <p className="error small">
           Could not get your models from the app&apos;s server ({statusError}). Is the server window still running?{" "}
-          <button className="link small" onClick={() => loadStatus(s.ai_compare_default, s.ai_model_compare)}>Try again</button>
+          <button className="link small" onClick={() => loadStatus(s.ai_compare_default, s.ai_model_compare, true)}>Try again</button>
         </p>
       )}
       {status && !status.ollama.ok && (
         <p className="error small">
           {status.ollama.error}{" "}
-          <button className="link small" onClick={() => loadStatus(s.ai_compare_default, s.ai_model_compare)}>Try again</button>
+          <button className="link small" onClick={() => loadStatus(s.ai_compare_default, s.ai_model_compare, true)}>Try again</button>
         </p>
       )}
       {status?.ollama.ok && !models.length && <p className="error small">No models installed in Ollama. Install one, for example: <code>ollama pull qwen3:32b</code></p>}

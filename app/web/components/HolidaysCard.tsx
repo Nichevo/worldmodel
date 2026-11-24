@@ -3,6 +3,7 @@
 import Help from "@/components/Help";
 import { useEffect, useState } from "react";
 import { api, type EventRow } from "@/lib/api";
+import { localDay } from "@/lib/format";
 
 // This year's public holidays (or next year's from December), month by month.
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -22,7 +23,7 @@ export default function HolidaysCard({ entity, name }: { entity: string; name: s
   if (!rows.length && year === now.getFullYear()) return null;
   const shown = rows.filter((e) => regional || e.subkind !== "regional");
   const nRegional = rows.filter((e) => e.subkind === "regional").length;
-  const today = now.toISOString().slice(0, 10);
+  const today = localDay(now);
   const next = shown.find((e) => e.start_date >= today);
   return (
     <div className="card" id="holidays">

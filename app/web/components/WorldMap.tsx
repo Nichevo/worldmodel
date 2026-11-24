@@ -385,7 +385,7 @@ export default function WorldMap({
   const [els, setEls] = useState<Map<string, HTMLDivElement>>(new Map());
   const markers = useRef(new Map<string, maplibregl.Marker>());
   const fitBound = useRef<maplibregl.Map | null>(null);
-  const overlayKey = overlays.map((o) => `${o.key}@${o.lng.toFixed(3)},${o.lat.toFixed(3)}`).join("|");
+  const overlayKey = overlays.map((o) => `${o.key}@${o.lng.toFixed(3)},${o.lat.toFixed(3)}~${o.shift ?? 0}`).join("|");
   useEffect(() => {
     const m = map.current;
     if (!m) return;
@@ -404,7 +404,10 @@ export default function WorldMap({
     }
     for (const o of overlays) {
       const have = markers.current.get(o.key);
-      if (have) { have.setLngLat([o.lng, o.lat]); continue; }
+      // A card whose step-aside changed (another card for the country closed) is placed again,
+      // or it would keep its old offset and a new card could land right on top of it.
+      if (have && have.getElement().dataset.shift === String(o.shift ?? 0)) { have.setLngLat([o.lng, o.lat]); continue; }
+      if (have) { have.remove(); markers.current.delete(o.key); changed = true; }
       const el = document.createElement("div");
       el.className = "map-overlay";
       // Keep clicks, drags and scrolling inside the popup away from the map.
@@ -421,6 +424,7 @@ export default function WorldMap({
       const mk = new maplibregl.Marker({ element: el, anchor, offset: [dx, (v === "top" ? 6 : -6) + dy] }).setLngLat([o.lng, o.lat]).addTo(m);
       el.dataset.v = v;
       el.dataset.dy = String(Math.abs(dy));
+      el.dataset.shift = String(shift);
       markers.current.set(o.key, mk);
       fitOverlay(m, mk);
       changed = true;

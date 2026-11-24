@@ -563,6 +563,14 @@ class Manifold(_Crowd):
         return f"{self.SEARCH} ({n:,} questions kept)"
 
 
+def _resolved_since(post: dict, since: str) -> bool:
+    """False for a post whose actual resolve time (on it or its question) is before `since`
+    (YYYY-MM-DD); True when it gives none."""
+    q = post.get("question") or {}
+    t = q.get("actual_resolve_time") or post.get("actual_resolve_time")
+    return not t or str(t)[:10] >= since
+
+
 class Metaculus(_Crowd):
     source_id = "metaculus"
     site = "metaculus"
@@ -619,25 +627,40 @@ class Metaculus(_Crowd):
         headers = {"Authorization": f"Token {token}"}
         at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
         since = (datetime.now(timezone.utc) - timedelta(days=60)).strftime("%Y-%m-%d")
-        posts, seen, unknown, asked = [], set(), [], 0
+        posts, seen, unknown, asked, resolved_refused = [], set(), [], 0, []
         for cat in self._categories(s):
             for slug in crowd.SITE_TAGS["metaculus"][cat]:
                 asked += 1
                 # The API's filters: statuses, order_by (one of its own orders) and key lookups such as
                 # scheduled_resolve_time__gt. A category slug it does not have is a 400 ("Category x does
-                # not exist"): skip that one rather than the whole source.
+                # not exist"): skip that one rather than the whole source. The open list is asked first,
+                # on its own, so a 400 there means the category; a 400 on the resolved list (its filters)
+                # only leaves out that slug's resolved questions.
                 try:
-                    for params, pages in (({"categories": slug, "statuses": "open", "order_by": "-hotness"}, 4),
-                                          ({"categories": slug, "statuses": "resolved",
-                                            "order_by": "-scheduled_resolve_time", "scheduled_resolve_time__gt": since}, 2)):
-                        for p in self._posts(headers, {**params, "with_cp": "true"}, pages):
-                            if p.get("id") not in seen:
-                                seen.add(p.get("id"))
-                                posts.append(p)
+                    found = self._posts(headers, {"categories": slug, "statuses": "open", "order_by": "-hotness",
+                                                  "with_cp": "true"}, 4)
                 except httpx.HTTPStatusError as exc:
                     if exc.response.status_code != 400:
                         raise
                     unknown.append(f"{slug} ({_api_reason(exc.response)})")
+                    continue
+                try:
+                    # Ordered by the date it was due to resolve, so a question settled early (years ago)
+                    # but due later can come first: keep only those actually resolved since `since`.
+                    found += [p for p in self._posts(headers, {"categories": slug, "statuses": "resolved",
+                                                               "order_by": "-scheduled_resolve_time",
+                                                               "scheduled_resolve_time__gt": since, "with_cp": "true"}, 2)
+                              if _resolved_since(p, since)]
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code != 400:
+                        raise
+                    resolved_refused.append(f"{slug} ({_api_reason(exc.response)})")
+                for p in found:
+                    if p.get("id") not in seen:
+                        seen.add(p.get("id"))
+                        posts.append(p)
+        if resolved_refused:
+            log.warning("metaculus: resolved questions left out for: %s", "; ".join(resolved_refused))
         if unknown:
             log.warning("metaculus: categories the site turned down, skipped: %s", "; ".join(unknown))
         if asked and len(unknown) == asked:

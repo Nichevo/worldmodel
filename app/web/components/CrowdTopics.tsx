@@ -6,6 +6,7 @@ import CardAsk from "@/components/CardAsk";
 import { openAsk } from "@/lib/ai";
 import { CATEGORY_TEXT, crowdApi, type CrowdQ, pct, pred, type Prediction, type ScoreRow } from "@/lib/predictions";
 import { useSettings } from "@/lib/settings";
+import { localDay } from "@/lib/format";
 
 // Crowd questions by topic: a card per topic with the busiest open questions, the crowd's odds as a
 // bar, your own forecast as a gold mark when you made one, and the move this week; then your scorecard.
@@ -106,7 +107,7 @@ function Scorecard() {
   const crowd = rows?.filter((r) => r.kind === "crowd" && r.brier != null).sort((a, b) => b.brier_n - a.brier_n)[0];
   if (!you && !items.length) return null;
   const sure = you?.calibration.filter((c) => c.forecast >= 0.65 && c.n >= 3).sort((a, b) => b.n - a.n)[0];
-  const month = new Date(Date.now() + 31 * 86_400_000).toISOString().slice(0, 10);
+  const month = localDay(new Date(Date.now() + 31 * 86_400_000));
   const due = items.filter((p) => p.state !== "settled" && p.due <= month);
   const calib = sure ? (sure.observed < sure.forecast - 0.07 ? "Too sure" : sure.observed > sure.forecast + 0.07 ? "Not sure enough" : "Well judged") : "–";
   const tiles = [

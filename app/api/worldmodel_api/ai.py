@@ -262,12 +262,14 @@ def _images(found) -> list[str]:
 _SEES: dict[tuple[str, str], bool] = {}
 
 
-def can_see(model: str, settings: dict) -> bool:
-    """Whether a model takes pictures (Ollama lists "vision" among its capabilities)."""
+def can_see(model: str, settings: dict, timeout: float = 5) -> bool:
+    """Whether a model takes pictures (Ollama lists "vision" among its capabilities). The model
+    list asks with a short wait; a question asks with a longer one, so a busy Ollama does not
+    make a picture model look blind (an answer that timed out is not remembered)."""
     key = (ollama_url(settings), model)
     if key not in _SEES:
         try:
-            with _client(5) as c:
+            with _client(timeout) as c:
                 r = c.post(f"{ollama_url(settings)}/api/show", json={"model": model})
                 caps = r.json().get("capabilities") or [] if r.status_code == 200 else []
         except (httpx.HTTPError, ValueError):
@@ -308,7 +310,7 @@ def ask(req: dict, settings: dict | None = None) -> Iterator[dict]:
     images = _images(req.get("images"))
     user = {"role": "user", "content": _prompt(question, context, web)}
     if images:
-        if can_see(model, s):
+        if can_see(model, s, timeout=30):
             user["images"] = images
             rec["picture"] = "sent"
         else:

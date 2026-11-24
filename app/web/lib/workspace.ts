@@ -231,7 +231,9 @@ export function reducer(ws: Workspace, a: Action): Workspace {
       // Pinning the same country and dataset again on the same panel moves it; a different
       // dataset gets a pin of its own. Past the limit the oldest pin goes.
       // An older pin with no dataset shows the panel's own: it counts as that dataset.
-      const own = ws.panels.find((p) => p.id === a.pin.panel)?.indicator;
+      // (A pyramid panel's cards show population, as the Explore page draws them.)
+      const panel = ws.panels.find((p) => p.id === a.pin.panel);
+      const own = panel?.view === "pyramid" ? "pop_total" : panel?.indicator;
       const rest = ws.pins.filter((p) => !samePin(p, a.pin)
         && !(p.entity === a.pin.entity && p.panel === a.pin.panel && !p.indicator && own === a.pin.indicator));
       return { ...ws, pins: [...rest, a.pin].slice(-MAX_PINS) };
