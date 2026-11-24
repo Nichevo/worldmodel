@@ -8,6 +8,7 @@ import { api, type CrisisWatchMonth, type MapEvents } from "@/lib/api";
 import { zoneTiles } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
+import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
 import { setFightingWindow } from "@/lib/osint";
@@ -202,6 +203,8 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; lab
   { id: "night", label: "Night lights", gives: "Lights seen from space at night: where people, money and power are." },
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
+// Read from the internet while on (marked "live" in the list).
+const LIVE = new Set(["fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military"]);
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
@@ -216,7 +219,10 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
   const s = useSettings();
   const [have, setHave] = useState<Map<string, MapLayerInfo> | null>(null);
   const [q, setQ] = useState("");
-  const [shut, setShut] = useState<Set<string>>(new Set(["earth", "transport", "polar"]));
+  const [shut, setShut] = useState<Set<string>>(new Set()); // groups with a layer on that were closed
+  const [opened, setOpened] = useState<Set<string>>(new Set()); // groups with nothing on that were opened
+  const [waitingOpen, setWaitingOpen] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<"layers" | "look">("layers");
   const [playing, setPlaying] = useState(false);
   const [from, to] = windowDates(win || s.map_window, year);
   useEffect(() => { mapLayers().then((l) => setHave(new Map(l.map((x) => [x.layer_id, x])))).catch(() => setHave(new Map())); }, []);
@@ -287,54 +293,50 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
   };
   const swatch = (m: LayerDef) => (m.made ? MADE_SWATCH[m.id]?.() : LAYER_STYLE[m.id]?.swatch()) ?? cssVar("--muted");
   const custom = /~/.test(win);
+  const timedOn = onNow.some((m) => m.timed);
+  const groupsShown = LAYER_GROUPS.map((g) => {
+    const rows = MAP_LAYERS.filter((m) => m.group === g.id && match(m));
+    const ready = rows.filter((m) => status(m).ok || panel.layers.includes(m.letter));
+    const waiting = rows.filter((m) => !ready.includes(m));
+    return { g, rows, ready, waiting, n: rows.filter((m) => panel.layers.includes(m.letter)).length };
+  }).filter((x) => x.rows.length);
+  const row = (m: LayerDef) => {
+    const st = status(m);
+    const checked = panel.layers.includes(m.letter);
+    const tip = [m.hint ?? have?.get(m.id)?.description ?? "", st.ok ? st.source : st.why].filter(Boolean).join("\n");
+    return (
+      <div key={m.letter} className={`lp-row${st.ok ? "" : " off"}`} title={tip}>
+        <input type="checkbox" checked={checked} disabled={!st.ok && !checked} onChange={(e) => toggle(m.letter, e.target.checked)}
+          aria-label={m.label} id={`lp-${panel.id}-${m.letter}`} />
+        <i className="lp-swatch" style={{ background: swatch(m) }} />
+        <label htmlFor={`lp-${panel.id}-${m.letter}`} className="lp-name">
+          {m.label}
+          {m.timed && <span className="lp-tag" title="Follows the time window">timed</span>}
+          {LIVE.has(m.id) && <span className="lp-tag" title="Read from the internet while it is on">live</span>}
+          {LAYER_STYLE[m.id]?.fetch === "window" && <span className="lp-tag" title="Big: read for the area in view as you move">big</span>}
+          {!st.ok && <small className="muted">{st.why}</small>}
+          {checked && counts[m.id] ? <small className="muted">{counts[m.id]}</small> : null}
+        </label>
+        {DETAIL_LAYERS.has(m.id) ? <Link className="small lp-details" href={detailsHref(m.id)} title={`${m.label}: counts by country, sizes and every item`}>Details</Link> : <span />}
+      </div>
+    );
+  };
   return (
     <aside className="layers-panel" aria-label="Layers">
       <div className="lp-head">
         <h2>Layers</h2>
+        <Link className="small" href="/layers" title="Every layer counted by country, with sizes">All in detail</Link>
         <span className="spacer" />
         <button className="small" onClick={onClose} aria-label="Close the layers panel">Close</button>
       </div>
-
-      <div className="lp-section">
-        <div className="lp-label">On now ({onNow.length})</div>
-        {onNow.length === 0 && <p className="caption">None: tick a layer below or pick a quick set.</p>}
-        <div className="chips-row">
-          {onNow.map((m) => (
-            <span key={m.letter} className="chip lp-chip">
-              <i className="lp-swatch" style={{ background: swatch(m) }} />{m.label}
-              <button aria-label={`Turn off ${m.label}`} onClick={() => toggle(m.letter, false)}>×</button>
-            </span>
-          ))}
-          {onNow.length > 1 && <button className="link small" onClick={() => set("")}>All off</button>}
-        </div>
+      <div className="seg lp-tabs" role="tablist">
+        <button role="tab" aria-selected={view === "layers"} className={view === "layers" ? "on" : ""} onClick={() => setView("layers")}>Layers</button>
+        <button role="tab" aria-selected={view === "look"} className={view === "look" ? "on" : ""} onClick={() => setView("look")}>Map look</button>
       </div>
 
-      <div className="lp-section">
-        <div className="lp-label">Quick sets</div>
-        <div className="lp-sets">
-          {QUICK_SETS.map((qs) => (
-            <button key={qs.name} className={`lp-set${panel.layers === qs.letters ? " on" : ""}`} onClick={() => set(qs.letters)} title={qs.hint}>
-              <b>{qs.name}</b><span className="muted">{qs.hint}</span>
-            </button>
-          ))}
-          {saved.map(([name, letters]) => (
-            <span key={name} className={`lp-set mine${panel.layers === letters ? " on" : ""}`}>
-              <button className="link" onClick={() => set(letters)}><b>{name}</b></button>
-              <span className="muted">{MAP_LAYERS.filter((m) => letters.includes(m.letter)).map((m) => m.label).join(", ")}</span>
-              <button className="x" aria-label={`Delete the set ${name}`} onClick={() => dropSet(name)}>×</button>
-            </span>
-          ))}
-          <button className="lp-set" onClick={saveSet} disabled={!panel.layers} title="Keep the layers on now as a set of your own">
-            <b>+ Save current set</b><span className="muted">Name it, use it on any map</span>
-          </button>
-        </div>
-      </div>
-
-      <label className="lp-section lp-label">Find a layer
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="quakes, cities, CrisisWatch…" />
-      </label>
-
-      <div className="lp-section">
+      {view === "look" ? (
+        <>
+          <div className="lp-section">
         <div className="lp-label">Base map <span className="muted">pick one</span></div>
         <div className="lp-base" role="radiogroup" aria-label="Base map">
           {BASE_MAPS.map((b) => (
@@ -347,7 +349,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         <p className="caption">{BASE_MAPS.find((b) => b.id === s.base_map)?.gives}</p>
       </div>
 
-      <div className="lp-section">
+          <div className="lp-section">
         <div className="lp-label">Background <span className="muted">under the colours</span></div>
         <div className="lp-base lp-look" role="radiogroup" aria-label="Background">
           {LOOKS.map((b) => (
@@ -402,39 +404,28 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         <p className="caption"><Link href="/settings#maps">Saved copies</Link> make these quick and work offline; <Link href="/shapes">Map shapes</Link> has true size and cartograms; <Link href="/regions">Regions inside a country</Link> maps US states and counties and New Zealand's regions.</p>
       </div>
 
-      {LAYER_GROUPS.map((g) => {
-        const rows = MAP_LAYERS.filter((m) => m.group === g.id && match(m));
-        if (!rows.length) return null;
-        const open = !!words || !shut.has(g.id);
-        const n = rows.filter((m) => panel.layers.includes(m.letter)).length;
-        return (
-          <div key={g.id} className="lp-group">
-            <button className="lp-group-head" aria-expanded={open}
-              onClick={() => setShut((cur) => { const x = new Set(cur); if (x.has(g.id)) x.delete(g.id); else x.add(g.id); return x; })}>
-              {g.label} <span className="muted small">{n} of {rows.length} on {open ? "▾" : "▸"}</span>
-            </button>
-            {open && rows.map((m) => {
-              const st = status(m);
-              const checked = panel.layers.includes(m.letter);
-              return (
-                <label key={m.letter} className={`lp-row${st.ok ? "" : " off"}`} title={m.hint ?? have?.get(m.id)?.description ?? ""}>
-                  <input type="checkbox" checked={checked} disabled={!st.ok && !checked} onChange={(e) => toggle(m.letter, e.target.checked)} />
-                  <i className="lp-swatch" style={{ background: swatch(m) }} />
-                  <span>
-                    {m.label}{m.timed && <span className="lp-tag">timed</span>}
-                    <small className="muted">{st.ok ? st.source : st.why}</small>
+        </>
+      ) : (
+        <>
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a layer (hospitals, quakes, cables…)"
+            aria-label="Find a layer" className="lp-find" />
+
+          <div className="lp-section">
+            <div className="lp-label">On now ({onNow.length}){onNow.length > 1 && <button className="link small" style={{ marginLeft: 8 }} onClick={() => set("")}>All off</button>}</div>
+            {onNow.length === 0 ? <p className="caption">None: tick a layer below or pick a quick set.</p> : (
+              <div className="chips-row">
+                {onNow.map((m) => (
+                  <span key={m.letter} className="chip lp-chip">
+                    <i className="lp-swatch" style={{ background: swatch(m) }} />{m.label}
+                    <button aria-label={`Turn off ${m.label}`} onClick={() => toggle(m.letter, false)}>×</button>
                   </span>
-                  <span className="muted small lp-count">{checked ? counts[m.id] ?? "" : ""}</span>
-                </label>
-              );
-            })}
+                ))}
+              </div>
+            )}
           </div>
-        );
-      })}
 
-      {panel.layers.includes("y") && <PastYear />}
-
-      <div className="lp-section lp-window">
+          {timedOn && (
+            <div className="lp-section lp-window">
         <div className="lp-label">Time window for timed layers <span className="muted">{from} to {to}</span></div>
         <div className="seg" role="group" aria-label="Time window">
           {WINDOWS.map((w) => (
@@ -451,10 +442,55 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         </div>
         <p className="caption">One window for events, news, earthquakes and storms on every map on this page. Older items in the window are fainter.</p>
       </div>
-      <p className="caption">
-        Greyed layers say why. The opening map turns on {MAP_LAYERS.filter((m) => s.map_open_layers.includes(m.letter)).map((m) => m.label).join(", ") || "no layers"}:
-        {" "}<Link href="/settings#briefing">change in Settings</Link>.
-      </p>
+          )}
+          {panel.layers.includes("y") && <PastYear />}
+
+          <div className="lp-section">
+            <div className="lp-label">Quick sets</div>
+            <div className="chips-row lp-quick">
+              {QUICK_SETS.map((qs) => (
+                <button key={qs.name} className={`chip${panel.layers === qs.letters ? " on" : ""}`} onClick={() => set(qs.letters)} title={qs.hint}
+                  aria-pressed={panel.layers === qs.letters}>{qs.name}</button>
+              ))}
+              {saved.map(([name, letters]) => (
+                <span key={name} className={`chip mine${panel.layers === letters ? " on" : ""}`}
+                  title={MAP_LAYERS.filter((m) => letters.includes(m.letter)).map((m) => m.label).join(", ")}>
+                  <button className="link" onClick={() => set(letters)}>{name}</button>
+                  <button aria-label={`Delete the set ${name}`} onClick={() => dropSet(name)}>×</button>
+                </span>
+              ))}
+              <button className="chip" onClick={saveSet} disabled={!panel.layers} title="Keep the layers on now as a set of your own">+ Save</button>
+            </div>
+          </div>
+
+          {groupsShown.map(({ g, rows, ready, waiting, n }) => {
+            const open = !!words || n > 0 ? !shut.has(g.id) || !!words : opened.has(g.id);
+            const flip = () => {
+              if (n > 0 || words) setShut((cur) => { const x = new Set(cur); if (x.has(g.id)) x.delete(g.id); else x.add(g.id); return x; });
+              else setOpened((cur) => { const x = new Set(cur); if (x.has(g.id)) x.delete(g.id); else x.add(g.id); return x; });
+            };
+            const showWaiting = waitingOpen.has(g.id) || !!words;
+            return (
+              <div key={g.id} className="lp-group">
+                <button className="lp-group-head" aria-expanded={open} onClick={flip}>
+                  <span>{g.label} {open ? "▾" : "▸"}</span><span className="muted small">{n} of {rows.length} on</span>
+                </button>
+                {open && ready.map(row)}
+                {open && waiting.length > 0 && (showWaiting ? waiting.map(row) : (
+                  <button className="link small lp-waiting" onClick={() => setWaitingOpen((cur) => new Set(cur).add(g.id))}>
+                    {waiting.length} not loaded yet ▸</button>
+                ))}
+              </div>
+            );
+          })}
+          {words && !groupsShown.length && <p className="caption">No layer matches &quot;{q}&quot;.</p>}
+
+          <p className="caption">
+            Hover a layer for where it comes from. The opening map turns on {MAP_LAYERS.filter((m) => s.map_open_layers.includes(m.letter)).map((m) => m.label).join(", ") || "no layers"}:
+            {" "}<Link href="/settings#briefing">change in Settings</Link>.
+          </p>
+        </>
+      )}
     </aside>
   );
 }

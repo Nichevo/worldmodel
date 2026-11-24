@@ -3,6 +3,14 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.14.0 (2026-11-24)
+
+- New table `layer_items`: every item of the map's dot layers with its country, size figure
+  and category (spec in `worldmodel_contract.layer_details`). Absent before 1.14.0; readers
+  should treat it as empty.
+- New source: map_layers (counted by the build), with indicators `map_<layer>_count`,
+  `map_<layer>_per_m` and, where the layer has a size figure, `map_<layer>_<size>`.
+
 ## 1.13.0 (2026-11-23)
 
 - New tables `pundits` (named forecasters on Prediction Archive, with their graded counts

@@ -47,6 +47,7 @@ from worldmodel_api import __version__, ai, attention, basemap, briefing, citysc
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
 from worldmodel_api import grid, learn
+from worldmodel_api import layer_details as layer_info
 from worldmodel_api import public as public_api
 from worldmodel_api.warehouse import Warehouse, WarehouseError
 
@@ -2632,6 +2633,46 @@ def layers():
     """The map overlays the warehouse holds (plate boundaries, faults, volcanoes, earthquakes), without their features."""
     return rows("""SELECT l.layer_id, l.name, l.description, l.kind, l.feature_count, l.source_id, s.short_name AS source_name
         FROM layers l LEFT JOIN sources s USING (source_id) ORDER BY l.layer_id""")
+
+
+# ----------------------------------------------------------------------------- map layer details
+def _layer_key() -> str:
+    o = warehouse.current()
+    return f"{o.path}:{o.mtime}"
+
+
+def _live_layer(layer_id: str) -> dict:
+    return json.loads(layer(layer_id).body)
+
+
+@api.get("/layer-details")
+def layer_details_list():
+    """Every map layer the Details page can count, with its items and countries now."""
+    return layer_info.overview(rows)
+
+
+@api.get("/layer-details/country/{entity_id}")
+def layer_details_country(entity_id: str):
+    """One country's items on each counted map layer, with its rank among countries."""
+    return layer_info.country(rows, _layer_key(), entity_id)
+
+
+@api.get("/layer-details/{layer_id}")
+def layer_details(layer_id: str):
+    """One map layer by country and by group (count, per million people, per 10,000 km², size total,
+    official total and coverage), with the spread of its sizes and categories."""
+    got = layer_info.detail(rows, _layer_key(), layer_id, _live_layer, hazards.country_of)
+    if "error" in got:
+        raise HTTPException(404, got["error"])
+    return got
+
+
+@api.get("/layer-details/{layer_id}/items")
+def layer_details_items(layer_id: str, country: str | None = Query(None, description="A country, council or group id; '-' for none"),
+                        q: str | None = None, sort: Literal["size", "name"] = "size",
+                        limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0)):
+    """A layer's items, biggest first (or by name), for one country or group or all."""
+    return layer_info.list_items(rows, _layer_key(), layer_id, country, q, sort, limit, offset, _live_layer, hazards.country_of)
 
 
 @api.get("/layers/{layer_id}")

@@ -47,6 +47,7 @@ import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import AlikeCard from "@/components/AlikeCard";
 import PeersCard from "@/components/PeersCard";
+import OnTheMapCard from "@/components/OnTheMapCard";
 import { AttentionCard, OutlookCard } from "@/components/outlook/OutlookParts";
 import { DebtCycleCard } from "@/components/cycles/BigCycles";
 import Flag from "@/components/Flag";
@@ -157,6 +158,7 @@ export default function EntityPage() {
     { key: "places", title: "Transport, universities and companies", section: "places", on: !isGroup, el: <PlacesCard country={e} name={nm} /> },
     { key: "internet", title: "Internet", section: "places", on: true, el: <InternetCard entity={e} name={nm} indicators={byId} /> },
     { key: "transport", title: "Transport and links", section: "places", on: !isGroup, el: <TransportCard entity={e} name={nm} /> },
+    { key: "on_the_map", title: "On the map", section: "places", on: !isGroup, el: <OnTheMapCard entity={e} name={nm} /> },
     { key: "tourism", title: "Tourism", section: "places", on: !isGroup, el: <TourismCard entity={e} name={nm} /> },
     { key: "energy_mix", title: "Energy mix", section: "energy", on: true, el: <EnergyMix entity={e} name={nm} indicators={byId} /> },
     { key: "energy_flow", title: "Energy flow", section: "energy", on: !!byId.get("energy_balance_pj")?.available, el: <EnergyFlowCard entity={e} name={nm} /> },
