@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
+import httpx
 
 from worldmodel_contract import crowd, local
 from worldmodel_data.connectors.base import Connector, ConnectorError
@@ -526,6 +527,17 @@ class Manifold(_Crowd):
         return f"{self.SEARCH} ({n:,} questions kept)"
 
 
+def _api_reason(r) -> str:
+    """The reason an API gives with a 400, short."""
+    try:
+        d = r.json()
+    except Exception:  # noqa: BLE001 - not JSON: the start of the text
+        return (r.text or "")[:120].strip()
+    if isinstance(d, dict):
+        return "; ".join(f"{k}: {' '.join(map(str, v)) if isinstance(v, list) else v}" for k, v in d.items())[:200]
+    return str(d)[:200]
+
+
 class Metaculus(_Crowd):
     source_id = "metaculus"
     site = "metaculus"
@@ -581,16 +593,29 @@ class Metaculus(_Crowd):
         headers = {"Authorization": f"Token {token}"}
         at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
         since = (datetime.now(timezone.utc) - timedelta(days=60)).strftime("%Y-%m-%d")
-        posts, seen = [], set()
+        posts, seen, unknown, asked = [], set(), [], 0
         for cat in self._categories(s):
             for slug in crowd.SITE_TAGS["metaculus"][cat]:
-                for params, pages in (({"categories": slug, "statuses": "open", "order_by": "-hotness"}, 4),
-                                      ({"categories": slug, "statuses": "resolved", "order_by": "-actual_resolve_time",
-                                        "actual_resolve_time__gt": since}, 2)):
-                    for p in self._posts(headers, {**params, "with_cp": "true"}, pages):
-                        if p.get("id") not in seen:
-                            seen.add(p.get("id"))
-                            posts.append(p)
+                asked += 1
+                # The API's filters: statuses, order_by (one of its own orders) and key lookups such as
+                # scheduled_resolve_time__gt. A category slug it does not have is a 400 ("Category x does
+                # not exist"): skip that one rather than the whole source.
+                try:
+                    for params, pages in (({"categories": slug, "statuses": "open", "order_by": "-hotness"}, 4),
+                                          ({"categories": slug, "statuses": "resolved",
+                                            "order_by": "-scheduled_resolve_time", "scheduled_resolve_time__gt": since}, 2)):
+                        for p in self._posts(headers, {**params, "with_cp": "true"}, pages):
+                            if p.get("id") not in seen:
+                                seen.add(p.get("id"))
+                                posts.append(p)
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code != 400:
+                        raise
+                    unknown.append(f"{slug} ({_api_reason(exc.response)})")
+        if unknown:
+            log.warning("metaculus: categories the site turned down, skipped: %s", "; ".join(unknown))
+        if asked and len(unknown) == asked:
+            raise ConnectorError(f"metaculus: every category was turned down: {'; '.join(unknown)}")
         qs, pts = [], []
         for post in posts:
             rec, hp, _ = mc_question(post)
