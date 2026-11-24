@@ -143,3 +143,41 @@ def test_metaculus_skips_a_category_the_site_does_not_have(tmp_path, monkeypatch
     monkeypatch.setattr(c2, "_follow", lambda raw: set())
     with pytest.raises(cc.ConnectorError, match="every category"):
         c2.download(tmp_path, "2026-11-24")
+
+
+def test_metaculus_leaves_out_items_the_api_says_no_to(tmp_path, monkeypatch):
+    """A 403 the API explains (one post's history, your own forecasts) leaves that item out;
+    the refusal names the address and the site's reason."""
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    post = {"id": 7, "title": "Will NZ inflation exceed 3% in 2027?", "status": "open",
+            "question": {"id": 70, "type": "binary", "aggregations": {"recency_weighted": {"latest": {"centers": [0.4]}}}}}
+
+    def handler(req):
+        if req.url.path.endswith("/users/me/"):
+            return httpx.Response(403, json={"detail": "You do not have permission to perform this action."})
+        if req.url.path.endswith("/posts/7/"):
+            return httpx.Response(403, json={"detail": "You do not have permission to view this"})
+        if req.url.path.endswith("/posts/"):
+            return httpx.Response(200, json={"results": [post], "next": None})
+        return httpx.Response(200, json={"results": []})
+
+    c = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.gap = 0
+    monkeypatch.setenv("METACULUS_TOKEN", "test")
+    monkeypatch.setattr(c, "_settings", lambda raw: {"crowd_categories": "economics"})
+    monkeypatch.setattr(c, "_follow", lambda raw: {"metaculus:7"})
+    monkeypatch.setattr(c, "_last", lambda raw: None)
+    c.download(tmp_path, "2026-11-24")  # does not stop
+
+    def blocked(req):
+        return httpx.Response(403, text="<html>Attention Required</html>", headers={"content-type": "text/html"})
+
+    c2 = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(blocked)))
+    c2.gap = 0
+    monkeypatch.setattr(c2, "_settings", lambda raw: {"crowd_categories": "economics"})
+    monkeypatch.setattr(c2, "_follow", lambda raw: set())
+    with pytest.raises(cc.ConnectorError, match=r"403\) for https://www.metaculus.com/api/posts/"):
+        c2.download(tmp_path, "2026-11-24")

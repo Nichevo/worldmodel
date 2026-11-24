@@ -338,6 +338,26 @@ def tracked(questions: list[dict], follow: set[str], n: int = TRACK) -> list[dic
 
 
 # ----------------------------------------------------------------------------- the connectors
+class Refused(ConnectorError):
+    """The site said no (401, 403 or 429). `answered` when its API explained why in JSON (a
+    permission answer for one item, say), as opposed to a block page."""
+
+    def __init__(self, msg: str, status: int, answered: bool):
+        super().__init__(msg)
+        self.status, self.answered = status, answered
+
+
+def _api_reason(r) -> str:
+    """The reason an API gives with a 400, short."""
+    try:
+        d = r.json()
+    except Exception:  # noqa: BLE001 - not JSON: the start of the text
+        return (r.text or "")[:120].strip()
+    if isinstance(d, dict):
+        return "; ".join(f"{k}: {' '.join(map(str, v)) if isinstance(v, list) else v}" for k, v in d.items())[:200]
+    return str(d)[:200]
+
+
 class _Crowd(Connector):
     site = ""
     gap = 1.0
@@ -368,7 +388,9 @@ class _Crowd(Connector):
     def _get(self, url: str, **kw):
         r = self.client.get(url, **kw)
         if r.status_code in (401, 403, 429):
-            raise ConnectorError(f"{self.source_id}: the site refused the request ({r.status_code}); stopped there")
+            why = _api_reason(r) if "json" in r.headers.get("content-type", "") else ""
+            raise Refused(f"{self.source_id}: the site refused the request ({r.status_code}) for {url}"
+                          f"{': ' + why if why else ''}; stopped there", r.status_code, bool(why))
         r.raise_for_status()
         time.sleep(self.gap)
         return r.json()
@@ -527,17 +549,6 @@ class Manifold(_Crowd):
         return f"{self.SEARCH} ({n:,} questions kept)"
 
 
-def _api_reason(r) -> str:
-    """The reason an API gives with a 400, short."""
-    try:
-        d = r.json()
-    except Exception:  # noqa: BLE001 - not JSON: the start of the text
-        return (r.text or "")[:120].strip()
-    if isinstance(d, dict):
-        return "; ".join(f"{k}: {' '.join(map(str, v)) if isinstance(v, list) else v}" for k, v in d.items())[:200]
-    return str(d)[:200]
-
-
 class Metaculus(_Crowd):
     source_id = "metaculus"
     site = "metaculus"
@@ -626,25 +637,45 @@ class Metaculus(_Crowd):
         old_p = read_points(last / POINTS) if last else []
         have = {p["question_key"] for p in old_p if p.get("origin") == "site"} | {p["question_key"] for p in pts}
         kept = [q for q in qs if keep_question(q, follow)]
+        skipped: list[str] = []
         for q in tracked(kept, follow):  # the full community history, once per question
             if q["key"] in have:
                 continue
-            d = self._get(f"{self.POSTS}{q['site_id']}/", headers=headers, params={"with_cp": "true"})
+            try:
+                d = self._get(f"{self.POSTS}{q['site_id']}/", headers=headers, params={"with_cp": "true"})
+            except Refused as exc:
+                if not exc.answered:
+                    raise
+                skipped.append(f"history of {q['key']} ({exc.status})")
+                continue
             _, hp, _ = mc_question(d)
             pts += hp
         comments = []
         busy = [q for q in kept if q["key"] in follow] + sorted(
             (q for q in kept if q["key"] not in follow and q.get("status") == "open"), key=lambda q: -(q.get("comments") or 0))
         for q in busy[:COMMENTED] if s.get("crowd_comments", True) else []:
-            d = self._get(self.COMMENTS, headers=headers, params={"on_post": q["site_id"], "limit": 100, "sort": "-created_at"})
+            try:
+                d = self._get(self.COMMENTS, headers=headers, params={"on_post": q["site_id"], "limit": 100, "sort": "-created_at"})
+            except Refused as exc:
+                if not exc.answered:
+                    raise
+                skipped.append(f"comments on {q['key']} ({exc.status})")
+                continue
             comments += mc_comments(q["key"], d.get("results") if isinstance(d, dict) else d)
         mine = []
         if s.get("crowd_mine", True):
             all_points = old_p + pts
-            mine = self._mine(token, all_points)
-            bot = self._optional_env("METACULUS_BOT_TOKEN")
-            if bot:
-                mine += self._mine(bot, all_points)
+            for who, key_ in (("your", token), ("your bot's", self._optional_env("METACULUS_BOT_TOKEN"))):
+                if not key_:
+                    continue
+                try:
+                    mine += self._mine(key_, all_points)
+                except Refused as exc:
+                    if not exc.answered:
+                        raise
+                    skipped.append(f"{who} own forecasts ({exc})")
+        if skipped:
+            log.warning("metaculus: the site said no to %s item(s), left out: %s", len(skipped), "; ".join(skipped[:10]))
         n = self.save_state(raw_dir, qs, pts, at, follow, comments, mine)
         return f"{self.POSTS} ({n:,} questions kept)"
 
