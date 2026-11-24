@@ -151,7 +151,8 @@ def test_verify_lists_the_pages_with_person_checks():
     from worldmodel_data.connectors import CONNECTORS
 
     ts = verify.targets(date(2026, 11, 6))
-    assert {t.source for t in ts} == {"rbnz", "mbie_energy", "un_vetoes", "wto_disputes", "crisiswatch", "oryx", "gfp", "prediction_archive"}
+    assert {t.source for t in ts} == {"rbnz", "mbie_energy", "un_vetoes", "wto_disputes", "crisiswatch", "oryx", "gfp",
+                                      "prediction_archive", "nz_corrections", "nz_election_turnout"}
     assert [t.key for t in ts if t.source == "gfp" and not t.only_by_name][:2] == ["gfp", "gfp_new-zealand"]
     assert all(t.source in CONNECTORS for t in ts)
     assert [t.save_as for t in ts if t.key == "crisiswatch"] == ["october-2026.html", "september-2026.html"]
@@ -260,8 +261,47 @@ def test_verify_leaves_alone_files_saved_recently(home):
     (d / "vetoes.html").write_text("Vetoes")
     todo, left = verify.todo_list(paths(), ["un_vetoes", "wto_disputes"], {"un_vetoes": 30, "wto_disputes": 30}, date(2026, 11, 6))
     assert [t.save_as for t in left] == ["vetoes.html"]
-    assert {t.save_as for t in todo} == {"elected_members.html", "disputes.html"}
-    assert len(verify.todo_list(paths(), ["un_vetoes"], None)[0]) == 2  # verify.bat all, or names given: every one
+    assert {t.save_as for t in todo} == {"veto_table.html", "elected_members.html", "disputes.html"}
+    assert len(verify.todo_list(paths(), ["un_vetoes"], None)[0]) == 3  # verify.bat all, or names given: every one
+
+
+def test_verify_keeps_a_downloads_own_name_and_counts_it_as_fresh(home):
+    from datetime import date
+
+    from worldmodel_data import verify
+
+    d = manual.folder(paths(), "nz_corrections")
+    d.mkdir(parents=True)
+    todo, _ = verify.todo_list(paths(), ["nz_corrections"], {"nz_corrections": 30}, date(2026, 11, 6))
+    assert len(todo) == 1 and todo[0].keep_name and todo[0].via
+    (d / "Prison_Stats_-_Q1_FY_2026_27.xlsx").write_bytes(b"x")
+    todo, left = verify.todo_list(paths(), ["nz_corrections"], {"nz_corrections": 30}, date(2026, 11, 6))
+    assert todo == [] and len(left) == 1
+
+
+def test_verify_opens_no_driven_window_for_sites_opened_in_your_own_browser(home, monkeypatch):
+    """Only CrisisWatch due: it opens in your own browser, so no second (empty) window."""
+    import sys
+    import types
+    from contextlib import contextmanager
+    from datetime import date
+
+    from worldmodel_data import verify
+
+    opened = []
+
+    @contextmanager
+    def fake_playwright():
+        yield object()
+
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", types.SimpleNamespace(sync_playwright=fake_playwright))
+    monkeypatch.setattr(verify, "_open_browser", lambda pw, profile: opened.append(profile))
+    monkeypatch.setattr(verify, "_by_hand", lambda t, folder, wait, echo: None)
+    monkeypatch.setattr(verify.time, "sleep", lambda s: None)
+    every = verify.targets(date(2026, 11, 6))
+    monkeypatch.setattr(verify, "targets", lambda today=None: [t for t in every if t.key == "crisiswatch"])
+    verify.run(paths(), ["crisiswatch"], lambda m: None, wait=1)
+    assert opened == []
 
 
 def test_crisiswatch_reads_a_page_saved_under_the_browsers_name():

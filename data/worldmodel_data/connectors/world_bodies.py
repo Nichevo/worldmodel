@@ -71,7 +71,7 @@ MONTHS = {m: i + 1 for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "ju
 def text_of(fragment: str) -> str:
     """Plain text from a piece of HTML: tags dropped, entities decoded, spaces squeezed."""
     s = re.sub(r"<(script|style)\b.*?</\1>", " ", fragment, flags=re.S | re.I)
-    s = re.sub(r"<br\s*/?>|</p>|</li>|</div>", "\n", s, flags=re.I)
+    s = re.sub(r"<br\s*/?>|</p>|</li>|</div>|</h[1-6]>", "\n", s, flags=re.I)
     s = re.sub(r"<[^>]+>", " ", s)
     s = html.unescape(s).replace("\xa0", " ")
     return re.sub(r"[ \t\r\f\v]+", " ", re.sub(r"\n\s*", "\n", s)).strip()
@@ -341,6 +341,9 @@ def ideal_rows(con: duckdb.DuckDBPyConnection, path: Path, rows: Rows) -> None:
 # ---------------------------------------------------------------- Security Council
 VETO_PAGE = "https://research.un.org/en/docs/sc/quick/veto"
 MEMBERS_PAGE = "https://www.un.org/securitycouncil/content/countries-elected-members"
+# Since 2026 the library's page shows the list in a frame from this address (found on the page
+# each time; this copy is for verify.bat, whose saved page does not include the frame).
+VETO_TABLE = "https://ydsftksff8.execute-api.us-east-1.amazonaws.com/dev/render_meeting_veto/sc_veto_list/EN"
 PERMANENT = {"China": "CHN", "France": "FRA", "Russian Federation": "RUS", "USSR": "SUN", "United Kingdom": "GBR",
              "United States": "USA", "United States of America": "USA", "Union of Soviet Socialist Republics": "SUN",
              "Soviet Union": "SUN"}
@@ -348,6 +351,8 @@ PERMANENT = {"China": "CHN", "France": "FRA", "Russian Federation": "RUS", "USSR
 
 class UNVetoes(Connector):
     source_id = "un_vetoes"
+    stage_version = 2  # 2: members listed with their terms on the next line
+    fetch_version = 2  # 2: the veto table, now in a frame
     fetch_every_days = 28
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -360,7 +365,11 @@ class UNVetoes(Connector):
         from worldmodel_data.scrape import PageReader
 
         with PageReader(self, planned=2) as pages:
-            pages.read(VETO_PAGE, raw_dir / "vetoes.html", expect=r"veto", what="vetoes list")
+            outer = pages.read(VETO_PAGE, raw_dir / "vetoes.html", expect=r"veto", what="vetoes list")
+            frame = veto_frame(outer)
+            if frame:  # since 2026 the list itself is a separate page shown in a frame
+                pages.planned += 1
+                pages.read(frame, raw_dir / "veto_table.html", expect=r"negative vote", what="vetoes table")
             pages.read(MEMBERS_PAGE, raw_dir / "elected_members.html", expect=r"elected", what="elected members list")
         return f"{VETO_PAGE} {MEMBERS_PAGE}"
 
@@ -372,7 +381,11 @@ class UNVetoes(Connector):
         for p in pages:
             page = p.read_text(encoding="utf-8", errors="replace")
             if "veto" in p.name.lower() or re.search(r"negative vote", page, re.I):
-                rows += veto_events(page, unmatched)
+                got = veto_events(page, unmatched)
+                if not got and veto_frame(page):
+                    log.warning("un_vetoes: %s is the outer page; the list is in a frame (%s). Open that address "
+                                "and save it into this folder too.", p.name, veto_frame(page))
+                rows += got
             else:
                 rows += seat_events(page, unmatched)
         if not rows:
@@ -407,15 +420,29 @@ def veto_events(page: str, unmatched: set[str]) -> list[tuple]:
     return out
 
 
+def veto_frame(page: str | None) -> str | None:
+    """The address of the frame that holds the veto table on the library's page, if any."""
+    m = re.search(r"""<iframe\b[^>]*\bsrc=["']([^"']*veto[^"']*)["']""", page or "", re.I)
+    if not m:
+        return None
+    url = html.unescape(m.group(1))
+    return "https:" + url if url.startswith("//") else url
+
+
 def seat_events(page: str, unmatched: set[str]) -> list[tuple]:
-    """Elected members: each line names a country and its terms ("1946-1947, 1955-1956")."""
-    out = []
+    """Elected members: a country and its terms ("1946-1947, 1955-1956"), on one line or
+    with the terms on the line after the name."""
+    out, last = [], ""
     for line in text_of(page).split("\n"):
         terms = re.findall(r"(\d{4})\s*[-–—]\s*(\d{4})", line)
         if not terms:
+            last = line.strip()
             continue
         name = re.split(r"\d{4}", line, maxsplit=1)[0]
         name = re.sub(r"\(.*?\)|\*", "", name).strip(" :,-–\t")
+        if not name:
+            name = re.sub(r"\(.*?\)|\*", "", last).strip(" :,-–\t")
+        last = ""
         if not name or len(name) > 60:
             continue
         for y1, y2 in terms:
@@ -713,11 +740,18 @@ def programme_events(table: list[list], unmatched: set[str]) -> list[tuple]:
 
 # ---------------------------------------------------------------- WTO disputes
 WTO_PAGE = "https://www.wto.org/english/tratop_e/dispu_e/dispu_status_e.htm"
+# Since 2026 the page is built in the browser from these two script files: every case (DS
+# number, title, complainants and respondent as codes, date, status) and the status names.
+WTO_CASES = "https://www.wto.org/library/disputes/dispute_case_arrays_e.js"
+WTO_STATUSES = "https://www.wto.org/library/disputes/dispute_arrays_e.js"
 WTO_EU = {"European Communities", "European Union", "EC", "EU"}
+WTO_CODES = {"EEC": "eu", "CHT": "TWN", "ROM": "ROU"}  # the WTO's own codes that are not ISO
 
 
 class WTODisputes(Connector):
     source_id = "wto_disputes"
+    stage_version = 2  # 2: the WTO's case data file; parties split properly on saved pages
+    fetch_version = 2  # 2: the case data file instead of the page
     fetch_every_days = 28
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -729,16 +763,24 @@ class WTODisputes(Connector):
     def download(self, raw_dir: Path, release: str) -> str:
         from worldmodel_data.scrape import PageReader
 
-        with PageReader(self, planned=1) as pages:
-            pages.read(WTO_PAGE, raw_dir / "disputes.html", expect=r"DS\s?\d", what="disputes list")
-        return WTO_PAGE
+        with PageReader(self, planned=2) as pages:
+            pages.read(WTO_CASES, raw_dir / "dispute_case_arrays_e.js", expect=r"ds_array\[\d+\]", what="cases data")
+            pages.read(WTO_STATUSES, raw_dir / "dispute_arrays_e.js", expect=r"status_code", what="status names")
+        return WTO_CASES
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
-        pages = [p for p in raw_dir.iterdir() if p.suffix.lower() in (".html", ".htm")]
-        if not pages:
-            raise ConnectorError(f"wto_disputes: no saved page in {raw_dir}")
         unmatched: set[str] = set()
-        rows = dispute_events(pages[0].read_text(encoding="utf-8", errors="replace"), unmatched)
+        cases = raw_dir / "dispute_case_arrays_e.js"
+        if cases.exists():
+            statuses = raw_dir / "dispute_arrays_e.js"
+            rows = case_array_events(cases.read_text(encoding="utf-8", errors="replace"),
+                                     statuses.read_text(encoding="utf-8", errors="replace") if statuses.exists() else "",
+                                     unmatched)
+        else:  # the page saved from a browser, with the list on it
+            pages = [p for p in raw_dir.iterdir() if p.suffix.lower() in (".html", ".htm")]
+            if not pages:
+                raise ConnectorError(f"wto_disputes: no saved page or cases file in {raw_dir}")
+            rows = dispute_events(pages[0].read_text(encoding="utf-8", errors="replace"), unmatched)
         if not rows:
             raise ConnectorError("wto_disputes: no cases read; the page's layout may have changed")
         self.events_query = stage_events(con, self.source_id, vintage, rows, unmatched)
@@ -747,10 +789,82 @@ class WTODisputes(Connector):
 
 def _wto_party(name: str, on: date, unmatched: set[str]) -> str | None:
     name = re.sub(r"\(.*?\)", "", name).strip(" .;,")
-    name = re.sub(r"\s+and (certain|its) member states$", "", name, flags=re.I)
+    name = re.sub(r"\s+and (certain|its|a) member states?$", "", name, flags=re.I)
     if name in WTO_EU:
         return "eu"
     return country(name, on, unmatched)
+
+
+def _js_fields(block: str) -> dict[str, str]:
+    return {k: html.unescape(v).replace("\xa0", " ").strip() for k, v in re.findall(r'(\w+)\s*:\s*"((?:[^"\\]|\\.)*)"', block)}
+
+
+def _wto_code(code: str, unmatched: set[str]) -> str | None:
+    code = code.strip().upper()
+    if not code:
+        return None
+    ent = WTO_CODES.get(code) or entity_for("iso3", code)
+    if not ent:
+        unmatched.add(code)
+    return ent
+
+
+def case_array_events(cases: str, statuses: str, unmatched: set[str]) -> list[tuple]:
+    """Each case in the WTO's dispute_case_arrays_e.js: one event on the respondent and one on
+    each complainant, dated by the request for consultations."""
+    from worldmodel_contract.catalogue import entities
+
+    names = {k: e.short_name or e.name for k, e in entities().items()}
+    status = {c: n for c, n in re.findall(r'status_code:\s*"(\w+)",\s*status_name:\s*"([^"]*)"', statuses)}
+    out = []
+    for no, block in re.findall(r"ds_array\[(\d+)\]\s*=\s*\{(.*?)\};", cases, re.S):
+        f = _js_fields(block)
+        d, prec = parse_day((f.get("start_date") or "").replace("/", "-"))
+        if d is None:
+            continue
+        ds = f.get("code") or f"DS{no}"
+        num_ = ds.removeprefix("DS")
+        url = f"https://www.wto.org/english/tratop_e/dispu_e/cases_e/ds{num_}_e.htm"
+        subject = (f.get("title") or "").strip(" .")[:200]
+        st = status.get((f.get("status") or "").split("#")[0])
+        detail = f"Current status: {st}." if st else None
+        respondents = [e for e in (_wto_code(c, unmatched) for c in (f.get("destination") or "").split("#")) if e]
+        complainants = [e for e in (_wto_code(c, unmatched) for c in (f.get("origin") or "").split("#")) if e]
+        by = ", ".join(names.get(c, c) for c in complainants)
+        against = ", ".join(names.get(r, r) for r in respondents)
+        for r in respondents:
+            out.append((r, f"{ds}:r", "trade_dispute", "respondent",
+                        f"WTO dispute {ds}{' brought by ' + by if by else ''}: {subject}", d, None, prec, None, None,
+                        None, None, None, None, url, detail))
+        for c in complainants:
+            out.append((c, f"{ds}:c:{c}", "trade_dispute", "complainant",
+                        f"Brought WTO dispute {ds} against {against}: {subject}", d, None, prec, None, None,
+                        None, None, None, None, url, detail))
+    return out
+
+
+def _wto_names(text: str, on: date, unmatched: set[str]) -> list[tuple[str, str]]:
+    """(name, entity) for each party in "Antigua and Barbuda, Venezuela, Bolivarian Republic of"."""
+    bits = [b.strip() for b in text.split(",") if b.strip()]
+    out, i = [], 0
+    while i < len(bits):
+        two = f"{bits[i]}, {bits[i + 1]}" if i + 1 < len(bits) else None
+        if two and catalogue.country_by_name(two, on):
+            out.append((two, catalogue.country_by_name(two, on)))
+            i += 2
+            continue
+        ent = _wto_party(bits[i], on, set())
+        if ent:
+            out.append((bits[i], ent))
+        else:
+            parts = [p.strip() for p in re.split(r" and ", bits[i]) if p.strip()]
+            found = [(p, _wto_party(p, on, set())) for p in parts] if len(parts) > 1 else []
+            if found and all(e for _, e in found):
+                out += found
+            else:
+                unmatched.add(bits[i])
+        i += 1
+    return out
 
 
 def dispute_events(page: str, unmatched: set[str]) -> list[tuple]:
@@ -767,7 +881,8 @@ def dispute_events(page: str, unmatched: set[str]) -> list[tuple]:
         if len(parts) < 2:
             continue
         respondent_name, rest = parts[0].strip(), parts[1]
-        subject = re.split(r"\s*(?:Complainant|Date|Current status|Request for consultations|Summary)\b", rest)[0].strip(" .")[:200]
+        subject = re.split(r"\s*(?:Short title|Complainant|Date|Current status|Consultations requested|Request for consultations|Summary)\b",
+                           rest)[0].strip(" .")[:200]
         d, prec = parse_day(rest)
         if d is None:
             continue
@@ -775,16 +890,14 @@ def dispute_events(page: str, unmatched: set[str]) -> list[tuple]:
         ds = f"DS{m.group(1)}"
         url = f"https://www.wto.org/english/tratop_e/dispu_e/cases_e/ds{m.group(1)}_e.htm"
         respondent = _wto_party(respondent_name, d, unmatched)
-        cm = re.search(r"Complainants?\s*:?\s*([^.;\n]+?)(?:\s+(?:Date|Respondent|Third|Current|Request|\d)|[.;\n]|$)", rest)
-        complainants = [c for c in re.split(r",| and ", cm.group(1))] if cm else []
-        names = [n.strip() for n in complainants if n.strip()]
-        by = ", ".join(names) if names else None
+        cm = re.search(r"Complainants?\s*:?\s*([^;\n]+?)(?:\s+(?:Date|Respondent|Third|Current|Request|Consultations|\d)|[;\n]|$)", rest)
+        parties = _wto_names(cm.group(1).strip(" ."), d, unmatched) if cm else []
+        by = ", ".join(n for n, _ in parties) or None
         if respondent:
             out.append((respondent, f"{ds}:r", "trade_dispute", "respondent",
                         f"WTO dispute {ds}{' brought by ' + by if by else ''}: {subject}", d, None, prec, None, None,
                         None, None, None, None, url, None))
-        for n in names:
-            ent = _wto_party(n, d, unmatched)
+        for _, ent in parties:
             if ent:
                 out.append((ent, f"{ds}:c:{ent}", "trade_dispute", "complainant",
                             f"Brought WTO dispute {ds} against {respondent_name}: {subject}", d, None, prec, None, None,
@@ -824,6 +937,7 @@ TREATY_NAMES = {k: n for k, n, _, _ in TREATIES}
 
 class UNTreaties(Connector):
     source_id = "un_treaties"
+    stage_version = 2  # 2: UN spellings, the EU, header rows left out
     fetch_every_days = 28
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -870,19 +984,28 @@ def treaty_key(file_name: str, page: str) -> str | None:
     return None
 
 
+# Rows of a treaty page's top table ("Entry into force: ...", "Registration: ...") and notes,
+# which have dates in them but are not participants.
+TREATY_NOT_PARTIES = re.compile(r"^(entry into force|registration|status|text|note|notes|signatories|parties|"
+                                r"depositary|participants?|adopted|concluded|declarations?|reservations?)\b", re.I)
+TREATY_BLOCS = {"european union": "eu", "european community": "eu", "european economic community": "eu"}
+
+
 def treaty_events(k: str, page: str, unmatched: set[str]) -> list[tuple]:
     out = []
     for cells in table_rows(page):
         if len(cells) < 3 or re.search(r"participant", cells[0], re.I):
             continue
-        name = re.sub(r"\d+|\*", "", cells[0]).strip(" ,.")
+        name = re.sub(r"\d+|\*", "", cells[0]).strip(" ,.:")
+        if TREATY_NOT_PARTIES.match(name):
+            continue
         signed, _ = parse_day(cells[1])
         joined, _ = parse_day(cells[2])
         if not name or not (signed or joined):
             continue
         how = re.search(r"\b(a|d|A|AA)\s*$", cells[2].strip())
         how = {"a": "acceded", "d": "succeeded", "A": "accepted", "AA": "approved"}.get(how.group(1) if how else "", "ratified")
-        ent = country(name, joined or signed, unmatched)
+        ent = TREATY_BLOCS.get(name.lower()) or country(name, joined or signed, unmatched)
         if not ent:
             continue
         url = UNTC.format(no=next(no for kk, _, no, _ in TREATIES if kk == k), ch=next(ch for kk, _, _, ch in TREATIES if kk == k))
@@ -900,7 +1023,7 @@ def joined_counts(events: list[tuple], this_year: int) -> Rows:
     """treaties_joined: how many of the listed treaties each country had joined by the end of each year."""
     first: dict[str, list[int]] = defaultdict(list)
     for e in events:
-        if e[4].startswith("Joined"):
+        if e[4].startswith("Joined") and e[0] not in TREATY_BLOCS.values():  # countries only
             first[e[0]].append(e[5].year)
     rows = Rows()
     for ent, years in first.items():

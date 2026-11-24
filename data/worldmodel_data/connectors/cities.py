@@ -4,9 +4,11 @@ GeoNames (geonames): every place of 15,000 people or more, with its location,
 population, region and other names; the city list everything else is matched to.
     https://download.geonames.org/export/dump/cities15000.zip, admin1CodesASCII.txt
 
-UN World Urbanization Prospects 2018 (un_wup): the population of every urban
-agglomeration of 300,000 or more, every five years 1950-2035 (projections from
-2020), with its location. File 12 of the 2018 revision; it no longer changes.
+UN World Urbanization Prospects (un_wup): city populations with their locations. The 2025
+revision's File 21 has every city of 50,000 or more (cities as the Degree of Urbanisation
+draws them) for each year 1975-2050, projections after 2025; cities that reach 100,000 are
+kept (all of New Zealand's). The 2018 revision's File 12 (urban agglomerations of 300,000 or
+more, every five years 1950-2035) is read too when saved by hand.
 
 WhereNext (wherenext): free CC BY data on the cost of living: about 370 cities
 (cost index, a single person's monthly costs, quality of life), the cost of living
@@ -54,7 +56,7 @@ import duckdb
 from worldmodel_contract import catalogue
 from worldmodel_contract.cities import NUMBEO_COLUMNS, norm_name
 from worldmodel_data.connectors.base import Connector, ConnectorError
-from worldmodel_data.connectors.tabular import Rows, entity_for, indicator, key, num, xlsx_rows
+from worldmodel_data.connectors.tabular import Rows, entity_for, indicator, key, num, xlsx_rows, xlsx_sheet_names
 
 log = logging.getLogger(__name__)
 
@@ -199,28 +201,75 @@ def _synonyms(name: str, ascii_name: str, alternates: str) -> str:
 
 
 # ----------------------------------------------------------------------------------------- UN WUP
-WUP_URL = "https://population.un.org/wup/Download/Files/WUP2018-F12-Cities_Over_300K.xls"
-WUP_LAST_ESTIMATE = 2015  # the 2018 revision's estimates run to 2015; 2020 on are projections
+# The 2025 revision: every city of 50,000 or more (cities as the Degree of Urbanisation draws
+# them), 1975-2050, in thousands. The 2018 revision's file (cities over 300,000, 1950-2035) is
+# read too when saved by hand.
+WUP_URL = "https://population.un.org/wup/assets/Download/Cities/WUP2025-F21-DEGURBA-Cities_Pop.xlsx"
+WUP_LAST_ESTIMATE = {2018: 2015, 2025: 2025}  # later years are projections
+WUP_MIN_POP = 100_000  # 2025 revision: cities this big at some point (all cities in KEEP_ALL)
+WUP_KEEP_ALL = {"NZL"}
 
 
-def sheet_rows(path: Path) -> list[list]:
-    """Rows of the first data sheet of an .xls or .xlsx file."""
-    if path.suffix.lower() == ".xlsx":
-        return xlsx_rows(path)
-    import xlrd  # old Excel format, as the UN's file is
+def sheet_rows(path: Path, sheet: str | None = None) -> list[list]:
+    """Rows of the data sheet ("Data", else the first) of an .xls or .xlsx file."""
+    if path.suffix.lower() in (".xlsx", ".xlsm"):
+        names = xlsx_sheet_names(path)
+        return xlsx_rows(path, next((n for n in names if n.lower() == "data"), 0))
+    import xlrd  # old Excel format, as the UN's 2018 file is
 
     book = xlrd.open_workbook(str(path))
     sheet = next((s for s in book.sheets() if s.name.lower() == "data"), book.sheet_by_index(0))
     return [sheet.row_values(i) for i in range(sheet.nrows)]
 
 
+def read_wup(path: Path) -> list[tuple]:
+    """City populations from one WUP file: (name, country, lat, lon, indicator, year, status, value)."""
+    m = re.search(r"WUP(\d{4})", path.name)
+    rows = sheet_rows(path)
+    head_i = next((i for i, r in enumerate(rows[:40])
+                   if any(key(c) in ("urbanagglomeration", "cityname") for c in r)), None)
+    if head_i is None:
+        if re.search(r"WPP\d{4}", path.name):
+            raise ConnectorError(f"un_wup: {path.name} is a World Population Prospects file (country totals), not "
+                                 "city populations; move it to the 'old' folder")
+        raise ConnectorError(f"un_wup: no 'City_Name' or 'Urban Agglomeration' heading in {path.name}")
+    head = [key(c) for c in rows[head_i]]
+    new = "cityname" in head
+    revision = int(m.group(1)) if m else (2025 if new else 2018)
+    names = {"name": ("cityname", "urbanagglomeration"), "lat": ("pwcentlatitude", "latitude"),
+             "lon": ("pwcentlongitude", "longitude"), "iso3": ("iso3code",), "m49": ("locid", "countrycode")}
+    col = {k: next((head.index(c) for c in cands if c in head), None) for k, cands in names.items()}
+    if col["name"] is None or col["lat"] is None or col["lon"] is None or (col["iso3"] is None and col["m49"] is None):
+        raise ConnectorError(f"un_wup: missing columns in {path.name}, found {rows[head_i]}")
+    years = [(i, int(float(c))) for i, c in enumerate(rows[head_i]) if re.fullmatch(r"\d{4}(\.0)?", str(c).strip())]
+    last = WUP_LAST_ESTIMATE.get(revision, revision)
+    out = []
+    for r in rows[head_i + 1:]:
+        if len(r) <= max(v for v in col.values() if v is not None) or not r[col["name"]]:
+            continue
+        country = (entity_for("iso3", r[col["iso3"]]) if col["iso3"] is not None else None) \
+            or (entity_for("m49", int(num(r[col["m49"]]) or 0)) if col["m49"] is not None else None)
+        if not country:
+            continue
+        values = [(y, num(r[i])) for i, y in years]
+        if new and country not in WUP_KEEP_ALL and max((v or 0 for _, v in values), default=0) * 1000 < WUP_MIN_POP:
+            continue
+        name = str(r[col["name"]]).strip()
+        lat, lon = num(r[col["lat"]]), num(r[col["lon"]])
+        for y, v in values:
+            if v is not None:
+                out.append((name, country, lat, lon, "city_population", y, "P" if y > last else "E", v * 1000))
+    return out
+
+
 class UNWUP(Connector):
     source_id = "un_wup"
-    frozen = True
-    files_only = True  # the UN took the 2018 file down (HTTP 404 from 2026-11); cities use GeoNames until a file is saved
+    frozen = True  # one file per revision; a new revision's file saved in var\manual\un_wup is loaded
+    stage_version = 2  # 2: the 2025 revision's cities file
+    fetch_version = 2  # 2: WUP2025-F21 (the 2018 file was taken down)
 
     def default_release(self, fetched_at: datetime) -> str:
-        return "2018"
+        return "2025"
 
     def release_from_files(self, files: list[Path]) -> str | None:
         m = next((re.search(r"WUP(\d{4})", f.name) for f in files if re.search(r"WUP(\d{4})", f.name)), None)
@@ -233,34 +282,27 @@ class UNWUP(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = [f for f in sorted(raw_dir.iterdir()) if f.suffix.lower() in (".xls", ".xlsx")]
         if not files:
-            raise ConnectorError(f"un_wup: no .xls file in {raw_dir}")
-        rows = sheet_rows(files[0])
-        head_i = next((i for i, r in enumerate(rows[:40]) if any(key(c) == "urbanagglomeration" for c in r)), None)
-        if head_i is None:
-            raise ConnectorError("un_wup: no 'Urban Agglomeration' heading in the file")
-        head = [key(c) for c in rows[head_i]]
-        col = {k: head.index(k) for k in ("countrycode", "urbanagglomeration", "latitude", "longitude") if k in head}
-        if len(col) < 4:
-            raise ConnectorError(f"un_wup: missing columns, found {rows[head_i]}")
-        years = [(i, int(float(c))) for i, c in enumerate(rows[head_i]) if re.fullmatch(r"\d{4}(\.0)?", str(c).strip())]
-        out = []
-        for r in rows[head_i + 1:]:
-            if len(r) <= max(col.values()) or not r[col["urbanagglomeration"]]:
+            raise ConnectorError(f"un_wup: no .xls or .xlsx file in {raw_dir}")
+        # newest revision first; the cities file before any other WUP file
+        def order(f: Path) -> tuple:
+            m = re.search(r"WUP(\d{4})", f.name)
+            return (-(int(m.group(1)) if m else 0), not re.search(r"cities_(pop|over)", f.name, re.I), f.name)
+
+        files.sort(key=order)
+        problems = []
+        for f in files:
+            try:
+                out = read_wup(f)
+            except ConnectorError as exc:
+                problems.append(str(exc))
                 continue
-            country = entity_for("m49", int(num(r[col["countrycode"]]) or 0))
-            if not country:
-                continue
-            name = str(r[col["urbanagglomeration"]]).strip()
-            lat, lon = num(r[col["latitude"]]), num(r[col["longitude"]])
-            for i, y in years:
-                v = num(r[i])
-                if v is not None:
-                    out.append((name, country, lat, lon, "city_population", y,
-                                "P" if y > WUP_LAST_ESTIMATE else "E", v * 1000))
-        if not out:
-            raise ConnectorError("un_wup: no city populations read")
-        self.city_values_query = _values_table(con, out)
-        return Rows().stage(con, self.source_id, vintage)
+            if out:
+                for p in problems:
+                    log.warning("%s", p)
+                self.city_values_query = _values_table(con, out)
+                return Rows().stage(con, self.source_id, vintage)
+            problems.append(f"un_wup: no city populations read from {f.name}")
+        raise ConnectorError("; ".join(problems))
 
 
 # ----------------------------------------------------------------------------------------- WhereNext

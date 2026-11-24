@@ -76,12 +76,24 @@ def test_a_missing_page_can_be_skipped(tmp_path, monkeypatch):
 def test_nz_turnout_links():
     from worldmodel_data.connectors.voters import _nz_links
 
-    page = ('<a href="/stats-and-research/2023-general-election-statistics/">2023</a>'
-            '<a href="https://elections.nz/assets/2023-General-Election-Voter-turnout-by-age.xlsx">x</a>'
-            '<a href="/stats-and-research/">Stats</a><a href="https://example.com/turnout.xlsx">other</a>')
+    # the 2026 layout: Participation in voting links each election's page under "historical events"
+    page = ('<a href="/democracy-in-nz/historical-events/2023-general-election/voter-turnout-statistics">2023</a>'
+            '<a href="/democracy-in-nz/historical-events/2023-general-election/voter-and-non-voter-survey">survey</a>'
+            '<a href="/stats-and-research/participation-in-voting">Stats</a><a href="https://example.com/turnout.xlsx">other</a>')
     pages, files = _nz_links(page)
-    assert pages == ["https://elections.nz/stats-and-research/2023-general-election-statistics/"]
-    assert files == ["https://elections.nz/assets/2023-General-Election-Voter-turnout-by-age.xlsx"]
+    assert pages == ["https://elections.nz/democracy-in-nz/historical-events/2023-general-election/voter-turnout-statistics"]
+    assert files == []
+    page = ('<a href="/assets/pagecomponent-file-files/2023-General_Election_Turnout_by_Age_Descent.xlsx">x</a>'
+            '<a href="/assets/Neighbourhood-turnout-/2023-General-Election-Voter-Turnout-by-SA2.xlsx">sa2</a>')
+    assert _nz_links(page)[1] == ["https://elections.nz/assets/pagecomponent-file-files/2023-General_Election_Turnout_by_Age_Descent.xlsx"]
+
+
+def test_incapsula_gate_is_a_block():
+    from worldmodel_data.scrape import looks_blocked
+
+    gate = ('<html>\r\n<head>\r\n<META NAME="robots" CONTENT="noindex,nofollow">\r\n'
+            '<script src="/_Incapsula_Resource?SWJIYLWA=5074a744e2e3d891814e9a2dace20bd4"></script><body></body></html>')
+    assert looks_blocked(gate)
 
 
 def test_corrections_workbook_link():

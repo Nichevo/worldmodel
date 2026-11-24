@@ -391,6 +391,8 @@ NAME_ALIASES = {
     "serbia and montenegro": "SCG", "netherlands antilles": "ANT", "kosovo": "XKX",
     "kyrgyz republic": "KGZ", "slovak republic": "SVK", "micronesia fed sts": "FSM", "egypt arab republic": "EGY",
     "yemen republic": "YEM", "iran islamic republic": "IRN", "venezuela rb": "VEN", "lao pdr": "LAO",
+    "naoero": "NRU", "libyan arab jamahiriya": "LBY", "united arab republic": "EGY",
+    "kingdom of bahrain": "BHR", "kingdom of saudi arabia": "SAU", "republic of moldova": "MDA", "united republic of tanzania": "TZA",
 }
 # name -> [(until, entity)]: the first whose `until` is on or after the date wins.
 NAMES_BY_DATE = {
@@ -430,13 +432,13 @@ def _names() -> dict[str, str]:
             if n:
                 out.setdefault(name_key(n, keep_brackets=True), e.entity_id)
                 seen.setdefault(name_key(n), set()).add(e.entity_id)
-    for k, ids in seen.items():  # "Virgin Islands" alone is either; keep only names that are not
-        if len(ids) == 1:
-            out.setdefault(k, next(iter(ids)))
-        # "Congo, Democratic Republic of the" -> "democratic republic of the congo"
+        # "Moldova, Republic of" -> "republic moldova" (the UN's "Republic of Moldova")
         if "," in e.name:
             head, tail = e.name.split(",", 1)
             out.setdefault(name_key(f"{tail} {head}"), e.entity_id)
+    for k, ids in seen.items():  # "Virgin Islands" alone is either; keep only names that are not
+        if len(ids) == 1:
+            out.setdefault(k, next(iter(ids)))
     out.update({name_key(k): v for k, v in NAME_ALIASES.items()})
     return out
 

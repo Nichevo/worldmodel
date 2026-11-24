@@ -555,7 +555,7 @@
   manual:
     by_hand: false
     get: https://www.corrections.govt.nz/resources/statistics/quarterly_prison_statistics
-    what: "When Corrections refuses the refresh, open each quarter's page you want (for example the last five Decembers) and save it (Ctrl+S, Web page, HTML only)."
+    what: "Corrections turns programs away (HTTP 403). Run .\\verify.bat nz_corrections: it opens the newest quarter's page and saves its Prison_Stats workbook (every quarter since 2018) here. Or download that workbook yourself from the newest quarter's page."
   scraper:
     run: "Refresh, every 28 days, or now with .\\scrape.bat"
     reads: "The statistics index, then the quarterly workbook (or up to 20 quarterly pages when no workbook is linked)"
@@ -613,9 +613,9 @@
   standing: 5
   manual:
     by_hand: false
-    files: ["*voter-turnout-by-age*", "*voter_turnout_by_age*"]
-    get: https://elections.nz/stats-and-research/
-    what: "When the site refuses the refresh: download '<year> General Election voter turnout by age' for each election you want; keep them all."
+    files: ["*voter-turnout-by-age*", "*voter_turnout_by_age*", "*Turnout_by_Age*"]
+    get: https://elections.nz/stats-and-research/participation-in-voting
+    what: "The site checks for people (Incapsula) and turns the refresh away. Run .\\verify.bat nz_election_turnout, or open Participation in voting, then the election's 'Voter turnout statistics' page, and download '<year>-General_Election_Turnout_by_Age_Descent.xlsx'; keep each election's file."
   scraper:
     run: "Refresh, every 90 days, or now with .\\scrape.bat"
     reads: "The Statistics page, up to 12 election pages it links to, and their turnout spreadsheets"
@@ -636,15 +636,15 @@
   standing: 3
 
 - id: un_wup
-  name: UN World Urbanization Prospects 2018, cities of 300,000 or more
+  name: UN World Urbanization Prospects 2025, city populations
   short_name: UN WUP
   publisher: United Nations, Department of Economic and Social Affairs, Population Division
-  url: https://population.un.org/wup/Download/
+  url: https://population.un.org/wup/downloads?tab=Cities
   licence: CC BY 3.0 IGO
   licence_url: https://creativecommons.org/licenses/by/3.0/igo/
   commercial_use: true
-  cadence: The 2018 revision does not change
-  attribution: "United Nations, DESA, Population Division (2018). World Urbanization Prospects: The 2018 Revision, File 12."
+  cadence: A new revision every few years (2018, 2025); fetched once per revision
+  attribution: "United Nations, DESA, Population Division (2025). World Urbanization Prospects 2025, File 21 (cities by the Degree of Urbanisation)."
   status: active
   default_rank: 2
   standing: 5
@@ -652,8 +652,8 @@
     by_hand: false
     files: ["WUP*"]
     optional: true
-    get: https://population.un.org/wup/
-    what: "Optional. The UN took the 2018 cities file down; cities use GeoNames sizes meanwhile. If you find a World Urbanization Prospects file of city populations (WUP2018-F12-Cities_Over_300K.xls or a newer revision), save it here."
+    get: https://population.un.org/wup/downloads?tab=Cities
+    what: "Optional. A refresh downloads WUP2025-F21-DEGURBA-Cities_Pop.xlsx (city populations 1975-2050) itself. If the site blocks it, save that file here from the Cities tab. The older WUP2018-F12-Cities_Over_300K.xls is read too. Not the World Population Prospects (WPP) files: those are country totals."
 
 - id: wherenext
   name: WhereNext cost of living, city and pay data
