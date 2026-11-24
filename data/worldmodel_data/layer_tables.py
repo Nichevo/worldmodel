@@ -181,6 +181,8 @@ def _indicators(con: duckdb.DuckDBPyConnection, found: set[str], today: date) ->
         return
     have = {r[0] for r in con.execute("SELECT indicator_id FROM src.indicators").fetchall()}
     inds = [i for i in inds if i["id"] not in have]
+    if not inds:
+        return
     n = len(TABLES["indicators"].columns)
     con.executemany(f"INSERT INTO src.indicators VALUES ({', '.join('?' * n)})", [
         (i["id"], i["name"], i["description"], "|".join(i["synonyms"]), i["domain"], i["unit"], i["decimals"], i["frequency"],
@@ -208,6 +210,8 @@ def _indicators(con: duckdb.DuckDBPyConnection, found: set[str], today: date) ->
     vals = {"source_id": spec.SOURCE_ID, "vintage": vintage, "scheme": "iso3", "period_start": year, "freq": "A",
             "breakdown": "", "variant": "central", "status": "E"}
     order = [c for c in names if c in vals or c in ("indicator_id", "source_code", "value")]
+    if not obs:
+        return
     con.executemany(f"INSERT INTO src.raw_observations ({', '.join(order)}) VALUES ({', '.join('?' * len(order))})",
                     [[{"indicator_id": i, "source_code": e, "value": float(v)}.get(c, vals.get(c)) for c in order]
                      for i, e, v in obs])
