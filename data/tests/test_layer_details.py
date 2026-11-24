@@ -81,3 +81,33 @@ def test_items_without_a_country_are_placed_from_where_they_sit(tmp_path):
     assert ("Mid ocean", None) in got
     assert ("Shared", "NZL") in got and ("Shared", "AUS") in got
     assert got[("By code", "NZL")][-1] is False
+
+
+def test_insert_many_in_chunks():
+    from worldmodel_data.layer_tables import insert_many
+
+    con = duckdb.connect()
+    con.execute("CREATE TABLE t (a INTEGER, b VARCHAR)")
+    insert_many(con, "t", ["a", "b"], [(i, str(i)) for i in range(1203)], per=500)
+    assert con.execute("SELECT count(*), sum(a) FROM t").fetchone() == (1203, sum(range(1203)))
+    insert_many(con, "t", ["a", "b"], [])  # nothing to add is fine
+
+
+def test_a_slip_in_layer_details_does_not_stop_the_build(tmp_path, monkeypatch):
+    """The details pages are left empty; the rest of the warehouse builds as before."""
+    from worldmodel_data import layer_tables
+
+    def boom(con, raw, today=None):
+        con.execute(f"CREATE TABLE src.raw_layer_items ({layer_tables.DDL})")
+        raise RuntimeError("bad layer")
+
+    monkeypatch.setattr(layer_tables, "prepare", boom)
+    home = Paths(tmp_path / "var")
+    store = VintageStore(home)
+    for source in SOURCES:
+        CONNECTORS[source]().ingest(store, FIXTURES / source)
+    result = build(home)
+    con = duckdb.connect(str(result.path), read_only=True)
+    assert con.execute("SELECT count(*) FROM layer_items").fetchone()[0] == 0
+    assert con.execute("SELECT count(*) FROM series WHERE source_id = 'map_layers'").fetchone()[0] == 0
+    assert con.execute("SELECT count(*) FROM series").fetchone()[0] > 0

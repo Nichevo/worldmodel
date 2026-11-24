@@ -102,6 +102,16 @@ class Placer:
         return self.named(self.grid.at(lon, lat))
 
 
+def insert_many(con: duckdb.DuckDBPyConnection, table: str, cols: list[str], rows: list, per: int = 500) -> None:
+    """Insert rows a few hundred at a time in one statement each: executemany runs one statement per
+    row, which for the 100,000 dots of a full download takes minutes and grows the write-ahead log."""
+    one = f"({', '.join('?' * len(cols))})"
+    for i in range(0, len(rows), per):
+        chunk = rows[i:i + per]
+        con.execute(f"INSERT INTO {table} ({', '.join(cols)}) VALUES {', '.join([one] * len(chunk))}",
+                    [v for r in chunk for v in r])
+
+
 def _point(f: dict) -> tuple[float, float] | None:
     g = f.get("geometry") or {}
     if g.get("type") != "Point":
@@ -161,8 +171,9 @@ def prepare(con: duckdb.DuckDBPyConnection, raw: Path, today: date | None = None
             log.warning("map layer details: %s is not GeoJSON; skipped", layer_id)
             continue
         rows = items(stored[layer_id], feats, placer)
-        con.executemany(f"INSERT INTO src.raw_layer_items ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
-                        [(layer_id, *r, source_id, vintage) for r in rows])
+        if not rows:
+            continue
+        insert_many(con, "src.raw_layer_items", cols, [(layer_id, *r, source_id, vintage) for r in rows])
         counts[layer_id] = len({r[0] for r in rows})
     # Universities and companies: the country Wikidata gives (their dots leave it out).
     con.execute("""UPDATE src.raw_layer_items l SET entity_id = p.country_id, placed = false
@@ -212,9 +223,8 @@ def _indicators(con: duckdb.DuckDBPyConnection, found: set[str], today: date) ->
     order = [c for c in names if c in vals or c in ("indicator_id", "source_code", "value")]
     if not obs:
         return
-    con.executemany(f"INSERT INTO src.raw_observations ({', '.join(order)}) VALUES ({', '.join('?' * len(order))})",
-                    [[{"indicator_id": i, "source_code": e, "value": float(v)}.get(c, vals.get(c)) for c in order]
-                     for i, e, v in obs])
+    insert_many(con, "src.raw_observations", order,
+                [[{"indicator_id": i, "source_code": e, "value": float(v)}.get(c, vals.get(c)) for c in order] for i, e, v in obs])
 
 
 def _population(con: duckdb.DuckDBPyConnection, year: int) -> dict[str, float]:
