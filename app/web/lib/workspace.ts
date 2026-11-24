@@ -3,7 +3,7 @@
 // Panels in the same link group (A or B) can share their map position, hover,
 // year, indicator and colour scale; selection is shared by every panel that
 // links it. The whole state round-trips through the URL so any view can be
-// bookmarked. Countries can also be pinned as popups (up to four, on their
+// bookmarked. Countries can also be pinned as popups (up to eight, on their
 // panel) and sent to the side panel's pinboard; both are saved with the layout.
 
 export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks";
@@ -33,7 +33,11 @@ export type Panel = {
 };
 
 // A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
-export type Pin = { entity: string; panel: string; lng?: number; lat?: number };
+// `indicator` is the dataset it was pinned showing, so one country can have a pin per dataset
+// (pins saved before this have none and follow the panel's indicator).
+export type Pin = { entity: string; panel: string; lng?: number; lat?: number; indicator?: string };
+export const samePin = (a: Pin, b: { entity: string; panel: string; indicator?: string }) =>
+  a.entity === b.entity && a.panel === b.panel && (a.indicator ?? "") === (b.indicator ?? "");
 // A card on the side panel's pinboard: one country and indicator.
 export type BoardItem = { entity: string; indicator: string };
 
@@ -79,7 +83,7 @@ export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, y
 const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks"];
 export const MAX_PANELS = 6;
 export const MAX_SELECTION = 8; // one categorical colour each
-export const MAX_PINS = 4;
+export const MAX_PINS = 8;
 export const MAX_BOARD = 12;
 
 const count = (layout: Layout) => LAYOUTS.find((l) => l.id === layout)!.panels;
@@ -118,7 +122,7 @@ export type Action =
   | { type: "toggleSelect"; entity: string; panel?: string }
   | { type: "select"; selection: string[] }
   | { type: "pin"; pin: Pin }
-  | { type: "unpin"; entity: string; panel: string }
+  | { type: "unpin"; entity: string; panel: string; indicator?: string }
   | { type: "board"; item: BoardItem; on: boolean }
   | { type: "clearBoard" }
   | { type: "side"; on: boolean }
@@ -224,12 +228,16 @@ export function reducer(ws: Workspace, a: Action): Workspace {
     case "select":
       return { ...ws, selection: a.selection.slice(0, MAX_SELECTION) };
     case "pin": {
-      // Pinning a country again on the same panel moves it; past the limit the oldest pin goes.
-      const rest = ws.pins.filter((p) => !(p.entity === a.pin.entity && p.panel === a.pin.panel));
+      // Pinning the same country and dataset again on the same panel moves it; a different
+      // dataset gets a pin of its own. Past the limit the oldest pin goes.
+      // An older pin with no dataset shows the panel's own: it counts as that dataset.
+      const own = ws.panels.find((p) => p.id === a.pin.panel)?.indicator;
+      const rest = ws.pins.filter((p) => !samePin(p, a.pin)
+        && !(p.entity === a.pin.entity && p.panel === a.pin.panel && !p.indicator && own === a.pin.indicator));
       return { ...ws, pins: [...rest, a.pin].slice(-MAX_PINS) };
     }
     case "unpin":
-      return { ...ws, pins: ws.pins.filter((p) => !(p.entity === a.entity && p.panel === a.panel)) };
+      return { ...ws, pins: ws.pins.filter((p) => !samePin(p, a)) };
     case "board": {
       const rest = ws.board.filter((b) => !(b.entity === a.item.entity && b.indicator === a.item.indicator));
       return { ...ws, board: a.on ? [a.item, ...rest].slice(0, MAX_BOARD) : rest, side: a.on ? true : ws.side };
@@ -351,7 +359,7 @@ export function windowDates(win: string, year: number | null, today = new Date()
 // Each panel is view.indicator[.year[.links[.group[.offset[.cols[.pyr[.xy[.range[.layers]]]]]]]]], trailing defaults dropped,
 // with extra table columns joined by ",";
 // sN holds panel N's own selection while its selection is unlinked;
-// pin=NZL:0:174.8:-41.3,AUS:1 holds pinned popups (country:panel number[:lng:lat]);
+// pin=NZL:0:174.8:-41.3:tfr,AUS:1 holds pinned popups (country:panel number[:lng:lat][:indicator]);
 // b=NZL:tfr,AUS:gdp_growth the pinboard; side=1 a shown pinboard (hidden by default).
 const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.letter).join("");
 
@@ -373,7 +381,8 @@ export function toQuery(ws: Workspace): string {
   if (ws.split[0] !== 0.5 || ws.split[1] !== 0.5) q.set("split", ws.split.map((f) => Math.round(f * 100)).join("."));
   const pins = ws.pins.map((p) => {
     const i = ws.panels.findIndex((x) => x.id === p.panel);
-    return i < 0 ? "" : [p.entity, i, ...(p.lng !== undefined && p.lat !== undefined ? [p.lng.toFixed(2), p.lat.toFixed(2)] : [])].join(":");
+    return i < 0 ? "" : [p.entity, i, ...(p.lng !== undefined && p.lat !== undefined ? [p.lng.toFixed(2), p.lat.toFixed(2)] : []),
+      ...(p.indicator ? [p.indicator] : [])].join(":");
   }).filter(Boolean);
   if (pins.length) q.set("pin", pins.join(","));
   if (ws.board.length) q.set("b", ws.board.map((b) => `${b.entity}:${b.indicator}`).join(","));
@@ -416,11 +425,15 @@ export function fromQuery(q: URLSearchParams): Workspace {
   const split = (q.get("split") || "").split(".").map(Number);
   const frac = (n: number) => (n >= 20 && n <= 80 ? n / 100 : 0.5);
   const ENTITY = /^[A-Za-z0-9_-]{1,60}$/;
-  const pins: Pin[] = (q.get("pin") || "").split(",").map((t) => t.split(":")).flatMap(([entity, i, lng, lat]) => {
+  const pins: Pin[] = (q.get("pin") || "").split(",").map((t) => t.split(":")).flatMap((parts) => {
+    // country:panel, then lng:lat when on a map, then the indicator (older links have none).
+    const [entity, i] = parts;
+    const [lng, lat] = parts.length >= 4 ? [parts[2], parts[3]] : [undefined, undefined];
+    const ind = parts.length === 3 ? parts[2] : parts.length >= 5 ? parts[4] : undefined;
     const p = panels[+i];
     if (!entity || !ENTITY.test(entity) || !p) return [];
-    const ll = lng !== undefined && lat !== undefined && Number.isFinite(+lng) && Number.isFinite(+lat) ? { lng: +lng, lat: +lat } : {};
-    return [{ entity, panel: p.id, ...ll }];
+    const ll = lng !== undefined && lat !== undefined && lng !== "" && lat !== "" && Number.isFinite(+lng) && Number.isFinite(+lat) ? { lng: +lng, lat: +lat } : {};
+    return [{ entity, panel: p.id, ...ll, ...(ind && /^[a-z0-9_]+$/.test(ind) ? { indicator: ind } : {}) }];
   }).slice(-MAX_PINS);
   const board: BoardItem[] = (q.get("b") || "").split(",").map((t) => t.split(":"))
     .filter(([e, i]) => e && i && ENTITY.test(e) && /^[a-z0-9_]+$/.test(i))

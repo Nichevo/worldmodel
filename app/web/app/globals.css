@@ -378,7 +378,10 @@ button.link { border: 0; background: none; padding: 2px 0; color: var(--accent);
 .popup-actions { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .popup-actions button { padding: 2px 8px; }
 .map-overlay { z-index: 3; }
-.panel-popup { position: absolute; z-index: 6; }
+/* Cards scroll inside a short panel, so Pin and "To side panel" can always be reached. */
+.map-overlay > .popup-card { max-height: var(--overlay-max, none); overflow-y: auto; }
+.panel-popup { position: absolute; z-index: 6; overflow-y: auto; border-radius: 10px; }
+.popup-card .popup-actions { position: sticky; bottom: -8px; background: inherit; padding: 4px 0; margin-bottom: -4px; }
 
 /* Chart year range and downloads */
 .range-picker { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }

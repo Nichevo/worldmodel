@@ -23,7 +23,7 @@ type Props = {
   pinned?: boolean;
   selected?: boolean;
   onClose: () => void;
-  onPin?: () => void;
+  onPin?: (indicator: string) => void; // gets the dataset the card shows, so each dataset pins on its own
   onSelect?: () => void;
   onBoard?: (indicator: string) => void;
 };
@@ -120,7 +120,7 @@ export default function PopupCard({
         </>
       )}
       <div className="popup-actions">
-        {onPin && <button className="small" onClick={onPin}>{pinned ? "Unpin" : "Pin"}</button>}
+        {onPin && <button className="small" onClick={() => onPin(ind.indicator_id)}>{pinned ? "Unpin" : "Pin"}</button>}
         {onSelect && <button className="small" onClick={onSelect}>{selected ? "Deselect" : "Select"}</button>}
         <Link className="small" href={`/entity/${entity}`}>Profile</Link>
         {onBoard && <button className="small" onClick={() => onBoard(ind.indicator_id)} title="Keep this card on the pinboard beside the panels">To side panel</button>}
