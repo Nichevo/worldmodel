@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.13.0"
+SCHEMA_VERSION = "1.14.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -403,6 +403,17 @@ TABLES: dict[str, Table] = {
             "One forecaster's call on Prediction Archive: outcome is correct, incorrect, indeterminate, pending or empty "
             "(seen only in search results); countries is a comma list of entity ids named in the title. url is the "
             "call's own page when known, else a site search for its title. Absent before 1.13.0."),
+        Table("layer_items", {
+            "layer_id": "VARCHAR", "item_id": "VARCHAR", "name": "VARCHAR", "entity_id": "VARCHAR", "lat": "DOUBLE",
+            "lon": "DOUBLE", "size": "DOUBLE", "category": "VARCHAR", "url": "VARCHAR", "props": "VARCHAR",
+            "placed": "BOOLEAN", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("layer_id", "item_id", "entity_id"),
+            "Every item of the map's dot layers (hospitals, ports, power plants...; which ones and what their size and "
+            "category are: worldmodel_contract.layer_details), one row per item and country (a World Heritage site "
+            "shared by two countries has two rows). entity_id is the country the source names, or, where it names "
+            "none (placed true), the one the item sits in or within about 20 km of; empty at sea. size is the "
+            "layer's size figure (beds, MW, ship calls...) where the source gives one; props is the item's other "
+            "properties as JSON. Absent before 1.14.0."),
         Table("build_checks", {
             "check_id": "VARCHAR", "kind": "VARCHAR", "status": "VARCHAR", "detail": "VARCHAR",
         }, ("check_id",), "Validation gate results for this build."),

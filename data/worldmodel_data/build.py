@@ -22,7 +22,8 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import __version__, cities, crowd_tables, episodes, gates, history, nature_tables, network_tables, osint_tables
+from worldmodel_data import (__version__, cities, crowd_tables, episodes, gates, history, layer_tables, nature_tables, network_tables,
+                             osint_tables)
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
@@ -128,6 +129,11 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"OSINT detail: {osn['conflict_events']:,} located events, {osn['war_losses']:,} loss "
                                               f"totals, {osn['war_areas']:,} front-line days, {osn['sanction_listings']:,} sanctions "
                                               f"listings, {osn['military_strength']:,} military figures, {osn['arms_deals']:,} arms deals"))
+                lay = layer_tables.compute(con)
+                if lay:
+                    checks.append(gates.Check("layer_items:loaded", "map layers", "info",
+                                              f"Map layer details: {sum(lay.values()):,} items in {len(lay)} layers "
+                                              f"({', '.join(f'{k} {v:,}' for k, v in sorted(lay.items()))})"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink)
             _finish(con, build_id, started, checks)
             failed = [c for c in checks if c.status == "fail"]
@@ -232,6 +238,8 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
         if found:
             con.execute(f"INSERT INTO src.{table} BY NAME SELECT * FROM read_parquet([{', '.join(repr(f) for f in found)}], "
                         "union_by_name = true)")
+    # Every dot layer's items with a country, and the map_layers indicators (before dbt, so blocs get them too).
+    layer_tables.prepare(con, paths.raw)
 
 
 def all_indicators(paths: Paths, latest) -> list:
