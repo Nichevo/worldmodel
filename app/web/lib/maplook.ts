@@ -20,7 +20,8 @@ const ONLINE: Record<string, string> = {
   relief: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
   satellite: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg",
   night: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{t}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png",
-  landcover: "https://services.terrascope.be/wmts/v2?layer=WORLDCOVER_{t}_MAP&style=&tilematrixset=EPSG:3857&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image%2Fpng&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}",
+  // Terrascope's map proxy ({t} is the year's layer: 2021 v2, 2020 v1); the old services.terrascope.be address stopped answering.
+  landcover: "https://mapproxy.terrascope.be/mapproxy/wmts/{t}/webmercator/{z}/{x}/{y}.png",
 };
 export const ATTRIBUTION: Record<string, string> = {
   relief: "Heights: <a href=\"https://registry.opendata.aws/terrain-tiles/\">AWS Terrain Tiles</a> (SRTM, GMTED, ETOPO1)",
@@ -28,7 +29,7 @@ export const ATTRIBUTION: Record<string, string> = {
   night: "Night lights: NASA Earth Observatory Black Marble, VIIRS (<a href=\"https://earthdata.nasa.gov/gibs\">NASA GIBS</a>)",
   landcover: "Land cover: <a href=\"https://esa-worldcover.org\">ESA WorldCover</a> (CC BY 4.0), Terrascope",
 };
-const MAXZOOM: Record<string, number> = { relief: 15, satellite: 15, night: 8, landcover: 15 };
+const MAXZOOM: Record<string, number> = { relief: 15, satellite: 15, night: 8, landcover: 14 };
 // WorldCover classes and their colours in the pictures (the legend under the map).
 export const LAND_COVER: [string, string][] = [["Tree cover", "#006400"], ["Shrubland", "#ffbb22"], ["Grassland", "#ffff4c"],
   ["Cropland", "#f096ff"], ["Built-up", "#fa0000"], ["Bare or sparse", "#b4b4b4"], ["Snow and ice", "#f0f0f0"],
@@ -40,7 +41,7 @@ const yesterday = () => new Date(Date.now() - 86_400_000).toISOString().slice(0,
 export function tileUrl(set: "relief" | "satellite" | "night" | "landcover", look: Pick<Look, "map_tiles" | "night_year" | "land_cover_year">): string {
   const lcYear = look.land_cover_year === "2020" ? "2020" : "2021";
   if (look.map_tiles === "online") {
-    if (set === "landcover") return ONLINE.landcover.replace("{t}", lcYear);
+    if (set === "landcover") return ONLINE.landcover.replace("{t}", lcYear === "2020" ? "esa-worldcover-map-10m-2020-v1_map" : "esa-worldcover-map-10m-2021-v2_map");
     if (set !== "night") return ONLINE[set];
     const [layer, t] = look.night_year === "latest" ? ["VIIRS_SNPP_DayNightBand_ENCC", yesterday()] : ["VIIRS_Black_Marble", `${look.night_year}-01-01`];
     return ONLINE.night.replace("{layer}", layer).replace("{t}", t);

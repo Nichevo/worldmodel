@@ -221,7 +221,7 @@ function CoverMap({ geometry, colour, show, rivers, zoom, onFit }: { geometry?: 
     if (m.getLayer("cover")) m.removeLayer("cover");
     if (m.getSource("cover")) m.removeSource("cover");
     if (show === null) return;
-    m.addSource("cover", { type: "raster", tiles: [`lcpick://${show}@${tiles}`], tileSize: 256, maxzoom: 15 });
+    m.addSource("cover", { type: "raster", tiles: [`lcpick://${show}@${tiles}`], tileSize: 256, maxzoom: 14 });
     m.addLayer({ id: "cover", type: "raster", source: "cover", paint: { "raster-resampling": "nearest", "raster-fade-duration": 0 } }, "mask");
   }, [show, ready, tiles]);
 
