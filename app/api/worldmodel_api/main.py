@@ -32,7 +32,7 @@ from fastapi import APIRouter, Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
-from worldmodel_contract import SCHEMA_VERSION, catalogue
+from worldmodel_contract import SCHEMA_VERSION, catalogue, families
 from worldmodel_contract.schema import EVENT_KINDS
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
@@ -454,6 +454,10 @@ def _indicator_rows() -> list[dict]:
             f["ratio"] = {k: r[k] for k in ("numerator", "denominator", "multiplier")}
             f["sources"] = [{**s, "rank": 1} for part in (r["numerator"], r["denominator"])
                             for s in by_id.get(part, {}).get("sources", [])[:1]]
+        # Indicators that sit under another (Male population under Population...): the drop-downs nest them.
+        under = families.parents(found)
+        for f in found:
+            f["part_of"] = under.get(f["indicator_id"])
         _ind_cache.update(key=key, rows=found)
     return _ind_cache["rows"]
 
@@ -473,6 +477,57 @@ def indicators(domain: str | None = None):
         out.append({**f, "enabled": over.get(f["indicator_id"], f["default_on"]), "grade": g.get("grade"),
                     "type": g.get("type") or qual.measure_type(f["indicator_id"], f["name"], f["unit"]),
                     "starred": bool(g.get("starred"))})
+    return out
+
+
+_years_cache: dict = {"key": None, "out": {}}
+
+
+@api.get("/indicators/years")
+def indicator_years():
+    """What years each indicator has, for the year strips in the indicator drop-downs:
+    `from` (first year), `e` (countries with figures in each year from then on: the source's
+    estimates) and `p` (countries with the source's own projections or forecasts in each
+    year, after the estimates), plus `by` (the sources that project). Counts are countries,
+    or any place when an indicator has no country figures (world-only series)."""
+    build = _build_id()
+    if _years_cache["key"] == build:
+        return _years_cache["out"]
+    found = rows("""
+        SELECT s.indicator_id, year(s.period_start) AS y,
+            count(DISTINCT s.entity_id) FILTER (WHERE s.status <> 'P' AND e.type = 'country') AS ec,
+            count(DISTINCT s.entity_id) FILTER (WHERE s.status <> 'P') AS ea,
+            count(DISTINCT s.entity_id) FILTER (WHERE s.status = 'P' AND e.type = 'country') AS pc,
+            count(DISTINCT s.entity_id) FILTER (WHERE s.status = 'P') AS pa
+        FROM series s JOIN entities e USING (entity_id)
+        WHERE s.variant = 'central' AND s.breakdown = ''
+        GROUP BY 1, 2 ORDER BY 1, 2""")
+    projectors = rows("""
+        SELECT DISTINCT s.indicator_id, coalesce(src.short_name, s.source_id) AS name
+        FROM series s LEFT JOIN sources src USING (source_id) WHERE s.status = 'P' ORDER BY 1, 2""")
+    by_ind: dict[str, list[dict]] = {}
+    for r in found:
+        by_ind.setdefault(r["indicator_id"], []).append(r)
+    out: dict[str, dict] = {}
+    for iid, rs in by_ind.items():
+        countries = any(r["ec"] or r["pc"] for r in rs)
+        ek, pk = ("ec", "pc") if countries else ("ea", "pa")
+        first, last = rs[0]["y"], rs[-1]["y"]
+        e = [0] * (last - first + 1)
+        p = [0] * (last - first + 1)
+        for r in rs:
+            e[r["y"] - first] = r[ek]
+            p[r["y"] - first] = r[pk]
+        # Trim trailing zeros so short lists stay short.
+        while e and not e[-1]:
+            e.pop()
+        while p and not p[-1]:
+            p.pop()
+        out[iid] = {"from": first, "e": e, "p": p, "countries": countries}
+    for r in projectors:
+        if r["indicator_id"] in out:
+            out[r["indicator_id"]].setdefault("by", []).append(r["name"])
+    _years_cache.update(key=build, out=out)
     return out
 
 

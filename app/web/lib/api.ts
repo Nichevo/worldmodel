@@ -46,6 +46,8 @@ export type Indicator = {
   grade?: Grade | null; // A core, B good, C usable, D exploratory (yours when you set one)
   type?: MeasureType; // level, per person, rate or share...
   starred?: boolean; // kept in every drop-down whatever its grade
+  // sits under another indicator in the drop-downs: part (adds up to it), sex (women's or men's figure), share (% of it)
+  part_of?: { parent: string; kind: "part" | "sex" | "share" } | null;
 };
 
 export type Grade = "A" | "B" | "C" | "D";
@@ -224,6 +226,7 @@ export type Settings = {
   problem_banner: boolean;
   events_on_charts: boolean;
   projections_on_charts: boolean; // projected years (dashed) on charts
+  year_strips: boolean; // indicator drop-downs show each indicator's years (history, forecasts)
   chart_end_labels: boolean; // names and latest values at the line ends instead of a legend
   chart_values: boolean; // values written on bars
   chart_findings: boolean; // chart titles say what the chart shows
