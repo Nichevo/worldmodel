@@ -68,8 +68,10 @@ type Props = {
   boxes?: { name: string; west: number; south: number; east: number; north: number }[];
   // Countries outlined in a colour (CrisisWatch's month), with a line for the hover text.
   outlines?: MapOutline[];
-  // Markers at places (events, news), solid or hollow, with hover text; a click opens href.
+  // Markers at places (events, news), solid or hollow, with hover text; a click opens href
+  // (or, with onMark, hands the mark's key to the page instead).
   marks?: MapMark[];
+  onMark?: (key: string) => void;
   // Extra legend entries for outlines and markers.
   legend?: { label: string; color: string; shape: "dot" | "ring" | "outline" }[];
   hideScale?: boolean; // colours stand for categories, so the number legend would mislead
@@ -88,7 +90,8 @@ export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number
 export type MapPath = { key: string; color: string; label: string; stops: { lng: number; lat: number; label: string }[]; curve?: boolean };
 
 export type MapOutline = { entity: string; color: string; label: string };
-export type MapMark = { key: string; lng: number; lat: number; color: string; hollow?: boolean; r?: number; opacity?: number; label: string; href?: string };
+// text: a name written beside the mark (keep to a few marks, or the map gets crowded).
+export type MapMark = { key: string; lng: number; lat: number; color: string; hollow?: boolean; r?: number; opacity?: number; label: string; href?: string; text?: string };
 
 export type MapLine = { from: string; to: string; value: number; text?: string };
 
@@ -137,11 +140,13 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
-  raster = null, boxes = [], outlines, marks, legend = [], hideScale = false, areas = null, onArea, paths,
+  raster = null, boxes = [], outlines, marks, onMark, legend = [], hideScale = false, areas = null, onArea, paths,
   pictures = true,
 }: Props) {
   const areaPick = useRef(onArea);
   areaPick.current = onArea;
+  const markPick = useRef(onMark);
+  markPick.current = onMark;
   // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
   const [info, setInfo] = useState<FeatureInfo | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -290,6 +295,7 @@ export default function WorldMap({
       }
       if (m.getLayer("ov-marks")) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["ov-marks"] })[0];
+        if (f && markPick.current && typeof f.properties?.key === "string") { markPick.current(f.properties.key); return; }
         const href = f?.properties?.href;
         if (typeof href === "string" && href) {
           if (/^https?:/.test(href)) window.open(href, "_blank", "noopener");
@@ -724,14 +730,15 @@ export default function WorldMap({
   }, [outlinesKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Markers: solid dots, or rings for things only reported so far; older ones fainter.
-  const marksKey = marks ? marks.map((k) => `${k.key}:${k.color}:${k.hollow ? 1 : 0}:${k.opacity ?? 1}`).join(",") : null;
+  const marksKey = marks ? marks.map((k) => `${k.key}:${k.color}:${k.hollow ? 1 : 0}:${k.opacity ?? 1}:${k.r ?? 5}:${k.text ?? ""}`).join(",") : null;
   useEffect(() => {
     const m = map.current;
     if (!m || marksKey === null) return;
     const apply = () => {
       const data: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: (marks ?? []).map((k) => ({
         type: "Feature", geometry: { type: "Point", coordinates: [k.lng, k.lat] },
-        properties: { color: k.color, hollow: k.hollow ? 1 : 0, r: k.r ?? 5, o: k.opacity ?? 1, label: k.label, href: k.href ?? "" } })) };
+        properties: { key: k.key, color: k.color, hollow: k.hollow ? 1 : 0, r: k.r ?? 5, o: k.opacity ?? 1, label: k.label, href: k.href ?? "",
+          text: k.text ?? "" } })) };
       const src = m.getSource("ov-marks") as GeoJSONSource | undefined;
       if (src) { src.setData(data); return; }
       m.addSource("ov-marks", { type: "geojson", data });
@@ -741,6 +748,11 @@ export default function WorldMap({
         "circle-stroke-color": ["case", ["==", ["get", "hollow"], 1], ["get", "color"], cssVar("--surface")],
         "circle-stroke-width": ["case", ["==", ["get", "hollow"], 1], 2, 1], "circle-stroke-opacity": ["get", "o"],
       } }, "hover");
+      // Names beside the marks that carry one (the best-known events on the World-in-year maps).
+      m.addLayer({ id: "ov-marks-text", type: "symbol", source: "ov-marks", filter: ["!=", ["get", "text"], ""],
+        layout: { "text-field": ["get", "text"], "text-size": 11, "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true,
+          "text-max-width": 12 },
+        paint: { "text-color": cssVar("--ink"), "text-halo-color": cssVar("--surface"), "text-halo-width": 1.5, "text-opacity": ["get", "o"] } }, "hover");
     };
     if (m.getLayer("hover")) apply();
     else onLoad.current.push(apply);

@@ -317,7 +317,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "o", id: "companies", label: "Big company head offices", group: "cities" },
   { letter: "H", id: "heritage_sites", label: "World Heritage sites", group: "sights", hint: "UNESCO World Heritage sites; red rings are sites in danger" },
   { letter: "V", id: "visited_sites", label: "Most visited places", group: "sights", hint: "Places with a million or more visitors a year (Wikidata)" },
-  { letter: "y", id: "history_world", label: "World in year …", group: "borders", made: true, hint: "States and empires as they were in a year of your choice, with its own year slider (Cliopatria borders, 3400 BC to 2024)" },
+  { letter: "y", id: "history_world", label: "World in year …", group: "borders", made: true, hint: "States and empires as they were in a year of your choice, with its own year slider (Cliopatria borders, 3400 BC to 2024), events and beginnings from the years around it as dots, and rulers on hover" },
   { letter: "a", id: "antarctic_claims", label: "Antarctic claims", group: "borders" },
   { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "borders" },
 ];

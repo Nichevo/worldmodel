@@ -1,0 +1,189 @@
+{
+"head": {
+"vars": []
+},
+"results": {
+"bindings": [
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q37200"
+},
+"eLabel": {
+"type": "literal",
+"value": "Great Pyramid of Giza"
+},
+"inc": {
+"type": "literal",
+"value": "-2559-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "126"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Great_Pyramid_of_Giza"
+},
+"coord": {
+"type": "literal",
+"value": "Point(31.13422 29.97915)"
+},
+"iso3": {
+"type": "literal",
+"value": "EGY"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q10288"
+},
+"eLabel": {
+"type": "literal",
+"value": "Parthenon"
+},
+"inc": {
+"type": "literal",
+"value": "-0500-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "139"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Parthenon"
+},
+"coord": {
+"type": "literal",
+"value": "Point(23.726601 37.971527)"
+},
+"iso3": {
+"type": "literal",
+"value": "GRC"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q10285"
+},
+"eLabel": {
+"type": "literal",
+"value": "Colosseum"
+},
+"inc": {
+"type": "literal",
+"value": "0082-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "148"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Colosseum"
+},
+"coord": {
+"type": "literal",
+"value": "Point(12.492222222 41.890277777)"
+},
+"iso3": {
+"type": "literal",
+"value": "ITA"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12501"
+},
+"eLabel": {
+"type": "literal",
+"value": "Great Wall of China"
+},
+"inc": {
+"type": "literal",
+"value": "-0700-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "195"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Great_Wall_of_China"
+},
+"coord": {
+"type": "literal",
+"value": "Point(116.564444444 40.431388888)"
+},
+"iso3": {
+"type": "literal",
+"value": "CHN"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q39671"
+},
+"eLabel": {
+"type": "literal",
+"value": "Stonehenge"
+},
+"inc": {
+"type": "literal",
+"value": "-1848-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "136"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Stonehenge"
+},
+"coord": {
+"type": "literal",
+"value": "Point(-1.826111111 51.178888888)"
+},
+"iso3": {
+"type": "literal",
+"value": "GBR"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q39671"
+},
+"eLabel": {
+"type": "literal",
+"value": "Stonehenge"
+},
+"inc": {
+"type": "literal",
+"value": "-3000-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "136"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Stonehenge"
+},
+"coord": {
+"type": "literal",
+"value": "Point(-1.826111111 51.178888888)"
+},
+"iso3": {
+"type": "literal",
+"value": "GBR"
+}
+}
+]
+}
+}

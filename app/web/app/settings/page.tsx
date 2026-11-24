@@ -204,15 +204,25 @@ export default function SettingsPage() {
           on={s.history_borders_fetch} set={(v) => save({ history_borders_fetch: v })} />
         <Toggle label="Long-run figures (population since 10,000 BC, Maddison GDP, literacy...)" hint="Nine chart files from Our World in Data every three months. Off: the long charts, reach back, then and now and the eight factors keep the last figures."
           on={s.history_series_fetch} set={(v) => save({ history_series_fetch: v })} />
-        <Toggle label="Events far back (Wikidata) and NOAA's earthquakes, eruptions and tsunamis" hint="Seven Wikidata queries a month and about 50 small NOAA pages every three months. Off: the events on long charts and empire cards keep the last ones."
+        <Toggle label="Events far back and rulers (Wikidata) and NOAA's earthquakes, eruptions and tsunamis" hint="Sixteen Wikidata queries a month, one after another (wars, battles, plagues, treaties; famous buildings, cities founded, religions, writing; rulers), and about 50 small NOAA pages every three months. Off: the events on long charts, empire cards and World in year maps keep the last ones."
           on={s.history_events_fetch} set={(v) => save({ history_events_fetch: v })} />
         <NumberField label="Events shown: articles in at least" unit="Wikipedias" value={s.history_event_min_links} min={5} max={200} step={5}
           note="Higher shows only the best-known wars, battles, plagues and treaties. NOAA's hazards have no article count and always show. Takes effect at once."
           save={(v) => save({ history_event_min_links: v })} />
         <Toggle label="Events as marks on the long charts" hint="Plagues, famines, wars and big disasters as marks on People since 10,000 BC. Off: the line only."
           on={s.history_events_on_charts} set={(v) => save({ history_events_on_charts: v })} />
-        <NumberField label="Wikipedia pages for empires, dynasties and voyages per day" unit="pages" value={s.wikipedia_empires_daily} min={0} max={500} step={5}
-          note="A page is read when its card is first opened and kept for a month. 0 stops new reads (stored pages still show)."
+        <NumberField label="World in year maps: events from" unit="years either side" value={s.history_map_window} min={1} max={500} step={5}
+          note="Dots for events and beginnings this many years before and after the year shown, fainter the further away. The kinds are picked above each World in year map."
+          save={(v) => save({ history_map_window: v })} />
+        <NumberField label="World in year maps: names written on" unit="best-known dots" value={s.history_map_labels} min={0} max={50} step={1}
+          note="The rest show their name on hover. More names crowd the map; during Play at most five."
+          save={(v) => save({ history_map_labels: v })} />
+        <Toggle label="World in year maps: rulers of the biggest states under the map" hint="Kings, queens, emperors and others from Wikidata (articles in 25+ Wikipedias). Off: no strip; the ruler still shows when you hover a state."
+          on={s.history_map_rulers} set={(v) => save({ history_map_rulers: v })} />
+        <NumberField label="Rulers strip: states" unit="states" value={s.history_map_rulers_most} min={1} max={30} step={1}
+          note="The biggest states that year with a known ruler." save={(v) => save({ history_map_rulers_most: v })} />
+        <NumberField label="Wikipedia pages for empires, dynasties, voyages and map events per day" unit="pages" value={s.wikipedia_empires_daily} min={0} max={500} step={5}
+          note="A page is read when its card is first opened (or an event on a World in year map is clicked) and kept for a month. 0 stops new reads (stored pages still show)."
           save={(v) => save({ wikipedia_empires_daily: v })} />
       </section>
 

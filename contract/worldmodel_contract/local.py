@@ -78,6 +78,11 @@ SETTINGS: dict[str, object] = {
     "history_event_min_links": 5,    # events shown: those with articles in at least this many Wikipedias
     "history_events_on_charts": True,  # events far back as marks on the long charts
     "map_history_year": 1700,        # the year the Map's "World in year" layer shows (it has its own slider)
+    "history_map_groups": "war,built,belief,city",  # what the World-in-year maps mark: war, built, belief, city, disaster
+    "history_map_window": 25,        # ... from this many years either side of the year shown
+    "history_map_labels": 10,        # ... with names written on the best-known this many (the rest on hover)
+    "history_map_rulers": True,      # ... with the rulers of the biggest states that year under the map
+    "history_map_rulers_most": 6,    # ... this many states
     "pack_nz": True,                 # refresh fetches the New Zealand pack (RBNZ, MBIE energy, elections, justice)
     "holidays_fetch": True,          # refresh reads public holidays from Nager.Date (about 240 small requests every 90 days)
     "crisiswatch_fetch": True,       # refresh reads CrisisWatch (one month's page at a time, a few seconds apart)
@@ -276,7 +281,7 @@ TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reli
          "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept
+IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
 LETTERS = {"map_open_layers"}  # map layer letters, each once
 LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
@@ -287,6 +292,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
+          "history_map_window": (1, 500), "history_map_labels": (0, 50), "history_map_rulers_most": (1, 30),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "transport_min_deaths": (0, 100_000), "relief_shading": (0, 1), "map_colours_over": (0, 1),
           "map_3d_exaggeration": (1, 5),

@@ -243,6 +243,14 @@ def city_scores() -> dict:
 
 
 @lru_cache
+@lru_cache
+def beginnings() -> dict:
+    """Religions, writing systems and languages typed in with a year and a place, and which
+    borders a ruler's state counts for (beginnings.yaml)."""
+    data = _yaml("beginnings.yaml") or {}
+    return {"beginnings": data.get("beginnings") or [], "ruler_states": data.get("ruler_states") or {}}
+
+
 def history() -> dict:
     """The Long history page's set-up: powers, China's dynasties, regions, series, factors,
     hand-dated periods, the cycle's stages and voyages (history.yaml)."""

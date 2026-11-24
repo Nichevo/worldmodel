@@ -3,6 +3,16 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.15.0 (2026-11-25)
+
+- New table `history_rulers`: rulers with their post, the state it was over (Wikidata id
+  and name) and the years held (wikidata_history). Absent before 1.15.0; readers should
+  treat it as empty.
+- `history_events` gains kinds `built`, `city`, `religion` and `writing` (things begun,
+  dated by when they began).
+- New catalogue `beginnings.yaml`: religions, writing systems and languages typed in with
+  a year and a place, and `ruler_states`, which states' rulers count for which borders.
+
 ## 1.14.0 (2026-11-24)
 
 - New table `layer_items`: every item of the map's dot layers with its country, size figure

@@ -18,15 +18,35 @@ export function axisYear(y: number): string {
   return r < 0 ? `${(-r).toLocaleString("en")} BC` : r === 0 ? "AD 1" : String(r);
 }
 
-export const KIND_GROUP: Record<string, "war" | "disaster" | "plague"> = {
+export type KindGroup = "war" | "disaster" | "plague" | "built" | "belief" | "city";
+export const KIND_GROUP: Record<string, KindGroup> = {
   war: "war", battle: "war", siege: "war", revolution: "war", treaty: "war",
   epidemic: "plague", famine: "plague", earthquake: "disaster", volcano: "disaster", tsunami: "disaster",
+  built: "built", city: "city", religion: "belief", writing: "belief", language: "belief",
 };
-export const GROUP_LABEL = { war: "Wars, battles, revolutions, treaties", plague: "Plagues and famines", disaster: "Earthquakes, eruptions, tsunamis" };
+export const GROUP_LABEL: Record<KindGroup, string> = {
+  war: "Wars, battles, revolutions, treaties", plague: "Plagues and famines", disaster: "Earthquakes, eruptions, tsunamis",
+  built: "Built: famous buildings and great works", belief: "Religions, writing and languages begun", city: "Cities founded",
+};
+const GROUP_COLOR: Record<KindGroup, number> = { war: 7, plague: 4, disaster: 6, built: 3, belief: 0, city: 2 };  // red, pink, purple, amber, blue, green
 
 export function kindColor(kind: string): string {
-  const g = KIND_GROUP[kind] ?? "war";
-  return g === "war" ? seriesColor(7) : g === "plague" ? seriesColor(4) : seriesColor(6);  // red, pink, purple
+  return seriesColor(GROUP_COLOR[KIND_GROUP[kind] ?? "war"]);
+}
+
+// The World-in-year maps' own choices (Settings: history_map_groups): "disaster" takes in
+// plagues and famines too.
+export const MAP_GROUPS: { id: string; label: string; groups: KindGroup[] }[] = [
+  { id: "war", label: "Battles and wars", groups: ["war"] },
+  { id: "built", label: "Built", groups: ["built"] },
+  { id: "belief", label: "Beliefs, writing, languages", groups: ["belief"] },
+  { id: "city", label: "Cities founded", groups: ["city"] },
+  { id: "disaster", label: "Disasters and disease", groups: ["disaster", "plague"] },
+];
+export function mapKinds(groups: string): string[] {
+  const on = new Set(groups.split(",").map((x) => x.trim()));
+  const gs = new Set(MAP_GROUPS.filter((g) => on.has(g.id)).flatMap((g) => g.groups));
+  return Object.entries(KIND_GROUP).filter(([, g]) => gs.has(g)).map(([k]) => k);
 }
 
 // A colour per empire name (the API gives a hue), the same in every view.
@@ -43,6 +63,12 @@ export function interp(points: [number, number | null][], year: number): number 
   }
   return null;
 }
+
+export const KIND_WORD: Record<string, string> = {
+  war: "War", battle: "Battle", siege: "Siege", revolution: "Revolution", treaty: "Treaty", epidemic: "Epidemic", famine: "Famine",
+  earthquake: "Earthquake", volcano: "Eruption", tsunami: "Tsunami", built: "Built", city: "City founded", religion: "Religion begins",
+  writing: "Writing begins", language: "Language",
+};
 
 export function eventLine(e: LongEvent): string {
   const deaths = e.deaths ? `, about ${compact(e.deaths)} deaths` : "";

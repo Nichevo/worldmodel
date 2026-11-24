@@ -1,0 +1,107 @@
+# Beginnings typed in for the Long history map: religions and beliefs, writing systems and
+# languages, each with the year it is usually said to begin, a place, and a short note.
+#
+# Wikidata holds some of these too, but often with no place (a religion's "location of
+# formation" is rarely filled) and almost never for a language, so this list fills the gaps.
+# Where an item's Wikidata id is given here, this entry wins over Wikidata's.
+#
+# Fields:
+#   key:       short id (the event id is "bg:<key>")
+#   kind:      religion | writing | language
+#   title:     as shown on the map
+#   year:      negative for BC, no year 0
+#   about:     true when the year is a rough one (scholars give a range); shown as "about"
+#   end_year:  optional, for a beginning that took a long time
+#   lat, lon:  where it began (roughly, for the old ones)
+#   place:     the place name shown
+#   wikidata:  the item's id, so Wikidata's own copy is not shown twice
+#   wiki:      English Wikipedia page name
+#   note:      one plain sentence
+#
+# Dates for the old ones are the usual textbook dates; many are argued about, which is why
+# they carry about: true.
+
+beginnings:
+  # ------------------------------------------------------------------ religions and beliefs
+  - {key: hinduism-vedic, kind: religion, title: "Vedic religion takes shape (roots of Hinduism)", year: -1500, about: true, lat: 30.9, lon: 75.8, place: "Punjab", wikidata: Q9089, wiki: "Historical_Vedic_religion", note: "The Rigveda's hymns are composed in the north-west of India; later Hinduism grows from this and local traditions."}
+  - {key: judaism, kind: religion, title: "Israelite religion becomes Judaism", year: -1000, about: true, lat: 31.78, lon: 35.23, place: "Jerusalem", wikidata: Q9268, wiki: "Origins_of_Judaism", note: "Worship of one god, Yahweh, grows in the hill country of Judah; the scriptures take their main form after the exile in Babylon (586 to 539 BC)."}
+  - {key: zoroastrianism, kind: religion, title: "Zoroastrianism", year: -1200, about: true, end_year: -600, lat: 36.3, lon: 59.6, place: "Eastern Iran", wikidata: Q9601, wiki: "Zoroastrianism", note: "Founded on the teachings of Zarathustra; later the state religion of three Persian empires."}
+  - {key: jainism, kind: religion, title: "Mahavira teaches (Jainism)", year: -500, about: true, lat: 25.0, lon: 85.4, place: "Bihar", wikidata: Q9232, wiki: "Jainism", note: "Mahavira, the 24th tirthankara, sets out the path of non-violence that Jains follow."}
+  - {key: buddhism, kind: religion, title: "The Buddha teaches (Buddhism)", year: -480, about: true, lat: 24.7, lon: 84.99, place: "Bodh Gaya", wikidata: Q748, wiki: "Buddhism", note: "Siddhartha Gautama reaches enlightenment at Bodh Gaya and teaches across the Ganges plain."}
+  - {key: confucianism, kind: religion, title: "Confucius teaches", year: -500, about: true, lat: 35.6, lon: 116.99, place: "Qufu", wikidata: Q9581, wiki: "Confucianism", note: "Confucius's teachings on conduct and government become China's official learning under the Han."}
+  - {key: taoism, kind: religion, title: "The Tao Te Ching (Taoism)", year: -400, about: true, lat: 34.6, lon: 112.4, place: "Luoyang", wikidata: Q9598, wiki: "Taoism", note: "The book credited to Laozi is written down; an organised Taoist religion follows in the 2nd century AD."}
+  - {key: shinto, kind: religion, title: "Shinto first written down", year: 712, lat: 34.69, lon: 135.8, place: "Nara", wikidata: Q812767, wiki: "Shinto", note: "Japan's native worship of the kami is far older; the Kojiki of 712 is its first written record."}
+  - {key: christianity, kind: religion, title: "Christianity", year: 30, about: true, lat: 31.78, lon: 35.23, place: "Jerusalem", wikidata: Q5043, wiki: "Christianity", note: "Followers of Jesus of Nazareth spread his teaching after his death in Jerusalem; it becomes Rome's state religion in 380."}
+  - {key: rabbinic-judaism, kind: religion, title: "Rabbinic Judaism after the Temple falls", year: 70, lat: 31.9, lon: 34.8, place: "Yavne", wiki: "Rabbinic_Judaism", note: "With the Second Temple destroyed, rabbis at Yavne remake Judaism around study and prayer."}
+  - {key: manichaeism, kind: religion, title: "Mani founds Manichaeism", year: 240, about: true, lat: 33.1, lon: 44.6, place: "Ctesiphon", wikidata: Q132265, wiki: "Manichaeism", note: "A religion of light and dark that spreads from Rome to China before dying out."}
+  - {key: nicaea, kind: religion, title: "Council of Nicaea sets the Christian creed", year: 325, lat: 40.43, lon: 29.72, place: "Nicaea (İznik)", wiki: "First_Council_of_Nicaea", note: "Emperor Constantine calls the first council of the whole church."}
+  - {key: islam, kind: religion, title: "Islam: Muhammad's first revelation", year: 610, lat: 21.42, lon: 39.83, place: "Mecca", wikidata: Q432, wiki: "Islam", note: "Muhammad begins preaching in Mecca; the move to Medina in 622 starts the Islamic calendar."}
+  - {key: sunni-shia, kind: religion, title: "Sunni and Shia split after Karbala", year: 680, lat: 32.6, lon: 44.03, place: "Karbala", wiki: "Shia%E2%80%93Sunni_relations", note: "Husayn, Muhammad's grandson, is killed at Karbala; the split over who should lead hardens."}
+  - {key: schism-1054, kind: religion, title: "East-West Schism splits the Christian church", year: 1054, lat: 41.01, lon: 28.98, place: "Constantinople", wiki: "East%E2%80%93West_Schism", note: "Rome and Constantinople excommunicate each other, dividing Catholic and Orthodox churches."}
+  - {key: sikhism, kind: religion, title: "Guru Nanak founds Sikhism", year: 1499, about: true, lat: 31.45, lon: 75.3, place: "Sultanpur Lodhi", wikidata: Q9316, wiki: "Sikhism", note: "Guru Nanak begins teaching in the Punjab; nine gurus follow him."}
+  - {key: reformation, kind: religion, title: "Luther's 95 theses start the Reformation", year: 1517, lat: 51.87, lon: 12.64, place: "Wittenberg", wiki: "Reformation", note: "Martin Luther's protest against indulgences splits Western Christianity into Catholic and Protestant."}
+  - {key: anglican, kind: religion, title: "Church of England breaks with Rome", year: 1534, lat: 51.5, lon: -0.12, place: "London", wikidata: Q82708, wiki: "Church_of_England", note: "The Act of Supremacy makes Henry VIII head of the church in England."}
+  - {key: calvinism, kind: religion, title: "Calvin in Geneva (Reformed churches)", year: 1541, lat: 46.2, lon: 6.15, place: "Geneva", wiki: "Calvinism", note: "John Calvin's Geneva becomes the model for Presbyterian and Reformed churches."}
+  - {key: methodism, kind: religion, title: "John Wesley starts Methodism", year: 1738, lat: 51.52, lon: -0.1, place: "London", wikidata: Q33203, wiki: "Methodism", note: "A revival inside the Church of England becomes a worldwide church."}
+  - {key: mormonism, kind: religion, title: "Church of Jesus Christ of Latter-day Saints", year: 1830, lat: 42.96, lon: -77.23, place: "Fayette, New York", wiki: "The_Church_of_Jesus_Christ_of_Latter-day_Saints", note: "Joseph Smith founds the church; it moves west to Utah in 1847."}
+  - {key: bahai, kind: religion, title: "Bahá'í Faith", year: 1863, lat: 33.34, lon: 44.4, place: "Baghdad", wikidata: Q47715, wiki: "Bah%C3%A1%CA%BC%C3%AD_Faith", note: "Bahá'u'lláh declares his mission in Baghdad."}
+  - {key: ratana, kind: religion, title: "Rātana Church", year: 1925, lat: -39.98, lon: 175.12, place: "Rātana Pā, New Zealand", wiki: "R%C4%81tana", note: "Founded by T. W. Rātana; it later shapes Māori politics through its MPs."}
+  - {key: ringatu, kind: religion, title: "Te Kooti founds the Ringatū faith", year: 1868, lat: -38.67, lon: 178.0, place: "Gisborne, New Zealand", wiki: "Ring%C4%81t%C5%AB", note: "Te Kooti Arikirangi Te Turuki founds it while held on the Chatham Islands."}
+
+  # ------------------------------------------------------------------ writing
+  - {key: cuneiform, kind: writing, title: "Cuneiform writing", year: -3200, about: true, lat: 31.32, lon: 45.64, place: "Uruk", wikidata: Q401, wiki: "Cuneiform", note: "Sumerian scribes press wedge marks into clay, first to keep accounts; the oldest known writing."}
+  - {key: hieroglyphs, kind: writing, title: "Egyptian hieroglyphs", year: -3200, about: true, lat: 26.18, lon: 31.92, place: "Abydos", wikidata: Q132659, wiki: "Egyptian_hieroglyphs", note: "Labels on goods in early royal tombs; used for over 3,000 years."}
+  - {key: indus-script, kind: writing, title: "Indus script (not yet read)", year: -2600, about: true, lat: 27.33, lon: 68.14, place: "Mohenjo-daro", wiki: "Indus_script", note: "Short signs on seals of the Indus cities; no one has deciphered them."}
+  - {key: linear-b, kind: writing, title: "Linear B (earliest Greek)", year: -1450, about: true, lat: 35.3, lon: 25.16, place: "Knossos", wikidata: Q190502, wiki: "Linear_B", note: "Mycenaean palace records; read in 1952 as an early form of Greek."}
+  - {key: oracle-bones, kind: writing, title: "Chinese oracle bone script", year: -1250, about: true, lat: 36.13, lon: 114.32, place: "Anyang", wiki: "Oracle_bone_script", note: "Questions to ancestors carved on bones at the Shang capital; the direct ancestor of Chinese characters."}
+  - {key: phoenician, kind: writing, title: "Phoenician alphabet", year: -1050, about: true, lat: 34.12, lon: 35.65, place: "Byblos", wikidata: Q26752, wiki: "Phoenician_alphabet", note: "22 letters for consonants; the parent of the Greek, Latin, Hebrew and Arabic scripts."}
+  - {key: greek-alphabet, kind: writing, title: "Greek alphabet adds vowels", year: -800, about: true, lat: 38.46, lon: 23.6, place: "Euboea", wikidata: Q8216, wiki: "Greek_alphabet", note: "Greeks borrow Phoenician letters and use some for vowels: the first full alphabet."}
+  - {key: maya-script, kind: writing, title: "Maya script", year: -300, about: true, lat: 17.22, lon: -89.62, place: "Petén", wikidata: Q975950, wiki: "Maya_script", note: "The only fully developed writing of the Americas; most of it can now be read."}
+  - {key: latin-alphabet, kind: writing, title: "Latin alphabet", year: -700, about: true, lat: 41.9, lon: 12.5, place: "Rome", wikidata: Q8229, wiki: "Latin_alphabet", note: "Taken from the Etruscans' version of the Greek letters; now the world's most used script."}
+  - {key: brahmi, kind: writing, title: "Brahmi script (Ashoka's edicts)", year: -260, about: true, lat: 25.6, lon: 85.1, place: "Pataliputra", wikidata: Q185083, wiki: "Brahmi_script", note: "Ashoka's edicts are its earliest sure texts; the parent of most South and South-East Asian scripts."}
+  - {key: arabic-script, kind: writing, title: "Arabic script", year: 512, about: true, lat: 36.0, lon: 37.0, place: "Northern Syria", wikidata: Q8196, wiki: "Arabic_script", note: "Grows from the Nabataean script; spreads with the Quran."}
+  - {key: cyrillic, kind: writing, title: "Cyrillic script", year: 893, about: true, lat: 43.16, lon: 26.83, place: "Preslav", wikidata: Q8209, wiki: "Cyrillic_script", note: "Made in the First Bulgarian Empire by followers of Cyril and Methodius."}
+  - {key: printing-press, kind: writing, title: "Gutenberg's printing press", year: 1450, about: true, lat: 50.0, lon: 8.27, place: "Mainz", wiki: "Printing_press", note: "Movable metal type makes books cheap; the Gutenberg Bible follows in 1455."}
+  - {key: hangul, kind: writing, title: "Hangul alphabet", year: 1443, lat: 37.58, lon: 126.98, place: "Seoul", wikidata: Q8222, wiki: "Hangul", note: "King Sejong's scholars make an alphabet for Korean, published in 1446."}
+
+  # ------------------------------------------------------------------ languages
+  - {key: sumerian, kind: language, title: "Sumerian, first written language", year: -3200, about: true, lat: 31.32, lon: 45.64, place: "Uruk", wiki: "Sumerian_language", note: "A language with no known relatives; spoken until about 2000 BC and written long after."}
+  - {key: akkadian, kind: language, title: "Akkadian becomes the language of empire", year: -2334, about: true, lat: 33.1, lon: 44.1, place: "Akkad", wiki: "Akkadian_language", note: "Sargon's empire spreads it; later the language of diplomacy across the Near East."}
+  - {key: sanskrit, kind: language, title: "Vedic Sanskrit", year: -1500, about: true, lat: 30.9, lon: 75.8, place: "Punjab", wiki: "Sanskrit", note: "The language of the Vedas; Panini sets out its grammar about 400 BC."}
+  - {key: old-chinese, kind: language, title: "Old Chinese written down", year: -1250, about: true, lat: 36.13, lon: 114.32, place: "Anyang", wiki: "Old_Chinese", note: "The earliest stage of Chinese we can read, from the oracle bones."}
+  - {key: greek, kind: language, title: "Greek (Homer's epics)", year: -750, about: true, lat: 38.4, lon: 26.1, place: "Ionia", wiki: "Ancient_Greek", note: "The Iliad and Odyssey are written down; Greek later spreads with Alexander."}
+  - {key: aramaic, kind: language, title: "Aramaic spreads across the Near East", year: -700, about: true, lat: 33.51, lon: 36.29, place: "Damascus", wiki: "Aramaic", note: "The common language of the Assyrian and Persian empires, and of Jesus."}
+  - {key: latin, kind: language, title: "Latin", year: -600, about: true, lat: 41.9, lon: 12.5, place: "Rome", wiki: "Latin", note: "Spoken in Latium; Rome carries it across Europe, and the Romance languages grow from it."}
+  - {key: tamil, kind: language, title: "Tamil, oldest written Dravidian language", year: -300, about: true, lat: 9.93, lon: 78.12, place: "Madurai", wiki: "Tamil_language", note: "Early inscriptions and the Sangam poems; still spoken by about 80 million people."}
+  - {key: classical-arabic, kind: language, title: "Classical Arabic (the Quran)", year: 632, about: true, lat: 21.42, lon: 39.83, place: "Mecca", wiki: "Classical_Arabic", note: "The Quran fixes a standard Arabic that spreads with the caliphates."}
+  - {key: old-english, kind: language, title: "Old English", year: 450, about: true, lat: 52.6, lon: 1.0, place: "Eastern England", wiki: "Old_English", note: "Angles, Saxons and Jutes bring their dialects to Britain; Beowulf is its best-known poem."}
+  - {key: old-norse, kind: language, title: "Old Norse", year: 750, about: true, lat: 59.9, lon: 10.7, place: "Scandinavia", wiki: "Old_Norse", note: "The language of the Vikings, carried to Iceland, Normandy and Kyiv."}
+  - {key: french, kind: language, title: "Old French (Strasbourg Oaths)", year: 842, lat: 48.58, lon: 7.75, place: "Strasbourg", wiki: "Oaths_of_Strasbourg", note: "The earliest text in a Romance language rather than Latin."}
+  - {key: persian, kind: language, title: "New Persian (Ferdowsi's Shahnameh)", year: 1010, lat: 36.3, lon: 59.6, place: "Tus", wiki: "Persian_language", note: "Persian written in Arabic letters; the Shahnameh is finished in 1010."}
+  - {key: middle-english, kind: language, title: "Middle English after the Norman Conquest", year: 1100, about: true, lat: 51.5, lon: -0.12, place: "England", wiki: "Middle_English", note: "French words flood in; Chaucer writes in it about 1390."}
+  - {key: spanish, kind: language, title: "Castilian becomes Spanish", year: 1252, about: true, lat: 39.86, lon: -4.03, place: "Toledo", wiki: "Spanish_language", note: "Alfonso X makes Castilian the language of law and learning; it spreads with Spain's empire."}
+  - {key: italian, kind: language, title: "Italian (Dante's Divine Comedy)", year: 1320, about: true, lat: 43.77, lon: 11.25, place: "Florence", wiki: "Italian_language", note: "Dante writes in his Tuscan speech; it becomes the basis of standard Italian."}
+  - {key: turkish, kind: language, title: "Ottoman Turkish", year: 1300, about: true, lat: 40.18, lon: 29.06, place: "Bursa", wiki: "Ottoman_Turkish", note: "Turkish with many Arabic and Persian words; reformed and written in Latin letters from 1928."}
+  - {key: modern-english, kind: language, title: "Early Modern English (King James Bible, Shakespeare)", year: 1611, lat: 51.5, lon: -0.12, place: "London", wiki: "Early_Modern_English", note: "The King James Bible and Shakespeare's plays shape the English still read today."}
+  - {key: te-reo-written, kind: language, title: "Te reo Māori first written down", year: 1820, lat: -35.22, lon: 174.0, place: "Bay of Islands, New Zealand", wiki: "M%C4%81ori_language", note: "A Grammar and Vocabulary of the Language of New Zealand, made with Hongi Hika and Waikato, sets the spelling still used."}
+  - {key: hebrew-revival, kind: language, title: "Hebrew revived as a spoken language", year: 1881, lat: 31.78, lon: 35.23, place: "Jerusalem", wiki: "Revival_of_the_Hebrew_language", note: "Eliezer Ben-Yehuda's family speaks only Hebrew; it becomes Israel's language."}
+  - {key: modern-standard-chinese, kind: language, title: "Standard Chinese (Mandarin) adopted", year: 1913, lat: 39.9, lon: 116.4, place: "Beijing", wiki: "Standard_Chinese", note: "A national pronunciation is agreed, based on Beijing speech; now the world's most spoken first language."}
+
+# Which borders a ruler's state counts for, where neither the Wikidata ids nor the names
+# match (the borders file splits China and Egypt by dynasty, Wikidata files their rulers
+# under one "Chinese Empire" or "Ancient Egypt"). The state's Wikidata id -> border names;
+# a name starting with ~ matches any border name holding it. A ruler only counts in the
+# years both the reign and the borders cover, so one list can span many dynasties.
+ruler_states:
+  Q12060881: [Qin Dynasty, Han Dynasty, Xin Dynasty, Western Jin, Eastern Jin, Sui Dynasty, Tang Dynasty, Northern Song,
+              Southern Song, Yuan Dynasty, Ming Dynasty, Qing Dynasty]   # Chinese Empire
+  Q11768: ["~Egypt", Ptolemaic Kingdom]                                 # Ancient Egypt
+  Q1747689: [Roman Kingdom, Roman Republic, Roman Empire, Western Roman Empire]  # Ancient Rome
+  Q83958: ["~Macedon"]                                                  # Macedonia
+  Q171348: ["~Poland"]                                                  # Crown of the Kingdom of Poland
+  Q9391434: ["~Poland"]
+  Q104863335: ["~Poland"]
+  Q869: ["~Siam", "~Ayutthaya", "~Thailand", "~Rattanakosin"]           # Thailand
+  Q424: ["~Khmer", "~Cambodia"]
+  Q2638486: ["~Khmer", "~Cambodia"]
+  Q146246: ["~Frank", "~Francia"]                                       # Francia

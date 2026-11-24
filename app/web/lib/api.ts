@@ -374,6 +374,11 @@ export type Settings = {
   history_event_min_links: number; // events shown: articles in at least this many Wikipedias
   history_events_on_charts: boolean; // events as marks on the long charts
   map_history_year: number; // the year the Map's "World in year" layer shows
+  history_map_groups: string; // what the World-in-year maps mark: war, built, belief, city, disaster (comma list)
+  history_map_window: number; // ... from this many years either side
+  history_map_labels: number; // ... names written on the best-known this many
+  history_map_rulers: boolean; // rulers of the biggest states under the map
+  history_map_rulers_most: number;
   pack_nz: boolean; // refresh fetches the New Zealand pack
   ai_enabled: boolean; // Ask AI buttons, AI notes page, highlight menu's Ask AI
   ollama_url: string;
@@ -437,7 +442,7 @@ export type LongPower = {
 export type LongSeriesMeta = { name: string; unit: string; from: string; source: string; note?: string };
 export type LongFactorMeta = { id: string; name: string; how: string; series?: string[]; periods?: string };
 export type LongOverview = {
-  counts: { polities: number; long_series: number; history_events: number };
+  counts: { polities: number; long_series: number; history_events: number; history_rulers?: number };
   powers: LongPower[]; dynasties: string[]; regions: { id: string; name: string }[];
   pacific: { id: string; name: string; note: string }; series: Record<string, LongSeriesMeta>;
   factors: LongFactorMeta[]; stages: { n: number; name: string; about: string }[]; event_kinds: Record<string, string>;
@@ -449,14 +454,16 @@ export type LongEvent = {
   event_id: string; kind: string; title: string; year: number; end_year: number | null; month: number | null; day: number | null;
   lat: number | null; lon: number | null; place: string | null; entity_id: string | null; region: string | null;
   deaths: number | null; size: number | null; size_unit: string | null; links: number | null; url: string | null;
-  source_id: string; when: string;
+  source_id: string; when: string; about?: boolean; note?: string | null;
 };
+export type LongRuler = { name: string; post: string | null; from: number; to: number | null; when: string; url: string | null; links: number | null };
+export type LongStateRulers = { state: string; area_km2: number; hue: number; rulers: LongRuler[] };
 export type LongVoyage = { id: string; name: string; who: string; power: string | null; wikipedia: string;
   stops: { year: number; place: string; lat: number; lon: number }[] };
 export type LongPowerCard = {
   id: string; name: string; era: string; group: string | null; entity: string | null; colour: string | null; wikipedia: string | null;
   frames: LongFrame[]; bbox: [number, number, number, number] | null; from: number | null; to: number | null;
-  peak: LongFrame | null; events: LongEvent[]; voyages: LongVoyage[]; sizes: [number, number | null][];
+  peak: LongFrame | null; events: LongEvent[]; voyages: LongVoyage[]; sizes: [number, number | null][]; rulers?: LongRuler[];
 };
 export type GeoFeature = { type: "Feature"; geometry: GeoJSON.Geometry; properties: Record<string, unknown> };
 export type GeoCollection = { type: "FeatureCollection"; features: GeoFeature[]; year?: number };
@@ -1405,6 +1412,8 @@ export const api = {
   longRegions: () => get<LongRegionPop[]>("/long/regions"),
   longEvents: (q: { start?: number; end?: number; kind?: string; region?: string; entity?: string; bbox?: string; limit?: number; min_links?: number } = {}) =>
     get<LongEvent[]>("/long/events", q),
+  longEventWikipedia: (url: string) => get<Wikipedia>("/long/event-wikipedia", { url }),
+  longRulers: (year: number, most = 6, states?: string[]) => get<LongStateRulers[]>("/long/rulers", { year, most, states: states?.join(",") }),
   longVoyages: (power?: string) => get<LongVoyage[]>("/long/voyages", { power }),
   longFactors: (start = 1500, step = 10) => get<LongFactors>("/long/factors", { start, step }),
   longThenNow: (measure: string, powers?: string[]) => get<LongThenNow>("/long/thenandnow", { measure, powers: powers?.join(",") }),

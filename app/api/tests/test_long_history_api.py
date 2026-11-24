@@ -27,6 +27,7 @@ def client(tmp_path, monkeypatch):
                                                       "USA": (1000, 62000), "NLD": (1200, 55000), "FRA": (1100, 44000)}.items()
           for y, v in ((1820, vs[0]), (2020, vs[1]))],
     ])
+    con.execute("DELETE FROM history_events")  # the sample's own (from the data fixtures); these tests use their own
     con.executemany("INSERT INTO history_events VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, NULL, ?, ?, ?, NULL, NULL, ?, ?, ?, 'v1')", [
         ("wd:Q1", "battle", "Battle of Cannae", -216, 41.3, 16.1, "ITA", "europe", 70000, 60, "https://en.wikipedia.org/wiki/Battle_of_Cannae", "wikidata_history"),
         ("wd:Q2", "epidemic", "Black Death", 1346, 45.0, 30.0, None, "europe", 5e7, 120, "u", "wikidata_history"),
@@ -48,7 +49,8 @@ def test_overview_has_powers_with_peaks(client):
     assert next(p for p in r["powers"] if p["id"] == "eu")["has_borders"] is False
     assert r["dynasties"][0] == "shang" and "ming" in r["dynasties"]
     assert len(r["regions"]) == 8 and r["pacific"]["note"]
-    assert r["counts"]["polities"] > 500 and r["counts"]["history_events"] == 4
+    assert r["counts"]["polities"] > 500 and r["counts"]["history_events"] == 4 and r["counts"]["history_rulers"] > 10
+    assert r["event_kinds"]["built"].startswith("Built")
 
 
 def test_sizes_and_frames(client):
@@ -66,12 +68,28 @@ def test_sizes_and_frames(client):
 
 
 def test_events_filter_by_links_and_area(client):
-    ev = client.get("/api/v1/long/events?start=-500&end=1500").json()
+    ev = client.get("/api/v1/long/events?start=-500&end=1500&kind=battle,epidemic").json()
     assert [e["title"] for e in ev] == ["Battle of Cannae", "Black Death"]  # the skirmish has too few articles
     assert ev[0]["when"] == "216 BC"
     card = client.get("/api/v1/long/power/rome").json()
     assert any(e["title"] == "Battle of Cannae" for e in card["events"])
-    assert client.get("/api/v1/long/events?bbox=100,20,140,50").json()[0]["title"] == "Imjin War"
+    assert client.get("/api/v1/long/events?bbox=100,20,140,50&kind=war").json()[0]["title"] == "Imjin War"
+
+
+def test_typed_in_beginnings_join_the_events(client):
+    ev = client.get("/api/v1/long/events?start=600&end=650&kind=religion,writing,language,battle").json()
+    islam = next(e for e in ev if e["event_id"] == "bg:islam")
+    assert islam["year"] == 610 and islam["lat"] == 21.42 and islam["source_id"] == "typed_in" and islam["note"]
+    assert islam["url"] == "https://en.wikipedia.org/wiki/Islam" and not islam["about"]
+    buddha = client.get("/api/v1/long/events?start=-500&end=-470&kind=religion").json()
+    b = next(e for e in buddha if e["event_id"] == "bg:buddhism")
+    assert b["about"] and b["when"] == "about 480 BC"
+    # A typed-in beginning wins over Wikidata's copy of the same thing (Islam is Q432)
+    assert not any(e["event_id"] == "wd:Q432" for e in ev)
+    # Asking for one country leaves them out (they carry no country)
+    assert not any(e["source_id"] == "typed_in" for e in client.get("/api/v1/long/events?entity=ITA").json())
+    # Kinds the map has never heard of are simply empty
+    assert client.get("/api/v1/long/events?kind=nothing").json() == []
 
 
 def test_world_ruled_and_regions(client):
@@ -129,3 +147,44 @@ def test_world_without_geometry_then_shapes(client):
     assert keys and all(f["geometry"] is None for f in w["features"])
     got = client.post("/api/v1/long/shapes", json={"keys": keys[:2]}).json()
     assert set(got) == set(keys[:2]) and got[keys[0]]["type"] in ("Polygon", "MultiPolygon")
+
+
+def test_rulers_by_year_and_on_hover(client):
+    # Trajan ruled "Ancient Rome" in Wikidata; the borders call it the Roman Empire (beginnings.yaml ruler_states)
+    r = client.get("/api/v1/long/rulers?year=110").json()
+    rome = next(x for x in r if x["state"] == "Roman Empire")
+    assert rome["rulers"][0]["name"] == "Trajan" and rome["rulers"][0]["when"] == "AD 98 to AD 117"
+    w = client.get("/api/v1/long/world?year=110&geometry=false").json()
+    lab = next(f["properties"]["label"] for f in w["features"] if f["properties"]["name"] == "Roman Empire")
+    assert "Ruler: Trajan" in lab
+    # Matched by the same Wikidata id (Kingdom of England), and a queen before her husband who was king by marriage
+    eng = next(x for x in client.get("/api/v1/long/rulers?year=1555&most=30").json() if "England" in x["state"])
+    assert [x["name"] for x in eng["rulers"]] == ["Mary I", "Philip II of Spain"]
+    # China's dynasties all take the "Chinese Empire" rulers, each in its own years
+    yuan = next(x for x in client.get("/api/v1/long/rulers?year=1294&most=30").json() if x["state"] == "Yuan Dynasty")
+    assert yuan["rulers"][0]["name"] == "Kublai Khan"
+    assert client.get("/api/v1/long/rulers?year=-3000").json() == []
+    card = client.get("/api/v1/long/power/rome").json()
+    names = [x["name"] for x in card["rulers"]]
+    assert "Augustus" in names and "Hadrian" in names and names.index("Augustus") < names.index("Hadrian")
+
+
+def test_ruler_matching_by_name_and_open_reigns():
+    idx = {"by_qid": {"Q1": [{"person": "P1", "name": "King A", "post": "King of Sweden", "over_qid": "Q1", "over_name": "Sweden",
+                              "from_year": 1600, "to_year": None, "links": 50, "url": None, "open": True}]},
+           "by_name": {}, "aliases": {}}
+    idx["by_name"]["sweden"] = idx["by_qid"]["Q1"]
+    idx["by_qid"]["Q1"][0]["to_year"] = 1611
+    got = longhistory.rulers_of(idx, 1605, ["Kingdom of Sweden"], ["Q999"])
+    assert got[0]["name"] == "King A" and got[0]["when"] == "from 1600"  # by name; open reign shown as "from"
+    assert longhistory.rulers_of(idx, 1605, ["Swedenborg Land"], []) == []  # a whole word, not part of one
+
+
+def test_wikipedia_for_an_event_by_its_article(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(main.wiki, "fetch_page", lambda eid, target, reason="opened", kind="countries": calls.append((eid, target, kind)) or {
+        "title": target["article"], "extract": "x", "images": [], "fetched_at": "2099-01-01T00:00:00+00:00"})
+    r = client.get("/api/v1/long/event-wikipedia", params={"url": "https://en.wikipedia.org/wiki/Battle_of_Hastings"}).json()
+    assert calls[0][1]["article"] == "Battle of Hastings" and calls[0][2] == "empires" and calls[0][0].startswith("ev_")
+    assert r["page"]["extract"] == "x"
+    assert client.get("/api/v1/long/event-wikipedia", params={"url": "https://example.com/x"}).status_code == 422

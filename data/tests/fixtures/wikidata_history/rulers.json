@@ -1,0 +1,841 @@
+{
+"head": {
+"vars": []
+},
+"results": {
+"bindings": [
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1405"
+},
+"pLabel": {
+"type": "literal",
+"value": "Augustus"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "-0026-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "248"
+},
+"end": {
+"type": "literal",
+"value": "0014-08-17T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Augustus"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1425"
+},
+"pLabel": {
+"type": "literal",
+"value": "Trajan"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "0098-01-26T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "116"
+},
+"end": {
+"type": "literal",
+"value": "0117-08-06T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Trajan"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1427"
+},
+"pLabel": {
+"type": "literal",
+"value": "Hadrian"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "0117-08-10T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "113"
+},
+"end": {
+"type": "literal",
+"value": "0138-07-09T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Hadrian"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1430"
+},
+"pLabel": {
+"type": "literal",
+"value": "Marcus Aurelius"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "0161-03-06T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "178"
+},
+"end": {
+"type": "literal",
+"value": "0180-03-16T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Marcus_Aurelius"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q46696"
+},
+"pLabel": {
+"type": "literal",
+"value": "Theodosius I"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "0379-01-20T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "94"
+},
+"end": {
+"type": "literal",
+"value": "0395-01-18T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Theodosius_I"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q46696"
+},
+"pLabel": {
+"type": "literal",
+"value": "Theodosius I"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q18577504"
+},
+"posLabel": {
+"type": "literal",
+"value": "Byzantine emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12544"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Byzantine Empire"
+},
+"start": {
+"type": "literal",
+"value": "0379-01-20T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "94"
+},
+"end": {
+"type": "literal",
+"value": "0395-01-18T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Theodosius_I"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q41866"
+},
+"pLabel": {
+"type": "literal",
+"value": "Justinian I"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q18577504"
+},
+"posLabel": {
+"type": "literal",
+"value": "Byzantine emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12544"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Byzantine Empire"
+},
+"start": {
+"type": "literal",
+"value": "0527-04-03T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "120"
+},
+"end": {
+"type": "literal",
+"value": "0565-11-16T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Justinian_I"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q37594"
+},
+"pLabel": {
+"type": "literal",
+"value": "William the Conqueror"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q18810062"
+},
+"posLabel": {
+"type": "literal",
+"value": "Monarch of England"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q179876"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Kingdom of England"
+},
+"start": {
+"type": "literal",
+"value": "1066-12-31T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "113"
+},
+"end": {
+"type": "literal",
+"value": "1087-09-15T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/William_the_Conqueror"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q38370"
+},
+"pLabel": {
+"type": "literal",
+"value": "Henry VIII of England"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q18810062"
+},
+"posLabel": {
+"type": "literal",
+"value": "Monarch of England"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q179876"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Kingdom of England"
+},
+"start": {
+"type": "literal",
+"value": "1509-05-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "120"
+},
+"end": {
+"type": "literal",
+"value": "1547-02-07T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Henry_VIII_of_England"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q82674"
+},
+"pLabel": {
+"type": "literal",
+"value": "Mary I"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q18810062"
+},
+"posLabel": {
+"type": "literal",
+"value": "Monarch of England"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q179876"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Kingdom of England"
+},
+"start": {
+"type": "literal",
+"value": "1553-08-08T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "103"
+},
+"end": {
+"type": "literal",
+"value": "1558-11-27T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Mary_I"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q34417"
+},
+"pLabel": {
+"type": "literal",
+"value": "Philip II of Spain"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q111513255"
+},
+"posLabel": {
+"type": "literal",
+"value": "King of England (jure uxoris)"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q179876"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Kingdom of England"
+},
+"start": {
+"type": "literal",
+"value": "1554-08-04T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "111"
+},
+"end": {
+"type": "literal",
+"value": "1558-11-27T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Philip_II_of_Spain"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q7207"
+},
+"pLabel": {
+"type": "literal",
+"value": "Elizabeth I of England"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q18810062"
+},
+"posLabel": {
+"type": "literal",
+"value": "Monarch of England"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q179876"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Kingdom of England"
+},
+"start": {
+"type": "literal",
+"value": "1558-11-27T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "194"
+},
+"end": {
+"type": "literal",
+"value": "1603-03-24T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Elizabeth_I_of_England"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q7192"
+},
+"pLabel": {
+"type": "literal",
+"value": "Qin Shi Huang"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q268218"
+},
+"posLabel": {
+"type": "literal",
+"value": "Emperor of China"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12060881"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Chinese Empire"
+},
+"start": {
+"type": "literal",
+"value": "-0220-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "199"
+},
+"end": {
+"type": "literal",
+"value": "-0209-09-06T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Qin_Shi_Huang"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q7523"
+},
+"pLabel": {
+"type": "literal",
+"value": "Kublai Khan"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q268218"
+},
+"posLabel": {
+"type": "literal",
+"value": "Emperor of China"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12060881"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Chinese Empire"
+},
+"start": {
+"type": "literal",
+"value": "1271-12-25T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "110"
+},
+"end": {
+"type": "literal",
+"value": "1294-02-25T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Kublai_Khan"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1523"
+},
+"pLabel": {
+"type": "literal",
+"value": "Ramesses II"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q37110"
+},
+"posLabel": {
+"type": "literal",
+"value": "pharaoh"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q11768"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Egypt"
+},
+"start": {
+"type": "literal",
+"value": "-1278-05-20T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "105"
+},
+"end": {
+"type": "literal",
+"value": "-1211-01-01T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Ramesses_II"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q635"
+},
+"pLabel": {
+"type": "literal",
+"value": "Cleopatra"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q37110"
+},
+"posLabel": {
+"type": "literal",
+"value": "pharaoh"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q11768"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Egypt"
+},
+"start": {
+"type": "literal",
+"value": "-0050-08-27T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "175"
+},
+"end": {
+"type": "literal",
+"value": "-0029-08-10T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Cleopatra"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q255809"
+},
+"pLabel": {
+"type": "literal",
+"value": "Hürrem Sultan"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q59057"
+},
+"posLabel": {
+"type": "literal",
+"value": "haseki sultan"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12560"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ottoman Empire"
+},
+"start": {
+"type": "literal",
+"value": "1531-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "87"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Hürrem_Sultan"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q999001"
+},
+"pLabel": {
+"type": "literal",
+"value": "Queen consort example"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q999002"
+},
+"posLabel": {
+"type": "literal",
+"value": "queen consort of England"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q179876"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Kingdom of England"
+},
+"start": {
+"type": "literal",
+"value": "1540-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "60"
+},
+"end": {
+"type": "literal",
+"value": "1541-01-01T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Queen_consort_example"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q999003"
+},
+"pLabel": {
+"type": "literal",
+"value": "Open-ended ruler"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "0300-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "90"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Open-ended_ruler"
+}
+},
+{
+"p": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q999004"
+},
+"pLabel": {
+"type": "literal",
+"value": "Next ruler"
+},
+"pos": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q842606"
+},
+"posLabel": {
+"type": "literal",
+"value": "Roman emperor"
+},
+"jur": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q1747689"
+},
+"jurLabel": {
+"type": "literal",
+"value": "Ancient Rome"
+},
+"start": {
+"type": "literal",
+"value": "0305-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "80"
+},
+"end": {
+"type": "literal",
+"value": "0306-01-01T00:00:00Z"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Next_ruler"
+}
+}
+]
+}
+}

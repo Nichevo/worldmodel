@@ -6,7 +6,8 @@ each source; see connectors/history.py).
 * polities: each shape given one of history.yaml's regions by the centre of its largest
   piece (the Pacific too);
 * history_events: each event given a country (from its ISO3 code) and a region (from its
-  place), one row per event.
+  place), one row per event;
+* history_rulers: rulers and the years of their reigns, one row per person, post and start.
 """
 
 from __future__ import annotations
@@ -25,6 +26,9 @@ EVENTS_DDL = """CREATE TABLE history_events (event_id VARCHAR, kind VARCHAR, tit
     end_year INTEGER, month INTEGER, day INTEGER, lat DOUBLE, lon DOUBLE, place VARCHAR, entity_id VARCHAR,
     region VARCHAR, deaths DOUBLE, size DOUBLE, size_unit VARCHAR, links INTEGER, url VARCHAR, source_id VARCHAR,
     vintage VARCHAR)"""
+RULERS_DDL = """CREATE TABLE history_rulers (ruler_key VARCHAR, person VARCHAR, name VARCHAR, post VARCHAR,
+    over_qid VARCHAR, over_name VARCHAR, from_year INTEGER, to_year INTEGER, links INTEGER, url VARCHAR,
+    source_id VARCHAR, vintage VARCHAR)"""
 
 
 def region_boxes() -> list[tuple[str, float, float, float, float]]:
@@ -45,10 +49,18 @@ def region_sql(lat: str, lon: str) -> str:
 
 
 def compute(con: duckdb.DuckDBPyConnection) -> tuple[int, int, int]:
-    """Create the three tables (empty when no source has a vintage). Returns their row counts."""
+    """Create the four tables (empty when no source has a vintage). Returns the row counts of
+    long_series, polities and history_events."""
     con.execute(LONG_DDL)
     con.execute(POLITIES_DDL)
     con.execute(EVENTS_DDL)
+    con.execute(RULERS_DDL)
+    con.execute("""
+        INSERT INTO history_rulers
+        SELECT ruler_key, person, name, post, over_qid, over_name, from_year, to_year, links, url, source_id, vintage
+        FROM src.raw_history_rulers
+        WHERE name IS NOT NULL AND from_year IS NOT NULL
+        QUALIFY row_number() OVER (PARTITION BY ruler_key ORDER BY vintage DESC) = 1""")
     # Source codes: ISO3 as an entity's own id or one of its iso3 codes; "World" by name.
     con.execute("""
         INSERT INTO long_series

@@ -1,8 +1,9 @@
 """The Long history page: empires' sizes and borders over time, who ruled where, figures
 over centuries, events far back, voyages, the eight factors and the big cycle.
 
-Reads the warehouse tables polities, long_series and history_events (schema 1.8.0; a
-warehouse without them gives empty answers) and the set-up in the contract's history.yaml.
+Reads the warehouse tables polities, long_series, history_events (schema 1.8.0) and
+history_rulers (1.15.0; a warehouse without them gives empty answers), the set-up in the
+contract's history.yaml and the beginnings typed in in beginnings.yaml.
 Years are whole numbers, negative for BC, with no year 0.
 """
 
@@ -10,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import defaultdict
 from typing import Callable
 
@@ -20,7 +22,9 @@ Q = Callable[[str, list], list[dict]]
 FIRST_YEAR, LAST_YEAR = -3400, 2024
 EVENT_KINDS = {"war": "Wars", "battle": "Battles", "siege": "Sieges", "revolution": "Revolutions", "treaty": "Treaties",
                "epidemic": "Epidemics", "famine": "Famines", "earthquake": "Earthquakes", "volcano": "Volcanic eruptions",
-               "tsunami": "Tsunamis"}
+               "tsunami": "Tsunamis", "built": "Built (famous buildings and great works)", "city": "Cities founded",
+               "religion": "Religions and beliefs", "writing": "Writing", "language": "Languages"}
+TYPED_KINDS = ("religion", "writing", "language")  # kinds with typed-in beginnings (beginnings.yaml)
 
 
 def year_label(y: int | None) -> str:
@@ -36,7 +40,7 @@ def strip(name: str | None) -> str:
 # ----------------------------------------------------------------------------- what is loaded
 def counts(q: Q, has: Callable[[str], bool]) -> dict:
     out = {}
-    for t in ("polities", "long_series", "history_events"):
+    for t in ("polities", "long_series", "history_events", "history_rulers"):
         out[t] = q(f"SELECT count(*) AS n FROM {t}", [])[0]["n"] if has(t) else 0
     return out
 
@@ -167,21 +171,33 @@ def expansion(q: Q, pid: str, most: int = 24) -> dict:
     return {"type": "FeatureCollection", "features": feats}
 
 
-def world(q: Q, year: int, geometry: bool = True) -> dict:
+def world(q: Q, year: int, geometry: bool = True, idx: dict | None = None) -> dict:
     """Every state alive in a year (the parts, not the composites), named by the empire
     they belong to, for the World-in-year map. Without geometry, only the properties (the
     map asks for the shapes it does not have yet with shapes())."""
-    found = q(f"""SELECT polity_key, name, member_of, from_year, to_year, area_km2{', geojson' if geometry else ''} FROM polities
-                 WHERE NOT composite AND from_year <= ? AND to_year >= ? ORDER BY area_km2 DESC""", [year, year])
+    found = q(f"""SELECT polity_key, name, member_of, from_year, to_year, area_km2, wikidata{', geojson' if geometry else ''}
+                  FROM polities WHERE NOT composite AND from_year <= ? AND to_year >= ? ORDER BY area_km2 DESC""", [year, year])
+    # The empires' own Wikidata ids, for their rulers (a part names its empire, not its id).
+    whole_ids = {strip(r["name"]): r["wikidata"] for r in q(
+        "SELECT name, wikidata FROM polities WHERE composite AND from_year <= ? AND to_year >= ?", [year, year])} if idx else {}
     feats = []
     for r in found:
         whole = strip(r["member_of"]) or strip(r["name"])
+        ruler = ""
+        if idx:
+            rs = rulers_of(idx, year, [strip(r["name"]), whole], [r["wikidata"], whole_ids.get(whole)])
+            if rs:
+                ruler = f"<br/>Ruler: {_esc(rs[0]['name'])} ({rs[0]['when']})"
         feats.append({"type": "Feature", "geometry": json.loads(r["geojson"]) if geometry else None, "properties": {
             "key": r["polity_key"], "name": strip(r["name"]), "whole": whole, "hue": _hue(whole),
             "label": f"<b>{strip(r['name'])}</b>" + (f"<br/>part of {whole}" if whole != strip(r["name"]) else "")
                      + f"<br/>{year_label(r['from_year'])} to {year_label(r['to_year'])} with these borders"
-                     + f"<br/>{(r['area_km2'] or 0) / 1e6:.2f} million km²"}})
+                     + f"<br/>{(r['area_km2'] or 0) / 1e6:.2f} million km²" + ruler}})
     return {"type": "FeatureCollection", "features": feats, "year": year}
+
+
+def _esc(t: str) -> str:
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def shapes(q: Q, keys: list[str]) -> dict[str, dict]:
@@ -298,34 +314,182 @@ def regional_population(q: Q) -> list[dict]:
 
 def events(q: Q, start: int | None = None, end: int | None = None, kinds: list[str] | None = None, min_links: int = 5,
            bbox: tuple[float, float, float, float] | None = None, region: str | None = None, entity: str | None = None,
-           limit: int = 400) -> list[dict]:
-    where, params = ["(links IS NULL OR links >= ?)"], [min_links]
-    if start is not None:
-        where.append("coalesce(end_year, year) >= ?")
-        params.append(start)
-    if end is not None:
-        where.append("year <= ?")
-        params.append(end)
-    if kinds:
-        where.append("kind IN (SELECT unnest(?))")
-        params.append(kinds)
-    if bbox:
-        w, s, e, n = bbox
-        where.append("lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?")
-        params += [w, e, s, n]
-    if region:
-        where.append("region = ?")
-        params.append(region)
-    if entity:
-        where.append("entity_id = ?")
-        params.append(entity)
-    # The most notable first: Wikipedias with an article, then deaths (NOAA's have no article count).
-    found = q(f"""SELECT event_id, kind, title, year, end_year, month, day, lat, lon, place, entity_id, region, deaths,
-                         size, size_unit, links, url, source_id FROM history_events WHERE {' AND '.join(where)}
-                  ORDER BY coalesce(links, 0) + coalesce(ln(1 + deaths), 0) * 2 DESC, year LIMIT ?""", [*params, limit])
-    for r in found:
-        r["when"] = year_label(r["year"]) + (f" to {year_label(r['end_year'])}" if r["end_year"] and r["end_year"] != r["year"] else "")
-    return sorted(found, key=lambda r: r["year"])
+           limit: int = 400, has_table: bool = True) -> list[dict]:
+    """Events and beginnings in a span of years, the best-known first up to the limit, then in
+    year order. The typed-in beginnings (religions, writing, languages) are added to what
+    the warehouse holds, and win over Wikidata's copy of the same thing; they are left out
+    when asking for one country or region (they carry neither)."""
+    found: list[dict] = []
+    if has_table:
+        where, params = ["(links IS NULL OR links >= ?)"], [min_links]
+        if start is not None:
+            where.append("coalesce(end_year, year) >= ?")
+            params.append(start)
+        if end is not None:
+            where.append("year <= ?")
+            params.append(end)
+        if kinds:
+            where.append("kind IN (SELECT unnest(?))")
+            params.append(kinds)
+        if bbox:
+            w, s, e, n = bbox
+            where.append("lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?")
+            params += [w, e, s, n]
+        if region:
+            where.append("region = ?")
+            params.append(region)
+        if entity:
+            where.append("entity_id = ?")
+            params.append(entity)
+        # The most notable first: Wikipedias with an article, then deaths (NOAA's have no article count).
+        found = q(f"""SELECT event_id, kind, title, year, end_year, month, day, lat, lon, place, entity_id, region, deaths,
+                             size, size_unit, links, url, source_id FROM history_events WHERE {' AND '.join(where)}
+                      ORDER BY coalesce(links, 0) + coalesce(ln(1 + deaths), 0) * 2 DESC, year LIMIT ?""", [*params, limit])
+    typed = [] if region or entity else typed_beginnings(start, end, kinds, bbox)
+    if typed:
+        dup = {t["wikidata"] for t in typed if t.get("wikidata")}
+        found = [r for r in found if r["event_id"].removeprefix("wd:") not in dup]
+    out = []
+    for r in [*found, *typed]:
+        r.pop("wikidata", None)
+        r.setdefault("about", False)
+        r.setdefault("note", None)
+        r["when"] = ("about " if r["about"] else "") + year_label(r["year"]) \
+            + (f" to {year_label(r['end_year'])}" if r["end_year"] and r["end_year"] != r["year"] else "")
+        out.append(r)
+    return sorted(out, key=lambda r: r["year"])
+
+
+def typed_beginnings(start: int | None = None, end: int | None = None, kinds: list[str] | None = None,
+                     bbox: tuple[float, float, float, float] | None = None) -> list[dict]:
+    """The beginnings typed in in beginnings.yaml, in the shape of an event."""
+    out = []
+    for b in catalogue.beginnings()["beginnings"]:
+        y, last = int(b["year"]), int(b.get("end_year") or b["year"])
+        if (start is not None and last < start) or (end is not None and y > end) or (kinds and b["kind"] not in kinds):
+            continue
+        if bbox and not (bbox[0] <= b["lon"] <= bbox[2] and bbox[1] <= b["lat"] <= bbox[3]):
+            continue
+        out.append({"event_id": f"bg:{b['key']}", "kind": b["kind"], "title": b["title"], "year": y,
+                    "end_year": b.get("end_year"), "month": None, "day": None, "lat": b["lat"], "lon": b["lon"],
+                    "place": b.get("place"), "entity_id": None, "region": None, "deaths": None, "size": None,
+                    "size_unit": None, "links": None, "url": f"https://en.wikipedia.org/wiki/{b['wiki']}" if b.get("wiki") else None,
+                    "source_id": "typed_in", "about": bool(b.get("about")), "note": b.get("note"),
+                    "wikidata": b.get("wikidata")})
+    return out
+
+
+# ----------------------------------------------------------------------------- rulers
+def ruler_index(q: Q, has: Callable[[str], bool]) -> dict:
+    """Every ruler, by the state's Wikidata id and by its name in lower case, for matching to
+    the borders (kept by the caller until the build changes)."""
+    by_qid: dict[str, list[dict]] = defaultdict(list)
+    by_name: dict[str, list[dict]] = defaultdict(list)
+    if not has("history_rulers"):
+        return {"by_qid": {}, "by_name": {}, "aliases": {}}
+    for r in q("""SELECT person, name, post, over_qid, over_name, from_year, to_year, links, url FROM history_rulers
+                  ORDER BY from_year""", []):
+        by_qid[r["over_qid"]].append(r)
+    # A reign with no end runs to the next ruler's start over the same state (or its own year).
+    for rows in by_qid.values():
+        starts = sorted({r["from_year"] for r in rows})
+        for r in rows:
+            if r["to_year"] is None:
+                later = [y for y in starts if y > r["from_year"]]
+                r["to_year"] = later[0] if later and later[0] - r["from_year"] <= 80 else None
+                r["open"] = True
+            if r["over_name"]:
+                by_name[r["over_name"].lower()].append(r)
+    # Border names (or ~parts of names) -> the state ids whose rulers count for them.
+    aliases: dict[str, list[str]] = defaultdict(list)
+    for qid, names in catalogue.beginnings()["ruler_states"].items():
+        for n in names:
+            aliases[n.lower()].append(qid)
+    return {"by_qid": dict(by_qid), "by_name": dict(by_name), "aliases": dict(aliases)}
+
+
+def _reigning(rows: list[dict], year: int) -> list[dict]:
+    """Rulers whose reign takes in the year."""
+    out = []
+    for r in rows:
+        end = r["to_year"] if r["to_year"] is not None else r["from_year"]
+        if r["from_year"] <= year <= end:
+            out.append(r)
+    return out
+
+
+def rulers_of(idx: dict, year: int, names: list[str], qids: list[str]) -> list[dict]:
+    """Rulers in a year of a state known by these border names and Wikidata ids: by the same
+    id, by the state's own name inside a border name ("Sweden" in "Kingdom of Sweden"), or by
+    beginnings.yaml's ruler_states. The best-known first, one per person."""
+    if not idx["by_qid"]:
+        return []
+    cands: list[dict] = []
+    ids = {x for x in qids if x}
+    low = [n.lower() for n in names if n]
+    for key, qs in idx["aliases"].items():
+        if any((key[1:] in n) if key.startswith("~") else key == n for n in low):
+            ids.update(qs)
+    for qid in ids:
+        cands += idx["by_qid"].get(qid, [])
+    for over, rows in idx["by_name"].items():
+        if len(over) >= 4 and any(over == n or re.search(rf"\b{re.escape(over)}\b", n) for n in low):
+            cands += rows
+    seen, out = set(), []
+    # A queen's husband who was king by marriage ("jure uxoris") comes after the queen.
+    for r in sorted(_reigning(cands, year), key=lambda r: ("uxoris" in (r["post"] or ""), -(r["links"] or 0))):
+        if r["person"] in seen:
+            continue
+        seen.add(r["person"])
+        to = None if r.get("open") else r["to_year"]
+        out.append({"name": r["name"], "post": r["post"], "from": r["from_year"], "to": to,
+                    "when": ("from " if to is None else "") + year_label(r["from_year"]) + (f" to {year_label(to)}" if to else ""),
+                    "url": r["url"], "links": r["links"]})
+    return out
+
+
+def rulers_in(q: Q, idx: dict, year: int, most: int = 6, names: list[str] | None = None) -> list[dict]:
+    """The rulers of the biggest states alive in a year (by the land of all their parts), and
+    of any states asked for by name, for the strip under the World-in-year map."""
+    rows = q("""SELECT name, member_of, wikidata, area_km2 FROM polities
+                WHERE from_year <= ? AND to_year >= ? ORDER BY area_km2 DESC""", [year, year])
+    wholes: dict[str, dict] = {}
+    for r in rows:
+        whole = strip(r["member_of"]) if not r["name"].startswith("(") and r["member_of"] else strip(r["name"])
+        w = wholes.setdefault(whole, {"state": whole, "area_km2": 0.0, "names": set(), "qids": set()})
+        if not r["name"].startswith("("):
+            w["area_km2"] += r["area_km2"] or 0
+        w["names"].update({strip(r["name"]), whole})
+        w["qids"].add(r["wikidata"])
+    want = {n.lower() for n in names or []}
+    out = []
+    for w in sorted(wholes.values(), key=lambda w: -w["area_km2"]):
+        picked = w["state"].lower() in want
+        if len(out) >= most and not picked:
+            continue
+        rs = rulers_of(idx, year, sorted(w["names"]), sorted(x for x in w["qids"] if x))
+        if rs:
+            out.append({"state": w["state"], "area_km2": w["area_km2"], "hue": _hue(w["state"]), "rulers": rs[:2]})
+    return out
+
+
+def power_rulers(q: Q, idx: dict, pid: str, most: int = 80) -> list[dict]:
+    """Every known ruler of a power's states over its years, in order (the best-known when
+    there are more than `most`)."""
+    names = _power(pid).get("polities") or []
+    if not names or not idx["by_qid"]:
+        return []
+    rows = q(f"""SELECT name, wikidata, from_year, to_year FROM polities WHERE name IN ({', '.join('?' * len(names))})""", names)
+    if not rows:
+        return []
+    seen: dict[str, dict] = {}
+    spans = sorted({(r["from_year"], r["to_year"], r["name"], r["wikidata"]) for r in rows})
+    for f, t, name, qid in spans:
+        for y in range(f, t + 1, max(1, (t - f) // 40 or 1)):
+            for r in rulers_of(idx, y, [name], [qid]):
+                seen.setdefault(f"{r['name']}|{r['from']}", r)
+    out = sorted(seen.values(), key=lambda r: -(r["links"] or 0))[:most]
+    return sorted(out, key=lambda r: r["from"])
 
 
 def voyages(power: str | None = None) -> list[dict]:
@@ -337,7 +501,7 @@ def voyages(power: str | None = None) -> list[dict]:
     return out
 
 
-def power_card(q: Q, pid: str, has: Callable[[str], bool], min_links: int = 5) -> dict:
+def power_card(q: Q, pid: str, has: Callable[[str], bool], min_links: int = 5, idx: dict | None = None) -> dict:
     p = _power(pid)
     rows = _rows_of(q, p.get("polities") or []) if has("polities") else []
     fr = frames(rows)
@@ -348,12 +512,13 @@ def power_card(q: Q, pid: str, has: Callable[[str], bool], min_links: int = 5) -
     span = (fr[0]["from"], fr[-1]["to"]) if fr else (None, None)
     ev = []
     if box and has("history_events"):
-        ev = events(q, span[0], span[1], None, min_links, tuple(box), limit=60)  # type: ignore[arg-type]
+        ev = events(q, span[0], span[1], None, min_links, tuple(box), limit=120)  # type: ignore[arg-type]
+    rulers = power_rulers(q, idx, pid) if idx and rows else []
     peak = max(fr, key=lambda f: f["area_km2"]) if fr else None
     return {"id": pid, "name": p["name"], "era": p["era"], "group": p.get("group"), "entity": p.get("entity"),
             "colour": p.get("colour"), "wikipedia": p.get("wikipedia"), "frames": fr, "bbox": box,
             "from": span[0], "to": span[1], "peak": peak, "events": ev, "voyages": voyages(pid),
-            "sizes": sizes(q, [pid])[0]["points"] if fr else []}
+            "sizes": sizes(q, [pid])[0]["points"] if fr else [], "rulers": rulers}
 
 
 def ruled_here(q: Q, lat: float, lon: float) -> list[dict]:
