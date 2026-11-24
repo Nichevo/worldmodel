@@ -25,3 +25,24 @@ def test_refresh_only_rejects_unknown(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     r = CliRunner().invoke(app, ["refresh", "--only", "nosuch"])
     assert r.exit_code != 0
+
+
+def test_a_build_that_stops_without_a_report_says_where(tmp_path, monkeypatch):
+    """An error no check catches: a short message, and the details in a -stopped.txt beside the reports."""
+    from worldmodel_data import build as build_mod
+    from worldmodel_data.cli import _build_and_log
+    from worldmodel_data.config import paths
+    import typer
+    import pytest
+
+    monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
+
+    def stop(p, allow_shrink=False):
+        raise RuntimeError("something broke")
+
+    monkeypatch.setattr(build_mod, "build", stop)
+    with pytest.raises(typer.Exit):
+        _build_and_log(False, {"kind": "build", "sources": []})
+    files = list(paths().reports.glob("*-stopped.txt"))
+    assert len(files) == 1 and "RuntimeError: something broke" in files[0].read_text(encoding="utf-8")

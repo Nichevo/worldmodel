@@ -138,13 +138,35 @@ def build(allow_shrink: bool = typer.Option(False, help="Do not fail when a seri
     _build_and_log(allow_shrink, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []})
 
 
+def _close_crash(fh, crash: Path) -> None:
+    """The build ended normally: stop listening for crashes and remove the empty file."""
+    import faulthandler
+
+    faulthandler.disable()
+    fh.close()
+    try:
+        crash.unlink()
+    except OSError:
+        pass
+
+
 def _build_and_log(allow_shrink: bool, record: dict) -> None:
     """Build, then append the refresh log record: checks, rows changed per source, disk use."""
     p = paths()
     previous = p.current_build()
+    # If the build stops without a report (a crash inside a library, or an error no check catches),
+    # say where it stopped in a file beside the reports, so it can be read after the window closes.
+    p.reports.mkdir(parents=True, exist_ok=True)
+    crash = p.reports / f"{now_utc().strftime('%Y%m%dT%H%M%SZ')}-stopped.txt"
+    fh = crash.open("w", encoding="utf-8")
+    import faulthandler
+    import traceback
+
+    faulthandler.enable(fh, all_threads=False)
     try:
         result = build_mod.build(p, allow_shrink=allow_shrink)
     except build_mod.BuildFailed as exc:
+        _close_crash(fh, crash)
         typer.echo(f"BUILD FAILED: {exc}", err=True)
         for f in exc.failures:  # a short summary; the report has the rest
             typer.echo(f"  FAILED {f['check_id']}: {f['detail']}", err=True)
@@ -155,6 +177,15 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
                  "build_id": exc.report.stem if exc.report else None, "failures": exc.failures})
         _echo_problems(p)
         raise typer.Exit(1)
+    except Exception as exc:  # noqa: BLE001 - say what stopped it, keep the details in the file
+        faulthandler.disable()
+        fh.write("The build stopped with this error:\n\n" + traceback.format_exc())
+        fh.close()
+        typer.echo(f"BUILD STOPPED: {type(exc).__name__}: {exc}", err=True)
+        typer.echo(f"  The live warehouse is unchanged. Details: {crash}", err=True)
+        _log(p, {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:500], "build_id": None})
+        raise typer.Exit(1)
+    _close_crash(fh, crash)
     counts = {s: sum(c.status == s for c in result.checks) for s in ("pass", "warn", "fail", "skip")}
     changes = monitor.diff_builds(result.path, previous)
     by_source = {s["source_id"]: s for s in record["sources"]}

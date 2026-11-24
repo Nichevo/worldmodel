@@ -24,6 +24,7 @@ worldmodel-data build
 if errorlevel 1 (
   echo.
   echo The build did not pass its checks; see above and the Data status page. The app keeps the last good build.
+  if not defined WM_NO_PAUSE (echo. & pause)
   exit /b 1
 )
 echo.

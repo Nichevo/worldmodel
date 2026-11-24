@@ -14,13 +14,17 @@ if errorlevel 1 (
   call "%CONDA_BAT%" env update -n worldmodel -f environment.yml || goto :fail
 )
 call "%CONDA_BAT%" env config vars set -n worldmodel WORLDMODEL_HOME=%~dp0var >nul || goto :fail
+set WM_NO_PAUSE=1
 call "%~dp0update.bat" || goto :fail
+set WM_NO_PAUSE=
 echo.
 echo Setup done. Data will be kept in %~dp0var
 echo Start the app with: start.bat
+echo. & pause
 exit /b 0
 
 :fail
 echo.
 echo Setup stopped; see the message above.
+echo. & pause
 exit /b 1
