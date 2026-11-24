@@ -165,6 +165,20 @@
   status: active
   default_rank: 9
 
+- id: map_layers
+  name: Map layer counts
+  short_name: Map layers
+  publisher: This app
+  url: ""
+  licence: Inherits the licence of the map layer counted
+  licence_url: ""
+  commercial_use: false
+  cadence: Every warehouse build
+  attribution: "Counted by worldmodel from the map layers (hospitals, ports, power plants and the rest): how many each country has on the map, per million people, and their size total where the layer's source gives one."
+  status: active
+  default_rank: 9
+  definition: exploratory
+
 - id: powell_thyne
   name: Coups d'etat since 1950 (Powell and Thyne)
   short_name: Coups
