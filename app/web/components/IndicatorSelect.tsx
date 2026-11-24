@@ -24,7 +24,8 @@ const STRIP_W = 84;
 export default function IndicatorSelect({ indicators, value, onChange, skip, label = "Indicator", className, none }: {
   indicators: Indicator[]; value: string; onChange: (id: string) => void; skip?: string; label?: string; className?: string; none?: string;
 }) {
-  const { quality_show: show, quality_type: type, year_strips: strips } = useSettings();
+  const { quality_show: show, quality_type: type, year_strips: strips, forecast_horizon: horizon } = useSettings();
+  const [folded, setFolded] = useState<Record<string, boolean>>({});
   const years = useIndicatorYears(strips);
   const [span, setSpan] = useState<Span>("");
   const [hover, setHover] = useState<string | null>(null);
@@ -70,7 +71,19 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
     : list.filter((i) => !hidden(i))).filter(spanOk);
   const starred = found.filter((i) => isStarred(i, local));
   const rest = found.filter((i) => !isStarred(i, local));
-  const domains = [...new Set(rest.map((i) => i.domain))];
+  // Indicators under another (Male population under Population) follow it, indented; one whose
+  // parent is filtered out stands alone with "under Population" beside it.
+  const restIds = new Set(rest.map((i) => i.indicator_id));
+  const kids = new Map<string, Indicator[]>();
+  const KIND_ORDER = { part: 0, sex: 1, share: 2 } as const;
+  for (const i of rest) {
+    const p = i.part_of?.parent;
+    if (p && restIds.has(p)) kids.set(p, [...(kids.get(p) ?? []), i]);
+  }
+  kids.forEach((l) => l.sort((a, b) => KIND_ORDER[a.part_of!.kind] - KIND_ORDER[b.part_of!.kind]));
+  const tops = rest.filter((i) => !(i.part_of && restIds.has(i.part_of.parent)));
+  const domains = [...new Set(tops.map((i) => i.domain))];
+  const nameOf = (id: string) => indicators.find((i) => i.indicator_id === id)?.name ?? id;
   const pick = (id: string) => { onChange(id); setOpen(false); setQ(""); };
   const shownCount = list.filter((i) => !hidden(i) && spanOk(i)).length;
   const yearsOf = (i: Indicator) => {
@@ -78,8 +91,8 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
     if (!y) return null;
     const t = yearsText(y);
     return (
-      <span className="isel-years" title={yearsSentence(y)}>
-        <span>{t.hist}{t.proj && <span className="proj"> {t.proj}</span>}</span>
+      <span className="isel-years" title={yearsSentence(y, horizon)}>
+        <span>{t.hist}{t.proj && <span className="proj"> {t.proj}</span>}{t.by && <span className="isel-by"> {t.by}</span>}</span>
         <YearStrip years={years?.[i.indicator_id]} first={i.first_year} last={i.last_year} lastHist={i.last_estimate_year} width={STRIP_W} />
       </span>
     );
@@ -87,17 +100,28 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
   const footFor = indicators.find((i) => i.indicator_id === (hover ?? value));
   const footSum = footFor ? sums.get(footFor.indicator_id) : undefined;
 
-  const row = (i: Indicator) => {
+  const KIND_TAG = { part: "part", sex: "by sex", share: "% of" } as const;
+  const row = (i: Indicator, child = false) => {
     const st = isStarred(i, local);
     const why = words.length ? hidden(i) : null;
+    const n = child ? 0 : (kids.get(i.indicator_id)?.length ?? 0);
+    const orphan = !child && i.part_of && !restIds.has(i.part_of.parent);
     return (
-      <li key={i.indicator_id} className={`isel-row${i.indicator_id === value ? " on" : ""}${why ? " isel-hidden" : ""}`}
+      <li key={i.indicator_id} className={`isel-row${child ? " isel-child" : ""}${i.indicator_id === value ? " on" : ""}${why ? " isel-hidden" : ""}`}
         onMouseEnter={() => setHover(i.indicator_id)} onFocus={() => setHover(i.indicator_id)}>
         <button className="isel-star" aria-label={st ? `Unstar ${i.name}` : `Star ${i.name}`} title={st ? "Starred: always in the lists" : "Star: always keep in the lists"}
           aria-pressed={st} onClick={() => setStar(i.indicator_id, !st)}>{st ? "★" : "☆"}</button>
+        {child && <span className="isel-kind" title={`${i.name} is ${{ part: "a part of", sex: "the women's or men's figure for", share: "a share of" }[i.part_of!.kind]} ${nameOf(i.part_of!.parent)}`}>{KIND_TAG[i.part_of!.kind]}</span>}
         <button className="isel-pick" onClick={() => pick(i.indicator_id)}>
           {i.name}{why && <span className="muted small"> (hidden: {why})</span>}
+          {orphan && <span className="muted small"> (under {nameOf(i.part_of!.parent)})</span>}
         </button>
+        {n > 0 && (
+          <button className="isel-fold" aria-expanded={!folded[i.indicator_id]} title={`${n} indicator${n === 1 ? "" : "s"} under ${i.name}: show or hide them`}
+            onClick={() => setFolded({ ...folded, [i.indicator_id]: !folded[i.indicator_id] })}>
+            {folded[i.indicator_id] ? `▸ ${n}` : `▾ ${n}`}
+          </button>
+        )}
         {yearsOf(i)}
         {i.grade && <span className={`grade grade-${i.grade}`} title={`Grade ${i.grade}: ${GRADE_TEXT[i.grade]}`}>{i.grade}</span>}
       </li>
@@ -110,7 +134,7 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
         <span className="isel-name">{current?.name ?? (none && value === NO_INDICATOR ? none : "Choose…")}</span>
         {current && sums.get(current.indicator_id) && (
           <YearStrip years={years?.[current.indicator_id]} first={current.first_year} last={current.last_year}
-            lastHist={current.last_estimate_year} width={48} title={yearsSentence(sums.get(current.indicator_id)!)} />
+            lastHist={current.last_estimate_year} width={48} title={yearsSentence(sums.get(current.indicator_id)!, horizon)} />
         )}
         {current?.grade && <span className={`grade grade-${current.grade}`}>{current.grade}</span>}
         <span aria-hidden className="isel-caret">▾</span>
@@ -135,7 +159,7 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
           {strips && (
             <div className="isel-axis" aria-hidden>
               <span><span className="key-e" />history</span>
-              <span><span className="key-p" />forecast</span>
+              <span title="The source's own forecast (UN, IMF, World Bank...). Our statistical forecast is the Forecast button on charts."><span className="key-p" />source forecast</span>
               <span><span className="key-now" />now</span>
               <span className="ticks" style={{ width: STRIP_W }} title="Years before 1950 are squeezed into the left end">
                 <span style={{ left: stripX(STRIP_KNEE, STRIP_W) }}>1950</span>
@@ -151,16 +175,17 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
               </li>
             )}
             {starred.length > 0 && <li className="isel-head">Starred</li>}
-            {starred.map(row)}
+            {starred.map((i) => row(i))}
             {domains.map((d) => [
               <li key={`h-${d}`} className="isel-head">{d[0].toUpperCase() + d.slice(1)}</li>,
-              ...rest.filter((i) => i.domain === d).map(row),
+              ...tops.filter((i) => i.domain === d).flatMap((i) => [row(i),
+                ...(folded[i.indicator_id] ? [] : (kids.get(i.indicator_id) ?? []).map((c) => row(c, true)))]),
             ])}
             {!found.length && <li className="muted small isel-empty">{words.length ? "No indicator has those words." : "Nothing at this level: try Show: Everything, or star some."}</li>}
           </ul>
           {strips && (
             <div className="isel-foot" aria-live="polite">
-              {footFor && footSum ? <><b>{footFor.name}</b>: {yearsSentence(footSum)}</> : "Point at an indicator to see its years."}
+              {footFor && footSum ? <><b>{footFor.name}</b>: {yearsSentence(footSum, horizon)}{footFor.part_of && <> Sits under {nameOf(footFor.part_of.parent)}.</>}</> : "Point at an indicator to see its years."}
             </div>
           )}
         </div>

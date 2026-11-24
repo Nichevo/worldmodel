@@ -46,6 +46,8 @@ export type Indicator = {
   grade?: Grade | null; // A core, B good, C usable, D exploratory (yours when you set one)
   type?: MeasureType; // level, per person, rate or share...
   starred?: boolean; // kept in every drop-down whatever its grade
+  // sits under another indicator in the drop-downs: part (adds up to it), sex (women's or men's figure), share (% of it)
+  part_of?: { parent: string; kind: "part" | "sex" | "share" } | null;
 };
 
 export type Grade = "A" | "B" | "C" | "D";

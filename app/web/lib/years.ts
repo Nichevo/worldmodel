@@ -65,14 +65,20 @@ export function summarise(i: Indicator, y: IndicatorYears | undefined): YearSumm
     gaps, every, by: y.by ?? [], countries: y.countries };
 }
 
-// The short text beside a strip: "1960–2023" and, in orange, "→ 2050".
-export function yearsText(s: YearSummary): { hist: string; proj: string } {
+// The short text beside a strip: "1960–2023" and, in orange, "→ 2050" with who forecasts ("UN WPP").
+export function yearsText(s: YearSummary): { hist: string; proj: string; by: string } {
   const hist = s.first == null ? "no history" : s.first === s.lastHist ? `${s.first}` : `${s.first}–${s.lastHist}`;
-  return { hist, proj: s.projTo != null ? `→ ${s.projTo}` : "" };
+  const by = s.projTo == null || !s.by.length ? "" : shortName(s.by[0]) + (s.by.length > 1 ? ` +${s.by.length - 1}` : "");
+  return { hist, proj: s.projTo != null ? `→ ${s.projTo}` : "", by };
+}
+
+// A forecaster's name short enough for a row: "Wittgenstein Centre" -> "Wittgenstein".
+function shortName(name: string): string {
+  return name.length <= 9 ? name : name.split(/\s+/)[0];
 }
 
 // The longer line for the drop-down's foot and the strip's hover text.
-export function yearsSentence(s: YearSummary): string {
+export function yearsSentence(s: YearSummary, horizon?: number): string {
   const what = s.countries ? "countries" : "places";
   const parts: string[] = [];
   if (s.first == null) parts.push("No history in this build.");
@@ -84,8 +90,12 @@ export function yearsSentence(s: YearSummary): string {
     if (s.gaps) h += `; ${s.gaps} year${s.gaps === 1 ? "" : "s"} missing in between`;
     parts.push(h + ".");
   }
-  if (s.projTo != null) parts.push(`Forecast ${s.projFrom === s.projTo ? s.projTo : `${s.projFrom} to ${s.projTo}`}${s.by.length ? ` by ${s.by.join(", ")}` : ""}.`);
-  else parts.push("No forecasts from the source.");
+  if (s.projTo != null) {
+    parts.push(`Forecast ${s.projFrom === s.projTo ? s.projTo : `${s.projFrom} to ${s.projTo}`}` +
+      `${s.by.length ? ` from ${s.by.join(" and ")}` : " from the source"} (their own, stored with the figures).`);
+    if (horizon) parts.push(`Our statistical forecast is separate: the Forecast button on charts, ${horizon} years ahead.`);
+  } else if (horizon) parts.push(`No forecast from the source; the Forecast button on charts makes our own statistical one, ${horizon} years ahead.`);
+  else parts.push("No forecast from the source.");
   return parts.join(" ");
 }
 

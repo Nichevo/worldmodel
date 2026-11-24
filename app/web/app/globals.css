@@ -788,6 +788,11 @@ tr.selected td { background: color-mix(in srgb, var(--accent) 10%, transparent);
 .isel-years { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-size: 11px; color: var(--ink-2);
   font-variant-numeric: tabular-nums; white-space: nowrap; }
 .isel-years .proj { color: var(--forecast); }
+.isel-by { color: var(--forecast); font-size: 10px; opacity: 0.85; }
+.isel-child { margin-left: 14px; border-left: 2px solid var(--border); border-radius: 0 4px 4px 0; padding-left: 4px; }
+.isel-child .isel-pick { font-size: 0.95em; }
+.isel-kind { flex-shrink: 0; font-size: 10px; color: var(--ink-2); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; line-height: 14px; }
+.isel-fold { flex-shrink: 0; background: none; border: 0; cursor: pointer; color: var(--ink-2); font-size: 11px; padding: 0 2px; font-variant-numeric: tabular-nums; }
 .isel-axis { display: flex; justify-content: flex-end; align-items: center; gap: 6px; font-size: 10px; color: var(--ink-2); padding: 0 30px 0 4px; }
 .isel-axis .key-e, .isel-axis .key-p { display: inline-block; width: 10px; height: 8px; border-radius: 1px; vertical-align: -1px; margin-right: 3px; }
 .isel-axis .key-e { background: var(--ink-2); }
