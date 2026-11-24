@@ -1318,7 +1318,7 @@ export const api = {
   zones: () => get<Zone[]>("/zones"),
   beyondOthers: () => get<BeyondOther[]>("/beyond/others"),
   relationships: (q: { label?: string; domain?: string; group?: string; q?: string; indicator?: string; drivers?: boolean;
-    hide_same?: boolean; first?: boolean; hide_same_source?: boolean; built?: BuiltFilter; limit?: number; offset?: number }) =>
+    hide_same?: boolean; first?: boolean; hide_same_source?: boolean; built?: BuiltFilter; lag?: number; limit?: number; offset?: number }) =>
     get<RelationList>("/relationships", { ...q, built: q.built && q.built !== "last" ? q.built : undefined, drivers: q.drivers ? "true" : undefined, first: q.first ? "true" : undefined,
       hide_same: q.hide_same === false ? "false" : undefined, hide_same_source: q.hide_same_source ? "true" : undefined }),
   climate: () => get<ClimateOverview>("/climate"),

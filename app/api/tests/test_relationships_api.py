@@ -75,6 +75,9 @@ def test_list_and_filters(client):
     assert client.get("/api/v1/relationships?built=only&hide_same=false").json()["total"] == 0
     assert client.get("/api/v1/relationships?built=hide").json()["total"] == 1
     assert client.get("/api/v1/relationships?built=nonsense").status_code == 422
+    assert client.get("/api/v1/relationships?lag=1").json()["total"] == 1  # the pair comes first by 1 year
+    assert client.get("/api/v1/relationships?lag=3&hide_same=false").json()["total"] == 0
+    assert client.get("/api/v1/relationships?lag=9").status_code == 422
 
 
 def test_pairs_built_from_each_other_are_tagged_and_listed_last(client, monkeypatch):
