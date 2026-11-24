@@ -42,8 +42,9 @@ log = logging.getLogger(__name__)
 
 USER_AGENT = "worldmodel/0.1 (personal local tool) httpx"
 GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/{t}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png"
-TERRASCOPE = ("https://services.terrascope.be/wmts/v2?layer={layer}&style=&tilematrixset=EPSG:3857&Service=WMTS"
-              "&Request=GetTile&Version=1.0.0&Format=image%2Fpng&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}")
+# Terrascope's map proxy (the one ESA's WorldCover viewer uses). The older services.terrascope.be/wmts/v2
+# address stopped answering in November 2026. Pictures go to zoom 14 (MapLibre enlarges past that).
+TERRASCOPE = "https://mapproxy.terrascope.be/mapproxy/wmts/{layer}/webmercator/{z}/{x}/{y}.png"
 SETS: dict[str, dict] = {
     "relief": {"url": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png", "ext": "png", "maxzoom": 15,
                "kb": 70, "label": "Shaded relief",
@@ -55,8 +56,8 @@ SETS: dict[str, dict] = {
               "times": {"2016": ("VIIRS_Black_Marble", "2016-01-01"), "2012": ("VIIRS_Black_Marble", "2012-01-01"),
                         "latest": ("VIIRS_SNPP_DayNightBand_ENCC", None)},
               "attribution": "Night lights: NASA Earth Observatory Black Marble, VIIRS (NASA GIBS)"},
-    "landcover": {"url": TERRASCOPE, "ext": "png", "maxzoom": 15, "kb": 12, "label": "Land cover",
-                  "times": {"2021": ("WORLDCOVER_2021_MAP", "2021"), "2020": ("WORLDCOVER_2020_MAP", "2020")},
+    "landcover": {"url": TERRASCOPE, "ext": "png", "maxzoom": 14, "kb": 12, "label": "Land cover",
+                  "times": {"2021": ("esa-worldcover-map-10m-2021-v2_map", "2021"), "2020": ("esa-worldcover-map-10m-2020-v1_map", "2020")},
                   "attribution": "Land cover: ESA WorldCover 2020/2021 (CC BY 4.0), Terrascope"},
     "lcyears": {"url": "cci", "ext": "png", "maxzoom": 9, "kb": 9, "label": "Land cover by year (ESA CCI)",
                 "times": {str(y): (str(y), str(y)) for y in range(2020, 1991, -1)},

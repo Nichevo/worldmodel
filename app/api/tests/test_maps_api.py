@@ -123,3 +123,10 @@ def test_missing_tile_is_a_blank_picture(client, monkeypatch):
     r = client.get("/api/v1/tiles/landcover/3/7/4?t=2021")
     assert r.status_code == 200 and r.headers["content-type"] == "image/png" and r.headers["x-tile-missing"] == "1"
     assert r.content.startswith(b"\x89PNG")
+
+
+def test_worldcover_tiles_come_from_the_terrascope_map_proxy():
+    assert tiles.upstream("landcover", 10, 1012, 640, "2021") == \
+        "https://mapproxy.terrascope.be/mapproxy/wmts/esa-worldcover-map-10m-2021-v2_map/webmercator/10/1012/640.png"
+    assert "esa-worldcover-map-10m-2020-v1_map" in tiles.upstream("landcover", 3, 7, 4, "2020")
+    assert tiles.tile("landcover", 15, 0, 0, "2021", online=False) is None  # past the proxy's zoom 14
