@@ -181,3 +181,34 @@ def test_metaculus_leaves_out_items_the_api_says_no_to(tmp_path, monkeypatch):
     monkeypatch.setattr(c2, "_follow", lambda raw: set())
     with pytest.raises(cc.ConnectorError, match=r"403\) for https://www.metaculus.com/api/posts/"):
         c2.download(tmp_path, "2026-11-24")
+
+
+def test_metaculus_too_many_requests_on_comments_keeps_the_rest(tmp_path, monkeypatch):
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    calls = {"comments": 0}
+
+    def handler(req):
+        if req.url.path.endswith("/comments/"):
+            calls["comments"] += 1
+            return httpx.Response(429, json={"detail": "Request was throttled."}, headers={"retry-after": "0"})
+        if req.url.path.endswith("/users/me/"):
+            return httpx.Response(200, json={"id": None})
+        return httpx.Response(200, json={"results": [], "next": None})
+
+    c = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.gap = 0
+    monkeypatch.setenv("METACULUS_TOKEN", "test")
+    monkeypatch.setattr(c, "_settings", lambda raw: {"crowd_categories": "economics"})
+    monkeypatch.setattr(c, "_follow", lambda raw: set())
+    monkeypatch.setattr(c, "_last", lambda raw: None)
+    q = {"key": "metaculus:1", "site_id": 1, "status": "open", "comments": 5}
+    monkeypatch.setattr(cc, "keep_question", lambda q, follow: True)
+    orig = c._posts
+    monkeypatch.setattr(c, "_posts", lambda h, p, n: [{"id": 1}] if "categories" in p else orig(h, p, n))
+    monkeypatch.setattr(cc, "mc_question", lambda post: (q, [{"question_key": "metaculus:1", "at": "2026-11-24", "chance": 0.5,
+                                                                "origin": "site"}], []) if post.get("id") == 1 else (None, [], []))
+    c.download(tmp_path, "2026-11-24")  # does not stop
+    assert calls["comments"] == 2  # asked once, waited as told, asked again, then left the comments for next time
