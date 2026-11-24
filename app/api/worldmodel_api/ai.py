@@ -25,6 +25,7 @@ import secrets
 import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Iterator
 
@@ -266,7 +267,7 @@ def can_see(model: str, settings: dict) -> bool:
     key = (ollama_url(settings), model)
     if key not in _SEES:
         try:
-            with _client(10) as c:
+            with _client(5) as c:
                 r = c.post(f"{ollama_url(settings)}/api/show", json={"model": model})
                 caps = r.json().get("capabilities") or [] if r.status_code == 200 else []
         except (httpx.HTTPError, ValueError):
@@ -392,7 +393,12 @@ def status(settings: dict | None = None) -> dict:
     out = {"enabled": s["ai_enabled"], "ollama": {"url": ollama_url(s), "ok": False, "error": None, "version": None},
            "models": [], "default_model": None, "compare_model": s["ai_model_compare"] or None}
     try:
-        out["models"] = [{**m, "vision": can_see(m["name"], s)} for m in models(s)]
+        found = models(s)
+        # Asked side by side: one at a time, a busy Ollama (loading a big model) made this call
+        # slower than the web server waits, and the Ask AI box then showed "No models".
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            sees = list(pool.map(lambda m: can_see(m["name"], s), found))
+        out["models"] = [{**m, "vision": v} for m, v in zip(found, sees)]
         out["ollama"]["ok"] = True
         with _client(5) as c:
             v = c.get(f"{ollama_url(s)}/api/version")

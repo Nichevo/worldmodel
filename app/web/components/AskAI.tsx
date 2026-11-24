@@ -22,6 +22,7 @@ export default function AskAI() {
   const [parts, setParts] = useState<(AskPart & { on: boolean; open: boolean })[]>([]);
   const [question, setQuestion] = useState("");
   const [status, setStatus] = useState<AIStatus | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null); // the models could not be fetched at all
   const [model, setModel] = useState("");
   const [second, setSecond] = useState("");
   const [search, setSearch] = useState(false);
@@ -33,6 +34,17 @@ export default function AskAI() {
   const pending = useRef(false); // asked from the top bar: ask once a model is known
   const abort = useRef<AbortController | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+
+  // Before, a failed or slow fetch left the drop-down on "No models" with nothing to say why.
+  const loadStatus = (compare: boolean, compareWith: string) => {
+    setStatus(null);
+    setStatusError(null);
+    api.aiStatus().then((st) => {
+      setStatus(st);
+      setModel((m) => m || st.default_model || "");
+      setSecond(compare ? compareModel(st, compareWith, st.default_model ?? "") : "");
+    }).catch((e) => setStatusError(String((e as Error).message || e).replace(/^\d+: /, "")));
+  };
 
   useEffect(() => onAsk((r) => {
     const ticked = s.ai_context_default.split(",");
@@ -47,11 +59,7 @@ export default function AskAI() {
     setStatus(null); // a question from the top bar waits for the models, then asks
     pending.current = !!(r.send && r.question);
     r.picture?.().then((url) => { if (url) setPics([{ key: "this", title: "the chart", url, on: true }]); }).catch(() => undefined);
-    api.aiStatus().then((st) => {
-      setStatus(st);
-      setModel((m) => m || st.default_model || "");
-      setSecond(s.ai_compare_default ? compareModel(st, s.ai_model_compare, st.default_model ?? "") : "");
-    }).catch(() => setStatus(null));
+    loadStatus(s.ai_compare_default, s.ai_model_compare);
     setTimeout(() => box.current?.focus(), 50);
   }), [s.ai_context_default, s.ai_model_compare, s.ai_compare_default, s.ai_search_default]);
 
@@ -149,7 +157,18 @@ export default function AskAI() {
         <Link href="/ai" className="small">AI notes</Link>
         <button className="x" aria-label="Close" onClick={() => { abort.current?.abort(); setReq(null); }}>×</button>
       </div>
-      {status && !status.ollama.ok && <p className="error small">{status.ollama.error}</p>}
+      {statusError && (
+        <p className="error small">
+          Could not get your models from the app&apos;s server ({statusError}). Is the server window still running?{" "}
+          <button className="link small" onClick={() => loadStatus(s.ai_compare_default, s.ai_model_compare)}>Try again</button>
+        </p>
+      )}
+      {status && !status.ollama.ok && (
+        <p className="error small">
+          {status.ollama.error}{" "}
+          <button className="link small" onClick={() => loadStatus(s.ai_compare_default, s.ai_model_compare)}>Try again</button>
+        </p>
+      )}
       {status?.ollama.ok && !models.length && <p className="error small">No models installed in Ollama. Install one, for example: <code>ollama pull qwen3:32b</code></p>}
 
       <details className="ask-context" open={turns.length === 0}>
@@ -204,7 +223,7 @@ export default function AskAI() {
           onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) ask(); }} />
         <div className="ask-controls small">
           <select value={model} onChange={(e) => setModel(e.target.value)} aria-label="Model">
-            {!models.length && <option value="">No models</option>}
+            {!models.length && <option value="">{!status && !statusError ? "Finding models…" : "No models"}</option>}
             {models.map((m) => <option key={m} value={m}>{m}{sees.has(m) ? " (sees pictures)" : ""}</option>)}
           </select>
           {second ? (
