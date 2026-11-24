@@ -4,21 +4,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EChartsOption } from "echarts";
-import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
 import ElectricityMap from "@/components/ElectricityMap";
+import EnergyFlowCard from "@/components/EnergyFlowCard";
 import LargestCities from "@/components/LargestCities";
 import SeaIceCard from "@/components/SeaIceCard";
 import WorldMap from "@/components/WorldMap";
-import { openAsk } from "@/lib/ai";
 import { api, get, type Indicator, type MapRange, type Ranking, type RankingRow, type SeriesRow } from "@/lib/api";
 import { chrome, linesOption } from "@/lib/charts";
 import { cssVar } from "@/lib/colors";
+import { linkBands } from "@/lib/events";
 import { formatValue } from "@/lib/format";
 import { entityColors, shortValue } from "@/lib/look";
 import { fmtOf, type CityData, type CountData, type RankData, type SeriesData, type Step, type TilesData } from "@/lib/story";
+import { BubblesStep, ScoresStep, StatesStep, TrackStep, WarStep } from "@/components/story/MoreSteps";
+import { bandMarks, Frame, notLoaded, type Props, useStoryBands } from "@/components/story/Frame";
 
-type Props = { step: Step & { kicker?: string }; i: number; total: number; inds: Map<string, Indicator>; colour: string; title: string };
 
 // One step of a story: its number, the sentence (from its own figures), the chart and Ask AI.
 export default function StoryStep(p: Props) {
@@ -29,40 +30,15 @@ export default function StoryStep(p: Props) {
   if (s.kind === "bars") return <BarsStep {...p} step={s} />;
   if (s.kind === "tiles") return <TilesStep {...p} step={s} />;
   if (s.kind === "cities") return <CitiesStep {...p} step={s} />;
-  return <Frame {...p} sentence={s.say} data="">{s.view === "seaice" ? <SeaIceCard /> : s.view === "electricity" ? <ElectricityMap /> : <LargestCities />}</Frame>;
+  if (s.kind === "states") return <StatesStep {...p} step={s} />;
+  if (s.kind === "bubbles") return <BubblesStep {...p} step={s} />;
+  if (s.kind === "track") return <TrackStep {...p} step={s} />;
+  if (s.kind === "scores") return <ScoresStep {...p} step={s} />;
+  if (s.kind === "war") return <WarStep {...p} step={s} />;
+  return <Frame {...p} sentence={s.say} data="">{s.view === "seaice" ? <SeaIceCard /> : s.view === "electricity" ? <ElectricityMap />
+    : s.view === "energyflow" ? <EnergyFlowCard entity={s.entity ?? "NZL"} name={s.entity === "NZL" || !s.entity ? "New Zealand" : s.entity} /> : <LargestCities />}</Frame>;
 }
 
-function Frame({ i, total, colour, title, step, sentence, data, missing, children }: Props & { sentence: string | null; data: string; missing?: string | null;
-  children?: React.ReactNode }) {
-  const box = useRef<HTMLElement>(null);
-  const [seen, setSeen] = useState(false);
-  useEffect(() => { // fade in as it scrolls into view
-    const el = box.current;
-    if (!el || typeof IntersectionObserver === "undefined") { setSeen(true); return; }
-    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setSeen(true); io.disconnect(); } }, { threshold: 0.15 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  const ask = () => openAsk({ title: `${title}, step ${i + 1}`, parts: [
-    { key: "say", kind: "highlight", label: "What this step says", text: sentence ?? "" },
-    ...(data ? [{ key: "data", kind: "data" as const, label: "The figures behind it", text: data }] : []),
-  ] });
-  return (
-    <section ref={box} className={`story-step${seen ? " seen" : ""}`} style={{ ["--story" as string]: colour }}>
-      <div className="story-say">
-        <span className="story-num">{i + 1}<span>/{total}</span></span>
-        <div>
-          {step.kicker && <div className="story-kicker">{step.kicker}</div>}
-          <p className="story-sentence">{missing ? <span className="muted">{missing}</span> : sentence ?? <span className="muted">Working it out…</span>}</p>
-        </div>
-        <span className="story-ask"><CardAsk onAsk={ask} /></span>
-      </div>
-      {!missing && <div className="story-visual">{children}</div>}
-    </section>
-  );
-}
-
-const notLoaded = (ids: string[]) => `Not loaded yet: ${ids.join(", ")}. A refresh fetches it, and this step fills in by itself.`;
 
 // ---------------------------------------------------------------- map
 function MapStep(p: Props & { step: Extract<Step, { kind: "map" }> }) {
@@ -98,6 +74,8 @@ function LinesStep(p: Props & { step: Extract<Step, { kind: "lines" }> }) {
   const inds = ids.map((id) => p.inds.get(id)).filter((x): x is Indicator => !!x);
   const [rows, setRows] = useState<SeriesRow[][] | null>(null);
   const ents = st.entities.map((e) => e.id).join(",");
+  const router = useRouter();
+  const bands = useStoryBands(st.bands, st.episodes ? st.entities.map((e) => e.id) : []);
   useEffect(() => {
     Promise.all(ids.map((id) => api.series(id, ents.split(","), st.from, st.to).catch(() => [] as SeriesRow[]))).then(setRows);
   }, [ids.join(","), ents, st.from, st.to]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -114,9 +92,10 @@ function LinesStep(p: Props & { step: Extract<Step, { kind: "lines" }> }) {
   }, [rows, inds.map((x) => x.indicator_id).join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   const option = useCallback((): EChartsOption => {
     if (!rows) return {};
-    if (ids.length === 1) return linesOption([{ id: ids[0], name: inds[0].name, unit: inds[0].unit, decimals: inds[0].decimals, rows: rows[0] }], st.entities);
+    const banded = (o: EChartsOption): EChartsOption => (bands.length ? { ...o, series: [...(o.series as object[]), bandMarks(bands)] as EChartsOption["series"] } : o);
+    if (ids.length === 1) return banded(linesOption([{ id: ids[0], name: inds[0].name, unit: inds[0].unit, decimals: inds[0].decimals, rows: rows[0] }], st.entities));
     // several measures for one place: one line each, named by `labels`, coloured by `colors`
-    const layers = inds.map((ind, k) => ({ id: ind.indicator_id, name: st.labels?.[k] ?? ind.name, unit: ind.unit, decimals: ind.decimals, rows: rows[k] ?? [] }));
+    const layers = inds.map((ind, k) => ({ id: ind.indicator_id, name: st.labels?.[k] ?? ind.name, unit: st.sameAxis ? inds[0].unit : ind.unit, decimals: ind.decimals, rows: rows[k] ?? [] }));
     const o = linesOption(layers, st.entities);
     if (st.colors) {
       o.series = (o.series as { id: string; color?: string; endLabel?: { color?: string } }[]).map((x) => {
@@ -125,14 +104,14 @@ function LinesStep(p: Props & { step: Extract<Step, { kind: "lines" }> }) {
         return c ? { ...x, color: c, endLabel: x.endLabel ? { ...x.endLabel, color: c } : undefined } : x;
       }) as typeof o.series;
     }
-    return o;
-  }, [rows, st, ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+    return banded(o);
+  }, [rows, st, ids.join(","), bands]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!inds.length || (rows && rows.every((r) => !r.length))) return <Frame {...p} sentence={null} data="" missing={notLoaded(st.about ? [st.about] : ids.map((id) => p.inds.get(id)?.name ?? id))} />;
   const data = rows ? inds.map((ind, k) => `${ind.name} (${ind.unit})\n` + (rows[k] ?? []).map((r) => `${r.entity_id},${r.period},${+r.value.toPrecision(6)}${r.status === "P" ? ",projection" : ""}`).join("\n")).join("\n\n") : "";
   return (
     <Frame {...p} sentence={d ? st.say(d) : null} data={data}>
-      {rows && <EChart option={option} height={400} label={p.title} />}
-      <p className="caption">{inds.map((x) => x.name).join(", ")}. Dashed lines are projections.</p>
+      {rows && <EChart option={option} height={400} label={p.title} onReady={(c) => linkBands(c, (u) => router.push(u))} />}
+      <p className="caption">{inds.map((x) => x.name).join(", ")}. Dashed lines are projections.{bands.length ? " Shaded: wars and big episodes (hover for names)." : ""}</p>
     </Frame>
   );
 }

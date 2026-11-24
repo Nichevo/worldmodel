@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import StoryStep from "@/components/StoryStep";
 import { api, type Indicator } from "@/lib/api";
 import { logHistory } from "@/lib/history";
+import { STORY_GROUPS } from "@/lib/story";
 import { STORIES, storyById } from "@/stories";
 
 // One story: a title band in its colour, then each step in turn, then where the figures come from.
@@ -20,12 +21,17 @@ export default function StoryPage() {
   useEffect(() => {
     if (story) logHistory({ kind: "page", title: story.title, url: `/stories/${story.id}`, detail: "story" });
   }, [story]);
-  const next = useMemo(() => { const k = STORIES.findIndex((s) => s.id === id); return STORIES[(k + 1) % STORIES.length]; }, [id]);
+  // the next story in gallery order (group by group)
+  const next = useMemo(() => {
+    const order = STORY_GROUPS.flatMap((g) => STORIES.filter((s) => s.group === g.id));
+    const k = order.findIndex((s) => s.id === id);
+    return order[(k + 1) % order.length];
+  }, [id]);
   if (!story) return <p className="error">No story called {id}. <Link href="/stories">All stories</Link></p>;
   return (
     <article className="story" style={{ ["--story" as string]: story.colour }}>
       <header className="story-head">
-        <p className="small muted" style={{ margin: 0 }}><Link href="/stories">Stories</Link></p>
+        <p className="small muted" style={{ margin: 0 }}><Link href="/stories">Stories</Link> · {STORY_GROUPS.find((g) => g.id === story.group)?.name}</p>
         <h1 className="story-title">{story.title}</h1>
         <p className="story-blurb">{story.blurb}</p>
         <div className="story-tools no-print">

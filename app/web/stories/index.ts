@@ -3,13 +3,14 @@
 
 import { ELEC_KINDS } from "@/components/ElectricityMap";
 import { ordinal, pct, times, type Story } from "@/lib/story";
+import { MORE_STORIES } from "@/stories/more";
 
 const KEY = [{ id: "NZL", name: "New Zealand" }, { id: "AUS", name: "Australia" }, { id: "GBR", name: "United Kingdom" }, { id: "USA", name: "United States" }];
 const WORLD = { id: "world", name: "World" };
 const NZ = { id: "NZL", name: "New Zealand" };
 
 const fertility: Story = {
-  id: "fertility", title: "The great fertility fall", colour: "#c0392b",
+  id: "fertility", group: "people", title: "The great fertility fall", colour: "#c0392b",
   blurb: "In 1950 most of the world had five or more children per woman. Now most countries have fewer than two.",
   sources: "UN World Population Prospects (estimates to the latest year, projections after).",
   steps: [
@@ -34,7 +35,7 @@ const fertility: Story = {
 };
 
 const electricity: Story = {
-  id: "electricity", title: "Where the world's electricity comes from", colour: ELEC_KINDS.solar.color,
+  id: "electricity", group: "energy", title: "Where the world's electricity comes from", colour: ELEC_KINDS.solar.color,
   blurb: "Coal still makes the most power, but solar and wind are the fastest risers. Who switched, and where New Zealand's comes from.",
   sources: "Our World in Data energy (Ember, Energy Institute, EIA).",
   steps: [
@@ -63,7 +64,7 @@ const electricity: Story = {
 };
 
 const cities: Story = {
-  id: "cities", title: "Cities that exploded", colour: "#8e2a1c",
+  id: "cities", group: "people", title: "Cities that exploded", colour: "#8e2a1c",
   blurb: "Lagos, Dhaka and Kinshasa have grown many times over while Tokyo and London barely moved.",
   sources: "GHSL urban centres (European Commission JRC): people in each city's built-up area, 1975 to 2030.",
   steps: [
@@ -82,7 +83,7 @@ const cities: Story = {
 };
 
 const arctic: Story = {
-  id: "arctic", title: "The Arctic's shrinking summer", colour: "#2c4f9e",
+  id: "arctic", group: "energy", title: "The Arctic's shrinking summer", colour: "#2c4f9e",
   blurb: "The sea ice around the North Pole now melts back further each September than it did forty years ago.",
   sources: "NSIDC Sea Ice Index (daily extent), NASA GISTEMP, NOAA Mauna Loa CO2, World Bank.",
   steps: [
@@ -98,7 +99,7 @@ const arctic: Story = {
 };
 
 const nz20: Story = {
-  id: "nz-in-numbers", title: "New Zealand in 20 numbers", colour: "#111111",
+  id: "nz-in-numbers", group: "places", title: "New Zealand in 20 numbers", colour: "#111111",
   blurb: "Twenty figures that sum up the country, where each puts it among the world's countries, and what changed in ten years.",
   sources: "UN, World Bank, IMF, OWID and others: each figure's own page names its source.",
   steps: [
@@ -119,5 +120,5 @@ const nz20: Story = {
   ],
 };
 
-export const STORIES: Story[] = [fertility, electricity, cities, arctic, nz20];
+export const STORIES: Story[] = [fertility, electricity, cities, arctic, nz20, ...MORE_STORIES];
 export const storyById = (id: string) => STORIES.find((s) => s.id === id);
