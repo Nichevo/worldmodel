@@ -32,7 +32,7 @@ from fastapi import APIRouter, Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
-from worldmodel_contract import SCHEMA_VERSION, catalogue
+from worldmodel_contract import SCHEMA_VERSION, catalogue, families
 from worldmodel_contract.schema import EVENT_KINDS
 from worldmodel_contract.queries import SeriesQuery, divergence_sql, forecast_pairs_sql, series_sql, stream_query
 from worldmodel_contract import cohort, local
@@ -454,6 +454,10 @@ def _indicator_rows() -> list[dict]:
             f["ratio"] = {k: r[k] for k in ("numerator", "denominator", "multiplier")}
             f["sources"] = [{**s, "rank": 1} for part in (r["numerator"], r["denominator"])
                             for s in by_id.get(part, {}).get("sources", [])[:1]]
+        # Indicators that sit under another (Male population under Population...): the drop-downs nest them.
+        under = families.parents(found)
+        for f in found:
+            f["part_of"] = under.get(f["indicator_id"])
         _ind_cache.update(key=key, rows=found)
     return _ind_cache["rows"]
 
