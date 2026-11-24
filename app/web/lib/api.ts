@@ -935,7 +935,7 @@ export type PortRow = { port_id: string; name: string; entity_id: string | null;
 export type AirportRow = { airport: string; name: string | null; entity_id: string | null; year: number; passengers: number | null; freight_t: number | null };
 export type Accident = { subkind: string | null; title: string; start_date: string | null; place: string | null; url: string | null; detail: string | null;
   deaths: number | null; entities: string[] };
-export type TransportPage = { tabs: Record<"sea" | "air" | "land" | "safety", string[]>; names: IndicatorNames; chokepoints: Chokepoint[]; choke_finding?: string;
+export type TransportPage = { tabs: Record<"sea" | "air" | "rivers" | "rail" | "safety", string[]>; names: IndicatorNames; chokepoints: Chokepoint[]; choke_finding?: string;
   ports: PortRow[]; airports: AirportRow[]; infrastructure: NatureEvent[]; accidents: Accident[]; min_deaths: number;
   loaded: Record<string, number>; chokepoint_shores: Record<string, string[]> };
 export type NetworkItem = { id: string; name: string | null; rfs?: number | null; planned?: boolean | null; status?: string | null;

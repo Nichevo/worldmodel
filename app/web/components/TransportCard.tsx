@@ -13,7 +13,7 @@ import { compact } from "@/lib/format";
 // figures, the undersea cables and pipelines that reach it, the river basins it shares,
 // and its accidents and cut cables or pipelines.
 
-const TAB_NAMES: Record<string, string> = { sea: "Sea", air: "Air", land: "Rail and river", safety: "Safety" };
+const TAB_NAMES: Record<string, string> = { sea: "Sea", air: "Air", rivers: "Rivers and canals", rail: "Rail", safety: "Safety" };
 
 export function AccidentList({ rows, limit = 30 }: { rows: Accident[]; limit?: number }) {
   if (!rows.length) return <p className="small muted">None stored at or above the deaths set in Settings &gt; Transport.</p>;
