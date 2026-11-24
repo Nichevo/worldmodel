@@ -10,6 +10,7 @@ import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
 import { arc, countryCentres, countryShapes } from "@/lib/geo";
 import { get } from "@/lib/api";
+import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
@@ -263,6 +264,17 @@ export default function WorldMap({
           const g = f.geometry;
           const at = g.type === "Point" ? { lng: g.coordinates[0], lat: g.coordinates[1] } : { lng: e.lngLat.lng, lat: e.lngLat.lat };
           featurePick.current(f.layer.id.slice(3), f.properties as Record<string, unknown>, at);
+          return;
+        }
+      }
+      // A dot of a counted layer (a hospital, port, power plant...): what it is and links to the layer's details.
+      const dots = [...DOT_DETAILS].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      if (dots.length) {
+        const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: dots })[0];
+        if (f) {
+          const layer = f.layer.id.slice(3);
+          const p = f.properties as Record<string, unknown>;
+          setInfo({ layer, title: String(p.name ?? layerName(layer)), lines: hoverLines(layerLabel(layer, p)).slice(1), links: detailLinks(layer, p) });
           return;
         }
       }
@@ -829,9 +841,11 @@ export default function WorldMap({
                     {info.countries.map((c, i) => <span key={c.id}>{i ? ", " : ""}<a href={`/entity/${c.id}`}>{c.name}</a></span>)}</p>
                 ) : null}
                 {info.links?.length ? (
-                  <div className="small" style={{ marginTop: 4 }}><b>Look closer</b> <span className="muted">(opens in a new tab)</span>
+                  <div className="small" style={{ marginTop: 4 }}>{info.links.every((l) => l.href.startsWith("/"))
+                    ? <b>Details</b> : <><b>Look closer</b> <span className="muted">(opens in a new tab)</span></>}
                     <ul className="plain" style={{ margin: "2px 0 0", paddingLeft: 16 }}>
-                      {info.links.map((l) => <li key={l.href}><a href={l.href} target="_blank" rel="noreferrer" title={l.hint}>{l.label}</a></li>)}
+                      {info.links.map((l) => <li key={l.href}>{l.href.startsWith("/") ? <a href={l.href} title={l.hint}>{l.label}</a>
+                        : <a href={l.href} target="_blank" rel="noreferrer" title={l.hint}>{l.label}</a>}</li>)}
                     </ul></div>
                 ) : null}
               </>
@@ -884,6 +898,22 @@ type GeoCard = {
   layer: string; id: string; name: string | null; props: Record<string, unknown>; countries: { id: string; name: string }[];
   split?: { id: string; name: string; share: number; of_country: number | null; people: number | null }[]; people?: number | null;
 };
+// Dot layers whose click opens a small card with links to the layer's Details page (cities keep
+// their click through to the city page).
+const DOT_DETAILS = new Set([...DETAIL_LAYERS].filter((k) => !["major_cities", "city_stress", "conflict_events", "chokepoints", "cables",
+  "gas_pipelines", "oil_pipelines", "street_trees"].includes(k) && !LAYER_STYLE[k]?.click));
+const hoverLines = (html: string) => html.split(/<br\s*\/?>/i).map((x) => x.replace(/<[^>]+>/g, "").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).trim())
+  .filter(Boolean);
+function detailLinks(layer: string, p: Record<string, unknown>): { label: string; href: string; hint: string }[] {
+  const many = layerName(layer);
+  const c = String(p.countries ?? p.country ?? "").split(",")[0].trim();
+  const iso = /^[A-Z]{3}$/.test(c) ? c : "";
+  return [
+    ...(iso ? [{ label: `All ${many.toLowerCase()} in ${iso}`, href: detailsHref(layer, iso), hint: "This country's list, biggest first" }] : []),
+    { label: `${many}: by country`, href: detailsHref(layer), hint: "Counts by country, per million people, sizes and every item" },
+  ];
+}
+
 type FeatureInfo = {
   layer: string; title: string; loading?: boolean; lines?: string[]; countries?: { id: string; name: string }[];
   split?: GeoCard["split"]; links?: { label: string; href: string; hint: string }[];
