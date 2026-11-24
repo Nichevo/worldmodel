@@ -111,3 +111,28 @@ def test_a_slip_in_layer_details_does_not_stop_the_build(tmp_path, monkeypatch):
     assert con.execute("SELECT count(*) FROM layer_items").fetchone()[0] == 0
     assert con.execute("SELECT count(*) FROM series WHERE source_id = 'map_layers'").fetchone()[0] == 0
     assert con.execute("SELECT count(*) FROM series").fetchone()[0] > 0
+
+
+def test_a_layer_without_figures_of_its_own_is_skipped_for_indicators():
+    """Chokepoints have a details page but no count indicators; one placed in a country must not stop the step."""
+    from datetime import date
+
+    from worldmodel_contract.schema import TABLES
+    from worldmodel_data import layer_tables
+
+    con = duckdb.connect()
+    con.execute("CREATE SCHEMA src")
+    for name in ("indicators", "indicator_sources", "vintages"):
+        con.execute(f"CREATE TABLE src.{name} ({', '.join(f'{c} {t}' for c, t in TABLES[name].columns.items())})")
+    con.execute("CREATE TABLE src.raw_observations (source_id VARCHAR, vintage VARCHAR, scheme VARCHAR, source_code VARCHAR, "
+                "indicator_id VARCHAR, period_start DATE, freq VARCHAR, breakdown VARCHAR, variant VARCHAR, value DOUBLE, status VARCHAR)")
+    con.execute("CREATE TABLE src.entity_codes (scheme VARCHAR, code VARCHAR, entity_id VARCHAR, valid_to DATE)")
+    con.execute(f"CREATE TABLE src.raw_layer_items ({layer_tables.DDL})")
+    cols = list(layer_tables.COLUMNS)
+    row = {c: None for c in cols} | {"layer_id": "chokepoints", "item_id": "suez", "name": "Suez Canal", "entity_id": "EGY"}
+    layer_tables.insert_many(con, "src.raw_layer_items", cols, [tuple(row[c] for c in cols)])
+    row = row | {"layer_id": "airports", "item_id": "NZAA", "name": "Auckland", "entity_id": "NZL"}
+    layer_tables.insert_many(con, "src.raw_layer_items", cols, [tuple(row[c] for c in cols)])
+    layer_tables._indicators(con, {"chokepoints", "airports"}, date(2026, 1, 1))
+    got = con.execute("SELECT indicator_id, source_code, value FROM src.raw_observations").fetchall()
+    assert ("map_airports_count", "NZL", 1.0) in got and not any("chokepoints" in r[0] for r in got)

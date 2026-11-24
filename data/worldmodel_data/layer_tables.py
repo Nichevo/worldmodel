@@ -209,6 +209,8 @@ def _indicators(con: duckdb.DuckDBPyConnection, found: set[str], today: date) ->
     for layer_id in sorted(found):
         d = spec.BY_ID[layer_id]
         ids = spec.indicator_ids(d)
+        if not ids:  # a layer with no figures of its own (chokepoints): details page only
+            continue
         for ent, n_items, total in con.execute(
                 "SELECT entity_id, count(DISTINCT item_id), sum(size) FROM src.raw_layer_items "
                 "WHERE layer_id = ? AND entity_id IS NOT NULL GROUP BY 1", [layer_id]).fetchall():
