@@ -557,6 +557,7 @@ export default function SettingsPage() {
         </p>
         <Toggle label="Show events on charts" on={s.events_on_charts} set={(v) => save({ events_on_charts: v })} />
         <Toggle label="Show projected years on charts (dashed lines, such as the UN's population projections)" on={s.projections_on_charts} set={(v) => save({ projections_on_charts: v })} />
+        <Toggle label="Show each indicator's years in the indicator drop-downs (a small strip: grey for history, orange for forecasts; off saves a little room)" on={s.year_strips} set={(v) => save({ year_strips: v })} />
         <Field label="Kinds shown" hint="Leaders' terms and elections are left off by default: with them, every chart is striped.">
           <div className="chips-row">
             {KINDS.map((k) => {

@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   problem_banner: true,
   events_on_charts: true,
   projections_on_charts: true,
+  year_strips: true,
   chart_end_labels: true,
   chart_values: true,
   chart_findings: true,

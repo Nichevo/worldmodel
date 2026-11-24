@@ -224,6 +224,7 @@ export type Settings = {
   problem_banner: boolean;
   events_on_charts: boolean;
   projections_on_charts: boolean; // projected years (dashed) on charts
+  year_strips: boolean; // indicator drop-downs show each indicator's years (history, forecasts)
   chart_end_labels: boolean; // names and latest values at the line ends instead of a legend
   chart_values: boolean; // values written on bars
   chart_findings: boolean; // chart titles say what the chart shows
