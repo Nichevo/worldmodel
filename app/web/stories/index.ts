@@ -4,6 +4,7 @@
 import { ELEC_KINDS } from "@/components/ElectricityMap";
 import { ordinal, pct, times, type Story } from "@/lib/story";
 import { MORE_STORIES } from "@/stories/more";
+import { ROUND2_STORIES } from "@/stories/round2";
 
 const KEY = [{ id: "NZL", name: "New Zealand" }, { id: "AUS", name: "Australia" }, { id: "GBR", name: "United Kingdom" }, { id: "USA", name: "United States" }];
 const WORLD = { id: "world", name: "World" };
@@ -120,5 +121,5 @@ const nz20: Story = {
   ],
 };
 
-export const STORIES: Story[] = [fertility, electricity, cities, arctic, nz20, ...MORE_STORIES];
+export const STORIES: Story[] = [fertility, electricity, cities, arctic, nz20, ...MORE_STORIES, ...ROUND2_STORIES];
 export const storyById = (id: string) => STORIES.find((s) => s.id === id);

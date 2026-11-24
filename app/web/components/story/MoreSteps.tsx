@@ -67,14 +67,15 @@ export function StatesStep(p: Props & { step: Extract<Step, { kind: "states" }> 
       if (v == null) return null;
       if (less) { const w = less.values[e]?.[String(year)]; if (w == null) return null; v -= w; }
       if (under) { const w = under.values[e]?.[String(year)]; if (!w) return null; v /= w; }
+      if (st.growth) { const w = m.values[e]?.[String(year - st.growth)]; if (!w) return null; v = (100 * (v - w)) / w; }
       if (pop) { const n = pop.values[e]?.[String(year)]; if (!n) return null; v = (1000 * v) / n; }
       return v;
     };
     const rows = data.regions.map((r) => ({ id: r.entity_id, name: r.name, value: value(r.entity_id) }))
       .filter((r): r is { id: string; name: string; value: number } => r.value !== null).sort((a, b) => b.value - a.value);
-    const unit = st.per ? "per 1,000 people" : st.minus ? "points" : st.over ? "times" : m.unit;
+    const unit = st.per ? "per 1,000 people" : st.minus ? "points" : st.over ? "times" : st.growth ? "%" : m.unit;
     const fmt = (v: number | null | undefined) => (v == null ? "–" : st.minus ? `${v > 0 ? "+" : ""}${v.toFixed(1)} points`
-      : st.per ? `${v > 0 ? "+" : ""}${v.toFixed(1)} per 1,000` : st.over ? `${v.toFixed(1)} times` : fmtOf({ ...m, indicator_id: m.indicator_id } as never)(v));
+      : st.per ? `${v > 0 ? "+" : ""}${v.toFixed(1)} per 1,000` : st.growth ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%` : st.over ? `${v.toFixed(1)} times` : fmtOf({ ...m, indicator_id: m.indicator_id } as never)(v));
     return { name: st.label ?? m.name.replace(/ \(.*\)$/, ""), unit, year, rows, refs, fmt,
       row: (nm) => { const k = rows.findIndex((r) => r.name.toLowerCase() === nm.toLowerCase() || r.id === nm); return k < 0 ? undefined : { ...rows[k], rank: k + 1 }; } };
   }, [data, st, refs]);
@@ -83,19 +84,19 @@ export function StatesStep(p: Props & { step: Extract<Step, { kind: "states" }> 
     const many = d.rows.length > 24;
     const pick: Row[] = (many ? [...d.rows.slice(0, 10), ...d.rows.slice(-10)] : d.rows).map((r) => ({ id: r.id, name: r.name, v: r.value }));
     const all = [...pick, ...d.refs.map((r) => ({ id: r.id, name: r.name, v: r.value, ref: true }))].sort((a, b) => b.v - a.v);
-    const derived = !!(st.minus || st.per || st.over);
+    const derived = !!(st.minus || st.per || st.over || st.growth);
     const dec = derived ? 1 : p.inds.get(st.indicator)?.decimals ?? 1;
-    return barsOption(all, derived ? "" : d.unit, dec, p.colour, new Set(d.refs.map((r) => r.id)), !!(st.minus || st.per),
+    return barsOption(all, derived ? "" : d.unit, dec, p.colour, new Set(d.refs.map((r) => r.id)), !!(st.minus || st.per || st.growth),
       st.minus ? ["#2c4f9e", "#c0392b"] : undefined);
-  }, [d, p.colour, p.inds, st.minus, st.per, st.over, st.indicator]);
-  if (data && !d) return <Frame {...p} sentence={null} data="" missing={notLoaded([p.inds.get(st.indicator)?.name ?? `${st.indicator} (US states)`])} />;
+  }, [d, p.colour, p.inds, st.minus, st.per, st.over, st.growth, st.indicator]);
+  if (data && !d) return <Frame {...p} sentence={null} data="" missing={notLoaded([p.inds.get(st.indicator)?.name ?? st.indicator])} />;
   const values = d ? Object.fromEntries(d.rows.map((r) => [r.id, r.value])) : {};
   const map = st.show !== "bars" && !!shapes?.features.length;
   return (
     <Frame {...p} sentence={d ? st.say(d) : null} data={d ? [`Place,${d.name} (${d.unit}),${d.year}`, ...d.rows.map((r) => `"${r.name}",${+r.value.toPrecision(6)}`),
       ...d.refs.map((r) => `"${r.name} (whole country)",${+r.value.toPrecision(6)}`)].join("\n") : ""}>
       {d && (map
-        ? <div className="story-map"><RegionMap shapes={shapes} values={values} unit={d.unit} decimals={st.per || st.minus || st.over ? 1 : p.inds.get(st.indicator)?.decimals ?? 0} height={440} onPick={(id) => router.push(`/entity/${id}`)} /></div>
+        ? <div className="story-map"><RegionMap shapes={shapes} values={values} unit={d.unit} decimals={st.per || st.minus || st.over || st.growth ? 1 : p.inds.get(st.indicator)?.decimals ?? 0} height={440} onPick={(id) => router.push(`/entity/${id}`)} /></div>
         : <EChart option={option} height={Math.max(260, (Math.min(d.rows.length, 20) + d.refs.length) * 24 + 20)} label={p.title} />)}
       <p className="caption">{d?.name}{d && st.minus ? " (difference)" : ""}, {d?.year}.{map ? " Click a state for its page." : d && d.rows.length > 24 ? " The ten highest and ten lowest." : ""}
         {d?.refs.length ? " Bold rows are whole countries, for comparison." : ""}</p>
@@ -121,14 +122,21 @@ export function BubblesStep(p: Props & { step: Extract<Step, { kind: "bubbles" }
     if (!r || !ix || !iy) return null;
     const cap = Math.min(r.x.last_estimate_year ?? 9999, r.y.last_estimate_year ?? 9999);
     const years = r.x.years.filter((y) => r.y.years.includes(y) && y <= cap && (!st.from || y >= st.from));
-    const val = (m: MapRange, e: string, y: number) => { const i = m.years.indexOf(y); return i < 0 ? null : m.rows[e]?.[i] ?? null; };
+    // with `latest`, a country's value is its latest up to the year asked (surveys come in different years)
+    const val = (m: MapRange, e: string, y: number) => {
+      const i = m.years.indexOf(y);
+      if (!st.latest) return i < 0 ? null : m.rows[e]?.[i] ?? null;
+      const vs = m.rows[e] ?? [];
+      for (let k = m.years.length - 1; k >= 0; k--) if (m.years[k] <= y && vs[k] != null) return vs[k];
+      return null;
+    };
     const at = (e: string, y: number) => { const a = val(r.x, e, y), b = val(r.y, e, y); return a == null || b == null ? null : { x: a, y: b }; };
     const points = (y: number): ScatterPoint[] => Object.keys(r.names).flatMap((e): ScatterPoint[] => { const q = at(e, y); return q && (!st.logX || q.x > 0)
       ? [{ id: e, name: r.names[e], x: q.x, y: q.y, size: val(r.s, e, y) ?? undefined, proj: false }] : []; });
     // keep years with most countries (early years can be thin)
-    const good = years.filter((y) => points(y).length >= 40);
+    const good = st.latest ? [Math.max(...years, ...r.x.years.filter((y) => y <= cap))].filter(Number.isFinite) : years.filter((y) => points(y).length >= 40);
     return { years: good, first: good[0], last: good[good.length - 1], at, names: r.names, points, fmtX: fmtOf(ix), fmtY: fmtOf(iy) };
-  }, [r, ix, iy, st.from, st.logX]);
+  }, [r, ix, iy, st.from, st.logX, st.latest]);
   const year = d ? d.years[k ?? d.years.length - 1] : null;
   useEffect(() => {
     if (!playing || !d) return;
@@ -145,22 +153,22 @@ export function BubblesStep(p: Props & { step: Extract<Step, { kind: "bubbles" }
     const cols = new Map(st.highlight.map((id, i) => [id, entityColors(st.highlight)[i]]));
     const series = (o.series as { data?: { name: string; itemStyle?: { color?: string } }[] }[]).map((x) => ({ ...x,
       data: x.data?.map((q) => (cols.has(q.name) ? { ...q, itemStyle: { ...q.itemStyle, color: cols.get(q.name) } } : q)) }));
-    return { ...o, series: series as EChartsOption["series"], graphic: [{ type: "text", right: 24, bottom: 48, style: { text: String(year), fontSize: 48, fontWeight: 700, fill: cssVar("--grid"), fontFamily: "serif" } }] } as EChartsOption;
+    return { ...o, series: series as EChartsOption["series"], graphic: st.latest ? [] : [{ type: "text", right: 24, bottom: 48, style: { text: String(year), fontSize: 48, fontWeight: 700, fill: cssVar("--grid"), fontFamily: "serif" } }] } as EChartsOption;
   }, [d, year, ix, iy, st, hold, playing]);
   const missing = !ix || !iy || err || (d && !d.years.length);
   if (missing) return <Frame {...p} sentence={null} data="" missing={notLoaded([ix?.name ?? st.x, iy?.name ?? st.y])} />;
   return (
     <Frame {...p} sentence={d ? st.say(d) : null} data={d && year ? [`Country,${ix.name},${iy.name} (${year})`, ...d.points(year).map((q) => `"${q.name}",${+q.x.toPrecision(5)},${+q.y.toPrecision(5)}`)].join("\n") : ""}>
       {d && <>
-        <div className="chips-row small no-print" style={{ alignItems: "center" }}>
+        {!st.latest && <div className="chips-row small no-print" style={{ alignItems: "center" }}>
           <button onClick={() => { if (!playing && (k ?? d.years.length - 1) >= d.years.length - 1) setK(0); setPlaying(!playing); }}>{playing ? "Pause" : "Play"}</button>
           <input type="range" min={0} max={d.years.length - 1} value={k ?? d.years.length - 1} onChange={(e) => { setPlaying(false); setK(+e.target.value); }}
             aria-label="Year" style={{ flex: 1, minWidth: 120 }} />
           <span className="mono">{year}</span>
-        </div>
+        </div>}
         <EChart option={option} height={440} label={p.title} update="merge" />
       </>}
-      <p className="caption">Each dot is a country, sized by its people; {st.highlight.length ? "named dots are picked out. " : ""}Press Play to run through the years.{st.logX ? " The across axis is on a log scale." : ""}</p>
+      <p className="caption">Each dot is a country, sized by its people; {st.highlight.length ? "named dots are picked out. " : ""}{st.latest ? "Each country's latest survey." : "Press Play to run through the years."}{st.logX ? " The across axis is on a log scale." : ""}</p>
     </Frame>
   );
 }
