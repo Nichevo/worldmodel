@@ -16,26 +16,37 @@ export type ForecastSet = { byEntity: Map<string, Forecast>; errors: Map<string,
 
 // Fetches forecasts for up to eight entities while `on`; null while off or loading.
 export function useForecasts(indicator: string | null, entities: string[], on: boolean): ForecastSet | null {
+  const many = useForecastsFor(indicator ? [indicator] : [], entities, on);
+  return indicator ? many?.get(indicator) ?? null : null;
+}
+
+// The same for several indicators at once (a chart with extra lines): one set per
+// indicator, up to four indicators and eight entities; null while off or loading.
+export function useForecastsFor(indicators: string[], entities: string[], on: boolean): Map<string, ForecastSet> | null {
   const s = useSettings();
-  const [set, setSet] = useState<ForecastSet | null>(null);
+  const [sets, setSets] = useState<Map<string, ForecastSet> | null>(null);
   const ids = entities.slice(0, 8).join(",");
+  const inds = indicators.slice(0, 4).join(",");
   useEffect(() => {
-    if (!on || !indicator || !ids) { setSet(null); return; }
+    if (!on || !inds || !ids) { setSets(null); return; }
     let live = true;
     const list = ids.split(",");
-    Promise.all(list.map((e, i) => api.forecast(indicator, e, s.forecast_horizon, s.forecast_official && list.length === 1 && i === 0)
+    const indList = inds.split(",");
+    // The forecasters' own projections only for one country and one indicator (as before).
+    const official = s.forecast_official && list.length === 1 && indList.length === 1;
+    Promise.all(indList.map((ind) => Promise.all(list.map((e, i) => api.forecast(ind, e, s.forecast_horizon, official && i === 0)
       .then((f) => [e, f] as const).catch((err) => [e, String(err.message || err)] as const)))
       .then((res) => {
-        if (!live) return;
         const byEntity = new Map<string, Forecast>(), errors = new Map<string, string>();
         for (const [e, r] of res) {
           if (typeof r === "string") errors.set(e, r); else byEntity.set(e, r);
         }
-        setSet({ byEntity, errors });
-      });
+        return [ind, { byEntity, errors }] as const;
+      })))
+      .then((all) => { if (live) setSets(new Map(all)); });
     return () => { live = false; };
-  }, [indicator, ids, on, s.forecast_horizon, s.forecast_official]);
-  return set;
+  }, [inds, ids, on, s.forecast_horizon, s.forecast_official]);
+  return sets;
 }
 
 const OFFICIAL_COLORS = ["#b45309", "#7c3aed", "#0f766e", "#be185d", "#4d7c0f"];
@@ -55,15 +66,20 @@ function band(id: string, pts: [number, number, number][], color: string, opacit
 
 // Adds the forecasts to a line chart made by linesOption (one indicator, entities in
 // order, so entity i has colour i). `skipSource` leaves out the official projections
-// of the source the chart already draws (its dashed line).
+// of the source the chart already draws (its dashed line). On a chart with several
+// indicators, call it once per indicator with `line`: the colour of each entity's line,
+// the axis it sits on, and the indicator's name for the tooltip.
+export type ForecastLine = { tag: string; name: string; colors: string[]; yAxisIndex: number };
 export function withForecast(o: EChartsOption, set: ForecastSet | null, entities: { id: string; name: string }[],
-  ranges: "80+95" | "80" | "none", skipSource?: string): EChartsOption {
+  ranges: "80+95" | "80" | "none", skipSource?: string, line?: ForecastLine): EChartsOption {
   if (!set || !set.byEntity.size) return o;
+  const tag = line ? `${line.tag}:` : "";
+  const yAxisIndex = line?.yAxisIndex ?? 0;
   const extra: SeriesOption[] = [];
   const labels = new Map<string, string>();
   const fmt = new Map<string, (v: number) => string>();
-  const single = entities.length === 1;
-  const colors = entityColors(entities.map((e) => e.id));
+  const single = entities.length === 1 && !line;
+  const colors = line?.colors ?? entityColors(entities.map((e) => e.id));
   entities.forEach((e, i) => {
     const f = set.byEntity.get(e.id);
     if (!f) return;
@@ -71,26 +87,27 @@ export function withForecast(o: EChartsOption, set: ForecastSet | null, entities
     const start: [number, number, number] = [f.history_end, f.last_value, f.last_value];
     const show = (v: number) => formatValue(v, f.unit, f.decimals);
     if (ranges === "80+95" && single) {
-      extra.push(band(`fc:${e.id}:95`, [start, ...f.points.map((p) => [p.year, p.lo95, p.hi95] as [number, number, number])], color, 0.10));
+      extra.push(band(`fc:${tag}${e.id}:95`, [start, ...f.points.map((p) => [p.year, p.lo95, p.hi95] as [number, number, number])], color, 0.10, yAxisIndex));
     }
     if (ranges !== "none") {
-      extra.push(band(`fc:${e.id}:80`, [start, ...f.points.map((p) => [p.year, p.lo80, p.hi80] as [number, number, number])], color, single ? 0.18 : 0.10));
+      extra.push(band(`fc:${tag}${e.id}:80`, [start, ...f.points.map((p) => [p.year, p.lo80, p.hi80] as [number, number, number])], color, single ? 0.18 : 0.10, yAxisIndex));
     }
-    const key = `fc:${e.id}:mean`;
-    labels.set(key, `${single ? "Forecast" : `${e.name}, forecast`}`);
+    const key = `fc:${tag}${e.id}:mean`;
+    const who = line ? (entities.length > 1 ? `${e.name} · ${line.name}` : line.name) : e.name;
+    labels.set(key, `${single ? "Forecast" : `${who}, forecast`}`);
     fmt.set(key, (v) => {
       const p = f.points.find((q) => Math.abs(q.mean - v) < 1e-9);
       const r = p && ranges !== "none" ? ` <span style="opacity:.7">(80%: ${show(p.lo80)} to ${show(p.hi80)}${ranges === "80+95" ? `; 95%: ${show(p.lo95)} to ${show(p.hi95)}` : ""})</span>` : "";
       return `<b>${show(v)}</b>${r}`;
     });
-    extra.push({ type: "line", id: key, name: key, showSymbol: false, color, z: 3,
+    extra.push({ type: "line", id: key, name: key, showSymbol: false, color, z: 3, yAxisIndex,
       lineStyle: { width: 2, type: [2, 4] as unknown as "dotted" }, data: [[start[0], start[1]], ...f.points.map((p) => [p.year, p.mean])] });
-    if (single) {
+    if (entities.length === 1) {
       f.official.filter((x) => x.source_id !== skipSource).forEach((x, j) => {
-        const k = `fc:off:${x.source_id}`;
+        const k = `fc:${tag}off:${x.source_id}`;
         labels.set(k, `${x.name} forecast (${x.release.slice(0, 7)})`);
         fmt.set(k, (v) => `<b>${show(v)}</b>`);
-        extra.push({ type: "line", id: k, name: k, showSymbol: true, symbolSize: 4, z: 3, color: OFFICIAL_COLORS[j % OFFICIAL_COLORS.length],
+        extra.push({ type: "line", id: k, name: k, showSymbol: true, symbolSize: 4, z: 3, yAxisIndex, color: OFFICIAL_COLORS[j % OFFICIAL_COLORS.length],
           lineStyle: { width: 1.5, type: "dashed" }, data: x.points });
       });
     }
@@ -99,7 +116,8 @@ export function withForecast(o: EChartsOption, set: ForecastSet | null, entities
   const formatter = (params: unknown) => {
     const list = (Array.isArray(params) ? params : [params]) as { seriesId: string; value: [number, number]; color: string }[];
     const mine = list.filter((p) => p.seriesId?.startsWith("fc:") && labels.has(p.seriesId));
-    const rest = list.filter((p) => !p.seriesId?.startsWith("fc:"));
+    // Other forecasts (another indicator's, added by an earlier call) go to that call's formatter.
+    const rest = list.filter((p) => !p.seriesId?.startsWith(`fc:${tag}`));
     const head = rest.length && prev ? prev(rest) : list.length ? `<b>${list[0].value[0]}</b>` : "";
     const lines = mine.map((p) => `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:6px"></span>`
         + `${labels.get(p.seriesId)}: ${fmt.get(p.seriesId)?.(p.value[1]) ?? p.value[1]}`);
@@ -119,7 +137,7 @@ export function withForecast(o: EChartsOption, set: ForecastSet | null, entities
 
 // One line under the chart: which model, how it did, and where the ranges come from.
 export function forecastCaption(set: ForecastSet | null, entities: { id: string; name: string }[],
-  ranges: "80+95" | "80" | "none" = "80+95"): string {
+  ranges: "80+95" | "80" | "none" = "80+95", indicatorName?: string): string {
   if (!set) return "";
   const parts: string[] = [];
   for (const e of entities) {
@@ -134,5 +152,6 @@ export function forecastCaption(set: ForecastSet | null, entities: { id: string;
   }
   const bands = ranges === "none" ? "" : ranges === "80" || entities.length > 1
     ? " The band is the range it fell inside 80% of the time." : " Bands are the ranges it fell inside 80% and 95% of the time.";
+  if (indicatorName) return parts.length ? `${indicatorName}: ${parts.join("; ")}.` : "";
   return parts.length ? `Forecast (dotted): ${parts.join("; ")}.${bands}` : "";
 }

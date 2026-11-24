@@ -18,7 +18,7 @@ import MixOverlay, { type MixShade } from "@/components/MixOverlay";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
 import { isStarred, passes, useStars } from "@/lib/quality";
-import { forecastCaption, useForecasts, withForecast } from "@/lib/forecast";
+import { forecastCaption, useForecastsFor, withForecast } from "@/lib/forecast";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
 import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
@@ -37,7 +37,8 @@ export type At = { lng: number; lat: number } | { clientX: number; clientY: numb
 export type ClickMode = "popup" | "select";
 // A popup to draw in this panel: on a map at its place, elsewhere at x/y in the
 // panel (or stacked in the corner when pinned without a place).
-export type PanelPopup = { key: string; entity: string; pinned: boolean; at: At | null; node: React.ReactNode };
+// shift: how many other cards for the same country come before it (they step aside).
+export type PanelPopup = { key: string; entity: string; pinned: boolean; at: At | null; shift?: number; node: React.ReactNode };
 // What a click on a country asks for: shift says select, double says the other action.
 export type Activate = (entity: string, how: { shift: boolean; double: boolean }, at: At | null) => void;
 
@@ -100,9 +101,10 @@ export default function Panel({
     if (p.at && "clientX" in p.at && r && !p.pinned) {
       const left = Math.min(Math.max(4, p.at.clientX - r.left + 8), Math.max(4, r.width - 300));
       const top = Math.min(Math.max(4, p.at.clientY - r.top + 8), Math.max(4, r.height - 260));
-      return { left, top };
+      // A short panel: the card scrolls inside it, so its buttons can always be reached.
+      return { left, top, maxHeight: `calc(100% - ${top + 4}px)` };
     }
-    return { right: 6 + i * 14, top: 6 + i * 26 };
+    return { right: 6 + i * 14, top: 6 + i * 26, maxHeight: `calc(100% - ${12 + i * 26}px)` };
   };
 
   return (
@@ -412,7 +414,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
   useEffect(() => () => onValues(panel.id, null), [panel.id, onValues]);
   const range = useRange(sparkline && indicator ? indicator.indicator_id : null);
   const spark: Spark | null = useMemo(() => (range && year !== null ? { years: range.years, rows: range.rows, upTo: year } : null), [range, year]);
-  const overlays: Overlay[] = popups.flatMap((p) => (p.at && "lng" in p.at ? [{ key: p.key, lng: p.at.lng, lat: p.at.lat, node: p.node }] : []));
+  const overlays: Overlay[] = popups.flatMap((p) => (p.at && "lng" in p.at ? [{ key: p.key, lng: p.at.lng, lat: p.at.lat, shift: p.shift, node: p.node }] : []));
   const map = useRef<maplibregl.Map | null>(null);
   const [mapObj, setMapObj] = useState<maplibregl.Map | null>(null);
   const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; setMapObj(m); }, []);
@@ -759,13 +761,14 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
   const settings = useSettings();
   const oneCountry = entities.length === 1 && shown.length === 1;
   const terms = useGovernments(oneCountry ? entities[0].id : null, opts.party, settings.party_office);
-  // The statistical forecast is for the panel's own indicator (the first line set).
-  const forecasts = useForecasts(indicator.indicator_id, entities.map((e) => e.id), opts.forecast && shown.length === 1);
+  // A statistical forecast for every line: each indicator shown, for each country.
+  const forecastSets = useForecastsFor(useMemo(() => showKey.split(","), [showKey]), entities.map((e) => e.id), opts.forecast);
+  const forecasts = forecastSets?.get(indicator.indicator_id) ?? null;
   const extent = useMemo(() => {
     const ys = (rows ?? []).flat().map((r) => +r.period);
-    for (const f of forecasts?.byEntity.values() ?? []) if (f.points.length) ys.push(f.points[f.points.length - 1].year);
+    for (const set of forecastSets?.values() ?? []) for (const f of set.byEntity.values()) if (f.points.length) ys.push(f.points[f.points.length - 1].year);
     return ys.length ? [Math.min(...ys), Math.max(...ys)] as const : null;
-  }, [rows, forecasts]);
+  }, [rows, forecastSets]);
   const span = extent ? [Math.max(extent[0], Math.min(extent[1], from ?? extent[0])), Math.min(extent[1], Math.max(extent[0], to ?? extent[1]))] as const : null;
 
   const inView = useMemo(() => (extent ? chartEvents.filter((e) => +e.start_date.slice(0, 4) <= extent[1] + 1
@@ -798,7 +801,21 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
       }
     }
     const partied = oneCountry && terms.length ? withParties({ ...o, series } as typeof o, terms, span ? [span[0], span[1]] : null) : { ...o, series };
-    const coloured = forecasts ? withForecast(partied, forecasts, entities, settings.forecast_ranges, rows?.[0]?.[0]?.source_id) : partied;
+    let coloured = partied;
+    if (forecastSets && shown.length === 1) {
+      coloured = withForecast(partied, forecasts, entities, settings.forecast_ranges, rows?.[0]?.[0]?.source_id);
+    } else if (forecastSets) {
+      // Several indicators: each line has its own colour (entity-major, as linesOption draws them) and axis.
+      const units = [...new Set(shown.map((i) => i.unit))].slice(0, 2);
+      shown.forEach((ind, li) => {
+        const set = forecastSets.get(ind.indicator_id);
+        if (!set) return;
+        coloured = withForecast(coloured, set, entities, settings.forecast_ranges, rows?.[li]?.[0]?.source_id, {
+          tag: ind.indicator_id, name: ind.name, yAxisIndex: Math.max(0, units.indexOf(ind.unit)),
+          colors: entities.map((_, ei) => seriesColor(ei * shown.length + li)),
+        });
+      });
+    }
     return withEventTooltip({
       ...coloured, yAxis,
       grid: { ...(coloured.grid as object), bottom: 40 },
@@ -808,7 +825,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         borderColor: cssVar("--border"), textStyle: { color: cssVar("--muted") },
       }] : undefined,
     } as typeof o, inView, shownNames);
-  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], inView, extent, terms, oneCountry, forecasts, settings.forecast_ranges]);
+  }, [rows, entities, shown, year, opts.trim, span?.[0], span?.[1], inView, extent, terms, oneCountry, forecasts, forecastSets, settings.forecast_ranges]);
   const hasRows = rows?.some((r) => r.length > 0);
   const units = [...new Set(shown.map((i) => i.unit))];
 
@@ -891,8 +908,8 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
           <input type="checkbox" checked={opts.party && oneCountry} disabled={!oneCountry} onChange={(e) => setParty(e.target.checked)} /> Governing party
         </label>
         {opts.party && oneCountry && !terms.length && <span className="small muted">No leaders stored for {entities[0].name}.</span>}
-        <label className="small" title={shown.length === 1 ? "Extend each line with a statistical forecast and its ranges (Settings: Forecasts)" : "For one indicator"}>
-          <input type="checkbox" checked={opts.forecast && shown.length === 1} disabled={shown.length !== 1} onChange={(e) => setForecast(e.target.checked)} /> Forecast
+        <label className="small" title="Extend each line with a statistical forecast and its ranges (Settings: Forecasts)">
+          <input type="checkbox" checked={opts.forecast} onChange={(e) => setForecast(e.target.checked)} /> Forecast
         </label>
         {units.length > 1 && <span className="small muted">Right axis: {units[1]}</span>}
       </div>
@@ -901,7 +918,11 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
       <p className="caption">
         {sourceLine(indicator)}. {selection.length ? "Selected countries." : "World shown; select countries on a map or table to compare."}
         {rows?.some((r) => r.some((x) => x.status === "P")) ? " Dashed lines are projections." : ""} Drag the ends of the slider for any span of years.
-        {opts.forecast && forecasts ? ` ${forecastCaption(forecasts, entities, settings.forecast_ranges)}` : ""}
+        {opts.forecast && forecastSets && shown.length === 1 ? ` ${forecastCaption(forecasts, entities, settings.forecast_ranges)}` : ""}
+        {opts.forecast && forecastSets && shown.length > 1
+          ? ` Forecast (dotted): ${shown.map((i) => forecastCaption(forecastSets.get(i.indicator_id) ?? null, entities, settings.forecast_ranges, i.name)).filter(Boolean).join(" ")}`
+            + (settings.forecast_ranges === "none" ? "" : " The band is the range it fell inside 80% of the time.") : ""}
+        {opts.forecast && !forecastSets ? " Working out the forecast…" : ""}
       </p>
     </>
   );

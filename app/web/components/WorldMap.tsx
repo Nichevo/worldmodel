@@ -22,8 +22,18 @@ if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-g
 
 type Value = { entity_id: string; value: number; status: string };
 export type PickEvent = { shift: boolean; double: boolean; lngLat: [number, number] };
+// Caps a popup card's height to the room between its point and the map's edge (at least 140px).
+function fitOverlay(m: maplibregl.Map, mk: maplibregl.Marker) {
+  const el = mk.getElement();
+  const pt = m.project(mk.getLngLat());
+  const h = m.getContainer().clientHeight;
+  const gap = 12 + Number(el.dataset.dy || 0);
+  const room = el.dataset.v === "top" ? h - pt.y - gap : pt.y - gap;
+  el.style.setProperty("--overlay-max", `${Math.max(140, Math.round(room))}px`);
+}
+
 // React content drawn on the map at a place, moving with it (popups).
-export type Overlay = { key: string; lng: number; lat: number; node: React.ReactNode };
+export type Overlay = { key: string; lng: number; lat: number; shift?: number; node: React.ReactNode };
 // Every country's values over the years, for a trend line in the hover tooltip.
 export type Spark = { years: number[]; rows: Record<string, (number | null)[]>; upTo: number };
 type Props = {
@@ -374,10 +384,19 @@ export default function WorldMap({
   // Popups: each overlay gets a MapLibre marker whose element React draws into.
   const [els, setEls] = useState<Map<string, HTMLDivElement>>(new Map());
   const markers = useRef(new Map<string, maplibregl.Marker>());
+  const fitBound = useRef<maplibregl.Map | null>(null);
   const overlayKey = overlays.map((o) => `${o.key}@${o.lng.toFixed(3)},${o.lat.toFixed(3)}`).join("|");
   useEffect(() => {
     const m = map.current;
     if (!m) return;
+    // In a short map panel a card would run off the edge, hiding its buttons: keep each card
+    // inside the map (it scrolls) as the map moves. Bound once per map.
+    if (fitBound.current !== m) {
+      const fit = () => markers.current.forEach((mk) => fitOverlay(m, mk));
+      m.on("move", fit);
+      m.on("resize", fit);
+      fitBound.current = m;
+    }
     const want = new Map(overlays.map((o) => [o.key, o]));
     let changed = false;
     for (const [key, mk] of markers.current) {
@@ -396,11 +415,19 @@ export default function WorldMap({
       const v = pt.y < box.clientHeight / 2 ? "top" : "bottom";
       const h = pt.x < box.clientWidth / 3 ? "-left" : pt.x > (box.clientWidth * 2) / 3 ? "-right" : "";
       const anchor = `${v}${h}` as maplibregl.PositionAnchor;
-      markers.current.set(o.key, new maplibregl.Marker({ element: el, anchor, offset: [0, v === "top" ? 6 : -6] }).setLngLat([o.lng, o.lat]).addTo(m));
+      // A second card for the same country (another dataset) steps aside so both stay in sight.
+      const shift = o.shift ?? 0;
+      const dx = (h === "-right" ? -1 : 1) * shift * 18, dy = (v === "top" ? 1 : -1) * shift * 30;
+      const mk = new maplibregl.Marker({ element: el, anchor, offset: [dx, (v === "top" ? 6 : -6) + dy] }).setLngLat([o.lng, o.lat]).addTo(m);
+      el.dataset.v = v;
+      el.dataset.dy = String(Math.abs(dy));
+      markers.current.set(o.key, mk);
+      fitOverlay(m, mk);
       changed = true;
     }
     if (changed) setEls(new Map([...markers.current].map(([k, mk]) => [k, mk.getElement() as HTMLDivElement])));
   }, [overlayKey]);
+
   useEffect(() => () => { markers.current.forEach((mk) => mk.remove()); markers.current.clear(); }, []);
 
   useEffect(() => {

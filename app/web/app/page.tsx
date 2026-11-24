@@ -16,7 +16,7 @@ import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
 import {
   LAYOUTS, MAX_PANELS, MAX_PINS, MAX_SELECTION, NO_INDICATOR, STARTERS, fromQuery, reducer, selectionOf, toQuery,
-  type Action, type Group, type Layout, type Panel as PanelState, type Workspace,
+  type Action, type Group, type Layout, type Panel as PanelState, type Pin, type Workspace,
 } from "@/lib/workspace";
 
 // Grid areas per layout; the panels fill a, b, c ... in order.
@@ -107,28 +107,37 @@ function ExploreWorkspace() {
   // Every indicator the panels show, for the popup tabs.
   const tabs = settings.popup_tabs ? [...new Set(ws.panels.map((p) => p.indicator))].map((id) => byId.get(id)).filter((i): i is Indicator => !!i) : [];
   const popupsFor = (p: PanelState): PanelPopup[] => {
-    const ind = p.view === "pyramid" ? byId.get("pop_total") : byId.get(p.indicator);
-    if (!ind) return [];
-    const year = effectiveYear(p, ind);
+    const panelInd = p.view === "pyramid" ? byId.get("pop_total") : byId.get(p.indicator);
+    if (!panelInd) return [];
     const sel = selectionOf(ws, p);
-    const card = (entity: string, pinned: boolean, at: At | null) => (
-      <PopupCard entity={entity} indicator={ind} year={year} tabs={tabs} pinned={pinned} selected={sel.includes(entity)}
-        onClose={() => (pinned ? dispatch({ type: "unpin", entity, panel: p.id }) : setOpen(null))}
-        onPin={() => {
-          if (pinned) return dispatch({ type: "unpin", entity, panel: p.id });
-          dispatch({ type: "pin", pin: { entity, panel: p.id, ...(at && "lng" in at ? { lng: at.lng, lat: at.lat } : {}) } });
-          setOpen(null);
-          logHistory({ kind: "pin", title: `Pinned ${names.get(entity) ?? entity}`, entity, indicator: ind.indicator_id });
-        }}
-        onSelect={() => dispatch({ type: "toggleSelect", entity, panel: p.id })}
-        onBoard={settings.side_panel ? (indicator) => dispatch({ type: "board", item: { entity, indicator }, on: true }) : undefined} />
-    );
+    // A pinned card keeps the dataset it was pinned with (older pins follow the panel).
+    const card = (entity: string, pin: Pin | null, at: At | null) => {
+      const ind = (pin?.indicator && byId.get(pin.indicator)) || panelInd;
+      return (
+        <PopupCard entity={entity} indicator={ind} year={effectiveYear(p, ind)} tabs={tabs} pinned={!!pin} selected={sel.includes(entity)}
+          onClose={() => (pin ? dispatch({ type: "unpin", entity, panel: p.id, indicator: pin.indicator }) : setOpen(null))}
+          onPin={(indicator) => {
+            if (pin) return dispatch({ type: "unpin", entity, panel: p.id, indicator: pin.indicator });
+            dispatch({ type: "pin", pin: { entity, panel: p.id, indicator, ...(at && "lng" in at ? { lng: at.lng, lat: at.lat } : {}) } });
+            setOpen(null);
+            logHistory({ kind: "pin", title: `Pinned ${names.get(entity) ?? entity}`, entity, indicator });
+          }}
+          onSelect={() => dispatch({ type: "toggleSelect", entity, panel: p.id })}
+          onBoard={settings.side_panel ? (indicator) => dispatch({ type: "board", item: { entity, indicator }, on: true }) : undefined} />
+      );
+    };
+    const seen = new Map<string, number>();
     const out: PanelPopup[] = ws.pins.filter((x) => x.panel === p.id).map((x) => {
       const at = x.lng !== undefined && x.lat !== undefined ? { lng: x.lng, lat: x.lat } : null;
-      return { key: `pin:${x.entity}`, entity: x.entity, pinned: true, at, node: card(x.entity, true, at) };
+      // Several pins for one country step down and across, so each card stays in sight.
+      const shift = seen.get(x.entity) ?? 0;
+      seen.set(x.entity, shift + 1);
+      return { key: `pin:${x.entity}:${x.indicator ?? ""}`, entity: x.entity, pinned: true, at, shift, node: card(x.entity, x, at) };
     });
-    if (open && open.panel === p.id && !out.some((x) => x.entity === open.entity))
-      out.push({ key: `open:${open.entity}`, entity: open.entity, pinned: false, at: open.at, node: card(open.entity, false, open.at) });
+    // The clicked country's popup, unless a pin already shows it with the panel's dataset.
+    const shownAlready = (e: string) => ws.pins.some((x) => x.panel === p.id && x.entity === e && (x.indicator ?? panelInd.indicator_id) === panelInd.indicator_id);
+    if (open && open.panel === p.id && !shownAlready(open.entity))
+      out.push({ key: `open:${open.entity}`, entity: open.entity, pinned: false, at: open.at, shift: seen.get(open.entity) ?? 0, node: card(open.entity, null, open.at) });
     return out;
   };
 
