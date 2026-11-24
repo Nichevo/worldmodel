@@ -100,3 +100,28 @@ def test_ilostat_file_saved_from_the_data_explorer(tmp_path):
     assert _ilo_series(r) == "EAR_4MTH_SEX_CUR_NB_A"
     assert _ilo_sex(r["sex.label"]) == "_women" and _ilo_currency(r["classif1.label"]) == "usd"
     assert _ilo_currency("Currency: 2021 PPP $") == "ppp" and _ilo_sex("SEX_T") == ""
+
+
+def test_wup_2025_cities_file():
+    from worldmodel_data.connectors.cities import read_wup
+
+    got = read_wup(FIXTURES / "un_wup_2025" / "WUP2025-F21-DEGURBA-Cities_Pop.xlsx")
+    names = {r[0] for r in got}
+    assert names == {"Auckland", "Gisborne", "Sydney"}  # small cities only kept for New Zealand
+    akl = {r[5]: r for r in got if r[0] == "Auckland"}
+    assert akl[2025][7] == 1_700_000 and akl[2025][6] == "E" and akl[2026][6] == "P"
+    assert akl[2025][1] == "NZL" and akl[2025][2] == -36.85
+
+
+def test_wup_says_when_a_population_prospects_file_is_saved_instead(tmp_path):
+    from openpyxl import Workbook
+
+    from worldmodel_data.connectors.base import ConnectorError
+    from worldmodel_data.connectors.cities import read_wup
+
+    wb = Workbook()
+    wb.active.append(["Index", "Variant", "Region, subregion, country or area *"])
+    p = tmp_path / "WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_FULL.xlsx"
+    wb.save(p)
+    with pytest.raises(ConnectorError, match="World Population Prospects"):
+        read_wup(p)

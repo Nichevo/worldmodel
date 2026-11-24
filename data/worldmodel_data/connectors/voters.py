@@ -14,13 +14,13 @@ us_census_voting
 
 nz_election_turnout (New Zealand pack)
     Electoral Commission, voter turnout statistics for each general election
-    (elections.nz, Statistics): the spreadsheet "<year> General Election - Voter
+    (elections.nz, Participation in voting): the spreadsheet "<year> General Election - Voter
     turnout by electorate and age" (sheets by electorate and age band, by descent,
     and by age band and descent). Loaded by hand; files add up, so load each
     election's file once: `.\\load.bat nz_election_turnout <file>`. National figures
     (the "All electorates" rows) for now; electorates come with the regions work.
     Shares are of people enrolled. A refresh (every 90 days) also looks for the
-    spreadsheets itself: the Statistics page, the election statistics pages it links to
+    spreadsheets itself: the Participation in voting page, the turnout pages it links to
     (at most 12), and each turnout spreadsheet they link to, read politely
     (worldmodel_data.scrape) and stopping at the first problem; files saved by hand
     still load as before.
@@ -184,7 +184,8 @@ class USCensusVoting(Connector):
 
 
 # ------------------------------------------------------------------------- NZ Electoral Commission
-NZ_PAGE = "https://elections.nz/stats-and-research/"
+# The turnout pages moved under "historical events" in 2026; this page links each election's one.
+NZ_PAGE = "https://elections.nz/stats-and-research/participation-in-voting"
 NZ_AGE = re.compile(r"^\s*(\d{2})\s*[-–]\s*(\d{2})\s*$|^\s*(\d{2})\s*\+\s*$")
 NZ_DESCENT = {"maoridescent": "maori", "nonmaoridescent": "non_maori"}
 
@@ -279,10 +280,10 @@ def _nz_links(page: str) -> tuple[list[str], list[str]]:
         if "elections.nz" not in low:
             continue
         if re.search(r"\.xlsx?(\?|$)", low):
-            if "turnout" in low and url not in files:
+            # the national file by age and descent, not the neighbourhood (SA2) one
+            if "turnout" in low and not re.search(r"sa2|neighbourhood", low) and url not in files:
                 files.append(url)
-        elif "/stats-and-research/" in low and re.search(r"(19|20)\d\d|turnout|general-election", low) \
-                and url.rstrip("/") != NZ_PAGE.rstrip("/") and url not in pages:
+        elif "turnout" in low and url.rstrip("/") != NZ_PAGE.rstrip("/") and url not in pages:
             pages.append(url)
     return pages, files
 

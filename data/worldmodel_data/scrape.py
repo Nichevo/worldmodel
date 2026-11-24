@@ -37,7 +37,7 @@ DEFAULT_GAP = 6.0
 # top of short pages, so an article that mentions "captcha" does not stop a run.
 BLOCKED = re.compile(r"captcha|are you (a )?(human|robot)|access denied|request blocked|unusual traffic|"
                      r"just a moment\.\.\.|cf-chl|attention required|enable javascript and cookies|"
-                     r"too many requests|rate limit", re.I)
+                     r"too many requests|rate limit|_Incapsula_Resource|awswaf", re.I)
 BLOCK_CHECK_BYTES = 60_000
 
 
@@ -146,6 +146,10 @@ class PageReader:
             if missing_ok and re.search(r"HTTP 40[4]|HTTP 410", str(exc)):
                 self.say(f"page {self.asked} of {self.planned}: {label} is not on the site (skipped)")
                 return None
+            if re.search(r"HTTP 202\b", str(exc)):  # an empty 202 is how AWS's firewall hands out its check
+                self.stop(f"page {self.asked} ({label}) is a check screen (HTTP 202 with no page), not the page; the "
+                          "site is turning programs away. Run verify.bat, or save the page from your browser (Ctrl+S) "
+                          "into the source's var\\manual folder.")
             self.stop(f"page {self.asked} ({label}) could not be read: {exc}. "
                       "Nothing more was asked of the site; try again later, or save the page from your browser (Ctrl+S) "
                       "into the source's var\\manual folder.")

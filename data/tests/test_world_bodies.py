@@ -64,6 +64,17 @@ def test_vetoes_and_council_seats(con):
     assert {r[0] for r in syria} == {"CHN", "RUS"}
     seats = [r for r in got if r[0] == "NZL" and r[2] == "council_seat"]
     assert [(r[4].year, r[5].year) for r in seats] == [(1954, 1955), (1993, 1994), (2015, 2016)]
+    # the 2026 layout: the name on one line, its terms on the next
+    assert [r[4].year for r in got if r[0] == "AUS" and r[2] == "council_seat"] == [1946, 1956, 1973, 1985, 2013]
+    assert [r[4].year for r in got if r[0] == "LBY" and r[2] == "council_seat"] == [1976, 2008]
+
+
+def test_veto_list_frame():
+    from worldmodel_data.connectors.world_bodies import veto_frame
+
+    page = '<p>Vetoes</p><iframe width="100%" src="//abc.execute-api.us-east-1.amazonaws.com/dev/render_meeting_veto/sc_veto_list/EN"></iframe>'
+    assert veto_frame(page) == "https://abc.execute-api.us-east-1.amazonaws.com/dev/render_meeting_veto/sc_veto_list/EN"
+    assert veto_frame("<table></table>") is None
 
 
 def test_sanctions_events_and_counts(con):
@@ -88,7 +99,29 @@ def test_wto_disputes_for_both_sides(con):
     got = events(con, "wto_disputes")
     ds543 = {(r[0], r[2]) for r in got if "DS543" in r[3]}
     assert ds543 == {("USA", "respondent"), ("CHN", "complainant")}
-    assert ("eu", "respondent") in {(r[0], r[2]) for r in got if "DS600" in r[3]}
+    ds600 = {(r[0], r[2]) for r in got if "DS600" in r[3]}
+    assert {("eu", "respondent"), ("FRA", "respondent"), ("LTU", "respondent"), ("MYS", "complainant")} == ds600
+    ds601 = {(r[0], r[2]) for r in got if "DS601" in r[3]}
+    assert ds601 == {("TWN", "complainant"), ("ROU", "complainant")}  # the WTO's own codes; XXX left out
+    us = [r for r in got if r[0] == "USA"][0]
+    assert us[4] == date(2018, 4, 4) and us[7] == "Current status: Panel report under appeal."
+    assert us[3] == "WTO dispute DS543 brought by China: Tariff Measures on Certain Goods from China"
+
+
+def test_wto_page_saved_from_a_browser():
+    from worldmodel_data.connectors.world_bodies import dispute_events
+
+    page = """<ul id="cases_list">
+<li><h3><a href="/english/tratop_e/dispu_e/cases_e/ds646_e.htm"><small class="dsnumber">DS646</small> United States &mdash; Additional Duties on Certain Products from Brazil</a></h3><p>Short title: US &ndash; Additional Duties (Brazil)<br>Complainant: Brazil<br>Consultations requested:&nbsp;27&nbsp;July&nbsp;2026<br>Current status:&nbsp;In consultations</p></li>
+<li><h3><a><small>DS267</small> United States &mdash; Subsidies on Upland Cotton</a></h3><p>Short title: US &ndash; Upland Cotton<br>Complainant: Antigua and Barbuda, Venezuela, Bolivarian Republic of<br>Consultations requested:&nbsp;27&nbsp;September&nbsp;2002</p></li>
+</ul>"""
+    unmatched = set()
+    got = {(r[0], r[3]) for r in dispute_events(page, unmatched)}
+    assert ("BRA", "complainant") in got and ("USA", "respondent") in got
+    assert ("ATG", "complainant") in got and ("VEN", "complainant") in got
+    assert unmatched == set()
+    title = next(r[4] for r in dispute_events(page, set()) if r[0] == "USA")
+    assert title == "WTO dispute DS646 brought by Brazil: Additional Duties on Certain Products from Brazil"
 
 
 def test_treaties_joined_and_signed(con):
@@ -98,6 +131,19 @@ def test_treaties_joined_and_signed(con):
     assert got["AGO"][7].startswith("Acceded")
     assert value(con, "NZL", "treaties_joined", "2016-01-01") == 1
     assert value(con, "IRN", "treaties_joined", "2016-01-01") is None
+    # UN spellings and the EU; the page's top table (entry into force, registration, ...) is not a party
+    assert {"NRU", "MDA", "TZA", "eu"} <= set(got)
+    assert value(con, "eu", "treaties_joined", "2016-01-01") is None  # countries only
+    assert con.execute("SELECT count(*) FROM events WHERE source_id = 'un_treaties' AND title LIKE '%Entry%'").fetchone()[0] == 0
+
+
+def test_un_country_spellings():
+    from worldmodel_contract.catalogue import country_by_name
+
+    assert country_by_name("Republic of Moldova") == "MDA"
+    assert country_by_name("United Republic of Tanzania") == "TZA"
+    assert country_by_name("Naoero") == "NRU"
+    assert country_by_name("Congo, Democratic Republic of the") == "COD"
 
 
 def test_crisiswatch_ratings_split_entries(con):
