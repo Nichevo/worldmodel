@@ -23,7 +23,13 @@ Four sources, each switchable in Settings > Long history:
 
 * wikidata_history: wars, battles, sieges, epidemics, famines, revolutions and treaties
   from Wikidata with articles in five or more Wikipedias, with dates (BC too), a place,
-  deaths where given and the English article. One query per kind, once a month.
+  deaths where given and the English article. Also things begun: famous buildings and
+  great works (pyramids, temples, cathedrals, palaces, walls, bridges, canals, dams; 20+
+  Wikipedias, and World Heritage sites with a start date), cities founded (40+), religions
+  and writing systems (15+), each dated by its inception. And rulers: people who held a
+  king's, queen's, emperor's, pharaoh's, sultan's... post (anything Wikidata files under
+  monarch) with the years they held it and the state it was over (25+ Wikipedias). About a
+  dozen queries one after another with a pause, once a month.
 
 * noaa_hazel: NOAA's significant earthquakes, volcanic eruptions and tsunamis since
   antiquity (the Natural Hazards database's own API, HazEL), paged 200 at a time with a
@@ -349,6 +355,64 @@ SELECT ?e ?eLabel ?start ?pit ?end ?coord ?placeCoord ?placeLabel ?iso3 ?deaths 
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }"""
 
+# Things begun, dated by inception (P571). Buildings are asked for by their own class only
+# (P31, no subclasses): with subclasses the query service runs out of time on churches.
+# The classes were picked from what the best-known works are filed under (the Great Pyramid
+# is an "Egyptian pyramids" and an "archaeological site", the Parthenon an "ancient Greek
+# temple", the Great Wall a "cordon"...). file -> (kind, classes, fewest Wikipedias, subclasses too)
+BEGUN = {
+    "built_ancient": ("built", ("Q839954", "Q66108498", "Q175582", "Q12516", "Q267596", "Q867143", "Q7362268",
+                                "Q15661340", "Q1784293", "Q162875", "Q381885"), 20, False),
+    "built_worship": ("built", ("Q16970", "Q2977", "Q56242215", "Q120560", "Q32815", "Q44539", "Q842402",
+                                "Q5393308"), 20, False),
+    "built_palaces": ("built", ("Q16560", "Q23413", "Q57821", "Q4989906", "Q2319498", "Q1497375"), 20, False),
+    "built_works": ("built", ("Q12280", "Q12570", "Q12284", "Q949819", "Q12323", "Q1440300", "Q179700", "Q153562",
+                              "Q483110"), 20, False),
+    "city": ("city", ("Q515", "Q1549591", "Q5119", "Q200250"), 40, False),
+    "religion": ("religion", ("Q9174",), 15, True),
+    "writing": ("writing", ("Q8192",), 15, True),
+}
+BEGUN_QUERY = """
+SELECT ?e ?eLabel ?inc ?coord ?placeCoord ?placeLabel ?iso3 ?links ?article WHERE {
+  VALUES ?class { %s }
+  ?e wdt:P31%s ?class ; wikibase:sitelinks ?links . FILTER(?links >= %d)
+  ?e wdt:P571 ?inc .
+  OPTIONAL { ?e wdt:P625 ?coord }
+  OPTIONAL { ?e wdt:P740 ?place . ?place wdt:P625 ?placeCoord }
+  OPTIONAL { ?e wdt:P17 ?c . ?c wdt:P298 ?iso3 }
+  OPTIONAL { ?article schema:about ?e ; schema:isPartOf <https://en.wikipedia.org/> }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}"""
+# World Heritage sites with a start date (national parks and nature reserves left out:
+# their "inception" is when they were protected, not built).
+HERITAGE_QUERY = """
+SELECT ?e ?eLabel ?inc ?coord ?iso3 ?links ?article WHERE {
+  ?e wdt:P1435 wd:Q9259 ; wdt:P571 ?inc ; wikibase:sitelinks ?links .
+  FILTER NOT EXISTS { ?e wdt:P31 wd:Q46169 }
+  FILTER NOT EXISTS { ?e wdt:P31 wd:Q179049 }
+  FILTER NOT EXISTS { ?e wdt:P31 wd:Q473972 }
+  OPTIONAL { ?e wdt:P625 ?coord }
+  OPTIONAL { ?e wdt:P17 ?c . ?c wdt:P298 ?iso3 }
+  OPTIONAL { ?article schema:about ?e ; schema:isPartOf <https://en.wikipedia.org/> }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}"""
+BEGUN_KINDS = ("built", "city", "religion", "writing")
+
+# Rulers: whoever held a post that is (a subclass of) monarch, with the post's start year,
+# and the state the post is over (P1001). Popes come too (the Catholic Church is not a state
+# on the map, so they show only where a state matches).
+RULER_LINKS = 25
+NOT_RULERS = ("consort", "haseki", "valide")
+RULER_QUERY = """
+SELECT ?p ?pLabel ?pos ?posLabel ?jur ?jurLabel ?start ?end ?links ?article WHERE {
+  ?pos wdt:P279+ wd:Q116 ; wdt:P1001 ?jur .
+  ?p p:P39 ?st . ?st ps:P39 ?pos ; pq:P580 ?start .
+  ?p wikibase:sitelinks ?links . FILTER(?links >= %d)
+  OPTIONAL { ?st pq:P582 ?end }
+  OPTIONAL { ?article schema:about ?p ; schema:isPartOf <https://en.wikipedia.org/> }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}"""
+
 POINT = re.compile(r"Point\(([-\d.eE]+) ([-\d.eE]+)\)")
 WD_TIME = re.compile(r"^([+-]?)(\d+)-(\d\d)-(\d\d)")
 
@@ -382,10 +446,15 @@ def event_rows(kind: str, bindings: list[dict]) -> list[tuple]:
     for b in bindings:
         q = _qid(_val(b, "e"))
         title = _val(b, "eLabel")
-        if not q or not title or title == q or q in seen:
+        if not q or not title or title == q:
             continue
-        year, month, day = wd_year(_val(b, "start") or _val(b, "pit"))
+        year, month, day = wd_year(_val(b, "start") or _val(b, "pit") or _val(b, "inc"))
         if year is None:
+            continue
+        if q in seen:
+            # Several dates for one thing (Stonehenge: 3000 BC and a rebuilding): the earliest.
+            if kind in BEGUN_KINDS and year < seen[q][3]:
+                seen[q] = (*seen[q][:3], year, None, month, day, *seen[q][7:])
             continue
         end = wd_year(_val(b, "end"))[0]
         lat, lon = _point(_val(b, "coord"))
@@ -405,6 +474,38 @@ def event_rows(kind: str, bindings: list[dict]) -> list[tuple]:
     return list(seen.values())
 
 
+def ruler_rows(bindings: list[dict]) -> list[tuple]:
+    """One row per person, post and start year. Consorts (a king's wife, a queen's husband,
+    a sultan's chief wife or mother) are left out: Wikidata files some of their posts under
+    monarch too."""
+    seen: dict[tuple, tuple] = {}
+    for b in bindings:
+        p, pos, jur = _qid(_val(b, "p")), _qid(_val(b, "pos")), _qid(_val(b, "jur"))
+        name, post = _val(b, "pLabel"), _val(b, "posLabel") or ""
+        if not p or not pos or not jur or not name or name == p or any(w in post.lower() for w in NOT_RULERS):
+            continue
+        start = wd_year(_val(b, "start"))[0]
+        if start is None:
+            continue
+        end = wd_year(_val(b, "end"))[0]
+        try:
+            links = int(_val(b, "links") or 0)
+        except ValueError:
+            links = 0
+        key = (p, pos, start)
+        if key in seen:
+            continue
+        seen[key] = (f"{p}:{pos}:{start}", p, name, post if post != pos else None, jur,
+                     (_val(b, "jurLabel") if _val(b, "jurLabel") != jur else None), start,
+                     end if end is not None and end >= start else None, links,
+                     _val(b, "article") or f"https://www.wikidata.org/wiki/{p}")
+    return list(seen.values())
+
+
+RULER_COLUMNS = ("ruler_key VARCHAR, person VARCHAR, name VARCHAR, post VARCHAR, over_qid VARCHAR, over_name VARCHAR, "
+                 "from_year INTEGER, to_year INTEGER, links INTEGER, url VARCHAR")
+
+
 HISTORY_EVENT_COLUMNS = ("event_key VARCHAR, kind VARCHAR, title VARCHAR, year INTEGER, end_year INTEGER, month INTEGER, "
                          "day INTEGER, lat DOUBLE, lon DOUBLE, place VARCHAR, country_code VARCHAR, deaths DOUBLE, "
                          "size DOUBLE, size_unit VARCHAR, links INTEGER, url VARCHAR")
@@ -416,10 +517,33 @@ def _event_table(con: duckdb.DuckDBPyConnection, rows: list[tuple]) -> None:
         con.executemany(f"INSERT INTO hev VALUES ({', '.join('?' * 16)})", rows)
 
 
+def history_queries() -> list[tuple[str, str]]:
+    """(file name without .json, SPARQL) for every query, in the order they are run."""
+    out = [(f"history_{kind}", EVENT_QUERY % (" ".join(f"wd:{c}" for c in classes), MIN_LINKS))
+           for kind, classes in EVENT_CLASSES.items()]
+    for name, (_, classes, links, sub) in BEGUN.items():
+        out.append((f"begun_{name}", BEGUN_QUERY % (" ".join(f"wd:{c}" for c in classes), "/wdt:P279?" if sub else "", links)))
+    out.append(("begun_heritage", HERITAGE_QUERY))
+    out.append(("rulers", RULER_QUERY % RULER_LINKS))
+    return out
+
+
+def _bindings(path: Path) -> list[dict] | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))["results"]["bindings"]
+    except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
+        # The query service ends a result that ran out of time with a Java error mid-file.
+        log.warning("wikidata_history: %s is not a whole query result (the query service may have run out of time); "
+                    "skipped", path.name)
+        return None
+
+
 class WikidataHistory(Connector):
     source_id = "wikidata_history"
     switch = "history_events_fetch"
     fetch_every_days = 28
+    fetch_version = 2  # buildings, cities, religions, writing and rulers added
+    stage_version = 2
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -429,37 +553,40 @@ class WikidataHistory(Connector):
 
     def download(self, raw_dir: Path, release: str) -> str:
         got = 0
-        for kind, classes in EVENT_CLASSES.items():
-            q = EVENT_QUERY % (" ".join(f"wd:{c}" for c in classes), MIN_LINKS)
+        for name, q in history_queries():
             try:
-                self.get(f"{ENDPOINT}?format=json&query={quote(q)}", raw_dir / f"history_{kind}.json")
+                self.get(f"{ENDPOINT}?format=json&query={quote(q)}", raw_dir / f"{name}.json")
                 got += 1
             except (ConnectorError, httpx.HTTPError) as exc:
-                log.warning("wikidata_history: %s query skipped (%s)", kind, exc)
-            time.sleep(2)
+                log.warning("wikidata_history: %s query skipped (%s)", name, exc)
+            time.sleep(3)
         if not got:
             raise ConnectorError("wikidata_history: every query failed; the query service may be busy, try again later")
         return ENDPOINT
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows: list[tuple] = []
-        for kind in EVENT_CLASSES:
-            path = raw_dir / f"history_{kind}.json"
-            if path.exists():
-                try:
-                    bindings = json.loads(path.read_text(encoding="utf-8"))["results"]["bindings"]
-                except (json.JSONDecodeError, KeyError):
-                    log.warning("wikidata_history: %s is not a query result; skipped", path.name)
-                    continue
+        files = [(f"history_{k}", k) for k in EVENT_CLASSES] + [(f"begun_{n}", v[0]) for n, v in BEGUN.items()] \
+            + [("begun_heritage", "built")]
+        for name, kind in files:
+            path = raw_dir / f"{name}.json"
+            if path.exists() and (bindings := _bindings(path)) is not None:
                 rows += event_rows(kind, bindings)
         # An item found as two kinds (a battle that is also a siege) is kept once, as the first kind.
         rows = list({r[0]: r for r in reversed(rows)}.values())
+        rulers: list[tuple] = []
+        if (raw_dir / "rulers.json").exists() and (bindings := _bindings(raw_dir / "rulers.json")) is not None:
+            rulers = ruler_rows(bindings)
         if not rows:
             raise ConnectorError(f"wikidata_history: nothing read from {raw_dir}")
         _event_table(con, rows)
-        log.info("wikidata_history: %s events (%s)", len(rows),
-                 ", ".join(f"{k} {sum(r[1] == k for r in rows)}" for k in EVENT_CLASSES))
-        self.history_queries = {"history_events": "SELECT * FROM hev"}
+        con.execute(f"CREATE TABLE hru ({RULER_COLUMNS})")
+        if rulers:
+            con.executemany(f"INSERT INTO hru VALUES ({', '.join('?' * 10)})", rulers)
+        kinds = [*EVENT_CLASSES, *BEGUN_KINDS]
+        log.info("wikidata_history: %s events (%s), %s rulers", len(rows),
+                 ", ".join(f"{k} {sum(r[1] == k for r in rows)}" for k in kinds), len(rulers))
+        self.history_queries = {"history_events": "SELECT * FROM hev", "history_rulers": "SELECT * FROM hru"}
         return NO_ROWS
 
 

@@ -2,9 +2,10 @@
 // and the states alive that year, with each state's shape fetched once and kept.
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { api, type GeoFeature } from "@/lib/api";
+import type { MapMark } from "@/components/WorldMap";
+import { api, type GeoFeature, type LongEvent } from "@/lib/api";
 import { saveSettings, useSettings } from "@/lib/settings";
-import { hueColor, yl } from "@/lib/long";
+import { hueColor, KIND_WORD, kindColor, mapKinds, yl } from "@/lib/long";
 
 let year: number | null = null;
 const subs = new Set<() => void>();
@@ -58,4 +59,55 @@ export function useWorldIn(on: boolean, y: number) {
     return () => { live = false; };
   }, [on, y]);
   return areas;
+}
+
+// Events and beginnings around the year on a World-in-year map: the kinds picked in
+// Settings (history_map_groups), from history_map_window years either side, the best-known
+// first. Fetched a moment after the year stops changing (Play moves it many times a second).
+const eventCache = new Map<string, Promise<LongEvent[]>>();
+
+export function useYearEvents(on: boolean, y: number) {
+  const s = useSettings();
+  const groups = s.history_map_groups ?? "war,built,belief,city";
+  const win = s.history_map_window ?? 25;
+  const [events, setEvents] = useState<LongEvent[]>([]);
+  useEffect(() => {
+    const kinds = mapKinds(groups);
+    if (!on || !kinds.length) { setEvents([]); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      const key = `${y}|${win}|${groups}|${s.history_event_min_links ?? 5}`;
+      if (!eventCache.has(key)) {
+        if (eventCache.size > 80) eventCache.clear();
+        const p = api.longEvents({ start: y - win, end: y + win, kind: kinds.join(","), limit: 300 });
+        p.catch(() => eventCache.delete(key));
+        eventCache.set(key, p);
+      }
+      eventCache.get(key)!.then((ev) => live && setEvents(ev)).catch(() => live && setEvents([]));
+    }, 150);
+    return () => { live = false; clearTimeout(t); };
+  }, [on, y, win, groups, s.history_event_min_links]);
+  return { events, window: win, groups };
+}
+
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Marks for the map: faded the further from the year, bigger for the better known (or the
+// deadlier), with names written beside the best-known few.
+export function yearMarks(events: LongEvent[], y: number, win: number, labels: number): MapMark[] {
+  const placed = events.filter((e) => e.lat !== null && e.lon !== null);
+  const fame = (e: LongEvent) => (e.links ?? (e.source_id === "typed_in" ? 60 : 0)) + Math.log10(1 + (e.deaths ?? 0)) * 10;
+  const named = new Set([...placed].sort((a, b) => fame(b) - fame(a)).slice(0, labels).map((e) => e.event_id));
+  return placed.map((e) => {
+    const off = e.year > y ? e.year - y : Math.max(0, y - (e.end_year ?? e.year));
+    const opacity = Math.max(0.3, 1 - (0.7 * off) / Math.max(1, win));
+    const r = 3.5 + Math.min(5, Math.log10(1 + (e.links ?? 20)) * 2.2) + (e.deaths ? Math.min(2, Math.log10(1 + e.deaths) / 3) : 0);
+    return {
+      key: e.event_id, lng: e.lon!, lat: e.lat!, color: kindColor(e.kind), r, opacity,
+      label: `<b>${esc(e.title)}</b><br/>${esc(KIND_WORD[e.kind] ?? e.kind)} · ${esc(e.when)}${e.place ? ` · ${esc(e.place)}` : ""}`
+        + (e.deaths ? `<br/>about ${Math.round(e.deaths).toLocaleString("en")} deaths` : "") + "<br/><i>Click for more</i>",
+      href: e.url ?? undefined,
+      text: named.has(e.event_id) ? `${e.title.length > 34 ? `${e.title.slice(0, 32)}…` : e.title} ${yl(e.year)}` : undefined,
+    };
+  });
 }

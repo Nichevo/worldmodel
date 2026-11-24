@@ -120,7 +120,7 @@ function PeopleCard({ o, marks }: { o: LongOverview; marks: boolean }) {
       {zoom.tools}
       {events.length > 0 && (
         <div className="legend small" style={{ marginTop: 4 }}>
-          {(Object.keys(GROUP_LABEL) as (keyof typeof GROUP_LABEL)[]).map((g) => (
+          {(["war", "plague", "disaster"] as const).map((g) => (
             <span key={g} style={{ marginRight: 12 }}><i className="dot" style={{ background: kindColor(Object.keys(KIND_GROUP).find((k) => KIND_GROUP[k] === g)!) }} /> {GROUP_LABEL[g]}</span>
           ))}
         </div>

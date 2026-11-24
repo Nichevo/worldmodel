@@ -467,7 +467,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         layers={MAP_LAYERS.filter((m) => !m.made && panel.layers.includes(m.letter)).map((m) => m.id)}
         layerFilter={marks.filters}
         outlines={marks.outlines}
-        marks={panel.layers.includes("e") || panel.layers.includes("n") ? marks.marks : []}
+        marks={panel.layers.includes("e") || panel.layers.includes("n") || panel.layers.includes("y") ? marks.marks : []}
         legend={marks.legend}
         areas={marks.areas}
         raster={marks.rasters}

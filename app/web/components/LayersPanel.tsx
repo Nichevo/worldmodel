@@ -13,8 +13,8 @@ import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/laye
 import { LAND_COVER } from "@/lib/maplook";
 import { setFightingWindow } from "@/lib/osint";
 import { saveSettings, useSettings } from "@/lib/settings";
-import { yl } from "@/lib/long";
-import { setMapYear, useMapYear, useWorldIn } from "@/lib/longYear";
+import { GROUP_LABEL, KIND_GROUP, kindColor, yl } from "@/lib/long";
+import { setMapYear, useMapYear, useWorldIn, useYearEvents, yearMarks } from "@/lib/longYear";
 import {
   LAYER_GROUPS, MAP_LAYERS, QUICK_SETS, WINDOWS, windowDates, type Action, type LayerDef, type Panel as PanelState,
 } from "@/lib/workspace";
@@ -60,6 +60,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const [counts, setCounts] = useState<LayerCounts>({});
   const pastYear = useMapYear();
   const world = useWorldIn(on("y"), pastYear);
+  const past = useYearEvents(on("y"), pastYear);
+  const pastLabels = useSettings().history_map_labels ?? 10;
   useEffect(() => {
     if (!on("w")) return;
     cwLatest ??= api.crisiswatch().catch((e) => { cwLatest = null; throw e; });
@@ -155,8 +157,12 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     if (cw?.month) all.crisiswatch = `${cw.rows.filter((r) => r.subkind !== "unchanged").length} changed, ${cw.month}`;
     if (ev) { all.events = `${ev.events.length} in window`; all.news = `${ev.watch.length} in window`; }
     if (world) {
-      all.history_world = `${world.count} states in ${yl(pastYear)}`;
+      all.history_world = `${world.count} states, ${past.events.length} events within ${past.window} years of ${yl(pastYear)}`;
       legend.push({ label: `States and empires in ${yl(pastYear)} (one colour per empire)`, color: cssVar("--series-4"), shape: "dot" });
+      marks.push(...yearMarks(past.events, pastYear, past.window, pastLabels));
+      for (const g of [...new Set(past.events.map((e) => KIND_GROUP[e.kind]))].filter(Boolean)) {
+        legend.push({ label: GROUP_LABEL[g], color: kindColor(Object.keys(KIND_GROUP).find((k) => KIND_GROUP[k] === g)!), shape: "dot" });
+      }
     }
     // Picture layers over the country colours: climate zones (this app's tiles) and smoke (NASA).
     const rasters: RasterTiles[] = [];
@@ -181,7 +187,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       legend.push({ label: "Tree height (darker green: taller, up to 40 m+)", color: "#1b5e20", shape: "dot" });
     }
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 function inWindow(id: string, p: Record<string, unknown>, start: string, end: string): boolean {
@@ -250,7 +256,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.made) {
       if (m.id === "crisiswatch") return { ok: true, why: "", source: "Crisis Group, the latest month stored" };
       if (m.id === "events") return { ok: true, why: "", source: "Events from every source, placed on their country" };
-      if (m.id === "history_world") return { ok: true, why: "", source: "Seshat Cliopatria borders (a refresh loads them)" };
+      if (m.id === "history_world") return { ok: true, why: "", source: "Seshat Cliopatria borders; events and rulers from Wikidata and NOAA (a refresh loads them)" };
       if (m.id === "climate_zones") return { ok: true, why: "", source: "Beck et al. 2023 (a refresh loads them)" };
       if (m.id === "electricity_mix") return { ok: true, why: "", source: "Our World in Data energy, each place's latest year" };
       if (m.id === "smoke") return { ok: true, why: "", source: "NASA GIBS, read from the internet" };

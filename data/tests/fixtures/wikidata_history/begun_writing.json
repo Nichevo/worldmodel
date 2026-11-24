@@ -1,0 +1,53 @@
+{
+"head": {
+"vars": []
+},
+"results": {
+"bindings": [
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q401"
+},
+"eLabel": {
+"type": "literal",
+"value": "Cuneiform"
+},
+"inc": {
+"type": "literal",
+"value": "-2999-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "102"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Cuneiform"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q8201"
+},
+"eLabel": {
+"type": "literal",
+"value": "Chinese characters"
+},
+"inc": {
+"type": "literal",
+"value": "-1250-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "147"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Chinese_characters"
+}
+}
+]
+}
+}

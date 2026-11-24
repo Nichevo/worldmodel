@@ -157,6 +157,13 @@ HISTORY_COLUMNS = {
         "place": "VARCHAR", "country_code": "VARCHAR", "deaths": "DOUBLE", "size": "DOUBLE", "size_unit": "VARCHAR",
         "links": "INTEGER", "url": "VARCHAR",
     },
+    # Rulers (Wikidata): who held a monarch's post over which state (over_qid, the state's
+    # Wikidata id, matched to the borders' own ids by the API), and when.
+    "history_rulers": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "ruler_key": "VARCHAR", "person": "VARCHAR", "name": "VARCHAR",
+        "post": "VARCHAR", "over_qid": "VARCHAR", "over_name": "VARCHAR", "from_year": "INTEGER", "to_year": "INTEGER",
+        "links": "INTEGER", "url": "VARCHAR",
+    },
     # Pollution and nature (connectors/nature.py)
     "zone_grids": {
         "source_id": "VARCHAR", "vintage": "VARCHAR", "period": "VARCHAR", "scenario": "VARCHAR", "width": "INTEGER",

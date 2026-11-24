@@ -1,0 +1,69 @@
+{
+"head": {
+"vars": []
+},
+"results": {
+"bindings": [
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q432"
+},
+"eLabel": {
+"type": "literal",
+"value": "Islam"
+},
+"inc": {
+"type": "literal",
+"value": "0631-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "338"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Islam"
+},
+"placeCoord": {
+"type": "literal",
+"value": "Point(40.8597 23.5036)"
+},
+"placeLabel": {
+"type": "literal",
+"value": "Hejaz"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q184719"
+},
+"eLabel": {
+"type": "literal",
+"value": "Anthroposophy"
+},
+"inc": {
+"type": "literal",
+"value": "1913-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "56"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Anthroposophy"
+},
+"placeCoord": {
+"type": "literal",
+"value": "Point(13.383333333 52.516666666)"
+},
+"placeLabel": {
+"type": "literal",
+"value": "Berlin"
+}
+}
+]
+}
+}

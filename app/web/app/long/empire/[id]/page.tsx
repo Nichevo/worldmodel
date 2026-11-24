@@ -160,7 +160,7 @@ function EmpireCard() {
         <WorldMap values={[]} unit="" decimals={0} diverging={false} onPick={() => {}} hideScale onMap={onMap}
           areas={areas} paths={paths} marks={marks}
           legend={[{ label: view === "year" ? `${card.name} in ${yl(year)}` : "Darker: held earlier", color: colour, shape: "dot" },
-            ...(showEvents ? (Object.keys(GROUP_LABEL) as (keyof typeof GROUP_LABEL)[]).map((g) => ({ label: GROUP_LABEL[g],
+            ...(showEvents ? [...new Set(card.events.map((e) => KIND_GROUP[e.kind]))].filter(Boolean).map((g) => ({ label: GROUP_LABEL[g],
               color: kindColor(Object.keys(KIND_GROUP).find((k) => KIND_GROUP[k] === g)!), shape: "ring" as const })) : [])]} />
         {view === "year" && (
           <div className="long-slider">
@@ -184,6 +184,7 @@ function EmpireCard() {
         <WikiCard id={card.id} />
         <EventsCard card={card} setYear={setYear} />
       </div>
+      {(card.rulers?.length ?? 0) > 0 && <RulersCard card={card} year={year} setYear={setYear} />}
     </div>
   );
 }
@@ -259,6 +260,29 @@ function WikiCard({ id }: { id: string }) {
   );
 }
 
+function RulersCard({ card, year, setYear }: { card: LongPowerCard; year: number | null; setYear: (y: number) => void }) {
+  const list = card.rulers ?? [];
+  return (
+    <div className="card">
+      <h3>Best-known rulers</h3>
+      <ul className="long-events">
+        {list.map((r) => {
+          const now = year !== null && r.from <= year && year <= (r.to ?? r.from);
+          return (
+            <li key={`${r.name}|${r.from}`} style={now ? { fontWeight: 600 } : undefined}>
+              <button className="link" onClick={() => setYear(Math.max(card.from ?? r.from, Math.min(card.to ?? r.from, r.from)))}>{r.when}</button>{" "}
+              {r.url ? <a href={r.url} target="_blank" rel="noreferrer">{r.name}</a> : r.name}
+              {r.post ? <span className="muted small"> · {r.post}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="caption">Rulers from Wikidata with articles in 25 or more Wikipedias, matched to {card.name}&apos;s states by their
+        Wikidata ids and names (bold: ruling in the year on the slider). Click a date to move the map there.</p>
+    </div>
+  );
+}
+
 function EventsCard({ card, setYear }: { card: LongPowerCard; setYear: (y: number) => void }) {
   const [group, setGroup] = useState<string>("");
   const list = card.events.filter((e) => !group || KIND_GROUP[e.kind] === group);
@@ -267,7 +291,7 @@ function EventsCard({ card, setYear }: { card: LongPowerCard; setYear: (y: numbe
       <h3>Events in its lands and years</h3>
       <div className="seg small" role="group" aria-label="Kind">
         <button className={!group ? "on" : ""} onClick={() => setGroup("")}>All</button>
-        {(Object.keys(GROUP_LABEL) as (keyof typeof GROUP_LABEL)[]).map((g) => (
+        {(Object.keys(GROUP_LABEL) as (keyof typeof GROUP_LABEL)[]).filter((g) => card.events.some((e) => KIND_GROUP[e.kind] === g)).map((g) => (
           <button key={g} className={group === g ? "on" : ""} onClick={() => setGroup(g)}>{GROUP_LABEL[g]}</button>
         ))}
       </div>
@@ -282,8 +306,9 @@ function EventsCard({ card, setYear }: { card: LongPowerCard; setYear: (y: numbe
           ))}
         </ul>
       )}
-      <p className="caption">The best-known events inside its widest borders during its years, from Wikidata (articles in enough
-        Wikipedias; Settings sets how many) and NOAA&apos;s hazards database. Click a date to move the map there.</p>
+      <p className="caption">The best-known events and beginnings inside its widest borders during its years, from Wikidata (articles in
+        enough Wikipedias; Settings sets how many), a typed-in list of religions, writing and languages, and NOAA&apos;s hazards database.
+        Click a date to move the map there.</p>
     </div>
   );
 }

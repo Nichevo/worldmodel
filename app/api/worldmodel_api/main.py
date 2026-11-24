@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import csv
+import hashlib
 import io
 import json
 import math
@@ -25,6 +26,7 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal
+from urllib.parse import unquote
 
 import httpx
 from dotenv import load_dotenv
@@ -4709,10 +4711,11 @@ def long_sizes(powers: str | None = None):
 @api.get("/long/power/{power_id}")
 def long_power(power_id: str):
     """One power's card: its shapes over time (frames), size, peak, events in its area and
-    lifetime, and voyages it sponsored."""
+    lifetime, voyages it sponsored and its best-known rulers."""
     _lh_power(power_id)
     min_links = int(userdata.settings().get("history_event_min_links", 5))
-    return _lh(("power", power_id, min_links), lambda: longhistory.power_card(rows, power_id, _lh_has, min_links))
+    idx = _lh_rulers() if _lh_has("history_rulers") else None
+    return _lh(("power", power_id, min_links), lambda: longhistory.power_card(rows, power_id, _lh_has, min_links, idx))
 
 
 @api.get("/long/shape/{key:path}")
@@ -4740,7 +4743,8 @@ def long_world(year: int = Query(..., ge=longhistory.FIRST_YEAR, le=longhistory.
     geometry=false gives the properties only; get the shapes with POST /long/shapes."""
     if not _lh_has("polities"):
         return {"type": "FeatureCollection", "features": [], "year": year}
-    data = json.dumps(longhistory.world(rows, year, geometry), separators=(",", ":"))
+    idx = _lh_rulers() if _lh_has("history_rulers") else None
+    data = json.dumps(longhistory.world(rows, year, geometry, idx), separators=(",", ":"))
     return Response(data, media_type="application/json")
 
 
@@ -4781,9 +4785,8 @@ def long_events(start: int | None = None, end: int | None = None, kind: str | No
                 region: str | None = None, entity: str | None = None, bbox: str | None = None,
                 limit: int = Query(400, ge=1, le=5000)):
     """Events far back: wars, battles, epidemics, famines, treaties, earthquakes, eruptions,
-    tsunamis. min_links defaults to the setting (Wikipedias with an article)."""
-    if not _lh_has("history_events"):
-        return []
+    tsunamis, and things begun: famous buildings, cities founded, religions, writing and
+    languages. min_links defaults to the setting (Wikipedias with an article)."""
     links = min_links if min_links is not None else int(userdata.settings().get("history_event_min_links", 5))
     box = None
     if bbox:
@@ -4792,7 +4795,22 @@ def long_events(start: int | None = None, end: int | None = None, kind: str | No
             box = (w, s_, e, n)
         except ValueError:
             raise HTTPException(422, "bbox is west,south,east,north")
-    return longhistory.events(rows, start, end, split(kind), links, box, region, entity, limit)
+    return longhistory.events(rows, start, end, split(kind), links, box, region, entity, limit,
+                              has_table=_lh_has("history_events"))
+
+
+def _lh_rulers() -> dict:
+    return _lh(("ruler_index",), lambda: longhistory.ruler_index(rows, _lh_has))
+
+
+@api.get("/long/rulers")
+def long_rulers(year: int = Query(..., ge=longhistory.FIRST_YEAR, le=longhistory.LAST_YEAR), most: int = Query(6, ge=1, le=30),
+                states: str | None = None):
+    """The rulers of the biggest states alive in a year (and of any states named), from
+    Wikidata, for the strip under the World-in-year map."""
+    if not _lh_has("polities") or not _lh_has("history_rulers"):
+        return []
+    return longhistory.rulers_in(rows, _lh_rulers(), year, most, split(states))
 
 
 @api.get("/long/voyages")
@@ -4894,6 +4912,19 @@ def long_wikipedia(power_id: str, fetch: bool = True):
     item = p or v
     target = {"name": item["name"], "type": "empire", "article": item.get("wikipedia") or item["name"]}
     res = wiki.page(f"long_{power_id}", target, fetch, kind="empires")
+    return {**res, "page": _with_image_urls(res["page"])}
+
+
+@api.get("/long/event-wikipedia")
+def long_event_wikipedia(url: str, fetch: bool = True):
+    """The Wikipedia introduction for an event or beginning on the World-in-year map, from its
+    English article's address (shares the empires' daily limit in Settings)."""
+    m = re.match(r"^https://en\.wikipedia\.org/wiki/([^?#]+)$", url)
+    if not m:
+        raise HTTPException(422, "url must be an English Wikipedia article")
+    title = unquote(m.group(1)).replace("_", " ")
+    key = "ev_" + hashlib.sha1(title.encode("utf-8")).hexdigest()[:16]
+    res = wiki.page(key, {"name": title, "type": "event", "article": title}, fetch, kind="empires")
     return {**res, "page": _with_image_urls(res["page"])}
 
 

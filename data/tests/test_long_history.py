@@ -88,3 +88,32 @@ def test_build_check_mentions_long_history(built):
     _, con = built
     detail = con.execute("SELECT detail FROM build_checks WHERE check_id = 'history:loaded'").fetchone()[0]
     assert "border shapes" in detail
+
+
+def test_things_begun_take_the_earliest_date(built):
+    _, con = built
+    ev = {r[0]: r for r in con.execute(
+        "SELECT title, kind, year, lat, entity_id, links, url FROM history_events WHERE kind IN ('built', 'city', 'religion', 'writing')").fetchall()}
+    assert ev["Great Pyramid of Giza"][1:3] == ("built", -2560) and ev["Great Pyramid of Giza"][4] == "EGY"
+    assert ev["Stonehenge"][2] == -3001  # two dates in Wikidata (3000 BC and a rebuilding): the earliest
+    assert ev["Angkor Wat"][2] == 802 and ev["Kyoto"][1:3] == ("city", 794)
+    assert ev["Islam"][1] == "religion" and ev["Islam"][3] == pytest.approx(23.5036)  # placed where it began
+    assert ev["Cuneiform"][1] == "writing" and ev["Cuneiform"][3] is None  # no place: listed, not on the map
+    assert ev["Hagia Sophia"][6] == "https://en.wikipedia.org/wiki/Hagia_Sophia"
+
+
+def test_rulers_with_reigns_and_no_consorts(built):
+    _, con = built
+    got = {(r[0], r[1]): r for r in con.execute(
+        "SELECT name, over_qid, over_name, post, from_year, to_year, links FROM history_rulers").fetchall()}
+    aug = got[("Augustus", "Q1747689")]
+    assert aug[2:6] == ("Ancient Rome", "Roman emperor", -27, 14)
+    assert ("Theodosius I", "Q1747689") in got and ("Theodosius I", "Q12544") in got  # one row per post
+    assert ("Hürrem Sultan", "Q12560") not in got and not any("consort" in (r[3] or "") for r in got.values())
+    assert got[("Open-ended ruler", "Q1747689")][5] is None
+
+
+def test_a_cut_off_query_result_is_skipped(built):
+    _, con = built
+    # begun_heritage.json in the fixtures ends in a Java error, as when the service runs out of time
+    assert con.execute("SELECT count(*) FROM history_events WHERE kind = 'built'").fetchone()[0] == 7

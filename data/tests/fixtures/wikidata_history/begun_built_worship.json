@@ -1,0 +1,99 @@
+{
+"head": {
+"vars": []
+},
+"results": {
+"bindings": [
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q12506"
+},
+"eLabel": {
+"type": "literal",
+"value": "Hagia Sophia"
+},
+"inc": {
+"type": "literal",
+"value": "0532-02-25T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "152"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Hagia_Sophia"
+},
+"coord": {
+"type": "literal",
+"value": "Point(28.98 41.008333333)"
+},
+"iso3": {
+"type": "literal",
+"value": "TUR"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q43473"
+},
+"eLabel": {
+"type": "literal",
+"value": "Angkor Wat"
+},
+"inc": {
+"type": "literal",
+"value": "1200-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "139"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Angkor_Wat"
+},
+"coord": {
+"type": "literal",
+"value": "Point(103.866666666 13.4125)"
+},
+"iso3": {
+"type": "literal",
+"value": "KHM"
+}
+},
+{
+"e": {
+"type": "uri",
+"value": "http://www.wikidata.org/entity/Q43473"
+},
+"eLabel": {
+"type": "literal",
+"value": "Angkor Wat"
+},
+"inc": {
+"type": "literal",
+"value": "0802-01-01T00:00:00Z"
+},
+"links": {
+"type": "literal",
+"value": "139"
+},
+"article": {
+"type": "uri",
+"value": "https://en.wikipedia.org/wiki/Angkor_Wat"
+},
+"coord": {
+"type": "literal",
+"value": "Point(103.866666666 13.4125)"
+},
+"iso3": {
+"type": "literal",
+"value": "KHM"
+}
+}
+]
+}
+}

@@ -969,6 +969,17 @@ dl.glossary .here { background: var(--surface-2, rgba(127,127,127,0.08)); border
 .long-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 900px) { .long-two { grid-template-columns: 1fr; } .ruled-row { grid-template-columns: 110px 1fr; } }
 .long-events { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 4px; max-height: 420px; overflow: auto; }
+.long-year-below { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 8px; }
+@media (max-width: 900px) { .long-year-below { grid-template-columns: 1fr; } }
+.long-event-detail { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--surface); min-width: 0; }
+.long-event-detail h4 { margin: 4px 0; }
+.long-event-detail p { margin: 4px 0; }
+.long-rulers { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; align-items: center; }
+.long-ruler { white-space: nowrap; }
+.long-year-list { min-width: 0; }
+.long-year-list .long-events { max-height: 260px; }
+.long-year-list li.on { font-weight: 600; }
+.long-year-list .tabular { font-variant-numeric: tabular-nums; display: inline-block; min-width: 4.5em; }
 .long-voyages { padding-left: 18px; display: grid; gap: 4px; }
 .long-strip { width: 100%; height: 16px; display: block; border-radius: 3px; background: var(--surface-2); }
 .long-strip-axis { display: flex; justify-content: space-between; }

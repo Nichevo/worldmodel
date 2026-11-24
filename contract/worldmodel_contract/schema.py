@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.14.0"
+SCHEMA_VERSION = "1.15.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -232,7 +232,18 @@ TABLES: dict[str, Table] = {
         }, ("event_id",),
             "Events far back in time for the Long history page: wars, battles, sieges, epidemics, famines, "
             "revolutions and treaties (Wikidata, links = Wikipedias with an article) and earthquakes, eruptions "
-            "and tsunamis (NOAA; size is magnitude, VEI or wave height). year is negative for BC. Absent before 1.8.0."),
+            "and tsunamis (NOAA; size is magnitude, VEI or wave height). year is negative for BC. Since 1.15.0 also "
+            "things begun, dated by when they began: built (famous buildings and great works), city (founded), "
+            "religion and writing (Wikidata). Absent before 1.8.0."),
+        Table("history_rulers", {
+            "ruler_key": "VARCHAR", "person": "VARCHAR", "name": "VARCHAR", "post": "VARCHAR", "over_qid": "VARCHAR",
+            "over_name": "VARCHAR", "from_year": "INTEGER", "to_year": "INTEGER", "links": "INTEGER", "url": "VARCHAR",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("ruler_key",),
+            "Rulers (Wikidata): people who held a king's, queen's, emperor's, pharaoh's or other monarch's post "
+            "(post), over a state (over_qid, its Wikidata id, and over_name), from_year to to_year (empty when "
+            "Wikidata has no end). person is the ruler's Wikidata id; links the Wikipedias with an article. "
+            "Absent before 1.15.0."),
         Table("zone_grids", {
             "period": "VARCHAR", "scenario": "VARCHAR", "width": "INTEGER", "height": "INTEGER", "grid": "BLOB",
             "source_id": "VARCHAR", "vintage": "VARCHAR",
