@@ -368,7 +368,10 @@ BEA_TABLES = {  # zip -> {member prefix: {line: (indicator, scale)}}
 }
 
 
-def bea_rows(path: Path, lines: dict[str, tuple[str, float]], rows: Rows, states_only: bool = False) -> int:
+def bea_rows(path: Path, lines: dict[str, tuple[str, float]], rows: Rows, states_only: bool = False,
+             counties_only: bool = False) -> int:
+    """Figures from one BEA regional table. The county tables (CA...) also carry each state's
+    total, which the state tables (SA...) already give: read only one level from each."""
     n = 0
     with path.open(encoding="latin-1", newline="") as f:
         rd = csv.reader(f)
@@ -384,7 +387,7 @@ def bea_rows(path: Path, lines: dict[str, tuple[str, float]], rows: Rows, states
             if line not in lines:
                 continue
             fips = fips5(r[at["GeoFIPS"]])
-            if not fips or (states_only and len(fips) != 2):
+            if not fips or (states_only and len(fips) != 2) or (counties_only and len(fips) == 2):
                 continue
             ind, scale = lines[line]
             for i, y in years.items():
@@ -397,6 +400,7 @@ def bea_rows(path: Path, lines: dict[str, tuple[str, float]], rows: Rows, states
 
 class BEARegional(USConnector):
     source_id = "bea_regional"
+    stage_version = 2  # 2: states from the state tables only (the county tables repeat them)
 
     def download(self, raw_dir: Path, release: str) -> str:
         got = 0
@@ -422,7 +426,7 @@ class BEARegional(USConnector):
         for members in BEA_TABLES.values():
             for prefix, lines in members.items():
                 for p in sorted(raw_dir.glob(prefix + "*.csv")):
-                    bea_rows(p, lines, rows, states_only=prefix.startswith("SA"))
+                    bea_rows(p, lines, rows, states_only=prefix.startswith("SA"), counties_only=prefix.startswith("CA"))
         if not rows:
             raise ConnectorError(f"bea_regional: no figures read from {raw_dir}")
         src = self.source_id

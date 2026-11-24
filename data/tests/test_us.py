@@ -32,6 +32,7 @@ BEA_SAGDP1 = """GeoFIPS,GeoName,Region,TableName,LineCode,IndustryClassification
  "06000","California",8,SAGDP1,3,"...","Current-dollar GDP (millions of current dollars) ","Millions of current dollars",3641643,3870379
 """
 BEA_CAGDP1 = """GeoFIPS,GeoName,Region,TableName,LineCode,IndustryClassification,Description,Unit,2022,2023
+ "06000","California",8,CAGDP1,3,"...","Current-dollar GDP (thousands of current dollars) ","Thousands of dollars",3641000000,3870000000
  "06037","Los Angeles, CA",8,CAGDP1,3,"...","Current-dollar GDP (thousands of current dollars) ","Thousands of dollars",942000000,(NA)
 """
 BEA_RPP = """GeoFIPS,GeoName,Region,TableName,LineCode,IndustryClassification,Description,Unit,2023
