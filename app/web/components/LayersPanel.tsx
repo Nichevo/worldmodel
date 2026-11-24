@@ -12,6 +12,7 @@ import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
 import { setFightingWindow } from "@/lib/osint";
+import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { GROUP_LABEL, KIND_GROUP, kindColor, yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn, useYearEvents, yearMarks } from "@/lib/longYear";
@@ -51,7 +52,15 @@ export type LayerCounts = Record<string, string>;
 // Outlines, markers, filters, legend and counts for a map panel's layers in a time window.
 export function useMapMarks(letters: string, win: string, year: number | null) {
   const on = (l: string) => letters.includes(l);
-  const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized } = useSettings();
+  const st = useSettings();
+  const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized } = st;
+  const [spotted, setSpotted] = useState<LayerPoint[] | null>(null);
+  useEffect(() => {
+    if (!on("0")) return;
+    let live = true;
+    spotLayer().then((p) => live && setSpotted(p)).catch(() => live && setSpotted([]));
+    return () => { live = false; };
+  }, [on("0"), st.spot_min_sure]); // eslint-disable-line react-hooks/exhaustive-deps
   const [start, end] = windowDates(win, year);
   useEffect(() => { if (on("3")) setFightingWindow(start, end); }, [start, end, on("3")]); // eslint-disable-line react-hooks/exhaustive-deps
   const [cw, setCw] = useState<CrisisWatchMonth | null>(null);
@@ -186,9 +195,39 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
         attribution: "Tree height: NASA GEDI (GIBS)", maxzoom: 7, over: true, opacity: 0.8 });
       legend.push({ label: "Tree height (darker green: taller, up to 40 m+)", color: "#1b5e20", shape: "dot" });
     }
+    // Worked out here: land change and water from the pictures, and what local AI scans spotted.
+    if (on("8")) {
+      const lc = changeLayer(st);
+      rasters.push({ tiles: lc.tiles, attribution: lc.attribution, maxzoom: lc.maxzoom, over: true, opacity: 0.9 });
+      legend.push(...CHANGE_LEGEND.map(([label, c]) => ({ label: `${label} (${lc.from}-${lc.to})`, color: c, shape: "dot" as const })).slice(0, 1),
+        ...CHANGE_LEGEND.slice(1).map(([label, c]) => ({ label, color: c, shape: "dot" as const })));
+    }
+    if (on("9")) {
+      rasters.push({ tiles: waterTiles(st.spot_water_show ?? "changes"), attribution: "Water: EC JRC / Google, Global Surface Water 1984-2021",
+        maxzoom: 13, over: true, opacity: 0.9 });
+      legend.push(...WATER_LEGEND.map(([label, c]) => ({ label, color: c, shape: "dot" as const })));
+    }
+    if (on("0") && spotted) {
+      for (const p of spotted) {
+        marks.push({ key: `ai:${p.scan}:${p.id}`, lng: p.lon, lat: p.lat, color: p.kind === "check" ? "#c92a2a" : tagColour(p.tag),
+          hollow: p.kind === "check" || (p.mark !== "yes" && p.sure < 0.8), r: 5,
+          href: `/spotting?tab=scans&scan=${encodeURIComponent(p.scan)}&item=${encodeURIComponent(p.id)}`,
+          label: `<b>${esc(p.kind === "check" ? p.name : p.label)}</b>${p.kind === "check" ? `<br/>${esc(p.label)}` : ""}`
+            + `<br/>Model ${Math.round(p.sure * 100)}% sure${p.mark === "yes" ? ", you marked it right" : ""}${p.note ? `<br/>${esc(p.note)}` : ""}`
+            + "<br/><span class=\"muted\">Click to see the picture and mark it right or wrong</span>" });
+      }
+      all.ai_spotted = `${spotted.length} shown`;
+      if (spotted.length) legend.push({ label: "Spotted by AI (hollow: less sure, red ring: map place looks wrong)", color: "#862e9c", shape: "ring" });
+    }
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show]); // eslint-disable-line react-hooks/exhaustive-deps
 }
+
+const TAG_COLOUR: Record<string, string> = {
+  open_pit_mine: "#862e9c", solar_farm: "#f59f00", airport: "#1971c2", port: "#0b7285", dam: "#1c7ed6", greenhouses: "#868e96",
+  clearfell: "#e8590c", new_housing: "#c92a2a", industrial: "#495057", pivot_irrigation: "#2b8a3e", burn_scar: "#343a40", oil_gas: "#5c3d2e",
+};
+const tagColour = (t: string) => TAG_COLOUR[t] ?? "#862e9c";
 
 function inWindow(id: string, p: Record<string, unknown>, start: string, end: string): boolean {
   if (id === "earthquakes") { const d = String(p.date ?? ""); return d >= start && d <= `${end}~`; }
@@ -216,6 +255,7 @@ const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
   crisiswatch: () => cssVar("--div-neg-3"), events: () => cssVar("--series-7"), news: () => cssVar("--series-4"),
   history_world: () => cssVar("--series-4"), electricity_mix: () => "#2c4f9e",
+  land_change: () => "#c92a2a", water_change: () => "#1c7ed6", ai_spotted: () => "#862e9c",
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose }: {
@@ -262,6 +302,9 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "smoke") return { ok: true, why: "", source: "NASA GIBS, read from the internet" };
       if (m.id === "marine_heat") return { ok: true, why: "", source: "NASA GIBS (GHRSST MUR), read from the internet" };
       if (m.id === "tree_height") return { ok: true, why: "", source: "NASA GIBS (GEDI), read from the internet" };
+      if (m.id === "land_change") return { ok: true, why: "", source: "Worked out here from the land cover maps (Esri or ESA), read from the internet; kept once worked out" };
+      if (m.id === "water_change") return { ok: true, why: "", source: "EC JRC Global Surface Water, read from the internet" };
+      if (m.id === "ai_spotted") return { ok: true, why: "", source: "Your area scans with a local model (Spotting page)" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
     if (m.id === "power_links") return { ok: true, why: "", source: "Eurostat electricity trade by partner, the latest year (a refresh loads it)" };

@@ -365,6 +365,13 @@ export type Settings = {
   map_tiles: "local_first" | "online";
   map_tiles_starter: boolean;
   land_cover_years_keep: "every5" | "every" | "none";
+  spot_change_source: "lc10" | "lcyears"; // Land change layer: Esri 10 m or ESA 300 m
+  spot_change_from: number; // Land change layer: first year
+  spot_change_to: number; // ... last year
+  spot_water_show: "changes" | "all"; // Water layer: only changes, or water that stayed too
+  spot_ask_model: string; // Ask the picture: "" = the biggest model that can see pictures
+  spot_scan_model: string; // Area scans: "" = the smallest model that can see pictures
+  spot_min_sure: number; // Spotted by AI layer: at least this sure (0-1)
   map_true_size: boolean;
   space_fetch: boolean;
   space_values: boolean;

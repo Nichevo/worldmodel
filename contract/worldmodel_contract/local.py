@@ -151,6 +151,14 @@ SETTINGS: dict[str, object] = {
     "land_nz_fetch": True,               # read the NZ Land Cover Database and MPI forestry files you save by hand
     "land_city_cover": True,             # city land cover worked out from the WorldCover map pictures (on request, a few dozen tiles a city)
     "land_cover_year": "2021",           # WorldCover year for the land cover background and city shares: "2021" or "2020"
+    # Spotting (the Spotting page; map layers 8 Land change, 9 Water gained and lost, 0 Spotted by AI)
+    "spot_change_source": "lc10",        # Land change layer: "lc10" (Esri 10 m, 2017-2025) or "lcyears" (ESA 300 m, 1992-2020)
+    "spot_change_from": 2017,            # Land change layer: the first year
+    "spot_change_to": 2025,              # Land change layer: the last year (a change must also hold the year before it)
+    "spot_water_show": "changes",        # Water layer: "changes" (only water gained, lost or changed) or "all" (also water that stayed)
+    "spot_ask_model": "",                # Ask the picture: a model that can see pictures; "" = your biggest one
+    "spot_scan_model": "",               # Area scans: "" = your smallest (fastest) model that can see pictures
+    "spot_min_sure": 0.6,                # Spotted by AI layer: show what the model was at least this sure of (0 to 1)
     # Predictions and crowd forecasts (connectors/crowd.py; your log in predictions.json)
     "crowd_polymarket": True,            # read Polymarket's questions and prices at each refresh (no account)
     "crowd_metaculus": True,             # read Metaculus questions and the community forecast (needs METACULUS_TOKEN in .env)
@@ -269,7 +277,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
            "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
-           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "land_cover_years_keep": ("every5", "every", "none"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
+           "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "land_cover_years_keep": ("every5", "every", "none"), "spot_change_source": ("lc10", "lcyears"), "spot_water_show": ("changes", "all"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y"),
@@ -278,7 +286,7 @@ CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "st
 # Free text settings (addresses and model names), kept to one line.
 TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reliefweb_app", "world_dataverse_name",
          "world_dataverse_email", "world_dataverse_institution", "world_dataverse_position", "world_dataverse_purpose",
-         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities"}
+         "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities", "spot_ask_model", "spot_scan_model"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
 IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept
@@ -295,7 +303,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "history_map_window": (1, 500), "history_map_labels": (0, 50), "history_map_rulers_most": (1, 30),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "transport_min_deaths": (0, 100_000), "relief_shading": (0, 1), "map_colours_over": (0, 1),
-          "map_3d_exaggeration": (1, 5),
+          "map_3d_exaggeration": (1, 5), "spot_change_from": (1992, 2025), "spot_change_to": (1993, 2025), "spot_min_sure": (0, 1),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60),
@@ -359,7 +367,7 @@ def _idlist(v) -> str:
 
 def _letters(v) -> str:
     """Map layer letters, each once, in the order given."""
-    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z" or "A" <= c <= "Z"))[:52]
+    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z" or "A" <= c <= "Z" or "0" <= c <= "9"))[:62]
 
 
 def clean_settings(data: dict, base: dict | None = None) -> dict:

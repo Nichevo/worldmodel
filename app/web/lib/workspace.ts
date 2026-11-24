@@ -260,7 +260,7 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 // table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
 // ratings), event markers and news that names a watch word. Timed layers follow the
 // map's time window. Letters are the URL form; the group and order are the Layers panel's.
-export type LayerGroup = "now" | "conflict" | "quakes" | "cities" | "ports" | "airrail" | "energy" | "nature" | "water" | "sights" | "borders";
+export type LayerGroup = "now" | "conflict" | "quakes" | "cities" | "ports" | "airrail" | "energy" | "nature" | "water" | "sights" | "borders" | "spotted";
 export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
 export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "conflict", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
@@ -322,6 +322,9 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "y", id: "history_world", label: "World in year …", group: "borders", made: true, hint: "States and empires as they were in a year of your choice, with its own year slider (Cliopatria borders, 3400 BC to 2024), events and beginnings from the years around it as dots, and rulers on hover" },
   { letter: "a", id: "antarctic_claims", label: "Antarctic claims", group: "borders" },
   { letter: "b", id: "antarctic_stations", label: "Antarctic research stations", group: "borders" },
+  { letter: "8", id: "land_change", label: "Land change (worked out here)", group: "spotted", made: true, hint: "Land whose cover changed between two years, read pixel by pixel from the land cover maps: built on, cleared, new bare ground, new farmland, trees grown, water gained or lost (years and source in Settings > Spotting; area totals on the Spotting page)" },
+  { letter: "9", id: "water_change", label: "Water gained and lost since 1984", group: "spotted", made: true, hint: "Lakes, reservoirs and rivers that appeared, vanished or changed between 1984-1999 and 2000-2021 (EC JRC Global Surface Water, 30 m from Landsat)" },
+  { letter: "0", id: "ai_spotted", label: "Spotted by AI", group: "spotted", made: true, hint: "What your local model reported in area scans (mines, solar farms, airports …) and map places a check said don't look right; start a scan on the Spotting page" },
 ];
 export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
   { id: "now", label: "Happening now" }, { id: "conflict", label: "Conflict and security" },
@@ -329,7 +332,7 @@ export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
   { id: "ports", label: "Ports and shipping" }, { id: "airrail", label: "Air, rail and cables" },
   { id: "energy", label: "Energy and pipelines" }, { id: "nature", label: "Climate, land and nature" },
   { id: "water", label: "Rivers and water" }, { id: "sights", label: "Sights and heritage" },
-  { id: "borders", label: "Borders, Antarctica and the past" },
+  { id: "borders", label: "Borders, Antarctica and the past" }, { id: "spotted", label: "Spotted from space (worked out here)" },
 ];
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
   { name: "Conflict watch", letters: "wen34", hint: "CrisisWatch, events, news watch words, fighting and unrest, the front line" },

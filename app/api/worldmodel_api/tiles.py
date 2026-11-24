@@ -13,6 +13,8 @@ with copies saved on this PC so the maps draw quickly and work offline where sav
                Microsoft Planetary Computer from its copies (one picture per 45-degree square, put together here).
     lc10       Esri Land Cover 10 m (Impact Observatory, Microsoft and Esri; CC BY 4.0), every year from 2017,
                drawn by Esri's ArcGIS image service.
+    water      EC JRC Global Surface Water "transitions" (1984-1999 against 2000-2021, 30 m), the JRC's own
+               tiles; the Spotting page and map layer 9 recolour them (spotting.py).
 
 Tiles are kept as files under <data folder>/basemap/tiles/<set>/<time>/<z>/<x>/<y>.<ext>, so
 they count toward the map files limit. A saved area is a box and a zoom range; areas.json
@@ -37,6 +39,7 @@ from pathlib import Path
 import httpx
 
 from worldmodel_contract import local
+from worldmodel_contract.spotting import WATER_ATTRIBUTION, WATER_MAXZOOM, WATER_TILES
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +68,8 @@ SETS: dict[str, dict] = {
     "lc10": {"url": "esri", "ext": "png", "maxzoom": 14, "kb": 12, "label": "Land cover 10 m by year (Esri)",
              "times": {str(y): (str(y), str(y)) for y in range(2025, 2016, -1)},
              "attribution": "Land cover: Esri Land Cover 10 m (Impact Observatory, Microsoft, Esri), CC BY 4.0"},
+    "water": {"url": WATER_TILES, "ext": "png", "maxzoom": WATER_MAXZOOM, "kb": 6, "label": "Water gained and lost (JRC)",
+              "attribution": WATER_ATTRIBUTION},
 }
 # ESA CCI on Microsoft Planetary Computer: one item per year and 45-degree square (S90W180 ... N45E135).
 PC_TILE = ("https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x"
