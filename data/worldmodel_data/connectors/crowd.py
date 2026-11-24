@@ -358,6 +358,14 @@ def _api_reason(r) -> str:
     return str(d)[:200]
 
 
+def _retry_after(r) -> float | None:
+    v = (r.headers.get("retry-after") or "").strip()
+    try:
+        return max(0.0, float(v))
+    except ValueError:
+        return None
+
+
 class _Crowd(Connector):
     site = ""
     gap = 1.0
@@ -387,6 +395,12 @@ class _Crowd(Connector):
 
     def _get(self, url: str, **kw):
         r = self.client.get(url, **kw)
+        if r.status_code == 429:  # too many requests: wait as long as the site asks (up to a minute), once
+            wait = _retry_after(r)
+            if wait is not None and wait <= 60:
+                log.info("%s: the site asked for a %.0f-second pause", self.source_id, wait)
+                time.sleep(wait)
+                r = self.client.get(url, **kw)
         if r.status_code in (401, 403, 429):
             why = _api_reason(r) if "json" in r.headers.get("content-type", "") else ""
             raise Refused(f"{self.source_id}: the site refused the request ({r.status_code}) for {url}"
@@ -554,6 +568,7 @@ class Metaculus(_Crowd):
     site = "metaculus"
     switch = "crowd_metaculus"
     needs_env = ("METACULUS_TOKEN",)
+    gap = 2.0  # its API answers 429 (too many requests) at a request a second
     POSTS = "https://www.metaculus.com/api/posts/"
     COMMENTS = "https://www.metaculus.com/api/comments/"
     ME = "https://www.metaculus.com/api/users/me/"
@@ -644,6 +659,9 @@ class Metaculus(_Crowd):
             try:
                 d = self._get(f"{self.POSTS}{q['site_id']}/", headers=headers, params={"with_cp": "true"})
             except Refused as exc:
+                if exc.status == 429:  # still too many: the rest of the histories wait for the next refresh
+                    skipped.append("the remaining question histories (429, too many requests; next refresh)")
+                    break
                 if not exc.answered:
                     raise
                 skipped.append(f"history of {q['key']} ({exc.status})")
@@ -657,6 +675,9 @@ class Metaculus(_Crowd):
             try:
                 d = self._get(self.COMMENTS, headers=headers, params={"on_post": q["site_id"], "limit": 100, "sort": "-created_at"})
             except Refused as exc:
+                if exc.status == 429:  # comments are extras: keep what came and carry on
+                    skipped.append("the remaining comments (429, too many requests; next refresh)")
+                    break
                 if not exc.answered:
                     raise
                 skipped.append(f"comments on {q['key']} ({exc.status})")
@@ -671,7 +692,7 @@ class Metaculus(_Crowd):
                 try:
                     mine += self._mine(key_, all_points)
                 except Refused as exc:
-                    if not exc.answered:
+                    if not exc.answered and exc.status != 429:
                         raise
                     skipped.append(f"{who} own forecasts ({exc})")
         if skipped:
