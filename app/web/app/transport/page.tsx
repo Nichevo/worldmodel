@@ -19,18 +19,19 @@ import { logHistory } from "@/lib/history";
 // Transport and trade routes: sea (ports, chokepoints, lanes), air, rail and rivers, the
 // networks under it all (undersea cables, pipelines), accidents, and one country.
 
-type Tab = "sea" | "air" | "land" | "networks" | "accidents" | "country";
-const TABS: [Tab, string][] = [["sea", "Sea"], ["air", "Air"], ["land", "Rivers and rail"], ["networks", "Cables and pipelines"],
+type Tab = "sea" | "air" | "rivers" | "rail" | "networks" | "accidents" | "country";
+const TABS: [Tab, string][] = [["sea", "Sea"], ["air", "Air"], ["rivers", "Rivers and canals"], ["rail", "Rail"], ["networks", "Cables and pipelines"],
   ["accidents", "Accidents"], ["country", "One country"]];
 const INTRO: Record<Exclude<Tab, "country">, string> = {
   sea: "About 80% of world trade by volume goes by sea, and much of it through a few straits and canals. When one is blocked (the Ever Given in Suez in 2021, Houthi attacks in the Red Sea from late 2023, drought at Panama in 2023) ships take weeks longer and freight costs jump everywhere.",
   air: "Air carries few goods by weight but about a third of world trade by value, and most long trips by people. Passengers and freight by country, and the busiest airports where their figures are stored.",
-  land: "Rivers and canals still carry much of the freight of Europe, the United States and China. The map shows rivers by size, whole river basins (click one for the countries in it and roughly how many people live there) and the waterways ships use.",
+  rivers: "Rivers and canals still carry much of the freight of Europe, the United States and China. The map shows rivers by size, whole river basins (click one for the countries in it and roughly how many people live there) and the waterways ships use.",
+  rail: "Railways carry much of the freight across North America, Russia, China and Australia, and most trips between cities in Europe and East Asia. The map shows the main intercity and freight lines (Natural Earth); city metro lines are on the main Map under People and places.",
   networks: "Almost all traffic between continents goes through about 600 undersea cables; gas and oil move through pipelines that cross many borders. Click a cable or pipeline on the map to outline every country it reaches.",
   accidents: "Air, sea and rail accidents (from Wikidata; New Zealand's TAIC inquiries where saved) and road deaths per person. Settings > Transport sets how many deaths an accident needs to be listed.",
 };
 const MAP_LAYERS: Record<string, string[]> = {
-  sea: ["shipping_lanes", "chokepoints", "ports"], air: ["airports"], land: ["basins", "rivers", "waterways"],
+  sea: ["shipping_lanes", "chokepoints", "ports"], air: ["airports"], rivers: ["basins", "rivers", "waterways"], rail: ["railways"],
   networks: ["cables", "cable_landings", "gas_pipelines", "oil_pipelines", "lng_terminals"], accidents: [],
 };
 
@@ -61,7 +62,8 @@ function ChokepointChart({ id, name }: { id: string; name: string }) {
 function TransportView() {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "sea");
+  // "land" was the old combined Rivers and rail tab; old links open Rivers and canals.
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "land" ? "rivers" : (params.get("tab") as Tab) || "sea");
   const [country, setCountry] = useState(params.get("country") ?? "NZL");
   const [p, setP] = useState<TransportPage | null>(null);
   const [choke, setChoke] = useState<string | null>(null);
@@ -105,8 +107,10 @@ function TransportView() {
           {MAP_LAYERS[tab].length ? (
             <div className="card">
               <div className="map-box"><WorldMap fill values={[]} unit="" decimals={0} diverging={false} hideScale layers={MAP_LAYERS[tab]} onPick={() => {}} /></div>
-              <p className="caption">{loaded(MAP_LAYERS[tab]) || tab === "land" || tab === "networks" ? "" : "These layers are not loaded yet: a refresh fetches them. "}
-                Hover for names; zoom in for smaller rivers and ports. The same layers are on the main <Link href="/">Map</Link> under Layers &gt; Transport and trade,
+              <p className="caption">{loaded(MAP_LAYERS[tab]) || tab === "rivers" || tab === "networks" ? "" : tab === "rail"
+                  ? "No railway lines are stored yet: run .\\refresh.bat (Settings > Transport > Railways must be ticked). "
+                  : "These layers are not loaded yet: a refresh fetches them. "}
+                Hover for names; zoom in for {tab === "rail" ? "branch lines" : "smaller rivers and ports"}. The same layers are on the main <Link href="/">Map</Link> under Layers &gt; Transport and trade,
                 with planes and ships now.</p>
             </div>
           ) : null}

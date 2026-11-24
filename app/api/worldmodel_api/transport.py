@@ -20,7 +20,8 @@ Q = Callable[[str, list], list[dict]]
 TRANSPORT_TABS = {
     "sea": ["liner_shipping_connectivity", "container_port_traffic", "port_calls", "seaborne_imports_t", "seaborne_exports_t"],
     "air": ["air_passengers", "air_departures", "air_freight_tkm"],
-    "land": ["rail_freight_tkm", "rail_passenger_km", "inland_waterway_freight"],
+    "rivers": ["inland_waterway_freight"],
+    "rail": ["rail_freight_tkm", "rail_passenger_km"],
     "safety": ["road_deaths_rate"],
 }
 TOURISM_TABS = {
