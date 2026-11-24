@@ -239,7 +239,17 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> No
             con.execute(f"INSERT INTO src.{table} BY NAME SELECT * FROM read_parquet([{', '.join(repr(f) for f in found)}], "
                         "union_by_name = true)")
     # Every dot layer's items with a country, and the map_layers indicators (before dbt, so blocs get them too).
-    layer_tables.prepare(con, paths.raw)
+    # A slip here must not stop the build: the layers' details pages are left empty instead.
+    try:
+        layer_tables.prepare(con, paths.raw)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("map layer details left out of this build: %s", exc)
+        con.execute("DROP TABLE IF EXISTS src.raw_layer_items")
+        src_id = layer_tables.spec.SOURCE_ID
+        con.execute("DELETE FROM src.indicators WHERE indicator_id IN "
+                    "(SELECT indicator_id FROM src.indicator_sources WHERE source_id = ?)", [src_id])
+        for t in ("raw_observations", "indicator_sources", "vintages"):
+            con.execute(f"DELETE FROM src.{t} WHERE source_id = ?", [src_id])
 
 
 def all_indicators(paths: Paths, latest) -> list:
