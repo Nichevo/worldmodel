@@ -1151,6 +1151,8 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 .about.facts-only .facts-box { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 24px; }
 
 /* ---- Stories: the gallery, a story's title band and its steps. */
+.story-group { display: grid; gap: 10px; }
+.story-group-title { font-family: var(--serif); font-size: 1.3rem; margin: 6px 0 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
 .story-gallery { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
 .story-card { display: flex; flex-direction: column; gap: 8px; padding: 0 18px 16px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; color: var(--ink); text-decoration: none; overflow: hidden; transition: transform .15s ease, box-shadow .15s ease; }
