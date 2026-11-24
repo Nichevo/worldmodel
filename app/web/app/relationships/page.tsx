@@ -47,7 +47,8 @@ function RelationshipsPage() {
   const [group, setGroup] = useState(params.get("group") ?? "");
   const [indicator] = useState(params.get("indicator") ?? "");
   const [q, setQ] = useState("");
-  const [first, setFirst] = useState(false);
+  // "" any pair; "any" one comes first; "1".."5" one comes first by that many years
+  const [lead, setLead] = useState(params.get("lead") ?? "");
   const [drivers, setDrivers] = useState(false);
   const [showSame, setShowSame] = useState(false);
   const [hideSource, setHideSource] = useState(false);
@@ -61,11 +62,11 @@ function RelationshipsPage() {
     let live = true;
     const t = setTimeout(() => {
       api.relationships({ label: label || undefined, domain: domain || undefined, group: group || undefined, q: q || undefined,
-        indicator: indicator || undefined, first, drivers, hide_same: !showSame, hide_same_source: hideSource, built, limit })
+        indicator: indicator || undefined, first: lead !== "", lag: lead && lead !== "any" ? Number(lead) : undefined, drivers, hide_same: !showSame, hide_same_source: hideSource, built, limit })
         .then((r) => { if (live) { setList(r); setError(null); } }).catch((e) => live && setError(String(e.message || e)));
     }, q ? 250 : 0);
     return () => { live = false; clearTimeout(t); };
-  }, [label, domain, group, q, indicator, first, drivers, showSame, hideSource, built, limit]);
+  }, [label, domain, group, q, indicator, lead, drivers, showSame, hideSource, built, limit]);
 
   const open = (p: { x: string; y: string } | null) => {
     setPick(p);
@@ -122,7 +123,12 @@ function RelationshipsPage() {
                 <input type="search" placeholder="Find a figure" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} aria-label="Find a figure" />
               </div>
               <div className="chips-row small">
-                <label><input type="checkbox" checked={first} onChange={(e) => setFirst(e.target.checked)} /> One comes first</label>
+                <label title="Pairs where one figure's past changes help predict the other's; the years are its strongest lead (the 'Which first' column)">
+                  One comes first <select value={lead} onChange={(e) => { setLead(e.target.value); setLimit(PAGE); }}>
+                    <option value="">Any pair</option>
+                    <option value="any">Yes, by any number of years</option>
+                    {[1, 2, 3, 4, 5].map((n) => <option key={n} value={String(n)}>By {n} year{n > 1 ? "s" : ""}</option>)}
+                  </select></label>
                 <label><input type="checkbox" checked={drivers} onChange={(e) => setDrivers(e.target.checked)} /> In the forecast model&apos;s driver list</label>
                 <label><input type="checkbox" checked={hideSource} onChange={(e) => setHideSource(e.target.checked)} /> Hide pairs from the same source and topic</label>
                 <label><input type="checkbox" checked={showSame} onChange={(e) => setShowSame(e.target.checked)} /> Show nearly-the-same figures</label>

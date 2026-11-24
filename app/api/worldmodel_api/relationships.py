@@ -82,9 +82,10 @@ def summary(meta: dict | None, build_id: str | None) -> dict | None:
 def pairs(build_id: str | None, label: str | None = None, domain: str | None = None, group: str | None = None,
           q: str | None = None, indicator: str | None = None, drivers_only: bool = False, hide_same: bool = True,
           first_only: bool = False, hide_same_source: bool = False, limit: int = 100, offset: int = 0,
-          built: str = "last") -> dict:
+          built: str = "last", lag: int | None = None) -> dict:
     """built: "last" lists pairs that are one figure made from the other after the rest,
-    "hide" leaves them out, "only" lists just them, "mixed" ranks them with the rest."""
+    "hide" leaves them out, "only" lists just them, "mixed" ranks them with the rest.
+    lag keeps pairs where one comes first and its strongest lead is that many years."""
     data = _load(build_id)
     found = data["pairs"]
     words = [w for w in (q or "").lower().split() if w]
@@ -107,6 +108,8 @@ def pairs(build_id: str | None, label: str | None = None, domain: str | None = N
         if built == "only" and not r.get("built_from"):
             continue
         if first_only and not r["first"]:
+            continue
+        if lag and (not r["first"] or r.get("best_lag") != lag):
             continue
         if words:
             hay = f"{r['x']} {r['y']} {r['x_name']} {r['y_name']}".lower()
