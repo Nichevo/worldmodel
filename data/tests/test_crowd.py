@@ -102,3 +102,44 @@ def test_refresh_carries_history_and_prunes(tmp_path, monkeypatch):
     raw = home.home / ms[-1].raw_dir
     assert read_points(raw / POINTS)[-1]["chance"] == 0.60  # one saved chance a day: the day's last
     assert "manifold:m1" in read_gz_json(raw / QUESTIONS, {})
+
+
+def test_metaculus_skips_a_category_the_site_does_not_have(tmp_path, monkeypatch):
+    """A category slug Metaculus does not have is a 400 for that slug only, not the whole source."""
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    asked = []
+
+    def handler(req):
+        q = dict(req.url.params)
+        asked.append(q)
+        if req.url.path.endswith("/users/me/"):
+            return httpx.Response(200, json={"id": None})
+        if q.get("categories") == "geopolitics":
+            return httpx.Response(400, json={"categories": ["Category geopolitics does not exist"]})
+        return httpx.Response(200, json={"results": [], "next": None})
+
+    c = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.gap = 0
+    monkeypatch.setenv("METACULUS_TOKEN", "test")
+    monkeypatch.setattr(c, "_settings", lambda raw: {"crowd_categories": "geopolitics,economics", "crowd_comments": False})
+    monkeypatch.setattr(c, "_follow", lambda raw: set())
+    monkeypatch.setattr(c, "_last", lambda raw: None)
+    c.download(tmp_path, "2026-11-24")
+    posts = [q for q in asked if "categories" in q]
+    assert {q["categories"] for q in posts} >= {"geopolitics", "economy-business"}
+    resolved = [q for q in posts if q.get("statuses") == "resolved"]
+    assert resolved and all(q["order_by"] == "-scheduled_resolve_time" and "scheduled_resolve_time__gt" in q for q in resolved)
+    assert all("actual_resolve_time__gt" not in q for q in posts)
+
+    def refuse_all(req):
+        return httpx.Response(400, json={"categories": ["Category x does not exist"]})
+
+    c2 = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(refuse_all)))
+    c2.gap = 0
+    monkeypatch.setattr(c2, "_settings", lambda raw: {"crowd_categories": "economics"})
+    monkeypatch.setattr(c2, "_follow", lambda raw: set())
+    with pytest.raises(cc.ConnectorError, match="every category"):
+        c2.download(tmp_path, "2026-11-24")
