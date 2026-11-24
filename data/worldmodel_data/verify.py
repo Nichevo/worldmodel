@@ -36,6 +36,8 @@ class Target:
     expect: str = ""                 # page: a pattern the real page has (the check page does not)
     download: bool = False           # the URL is a file
     link: str = ""                   # open url, then download the first link matching this
+    via: str = ""                    # open url, then go to the first link matching this (before `link`)
+    keep_name: bool = False          # save a download under the site's own file name (save_as: its suffix)
     by_hand: bool = False            # the site loops on its check in a driven window: open it in your own browser
     extra: list["Target"] = field(default_factory=list)
     name: str = ""                   # what you type to pick it (default: the source)
@@ -94,7 +96,9 @@ def targets(today: date | None = None) -> list[Target]:
     from worldmodel_data.connectors.crisiswatch import ARCHIVE as CW_ARCHIVE
     from worldmodel_data.connectors.military import GFP, GFP_LISTING, KEY_FIRST
     from worldmodel_data.connectors.nz import MBIE_PAGE, RBNZ_FILES, RBNZ_URL
-    from worldmodel_data.connectors.world_bodies import MEMBERS_PAGE, VETO_PAGE, WTO_PAGE
+    from worldmodel_data.connectors.nz import CORRECTIONS_INDEX
+    from worldmodel_data.connectors.voters import NZ_PAGE as NZ_TURNOUT_PAGE
+    from worldmodel_data.connectors.world_bodies import MEMBERS_PAGE, VETO_PAGE, VETO_TABLE, WTO_CASES, WTO_PAGE
 
     today = today or date.today()
     rbnz = []
@@ -105,9 +109,18 @@ def targets(today: date | None = None) -> list[Target]:
         *rbnz,
         Target("mbie_energy", "MBIE energy balance tables", MBIE_PAGE, "energy-balance-tables.xlsx",
                link=r"energy-balance[^\"']*\.xlsx"),
+        Target("nz_corrections", "Corrections quarterly prison statistics workbook", CORRECTIONS_INDEX, ".xlsx",
+               via=r"quarterly_prison_statistics/prison_[a-z_]*(?:statistics|stats)[^\"'#]*\d{4}",
+               link=r"Prison_Stats[^\"']*\.xlsx", keep_name=True),
+        Target("nz_election_turnout", "Electoral Commission turnout by age spreadsheet", NZ_TURNOUT_PAGE, ".xlsx",
+               via=r"/[^\"'#]*voter-turnout-statistics[^\"'#]*", link=r"Turnout_by_Age[^\"']*\.xlsx", keep_name=True),
         Target("un_vetoes", "UN vetoes list", VETO_PAGE, "vetoes.html", r"(?i)veto"),
+        Target("un_vetoes", "UN vetoes table (the frame inside the list page)",
+               VETO_TABLE, "veto_table.html", r"(?i)negative\s*(<br>\s*)?vote"),
         Target("un_vetoes", "UN Security Council elected members", MEMBERS_PAGE, "elected_members.html", r"(?i)elected"),
         Target("wto_disputes", "WTO disputes list", WTO_PAGE, "disputes.html", r"DS\s?\d"),
+        Target("wto_disputes", "WTO dispute cases data", WTO_CASES, "dispute_case_arrays_e.js", r"ds_array\[\d+\]",
+               only_by_name=True, name="wto_disputes_data"),
         *_crisiswatch(today),
         Target("crisiswatch", "CrisisWatch PDF archive (every month since 2003)", CW_ARCHIVE, "pdf-archive.html",
                r"(?i)\.pdf", by_hand=True, name="crisiswatch_pdf", pdf_archive=True, only_by_name=True),
@@ -168,7 +181,11 @@ def fresh(p: Paths, t: Target, days: int) -> bool:
     """The file this target saves is already in its manual folder and under `days` old."""
     from worldmodel_data import manual
 
-    f = manual.folder(p, t.source) / t.save_as
+    folder = manual.folder(p, t.source)
+    if t.keep_name:  # the newest file of its kind, whatever the site called it
+        files = [f for f in folder.glob(f"*{t.save_as}") if f.is_file()] if folder.is_dir() else []
+        return any(time.time() - f.stat().st_mtime < days * 86400 for f in files)
+    f = folder / t.save_as
     return f.is_file() and time.time() - f.stat().st_mtime < days * 86400
 
 
@@ -199,8 +216,16 @@ def run(p: Paths, sources: list[str] | None, echo: Callable[[str], None], wait: 
     saved: dict[str, list[Path]] = {}
     by_hand: set[str] = set()
     with sync_playwright() as pw:
-        ctx = _open_browser(pw, p.home / "browser")
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        ctx = None
+
+        def window():
+            """The browser window the app drives, opened the first time a site needs it (not for
+            sites that open in your own browser, which would leave it standing empty)."""
+            nonlocal ctx
+            if ctx is None:
+                ctx = _open_browser(pw, p.home / "browser")
+            return ctx.pages[0] if ctx.pages else ctx.new_page()
+
         try:
             for n, t in enumerate(todo, 1):
                 folder = manual.folder(p, t.source)
@@ -216,7 +241,7 @@ def run(p: Paths, sources: list[str] | None, echo: Callable[[str], None], wait: 
                         got = _by_hand(t, folder, wait, echo)
                     else:
                         try:
-                            got = _one(page, t, folder, wait, echo)
+                            got = _one(window(), t, folder, wait, echo)
                         except Stuck:
                             echo("    The check keeps coming back in this window. Opening the page in your own browser instead.")
                             by_hand.add(_host(t.url))
@@ -231,7 +256,8 @@ def run(p: Paths, sources: list[str] | None, echo: Callable[[str], None], wait: 
                     echo(f"    nothing arrived within {wait} seconds; skipped")
                 time.sleep(3)  # a pause between sites
         finally:
-            ctx.close()
+            if ctx is not None:
+                ctx.close()
     return saved
 
 
@@ -248,6 +274,16 @@ def _one(page, t: Target, folder: Path, wait: int, echo) -> Path | None:
         d.value.save_as(dest)
         return dest
     page.goto(t.url, wait_until="domcontentloaded", timeout=wait * 1000)
+    if t.via:  # a page linked from this one holds what is wanted (the newest quarter, the latest election)
+        html = _wait_for(page, t.via, wait, echo)
+        if html is None:
+            return None
+        href = re.search(rf"""href=["']([^"']*{t.via})""", html, re.I)
+        if not href:
+            return None
+        from urllib.parse import urljoin
+
+        page.goto(urljoin(page.url, href.group(1)), wait_until="domcontentloaded", timeout=wait * 1000)
     if t.link:
         html = _wait_for(page, t.link, wait, echo)
         if html is None:
@@ -257,6 +293,8 @@ def _one(page, t: Target, folder: Path, wait: int, echo) -> Path | None:
             return None
         with page.expect_download(timeout=wait * 1000) as d:
             page.click(f"a[href='{href.group(1)}']")
+        if t.keep_name:
+            dest = folder / (re.sub(r"[^A-Za-z0-9_.-]", "_", d.value.suggested_filename) or f"download{t.save_as}")
         d.value.save_as(dest)
         return dest
     html = _wait_for(page, t.expect, wait, echo)
