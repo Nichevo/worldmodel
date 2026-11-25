@@ -3953,6 +3953,28 @@ def live_military_planes(west: float, south: float, east: float, north: float):
     return live.MIL_PLANES.get(west, south, east, north)
 
 
+@api.get("/live/cameras")
+def live_cameras(west: float, south: float, east: float, north: float):
+    """Public cameras in a map window: road agencies' traffic cameras (NZ, Queensland, NSW, London,
+    California, Finland) and, with a free Windy key, webcams worldwide (beaches, surf, harbours, cities).
+    Each agency's list is read only when the view reaches it and kept six hours; nothing is saved."""
+    from worldmodel_api import cameras
+
+    if not local.load_settings().get("live_cameras", True):
+        return {"type": "FeatureCollection", "features": [], "error": "Cameras are switched off in Settings > Transport."}
+    return cameras.CAMERAS.get(west, south, east, north)
+
+
+@api.get("/live/cameras/windy/{webcam_id}")
+def live_camera_windy(webcam_id: int):
+    """A fresh picture and live player link for one Windy webcam (its picture links last ten minutes)."""
+    from worldmodel_api import cameras
+
+    if not local.load_settings().get("live_cameras", True):
+        return {"error": "Cameras are switched off in Settings > Transport."}
+    return cameras.CAMERAS.windy_one(webcam_id)
+
+
 # ----------------------------------------------------------------------------- markets and regions
 @api.get("/fx/{entity}")
 def fx(entity: str, partners: str | None = Query(None, description="Comma-separated entity ids; default: saved, else top trading partners"),

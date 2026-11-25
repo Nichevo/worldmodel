@@ -387,6 +387,8 @@ export default function SettingsPage() {
           on={s.live_planes} set={(v) => save({ live_planes: v })} />
         <Toggle label="Ships now (map layer)" hint="While the map's Ships now layer is on, the server listens to aisstream.io for ships in the area in view (needs a free AISSTREAM_API_KEY in .env); it stops five minutes after the layer is turned off. Off: the layer stays empty."
           on={s.live_ships} set={(v) => save({ live_ships: v })} />
+        <Toggle label="Cameras (map layer)" hint="While the map's Cameras layer is on, the server reads the public camera lists of the road agencies whose area is in view (NZ Transport Agency, QLDTraffic, Live Traffic NSW with a free TFNSW_API_KEY, TfL, Caltrans, Fintraffic), kept six hours, and with a free WINDY_WEBCAMS_API_KEY asks Windy for webcams in the area in view (beaches, surf, harbours, cities). Pictures load straight from each owner when you click a camera; nothing is saved. Off: the layer stays empty."
+          on={s.live_cameras} set={(v) => save({ live_cameras: v })} />
         <Toggle label="Military planes now (map layer)" hint="While the map's Military planes now layer is on, the server asks adsb.lol (volunteer receivers, no key) for military planes, at most once a minute, and keeps those in the area in view. Many military flights do not broadcast, so it is never the whole picture. Off: the layer stays empty."
           on={s.live_military_planes} set={(v) => save({ live_military_planes: v })} />
       </section>

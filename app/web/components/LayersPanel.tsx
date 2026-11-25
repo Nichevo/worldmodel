@@ -256,7 +256,7 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; lab
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
 // Read from the internet while on (marked "live" in the list).
-const LIVE = new Set(["fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military"]);
+const LIVE = new Set(["fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
@@ -323,6 +323,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.id === "live_planes") return s.live_planes ? { ok: true, why: "", source: "OpenSky Network, the area in view, once a minute" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
     if (m.id === "live_military") return s.live_military_planes ? { ok: true, why: "", source: "adsb.lol volunteer receivers, the area in view, once a minute" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "live_cameras") return s.live_cameras ? { ok: true, why: "", source: "Road agencies' public cameras (lists kept six hours) and Windy webcams with a free key, the area in view" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
     if (m.id === "conflict_events") return { ok: true, why: "", source: "UCDP and ACLED, the area in view (a refresh loads them; ACLED needs a free account)" };
     if (m.id === "front_line") return { ok: true, why: "", source: "DeepStateMap via GitHub (a refresh loads it)" };
