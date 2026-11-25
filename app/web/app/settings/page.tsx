@@ -421,6 +421,12 @@ export default function SettingsPage() {
           </select> <span className="muted">ESA WorldCover at 10 m; the map&apos;s Land cover look and city shares use it.</span></label>
       </section>
 
+      <section className="card" id="disease">
+        <h2>Disease</h2>
+        <Toggle label="Flu, COVID and other infections" hint="WHO FluNet, New Zealand's wastewater (PHF Science), UKHSA, US CDC, ECDC, Our World in Data's COVID figures, WHO's yearly case counts, OpenDengue and WHO outbreak news, every few days (a few MB). They fill the Disease page and the country Disease now card. Off: those stop getting newer."
+          on={s.disease_fetch} set={(v) => save({ disease_fetch: v })} />
+      </section>
+
       <section className="card" id="outlook">
         <h2>Outlook</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>

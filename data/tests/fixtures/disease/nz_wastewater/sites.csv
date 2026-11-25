@@ -1,0 +1,3 @@
+SampleLocation,DisplayName,SampleType,Latitude,Longitude,Population,region_id,Region,shp_label
+AU_Central,Auckland Central,Autosampler,-36.953251,174.777333,315000,2,Auckland,Auckland - Central Interceptor
+WG_MoaPoint,Wellington (Moa Point),Autosampler,-41.336052,174.811508,168000,9,Wellington,Wellington - Moa Point

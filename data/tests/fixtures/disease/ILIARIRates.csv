@@ -1,0 +1,13 @@
+survtype,countryname,yearweek,indicator,age,value
+primary care syndromic,Austria,2026-W46,ILIconsultationrate,0-4,579.4
+primary care syndromic,Austria,2026-W46,ILIconsultationrate,total,2602.2
+primary care syndromic,Austria,2026-W45,ILIconsultationrate,0-4,640.4
+primary care syndromic,Austria,2026-W45,ILIconsultationrate,total,2077.7
+primary care syndromic,Ireland,2026-W46,ARIconsultationrate,0-4,325
+primary care syndromic,Ireland,2026-W46,ARIconsultationrate,total,71.1
+primary care syndromic,Ireland,2026-W45,ARIconsultationrate,0-4,287.4
+primary care syndromic,Ireland,2026-W45,ARIconsultationrate,total,71.2
+primary care syndromic,Ireland,2026-W46,ILIconsultationrate,0-4,6.8
+primary care syndromic,Ireland,2026-W46,ILIconsultationrate,total,11.2
+primary care syndromic,Ireland,2026-W45,ILIconsultationrate,0-4,17.1
+primary care syndromic,Ireland,2026-W45,ILIconsultationrate,total,14

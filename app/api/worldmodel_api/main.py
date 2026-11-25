@@ -45,7 +45,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, disease, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
 from worldmodel_api import grid, learn
@@ -2996,6 +2996,71 @@ def attention_country(entity_id: str):
     if not a:
         return {"entity": entity_id, "points": [], "note": "No Wikipedia article for this kind of place."}
     return attention.country(entity_id, a, _set("attention_on"))
+
+
+# ----------------------------------------------------------------------------- Disease
+def _named(items: list[dict], key: str = "entity") -> list[dict]:
+    ids = list({i[key] for i in items})
+    if ids:
+        names = {r["entity_id"]: r["name"] for r in rows(
+            f"SELECT entity_id, coalesce(short_name, name) AS name FROM entities WHERE entity_id IN ({', '.join('?' * len(ids))})", ids)}
+        for i in items:
+            i["name"] = names.get(i[key], i[key])
+    return items
+
+
+@api.get("/disease/measures")
+def disease_measures():
+    """The diseases and weekly measures the Disease page offers, with how many places have each and its latest week."""
+    return disease.measures(rows)
+
+
+@api.get("/disease/seasons/{entity_id}")
+def disease_seasons(entity_id: str, measure: str = "flu_pct_positive"):
+    """A measure's weeks grouped into seasons, the normal range and how this season compares."""
+    return disease.seasons_view(rows, entity_id, measure)
+
+
+@api.get("/disease/heat/{entity_id}")
+def disease_heat(entity_id: str, measure: str = "flu_pct_positive"):
+    """Every season as a row of weeks, with the main flu strain each week."""
+    return disease.heat_view(rows, entity_id, measure)
+
+
+@api.get("/disease/now")
+def disease_now(measure: str = "flu_pct_positive", entities: str | None = None):
+    """The latest week of a measure for every country reporting, against its usual level for the week."""
+    got = disease.now_view(rows, measure, split(entities) or None)
+    _named(got["rows"])
+    return got
+
+
+@api.get("/disease/compare")
+def disease_compare(measure: str = "flu_pct_positive", entities: str | None = None, years: int = 5):
+    """A measure for several countries over the last few years, week by week."""
+    got = disease.compare_view(rows, split(entities) or list(disease.D.KEY), measure, max(1, min(years, 30)))
+    _named(got["series"])
+    return got
+
+
+@api.get("/disease/card/{entity_id}")
+def disease_card(entity_id: str):
+    """The country page's Disease now card."""
+    return disease.card_view(rows, entity_id)
+
+
+@api.get("/disease/long")
+def disease_long(indicator: str = "measles_cases", entities: str | None = None):
+    """Yearly case counts (per million people where that makes sense) for the long view, with pandemics."""
+    got = disease.long_view(rows, split(entities) or list(disease.D.KEY), indicator)
+    _named(got["series"])
+    return got
+
+
+@api.get("/disease/outbreaks")
+def disease_outbreaks(entities: str | None = None, limit: int = 60):
+    """WHO Disease Outbreak News, newest first."""
+    return disease.outbreaks(rows, split(entities) or None, max(1, min(limit, 500)))
 
 
 @api.get("/hazards/{entity_id}")

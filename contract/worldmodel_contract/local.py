@@ -143,6 +143,8 @@ SETTINGS: dict[str, object] = {
     "sanctions_now_fetch": True,         # OpenSanctions sanctions in force (a 100 MB file once a week, counts and names kept)
     "gfp_fetch": True,                   # Global Firepower military strength: its listing and a few countries' pages a week
     "gfp_pages_per_refresh": 12,         # Global Firepower country pages read per refresh (key countries first)
+    # Flu, COVID and other infections (connectors/disease.py; the Disease page)
+    "disease_fetch": True,               # WHO FluNet, PHF Science wastewater, UKHSA, US CDC, ECDC, OWID COVID, WHO cases and outbreak news
     # Land, cities and trees (connectors/land.py; FAOSTAT land use comes with the sectors' FAOSTAT files)
     "land_history_fetch": True,          # HYDE cropland and grazing land by country back to 1700 (via Our World in Data, once a year)
     "land_cities_fetch": True,           # GHSL urban centres: people, built-up area and outlines of about 11,000 cities (300 MB once a year)
