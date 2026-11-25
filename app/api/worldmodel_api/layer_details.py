@@ -135,6 +135,8 @@ def _official(o: spec.Official, raw: float | None, pop: float | None) -> float |
         return None
     if o.as_total == "per1000":
         return raw * pop / 1000 if pop else None
+    if o.as_total == "per100k":
+        return raw * pop / 100_000 if pop else None
     if o.as_total == "kw_to_mw":
         return raw / 1000
     return raw
@@ -355,3 +357,95 @@ def overview(q: Q) -> list[dict]:
                     "size": d.size.label if d.size else None, "category": d.category[1] if d.category else None,
                     "available": d.kind in ("live", "events") or n is not None})
     return out
+
+
+# ----------------------------------------------------------------------------- coverage
+PEERS = 15  # countries nearest in income a missing official figure is estimated from
+
+
+def coverage(q: Q, key: str, layer_id: str, live=None, country_of=None) -> dict:
+    """How complete the layer is in each country: its count or size against the first official
+    figure that country has, graded good / part / thin; where no official figure exists, against
+    what countries of a similar income with good coverage have per person (an estimate)."""
+    from worldmodel_contract import health
+
+    got = detail(q, key, layer_id, live, country_of)
+    if "error" in got:
+        return got
+    layer = got["layer"]
+    offs = [(i, o) for i, o in enumerate(layer.get("official") or []) if o.get("coverage")]
+    gdp, pop = _latest(q, "gdp_per_capita_usd"), _latest(q, "pop_total")
+    rows = []
+    for r in got["countries"]:
+        e = r.get("entity_id")
+        if not e:
+            continue
+        best = next(((o, r["official"][i]) for i, o in offs if r["official"][i].get("coverage") is not None), None)
+        rows.append({"entity_id": e, "name": r["name"], "count": r["count"], "per_m": r["per_m"],
+                     "official": best[1]["value"] if best else None, "basis": best[0]["label"] if best else None,
+                     "coverage": best[1]["coverage"] if best else None, "estimated": False})
+    good = [r for r in rows if r["coverage"] is not None and r["coverage"] >= health.GRADES[0][0] and r["per_m"] and gdp.get(r["entity_id"])]
+    import math
+    for r in rows:
+        if r["coverage"] is None and good and gdp.get(r["entity_id"]) and pop.get(r["entity_id"]):
+            lg = math.log(gdp[r["entity_id"]])
+            near = sorted(good, key=lambda g: abs(math.log(gdp[g["entity_id"]]) - lg))[:PEERS]
+            per_m = sorted(g["per_m"] for g in near)[len(near) // 2]
+            expect = per_m * pop[r["entity_id"]] / 1e6
+            if expect > 0:
+                r.update(official=expect, basis="Expected from countries of a similar income", coverage=r["count"] / expect,
+                         estimated=True)
+        r["grade"] = health.grade(r["coverage"])
+    order = {"thin": 0, "part": 1, "good": 2, "unknown": 3}
+    rows.sort(key=lambda r: (order[r["grade"]], -(r["official"] or 0)))
+    tally = defaultdict(int)
+    for r in rows:
+        tally[r["grade"]] += 1
+    return {"layer": layer, "countries": rows, "grades": dict(tally), "cuts": {g: c for c, g in health.GRADES}}
+
+
+def gaps(q: Q, key: str, layer_id: str, country: str | None, live=None, country_of=None, limit: int = 300) -> dict:
+    """Blank spots: towns of GAP_TOWN_PEOPLE or more with no item of the layer within GAP_KM."""
+    import math
+
+    from worldmodel_contract import health
+
+    d = spec.BY_ID.get(layer_id)
+    if d is None:
+        return {"error": spec.NOT_COUNTED.get(layer_id, f"No details for the map layer {layer_id}.")}
+    if not _has(q, "cities"):
+        return {"towns": [], "checked": 0, "km": health.GAP_KM, "people": health.GAP_TOWN_PEOPLE, "note": "No towns yet: a refresh loads them."}
+    its = items(q, key, d, live, country_of)
+    cell = 0.25
+    grid: dict[tuple[int, int], list[tuple[float, float]]] = defaultdict(list)
+    for i in its:
+        if i.get("lat") is not None and i.get("lon") is not None:
+            grid[(int(i["lat"] // cell), int(i["lon"] // cell))].append((i["lat"], i["lon"]))
+    sql = "SELECT city_id, name, country_id, lat, lon, population FROM cities WHERE population >= ? AND lat IS NOT NULL"
+    params: list = [health.GAP_TOWN_PEOPLE]
+    if country:
+        sql += " AND country_id = ?"
+        params.append(country)
+    towns = q(sql + " ORDER BY population DESC", params)
+    reach = health.GAP_KM
+    out = []
+    for t in towns:
+        gy, gx = int(t["lat"] // cell), int(t["lon"] // cell)
+        near = None
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                for lat, lon in grid.get((gy + dy, gx + dx), ()):
+                    x = math.radians(lon - t["lon"]) * math.cos(math.radians((lat + t["lat"]) / 2))
+                    km = 6371 * math.hypot(x, math.radians(lat - t["lat"]))
+                    near = km if near is None or km < near else near
+        if near is None or near > reach:
+            out.append({"city_id": t["city_id"], "name": t["name"], "entity_id": t["country_id"], "lat": t["lat"], "lon": t["lon"],
+                        "population": t["population"], "nearest_km": round(near, 1) if near is not None else None})
+    by = defaultdict(lambda: {"towns": 0, "people": 0.0})
+    for t in out:
+        by[t["entity_id"]]["towns"] += 1
+        by[t["entity_id"]]["people"] += t["population"] or 0
+    names = _names(q)
+    return {"towns": out[:limit], "total": len(out), "checked": len(towns), "km": reach, "people": health.GAP_TOWN_PEOPLE,
+            "by_country": sorted(({"entity_id": e, "name": (names.get(e) or {}).get("name") or e, **v} for e, v in by.items()),
+                                 key=lambda r: -r["people"])[:60]}

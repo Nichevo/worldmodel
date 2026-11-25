@@ -291,6 +291,12 @@ export type Settings = {
   places_fetch: boolean; // refresh fetches metro and rail, universities and companies
   map_hospital_beds: number; // the Hospitals map layer shows hospitals with at least this many beds
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
+  map_hospitals_all: boolean; // the Hospitals layer shows every hospital from every list (the two above apply when off)
+  hospitals_osm_fetch: boolean; // OpenStreetMap hospitals (healthsites.io) and hospital counts
+  hospitals_overture_fetch: boolean; // Overture hospitals for the countries below
+  hospitals_overture_countries: string; // three-letter codes; empty: contract health.py's list
+  hospitals_overture_confidence: number; // Overture places below this confidence are left out
+  hospitals_national_fetch: boolean; // Brazil CNES, WHO Africa list and your own lists
   wikipedia_empires_daily: number; // Long history: Wikipedia pages for empires, dynasties and voyages
   history_borders_fetch: boolean; // refresh fetches Cliopatria's borders
   nature_zones_fetch: boolean; // refresh reads the Köppen-Geiger climate zones once

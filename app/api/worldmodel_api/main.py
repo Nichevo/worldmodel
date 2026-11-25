@@ -2868,6 +2868,26 @@ def layer_details(layer_id: str):
     return got
 
 
+@api.get("/layer-details/{layer_id}/coverage")
+def layer_details_coverage(layer_id: str):
+    """How complete a layer is in each country: against an official figure, or what countries of a
+    similar income have (an estimate); graded good, part or thin."""
+    got = layer_info.coverage(rows, _layer_key(), layer_id, _live_layer, hazards.country_of)
+    if "error" in got:
+        raise HTTPException(404, got["error"])
+    return got
+
+
+@api.get("/layer-details/{layer_id}/gaps")
+def layer_details_gaps(layer_id: str, country: str | None = Query(None, description="A country id; all if left out"),
+                       limit: int = Query(300, ge=1, le=5000)):
+    """Blank spots: towns of 100,000 people or more with none of the layer's items within 25 km."""
+    got = layer_info.gaps(rows, _layer_key(), layer_id, country, _live_layer, hazards.country_of, limit)
+    if "error" in got:
+        raise HTTPException(404, got["error"])
+    return got
+
+
 @api.get("/layer-details/{layer_id}/items")
 def layer_details_items(layer_id: str, country: str | None = Query(None, description="A country, council or group id; '-' for none"),
                         q: str | None = None, sort: Literal["size", "name"] = "size",
@@ -2877,7 +2897,7 @@ def layer_details_items(layer_id: str, country: str | None = Query(None, descrip
 
 
 @api.get("/layers/{layer_id}")
-def layer(layer_id: str):
+def layer(layer_id: str, request: Request):
     """One overlay's features, as GeoJSON. storms_active is read live from NOAA (kept an hour)."""
     if layer_id in ("fires_now", "fires_week", "heat_now", "coral_alerts"):
         on = bool(userdata.settings().get("hazards_live", True))
@@ -2906,8 +2926,27 @@ def layer(layer_id: str):
     found = rows("SELECT geojson FROM layers WHERE layer_id = ?", [layer_id])
     if not found:
         raise HTTPException(404, f"no map layer {layer_id}; a refresh loads the map layers")
-    return Response(found[0]["geojson"], media_type="application/geo+json",
-                    headers={"Cache-Control": "max-age=3600"})
+    body = found[0]["geojson"]
+    if len(body) > 200_000 and "gzip" in (request.headers.get("accept-encoding") or ""):
+        # Big dot layers (every hospital from every list) go a fifth the size over the network.
+        return Response(_gzipped(layer_id, body), media_type="application/geo+json",
+                        headers={"Cache-Control": "max-age=3600", "Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
+    return Response(body, media_type="application/geo+json", headers={"Cache-Control": "max-age=3600"})
+
+
+_gz: dict[str, tuple[int, bytes]] = {}
+
+
+def _gzipped(layer_id: str, body: str) -> bytes:
+    """A layer's GeoJSON gzipped, kept until the layer changes."""
+    import gzip
+    key = hash(body)
+    hit = _gz.get(layer_id)
+    if hit and hit[0] == key:
+        return hit[1]
+    data = gzip.compress(body.encode("utf-8"), compresslevel=5)
+    _gz[layer_id] = (key, data)
+    return data
 
 
 def _hazard_cities() -> list[dict]:

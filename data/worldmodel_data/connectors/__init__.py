@@ -21,6 +21,7 @@ from worldmodel_data.connectors.disease import (CDCNHSN, CDCNNDSS, ECDCERVISS, H
 from worldmodel_data.connectors.crowd import ViEWS, Manifold, Metaculus, Polymarket
 from worldmodel_data.connectors.pundits import PredictionArchive
 from worldmodel_data.connectors.iea_data import IEAData
+from worldmodel_data.connectors.health import HealthsitesOSM, HospitalCounts, NationalHospitals, OvertureHospitals
 from worldmodel_data.connectors.history import Cliopatria, NOAAHazards, OWIDLongRun, WikidataHistory
 from worldmodel_data.connectors.emdat import EMDAT
 from worldmodel_data.connectors.forecasters import OECDEO, WorldBankGEP
@@ -85,6 +86,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     USCensusPEP, USACS, BEARegional, USUnemployment, BLSLAUSCounty, FHFAHPI, MITElections, MITCountyElections,
     CountyHealthRankings, EIASEDS, USShapes, NEAdmin1, UNSDEnergy, EurostatPowerTrade,
     WHOFluNet, NZWastewater, UKHSA, DelphiFluView, CDCNHSN, CDCNNDSS, ECDCERVISS, OWIDCovid, WHOGHODisease, OpenDengue,
-    HMDSTMF, WHODON, NZNotifiable)}
+    HMDSTMF, WHODON, NZNotifiable,
+    HealthsitesOSM, OvertureHospitals, NationalHospitals, HospitalCounts)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]

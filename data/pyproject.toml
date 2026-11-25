@@ -23,6 +23,7 @@ dependencies = [
     "pyshp>=2.3",  # reads the WDPA protected area shapefiles
     "shapely>=2.0",  # land: city outlines and NZ land cover (reprojecting, areas)
     "py7zr>=0.21",  # UNCTADstat bulk downloads come as .7z
+    "pyarrow>=15",  # Overture hospitals: reads only the needed parts of its remote GeoParquet files
     "playwright>=1.45",  # verify.bat: opens sites with a person check in your own Edge or Chrome
 ]
 

@@ -3364,3 +3364,69 @@
   default_rank: 2
   standing: 5
   definition: standard
+
+- id: healthsites_osm
+  name: OpenStreetMap hospitals (healthsites.io country files on the Humanitarian Data Exchange)
+  short_name: OpenStreetMap hospitals
+  publisher: Healthsites.io (Open Healthsite Consulting) and OpenStreetMap contributors
+  url: https://data.humdata.org/organization/healthsites
+  licence: ODbL 1.0
+  licence_url: https://opendatacommons.org/licenses/odbl/1-0/
+  commercial_use: true
+  cadence: Every three months (healthsites.io refreshes its country files on HDX); one CSV per country, about 500 MB in all
+  attribution: "© OpenStreetMap contributors (ODbL), via healthsites.io."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: exploratory
+
+- id: overture_hospitals
+  name: Overture Maps places in the hospital category
+  short_name: Overture hospitals
+  publisher: Overture Maps Foundation
+  url: https://docs.overturemaps.org/guides/places/
+  licence: CDLA Permissive 2.0 (some places ODbL)
+  licence_url: https://cdla.dev/permissive-2-0/
+  commercial_use: true
+  cadence: Every three months, from Overture's latest monthly release; only the countries in Settings > Places (a few hundred MB for China)
+  attribution: "Overture Maps Foundation, places theme (CDLA Permissive 2.0)."
+  status: active
+  default_rank: 5
+  standing: 2
+  definition: exploratory
+
+- id: national_hospitals
+  name: Official hospital lists with locations (Brazil CNES, WHO sub-Saharan Africa facilities, your own lists)
+  short_name: Official hospital lists
+  publisher: Brazil Ministry of Health (CNES); Maina et al. 2019 for the WHO Global Malaria Programme; lists you save
+  url: https://data.humdata.org/dataset/health-facilities-in-sub-saharan-africa
+  licence: Brazil open government data; CC BY 4.0 (Africa list)
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Every three months; your own lists whenever you save one
+  attribution: "CNES, Ministério da Saúde (Brazil); Maina J. et al. (2019), A spatial database of health facilities managed by the public health sector in sub-Saharan Africa, Scientific Data 6:134."
+  status: active
+  default_rank: 4
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: false
+    optional: true
+    files: ["*hospital*.csv", "*hospital*.xlsx"]
+    get: https://data.humdata.org/search?q=hospitals
+    what: "Any list of hospitals with locations you find (a province's top-grade hospitals, a health ministry register): a CSV or Excel sheet with name, latitude and longitude columns, and beds and country if known. Start the file name with the country's three-letter code (CHN guangdong.csv) if there is no country column, then run .\\load.bat national_hospitals."
+
+- id: hospital_counts
+  name: Official hospital counts (WHO density of hospitals, national statistics)
+  short_name: Hospital counts
+  publisher: World Health Organization (Global Health Observatory); national statistics offices
+  url: https://www.who.int/data/gho/data/indicators/indicator-details/GHO/total-density-per-100-000-population-hospitals
+  licence: CC BY-NC-SA 3.0 IGO (WHO); national statistics as published
+  licence_url: https://www.who.int/about/policies/publishing/copyright
+  commercial_use: false
+  cadence: Once a year; the WHO figures are from 2013, the typed-in counts are checked by hand
+  attribution: "WHO Global Health Observatory, total density per 100,000 population: hospitals; national statistics as named."
+  status: active
+  default_rank: 4
+  standing: 3
+  definition: exploratory

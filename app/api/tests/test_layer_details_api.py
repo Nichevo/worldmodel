@@ -43,7 +43,7 @@ def test_by_country_with_sizes_and_coverage(client):
     assert nz["count"] == 3 and nz["size_total"] == 1750 and nz["with_size"] == 2
     assert nz["largest"] == {"name": "Auckland City Hospital", "size": 1100}
     assert nz["per_m"] is None or nz["per_m"] > 0
-    assert len(nz["official"]) == 1  # World Bank beds, where the sample has them
+    assert len(nz["official"]) == 3  # national count, WHO density, World Bank beds (where the sample has them)
     bands = {b["label"]: b["count"] for b in got["sizes"]}
     assert bands["500 to 1,000"] == 2 and bands["no beds given"] == 1
 
@@ -100,3 +100,22 @@ def test_live_layers_are_counted_when_opened(client, monkeypatch):
 def test_layers_that_cannot_be_counted_say_why(client):
     r = client.get("/api/v1/layer-details/live_planes")
     assert r.status_code == 404 and "area in view" in r.json()["detail"]
+
+
+def test_coverage_grades_every_country(client):
+    got = client.get("/api/v1/layer-details/hospitals/coverage").json()
+    assert {r["entity_id"] for r in got["countries"]} >= {"NZL", "AUS"}
+    for r in got["countries"]:
+        assert r["grade"] in ("good", "part", "thin", "unknown")
+        if r["coverage"] is not None:
+            assert r["official"] and r["basis"]
+    assert sum(got["grades"].values()) == len(got["countries"])
+
+
+def test_blank_spots_are_big_towns_with_nothing_near(client):
+    got = client.get("/api/v1/layer-details/hospitals/gaps", params={"country": "NZL"}).json()
+    assert got["km"] == 25 and got["people"] == 100_000
+    for t in got["towns"]:
+        assert t["entity_id"] == "NZL" and t["population"] >= 100_000
+        assert t["nearest_km"] is None or t["nearest_km"] > 25
+    assert client.get("/api/v1/layer-details/nope/gaps").status_code == 404
