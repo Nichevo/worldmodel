@@ -106,6 +106,30 @@ def latest(home: Path, build_id: str | None = None) -> dict | None:
     return meta
 
 
+
+CHECKED_FILE = "last_checked.txt"  # in results_dir: the newest build a scan ran on or found nothing new in
+
+
+def was_checked(home: Path, build_id: str) -> bool:
+    """True when a scan ran on this build, or looked at it, found no figure changed and
+    kept the last scan (which then still holds for this build)."""
+    d = results_dir(home)
+    if (d / f"{build_id}.json").is_file():
+        return True
+    try:
+        return (d / CHECKED_FILE).read_text(encoding="utf-8").strip() == build_id
+    except OSError:
+        return False
+
+
+def mark_checked(home: Path, build_id: str) -> None:
+    try:
+        d = results_dir(home)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / CHECKED_FILE).write_text(build_id, encoding="utf-8")
+    except OSError:
+        pass
+
 # ----------------------------------------------------------------------------- pairs built from each other
 # Some pairs move together only because one figure is made from the other: a total and
 # the same total per person, a level and its growth, the same thing in dollars and in

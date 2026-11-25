@@ -28,6 +28,7 @@ Plain numpy; results go to <home>/warehouse/relationships/ (see the contract mod
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import logging
@@ -346,8 +347,20 @@ def pair(x: Series, y: Series, panel: Panel, min_countries: int, min_years: int,
     }
 
 
+def ok_rows(x: Series, y: Series, min_years: int) -> np.ndarray:
+    """Countries with at least min_years of changes in both (the rows pair() uses)."""
+    return (np.isfinite(x.change) & np.isfinite(y.change)).sum(1) >= min_years
+
+
 # ----------------------------------------------------------------------------- the scan
 SETTING_KEYS = ("relations_indicators", "relations_min_countries", "relations_min_years", "relations_max_minutes", "relations_fdr")
+CACHE_VERSION = "1"            # raise when pair() or event_study() changes what it works out
+CACHE_FILE = "scan_cache.json.gz"  # not *.json: those are the scans themselves
+# what pair() returns, before labels and FDR: the part that depends on the two figures alone
+RAW_KEYS = ("x", "y", "n_obs", "n_countries", "year_from", "year_to", "r", "r_two_way", "p_together", "beta",
+            "slope", "p_holds", "control_used", "p_x_first", "p_y_first", "lags", "groups")
+EVENT_RAW_KEYS = ("kind", "indicator_id", "n_events", "h", "effect", "se", "n", "effect_3", "p", "built_in",
+                  "diverging_before", "pre_trend", "unit")
 
 
 def fingerprint(panel: Panel, events: list[tuple], settings: dict) -> str:
@@ -363,11 +376,63 @@ def fingerprint(panel: Panel, events: list[tuple], settings: dict) -> str:
     return h.hexdigest()[:20]
 
 
+def _hash(*parts) -> str:
+    h = hashlib.sha256()
+    for part in parts:
+        h.update(part if isinstance(part, bytes) else str(part).encode())
+        h.update(b"\0")
+    return h.hexdigest()[:24]
+
+
+def series_sig(sr: Series, entities: list[str]) -> str:
+    """A hash of one figure's own data: which countries and years have which values. It does
+    not move when other figures add countries or the calendar year turns."""
+    rows, cols = np.nonzero(np.isfinite(sr.level))
+    return _hash(sr.kind, "|".join(entities[i] for i in np.unique(rows)), rows.astype(np.int32).tobytes(),
+                 np.unique(rows).astype(np.int32).tobytes(), (cols + FIRST_YEAR).astype(np.int32).tobytes(),
+                 np.ascontiguousarray(sr.level[rows, cols]).tobytes())
+
+
+def _groups_sig(panel: Panel, mask_of: dict[str, np.ndarray] | None = None, income: np.ndarray | None = None) -> str:
+    parts = [f"{g}:" + ",".join(np.asarray(panel.entities)[m]) for g, m in sorted((mask_of or {}).items())]
+    if income is not None:
+        parts.append(",".join(f"{e}={int(i)}" for e, i in zip(panel.entities, income) if i >= 0))
+    return _hash(*parts)
+
+
+def load_cache(home: Path) -> dict[str, tuple[str, dict | None]]:
+    """key -> (signature, saved result or None for a pair with too little data)."""
+    f = rel.results_dir(home) / CACHE_FILE
+    if not f.is_file():
+        return {}
+    try:
+        with gzip.open(f, "rt", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if data.get("version") != CACHE_VERSION:
+            return {}
+        return {k: (v[0], v[1]) for k, v in data["entries"].items()}
+    except Exception as exc:  # noqa: BLE001 - a broken cache only means testing every pair again
+        log.warning("relationship scan cache not read (%s); testing every pair", exc)
+        return {}
+
+
+def save_cache(home: Path, cache: dict[str, tuple[str, dict | None]]) -> None:
+    d = rel.results_dir(home)
+    d.mkdir(parents=True, exist_ok=True)
+    tmp = d / (CACHE_FILE + ".tmp")
+    with gzip.open(tmp, "wt", encoding="utf-8", compresslevel=5) as fh:
+        json.dump({"version": CACHE_VERSION, "entries": {k: [sig, v] for k, (sig, v) in cache.items()}},
+                  fh, separators=(",", ":"), default=lambda o: o.item())  # numpy numbers; NaN kept as is
+    tmp.replace(d / CACHE_FILE)
+
+
 def scan(warehouse: Path, home: Path, build_id: str | None = None, settings: dict | None = None,
          log_line=print, force: bool = False) -> dict:
     """Scan the warehouse and write the results; returns the summary written. Unless force
     is set (or Settings says otherwise), a scan whose inputs match the last finished scan's
-    is skipped: the last scan stays on the Relationships page."""
+    is skipped: the last scan stays on the Relationships page. Otherwise only pairs where
+    one of the two figures changed are tested again; the rest reuse the last scan's numbers
+    (the labels are then worked out afresh over every pair, as the FDR correction needs)."""
     s = settings or local.load_settings(home)
     started = time.monotonic()
     budget = float(s["relations_max_minutes"]) * 60
@@ -385,10 +450,11 @@ def scan(warehouse: Path, home: Path, build_id: str | None = None, settings: dic
     finally:
         con.close()
     inputs = fingerprint(panel, events, s)
+    reuse = not force and s.get("relations_only_new", True)
     last = rel.latest(home)
-    if (not force and s.get("relations_only_new", True) and last and last.get("inputs") == inputs
-            and not last.get("partial")):
+    if reuse and last and last.get("inputs") == inputs and not last.get("partial"):
         log_line(f"Relationship scan: no new figures since the last scan ({last.get('finished_at', '')[:10]}); keeping it")
+        rel.mark_checked(home, build_id)
         return {**last, "skipped": True}
     control = panel.series.get(rel.CONTROL)
     usable = [sid for sid, sr in panel.series.items()
@@ -396,51 +462,86 @@ def scan(warehouse: Path, home: Path, build_id: str | None = None, settings: dic
     usable.sort()
     drivers = {(l["from"], l["to"]) for l in catalogue.driver_graph().get("links", [])}
     total = len(usable) * (len(usable) - 1) // 2
-    log_line(f"Relationship scan: {len(usable)} indicators with enough data, {total:,} pairs to test")
-    results, tested, thin, partial = [], 0, 0, False
+    old = load_cache(home) if reuse else {}
+    sigs = {sid: series_sig(panel.series[sid], panel.entities) for sid in usable}
+    if control is not None and rel.CONTROL not in sigs:
+        sigs[rel.CONTROL] = series_sig(control, panel.entities)
+    base = _hash(CACHE_VERSION, s["relations_min_countries"], s["relations_min_years"], _groups_sig(panel, panel.groups))
+    control_sig = sigs.get(rel.CONTROL, "")
+
+    def pair_sig(a: str, b: str) -> str:
+        uses_control = control is not None and rel.CONTROL not in (a, b) and "gdp_growth" not in (a, b)
+        return _hash(base, sigs[a], sigs[b], control_sig if uses_control else "")
+
+    log_line(f"Relationship scan: {len(usable)} indicators with enough data, {total:,} pairs")
+    cache: dict[str, tuple[str, dict | None]] = {}
+    results, tested, reused, thin, partial = [], 0, 0, 0, False
     for a in range(len(usable)):
         for b in range(a + 1, len(usable)):
-            if time.monotonic() - started > budget:
-                partial = True
-                break
-            tested += 1
-            out = pair(panel.series[usable[a]], panel.series[usable[b]], panel,
-                       s["relations_min_countries"], s["relations_min_years"], control)
+            xa, yb = usable[a], usable[b]
+            key, sig = f"p|{xa}|{yb}", pair_sig(xa, yb)
+            hit = old.get(key)
+            if hit is not None and hit[0] == sig:
+                out = None if hit[1] is None else {**hit[1], "lags": list(hit[1]["lags"])}
+                reused += 1
+            else:
+                if time.monotonic() - started > budget:
+                    partial = True
+                    continue  # pairs already worked out are still reused below the time limit
+                out = pair(panel.series[xa], panel.series[yb], panel,
+                           s["relations_min_countries"], s["relations_min_years"], control)
+                if out is not None:
+                    out.pop("_ok", None)
+                    out = {k: out[k] for k in RAW_KEYS}
+                tested += 1
+            cache[key] = (sig, None if out is None else {**out})
             if out is None:
                 thin += 1
             else:
                 results.append(out)
-        if partial:
-            break
     _label(results, panel, drivers, fdr)
     # country-by-country lead test for the strongest pairs that earned "comes first"
     shortlist = sorted((r for r in results if r["first"]), key=lambda r: -abs(r["r_two_way"]))[:SHORTLIST]
     for r in shortlist:
-        if time.monotonic() - started > budget * 1.1:
-            partial = True
-            break
+        key = f"p|{r['x']}|{r['y']}"
+        saved = cache[key][1]
         xs, ys = panel.series[r["x"]], panel.series[r["y"]]
-        if r["first"] in ("x", "both"):
-            r["countries_x_first"], r["countries_tested"] = granger_by_country(xs, ys, r["_ok"])
-        if r["first"] in ("y", "both"):
-            r["countries_y_first"], r["countries_tested"] = granger_by_country(ys, xs, r["_ok"])
-    event_rows = event_study(panel, events, [i for i in usable], fdr)
+        for side, (lead, follow) in (("x", (xs, ys)), ("y", (ys, xs))):
+            if r["first"] not in (side, "both"):
+                continue
+            done = saved.get(f"by_country_{side}")
+            if done is None:
+                if time.monotonic() - started > budget * 1.1:
+                    partial = True
+                    continue
+                done = list(granger_by_country(lead, follow, ok_rows(xs, ys, s["relations_min_years"])))
+                saved[f"by_country_{side}"] = done
+            r[f"countries_{side}_first"], r["countries_tested"] = done
+    event_rows, ev_cache, ev_reused = event_study_cached(panel, events, usable, fdr, sigs, old)
+    cache.update(ev_cache)
     seconds = round(time.monotonic() - started, 1)
     kept = [r for r in results if r["labels"]]
     summary = {
         "build_id": build_id, "inputs": inputs, "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "seconds": seconds, "partial": partial, "indicators": len(usable), "indicators_chosen": len(ids),
-        "pairs_possible": total, "pairs_tested": tested, "pairs_thin": thin, "pairs_scored": len(results),
+        "pairs_possible": total, "pairs_tested": tested + reused, "pairs_new": tested, "pairs_reused": reused,
+        "pairs_thin": thin, "pairs_scored": len(results),
         "pairs_kept": len(kept), "label_counts": {k: sum(k in r["labels"] for r in kept) for k in rel.LABELS},
-        "events_tested": len(event_rows),
+        "events_tested": len(event_rows), "events_reused": ev_reused,
         "events_kept": sum(e["significant"] and not e["built_in"] and not e["diverging_before"] for e in event_rows),
         "settings": {k: s[k] for k in SETTING_KEYS},
         "names": {sid: {"name": sr.name, "domain": sr.domain, "unit": sr.unit, "kind": sr.kind, "source": sr.source}
                   for sid, sr in panel.series.items()},
     }
     write(home, build_id, kept, event_rows, summary)
-    log_line(f"Relationship scan: {len(kept):,} pairs kept of {tested:,} tested "
-             f"({', '.join(f'{n} {rel.LABELS[k].lower()}' for k, n in summary['label_counts'].items())}); "
+    try:
+        save_cache(home, cache)
+    except Exception as exc:  # noqa: BLE001 - the scan itself is written; the next one just tests more pairs
+        log_line(f"Relationship scan: numbers for next time not saved ({exc})")
+    rel.mark_checked(home, build_id)
+    log_line(f"Relationship scan: {len(kept):,} pairs kept of {tested + reused:,} "
+             f"({tested:,} tested now, {reused:,} unchanged since the last scan; "
+             f"{', '.join(f'{n} {rel.LABELS[k].lower()}' for k, n in summary['label_counts'].items())}); "
              f"{summary['events_kept']} event links; {seconds:.0f} s" + (" (stopped at the time limit)" if partial else ""))
     return summary
 
@@ -499,71 +600,109 @@ def event_study(panel: Panel, events: list[tuple], ids: list[str], fdr: float, m
     """For each event kind and indicator: the change in the indicator from the year
     before the event to h years after (h = -3..EVENT_YEARS), less the same change in
     countries of the same income group with no such event in those years."""
+    return event_study_cached(panel, events, ids, fdr, None, {}, min_events)[0]
+
+
+def _event_setup(panel: Panel, events: list[tuple], kind: str):
+    """The event years of one kind: (start rows, start columns, quiet mask, number of event
+    years), or None when there are too few events to test."""
     ei = {e: n for n, e in enumerate(panel.entities)}
     ny = len(panel.years)
+    hits = np.zeros((len(panel.entities), ny), bool)
+    for k, ent, y in events:
+        if k == kind and ent in ei and FIRST_YEAR <= y < FIRST_YEAR + ny:
+            hits[ei[ent], y - FIRST_YEAR] = True
+    # no event of this kind from 3 years before to EVENT_YEARS after
+    quiet = _window_none(hits, 3, rel.EVENT_YEARS)
+    # first event in a run only (a 3-year recession is one event)
+    starts = hits & ~_shift_bool(hits, 1)
+    ev_rows, ev_cols = np.nonzero(starts)
+    return ev_rows, ev_cols, quiet, int(hits.sum())
+
+
+def _event_one(panel: Panel, sr: Series, kind: str, ev_rows, ev_cols, quiet, min_events: int) -> dict | None:
     hs = list(range(-3, rel.EVENT_YEARS + 1))
-    out: list[dict] = []
-    for kind in rel.EVENT_KINDS:
-        hits = np.zeros((len(panel.entities), ny), bool)
-        for k, ent, y in events:
-            if k == kind and ent in ei and FIRST_YEAR <= y < FIRST_YEAR + ny:
-                hits[ei[ent], y - FIRST_YEAR] = True
-        if hits.sum() < min_events:
+    lv = sr.level
+    base = _lag(lv, 1)  # level in the year before, at column e
+    path, ses, ns = [], [], []
+    for h in hs:
+        ahead = _lag(lv, -h)
+        if sr.kind == "pct":
+            with np.errstate(invalid="ignore", divide="ignore"):
+                o = 100 * (np.log(np.where(ahead > 0, ahead, np.nan)) - np.log(np.where(base > 0, base, np.nan)))
+        else:
+            o = ahead - base
+        if h == -1:
+            path.append(0.0), ses.append(0.0), ns.append(len(ev_rows))
             continue
-        # no event of this kind from 3 years before to EVENT_YEARS after
-        quiet = _window_none(hits, 3, rel.EVENT_YEARS)
-        # first event in a run only (a 3-year recession is one event)
-        starts = hits & ~_shift_bool(hits, 1)
-        ev_rows, ev_cols = np.nonzero(starts)
-        for sid in ids:
-            sr = panel.series[sid]
-            lv = sr.level
-            base = _lag(lv, 1)  # level in the year before, at column e
-            path, ses, ns = [], [], []
-            for h in hs:
-                ahead = _lag(lv, -h)
-                if sr.kind == "pct":
-                    with np.errstate(invalid="ignore", divide="ignore"):
-                        o = 100 * (np.log(np.where(ahead > 0, ahead, np.nan)) - np.log(np.where(base > 0, base, np.nan)))
-                else:
-                    o = ahead - base
-                if h == -1:
-                    path.append(0.0), ses.append(0.0), ns.append(len(ev_rows))
-                    continue
-                diffs = []
-                ctrl = np.where(quiet, o, np.nan)
-                for rr, cc in zip(ev_rows, ev_cols):
-                    t = o[rr, cc]
-                    if not np.isfinite(t):
-                        continue
-                    grp = panel.income[rr] if panel.income is not None else -1
-                    pool = ctrl[:, cc] if grp < 0 else ctrl[panel.income == grp, cc]
-                    pool = pool[np.isfinite(pool)]
-                    if len(pool) >= 5:
-                        diffs.append(t - float(pool.mean()))
-                n = len(diffs)
-                ns.append(n)
-                if n >= 2:
-                    d = np.array(diffs)
-                    path.append(round(float(d.mean()), 4))
-                    ses.append(round(float(d.std(ddof=1) / math.sqrt(n)), 4))
-                else:
-                    path.append(None), ses.append(None)
-            k3 = hs.index(3)
-            n3 = ns[k3]
-            if n3 < min_events or path[k3] is None:
+        diffs = []
+        ctrl = np.where(quiet, o, np.nan)
+        for rr, cc in zip(ev_rows, ev_cols):
+            t = o[rr, cc]
+            if not np.isfinite(t):
                 continue
-            t = path[k3] / ses[k3] if ses[k3] else 0.0
-            out.append({"kind": kind, "indicator_id": sid, "n_events": int(n3), "h": hs, "effect": path, "se": ses,
-                        "n": [int(v) for v in ns], "effect_3": path[k3], "p": rel.t_pvalue(t, n3 - 1),
-                        "built_in": rel.built_in(kind, sid),
-                        "diverging_before": path[0] is not None and abs(path[0]) >= 0.5 * abs(path[k3]),
-                        "pre_trend": path[0], "unit": rel.change_unit(sr.unit, sr.kind)})
+            grp = panel.income[rr] if panel.income is not None else -1
+            pool = ctrl[:, cc] if grp < 0 else ctrl[panel.income == grp, cc]
+            pool = pool[np.isfinite(pool)]
+            if len(pool) >= 5:
+                diffs.append(t - float(pool.mean()))
+        n = len(diffs)
+        ns.append(n)
+        if n >= 2:
+            d = np.array(diffs)
+            path.append(round(float(d.mean()), 4))
+            ses.append(round(float(d.std(ddof=1) / math.sqrt(n)), 4))
+        else:
+            path.append(None), ses.append(None)
+    k3 = hs.index(3)
+    n3 = ns[k3]
+    if n3 < min_events or path[k3] is None:
+        return None
+    t = path[k3] / ses[k3] if ses[k3] else 0.0
+    return {"kind": kind, "indicator_id": sr.id, "n_events": int(n3), "h": hs, "effect": path, "se": ses,
+            "n": [int(v) for v in ns], "effect_3": path[k3], "p": rel.t_pvalue(t, n3 - 1),
+            "built_in": rel.built_in(kind, sr.id),
+            "diverging_before": path[0] is not None and abs(path[0]) >= 0.5 * abs(path[k3]),
+            "pre_trend": path[0], "unit": rel.change_unit(sr.unit, sr.kind)}
+
+
+def event_study_cached(panel: Panel, events: list[tuple], ids: list[str], fdr: float, sigs: dict[str, str] | None,
+                       old: dict, min_events: int = 10) -> tuple[list[dict], dict, int]:
+    """event_study, reusing the last scan's numbers for an indicator and event kind when
+    neither the indicator's figures, those events nor the income groups have changed.
+    Returns (rows, cache entries, how many were reused)."""
+    out: list[dict] = []
+    cache: dict = {}
+    reused = 0
+    income_sig = _groups_sig(panel, None, panel.income) if sigs is not None else ""
+    for kind in rel.EVENT_KINDS:
+        ev_rows, ev_cols, quiet, n_hits = _event_setup(panel, events, kind)
+        if n_hits < min_events:
+            continue
+        kind_sig = ""
+        if sigs is not None:
+            known = set(panel.entities)
+            kind_sig = _hash(CACHE_VERSION, min_events, income_sig, kind,
+                             sorted((str(e), int(y)) for k, e, y in events if k == kind and e in known))
+        for sid in ids:
+            if sigs is not None:
+                key, sig = f"e|{kind}|{sid}", _hash(kind_sig, sigs[sid])
+                hit = old.get(key)
+                if hit is not None and hit[0] == sig:
+                    row = None if hit[1] is None else dict(hit[1])
+                    reused += 1
+                else:
+                    row = _event_one(panel, panel.series[sid], kind, ev_rows, ev_cols, quiet, min_events)
+                cache[key] = (sig, None if row is None else {k: row[k] for k in EVENT_RAW_KEYS})
+            else:
+                row = _event_one(panel, panel.series[sid], kind, ev_rows, ev_cols, quiet, min_events)
+            if row is not None:
+                out.append(row)
     q = rel.bh_qvalues([e["p"] for e in out])
     for e, qq in zip(out, q):
         e["q"] = qq
         e["significant"] = qq < fdr
-    return out
+    return out, cache, reused
 
 
 def _window_none(hits: np.ndarray, before: int, after: int) -> np.ndarray:

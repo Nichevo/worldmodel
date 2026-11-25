@@ -175,6 +175,7 @@ function ScanLine({ scan }: { scan: RelationScan }) {
   return (
     <p className="small ink-2" style={{ margin: 0 }}>
       Last scan {when}: {scan.indicators} indicators, {scan.pairs_tested.toLocaleString()} pairs tested
+      {scan.pairs_reused ? ` (${(scan.pairs_new ?? 0).toLocaleString()} with changed figures tested again, the rest kept from the scan before)` : ""}
       ({scan.pairs_thin.toLocaleString()} had too little data in common), {scan.pairs_kept.toLocaleString()} worth a look;
       {" "}{scan.events_kept} links to events. At most {Math.round(+scan.settings.relations_fdr * 100)}% of what is shown should be chance.
       {scan.partial && <b> The scan reached its time limit, so not every pair was tested (Settings: Relationship scan).</b>}
