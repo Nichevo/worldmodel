@@ -49,6 +49,12 @@ GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom be
     "eez_lines": ("Economic zones", [(99, 1)], 6000),
     "airspace": ("Flight information regions", [(3.5, 1), (99, 2)], 3000),  # whole countries, then each region closer in  # 1° squares: mapped lines (1), then predicted (2) closer in
 }
+# What to do when a layer has nothing loaded at all (shown on the map instead of an empty layer).
+NOT_LOADED = {
+    "gas_pipelines": "none loaded yet: save Global Energy Monitor's gas tracker file into var\\manual\\gem_infrastructure, then run load.bat gem_infrastructure (see Data status)",
+    "oil_pipelines": "none loaded yet: save Global Energy Monitor's oil tracker file into var\\manual\\gem_infrastructure, then run load.bat gem_infrastructure (see Data status)",
+    "nz_land_change": "none loaded yet: save the LCDB file into var\\manual\\nz_lcdb, then run load.bat nz_lcdb",
+}
 COVID = {"kind": "band", "title": "COVID-19 border closures", "start_date": "2020-03-01", "end_date": "2022-06-30"}
 
 
@@ -110,7 +116,8 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
     """A geo_features layer in a map window as GeoJSON: only the ranks that show at this zoom,
     biggest first."""
     if layer not in GEO_LAYERS or not _has(q, "geo_features"):
-        return {"type": "FeatureCollection", "features": []}
+        return {"type": "FeatureCollection", "features": [], "loaded": False,
+                "note": NOT_LOADED.get(layer, "none loaded yet: a refresh fetches it")}
     _, by_zoom, limit = GEO_LAYERS[layer]
     max_rank = next(r for z, r in by_zoom if zoom < z)
     spans = _spans(west, east)
@@ -135,7 +142,10 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
         feats.append({"type": "Feature", "geometry": simplified(json.loads(r["geojson"]), tol),
                       "properties": {"id": r["feature_id"], "name": r["name"], "rank": r["rank"], "layer": layer,
                                      "countries": r["countries"] or "", **props}})
-    return {"type": "FeatureCollection", "features": feats}
+    out: dict = {"type": "FeatureCollection", "features": feats}
+    if not feats and not q("SELECT 1 FROM geo_features WHERE layer_id = ? LIMIT 1", [layer]):
+        out.update(loaded=False, note=NOT_LOADED.get(layer, "none loaded yet: a refresh fetches it"))
+    return out
 
 
 def feature(q: Q, layer: str, feature_id: str) -> dict | None:
