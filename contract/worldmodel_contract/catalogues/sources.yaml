@@ -1971,6 +1971,46 @@
   standing: 5
   definition: exploratory
 
+- id: nyfed_gscpi
+  name: Global Supply Chain Pressure Index (Federal Reserve Bank of New York)
+  short_name: NY Fed supply chain pressure
+  publisher: Federal Reserve Bank of New York
+  url: https://www.newyorkfed.org/research/policy/gscpi
+  licence: Free to use with attribution (Federal Reserve Bank of New York terms)
+  licence_url: https://www.newyorkfed.org/privacy/termsofuse
+  commercial_use: false
+  cadence: Monthly, from 1997; read weekly
+  attribution: "Benigno, di Giovanni, Groen and Noble, Global Supply Chain Pressure Index, Federal Reserve Bank of New York."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://www.newyorkfed.org/research/policy/gscpi
+    what: "If the refresh is refused, save the 'Download data' file (gscpi_data.xlsx) here."
+    files: ["gscpi*"]
+
+- id: unctad_port_calls
+  name: UNCTAD port calls and performance (median time in port)
+  short_name: UNCTAD time in port
+  publisher: UN Trade and Development (UNCTAD), from MarineTraffic data
+  url: https://unctadstat.unctad.org/datacentre/dataviewer/US.PortCalls
+  licence: Free to use with attribution (UNCTADstat terms)
+  licence_url: https://unctadstat.unctad.org/EN/Terms.html
+  commercial_use: true
+  cadence: Yearly, from 2018; read monthly
+  attribution: "UNCTADstat, Port call and performance statistics (US.PortCalls), from MarineTraffic."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://unctadstat.unctad.org/datacentre/dataviewer/US.PortCalls
+    what: "If the refresh is refused, download the table as CSV (Port calls: performance indicators, all years) and save it here."
+    files: ["US_PortCalls*", "*PortCalls*"]
+
 - id: world_port_index
   name: World Port Index (Pub. 150)
   short_name: World Port Index

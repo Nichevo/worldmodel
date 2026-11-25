@@ -45,7 +45,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, ports, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
 from worldmodel_api import grid, learn
@@ -2893,6 +2893,9 @@ def layer(layer_id: str):
                             "rank": r["rank"], "of": len(got["rows"]), "parts": r["n_parts"]}}
             for r in got["rows"] if r["lat"] is not None and r["lon"] is not None]}
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
+    if layer_id == "port_pressure":
+        data = ports.layer(rows)
+        return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
     if layer_id == "power_links":
         data = grid.power_links(rows)
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json")
@@ -3665,6 +3668,39 @@ def transport_country(entity: str):
 def transport_chokepoint(ident: str, start: int | None = None):
     """Ships through one chokepoint a day by type (weekly averages) and the countries on its shores."""
     return transport.chokepoint(rows, ident, start)
+
+
+@api.get("/transport/pressure/places")
+def transport_pressure_places(entity: str | None = None):
+    """Every port and chokepoint with weekly figures: ships a week and the last four weeks against normal."""
+    return ports.places(rows, entity)
+
+
+@api.get("/transport/pressure/{kind}/{ident}")
+def transport_pressure(kind: Literal["port", "chokepoint"], ident: str, start: int = Query(2019, ge=2019, le=2100),
+                       event: str | None = Query(None, description="an impact_id: adds how the connected ports fared")):
+    """One port or chokepoint each week against normal, its events and their impacts, ship types and connections."""
+    return ports.place(rows, kind, ident, start, event)
+
+
+@api.get("/transport/impacts")
+def transport_impacts(entity: str | None = None, hazard: str | None = None, since: int | None = None,
+                      kind: Literal["port", "chokepoint"] | None = None, clear: bool = True,
+                      limit: int = Query(200, ge=1, le=2000)):
+    """The biggest hits: what events did to ports and chokepoints, most ship calls lost first."""
+    return ports.impacts(rows, entity, hazard, since, kind, clear, limit)
+
+
+@api.get("/transport/patterns")
+def transport_patterns():
+    """What usually happens to ships after each kind of event, and how fast each port gets back."""
+    return ports.patterns(rows)
+
+
+@api.get("/transport/pressure-country/{entity}")
+def transport_pressure_country(entity: str):
+    """A country's busiest ports over the last 26 weeks against normal, and the events that hit them."""
+    return ports.country(rows, entity)
 
 
 @api.get("/transport/port/{ident}")

@@ -266,6 +266,16 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
     }),
   },
+  port_pressure: {
+    legend: "Port, last 4 weeks against normal (red: fewer ships, blue: more; larger: busier)", swatch: () => cssVar("--div-neg-2"), dot: true,
+    paint: () => ({
+      "circle-color": ["case", ["!=", ["typeof", ["get", "vs_normal"]], "number"], cssVar("--muted"),
+        ["interpolate", ["linear"], ["coalesce", ["get", "vs_normal"], 0], -40, cssVar("--div-neg-3"), -15, cssVar("--div-neg-1"), 0, cssVar("--surface-2"), 15, cssVar("--div-pos-1"), 40, cssVar("--div-pos-3")]],
+      "circle-opacity": 0.85,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "weekly"], 0]], 0, 2, 5, 3.5, 15, 7, 40, 12],
+      "circle-stroke-color": cssVar("--ink-2"), "circle-stroke-width": 0.5,
+    }),
+  },
   ports_all: {
     legend: "Port (World Port Index)", swatch: () => cssVar("--muted"), dot: true,
     paint: () => ({
@@ -389,6 +399,8 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "shipping_lanes") return `<b>${esc(p.name)}</b>`;
   if (layer === "ports") return `<b>${esc(p.name)}</b> (port)${typeof p.calls === "number" ? `<br/>${num(p.calls)} ship calls in ${esc(p.year)}` : ""}`
     + (p.top ? `<br/>Biggest trade: ${esc(p.top)}` : "");
+  if (layer === "port_pressure") return `<b>${esc(p.name)}</b> (port)${typeof p.vs_normal === "number" ? `<br/>Last 4 weeks: ${p.vs_normal > 0 ? "+" : ""}${num(p.vs_normal)}% against normal` : "<br/>Too few ships to judge"}`
+    + `${typeof p.weekly === "number" ? `<br/>Usually ${num(p.weekly)} ships a week` : ""}${p.as_of ? `<br/><span class="muted">Weeks to ${esc(p.as_of)}</span>` : ""}`;
   if (layer === "ports_all") return `<b>${esc(p.name)}</b> (port)${p.size ? `<br/>Harbour: ${esc(p.size)}` : ""}${typeof p.depth === "number" ? ` · channel ${p.depth} m` : ""}`;
   if (layer === "chokepoints") return `<b>${esc(p.name)}</b>${typeof p.daily === "number" ? `<br/>${num(p.daily, 1)} ships a day${p.year ? ` in ${esc(p.year)}` : ""}` : ""}`
     + "<br/><span class=\"muted\">Click for the countries on its shores</span>";
