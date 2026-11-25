@@ -582,6 +582,7 @@ export type Zone = {
 export type RelationLabel = "together" | "first" | "holds";
 export type RelationScan = { build_id: string; finished_at: string; seconds: number; partial: boolean; stale: boolean;
   indicators: number; pairs_possible: number; pairs_tested: number; pairs_thin: number; pairs_kept: number;
+  pairs_new?: number; pairs_reused?: number; // pairs tested this time / kept from the scan before
   label_counts: Record<RelationLabel, number>; events_tested: number; events_kept: number;
   settings: Record<string, number | string>; domains: string[]; labels: Record<RelationLabel, string>;
   groups: Record<string, string>; event_kinds: string[] };

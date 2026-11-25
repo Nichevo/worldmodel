@@ -156,3 +156,61 @@ def test_scan_skipped_when_nothing_new(tmp_path):
     assert not relations.scan(wh, tmp_path, "b5", s, log_line=lambda *_: None).get("skipped")
     s.update(relations_only_new=False)
     assert not relations.scan(wh, tmp_path, "b6", s, log_line=lambda *_: None).get("skipped")
+
+
+def _saved(home, build_id):
+    meta = rel.latest(home, build_id)
+    con = duckdb.connect()
+    rows = con.execute(f"SELECT x, y, labels, r, p_together, q_together, first, countries_tested, lags "
+                       f"FROM read_parquet('{meta['pairs_path']}') ORDER BY x, y").fetchall()
+    ev = con.execute(f"SELECT kind, indicator_id, effect_3, q FROM read_parquet('{meta['events_path']}') "
+                     "ORDER BY kind, indicator_id").fetchall()
+    return rows, ev
+
+
+def test_only_changed_pairs_tested_again(tmp_path):
+    wh = tmp_path / "w.duckdb"
+    _warehouse(wh, n=25)
+    s = dict(local.SETTINGS)
+    s.update(relations_min_countries=20, relations_min_years=10)
+    first = relations.scan(wh, tmp_path, "b1", s, log_line=lambda *_: None)
+    n = first["indicators"]
+    assert first["pairs_reused"] == 0 and first["pairs_new"] == n * (n - 1) // 2
+    con = duckdb.connect(str(wh))
+    con.execute("UPDATE series SET value = value + 1 WHERE indicator_id = 'ind_z' AND entity_id = 'C03' AND year(period_start) = 1990")
+    con.close()
+    lines = []
+    again = relations.scan(wh, tmp_path, "b2", s, log_line=lines.append)
+    assert again["pairs_new"] == n - 1 and again["pairs_reused"] == (n - 1) * (n - 2) // 2  # only the pairs with Z
+    assert again["events_reused"] > 0 and "unchanged since the last scan" in lines[-1]
+    forced = relations.scan(wh, tmp_path, "b3", s, log_line=lambda *_: None, force=True)
+    assert forced["pairs_reused"] == 0
+    assert _saved(tmp_path, "b2") == _saved(tmp_path, "b3")  # reusing gives exactly what a full scan finds
+
+
+def test_scan_cut_short_carries_on_next_time(tmp_path, monkeypatch):
+    wh = tmp_path / "w.duckdb"
+    _warehouse(wh, n=25)
+    s = dict(local.SETTINGS)
+    s.update(relations_min_countries=20, relations_min_years=10)
+    clock = iter(range(0, 10_000, 7))  # each look at the clock moves on 7 s: a 1-minute limit allows a few pairs
+    monkeypatch.setattr(relations.time, "monotonic", lambda: next(clock))
+    s.update(relations_max_minutes=1)
+    cut = relations.scan(wh, tmp_path, "b1", s, log_line=lambda *_: None)
+    assert cut["partial"] and 0 < cut["pairs_new"] < cut["pairs_possible"]
+    monkeypatch.undo()
+    s.update(relations_max_minutes=15)
+    rest = relations.scan(wh, tmp_path, "b2", s, log_line=lambda *_: None)
+    assert not rest["partial"] and rest["pairs_reused"] == cut["pairs_new"]
+    assert rest["pairs_new"] + rest["pairs_reused"] == rest["pairs_possible"]
+
+
+def test_skipped_scan_marks_build_checked(tmp_path):
+    wh = tmp_path / "w.duckdb"
+    _warehouse(wh, n=25)
+    s = dict(local.SETTINGS)
+    s.update(relations_min_countries=20, relations_min_years=10)
+    relations.scan(wh, tmp_path, "b1", s, log_line=lambda *_: None)
+    assert rel.was_checked(tmp_path, "b1") and not rel.was_checked(tmp_path, "b2")
+    assert relations.scan(wh, tmp_path, "b2", s, log_line=lambda *_: None)["skipped"]
+    assert rel.was_checked(tmp_path, "b2")

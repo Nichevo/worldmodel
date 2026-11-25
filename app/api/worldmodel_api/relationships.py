@@ -72,7 +72,7 @@ def summary(meta: dict | None, build_id: str | None) -> dict | None:
     if meta is None:
         return None
     out = {k: v for k, v in meta.items() if k not in ("names", "pairs_path", "events_path")}
-    out["stale"] = bool(build_id) and meta["build_id"] != build_id
+    out["stale"] = bool(build_id) and meta["build_id"] != build_id and not rel.was_checked(local.home(), build_id)
     out["domains"] = sorted({n.get("domain", "") for n in meta.get("names", {}).values()} - {""})
     out["labels"], out["groups"], out["event_kinds"] = rel.LABELS, rel.GROUPS, list(rel.EVENT_KINDS)
     out["built_from_label"] = rel.BUILT_FROM

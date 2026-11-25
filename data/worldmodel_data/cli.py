@@ -534,7 +534,7 @@ def upgrade():
         if quality.load(paths().home, current.stem) is None:  # first update with grades: work them out once now
             typer.echo("Grading every indicator (A to D; see Data status > Quality)...")
             _quality_after(paths(), current, current.stem)
-        if last is None or last["build_id"] != current.stem:  # first update with the scan: run it once now
+        if last is None or not rel.was_checked(paths().home, current.stem):  # not yet scanned on this build
             _scan_after(paths(), current, current.stem)
         from worldmodel_contract import discover
 
