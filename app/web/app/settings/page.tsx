@@ -6,6 +6,7 @@ import { Fragment, useEffect, useState } from "react";
 import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage, type Upkeep } from "@/lib/api";
 import { useJob } from "@/components/Upkeep";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
+import { visionModels, type VisionModels } from "@/lib/spotting";
 import PlacePicker, { type Place } from "@/components/PlacePicker";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import type { Indicator } from "@/lib/api";
@@ -136,6 +137,7 @@ export default function SettingsPage() {
       </section>
 
       <AISettings s={s} save={save} />
+      <SpottingSettings s={s} save={save} />
 
       <section className="card">
         <h2>Storage limits</h2>
@@ -729,6 +731,60 @@ const START_PAGES: [Settings["start_page"], string, string][] = [
 ];
 const LAYER_TEXT: [string, string][] = [["w", "CrisisWatch this month"], ["e", "Events"], ["n", "Reported in the news"], ["q", "Earthquakes"],
   ["s", "Storm tracks"], ["v", "Volcanoes"], ["p", "Plate boundaries"], ["c", "Major cities"]];
+
+function SpottingSettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
+  const [vm, setVm] = useState<VisionModels | null>(null);
+  useEffect(() => { visionModels().then(setVm).catch(() => setVm(null)); }, [s.ollama_url]);
+  const names = vm?.models.map((m) => m.name) ?? [];
+  const lc10 = s.spot_change_source !== "lcyears";
+  const [lo, hi] = lc10 ? [2017, 2025] : [1992, 2020];
+  const years = Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+  return (
+    <section className="card" id="spotting">
+      <h2>Spotting</h2>
+      <p className="small ink-2" style={{ marginTop: 0 }}>
+        Map layers the app works out from the pictures (8 Land change, 9 Water gained and lost) and what your local AI spots in them (0 Spotted by AI).
+        Scans only run when you start one on the <Link href="/spotting?tab=scans">Spotting page</Link>.
+      </p>
+      <Field label="Land change from" hint="Esri: every year since 2017 at 10 m, sharp but flickers between years. ESA: every year 1992-2020 at 300 m, coarse but goes back further.">
+        <div className="seg" role="group" aria-label="Land change maps">
+          {([["lc10", "Esri 10 m (2017-2025)"], ["lcyears", "ESA 300 m (1992-2020)"]] as const).map(([v, t]) => (
+            <button key={v} className={(s.spot_change_source ?? "lc10") === v ? "on" : ""} aria-pressed={(s.spot_change_source ?? "lc10") === v}
+              onClick={() => save(v === "lcyears" ? { spot_change_source: v, spot_change_from: 1992, spot_change_to: 2020 } : { spot_change_source: v, spot_change_from: 2017, spot_change_to: 2025 })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Years compared" hint="A change counts only if it already held the year before the last year, so one-year flickers are left out.">
+        <span className="chips-row small">
+          <select value={s.spot_change_from} onChange={(e) => save({ spot_change_from: +e.target.value })} aria-label="First year">{years.slice(0, -1).map((y) => <option key={y}>{y}</option>)}</select>
+          to <select value={s.spot_change_to} onChange={(e) => save({ spot_change_to: +e.target.value })} aria-label="Last year">{years.filter((y) => y > s.spot_change_from).map((y) => <option key={y}>{y}</option>)}</select>
+        </span>
+      </Field>
+      <Field label="Water layer shows" hint="Only changes: water gained, lost or turned seasonal. Also water that stayed: every lake and river, pale.">
+        <div className="seg" role="group" aria-label="Water layer">
+          {([["changes", "Only changes"], ["all", "Also water that stayed"]] as const).map(([v, t]) => (
+            <button key={v} className={(s.spot_water_show ?? "changes") === v ? "on" : ""} aria-pressed={(s.spot_water_show ?? "changes") === v} onClick={() => save({ spot_water_show: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Model for What is here?" hint={vm?.error ?? "Your models that can see pictures. Bigger ones describe better but answer more slowly."}>
+        <select value={s.spot_ask_model} onChange={(e) => save({ spot_ask_model: e.target.value })} aria-label="Model for What is here">
+          <option value="">Biggest{vm?.models.length ? ` (${names[names.length - 1]})` : ""}</option>
+          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </Field>
+      <Field label="Model for area scans" hint="A scan asks about thousands of squares, so a small fast model is the usual pick; a scan can also pick its own.">
+        <select value={s.spot_scan_model} onChange={(e) => save({ spot_scan_model: e.target.value })} aria-label="Model for area scans">
+          <option value="">Smallest{vm?.models.length ? ` (${names[0]})` : ""}</option>
+          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </Field>
+      <NumberField label="Spotted by AI shows" value={s.spot_min_sure} min={0} max={1} step={0.05}
+        note="What the model was at least this sure of (0 to 1). Lower shows more, with more mistakes; finds you mark right always show, finds you mark wrong never do."
+        save={(v) => save({ spot_min_sure: v })} />
+    </section>
+  );
+}
 
 function BriefingSettings({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
   const [words, setWords] = useState(s.news_watch_words.split(",").join(", "));

@@ -18,6 +18,9 @@ export type AskRequest = {
   question?: string;
   picture?: () => Promise<string | null>; // a PNG data URL of the chart, for models that can see pictures
   send?: boolean; // ask straight away (the question box in the top bar)
+  model?: string; // a model to pick when the box opens, if installed (Ask the picture: one that can see)
+  pictureTitle?: string; // what the picture is called in the box (default "the chart")
+  search?: boolean; // Search the web ticked or not when the box opens (default: Settings)
 };
 
 // The charts on the page now, so a question can bring one in by name ("Add a chart from

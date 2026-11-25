@@ -16,6 +16,7 @@ import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basema
 import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool, greatCircle } from "@/lib/measure";
 import { useSettings } from "@/lib/settings";
+import { askHere } from "@/lib/spotting";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -179,6 +180,8 @@ export default function WorldMap({
   const pick = useRef(onPick);
   pick.current = onPick;
   const settings = useSettings();
+  const aiOn = useRef(true);
+  aiOn.current = settings.ai_enabled !== false;
   const { base_map: baseMap, map_centre: mapCentre } = settings;
   const look = {
     map_look: pictures ? settings.map_look : "plain", relief_style: settings.relief_style, relief_shading: settings.relief_shading,
@@ -269,6 +272,22 @@ export default function WorldMap({
       const f = ids.length ? m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0] : undefined;
       const g = f?.geometry;
       return g && g.type === "Point" ? { lng: g.coordinates[0], lat: g.coordinates[1], name: String(f.properties?.name ?? "") } : null;
+    });
+    // Right-click a place: "What is here?" asks your local AI about its satellite picture (Ask the picture).
+    let askPop: maplibregl.Popup | null = null;
+    m.on("contextmenu", (e) => {
+      if (measure.on || !aiOn.current) return;
+      e.preventDefault();
+      askPop?.remove();
+      const box = document.createElement("div");
+      const btn = document.createElement("button");
+      btn.className = "link small";
+      btn.textContent = "What is here? Ask AI about the satellite picture";
+      const zoom = Math.max(10, Math.min(15, Math.round(m.getZoom() + 2)));
+      const at = e.lngLat.wrap();
+      btn.onclick = () => { askPop?.remove(); void askHere(at.lng, at.lat, zoom); };
+      box.appendChild(btn);
+      askPop = new maplibregl.Popup({ closeButton: true, offset: 6 }).setLngLat(e.lngLat).setDOMContent(box).addTo(m);
     });
     m.on("click", (e) => {
       if (measure.on) return;

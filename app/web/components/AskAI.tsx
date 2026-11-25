@@ -37,12 +37,12 @@ export default function AskAI() {
 
   // Before, a failed or slow fetch left the drop-down on "No models" with nothing to say why.
   // `retry`: Try again keeps the second model already picked, if it is still there.
-  const loadStatus = (compare: boolean, compareWith: string, retry = false) => {
+  const loadStatus = (compare: boolean, compareWith: string, retry = false, prefer?: string) => {
     setStatus(null);
     setStatusError(null);
     api.aiStatus().then((st) => {
       setStatus(st);
-      setModel((m) => m || st.default_model || "");
+      setModel((m) => (prefer && st.models.some((x) => x.name === prefer) ? prefer : m || st.default_model || ""));
       const fresh = compare ? compareModel(st, compareWith, st.default_model ?? "") : "";
       setSecond((cur) => (retry && cur && st.models.some((m) => m.name === cur) ? cur : fresh));
     }).catch((e) => setStatusError(String((e as Error).message || e).replace(/^\d+: /, "")));
@@ -56,12 +56,12 @@ export default function AskAI() {
     setTurns([]);
     setPics([]);
     setCharts(pageCharts().filter((c) => c.title !== r.title));
-    setSearch(s.ai_search_default);
+    setSearch(r.search ?? s.ai_search_default);
     setSecond("");
     setStatus(null); // a question from the top bar waits for the models, then asks
     pending.current = !!(r.send && r.question);
-    r.picture?.().then((url) => { if (url) setPics([{ key: "this", title: "the chart", url, on: true }]); }).catch(() => undefined);
-    loadStatus(s.ai_compare_default, s.ai_model_compare);
+    r.picture?.().then((url) => { if (url) setPics([{ key: "this", title: r.pictureTitle ?? "the chart", url, on: true }]); }).catch(() => undefined);
+    loadStatus(s.ai_compare_default, s.ai_model_compare, false, r.model);
     setTimeout(() => box.current?.focus(), 50);
   }), [s.ai_context_default, s.ai_model_compare, s.ai_compare_default, s.ai_search_default]);
 

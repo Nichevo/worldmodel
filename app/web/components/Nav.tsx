@@ -42,6 +42,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/transport", label: "Transport", hint: "Ports, chokepoints, airports, rivers, cables, pipelines and accidents" },
     { href: "/tourism", label: "Tourism", hint: "Visitors, what they spend, World Heritage sites" },
     { href: "/land", label: "Land", hint: "Land use since 1700, city outlines, trees, New Zealand land cover" },
+    { href: "/spotting", label: "Spotting", hint: "Land change and water worked out from the pictures, Ask the picture, and area scans with your local AI" },
     { href: "/cities", label: "Cities" },
     { href: "/laws", label: "Laws" },
     { href: "/zones", label: "Beyond borders" },
