@@ -45,7 +45,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, disease, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, port_goods, ports, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, disease, disease_forecast, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, port_goods, ports, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
 from worldmodel_api import grid, learn
@@ -3097,6 +3097,19 @@ def disease_long(indicator: str = "measles_cases", entities: str | None = None):
     got = disease.long_view(rows, split(entities) or list(disease.D.KEY), indicator)
     _named(got["series"])
     return got
+
+
+@api.get("/disease/forecast/{entity_id}")
+def disease_forecast_one(entity_id: str, measure: str = "flu_pct_positive"):
+    """The forecast for a country's flu or RSV season under way (or the next one), the other hemisphere's
+    signal it used, and how the same forecast did before each of the last five seasons."""
+    return disease_forecast.forecast_view(rows, entity_id, measure)
+
+
+@api.get("/disease/forecast-map")
+def disease_forecast_map(measure: str = "flu_pct_positive"):
+    """Every country's forecast peak for its season under way or next, against its usual peak."""
+    return disease_forecast.forecast_map(rows, measure)
 
 
 @api.get("/disease/notifiable")

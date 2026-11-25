@@ -45,7 +45,7 @@ function LayerPage() {
   const L = d.layer;
   const title = cap(L.many);
   const t = d.totals;
-  const hasSizes = d.sizes.length > 0 || d.categories.length > 0;
+  const hasSizes = d.sizes.length > 0 || d.categories.length > 0 || !!d.by_list?.length;
   return (
     <div className="grid">
       <p className="small"><Link href="/layers">All map layers</Link></p>
@@ -383,6 +383,18 @@ function Sizes({ d }: { d: LayerDetail }) {
               opacity: s.missing ? 0.3 : 0.8, borderRadius: 2 }} /></td>
             <td style={{ textAlign: "right" }}>{fmt(s.count)}</td></tr>
         ))}</tbody></table>
+      </div>}
+      {!!d.by_list?.length && <div className="card">
+        <h3>By list, and likely hospital or clinic</h3>
+        <table className="small"><thead><tr><th>List</th><th style={{ textAlign: "right" }}>All</th><th style={{ textAlign: "right" }}>Only this list</th>
+          <th style={{ textAlign: "right" }}>Likely hospitals</th><th style={{ textAlign: "right" }}>Not sure</th><th style={{ textAlign: "right" }}>Likely clinics</th></tr></thead>
+          <tbody>{d.by_list.map((r) => (
+            <tr key={r.list} style={r.only === null ? { fontWeight: 600 } : undefined}><td>{r.list}</td><td style={{ textAlign: "right" }}>{fmt(r.count)}</td>
+              <td style={{ textAlign: "right" }}>{r.only === null ? "" : fmt(r.only)}</td><td style={{ textAlign: "right" }}>{fmt(r.hospital)}</td>
+              <td style={{ textAlign: "right" }}>{fmt(r.unsure)}</td><td style={{ textAlign: "right" }}>{fmt(r.clinic)}</td></tr>))}</tbody></table>
+        <p className="caption">A hospital two lists share counts under both. Likely hospitals: 50 or more beds, a hospital word in the name, or
+          listed by Wikidata, an official list or with an emergency department. Likely clinics: under 20 beds, or a clinic, health post, dental,
+          dialysis or office word in the name. The map&apos;s Layers panel can show or hide each list and kind.</p>
       </div>}
       {d.categories.length > 0 && <div className="card">
         <h3>By {L.category!.toLowerCase()}</h3>

@@ -146,6 +146,45 @@ function localLayers(src: string): { under: LayerSpecification[]; over: LayerSpe
   };
 }
 
+// OpenFreeMap answers almost always, but a blip on its side, a firewall, an ad blocker or
+// being offline makes MapLibre throw "AJAXError: NetworkError" into the console. So ask for
+// its tile list first (three tries, a little apart), remember a yes for the session and a
+// no for a minute, and fall back to the local map files or the plain map when it fails.
+const ONLINE_TRIES = [0, 1500, 4000];
+let online: { ok: Promise<boolean>; at: number } | null = null;
+export function onlineReachable(fresh = false): Promise<boolean> {
+  if (!fresh && online && (Date.now() - online.at < 60_000)) return online.ok;
+  const ok = (async () => {
+    for (const wait of ONLINE_TRIES) {
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      try {
+        const r = await fetch(ONLINE_TILES, { signal: AbortSignal.timeout(8000), cache: "no-store" });
+        if (r.ok && Array.isArray((await r.json())?.tiles)) return true;
+      } catch { /* try again */ }
+    }
+    return false;
+  })();
+  online = { ok, at: Date.now() };
+  ok.then((yes) => { if (yes && online) online.at = Infinity; }); // a yes holds for the session
+  return ok;
+}
+
+// Quiet a map's load failures: MapLibre prints every failed tile or source as a console error
+// (which the dev build shows as a red "Console Error" box). Log each source once as a warning
+// instead, and tell the caller when the online map detail stops answering.
+export function quietMapErrors(m: maplibregl.Map, onDetailFail?: () => void) {
+  const seen = new Set<string>();
+  m.on("error", (e: maplibregl.ErrorEvent & { sourceId?: string; tile?: unknown }) => {
+    const src = e.sourceId ?? "map";
+    if (src === "detail-online" && !e.tile) onDetailFail?.(); // its tile list, not one odd tile
+    if (seen.has(src)) return;
+    seen.add(src);
+    console.warn(`map: ${src} did not load (${e.error?.message ?? "unknown error"}); later failures from it are not shown`);
+  });
+}
+
+export const ONLINE_DOWN_NOTE = "The online map detail (tiles.openfreemap.org) didn't answer, so";
+
 // Take the detail off a map (when the setting changes).
 export function removeDetail(m: maplibregl.Map) {
   for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith(DETAIL_PREFIX)) m.removeLayer(l.id);
@@ -154,9 +193,23 @@ export function removeDetail(m: maplibregl.Map) {
 }
 
 // Put the detail on a map whose country layers ("fill", "line") are already there.
-// Returns the attribution to show, or null when there is no detail (plain, or no files).
-export async function addDetail(m: maplibregl.Map, mode: BaseMap): Promise<string | null> {
+// Says which detail went on (online, local, or plain when none) and, when the online detail
+// could not be reached, a note to show under the map.
+export type DetailShown = { shown: BaseMap; note: string | null };
+export async function addDetail(m: maplibregl.Map, mode: BaseMap): Promise<DetailShown> {
   removeDetail(m);
+  if (mode === "online" && !(await onlineReachable())) {
+    const st = await baseMapStatus().catch(() => null);
+    if (st?.files.length) {
+      const got = await addDetail(m, "local");
+      return { shown: got.shown, note: `${ONLINE_DOWN_NOTE} the map files on this PC are shown instead.` };
+    }
+    return { shown: "plain", note: `${ONLINE_DOWN_NOTE} the plain map is shown. Check the internet connection or any blocker, or pick local map files in Settings > Map.` };
+  }
+  return { shown: (await addDetailNow(m, mode)) ? mode : "plain", note: null };
+}
+
+async function addDetailNow(m: maplibregl.Map, mode: BaseMap): Promise<string | null> {
   if (mode === "plain") return null;
   let sources: { id: string; spec: maplibregl.SourceSpecification; layers: ReturnType<typeof onlineLayers> }[] = [];
   if (mode === "online") {

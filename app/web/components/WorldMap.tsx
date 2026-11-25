@@ -12,7 +12,7 @@ import { arc, countryCentres, countryShapes, countryShapesFine } from "@/lib/geo
 import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
-import { addDetail, baseMapStatus, maxZoomFor, removeDetail } from "@/lib/basemap";
+import { addDetail, baseMapStatus, maxZoomFor, ONLINE_DOWN_NOTE, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool, greatCircle } from "@/lib/measure";
 import { useSettings } from "@/lib/settings";
@@ -154,6 +154,9 @@ export default function WorldMap({
   // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
   const [info, setInfo] = useState<FeatureInfo | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Why the map detail isn't the one picked in Settings (online tiles not answering), and a way to try again.
+  const [detailNote, setDetailNote] = useState<string | null>(null);
+  const [detailTry, setDetailTry] = useState(0);
   const featurePick = useRef<(layer: string, p: Record<string, unknown>, at: { lng: number; lat: number }) => void>(() => {});
   featurePick.current = (layer, p, at) => {
     const st = LAYER_STYLE[layer];
@@ -223,6 +226,7 @@ export default function WorldMap({
       renderWorldCopies: true, // drag round the globe without running off the edge
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    quietMapErrors(m, () => setDetailNote((cur) => cur ?? `${ONLINE_DOWN_NOTE} some of it is missing.`));
     map.current = m;
     onMap?.(m);
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
@@ -506,18 +510,22 @@ export default function WorldMap({
     const m = map.current;
     if (!m) return;
     let gone = false;
-    const apply = () => {
-      const files = baseMap === "local" ? baseMapStatus().then((st) => st.files.length).catch(() => 0) : Promise.resolve(0);
-      files.then((n) => {
+    setDetailNote(null);
+    const apply = async () => {
+      if (detailTry) await onlineReachable(true); // "Try again": ask OpenFreeMap afresh
+      if (gone || map.current !== m) return;
+      try {
+        const got = await addDetail(m, baseMap);
         if (gone || map.current !== m) return;
-        m.setMaxZoom(maxZoomFor(baseMap, n));
-        addDetail(m, baseMap).catch((e) => console.warn("map detail skipped", e));
-      });
+        const files = got.shown === "local" ? await baseMapStatus().then((st) => st.files.length).catch(() => 0) : 0;
+        m.setMaxZoom(maxZoomFor(got.shown, files));
+        setDetailNote(got.note);
+      } catch (e) { console.warn("map detail skipped", e); }
     };
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
     return () => { gone = true; if (map.current === m && m.getLayer("fill")) removeDetail(m); };
-  }, [baseMap]);
+  }, [baseMap, detailTry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Relief, satellite or night lights under the colours (Settings > Maps, or the Layers panel's Background).
   useEffect(() => {
@@ -939,6 +947,10 @@ export default function WorldMap({
           </div>
         )}
       </div>
+      {detailNote && (
+        <p className="caption" role="status">{detailNote}{" "}
+          <button className="link small" onClick={() => setDetailTry((n) => n + 1)}>Try again</button></p>
+      )}
       {Object.values(notes).some(Boolean) && <p className="caption">{Object.values(notes).filter(Boolean).join(" · ")}</p>}
       {!hideScale && <Legend scale={scale} unit={unit} />}
       {(layers.length > 0 || legend.length > 0) && (

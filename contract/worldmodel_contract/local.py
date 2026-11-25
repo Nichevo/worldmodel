@@ -72,6 +72,8 @@ SETTINGS: dict[str, object] = {
     "map_hospital_beds": 200,        # the Hospitals map layer shows hospitals with at least this many beds
     "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
     "map_hospitals_all": True,       # the Hospitals layer shows every hospital from every list (the two above apply when off)
+    "map_hospitals_lists": "Wikidata,OpenStreetMap,Overture,Official lists",  # lists whose hospitals the map shows
+    "map_hospitals_kinds": "hospital,unsure,clinic",  # likely hospitals, unsure, likely clinics: which the map shows
     "hospitals_osm_fetch": True,     # refresh fetches OpenStreetMap's hospitals (healthsites.io on HDX, every 3 months) and hospital counts
     "hospitals_overture_fetch": True,  # refresh reads Overture's hospitals for the countries below (every 6 months)
     "hospitals_overture_countries": "",  # three-letter codes, comma separated; empty: the countries in contract health.py
@@ -152,6 +154,8 @@ SETTINGS: dict[str, object] = {
     "gfp_pages_per_refresh": 12,         # Global Firepower country pages read per refresh (key countries first)
     # Flu, COVID and other infections (connectors/disease.py; the Disease page)
     "disease_fetch": True,               # WHO FluNet, PHF Science wastewater, UKHSA, US CDC, ECDC, OWID COVID, WHO cases and outbreak news
+    # Disease page: draw the flu and RSV season forecast on charts and offer it on the map (each chart can still switch it)
+    "disease_forecast": True,
     # Land, cities and trees (connectors/land.py; FAOSTAT land use comes with the sectors' FAOSTAT files)
     "land_history_fetch": True,          # HYDE cropland and grazing land by country back to 1700 (via Our World in Data, once a year)
     "land_cities_fetch": True,           # GHSL urban centres: people, built-up area and outlines of about 11,000 cities (300 MB once a year)

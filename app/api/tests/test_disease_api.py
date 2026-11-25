@@ -134,3 +134,31 @@ def test_causes_of_death(q):
     assert [c["id"] for c in v["causes"]] == ["cause_death_rate_cancers", "cause_death_rate_digestive_diseases"]
     nz = v["series"][0]["causes"]
     assert nz["cause_death_rate_cancers"][-1] == [2018, 112.4] and v["series"][1]["causes"] == {}
+
+
+def test_forecast_follows_the_other_hemisphere_and_the_weeks_seen():
+    from worldmodel_api import disease_forecast as F
+    pts = [(date.fromisocalendar(y, w, 1), v) for y in range(2012, 2026) for w, v in enumerate(season(27, 10), start=1)]
+    today = date(2026, 1, 20)
+    plain, big = F.forecast(pts, None, today), F.forecast(pts, 3.0, today)
+    assert plain["label"] == "2026" and plain["weeks_seen"] == 0  # the 2025 season is over: next one
+    assert plain["peak"] == pytest.approx(12, rel=0.01) and big["peak"] == pytest.approx(12 * 2, rel=0.01)  # 1 + 0.5 * (3 - 1)
+    assert big["peak_week"] == date.fromisocalendar(2026, 27, 1).isoformat()
+    # ten weeks into a season running twice the usual size: the weeks seen pull the forecast up
+    seen = pts + [(date.fromisocalendar(2026, w, 1), 2 + 2 * (v - 2)) for w, v in enumerate(season(27, 10), start=1) if w <= 24]
+    f = F.forecast(seen, None, date(2026, 6, 20))
+    assert f["label"] == "2026" and f["peak"] > 16 and f["points"][0][0] == 25 and f["points"][0][3] <= f["points"][0][2] <= f["points"][0][4]
+
+
+def test_hemisphere_signal_and_view(q):
+    from worldmodel_api import disease_forecast as F
+    v = F.forecast_view(q, "NZL", "flu_pct_positive")
+    assert v["forecast"] and v["signal"]["hemisphere"] == "northern" and v["forecast"]["split_week"] == 1
+    assert v["skill"]["of"] >= 1
+    m = F.forecast_map(q, "flu_pct_positive")
+    assert {r["entity"] for r in m["rows"]} == {"NZL", "GBR"}
+    everyone = {"A": [(date.fromisocalendar(y, w, 1), v * (2 if y == 2025 else 1)) for y in range(2015, 2026)
+                      for w, v in enumerate(season(3, 10), start=1)],
+                "B": [(date.fromisocalendar(y, w, 1), v) for y in range(2015, 2026) for w, v in enumerate(season(3, 10), start=1)]}
+    s = F.hemisphere_signal(everyone, False, date(2025, 12, 1))
+    assert s["ratio"] == pytest.approx((12 * 2 / 12 + 1) / 2, rel=0.05) and len(s["countries"]) == 2

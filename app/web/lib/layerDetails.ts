@@ -24,6 +24,7 @@ export type LayerDetail = {
   countries: LayerRow[]; groups: LayerRow[];
   sizes: { label: string; count: number; missing?: boolean }[];
   categories: { label: string; count: number; size_total: number | null }[];
+  by_list?: { list: string; count: number; only: number | null; hospital: number; unsure: number; clinic: number }[];
 };
 export type LayerItem = {
   item_id: string; name: string; countries: string[]; country_names: string[]; lat: number; lon: number; size: number | null;
