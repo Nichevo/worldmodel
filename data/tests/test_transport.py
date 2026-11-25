@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 import duckdb
+import numpy as np
 import pytest
 
 from worldmodel_data.build import build
@@ -14,10 +15,11 @@ from worldmodel_data.connectors import CONNECTORS
 from worldmodel_data.connectors.networks import chain, parse_wkt
 from worldmodel_data.connectors.tourism import figures, year_totals
 from worldmodel_data.connectors.transport import chokepoint_events, shore_key
+from worldmodel_data.port_pressure import impact, normal_series
 from worldmodel_data.vintage_store import VintageStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SOURCES = ("un_wpp", "portwatch", "world_port_index", "shipping_lanes", "ourairports", "airport_traffic",
+SOURCES = ("un_wpp", "portwatch", "nyfed_gscpi", "unctad_port_calls", "world_port_index", "shipping_lanes", "ourairports", "airport_traffic",
            "eurostat_waterways", "taic_inquiries", "unesco_heritage", "un_tourism", "wef_ttdi", "nz_tourism",
            "hydrosheds", "waterways", "submarine_cables", "gem_infrastructure", "ne_railways")
 
@@ -89,6 +91,49 @@ def test_portwatch(built):
     assert con.execute("SELECT count(*) FROM port_traffic WHERE entity_id = 'NZL'").fetchone()[0] == 2 * 36 + 3
     ev = con.execute("SELECT entity_id, title, start_date FROM events WHERE source_id = 'portwatch'").fetchall()
     assert ev == [("EGY", "Ships through Suez Canal down 50%", date(2024, 1, 1))]
+    # Daily calls by ship type (2024 has a daily file, other years monthly sums only)
+    d = con.execute("SELECT count(*), sum(calls), sum(container) FROM port_daily WHERE port_id = 'port2'").fetchone()
+    assert d == (240, 1440, 480)
+    ports = {f["properties"]["id"]: f["properties"] for f in _layer(con, "ports")}
+    assert ports["port2"]["fact"] == "Largest export port in the economy"
+    assert ports["port1"]["mix"] == {"container": 60, "dry_bulk": 20, "roro": 20}
+    assert con.execute("SELECT transit_days, share_at_risk FROM port_links WHERE from_port = 'port1'").fetchone() == (1.5, 0.12)
+    dis = {r[0]: r[1:] for r in con.execute(
+        "SELECT event_id, port_id, hazard, alert, entity_id, start_date, end_date, distance_km FROM port_disruptions").fetchall()}
+    assert dis["1001"] == ("port2", "cyclone", "red", "NZL", date(2024, 6, 13), date(2024, 6, 17), 42.5)
+    assert dis["1002"][0] == "" and dis["1002"][3] == "TON"  # reached no port
+    # The build works out weeks against normal and the cyclone's impact on Tauranga
+    assert con.execute("SELECT count(*) FROM traffic_weekly WHERE place_kind = 'chokepoint'").fetchone()[0] > 150
+    imp = con.execute("SELECT place_name, hazard, origin FROM traffic_impacts").fetchall()
+    assert imp == [("Tauranga", "cyclone", "portwatch")]
+
+
+def test_supply_chain_pressure_and_time_in_port(built):
+    _, con = built
+    g = dict(con.execute("SELECT period_start, value FROM observations WHERE indicator_id = 'gscpi' AND freq = 'M'").fetchall())
+    assert g[date(2021, 12, 1)] == 4.33 and g[date(2020, 4, 1)] == 2.85 and len(g) == 5
+    assert _vals(con, "port_time_days", "NZL") == {2022: 1.32, 2023: 1.21}
+    assert _vals(con, "port_time_container_days", "NZL")[2023] == 0.95
+    assert _vals(con, "port_time_liquid_bulk_days", "AUS")[2023] == 1.30
+    assert _vals(con, "port_time_days", "world")[2023] == 0.99
+
+
+def test_port_pressure_maths():
+    weeks = 52 * 3 + 30
+    season = np.array([100 + 20 * np.sin(2 * np.pi * (i % 52) / 52) for i in range(weeks)])
+    v = season.copy()
+    s = 52 * 3 + 10
+    v[s:s + 3] = season[s:s + 3] * 0.5  # three weeks at half
+    norm = normal_series(v)
+    assert np.isnan(norm[:8]).all() and abs(norm[s - 1] / season[s - 1] - 1) < 0.02
+    got = impact(v, v * 1000, s, s + 2)
+    assert got["worst_pct"] == pytest.approx(-50, abs=1)
+    assert got["rec"] == s + 3  # back the week after
+    assert got["lost"] == pytest.approx(season[s:s + 3].sum() * 0.5, rel=0.03)
+    assert got["lost_t"] == pytest.approx(got["lost"] * 1000, rel=0.03)
+    assert len(got["curve"]) == 21 and got["curve"][4] == pytest.approx(0.5, abs=0.02)
+    # Too little before an event to tell
+    assert impact(v, None, 3, 4) is None
 
 
 def test_ports_lanes_airports(built):

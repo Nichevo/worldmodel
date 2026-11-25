@@ -23,7 +23,7 @@ import duckdb
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
 from worldmodel_data import (__version__, cities, crowd_tables, episodes, gates, history, layer_tables, nature_tables, network_tables,
-                             osint_tables)
+                             osint_tables, port_pressure)
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
@@ -111,7 +111,21 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                     checks.append(gates.Check("networks:loaded", "networks", "info",
                                               f"Transport and networks: {net['geo_features']:,} rivers, basins, waterways, "
                                               f"cables and pipelines, {net['port_traffic']:,} port months, "
+                                              f"{net['port_daily']:,} port days, {net['port_links']:,} port links, "
                                               f"{net['chokepoint_traffic']:,} chokepoint days, {net['airport_traffic']:,} airport years"))
+                try:
+                    pp = port_pressure.compute(con)
+                except Exception as exc:  # noqa: BLE001 -- a slip here must not stop the build
+                    log.warning("port pressure left out of this build: %s", exc)
+                    for t in ("traffic_weekly", "traffic_impacts"):
+                        con.execute(f"DROP TABLE IF EXISTS {t}")
+                    con.execute(port_pressure.WEEKLY_DDL)
+                    con.execute(port_pressure.IMPACTS_DDL)
+                    pp = {}
+                if any(pp.values()):
+                    checks.append(gates.Check("port_pressure:computed", "networks", "info",
+                                              f"Port pressure: {pp['traffic_weekly']:,} port and chokepoint weeks, "
+                                              f"{pp['traffic_impacts']:,} event impacts"))
                 crw = crowd_tables.compute(con)
                 if any(crw.values()):
                     checks.append(gates.Check("crowd:loaded", "crowd", "info",

@@ -202,6 +202,20 @@ HISTORY_COLUMNS = {
         "transits": "DOUBLE", "tankers": "DOUBLE", "container": "DOUBLE", "dry_bulk": "DOUBLE", "cargo": "DOUBLE",
         "capacity": "DOUBLE",
     },
+    "port_daily": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "port_id": "VARCHAR", "country_code": "VARCHAR", "day": "DATE",
+        "calls": "DOUBLE", "container": "DOUBLE", "dry_bulk": "DOUBLE", "general_cargo": "DOUBLE", "roro": "DOUBLE",
+        "tanker": "DOUBLE", "import_t": "DOUBLE", "export_t": "DOUBLE",
+    },
+    "port_links": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "from_port": "VARCHAR", "to_port": "VARCHAR",
+        "transit_days": "DOUBLE", "capacity_at_risk": "DOUBLE", "share_at_risk": "DOUBLE",
+    },
+    "port_disruptions": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "event_id": "VARCHAR", "port_id": "VARCHAR", "name": "VARCHAR",
+        "hazard": "VARCHAR", "alert": "VARCHAR", "country_code": "VARCHAR", "start_date": "DATE", "end_date": "DATE",
+        "lat": "DOUBLE", "lon": "DOUBLE", "severity": "VARCHAR", "distance_km": "DOUBLE",
+    },
     "airport_traffic": {
         "source_id": "VARCHAR", "vintage": "VARCHAR", "airport": "VARCHAR", "name": "VARCHAR", "country_code": "VARCHAR",
         "year": "INTEGER", "passengers": "DOUBLE", "freight_t": "DOUBLE",

@@ -3,6 +3,14 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.16.0 (2026-11-25)
+
+- New tables `port_daily` (ship calls a day by ship type and tonnes at every port),
+  `port_links` (ship connections between ports), `port_disruptions` (PortWatch's
+  disasters and the ports they reached), and two made by the build: `traffic_weekly`
+  (ports and chokepoints each week against normal) and `traffic_impacts` (what each event
+  did to a port or chokepoint). All absent before 1.16.0; readers should treat them as empty.
+
 ## 1.15.0 (2026-11-25)
 
 - New table `history_rulers`: rulers with their post, the state it was over (Wikidata id

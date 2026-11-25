@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import NatureEvents from "@/components/NatureEvents";
 import { LatestTable, latestText } from "@/components/PollutionCard";
+import { PortPressureStrip } from "@/components/PortPressure";
 import { api, type Accident, type TransportCountry } from "@/lib/api";
 import { openAsk } from "@/lib/ai";
 import { compact } from "@/lib/format";
@@ -74,6 +75,7 @@ export default function TransportCard({ entity, name, showLink = true }: { entit
               <td className="num">{b.of_country != null ? `${Math.round(b.of_country * 100)}%` : ""}</td>
               <td className="num">{b.share != null ? `${Math.round(b.share * 100)}%` : ""}</td></tr>))}</tbody></table></div> : null}
       </div>
+      <PortPressureStrip entity={entity} name={name} />
       {d.accidents.length ? <><h4>Air, sea and rail accidents</h4><AccidentList rows={d.accidents} limit={10} /></> : null}
       {d.infrastructure.length ? <><h4>Cables, pipelines and shipping cut or blocked</h4><NatureEvents events={d.infrastructure} limit={10} /></> : null}
     </div>

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.15.0"
+SCHEMA_VERSION = "1.16.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -296,6 +296,51 @@ TABLES: dict[str, Table] = {
         }, ("chokepoint_id", "day"),
             "Ships through each shipping chokepoint a day, by type, and their capacity in tonnes (IMF PortWatch, "
             "from 2019). Absent before 1.10.0."),
+        Table("port_daily", {
+            "port_id": "VARCHAR", "entity_id": "VARCHAR", "day": "DATE", "calls": "DOUBLE", "container": "DOUBLE",
+            "dry_bulk": "DOUBLE", "general_cargo": "DOUBLE", "roro": "DOUBLE", "tanker": "DOUBLE", "import_t": "DOUBLE",
+            "export_t": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("port_id", "day"),
+            "Ship calls a day at each port, split by ship type (container, dry bulk, general cargo, ro-ro, tanker), "
+            "and estimated tonnes unloaded and loaded (IMF PortWatch, from 2019). Days with no calls are left out. "
+            "Absent before 1.16.0."),
+        Table("port_links", {
+            "from_port": "VARCHAR", "to_port": "VARCHAR", "transit_days": "DOUBLE", "capacity_at_risk": "DOUBLE",
+            "share_at_risk": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("from_port", "to_port"),
+            "Ship connections between ports (IMF PortWatch spillovers): average sailing days and the capacity a day "
+            "at to_port (capacity_at_risk, tonnes) and its share (share_at_risk, 0 to 1) that depends on ships from "
+            "from_port. Absent before 1.16.0."),
+        Table("port_disruptions", {
+            "event_id": "VARCHAR", "port_id": "VARCHAR", "name": "VARCHAR", "hazard": "VARCHAR", "alert": "VARCHAR",
+            "entity_id": "VARCHAR", "start_date": "DATE", "end_date": "DATE", "lat": "DOUBLE", "lon": "DOUBLE",
+            "severity": "VARCHAR", "distance_km": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("event_id", "port_id"),
+            "Disasters IMF PortWatch tracks (cyclones, earthquakes, floods, droughts, volcanoes, wildfires; alert "
+            "level from GDACS) and each port they reached, with its distance. port_id is empty for an event that "
+            "reached no port. Absent before 1.16.0."),
+        Table("traffic_weekly", {
+            "place_kind": "VARCHAR", "place_id": "VARCHAR", "entity_id": "VARCHAR", "week": "DATE", "value": "DOUBLE",
+            "tonnes": "DOUBLE", "normal": "DOUBLE", "ratio": "DOUBLE",
+        }, ("place_kind", "place_id", "week"),
+            "Made by the build from port_daily and chokepoint_traffic: ship calls (ports) or transits (chokepoints) "
+            "each week (week starts Monday), tonnes, and what is normal for that week: the same weeks of up to three "
+            "years before, scaled by how busy the place was in the eight weeks before. ratio is value / normal. "
+            "Absent before 1.16.0."),
+        Table("traffic_impacts", {
+            "impact_id": "VARCHAR", "event_key": "VARCHAR", "origin": "VARCHAR", "title": "VARCHAR", "hazard": "VARCHAR",
+            "entity_id": "VARCHAR", "start_date": "DATE", "end_date": "DATE", "place_kind": "VARCHAR",
+            "place_id": "VARCHAR", "place_name": "VARCHAR", "base_weekly": "DOUBLE", "worst_pct": "DOUBLE",
+            "worst_week": "DATE", "lost_calls": "DOUBLE", "lost_tonnes": "DOUBLE", "recover_days": "INTEGER",
+            "catchup_pct": "DOUBLE", "clear": "BOOLEAN", "curve": "VARCHAR",
+        }, ("impact_id",),
+            "Made by the build: what each event did to the ships at a port or chokepoint, against what was expected "
+            "from the eight weeks before (origin portwatch: PortWatch's disruptions and the ports they reached; "
+            "events: the app's events matched to a country's busiest ports or a chokepoint). worst_pct is the lowest "
+            "week against expected, lost_calls and lost_tonnes add up the shortfall until recovered, recover_days "
+            "counts to the first of two weeks back within 10% (empty if not within 26 weeks), catchup_pct is the "
+            "busiest week after. clear is false when the place is too small (under 20 calls a week) or the fall is "
+            "under 20%. curve is JSON: the ratio to expected for weeks -4 to +16. Absent before 1.16.0."),
         Table("airport_traffic", {
             "airport": "VARCHAR", "name": "VARCHAR", "entity_id": "VARCHAR", "year": "INTEGER", "passengers": "DOUBLE",
             "freight_t": "DOUBLE", "source_id": "VARCHAR", "vintage": "VARCHAR",
