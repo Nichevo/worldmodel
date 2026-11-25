@@ -1406,6 +1406,7 @@ export const api = {
   goodsPorts: (entity: string) => get<GoodsPort[]>(`/transport/goods/ports/${encodeURIComponent(entity)}`),
   goodsFor: (portId: string) => get<string[]>(`/transport/goods/for/${encodeURIComponent(portId)}`),
   goodsPort: (key: string) => get<GoodsPortDetail>(`/transport/goods/port/${encodeURIComponent(key)}`),
+  pressureSpan: () => get<{ span: { first: string | null; last: string | null } }>("/transport/pressure/map", { weeks: 1 }).then((d) => d.span),
   pressureCountry: (entity: string) => get<PressureCountry>(`/transport/pressure-country/${encodeURIComponent(entity)}`),
   chokepoint: (id: string, start?: number) => get<ChokepointSeries>(`/transport/chokepoint/${encodeURIComponent(id)}${start ? `?start=${start}` : ""}`),
   tourism: () => get<TourismPage>("/tourism"),

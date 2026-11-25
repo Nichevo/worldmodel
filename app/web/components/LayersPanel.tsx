@@ -62,7 +62,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     return () => { live = false; };
   }, [on("0"), st.spot_min_sure]); // eslint-disable-line react-hooks/exhaustive-deps
   const [start, end] = windowDates(win, year);
-  useEffect(() => { if (on("3")) setFightingWindow(start, end); }, [start, end, on("3")]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (on("3") || on("*")) setFightingWindow(start, end); }, [start, end, on("3"), on("*")]); // eslint-disable-line react-hooks/exhaustive-deps
   const [cw, setCw] = useState<CrisisWatchMonth | null>(null);
   const [ev, setEv] = useState<MapEvents | null>(null);
   const [centres, setCentres] = useState<Record<string, [number, number]> | null>(null);

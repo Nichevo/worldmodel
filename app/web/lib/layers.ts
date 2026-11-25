@@ -5,7 +5,7 @@
 import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LineLayerSpecification } from "maplibre-gl";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
-import { EVENT_KIND, fightingQuery, lookCloser, SOURCE_NAME } from "@/lib/osint";
+import { EVENT_KIND, fightingQuery, lookCloser, portWeeksQuery, SOURCE_NAME } from "@/lib/osint";
 
 export type MapLayerInfo = {
   layer_id: string; name: string; description: string; kind: "line" | "point"; feature_count: number;
@@ -278,7 +278,8 @@ export const LAYER_STYLE: Record<string, Style> = {
     }),
   },
   port_pressure: {
-    legend: "Port, last 4 weeks against normal (red: fewer ships, blue: more; larger: busier)", swatch: () => cssVar("--div-neg-2"), dot: true,
+    legend: "Port, ships against normal (red: fewer, blue: more; larger: busier)", swatch: () => cssVar("--div-neg-2"), dot: true,
+    fetch: "window", once: true, timed: true,
     paint: () => ({
       "circle-color": ["case", ["!=", ["typeof", ["get", "vs_normal"]], "number"], cssVar("--muted"),
         ["interpolate", ["linear"], ["coalesce", ["get", "vs_normal"], 0], -40, cssVar("--div-neg-3"), -15, cssVar("--div-neg-1"), 0, cssVar("--surface-2"), 15, cssVar("--div-pos-1"), 40, cssVar("--div-pos-3")]],
@@ -385,6 +386,7 @@ export function windowData(id: string, b: { west: number; south: number; east: n
     : id === "live_military" ? `/live/military-planes?${q}`
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
     : id === "front_line" ? "/osint/front/russia_ukraine"
+    : id === "port_pressure" ? `/transport/pressure/map?${portWeeksQuery()}`
     : `/geo/${encodeURIComponent(id)}?${q}&zoom=${zoom.toFixed(1)}`;
   return get<GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean }>(path);
 }
@@ -410,8 +412,8 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "shipping_lanes") return `<b>${esc(p.name)}</b>`;
   if (layer === "ports") return `<b>${esc(p.name)}</b> (port)${typeof p.calls === "number" ? `<br/>${num(p.calls)} ship calls in ${esc(p.year)}` : ""}`
     + (p.top ? `<br/>Biggest trade: ${esc(p.top)}` : "");
-  if (layer === "port_pressure") return `<b>${esc(p.name)}</b> (port)${typeof p.vs_normal === "number" ? `<br/>Last 4 weeks: ${p.vs_normal > 0 ? "+" : ""}${num(p.vs_normal)}% against normal` : "<br/>Too few ships to judge"}`
-    + `${typeof p.weekly === "number" ? `<br/>Usually ${num(p.weekly)} ships a week` : ""}${p.as_of ? `<br/><span class="muted">Weeks to ${esc(p.as_of)}</span>` : ""}`;
+  if (layer === "port_pressure") return `<b>${esc(p.name)}</b> (port)${typeof p.vs_normal === "number" ? `<br/>${p.vs_normal > 0 ? "+" : ""}${num(p.vs_normal)}% against normal` : "<br/>Too few ships to judge"}`
+    + `${typeof p.weekly === "number" ? `<br/>Usually ${num(p.weekly)} ships a week` : ""}${p.as_of ? `<br/><span class="muted">${p.from ? `${esc(p.from)} to ` : "Weeks to "}${esc(p.as_of)}</span>` : ""}`;
   if (layer === "ports_all") return `<b>${esc(p.name)}</b> (port)${p.size ? `<br/>Harbour: ${esc(p.size)}` : ""}${typeof p.depth === "number" ? ` · channel ${p.depth} m` : ""}`;
   if (layer === "chokepoints") return `<b>${esc(p.name)}</b>${typeof p.daily === "number" ? `<br/>${num(p.daily, 1)} ships a day${p.year ? ` in ${esc(p.year)}` : ""}` : ""}`
     + "<br/><span class=\"muted\">Click for the countries on its shores</span>";

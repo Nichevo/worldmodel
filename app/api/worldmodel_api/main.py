@@ -3749,6 +3749,14 @@ def transport_chokepoint(ident: str, start: int | None = None):
     return transport.chokepoint(rows, ident, start)
 
 
+@api.get("/transport/pressure/map")
+def transport_pressure_map(end: date | None = Query(None, description="look back: the weeks ending with the week holding this day"),
+                           weeks: int = Query(4, ge=1, le=26)):
+    """The 'Ports against normal' map layer at any week since 2019 (GeoJSON), and the weeks stored."""
+    data = {**ports.layer(rows, end, weeks), **{"span": ports.weeks_span(rows)}}
+    return Response(json.dumps(data, separators=(",", ":"), default=str), media_type="application/geo+json")
+
+
 @api.get("/transport/pressure/places")
 def transport_pressure_places(entity: str | None = None):
     """Every port and chokepoint with weekly figures: ships a week and the last four weeks against normal."""

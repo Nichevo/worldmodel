@@ -9,6 +9,7 @@ import { useKeys } from "@/components/PageLook";
 import { openAsk } from "@/lib/ai";
 import { api, type PressureCountry, type PressureDetail, type PressureImpact, type PressurePatterns, type PressurePlace } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
+import { setLayerWindow } from "@/lib/osint";
 import { compact } from "@/lib/format";
 
 // Transport > Port pressure: a port or chokepoint each week against normal, the events that
@@ -336,6 +337,35 @@ export function PortPressureStrip({ entity, name }: { entity: string; name: stri
       {d.impacts.length ? <p className="small">Biggest hit: {d.impacts[0].title} ({d.impacts[0].start_date.slice(0, 7)}) at {d.impacts[0].place_name},
         {" "}{pct(d.impacts[0].worst_pct)} at worst, back in {days(d.impacts[0].recover_days)}.</p> : null}
       <p className="caption">Ship calls each week as a share of normal for {name}&apos;s busiest ports (grey band: within 10%). Click one for its Port pressure chart.</p>
+    </div>
+  );
+}
+
+// The weeks the 'Ports against normal' map shows: any run of weeks since 2019, picked on a slider.
+export function PressureMapWeeks() {
+  const [span, setSpan] = useState<{ first: string | null; last: string | null } | null>(null);
+  const [i, setI] = useState<number | null>(null);
+  const [weeks, setWeeks] = useState(4);
+  useEffect(() => { api.pressureSpan().then(setSpan).catch(() => setSpan(null)); }, []);
+  const total = span?.first && span.last ? Math.round((Date.parse(span.last) - Date.parse(span.first)) / (7 * 86_400_000)) : 0;
+  const at = i ?? total;
+  const end = span?.first ? new Date(Date.parse(span.first) + (at * 7 + 6) * 86_400_000).toISOString().slice(0, 10) : "";
+  const start = end ? new Date(Date.parse(end) - weeks * 7 * 86_400_000).toISOString().slice(0, 10) : "";
+  useEffect(() => {
+    if (!end) return;
+    const t = setTimeout(() => setLayerWindow(start, end), 300);
+    return () => clearTimeout(t);
+  }, [start, end]);
+  if (!total) return null;
+  return (
+    <div className="chips-row small" style={{ alignItems: "center" }}>
+      <label className="small">Weeks{" "}
+        <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Weeks against normal">
+          {[1, 4, 13, 26].map((w) => <option key={w} value={w}>{w}</option>)}</select></label>
+      <input type="range" min={0} max={total} value={at} onChange={(e) => setI(Number(e.target.value))} style={{ flex: 1, minWidth: 160 }}
+        aria-label="Week the map shows" />
+      <span className="mono">{weeks === 1 ? "week" : `${weeks} weeks`} to {end}</span>
+      {i != null && i !== total ? <button className="link" onClick={() => setI(null)}>Latest</button> : null}
     </div>
   );
 }

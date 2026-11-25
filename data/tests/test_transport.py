@@ -118,6 +118,14 @@ def test_supply_chain_pressure_and_time_in_port(built):
     assert _vals(con, "port_time_days", "world")[2023] == 0.99
 
 
+def test_port_pressure_off_season_port():
+    # A port busy only part of the year: in earlier years no ships came in the weeks after the
+    # event, so nothing is expected then. That is no impact to measure, not an error.
+    weeks = 52 * 3 + 30
+    v = np.array([20.0 if (i % 52) < 10 else 0.0 for i in range(weeks)])
+    assert impact(v, None, 52 * 3 + 12, 52 * 3 + 13) is None
+
+
 def test_port_pressure_maths():
     weeks = 52 * 3 + 30
     season = np.array([100 + 20 * np.sin(2 * np.pi * (i % 52) / 52) for i in range(weeks)])
