@@ -32,6 +32,15 @@ export type BubbleData = { years: number[]; first: number; last: number;
 // A league table of forecasters: the crowd sites and you (Brier score) or named pundits (hit rate).
 export type ScoresData = { rows: { name: string; kind: string; n: number; hit: number | null; brier: number | null }[] };
 export type WarData = { w: WarDetail };
+// Monthly lines: each series' points (as [ISO date, value]), first and last.
+export type MonthlyData = { series: { label: string; unit: string; pts: [string, number][]; first: [string, number] | null; last: [string, number] | null;
+  max: [string, number] | null }[] };
+// Events by year and kind, and by country.
+export type EventsData = { years: { year: number; by: Record<string, number>; total: number }[]; countries: { id: string; name: string; n: number }[];
+  total: number; since: number };
+// A map layer by country.
+export type LayerData = { name: string; one: string; many: string; total: number; rows: { id: string; name: string; v: number }[];
+  row: (id: string) => { id: string; name: string; v: number; rank: number } | undefined };
 export type Band = { from: number; to: number; label: string };
 export type CityData = { cities: { name: string; country: string; pts: [number, number, boolean][] }[]; first: number; last: number };
 
@@ -48,8 +57,9 @@ export type Step =
   // How many countries pass a test, year by year.
   | { kind: "count"; indicator: string; label: string; test: (v: number) => boolean; to?: number; say: (d: CountData) => string }
   // Ranked bars: the top (or bottom) countries, or the biggest changes over ten years; some highlighted.
+  // `over` divides by another indicator in the same year (sea area over land area), named by `overName`.
   | { kind: "bars"; indicator: string; year?: number; top?: number; by?: "value" | "change"; order?: "desc" | "asc";
-      highlight?: string[]; also?: string[]; say: (d: RankData) => string }
+      highlight?: string[]; also?: string[]; over?: string; overName?: string; say: (d: RankData) => string }
   // A grid of one country's figures with its rank and ten-year change.
   | { kind: "tiles"; entity: string; indicators: string[]; max?: number; say: (d: TilesData) => string }
   // Cities' people over time, by name (GHSL urban centres or UN figures).
@@ -58,10 +68,20 @@ export type Step =
   // `minus` takes another figure away (Democrat share minus Republican share); `per` divides by people (per 1,000);
   // `refs` adds whole countries' figures from a world indicator as marked lines on the bars.
   // `over` divides by another figure (home value over income).
-  | { kind: "states"; country?: string; indicator: string; minus?: string; over?: string; per?: "people"; show?: "map" | "bars"; label?: string;
+  // `growth` shows the % change over that many years instead of the level.
+  | { kind: "states"; country?: string; indicator: string; minus?: string; over?: string; per?: "people"; growth?: number; show?: "map" | "bars"; label?: string;
       refs?: { indicator: string; entities: string[] }; say: (d: StatesData) => string }
   // Countries as dots: x against y, sized by people, with a year slider and Play; some countries named and coloured.
-  | { kind: "bubbles"; x: string; y: string; from?: number; logX?: boolean; highlight: string[]; say: (d: BubbleData) => string }
+  // `latest`: one picture of each country's latest pair of figures (surveys held in different years), no Play.
+  | { kind: "bubbles"; x: string; y: string; from?: number; logX?: boolean; latest?: boolean; highlight: string[]; say: (d: BubbleData) => string }
+  // Monthly (or yearly) lines for named series, each an indicator for one place; `index` rebases each to 100 at its
+  // first month in view so different units can share the chart.
+  | { kind: "monthly"; series: { indicator: string; entity: string; label: string; color?: string }[]; from?: number; index?: boolean;
+      say: (d: MonthlyData) => string }
+  // Dated events of one kind (coups): a bar per year split by subkind, or the countries with the most since a year.
+  | { kind: "events"; event: string; from: number; show: "years" | "countries"; labels?: Record<string, string>; say: (d: EventsData) => string }
+  // A map layer counted by country (cables, cities facing a heatwave), from the layer Details page.
+  | { kind: "layer"; layer: string; measure?: "count" | "per_m"; top?: number; also?: string[]; say: (d: LayerData) => string }
   // Forecasts against outcomes (IMF by default): each release's path and what happened for one country,
   // or the typical next-year miss by country.
   | { kind: "track"; indicator: string; entity: string; show: "paths" | "countries"; source?: string; highlight?: string[]; say: (d: TrackRecord) => string }
@@ -70,15 +90,16 @@ export type Step =
   // A war tracker: ground held over time and equipment lost (seen against claimed).
   | { kind: "war"; war?: string; say: (d: WarData) => string }
   // One of the app's own views (sea ice circle, electricity map, largest cities), with a fixed sentence.
-  | { kind: "view"; view: "seaice" | "electricity" | "cities" | "energyflow"; entity?: string; say: string };
+  | { kind: "view"; view: "seaice" | "electricity" | "cities" | "energyflow" | "landcompare"; entity?: string; with?: string[]; say: string };
 
 // Groups on the Stories page, in order.
 export const STORY_GROUPS = [
   { id: "people", name: "People" },
-  { id: "money", name: "Money and homes" },
+  { id: "money", name: "Money, homes and work" },
   { id: "power", name: "War, power and politics" },
   { id: "energy", name: "Energy and climate" },
   { id: "places", name: "Places up close" },
+  { id: "ideas", name: "Technology and ideas" },
   { id: "forecasts", name: "Forecasts" },
 ] as const;
 export type StoryGroup = (typeof STORY_GROUPS)[number]["id"];

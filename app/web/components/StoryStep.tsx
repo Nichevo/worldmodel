@@ -18,6 +18,8 @@ import { formatValue } from "@/lib/format";
 import { entityColors, shortValue } from "@/lib/look";
 import { fmtOf, type CityData, type CountData, type RankData, type SeriesData, type Step, type TilesData } from "@/lib/story";
 import { BubblesStep, ScoresStep, StatesStep, TrackStep, WarStep } from "@/components/story/MoreSteps";
+import { EventsStep, LayerStep, MonthlyStep } from "@/components/story/ExtraSteps";
+import LandCompare from "@/components/LandCompare";
 import { bandMarks, Frame, notLoaded, type Props, useStoryBands } from "@/components/story/Frame";
 
 
@@ -35,7 +37,11 @@ export default function StoryStep(p: Props) {
   if (s.kind === "track") return <TrackStep {...p} step={s} />;
   if (s.kind === "scores") return <ScoresStep {...p} step={s} />;
   if (s.kind === "war") return <WarStep {...p} step={s} />;
+  if (s.kind === "monthly") return <MonthlyStep {...p} step={s} />;
+  if (s.kind === "events") return <EventsStep {...p} step={s} />;
+  if (s.kind === "layer") return <LayerStep {...p} step={s} />;
   return <Frame {...p} sentence={s.say} data="">{s.view === "seaice" ? <SeaIceCard /> : s.view === "electricity" ? <ElectricityMap />
+    : s.view === "landcompare" ? <LandCompare initial={s.with ?? ["NZL", "AUS"]} />
     : s.view === "energyflow" ? <EnergyFlowCard entity={s.entity ?? "NZL"} name={s.entity === "NZL" || !s.entity ? "New Zealand" : s.entity} /> : <LargestCities />}</Frame>;
 }
 
@@ -160,10 +166,20 @@ function CountStep(p: Props & { step: Extract<Step, { kind: "count" }> }) {
 // ---------------------------------------------------------------- bars
 function BarsStep(p: Props & { step: Extract<Step, { kind: "bars" }> }) {
   const st = p.step;
-  const ind = p.inds.get(st.indicator);
+  const base = p.inds.get(st.indicator);
+  const ind = useMemo(() => (base && st.over ? { ...base, name: st.overName ?? base.name, unit: "times", decimals: 1 } : base), [base, st.over, st.overName]);
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [err, setErr] = useState(false);
-  useEffect(() => { api.ranking(st.indicator, st.year).then(setRanking).catch(() => setErr(true)); }, [st.indicator, st.year]);
+  useEffect(() => {
+    if (!st.over) { api.ranking(st.indicator, st.year).then(setRanking).catch(() => setErr(true)); return; }
+    // one figure over another, same year where both exist, ranked again
+    Promise.all([api.ranking(st.indicator, st.year), api.ranking(st.over, st.year)]).then(([a, b]) => {
+      const by = new Map(b.rows.map((r) => [r.entity_id, r.value]));
+      const rows = a.rows.map((r) => ({ ...r, value: by.get(r.entity_id) ? r.value / by.get(r.entity_id)! : NaN, ten_years_before: null }))
+        .filter((r) => Number.isFinite(r.value)).sort((x, y) => y.value - x.value).map((r, k) => ({ ...r, rank: k + 1 }));
+      setRanking({ ...a, rows, world: null });
+    }).catch(() => setErr(true));
+  }, [st.indicator, st.year, st.over]);
   const d = useMemo(() => (ind && ranking ? rankData(ind, ranking) : null), [ind, ranking]);
   const shown = useMemo((): (RankingRow & { v: number })[] => {
     if (!ranking) return [];
