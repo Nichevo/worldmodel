@@ -2293,7 +2293,7 @@
   licence: Free for non-commercial and commercial use with attribution (HydroSHEDS licence)
   licence_url: https://www.hydrosheds.org/terms-of-use
   commercial_use: true
-  cadence: Fixed (version 1); read once (about 700 MB downloaded, about 100 MB kept)
+  cadence: Fixed (version 1); read once (about 700 MB downloaded, roughly 300 MB kept; rivers of 1 m3/s and up, 0.1 in New Zealand)
   attribution: "Lehner, B., Grill G. (2013) HydroSHEDS; Natural Earth river names."
   status: active
   default_rank: 5

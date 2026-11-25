@@ -32,7 +32,9 @@ TOURISM_TABS = {
     "nz": ["nz_visitor_arrivals", "nz_visitor_spend", "nz_tourism_gdp_share", "nz_tourism_jobs"],
 }
 GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom below, rank), ...], rows at most)
-    "rivers": ("Rivers", [(2.5, 2), (4, 3), (5.5, 4), (99, 5)], 6000),
+    # rank = the flow order a river shows from (well-known rivers sooner): 3 is 1,000 m3/s and up,
+    # 4 is 100, 5 is 10, 6 is 1, 7 is 0.1 (New Zealand only)
+    "rivers": ("Rivers", [(2, 3), (3.5, 4), (5.5, 5), (6.5, 6), (99, 7)], 8000),
     "river_names": ("River names", [(3, 2), (5, 5), (99, 12)], 1500),
     "basins": ("River basins", [(3, 1), (5, 2), (99, 3)], 1500),
     "waterways": ("Inland waterways", [(4, 1), (99, 3)], 4000),
@@ -90,6 +92,25 @@ def _spans(west: float, east: float) -> list[tuple[float, float]]:
     return [(w, e)] if w <= e else [(w, 180.0), (-180.0, e)]
 
 
+SIMPLIFY = {"rivers"}
+
+
+def simplified(geom: dict, tol: float) -> dict:
+    """A line or lines with points closer than tol (degrees) to the straight line dropped."""
+    if not tol or not geom or geom.get("type") not in ("LineString", "MultiLineString"):
+        return geom
+    from shapely.geometry import mapping, shape
+
+    try:
+        g = shape(geom).simplify(tol, preserve_topology=False)
+        if g.is_empty:
+            return geom
+        out = mapping(g)
+        return {"type": out["type"], "coordinates": out["coordinates"]}
+    except Exception:  # noqa: BLE001 - an odd line is sent as stored
+        return geom
+
+
 def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, zoom: float = 2,
         status: str | None = None) -> dict:
     """A geo_features layer in a map window as GeoJSON: only the ranks that show at this zoom,
@@ -107,6 +128,8 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
     got = q(f"""SELECT feature_id, name, rank, props, countries, geojson FROM geo_features
                 WHERE layer_id = ? AND ({where}) AND north >= ? AND south <= ? AND coalesce(rank, 1) <= ?{extra}
                 ORDER BY rank NULLS FIRST, (east - west) * (north - south) DESC LIMIT {int(limit)}""", params)
+    # Lines simplified to about a pixel when zoomed out (stored at about 1 km)
+    tol = 360 / (512 * 2 ** zoom) if layer in SIMPLIFY and zoom < 5.5 else 0
     feats = []
     for r in got:
         props = json.loads(r["props"] or "{}")
@@ -116,7 +139,7 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
             props = {k: props.get(k) for k in ("color", "rfs", "planned")}
         elif layer == "urban_centres":
             props = {k: props.get(k) for k in ("people", "growth", "now", "first")}
-        feats.append({"type": "Feature", "geometry": json.loads(r["geojson"]),
+        feats.append({"type": "Feature", "geometry": simplified(json.loads(r["geojson"]), tol),
                       "properties": {"id": r["feature_id"], "name": r["name"], "rank": r["rank"], "layer": layer,
                                      "countries": r["countries"] or "", **props}})
     out: dict = {"type": "FeatureCollection", "features": feats}

@@ -26,6 +26,9 @@ def client(tmp_path, monkeypatch):
     geo = [
         ("rivers", "1:3", None, 3, {"flow": 340, "order": 3}, "NZL", 175.0, -38.0, 176.0, -37.5, LINE),
         ("rivers", "2:5", None, 5, {"flow": 12, "order": 5}, "NZL", 175.0, -38.0, 176.0, -37.5, LINE),
+        ("rivers", "3:6:tiny:115_-26", "Tiny", 6, {"flow": 2, "order": 6}, "NZL", 175.0, -38.0, 176.0, -37.5, LINE),
+        ("rivers", "4:3:wiggly", "Wiggly", 3, {"flow": 2000, "order": 3}, "NZL", 170.0, -40.0, 171.0, -39.99,
+         {"type": "LineString", "coordinates": [[170 + i / 100, -40 + (i % 2) / 1000] for i in range(101)]}),
         ("basins", "600", "Murray basin", 1, {"area": 1050000, "shares": {"AUS": 1.0}, "of_country": {"AUS": 0.14},
                                                 "flow": 420, "transboundary": False}, "AUS", 138.5, -37.0, 150.0, -26.0,
          {"type": "MultiPolygon", "coordinates": [[[[138.5, -37], [138.5, -26], [150, -26], [150, -37], [138.5, -37]]]]}),
@@ -51,12 +54,18 @@ def client(tmp_path, monkeypatch):
 
 def test_geo_by_window_and_zoom(client):
     far = client.get("/api/v1/geo/rivers", params={"west": 170, "south": -45, "east": 180, "north": -30, "zoom": 3}).json()
-    assert [f["properties"]["id"] for f in far["features"]] == ["1:3"]
+    assert {f["properties"]["id"] for f in far["features"]} == {"1:3", "4:3:wiggly"}
+    # Zoomed out, lines come simplified to about a pixel; closer in, as stored
+    wiggly = {f["properties"]["id"]: f for f in far["features"]}["4:3:wiggly"]
+    assert 2 <= len(wiggly["geometry"]["coordinates"]) < 10 and wiggly["properties"]["name"] == "Wiggly"
     near = client.get("/api/v1/geo/rivers", params={"west": 170, "south": -45, "east": 180, "north": -30, "zoom": 7}).json()
-    assert {f["properties"]["id"] for f in near["features"]} == {"1:3", "2:5"}
+    assert {f["properties"]["id"] for f in near["features"]} == {"1:3", "2:5", "3:6:tiny:115_-26", "4:3:wiggly"}
+    assert len({f["properties"]["id"]: f for f in near["features"]}["4:3:wiggly"]["geometry"]["coordinates"]) == 101
+    mid = client.get("/api/v1/geo/rivers", params={"west": 170, "south": -45, "east": 180, "north": -30, "zoom": 5.2}).json()
+    assert "3:6:tiny:115_-26" not in {f["properties"]["id"] for f in mid["features"]}  # 1 to 10 m3/s from zoom 5.5
     # A Pacific-centred window across the date line still finds them
     wrap = client.get("/api/v1/geo/rivers", params={"west": 170, "south": -45, "east": 200, "north": -30, "zoom": 7}).json()
-    assert len(wrap["features"]) == 2
+    assert len(wrap["features"]) == 4
     none = client.get("/api/v1/geo/rivers", params={"west": 0, "south": 0, "east": 10, "north": 10, "zoom": 7}).json()
     assert none["features"] == [] and "loaded" not in none  # loaded, just none here
     gas = client.get("/api/v1/geo/gas_pipelines").json()  # never loaded: says how to get it
@@ -81,7 +90,7 @@ def test_transport_page_and_country(client):
     assert t["ports"][0]["calls"] == 1200 and t["airports"][0]["airport"] == "NZAA"
     assert [a["title"] for a in t["accidents"]] == ["Air New Zealand Flight 901"]  # the 3-death one is under 10
     assert any(e["subkind"] == "pipeline" for e in t["infrastructure"]) or t["infrastructure"] == []
-    assert t["loaded"]["rivers"] == 2
+    assert t["loaded"]["rivers"] == 4
     c = client.get("/api/v1/transport/country/NZL").json()
     assert c["networks"]["cables"][0]["name"] == "Southern Cross NEXT" and c["ports"][0]["port_id"] == "port1"
     assert client.get("/api/v1/transport/country/AUS").json()["networks"]["basins"][0]["id"] == "600"

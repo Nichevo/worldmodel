@@ -3,9 +3,11 @@ for the map's Transport and trade and Earth layers, stored in geo_features (one 
 feature with its box, so the API sends only what is in view) and, for small point sets,
 as ordinary map layers.
 
-- hydrosheds: HydroRIVERS rivers (flow order 5 or less, 10 m3/s and up), whole river
+- hydrosheds: HydroRIVERS rivers (flow order 6 or less, 1 m3/s and up; in New Zealand order
+  7 too, 0.1 m3/s and up), named where they run along one of Natural Earth's named rivers
+  (the world file plus its Europe, North America and Australia supplements); whole river
   basins from HydroBASINS level 4 (joined by their main basin), each basin's country split,
-  outflow and name (from Natural Earth's named rivers).
+  outflow and name.
 - waterways: inland waterways ships use: the US National Waterway Network, Europe's
   CEMT-classed waterways and about 30 big rivers from OpenStreetMap (Overpass).
 - submarine_cables: TeleGeography's Submarine Cable Map (cables, landing points, and
@@ -45,6 +47,9 @@ NO_ROWS = EMPTY_OBSERVATIONS
 
 NE_RIVERS_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_rivers_lake_centerlines.geojson"
 NE_RIVERS_FILE = "ne_10m_rivers_lake_centerlines.geojson"
+# Natural Earth's regional supplements: many more named rivers (scalerank 10 to 12)
+NE_RIVER_EXTRAS = tuple(f"ne_10m_rivers_{r}.geojson" for r in ("europe", "north_america", "australia"))
+NE_GEOJSON = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/"
 GRID_CELL = 0.1  # degrees, for country and basin grids
 
 
@@ -191,8 +196,13 @@ def entity_ids(codes: list[str]) -> list[str]:
 HYDRO_REGIONS = ("af", "ar", "as", "au", "eu", "gr", "na", "sa", "si")
 HYRIV_URL = "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_{reg}_shp.zip"
 HYBAS_URL = "https://data.hydrosheds.org/file/hydrobasins/standard/hybas_{reg}_lev04_v1c.zip"
-RIVER_MAX_ORDER = 5      # flow order 5 is about 10 m3/s; 1 is the Amazon
+RIVER_MAX_ORDER = 6      # flow order 6 is 1 to 10 m3/s, 5 is 10 to 100; 1 is the Amazon
+RIVER_NZ_ORDER = 7       # New Zealand keeps order 7 too (0.1 to 1 m3/s) ...
+RIVER_NZ_BOX = (165.5, -47.8, 179.0, -34.0)  # ... inside this box (west, south, east, north)
 RIVER_TOL = 0.01         # degrees (about 1 km)
+RIVER_CELL = {4: 6.0, 5: 3.0, 6: 1.5, 7: 1.5}  # smaller rivers are stored by square (degrees), so a
+                                                # map window gets only the stretches near it
+RIVERS_FILE = "rivers1_{reg}.jsonl.gz"  # rivers_{reg} (order 5 and up only) before; kept as a fallback
 BASIN_TOL = 0.03
 BASIN_MIN_KM2 = 20000    # whole basins smaller than this are left out ...
 BASIN_ALL_IN = {"NZL"}   # ... except where they are mostly in these countries (down to 500 km2)
@@ -214,14 +224,20 @@ def _shapes(zp: Path):
                 yield dict(zip(fields, sr.record)), sr.shape.__geo_interface__
 
 
+def in_nz(pt) -> bool:
+    w, s, e, n = RIVER_NZ_BOX
+    return w <= pt[0] <= e and s <= pt[1] <= n
+
+
 def rivers_select(zp: Path, dest: Path, max_order: int = RIVER_MAX_ORDER) -> int:
-    """Keep the reaches of flow order max_order or less, simplified: gzipped JSON lines of
+    """Keep the reaches of flow order max_order or less (in New Zealand, RIVER_NZ_ORDER or
+    less), simplified: gzipped JSON lines of
     [main river id, flow order, flow m3/s, length km, is outlet, coordinates]."""
     n = 0
     with gzip.open(dest, "wt", encoding="utf-8") as out:
         for d, g in _shapes(zp):
             order = int(num(d.get("ORD_FLOW")) or 99)
-            if order > max_order:
+            if order > max_order and not (order <= RIVER_NZ_ORDER and in_nz((g.get("coordinates") or [[0, 0]])[0])):
                 continue
             for ln in lines_of(g):
                 pts = dp_line(ln, RIVER_TOL)
@@ -323,6 +339,134 @@ def basin_records(units: list[dict], grids: Grids, named_rivers: list[dict], out
     return out
 
 
+def name_rank(scalerank: int) -> int:
+    """The flow order a named river shows with at least: famous rivers show before their
+    water alone would show them (Natural Earth's scalerank: 0 the biggest, 10 to 12 regional)."""
+    return 3 if scalerank <= 3 else 4 if scalerank <= 5 else 5 if scalerank <= 7 else 6
+
+
+class RiverNames:
+    """Natural Earth's named rivers as points every ~1 km on a 0.05 degree grid, to name the
+    HydroRIVERS reaches that run along them."""
+
+    CELL = 0.05
+    TOL = 0.04  # degrees: Natural Earth's lines are drawn for 1:10 million, so a few km out
+
+    def __init__(self, paths: list[Path | None]):
+        self.names: list[tuple[str, int]] = []
+        self.grid: dict[tuple[int, int], list[tuple[float, float, int]]] = defaultdict(list)
+        ids: dict[tuple[str, int], int] = {}
+        for path in paths:
+            if not path or not path.exists():
+                continue
+            try:
+                feats = json.loads(path.read_text(encoding="utf-8")).get("features") or []
+            except (OSError, ValueError) as exc:
+                log.warning("hydrosheds: %s not read (%s)", path.name, exc)
+                continue
+            for f in feats:
+                p = f.get("properties") or {}
+                cla = str(p.get("featurecla") or "")
+                name = clean_river_name(p.get("name_en") or p.get("name"))
+                if not name or not ("River" in cla or cla == "Lake Centerline"):
+                    continue
+                rank = int(num(p.get("scalerank")) if num(p.get("scalerank")) is not None else 9)
+                i = ids.setdefault((name, rank), len(self.names))
+                if i == len(self.names):
+                    self.names.append((name, rank))
+                for ln in lines_of(f.get("geometry")):
+                    for x, y in densify(ln, 0.01):
+                        self.grid[(int(x // self.CELL), int(y // self.CELL))].append((x, y, i))
+        # Squares next to a named river: most reaches are nowhere near one and are passed quickly
+        self.near = {(cx + dx, cy + dy) for cx, cy in self.grid for dx in (-1, 0, 1) for dy in (-1, 0, 1)}
+
+    def __bool__(self) -> bool:
+        return bool(self.names)
+
+    def at(self, x: float, y: float) -> int | None:
+        cx, cy = int(x // self.CELL), int(y // self.CELL)
+        best, best_d = None, self.TOL * self.TOL
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for px, py, i in self.grid.get((cx + dx, cy + dy), ()):
+                    d = (px - x) ** 2 + (py - y) ** 2
+                    if d <= best_d:
+                        best, best_d = i, d
+        return best
+
+    def name_of(self, pts, order: int | None = None) -> tuple[str, int] | None:
+        """The named river a reach runs along: the one nearest at least three of five points
+        spread along it (so a side stream that only meets a big river is not named after it),
+        and not a big river for a stream far smaller than it (order: the reach's flow order)."""
+        if not self.names or len(pts) < 2:
+            return None
+        if (int(pts[0][0] // self.CELL), int(pts[0][1] // self.CELL)) not in self.near and \
+                (int(pts[-1][0] // self.CELL), int(pts[-1][1] // self.CELL)) not in self.near and len(pts) <= 2:
+            return None
+        sample = [(x, y) for x, y in spread(pts, 5) if (int(x // self.CELL), int(y // self.CELL)) in self.near]
+        if len(sample) < 3:
+            return None
+        votes = Counter(i for i in (self.at(x, y) for x, y in sample) if i is not None)
+        if not votes:
+            return None
+        i, n = votes.most_common(1)[0]
+        if n < 3 or (order is not None and order > name_rank(self.names[i][1]) + 2):
+            return None
+        return self.names[i]
+
+
+def clean_river_name(name) -> str | None:
+    """'Waikato River' and 'Waikato' are the same river; Natural Earth writes both."""
+    s = re.sub(r"\s+", " ", str(name or "")).strip()
+    if not s:
+        return None
+    s = re.sub(r"\s+River$", "", s)
+    return s or None
+
+
+def densify(line, step: float) -> list[tuple[float, float]]:
+    """Points along a line no more than `step` degrees apart."""
+    out = []
+    for (x0, y0), (x1, y1) in zip(line, line[1:]):
+        n = max(1, int(max(abs(x1 - x0), abs(y1 - y0)) / step))
+        out += [(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n) for k in range(n)]
+    if line:
+        out.append((line[-1][0], line[-1][1]))
+    return out
+
+
+def spread(line, n: int) -> list[tuple[float, float]]:
+    """n points spread evenly by distance along a line, its two ends included."""
+    seg = [((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5 for (x0, y0), (x1, y1) in zip(line, line[1:])]
+    total = sum(seg)
+    if not total:
+        return [(line[0][0], line[0][1])] * n
+    out, at, i, done = [], 0.0, 0, 0.0
+    for k in range(n):
+        want = total * k / (n - 1)
+        while i < len(seg) - 1 and done + seg[i] < want:
+            done += seg[i]
+            i += 1
+        t = min(1.0, max(0.0, (want - done) / seg[i])) if seg[i] else 0.0
+        (x0, y0), (x1, y1) = line[i], line[i + 1]
+        out.append((x0 + (x1 - x0) * t, y0 + (y1 - y0) * t))
+    return out
+
+
+def river_key(main: int, order: int, name: str | None, first) -> tuple:
+    """Which stored line a reach joins: its main river, flow order and name, and for smaller
+    rivers the square its first point is in."""
+    size = RIVER_CELL.get(order)
+    cell = (int(first[0] // size), int(first[1] // size)) if size else None
+    return (main, order, name, cell)
+
+
+def river_id(k: tuple) -> str:
+    main, order, name, cell = k
+    parts = [str(main), str(order)] + ([key(name)] if name else []) + ([f"{cell[0]}_{cell[1]}"] if cell else [])
+    return ":".join(parts)
+
+
 def ne_named_rivers(path: Path) -> list[dict]:
     """Natural Earth's named rivers: name, rank (scalerank, 0 biggest) and lines."""
     if not path or not path.exists():
@@ -345,6 +489,8 @@ class HydroSHEDS(Connector):
     fetch_every_days = 3650  # HydroSHEDS v1 does not change
     keeps_files = True       # a region that failed today keeps the copy from before
     gap = 2.0
+    fetch_version = 2        # 2: rivers down to 1 m3/s (0.1 in New Zealand) and Natural Earth's regional river names
+    stage_version = 2        # 2: rivers named, ranked for the zoom they show from, smaller ones stored by square
 
     def default_release(self, fetched_at: datetime) -> str:
         return "v1"
@@ -355,10 +501,15 @@ class HydroSHEDS(Connector):
     def download(self, raw_dir: Path, release: str) -> str:
         get_countries(raw_dir, self)
         self.get(NE_RIVERS_URL, raw_dir / NE_RIVERS_FILE)
+        for name in NE_RIVER_EXTRAS:  # names for more rivers; the map works without them
+            try:
+                self.get(NE_GEOJSON + name, raw_dir / name)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("hydrosheds: %s not fetched (%s)", name, exc)
         prev = self.last_vintage_dir(raw_dir)
         failed = []
         for reg in HYDRO_REGIONS:
-            for kind, url, select, out in (("rivers", HYRIV_URL, rivers_select, f"rivers_{reg}.jsonl.gz"),
+            for kind, url, select, out in (("rivers", HYRIV_URL, rivers_select, RIVERS_FILE.format(reg=reg)),
                                            ("basins", HYBAS_URL, basins_select, f"basins_{reg}.geojson.gz")):
                 if prev and (prev / out).exists():
                     continue  # read before: keeps_files carries it over
@@ -383,35 +534,52 @@ class HydroSHEDS(Connector):
             n = zp.name.lower()
             m = re.search(r"_(af|ar|as|au|eu|gr|na|sa|si)_", n)
             reg = m[1] if m else n[:-4]
-            if "hydrorivers" in n and not (raw_dir / f"rivers_{reg}.jsonl.gz").exists():
-                rivers_select(zp, raw_dir / f"rivers_{reg}.jsonl.gz")
+            if "hydrorivers" in n and not (raw_dir / RIVERS_FILE.format(reg=reg)).exists():
+                rivers_select(zp, raw_dir / RIVERS_FILE.format(reg=reg))
             elif "hybas" in n and not (raw_dir / f"basins_{reg}.geojson.gz").exists():
                 basins_select(zp, raw_dir / f"basins_{reg}.geojson.gz")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         self._read_zips(raw_dir)
         rows, outlets = [], []
-        # Rivers: each main river's reaches by flow order, chained into lines
-        groups: dict[tuple[int, int], dict] = {}
-        for f in sorted(raw_dir.glob("rivers_*.jsonl.gz")):
+        ne_files = [raw_dir / n if (raw_dir / n).exists() else self.earlier_copy(raw_dir, n)
+                    for n in (NE_RIVERS_FILE, *NE_RIVER_EXTRAS)]
+        names = RiverNames(ne_files)
+        # Rivers: each main river's reaches by flow order and name (smaller ones by square too),
+        # chained into lines. A region read before this version has only order 5 and up.
+        groups: dict[tuple, dict] = {}
+        for reg in HYDRO_REGIONS:
+            f = raw_dir / RIVERS_FILE.format(reg=reg)
+            f = f if f.exists() else raw_dir / f"rivers_{reg}.jsonl.gz"
+            if not f.exists():
+                continue
             with gzip.open(f, "rt", encoding="utf-8") as fh:
                 for line in fh:
                     main, order, q, length, outlet, pts = json.loads(line)
-                    g = groups.setdefault((main, order), {"lines": [], "flow": 0.0, "length": 0.0})
+                    named_as = names.name_of(pts, order)
+                    k = river_key(main, order, named_as[0] if named_as else None, pts[0])
+                    g = groups.setdefault(k, {"lines": [], "flow": 0.0, "length": 0.0, "rank": order})
                     g["lines"].append(pts)
                     g["flow"] = max(g["flow"], q or 0)
                     g["length"] += length or 0
+                    if named_as:
+                        g["rank"] = min(g["rank"], name_rank(named_as[1]))
                     if outlet:
                         outlets.append((pts[-1][0], pts[-1][1], q))
         cfile = countries_file(raw_dir, self)
         grids = Grids(cfile) if cfile else None
-        for (main, order), g in groups.items():
+        n_named = 0
+        for k, g in groups.items():
+            main, order, name, _ = k
             lines = chain(g["lines"])
             countries = entity_ids(grids.along(lines, 4)) if grids else []
-            rows.append(("rivers", f"{main}:{order}", None, order,
+            n_named += bool(name)
+            # rank: the zoom it shows from (flow order, or sooner for a well-known river);
+            # order: how much water, for the line's width
+            rows.append(("rivers", river_id(k), name, g["rank"],
                          {"flow": round(g["flow"], 1), "length": round(g["length"]), "order": order, "river": main},
                          countries, multiline(lines)))
-        named = ne_named_rivers(raw_dir / NE_RIVERS_FILE) or ne_named_rivers(self.earlier_copy(raw_dir, NE_RIVERS_FILE))
+        named = ne_named_rivers(ne_files[0])
         for rv in named:
             lines = [dp_line(ln, RIVER_TOL) for ln in rv["lines"]]
             rows.append(("river_names", key(rv["name"]), rv["name"], rv["rank"], {"name": rv["name"]},
@@ -435,7 +603,7 @@ class HydroSHEDS(Connector):
         if not rows:
             raise ConnectorError(f"hydrosheds: no rivers_*.jsonl.gz or basins_*.geojson.gz in {raw_dir}")
         self.history_queries = {"geo_features": stage_geo(con, rows)}
-        log.info("hydrosheds: %s river lines, %s named rivers, %s basins", len(groups), len(named), nb)
+        log.info("hydrosheds: %s river lines (%s named), %s named rivers, %s basins", len(groups), n_named, len(named), nb)
         return NO_ROWS
 
 

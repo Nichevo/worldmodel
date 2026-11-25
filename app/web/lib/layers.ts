@@ -226,9 +226,11 @@ export const LAYER_STYLE: Record<string, Style> = {
   },
   // ---- transport and trade, rivers, tourism (PR 4)
   rivers: {
-    legend: "River, wider for more water", swatch: () => cssVar("--series-1"), fetch: "window", click: "feature",
+    legend: "River, wider for more water (more appear as you zoom in)", swatch: () => cssVar("--series-1"), fetch: "window", click: "feature",
     paint: () => ({ "line-color": cssVar("--series-1"), "line-opacity": 0.75,
-      "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "rank"], 5], 1, 3.2, 3, 1.6, 5, 0.6] }),
+      // width by flow order (1 the Amazon, 7 a stream), thicker as you zoom in
+      "line-width": ["*", ["interpolate", ["linear"], ["zoom"], 1, 0.8, 6, 1.4],
+        ["interpolate", ["linear"], ["coalesce", ["get", "order"], ["get", "rank"], 5], 1, 3.2, 3, 1.8, 5, 0.8, 7, 0.4]] }),
   },
   basins: {
     legend: "River basin (outlined; darker: shared by several countries)", swatch: () => cssVar("--series-1"), fill: true, fetch: "window", click: "feature",
@@ -393,7 +395,7 @@ const num = (v: unknown, d = 0) => (typeof v === "number" ? v.toLocaleString(und
 export function layerLabel(layer: string, p: Record<string, unknown>): string {
   const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   const more = "<br/><span class=\"muted\">Click for what depends on it</span>";
-  if (layer === "rivers") return `<b>River</b>${typeof p.flow === "number" ? `<br/>${num(p.flow)} m³/s where it ends` : ""}${typeof p.length === "number" ? ` · ${num(p.length)} km` : ""}`;
+  if (layer === "rivers") return `${p.name ? `<b>${esc(p.name)}</b> (river)` : "<b>River</b>"}${typeof p.flow === "number" ? `<br/>${num(p.flow, p.flow < 10 ? 1 : 0)} m³/s at the end of this stretch` : ""}${typeof p.length === "number" ? ` · ${num(p.length)} km` : ""}`;
   if (layer === "basins") return `<b>${esc(p.name ?? "River basin")}</b><br/>${num(p.area)} km²${typeof p.flow === "number" ? ` · ${num(p.flow)} m³/s` : ""}`
     + `${p.transboundary ? "<br/>Shared by several countries" : ""}<br/><span class="muted">Click for its countries and people</span>`;
   if (layer === "waterways") return `<b>${esc(p.name)}</b> (waterway)${p.cemt ? `<br/>Class ${esc(p.cemt)}` : ""}${p.to ? `<br/>Ships go to ${esc(p.to)}` : ""}`;
