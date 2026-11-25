@@ -247,7 +247,7 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 7  # 7: causes of death; 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
+    stage_version = 8  # 8: columns cut to the same id named by title; 7: causes of death; 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
     fetch_version = 5  # 5: causes of death; 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts; 4: nuclear warheads
     pause_seconds = 1.0
 
@@ -286,6 +286,11 @@ class OWIDGrapher(_OWID):
             values = [h for h in header if h.lower() not in ("entity", "code", "year") and "annotation" not in h.lower()]
             _, about, own, domain = CHART.get(slug, (slug, "", None, "conflict" if "conflict" in slug else "other"))
             columns = {h: chart_id(own, h, len(values)) for h in values}
+            if len(set(columns.values())) < len(columns):  # long column names that only differ at the end: name them by title
+                titles = {h: (meta.get("columns", {}).get(h, {}).get("titleShort") or h) for h in values}
+                columns = {h: chart_id(own, titles[h], len(values)) for h in values}
+                if len(set(columns.values())) < len(columns):
+                    columns = {h: (own or "owid") + "_" + column_id(h)[5:] for h in values}
             self._stage_wide(con, "charts", path, lower["entity"], code, lower["year"], columns)
             for h, ind in columns.items():
                 self.listed_indicators.append(_chart_indicator(slug, h, ind, meta.get("columns", {}).get(h, {}), about,
