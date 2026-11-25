@@ -284,7 +284,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "x", id: "smoke", label: "Smoke, dust and haze (yesterday)", group: "now", made: true, hint: "NASA satellite aerosol map for two days ago (GIBS, MODIS); other days on the Pollution page" },
   { letter: "g", id: "tide_gauges", label: "Tide gauges (sea level trend)", group: "nature", hint: "How fast the sea has risen against the land at each long-running gauge (PSMSL)" },
   { letter: "1", id: "eez_lines", label: "Economic zones (sea borders)", group: "borders", hint: "Countries' exclusive economic zones out to 200 nautical miles, and where neighbours' zones meet (Marine Regions)" },
-  { letter: "R", id: "rivers", label: "Rivers", group: "water", hint: "Rivers of 10 m³/s and up (HydroRIVERS); smaller ones appear as you zoom in" },
+  { letter: "R", id: "rivers", label: "Rivers", group: "water", hint: "Rivers by size (HydroRIVERS, named from Natural Earth): the biggest and best-known first, down to 1 m³/s (0.1 in New Zealand) as you zoom in" },
   { letter: "B", id: "basins", label: "River basins", group: "water", hint: "Whole river basins (HydroBASINS); click one for its countries and people" },
   { letter: "D", id: "nz_land_change", label: "Land cover change (NZ)", group: "nature", hint: "Land whose cover changed between New Zealand's last two LCDB surveys, coloured by what it became (red built-up, orange harvested, green forest)" },
   { letter: "T", id: "street_trees", label: "Street trees", group: "nature", hint: "Every tree in a council's list (Auckland first), from street level (zoom 12 and closer)" },

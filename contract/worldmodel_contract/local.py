@@ -118,7 +118,7 @@ SETTINGS: dict[str, object] = {
     "transport_air_fetch": True,         # OurAirports and Eurostat airport passengers and freight
     "transport_waterways_fetch": True,   # inland waterways (US network, OpenStreetMap for Europe and big rivers) and Eurostat river freight
     "tourism_fetch": True,               # UNESCO World Heritage sites
-    "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, about 100 MB kept)
+    "rivers_fetch": True,                # HydroRIVERS rivers and HydroBASINS basins (about 700 MB once, roughly 300 MB kept)
     "railways_fetch": True,              # Natural Earth railways (about 40 MB once a year)
     "us_fetch": True,                    # US states and counties: Census, BEA, FRED, BLS, FHFA, MIT, County Health Rankings, EIA
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)

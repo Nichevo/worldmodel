@@ -341,7 +341,7 @@ export default function SettingsPage() {
           on={s.transport_air_fetch} set={(v) => save({ transport_air_fetch: v })} />
         <Toggle label="Inland waterways and river freight" hint="The US National Waterway Network and OpenStreetMap (Europe's classed waterways and about 30 big rivers, one query at a time, ten seconds apart, once a year), and Eurostat river freight. Off: no waterways layer and no river freight figures."
           on={s.transport_waterways_fetch} set={(v) => save({ transport_waterways_fetch: v })} />
-        <Toggle label="Rivers and river basins (HydroSHEDS)" hint="About 700 MB downloaded once (nine regions), cut to rivers of 10 m³/s and up and whole basins, about 100 MB kept. Off before the first read: no rivers or basins layers and no basins on country cards."
+        <Toggle label="Rivers and river basins (HydroSHEDS)" hint="About 700 MB downloaded once (nine regions), cut to rivers of 1 m³/s and up (0.1 m³/s in New Zealand), named from Natural Earth, and whole basins, roughly 300 MB kept. Off before the first read: no rivers or basins layers and no basins on country cards."
           on={s.rivers_fetch} set={(v) => save({ rivers_fetch: v })} />
         <Toggle label="Railways (Natural Earth)" hint="The world's main and through railway lines, intercity and freight, about 40 MB once a year. Off: no Railways map layer."
           on={s.railways_fetch} set={(v) => save({ railways_fetch: v })} />
