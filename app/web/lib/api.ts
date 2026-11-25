@@ -299,6 +299,7 @@ export type Settings = {
   nature_species_fetch: boolean; // GRIIS, IUCN Red List, EPPO
   nature_protected_fetch: boolean; // WDPA protected areas
   transport_ports_fetch: boolean; // PortWatch, World Port Index, shipping lanes
+  port_goods_fetch: boolean; // goods by port (NZ, Europe, UK, US, Australia)
   transport_air_fetch: boolean; // OurAirports, Eurostat airport traffic
   transport_waterways_fetch: boolean; // inland waterways and river freight
   tourism_fetch: boolean; // UNESCO World Heritage sites
@@ -981,6 +982,15 @@ export type PressurePatterns = { weeks_before: number;
     not_recovered: number; weekly: number | null; worst_median: number | null; size_band?: number }[] };
 export type PressureCountry = { entity: string; ports: (PressurePlace & { weeks: { week: string; value: number; normal: number | null; ratio: number | null }[] })[];
   impacts: PressureImpact[] };
+export type GoodsRow = { id: string; name: string; in_t: number | null; out_t: number | null; in_v: number | null; out_v: number | null };
+export type GoodsCountry = { entity_id: string; name: string; ports: number; sources: string[]; last: string };
+export type GoodsPort = { key: string; name: string; port_id: string | null; kind: "sea" | "air"; source: string; freq: string;
+  currency: string | null; from: string; to: string; in_t: number | null; out_t: number | null; in_v: number | null; out_v: number | null };
+export type GoodsPortDetail = { key: string; name: string; port_id: string | null; kind: "sea" | "air"; entity_id: string; source: string;
+  source_id: string; currency: string | null; freq: string; from: string; to: string; measure: "value" | "tonnes";
+  years: { year: number; full: boolean; in_t: number | null; out_t: number | null; in_v: number | null; out_v: number | null }[];
+  goods: GoodsRow[]; partners: GoodsRow[];
+  mix: { keys: { id: string; name: string }[]; rows: { year: number; id: string; v: number | null }[] } };
 export type TourismPage = { tabs: Record<"visitors" | "money" | "standing" | "nz", string[]>; names: IndicatorNames;
   top: { entity_id: string; name: string; year: number; value: number; indicator: string }[]; loaded: Record<string, number> };
 export type HeritageSite = { name: string; type: string | null; year: number | null; danger?: number; url?: string; about?: string };
@@ -1391,6 +1401,10 @@ export const api = {
     return get<PressureImpact[]>(`/transport/impacts?${p}`);
   },
   pressurePatterns: () => get<PressurePatterns>("/transport/patterns"),
+  goodsCountries: () => get<GoodsCountry[]>("/transport/goods/countries"),
+  goodsPorts: (entity: string) => get<GoodsPort[]>(`/transport/goods/ports/${encodeURIComponent(entity)}`),
+  goodsFor: (portId: string) => get<string[]>(`/transport/goods/for/${encodeURIComponent(portId)}`),
+  goodsPort: (key: string) => get<GoodsPortDetail>(`/transport/goods/port/${encodeURIComponent(key)}`),
   pressureCountry: (entity: string) => get<PressureCountry>(`/transport/pressure-country/${encodeURIComponent(entity)}`),
   chokepoint: (id: string, start?: number) => get<ChokepointSeries>(`/transport/chokepoint/${encodeURIComponent(id)}${start ? `?start=${start}` : ""}`),
   tourism: () => get<TourismPage>("/tourism"),

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import EChart from "@/components/EChart";
+import { GoodsLink } from "@/components/GoodsByPort";
 import { useKeys } from "@/components/PageLook";
 import { openAsk } from "@/lib/ai";
 import { api, type PressureCountry, type PressureDetail, type PressureImpact, type PressurePatterns, type PressurePlace } from "@/lib/api";
@@ -172,7 +173,8 @@ export function PressureView({ initial }: { initial?: string }) {
                 : <p className="small muted">No ship types stored.</p>}
               {d.year_calls ? <p className="small">Last 12 months: {Math.round(d.year_calls).toLocaleString()} ship calls,
                 {" "}{compact(d.year_import_t ?? 0)} tonnes in and {compact(d.year_export_t ?? 0)} tonnes out (estimated).</p> : null}
-              <p className="caption">Share of ship calls by type of ship (IMF PortWatch). The goods themselves are not in PortWatch.</p>
+              <GoodsLink portId={d.id} name={d.name} />
+              <p className="caption">Share of ship calls by type of ship (IMF PortWatch). The goods themselves come from national statistics (Goods by port tab) where they are published.</p>
             </div>
           ) : null}
           {d.links.length ? (

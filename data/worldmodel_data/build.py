@@ -111,7 +111,7 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                     checks.append(gates.Check("networks:loaded", "networks", "info",
                                               f"Transport and networks: {net['geo_features']:,} rivers, basins, waterways, "
                                               f"cables and pipelines, {net['port_traffic']:,} port months, "
-                                              f"{net['port_daily']:,} port days, {net['port_links']:,} port links, "
+                                              f"{net['port_daily']:,} port days, {net['port_links']:,} port links, {net['port_goods']:,} goods-by-port rows, "
                                               f"{net['chokepoint_traffic']:,} chokepoint days, {net['airport_traffic']:,} airport years"))
                 try:
                     pp = port_pressure.compute(con)

@@ -4,6 +4,9 @@ source; see connectors/transport.py and networks.py). Country codes become entit
 
 from __future__ import annotations
 
+import json
+import re
+
 import duckdb
 
 DDL = {
@@ -21,6 +24,9 @@ DDL = {
                          "source_id VARCHAR, vintage VARCHAR"),
     "chokepoint_traffic": ("chokepoint_id VARCHAR, name VARCHAR, day DATE, transits DOUBLE, tankers DOUBLE, container DOUBLE, "
                            "dry_bulk DOUBLE, cargo DOUBLE, capacity DOUBLE, source_id VARCHAR, vintage VARCHAR"),
+    "port_goods": ("port_key VARCHAR, port_name VARCHAR, port_id VARCHAR, kind VARCHAR, entity_id VARCHAR, period DATE, "
+                   "freq VARCHAR, direction VARCHAR, goods VARCHAR, goods_name VARCHAR, partner_id VARCHAR, tonnes DOUBLE, "
+                   "value DOUBLE, currency VARCHAR, source_id VARCHAR, vintage VARCHAR"),
     "airport_traffic": ("airport VARCHAR, name VARCHAR, entity_id VARCHAR, year INTEGER, passengers DOUBLE, freight_t DOUBLE, "
                         "source_id VARCHAR, vintage VARCHAR"),
 }
@@ -66,4 +72,75 @@ def compute(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
         SELECT a.airport, a.name, c.entity_id, a.year, a.passengers, a.freight_t, a.source_id, a.vintage
         FROM src.raw_airport_traffic a LEFT JOIN {ISO3} c ON c.iso3 = a.country_code
         QUALIFY row_number() OVER (PARTITION BY a.airport, a.year ORDER BY a.vintage DESC) = 1""")
+    _port_goods(con)
     return {t: con.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in DDL}
+
+
+PORT_WORDS = re.compile(r"\b(port of|port|harbour|harbor|seaport|seaports|terminal|terminals)\b")
+
+
+def port_name_key(name: str) -> str:
+    """A port name cut to what usually matches between sources: no 'Port of', no state after a
+    comma, no bracketed notes, letters only ("Los Angeles, CA" and "Port of Los Angeles" agree)."""
+    s = str(name or "").lower()
+    s = re.sub(r"\(.*?\)", " ", s).split(",")[0]
+    s = PORT_WORDS.sub(" ", s)
+    return re.sub(r"[^a-z]+", "", s)
+
+
+def _portwatch_ports(con: duckdb.DuckDBPyConnection) -> dict[str, list[tuple[str, str]]]:
+    """PortWatch ports by country: (name key, port id), from the latest ports layer."""
+    try:
+        row = con.execute("SELECT geojson FROM src.raw_layers WHERE layer_id = 'ports' ORDER BY vintage DESC LIMIT 1").fetchone()
+    except duckdb.Error:
+        return {}
+    out: dict[str, list[tuple[str, str]]] = {}
+    if row and row[0]:
+        for f in json.loads(row[0]).get("features") or []:
+            p = f.get("properties") or {}
+            if p.get("id") and p.get("country"):
+                out.setdefault(p["country"], []).append((port_name_key(p.get("name") or ""), p["id"]))
+    return out
+
+
+def match_port(name: str, candidates: list[tuple[str, str]]) -> str | None:
+    """The PortWatch port id for a port name among a country's ports: same name key, else the one
+    port whose key starts with it or that it starts with (at least five letters in common)."""
+    k = port_name_key(name)
+    if len(k) < 3:
+        return None
+    same = [pid for ck, pid in candidates if ck == k]
+    if same:
+        return same[0]
+    near = {pid for ck, pid in candidates if len(ck) >= 5 and len(k) >= 5 and (ck.startswith(k) or k.startswith(ck))}
+    return near.pop() if len(near) == 1 else None
+
+
+def _port_goods(con: duckdb.DuckDBPyConnection) -> None:
+    """Goods by port from every source's latest vintage, each port tied to its PortWatch port
+    where the names agree (sea ports only; airports and land crossings stay unmatched)."""
+    try:
+        con.execute(f"""CREATE TEMP TABLE pg_latest AS
+            SELECT g.* FROM src.raw_port_goods g JOIN {LATEST.format(t='port_goods')} l USING (source_id, vintage)""")
+    except duckdb.Error:
+        return
+    ports = _portwatch_ports(con)
+    names = con.execute("SELECT DISTINCT port_code, port, country_code FROM pg_latest").fetchall()
+    con.execute("CREATE TEMP TABLE pg_match (port_code VARCHAR, port_id VARCHAR, kind VARCHAR)")
+    rows = []
+    for code, name, iso in names:
+        low = str(name or "").lower()
+        kind = "air" if "airport" in low or "air cargo" in low else "sea"
+        pid = match_port(name, ports.get(iso or "", [])) if kind == "sea" else None
+        rows.append((code, pid, kind))
+    if rows:
+        con.executemany("INSERT INTO pg_match VALUES (?, ?, ?)", rows)
+    con.execute(f"""INSERT INTO port_goods
+        SELECT g.port_code, any_value(g.port) OVER (PARTITION BY g.port_code), m.port_id, m.kind, c.entity_id, g.period,
+               g.freq, g.direction, g.goods, g.goods_name, coalesce(pc.entity_id, ''), g.tonnes, g.value, g.currency,
+               g.source_id, g.vintage
+        FROM pg_latest g
+        LEFT JOIN pg_match m USING (port_code)
+        LEFT JOIN {ISO3} c ON c.iso3 = g.country_code
+        LEFT JOIN {ISO3} pc ON pc.iso3 = nullif(g.partner, '')
+        WHERE g.period IS NOT NULL""")

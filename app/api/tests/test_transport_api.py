@@ -191,3 +191,36 @@ def test_port_pressure(client, tmp_path):
     assert lay["type"] == "FeatureCollection"  # no ports layer in the sample: no coordinates, so no dots
     c = client.get("/api/v1/transport/pressure-country/NZL").json()
     assert [p["id"] for p in c["ports"]] == ["port1", "port2"] and len(c["ports"][0]["weeks"]) == 26
+
+
+def test_port_goods(client, tmp_path):
+    con = duckdb.connect(str(tmp_path / "w.duckdb"))
+    rows = []
+    for m in range(1, 13):
+        p = date(2024, m, 1)
+        rows += [("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "out", "04", "Dairy, eggs and honey", "",
+                  800.0, 4e6, "NZD"),
+                 ("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "out", "44", "Wood and logs", "",
+                  5000.0, 2e6, "NZD"),
+                 ("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "in", "27", "Oil, gas and coal", "",
+                  2000.0, 1e6, "NZD"),
+                 ("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "out", "TOTAL", "All goods", "CHN",
+                  5800.0, 6e6, "NZD"),
+                 ("NZ:akl-air", "Auckland Airport", None, "air", "NZL", p, "M", "in", "87", "Vehicles", "", 3.0, 5e5, "NZD")]
+    rows.append(("AU:port-hedland", "Port Hedland", None, "sea", "AUS", date(2024, 6, 30), "FY", "out", "TOTAL", "All goods", "",
+                 5.6e8, 8.4e10, "AUD"))
+    con.executemany("INSERT INTO port_goods VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'x', 'v1')", rows)
+    con.close()
+    cs = {c["entity_id"]: c for c in client.get("/api/v1/transport/goods/countries").json()}
+    assert cs["NZL"]["ports"] == 2 and cs["AUS"]["ports"] == 1
+    ps = client.get("/api/v1/transport/goods/ports/NZL").json()
+    assert [p["key"] for p in ps] == ["NZ:tauranga", "NZ:akl-air"]
+    assert ps[0]["out_t"] == 5800 * 12 and ps[0]["in_v"] == 12e6 and ps[0]["from"] == "2024-01-01"
+    assert client.get("/api/v1/transport/goods/for/port2").json() == ["NZ:tauranga"]
+    one = client.get("/api/v1/transport/goods/port/NZ:tauranga").json()
+    assert one["measure"] == "value" and one["goods"][0]["id"] == "04" and one["partners"][0]["id"] == "CHN"
+    assert one["years"] == [{"year": 2024, "full": True, "in_t": 24000, "out_t": 69600, "in_v": 12e6, "out_v": 72e6}]
+    assert {k["id"] for k in one["mix"]["keys"]} == {"04", "44", "27"}
+    au = client.get("/api/v1/transport/goods/port/AU:port-hedland").json()
+    assert au["years"][0]["out_t"] == 5.6e8 and au["goods"] == [] and au["freq"] == "FY"
+    assert client.get("/api/v1/transport/goods/port/nope").status_code == 404
