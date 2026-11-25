@@ -37,7 +37,14 @@ export type Long = {
 };
 export type Outbreak = { entity: string; name: string; disease: string; title: string; day: string; place: string; url: string | null; detail: string | null };
 
+export type Notifiable = { year: number | null; diseases: { key: string; name: string; cases: [number, number][]; rate: [number, number][];
+  year: number; latest: number; latest_rate: number | null; usual: number | null; ratio: number | null }[] };
+export type Causes = { causes: { id: string; name: string }[]; source: string;
+  series: { entity: string; name: string; causes: Record<string, [number, number][]> }[] };
+
 export const diseaseApi = {
+  notifiable: () => get<Notifiable>("/disease/notifiable"),
+  causes: (entities: string[]) => get<Causes>("/disease/causes", { entities: entities.join(",") }),
   measures: () => get<Measures>("/disease/measures"),
   seasons: (entity: string, measure: string) => get<Seasons>(`/disease/seasons/${encodeURIComponent(entity)}`, { measure }),
   heat: (entity: string, measure: string) => get<Seasons>(`/disease/heat/${encodeURIComponent(entity)}`, { measure }),
@@ -205,3 +212,42 @@ export function sparkPoints(spark: [string, number][], w: number, h: number): st
 
 export const weekLabel = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 export const trendWord = (t: string | null) => (t === "rising" ? "rising 3 weeks" : t === "falling" ? "falling 3 weeks" : t === "steady" ? "steady" : "");
+
+// One country's death rates by cause over the years, or one cause across countries.
+export function causesOption(c: Causes, mode: "country" | "cause", pick: string, ids: string[]): EChartsOption {
+  const base = chrome();
+  const colors = entityColors(ids);
+  const palette = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-5", "--series-6", "--series-7", "--series-8", "--muted"];
+  const series = mode === "country"
+    ? c.causes.map((k, i) => ({ type: "line" as const, name: k.name, data: c.series.find((s) => s.entity === pick)?.causes[k.id] ?? [],
+      showSymbol: false, lineStyle: { width: 2 }, color: cssVar(palette[i % palette.length]) || undefined,
+      endLabel: { show: true, formatter: k.name, color: cssVar("--ink-2"), fontSize: 10 } }))
+    : c.series.filter((s) => s.causes[pick]?.length).map((s) => ({ type: "line" as const, name: s.name, data: s.causes[pick], showSymbol: false,
+      lineStyle: { width: 2 }, color: colors[ids.indexOf(s.entity)] ?? undefined }));
+  return {
+    ...base,
+    legend: mode === "cause" ? { top: 0, left: 0, textStyle: { color: cssVar("--ink-2") } } : undefined,
+    grid: { left: 8, right: mode === "country" ? 190 : 24, top: mode === "cause" ? 36 : 12, bottom: 40, containLabel: true },
+    xAxis: { type: "value", min: "dataMin", max: "dataMax", axisLabel: { ...axisMuted(), formatter: (x: number) => String(x) },
+      axisLine: { lineStyle: { color: cssVar("--axis") } }, splitLine: { show: false } },
+    yAxis: { type: "value", min: 0, name: "deaths per 100,000", nameTextStyle: { color: cssVar("--muted"), align: "left" },
+      axisLabel: axisMuted(), splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    dataZoom: [{ type: "slider", height: 18, bottom: 6 }, { type: "inside" }],
+    tooltip: { ...(base.tooltip as object), trigger: "axis", valueFormatter: (x: unknown) => (typeof x === "number" ? x.toFixed(1) : "–") },
+    series,
+  };
+}
+
+// A disease's yearly cases in New Zealand.
+export function notifiableOption(name: string, cases: [number, number][], color: string): EChartsOption {
+  const base = chrome();
+  return {
+    ...base,
+    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    xAxis: { type: "category", data: cases.map((p) => String(p[0])), axisLabel: axisMuted(), axisLine: { lineStyle: { color: cssVar("--axis") } } },
+    yAxis: { type: "value", min: 0, axisLabel: axisMuted(), splitLine: { lineStyle: { color: cssVar("--grid") } } },
+    tooltip: { ...(base.tooltip as object), trigger: "axis" },
+    series: [{ type: "bar", name, data: cases.map((p) => p[1]), color, label: { show: cases.length <= 20, position: "top", color: cssVar("--ink-2"), fontSize: 10,
+      formatter: (p: unknown) => Math.round((p as { value: number }).value).toLocaleString() } }],
+  };
+}

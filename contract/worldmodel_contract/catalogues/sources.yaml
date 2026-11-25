@@ -3080,6 +3080,21 @@
   standing: 5
   definition: established
 
+- id: nz_notifiable
+  name: New Zealand notifiable diseases by year (PHF Science Notifiable Diseases Intelligence Dashboard)
+  short_name: PHF Science notifiable diseases
+  publisher: New Zealand Institute for Public Health and Forensic Science (PHF Science), funded by the Ministry of Health
+  url: https://github.com/ESR-NZ/Notifiable-Diseases-Annual-Dashboard-
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Yearly; read monthly
+  attribution: "PHF Science, Notifiable Diseases Intelligence Dashboard, https://github.com/ESR-NZ/NZ_notifiablediseases_data."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+
 - id: ukhsa
   name: UK Health Security Agency data dashboard (infectious disease)
   short_name: UKHSA

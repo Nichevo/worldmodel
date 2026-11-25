@@ -3057,6 +3057,20 @@ def disease_long(indicator: str = "measles_cases", entities: str | None = None):
     return got
 
 
+@api.get("/disease/notifiable")
+def disease_notifiable():
+    """New Zealand's notifiable diseases by year (PHF Science), latest year against the five before."""
+    return disease.notifiable(rows)
+
+
+@api.get("/disease/causes")
+def disease_causes(entities: str | None = None):
+    """Deaths per 100,000 by broad cause, age-standardised (WHO Mortality Database), for the countries given."""
+    got = disease.causes(rows, (split(entities) or list(disease.D.KEY))[:8])
+    _named(got["series"])
+    return got
+
+
 @api.get("/disease/outbreaks")
 def disease_outbreaks(entities: str | None = None, limit: int = 60):
     """WHO Disease Outbreak News, newest first."""

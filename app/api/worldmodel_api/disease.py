@@ -284,6 +284,58 @@ def long_view(q: Q, entities: list[str], indicator: str) -> dict:
             "pandemics": D.PANDEMICS, "choices": D.YEARLY}
 
 
+# ------------------------------------------------------------------------- NZ notifiable diseases
+NOTIFIABLE_NAMES = {"vtec_stec_infection": "VTEC/STEC infection", "hepatitis_nos": "Hepatitis NOS", "q_fever": "Q fever",
+                    "haemophilus_influenzae_type_b": "Haemophilus influenzae type b (Hib)",
+                    "invasive_group_a_streptococcal_infection": "Invasive group A streptococcal infection",
+                    "meningoencephalitis_primary_amoebic": "Meningoencephalitis (primary amoebic)",
+                    "rabies_and_other_lyssaviruses": "Rabies and other lyssaviruses"}
+
+
+def notifiable(q: Q) -> dict:
+    """New Zealand's notifiable diseases by year (PHF Science): each disease's cases and rate per 100,000, with the
+    latest year against the average of the five years before it (leaving out 2020 and 2021)."""
+    got = q("""SELECT indicator_id AS i, breakdown AS b, year(period_start) AS y, value AS v FROM series
+               WHERE entity_id = 'NZL' AND indicator_id IN ('nz_notifiable_cases', 'nz_notifiable_rate') AND freq = 'A'
+               AND variant = 'central' ORDER BY 3""", [])
+    by: dict[str, dict] = {}
+    for r in got:
+        key = r["b"].split("=", 1)[-1]
+        d = by.setdefault(key, {"key": key, "name": NOTIFIABLE_NAMES.get(key, key.replace("_", " ").capitalize()), "cases": [], "rate": []})
+        d["cases" if r["i"] == "nz_notifiable_cases" else "rate"].append([r["y"], r["v"]])
+    out = []
+    for d in by.values():
+        if not d["cases"]:
+            continue
+        year, last = d["cases"][-1]
+        before = [v for y, v in d["cases"] if year - 6 < y < year and y not in D.SKIP_YEARS]
+        usual = sum(before) / len(before) if before else None
+        rate = dict((y, v) for y, v in d["rate"]).get(year)
+        out.append({**d, "year": year, "latest": last, "latest_rate": rate, "usual": usual,
+                    "ratio": round(last / usual, 2) if usual else None})
+    out.sort(key=lambda d: -d["latest"])
+    return {"diseases": out, "year": max((d["year"] for d in out), default=None)}
+
+
+# ------------------------------------------------------------------------------- causes of death
+CAUSE_PREFIX = "cause_death_rate_"
+
+
+def causes(q: Q, entities: list[str]) -> dict:
+    """Age-standardised death rates per 100,000 by broad cause (WHO Mortality Database) for each country."""
+    got = q(f"""SELECT s.entity_id AS e, s.indicator_id AS i, year(s.period_start) AS y, avg(s.value) AS v FROM series s
+                WHERE s.indicator_id LIKE '{CAUSE_PREFIX}%' AND s.freq = 'A' AND s.variant = 'central' AND s.breakdown = ''
+                AND s.entity_id IN ({_in(len(entities))}) GROUP BY 1, 2, 3 ORDER BY 3""", list(entities))
+    names = {r["i"]: r["n"] for r in q(f"SELECT indicator_id AS i, name AS n FROM indicators WHERE indicator_id LIKE '{CAUSE_PREFIX}%'", [])}
+    pts: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
+    for r in got:
+        pts[r["e"]][r["i"]].append([r["y"], r["v"]])
+    ids = sorted(names, key=lambda i: -max((p[-1][1] for e in pts.values() if (p := e.get(i))), default=0))
+    return {"causes": [{"id": i, "name": names[i]} for i in ids],
+            "series": [{"entity": e, "causes": {i: pts[e][i] for i in ids if pts[e].get(i)}} for e in entities],
+            "source": "WHO Mortality Database (through Our World in Data), age-standardised deaths per 100,000 people"}
+
+
 # --------------------------------------------------------------------------------------- outbreaks
 def outbreaks(q: Q, entities: list[str] | None, limit: int) -> list[dict]:
     where, params = "", []

@@ -1,0 +1,81 @@
+Disease,Report Year,Case Count,"Case rate per 100,000"
+Pertussis,2006,1120,26.8
+Rheumatic fever,2006,108,2.6
+Campylobacteriosis,2006,15873,379.4
+Measles,2006,18,0.4
+Pertussis,2007,332,7.9
+Campylobacteriosis,2007,12778,302.6
+Rheumatic fever,2007,139,3.3
+Measles,2007,24,0.6
+Pertussis,2008,417,9.8
+Campylobacteriosis,2008,6692,157.1
+Rheumatic fever,2008,155,3.6
+Measles,2008,12,0.3
+Campylobacteriosis,2009,7177,166.8
+Measles,2009,248,5.8
+Pertussis,2009,1398,32.5
+Rheumatic fever,2009,141,3.3
+Campylobacteriosis,2010,7346,168.9
+Pertussis,2010,872,20
+Measles,2010,48,1.1
+Rheumatic fever,2010,165,3.8
+Campylobacteriosis,2011,6686,152.5
+Measles,2011,596,13.6
+Pertussis,2011,1996,45.5
+Rheumatic fever,2011,160,3.6
+Campylobacteriosis,2012,7016,159.2
+Pertussis,2012,5897,133.8
+Rheumatic fever,2012,176,4
+Measles,2012,68,1.5
+Campylobacteriosis,2013,6837,153.9
+Measles,2013,8,0.2
+Pertussis,2013,3540,79.7
+Rheumatic fever,2013,204,4.6
+Campylobacteriosis,2014,6782,150.2
+Measles,2014,280,6.2
+Rheumatic fever,2014,198,4.4
+Pertussis,2014,1099,24.3
+Campylobacteriosis,2015,6218,134.9
+Measles,2015,10,0.2
+Pertussis,2015,1168,25.3
+Rheumatic fever,2015,110,2.4
+Campylobacteriosis,2016,7457,158.2
+Measles,2016,103,2.2
+Rheumatic fever,2016,136,2.9
+Pertussis,2016,1093,23.2
+Campylobacteriosis,2017,6482,134.7
+Measles,2017,15,0.3
+Pertussis,2017,2142,44.5
+Rheumatic fever,2017,152,3.2
+Campylobacteriosis,2018,6957,142
+Pertussis,2018,2955,60.3
+Measles,2018,30,0.6
+Rheumatic fever,2018,186,3.8
+Campylobacteriosis,2019,6203,124.8
+Rheumatic fever,2019,168,3.4
+Pertussis,2019,1206,24.3
+Measles,2019,2190,44.1
+Campylobacteriosis,2020,5293,104.4
+Measles,2020,9,0.2
+Pertussis,2020,169,3.3
+Rheumatic fever,2020,150,3
+Campylobacteriosis,2021,5729,112.7
+Rheumatic fever,2021,86,1.7
+Pertussis,2021,41,0.8
+Measles,2021,0,0
+Campylobacteriosis,2022,5878,115.7
+Measles,2022,0,0
+Pertussis,2022,18,0.4
+Rheumatic fever,2022,78,1.5
+Campylobacteriosis,2023,6092,117.2
+Measles,2023,14,0.3
+Rheumatic fever,2023,179,3.4
+Pertussis,2023,141,2.7
+Campylobacteriosis,2024,5800,109.6
+Measles,2024,1,suppressed
+Pertussis,2024,1745,33
+Rheumatic fever,2024,207,3.9
+Rheumatic fever,2025,207,3.9
+Campylobacteriosis,2025,5816,109.2
+Measles,2025,58,1.1
+Pertussis,2025,2678,50.3

@@ -23,6 +23,8 @@ def q():
     con.execute("CREATE TABLE events (entity_id VARCHAR, source_id VARCHAR, subkind VARCHAR, title VARCHAR, start_date DATE, place VARCHAR, "
                 "url VARCHAR, detail VARCHAR)")
     con.execute("CREATE TABLE entities (entity_id VARCHAR, name VARCHAR, short_name VARCHAR)")
+    con.execute("CREATE TABLE indicators (indicator_id VARCHAR, name VARCHAR)")
+    con.execute("INSERT INTO indicators VALUES ('cause_death_rate_cancers', 'Cancers'), ('cause_death_rate_digestive_diseases', 'Digestive diseases')")
     con.execute("INSERT INTO sources VALUES ('who_flunet', 'WHO FluNet'), ('other', 'Other')")
     con.execute("INSERT INTO indicator_sources VALUES ('flu_pct_positive', 'who_flunet', 1), ('flu_pct_positive', 'other', 2)")
     con.execute("INSERT INTO entities VALUES ('NZL', 'New Zealand', 'New Zealand'), ('GBR', 'United Kingdom', 'UK')")
@@ -47,6 +49,13 @@ def q():
     for y in (2000, 2019, 2024, 2025):
         rows.append(("NZL", "measles_cases", date(y, 1, 1), "A", "", "central", "who_gho_disease", {2019: 2193, 2025: 58}.get(y, 10), "E"))
         rows.append(("NZL", "pop_total", date(y, 1, 1), "A", "", "central", "un_wpp", 5e6, "E"))
+    for y, n in ((2019, 2193), (2020, 10), (2021, 0), (2022, 5), (2023, 20), (2024, 30), (2025, 58)):
+        rows.append(("NZL", "nz_notifiable_cases", date(y, 1, 1), "A", "disease=measles", "central", "nz_notifiable", n, "E"))
+        rows.append(("NZL", "nz_notifiable_cases", date(y, 1, 1), "A", "disease=vtec_stec_infection", "central", "nz_notifiable", 1000, "E"))
+    rows.append(("NZL", "nz_notifiable_rate", date(2025, 1, 1), "A", "disease=measles", "central", "nz_notifiable", 1.1, "E"))
+    for y, c, g in ((2017, 114.0, 11.0), (2018, 112.4, 10.7)):
+        rows.append(("NZL", "cause_death_rate_cancers", date(y, 1, 1), "A", "", "central", "owid_grapher", c, "E"))
+        rows.append(("NZL", "cause_death_rate_digestive_diseases", date(y, 1, 1), "A", "", "central", "owid_grapher", g, "E"))
     con.executemany("INSERT INTO series VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
     con.execute("INSERT INTO events VALUES ('NZL', 'who_don', 'measles', 'Measles (WHO outbreak news)', '2025-10-20', 'New Zealand', 'u', 'd')")
 
@@ -111,3 +120,17 @@ def test_long_view_per_million_and_outbreaks(q):
 def test_trend_and_level():
     up = [(date(2025, 1, 6) + timedelta(weeks=i), v) for i, v in enumerate([1, 2, 3, 4])]
     assert disease.trend(up) == "rising" and disease.level(2) == "high" and disease.level(None) == "no_usual"
+
+
+def test_nz_notifiable(q):
+    v = disease.notifiable(q)
+    assert v["year"] == 2025 and v["diseases"][0]["name"] == "VTEC/STEC infection"
+    m = next(d for d in v["diseases"] if d["key"] == "measles")
+    assert m["latest"] == 58 and m["latest_rate"] == 1.1 and m["usual"] == pytest.approx((5 + 20 + 30) / 3)  # 2020-2024 without 2020 and 2021
+
+
+def test_causes_of_death(q):
+    v = disease.causes(q, ["NZL", "GBR"])
+    assert [c["id"] for c in v["causes"]] == ["cause_death_rate_cancers", "cause_death_rate_digestive_diseases"]
+    nz = v["series"][0]["causes"]
+    assert nz["cause_death_rate_cancers"][-1] == [2018, 112.4] and v["series"][1]["causes"] == {}

@@ -122,6 +122,7 @@ def con(tmp_path_factory):
     CONNECTORS["nz_wastewater"]().ingest(store, FIX / "nz_wastewater")
     CONNECTORS["ecdc_erviss"]().ingest(store, FIX / "ILIARIRates.csv")
     CONNECTORS["opendengue"]().ingest(store, FIX / "opendengue.csv")
+    CONNECTORS["nz_notifiable"]().ingest(store, FIX / "nz_notifiable")
     gho = {"value": [{"SpatialDimType": "COUNTRY", "SpatialDim": "NZL", "TimeDim": 2025, "NumericValue": 58, "Dim1": None},
                      {"SpatialDimType": "COUNTRY", "SpatialDim": "NZL", "TimeDim": 2019, "NumericValue": 2193, "Dim1": None},
                      {"SpatialDimType": "REGION", "SpatialDim": "WPR", "TimeDim": 2025, "NumericValue": 9999, "Dim1": None}]}
@@ -154,6 +155,12 @@ def test_built(con):
     assert vals(con, "measles_cases", "NZL") == [(date(2019, 1, 1), "A", 2193), (date(2025, 1, 1), "A", 58)]
     assert vals(con, "ili_pct_visits", "USA") == [(mmwr_monday(2025, 50), "D", 3.2)]
     assert vals(con, "ili_pct_visits", "US-CA") == [(mmwr_monday(2025, 50), "D", 2.5)]
+    notif = con.execute("SELECT breakdown, value FROM series WHERE indicator_id = 'nz_notifiable_cases' AND entity_id = 'NZL' "
+                        "AND period_start = DATE '2025-01-01' ORDER BY 1").fetchall()
+    assert ("disease=measles", 58) in notif and ("disease=pertussis", 2678) in notif
+    rate = con.execute("SELECT count(*) FROM series WHERE indicator_id = 'nz_notifiable_rate' AND breakdown = 'disease=measles' "
+                       "AND period_start = DATE '2024-01-01'").fetchone()[0]
+    assert rate == 0  # 'suppressed'
     ev = con.execute("SELECT kind, subkind, title FROM events WHERE source_id = 'who_don' AND entity_id = 'NZL'").fetchall()
     assert ev == [("epidemic", "measles", "Measles (WHO outbreak news)")]
 

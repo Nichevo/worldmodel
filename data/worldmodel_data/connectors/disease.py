@@ -33,6 +33,10 @@ opendengue
 hmd_stmf
     Human Mortality Database Short-Term Mortality Fluctuations: deaths from all causes by week.
     The site needs a free login, so the file (stmf.csv) is saved by hand.
+nz_notifiable
+    PHF Science's Notifiable Diseases Intelligence Dashboard data: New Zealand's yearly cases and
+    rates per 100,000 of every notifiable disease since 2006 (one indicator each for cases and rate,
+    broken down by disease), from its GitHub repository.
 who_don
     WHO Disease Outbreak News since 1996, as dated events (kind epidemic) on the countries named.
 
@@ -59,6 +63,7 @@ from worldmodel_contract import catalogue
 
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.cities import country_by_name
+from worldmodel_data.connectors.climate import Points
 from worldmodel_data.connectors.events_common import EMPTY_OBSERVATIONS, stage_events
 from worldmodel_data.connectors.markets import DatedRows, parse_day
 from worldmodel_data.connectors.tabular import Rows, entity_for, indicator, num
@@ -937,6 +942,64 @@ class HMDSTMF(Connector):
         ]
         return rows.stage(con, self.source_id, vintage)
 
+
+
+# ----------------------------------------------------------------------------- NZ notifiable (PHF Science)
+NZ_NOTIFIABLE = "https://raw.githubusercontent.com/ESR-NZ/Notifiable-Diseases-Annual-Dashboard-/main/data/National_Total.csv"
+
+
+def disease_key(name: str) -> str:
+    """'Invasive group A streptococcal infection' -> 'invasive_group_a_streptococcal_infection'."""
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_")[:60]
+
+
+def nz_notifiable_rows(text: str) -> Points:
+    """Each disease's yearly cases and rate per 100,000, broken down by disease (rates of small counts are
+    'suppressed' by PHF Science and left out)."""
+    pts = Points()
+    for r in csv.DictReader(io.StringIO(text)):
+        name, year = (r.get("Disease") or "").strip(), num(r.get("Report Year"))
+        if not name or not year:
+            continue
+        d, b = date(int(year), 1, 1), f"disease={disease_key(name)}"
+        pts.add("NZL", "nz_notifiable_cases", d, num(r.get("Case Count")), breakdown=b)
+        rate = next((v for k, v in r.items() if k and k.lower().startswith("case rate")), None)
+        pts.add("NZL", "nz_notifiable_rate", d, num(rate), breakdown=b)
+    return pts
+
+
+class NZNotifiable(Connector):
+    source_id = "nz_notifiable"
+    switch = SWITCH
+    fetch_every_days = 30
+
+    def default_release(self, fetched_at: datetime) -> str:
+        return fetched_at.strftime("%Y-%m")
+
+    def release_from_files(self, files: list[Path]) -> str | None:
+        return None
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        self.get(NZ_NOTIFIABLE, raw_dir / "National_Total.csv")
+        return NZ_NOTIFIABLE
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        pts = nz_notifiable_rows((raw_dir / "National_Total.csv").read_text(encoding="utf-8-sig"))
+        if not len(pts):
+            raise ConnectorError(f"nz_notifiable: no years read from {raw_dir}")
+        about = (" New Zealand's notifiable disease system (EpiSurv), from PHF Science's Notifiable Diseases Intelligence "
+                 "Dashboard data; by year reported, one figure per disease (breakdown disease=…).")
+        self.listed_indicators = [
+            indicator("nz_notifiable_cases", "Notifiable diseases (NZ): cases", "Cases of each notifiable disease reported "
+                      "in the year." + about, "cases", "health", self.source_id, "National_Total:Case Count", decimals=0,
+                      default_on=False, breakdowns=["disease"], bounds=(0, 1e7), aggregation={"method": "sum"}),
+            indicator("nz_notifiable_rate", "Notifiable diseases (NZ): cases per 100,000", "Cases of each notifiable "
+                      "disease reported in the year per 100,000 people; left out where PHF Science suppresses a rate "
+                      "from very few cases." + about, "per 100,000 people", "health", self.source_id,
+                      "National_Total:Case rate per 100,000", decimals=1, default_on=False, breakdowns=["disease"],
+                      bounds=(0, 1e5)),
+        ]
+        return pts.stage(con, self.source_id, vintage, "nz_notif")
 
 # ------------------------------------------------------------------------- WHO Disease Outbreak News
 DON = "https://www.who.int/api/news/diseaseoutbreaknews"

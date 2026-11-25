@@ -11,7 +11,7 @@ import Flag from "@/components/Flag";
 import WorldMap from "@/components/WorldMap";
 import { openAsk } from "@/lib/ai";
 import {
-  type Compare, compareOption, diseaseApi, fmt, heatOption, KEY, KEY_NAMES, LEVEL_TONE, type Long, longOption, type Measure, type Measures,
+  type Causes, causesOption, type Compare, compareOption, diseaseApi, type Notifiable, notifiableOption, sparkPoints, fmt, heatOption, KEY, KEY_NAMES, LEVEL_TONE, type Long, longOption, type Measure, type Measures,
   type Now, type Outbreak, type Seasons, seasonOption, trendWord, weekLabel,
 } from "@/lib/disease";
 import { entityColors } from "@/lib/look";
@@ -20,13 +20,15 @@ import { logHistory } from "@/lib/history";
 // Flu, COVID, RSV, measles and other infections: how much there is now against the usual for the
 // time of year, this season against past ones, the key countries side by side, a century of yearly
 // cases, and outbreak news.
-type Tab = "now" | "seasons" | "compare" | "long" | "outbreaks";
-const TABS: [Tab, string][] = [["now", "Now"], ["seasons", "Seasons"], ["compare", "Compare"], ["long", "Long view"], ["outbreaks", "Outbreaks"]];
+type Tab = "now" | "seasons" | "compare" | "long" | "causes" | "outbreaks";
+const TABS: [Tab, string][] = [["now", "Now"], ["seasons", "Seasons"], ["compare", "Compare"], ["long", "Long view"], ["causes", "Causes of death"],
+  ["outbreaks", "Outbreaks"]];
 const INTRO: Record<Tab, string> = {
   now: "The latest week in each country against what is usual for that week of the year (the average of the same weeks in 2015-2019, or of earlier years leaving out 2020 and 2021 where 2015-2019 is missing).",
   seasons: "This season against earlier ones, week by week. Southern countries' seasons run January to December; northern ones July to June, so a winter is not split in two. The shaded band is the normal range of 2015-2019.",
   compare: "New Zealand, Australia, the United Kingdom and the United States on one scale over the same years.",
-  long: "Yearly cases reported to WHO, per million people, back as far as the records go. Pandemic years are shaded.",
+  long: "Yearly cases reported to WHO, per million people, back as far as the records go. Pandemic years are shaded. Below, every notifiable disease in New Zealand since 2006.",
+  causes: "What people die of: deaths per 100,000 people from each broad group of causes, age-standardised so countries with older people can be compared, from death certificates reported to the WHO Mortality Database.",
   outbreaks: "WHO Disease Outbreak News: each report of an unusual outbreak, newest first.",
 };
 
@@ -69,7 +71,8 @@ function DiseaseView() {
       {tab === "now" && <NowTab measure={measure} m={m} onCountry={(c) => go("seasons", measure, c)} />}
       {tab === "seasons" && <SeasonsTab measure={measure} country={country} onCountry={(c) => go("seasons", measure, c)} />}
       {tab === "compare" && <CompareTab measure={measure} />}
-      {tab === "long" && <LongTab />}
+      {tab === "long" && <><LongTab /><NotifiableCard /></>}
+      {tab === "causes" && <CausesTab country={country} onCountry={(c) => go("causes", measure, c)} />}
       {tab === "outbreaks" && <OutbreaksTab />}
     </div>
   );
@@ -285,6 +288,96 @@ function LongTab() {
           <p className="caption">{l.indicator.sources}. Counts are cases reported, so a jump can also mean better reporting.</p>
         </div>
       )}
+    </>
+  );
+}
+
+function NotifiableCard() {
+  const [d, setD] = useState<Notifiable | null>(null);
+  const [pick, setPick] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [all, setAll] = useState(false);
+  useEffect(() => { diseaseApi.notifiable().then(setD).catch(() => setD(null)); }, []);
+  if (!d || !d.diseases.length) return null;
+  const sel = d.diseases.find((x) => x.key === pick) ?? d.diseases[0];
+  const list = d.diseases.filter((x) => !filter || x.name.toLowerCase().includes(filter.toLowerCase()));
+  const shown = all || filter ? list : list.slice(0, 20);
+  const nz = entityColors(["NZL"])[0] ?? "var(--accent)";
+  return (
+    <div className="card">
+      <div className="card-head"><h3>New Zealand&apos;s notifiable diseases, {d.year}</h3>
+        <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter diseases" aria-label="Filter diseases" />
+        <CardAsk onAsk={() => openAsk({ title: `New Zealand notifiable diseases ${d.year}`, entity: "NZL", parts: [{ key: "data", kind: "data", label: "Cases by disease",
+          text: d.diseases.map((x) => `${x.name}: ${x.latest} cases in ${x.year} (usual ${x.usual !== null ? Math.round(x.usual) : "–"})`).join("\n") }] })} /></div>
+      <div className="cards-2">
+        <div style={{ overflowX: "auto" }}>
+          <table className="small">
+            <thead><tr><th>Disease</th><th style={{ textAlign: "right" }}>Cases</th><th style={{ textAlign: "right" }}>Per 100,000</th>
+              <th style={{ textAlign: "right" }}>Against 5 years before</th><th /></tr></thead>
+            <tbody>{shown.map((x) => (
+              <tr key={x.key} style={{ fontWeight: x.key === sel.key ? 700 : undefined }}>
+                <td><button className="link" onClick={() => setPick(x.key)}>{x.name}</button></td>
+                <td style={{ textAlign: "right" }}>{Math.round(x.latest).toLocaleString()}</td>
+                <td style={{ textAlign: "right" }} className="muted">{x.latest_rate !== null ? x.latest_rate.toFixed(1) : "–"}</td>
+                <td style={{ textAlign: "right", color: x.ratio !== null && x.ratio >= 1.5 ? "var(--bad)" : x.ratio !== null && x.ratio <= 0.67 ? "var(--good)" : undefined }}>
+                  {x.ratio !== null ? `${Math.round(x.ratio * 100)}%` : "–"}</td>
+                <td><svg width="80" height="18" aria-hidden><path d={sparkPoints(x.cases.map((p) => [String(p[0]), p[1]]), 80, 18)} fill="none" stroke={nz} strokeWidth="1.2" /></svg></td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {!filter && list.length > 20 && <button className="link small" onClick={() => setAll(!all)}>{all ? "Show the top 20" : `Show all ${list.length}`}</button>}
+        </div>
+        <div>
+          <h4 style={{ margin: "0 0 4px" }}>{sel.name}: cases a year</h4>
+          <EChart option={() => notifiableOption(sel.name, sel.cases, nz)} height={300} label={`${sel.name} cases in New Zealand`} />
+        </div>
+      </div>
+      <p className="caption">Cases notified to public health services in the year, from PHF Science&apos;s Notifiable Diseases Intelligence Dashboard
+        (EpiSurv). &quot;Against 5 years before&quot; compares with the average of the five years before, leaving out 2020 and 2021.
+        PHF Science leaves out rates worked out from very few cases.</p>
+    </div>
+  );
+}
+
+function CausesTab({ country, onCountry }: { country: string; onCountry: (c: string) => void }) {
+  const [ids, setIds] = useState<string[]>(KEY.includes(country) ? KEY : [...KEY, country]);
+  const [c, setC] = useState<Causes | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [cause, setCause] = useState("");
+  const [more, setMore] = useState("");
+  useEffect(() => {
+    let live = true;
+    diseaseApi.causes(ids).then((x) => live && setC(x)).catch((e) => live && setErr(String(e.message || e)));
+    return () => { live = false; };
+  }, [ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (err) return <p className="error">{err}</p>;
+  if (!c) return <p className="muted">Loading…</p>;
+  if (!c.causes.length) return <p className="muted">No causes of death loaded yet; they come with <code>.\refresh.bat</code> (Our World in Data charts).</p>;
+  const pickCause = cause || c.causes[0].id;
+  const one = c.series.find((s) => s.entity === country);
+  const latest = one ? c.causes.map((k) => ({ k, p: one.causes[k.id]?.[one.causes[k.id].length - 1] })).filter((x) => x.p) : [];
+  return (
+    <>
+      <div className="chips-row small">
+        {ids.map((k) => <button key={k} className={`chip${k === country ? " on" : ""}`} aria-pressed={k === country} onClick={() => onCountry(k)}><Flag id={k} />{KEY_NAMES[k] ?? c.series.find((s) => s.entity === k)?.name ?? k}</button>)}
+        <CountryChoice value={more} onChange={(x) => { setMore(""); if (x && !ids.includes(x)) setIds([...ids, x].slice(-8)); onCountry(x); }} label="Another country" />
+      </div>
+      <div className="card">
+        <div className="card-head"><h3>{one?.name ?? country}: deaths per 100,000 by cause</h3>
+          <CardAsk onAsk={() => openAsk({ title: `Causes of death: ${one?.name ?? country}`, entity: country, parts: [{ key: "data", kind: "data", label: "Latest year",
+            text: latest.map((x) => `${x.k.name}: ${x.p![1].toFixed(1)} per 100,000 (${x.p![0]})`).join("\n") }] })} /></div>
+        {one && Object.keys(one.causes).length
+          ? <EChart option={() => causesOption(c, "country", country, ids)} height={400} label="Deaths by cause" />
+          : <p className="muted">The WHO Mortality Database has no figures for this country.</p>}
+        {latest.length > 0 && <p className="caption">Latest year {Math.max(...latest.map((x) => x.p![0]))}. {c.source}.</p>}
+      </div>
+      <div className="card">
+        <div className="card-head"><h3>One cause across countries</h3>
+          <select value={pickCause} onChange={(e) => setCause(e.target.value)} aria-label="Cause">{c.causes.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}</select></div>
+        <EChart option={() => causesOption(c, "cause", pickCause, ids)} height={360} label="One cause across countries" />
+        <p className="caption">Countries report causes from death certificates a year or more late, and New Zealand&apos;s figures in the WHO database stop
+          in 2018. Changes to how causes are coded (ICD revisions) can make small steps in a line.</p>
+      </div>
     </>
   );
 }

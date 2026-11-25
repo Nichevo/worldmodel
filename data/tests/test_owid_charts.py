@@ -33,3 +33,14 @@ def test_democracy_charts(tmp_path):
     assert got["democracy_eiu:NZL:2024"] == 9.61 and got["regime_row:CHN:2024"] == 0
     listed = {i["id"]: i for i in conn.listed_indicators}
     assert listed["democracy_eiu"]["domain"] == "democracy"
+
+
+def test_causes_of_death(tmp_path):
+    store = VintageStore(Paths(tmp_path / "var"))
+    conn = CONNECTORS["owid_grapher"]()
+    m, _ = conn.ingest(store, FIXTURES / "owid_grapher")
+    d = store.vintage_dir("owid_grapher", m.vintage)
+    got = dict(duckdb.sql(f"""SELECT indicator_id || ':' || year(period_start), value FROM '{d / 'observations.parquet'}'
+        WHERE source_code = 'NZL' AND indicator_id LIKE 'cause_death_rate_%'""").fetchall())
+    assert round(got["cause_death_rate_cancers:2018"], 1) == 112.4 and len(got) == 18
+    assert {i["domain"] for i in conn.listed_indicators if i["id"].startswith("cause_death_rate_")} == {"health"}
