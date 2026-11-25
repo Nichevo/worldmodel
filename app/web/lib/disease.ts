@@ -42,7 +42,28 @@ export type Notifiable = { year: number | null; diseases: { key: string; name: s
 export type Causes = { causes: { id: string; name: string }[]; source: string;
   series: { entity: string; name: string; causes: Record<string, [number, number][]> }[] };
 
+export type Forecast = {
+  season: number; label: string; split_week: number; weeks_seen: number; points: [number, string, number, number, number][];
+  peak: number; peak_lo: number; peak_hi: number; peak_week: string; peak_x: number; peak_passed: boolean; normal_peak: number;
+  vs_normal: number; signal_used: number | null; fit_weight: number; from_seasons: string[];
+};
+export type ForecastView = {
+  entity: string; measure: Measure; forecast: Forecast | null; note?: string | null;
+  signal?: { hemisphere: string; ratio: number | null; countries: { entity: string; name: string; season: string; ratio: number }[] };
+  skill?: { rows: { season: string; actual: number; forecast: number; plain: number; lo: number; hi: number; signal: number | null }[];
+    miss?: number; plain_miss?: number; inside?: number; of?: number } | null;
+};
+export type ForecastMap = {
+  measure: Measure; signals?: Record<string, { ratio: number | null; n: number }>;
+  rows: { entity: string; name: string; season: string; peak: number; peak_lo: number; peak_hi: number; peak_week: string; vs_normal: number;
+    peak_passed: boolean; weeks_seen: number }[];
+};
+export const FORECAST_MEASURES = ["flu_pct_positive", "flu_admissions_per_100k", "ili_pct_visits", "ili_rate_per_100k", "rsv_pct_positive",
+  "rsv_admissions_per_100k"];
+
 export const diseaseApi = {
+  forecast: (entity: string, measure: string) => get<ForecastView>(`/disease/forecast/${encodeURIComponent(entity)}`, { measure }),
+  forecastMap: (measure: string) => get<ForecastMap>("/disease/forecast-map", { measure }),
   notifiable: () => get<Notifiable>("/disease/notifiable"),
   causes: (entities: string[]) => get<Causes>("/disease/causes", { entities: entities.join(",") }),
   measures: () => get<Measures>("/disease/measures"),
@@ -84,7 +105,7 @@ function monthTicks(split: number): Map<number, string> {
 const axisMuted = () => ({ color: cssVar("--muted") });
 
 // This season over the earlier ones: the normal range shaded, past seasons thin grey, this one bold.
-export function seasonOption(v: Seasons, color: string, showAll: boolean): EChartsOption {
+export function seasonOption(v: Seasons, color: string, showAll: boolean, fc?: Forecast | null): EChartsOption {
   const base = chrome();
   const ticks = monthTicks(v.split_week ?? 1);
   const last = v.seasons[v.seasons.length - 1];
@@ -109,6 +130,18 @@ export function seasonOption(v: Seasons, color: string, showAll: boolean): EChar
       markPoint: pk ? { symbol: "circle", symbolSize: 8, itemStyle: { color }, label: { show: true, position: "top", color: cssVar("--ink"),
         formatter: `${last.label} peak ${fmt(pk[2], v.measure)}` }, data: [{ name: "peak", coord: [pk[0], pk[2]] }] } : undefined });
   }
+  if (fc && fc.points.length) {
+    const fcColor = cssVar("--accent") || color;
+    series.push({ type: "line", name: "fc-low", data: fc.points.map((p) => [p[0], p[3]]), stack: "fc", lineStyle: { opacity: 0 }, symbol: "none",
+      silent: true, tooltip: { show: false } });
+    series.push({ type: "line", name: `${fc.label} forecast range`, data: fc.points.map((p) => [p[0], p[4] - p[3]]), stack: "fc", symbol: "none",
+      lineStyle: { opacity: 0 }, areaStyle: { color: fcColor, opacity: 0.15 }, silent: true, tooltip: { show: false } });
+    series.push({ type: "line", name: `${fc.label} forecast`, data: fc.points.map((p) => [p[0], p[2], p[3], p[4]]), symbol: "none", z: 6,
+      lineStyle: { width: 2, type: "dashed", color: fcColor }, color: fcColor,
+      markPoint: fc.peak_passed ? undefined : { symbol: "circle", symbolSize: 7, itemStyle: { color: fcColor },
+        label: { show: true, position: "top", color: cssVar("--ink"), formatter: `forecast peak ${fmt(fc.peak, v.measure)}` },
+        data: [{ name: "forecast peak", coord: [fc.peak_x, fc.points.find((p) => p[0] === fc.peak_x)?.[2] ?? fc.peak] }] } });
+  }
   return {
     ...base,
     grid: { left: 8, right: 24, top: 28, bottom: 8, containLabel: true },
@@ -118,8 +151,9 @@ export function seasonOption(v: Seasons, color: string, showAll: boolean): EChar
     yAxis: { type: "value", min: 0, axisLabel: { ...axisMuted(), formatter: (x: number) => fmt(x, v.measure) }, splitLine: { lineStyle: { color: cssVar("--grid") } } },
     tooltip: { ...(base.tooltip as object), trigger: "item",
       formatter: (p: unknown) => {
-        const x = p as { seriesName: string; value: [number, number] };
-        return `${x.seriesName}, week ${x.value[0]} of the season: <b>${fmt(x.value[1], v.measure)}</b>`;
+        const x = p as { seriesName: string; value: number[] };
+        const range = x.value.length >= 4 ? `<br/>likely between ${fmt(x.value[2], v.measure)} and ${fmt(x.value[3], v.measure)}` : "";
+        return `${x.seriesName}, week ${x.value[0]} of the season: <b>${fmt(x.value[1], v.measure)}</b>${range}`;
       } },
     series,
   };

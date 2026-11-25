@@ -11,11 +11,12 @@ import Flag from "@/components/Flag";
 import WorldMap from "@/components/WorldMap";
 import { openAsk } from "@/lib/ai";
 import {
-  type Causes, causesOption, type Compare, compareOption, diseaseApi, type Notifiable, notifiableOption, sparkPoints, fmt, heatOption, KEY, KEY_NAMES, LEVEL_TONE, type Long, longOption, type Measure, type Measures,
+  type Causes, causesOption, FORECAST_MEASURES, type ForecastMap, type ForecastView, type Compare, compareOption, diseaseApi, type Notifiable, notifiableOption, sparkPoints, fmt, heatOption, KEY, KEY_NAMES, LEVEL_TONE, type Long, longOption, type Measure, type Measures,
   type Now, type Outbreak, type Seasons, seasonOption, trendWord, weekLabel,
 } from "@/lib/disease";
 import { entityColors } from "@/lib/look";
 import { logHistory } from "@/lib/history";
+import { useSettings } from "@/lib/settings";
 
 // Flu, COVID, RSV, measles and other infections: how much there is now against the usual for the
 // time of year, this season against past ones, the key countries side by side, a century of yearly
@@ -107,6 +108,17 @@ function NowTab({ measure, m, onCountry }: { measure: string; m: Measure | null;
   const [d, setD] = useState<Now | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const settings = useSettings();
+  const canForecast = FORECAST_MEASURES.includes(measure);
+  const [mode, setMode] = useState<"now" | "forecast" | null>(null);
+  const showFc = canForecast && (mode ?? (settings.disease_forecast ? "forecast" : "now")) === "forecast";
+  const [fm, setFm] = useState<ForecastMap | null>(null);
+  useEffect(() => {
+    let live = true;
+    setFm(null);
+    if (showFc) diseaseApi.forecastMap(measure).then((x) => live && setFm(x)).catch(() => live && setFm({ measure: {} as Measure, rows: [] }));
+    return () => { live = false; };
+  }, [measure, showFc]);
   useEffect(() => {
     let live = true;
     setD(null);
@@ -122,7 +134,45 @@ function NowTab({ measure, m, onCountry }: { measure: string; m: Measure | null;
   const rows = d.rows.filter((r) => !filter || r.name.toLowerCase().includes(filter.toLowerCase()));
   return (
     <>
-      {countries.length > 1 && (
+      {canForecast && (
+        <div className="chips-row small">
+          <span className="seg">
+            <button className={!showFc ? "on" : ""} onClick={() => setMode("now")}>Latest week</button>
+            <button className={showFc ? "on" : ""} onClick={() => setMode("forecast")}>Forecast peak</button>
+          </span>
+          {showFc && fm?.signals && <span className="muted">Latest southern season {fm.signals.southern?.ratio ? `${Math.round(fm.signals.southern.ratio * 100)}%` : "–"} of
+            usual, northern {fm.signals.northern?.ratio ? `${Math.round(fm.signals.northern.ratio * 100)}%` : "–"}</span>}
+        </div>
+      )}
+      {showFc && (
+        <div className="card">
+          <h3>Forecast peak of each country&apos;s season under way (or next), as % of its usual peak</h3>
+          {!fm ? <p className="muted">Working out forecasts…</p> : !fm.rows.length ? <p className="muted">No forecasts: each needs three or more earlier seasons.</p> : (
+            <>
+              <div className="map-box" style={{ height: 420 }}>
+                <WorldMap fill values={fm.rows.filter((r) => /^[A-Z]{3}$/.test(r.entity)).map((r) => ({ entity_id: r.entity, value: Math.round(r.vs_normal * 100), status: "P" }))}
+                  unit="% of usual peak" decimals={0} diverging={false} onPick={onCountry} />
+              </div>
+              <table className="small">
+                <thead><tr><th>Place</th><th>Season</th><th style={{ textAlign: "right" }}>Forecast peak</th><th style={{ textAlign: "right" }}>Likely range</th>
+                  <th>Around</th><th style={{ textAlign: "right" }}>Of usual peak</th></tr></thead>
+                <tbody>{fm.rows.filter((r) => !filter || r.name.toLowerCase().includes(filter.toLowerCase())).slice(0, 60).map((r) => (
+                  <tr key={r.entity} style={{ fontWeight: KEY.includes(r.entity) ? 600 : undefined }}>
+                    <td><button className="link" onClick={() => onCountry(r.entity)}><Flag id={r.entity} />{r.name}</button></td>
+                    <td className="muted">{r.season}{r.weeks_seen ? "" : " (not started)"}</td>
+                    <td style={{ textAlign: "right" }}>{r.peak_passed ? <span className="muted">passed</span> : fmt(r.peak, m ?? d.measure)}</td>
+                    <td style={{ textAlign: "right" }} className="muted">{fmt(r.peak_lo, m ?? d.measure)}-{fmt(r.peak_hi, m ?? d.measure)}</td>
+                    <td className="muted">{weekLabel(r.peak_week)}</td>
+                    <td style={{ textAlign: "right", color: r.vs_normal >= 1.3 ? "var(--bad)" : r.vs_normal <= 0.77 ? "var(--good)" : undefined }}>{Math.round(r.vs_normal * 100)}%</td>
+                  </tr>))}</tbody>
+              </table>
+              <p className="caption">Each forecast scales the country&apos;s past seasons by how big the latest season was in the other hemisphere (at half
+                strength) and fits them to the weeks seen so far. Click a country for its forecast chart and how well past forecasts did.</p>
+            </>
+          )}
+        </div>
+      )}
+      {!showFc && countries.length > 1 && (
         <div className="card">
           <h3>{byRatio ? "Latest week as % of the usual for the time of year" : `Latest week: ${d.measure.label}`}</h3>
           <div className="map-box" style={{ height: 420 }}>
@@ -164,6 +214,17 @@ function SeasonsTab({ measure, country, onCountry }: { measure: string; country:
   const [heat, setHeat] = useState<Seasons | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const settings = useSettings();
+  const canForecast = FORECAST_MEASURES.includes(measure);
+  const [showFc, setShowFc] = useState<boolean | null>(null);
+  const fcOn = canForecast && (showFc ?? settings.disease_forecast);
+  const [fc, setFc] = useState<ForecastView | null>(null);
+  useEffect(() => {
+    let live = true;
+    setFc(null);
+    if (fcOn) diseaseApi.forecast(country, measure).then((x) => live && setFc(x)).catch(() => live && setFc(null));
+    return () => { live = false; };
+  }, [country, measure, fcOn]);
   useEffect(() => {
     let live = true;
     setV(null); setHeat(null); setErr(null);
@@ -197,11 +258,13 @@ function SeasonsTab({ measure, country, onCountry }: { measure: string; country:
           <div className="card">
             <div className="card-head"><h3>{v.measure.label}, each season week by week</h3>
               <label className="small"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> All past seasons</label>
+              {canForecast && <label className="small"><input type="checkbox" checked={fcOn} onChange={(e) => setShowFc(e.target.checked)} /> Forecast</label>}
               <CardAsk onAsk={() => openAsk({ title: `${v.measure.label} seasons, ${country}`, entity: country, parts: [{ key: "data", kind: "data", label: "Season peaks",
                 text: v.seasons.map((s) => `${s.label}: peak ${fmt(s.peak, v.measure)}`).join("\n") }] })} /></div>
-            <EChart option={() => seasonOption(v, color, all)} height={380} label={`${v.measure.label} by season`} />
+            <EChart option={() => seasonOption(v, color, all, fcOn ? fc?.forecast : null)} height={380} label={`${v.measure.label} by season`} />
             <p className="caption">{v.season_note ?? ""} {v.sources?.length ? `Source: ${v.sources.join(", ")}.` : ""}</p>
           </div>
+          {fcOn && fc && <ForecastCard f={fc} country={country} />}
           {heat && heat.seasons.length > 1 && (
             <div className="card">
               <h3>Every season at a glance</h3>
@@ -212,6 +275,53 @@ function SeasonsTab({ measure, country, onCountry }: { measure: string; country:
         </>
       )}
     </>
+  );
+}
+
+function ForecastCard({ f, country }: { f: ForecastView; country: string }) {
+  const x = f.forecast;
+  if (!x) return <div className="card"><h3>Forecast</h3><p className="muted small">{f.note}</p></div>;
+  const m = f.measure;
+  const sig = f.signal;
+  const sk = f.skill;
+  const pct = (r: number) => `${Math.round(r * 100)}%`;
+  return (
+    <div className="card">
+      <div className="card-head"><h3>{x.label} season forecast</h3>
+        <CardAsk onAsk={() => openAsk({ title: `${m.label} forecast, ${country}`, entity: country, parts: [{ key: "data", kind: "data", label: "Forecast",
+          text: [`Season ${x.label}: peak ${fmt(x.peak, m)} (likely ${fmt(x.peak_lo, m)} to ${fmt(x.peak_hi, m)}) around ${x.peak_week}; usual peak ${fmt(x.normal_peak, m)}.`,
+            sig ? `Other (${sig.hemisphere}) hemisphere's latest season: ${sig.ratio !== null ? pct(sig.ratio) : "unknown"} of usual.` : "",
+            sk?.of ? `Past forecasts missed the peak by ${pct(sk.miss ?? 0)} typically (own seasons only: ${pct(sk.plain_miss ?? 0)}).` : ""].join("\n") }] })} /></div>
+      <p style={{ margin: "0 0 6px" }}>
+        {x.peak_passed ? <>The peak looks to have passed. </> : <>Peak expected around <b>{weekLabel(x.peak_week)}</b> at <b>{fmt(x.peak, m)}</b>{" "}
+          (likely {fmt(x.peak_lo, m)} to {fmt(x.peak_hi, m)}), </>}
+        {!x.peak_passed && <span style={{ color: x.vs_normal >= 1.3 ? "var(--bad)" : x.vs_normal <= 0.77 ? "var(--good)" : undefined }}>{pct(x.vs_normal)} of the usual peak</span>}
+        {!x.peak_passed && "."} {x.weeks_seen ? `${x.weeks_seen} weeks of this season seen so far.` : "The season has not started yet."}
+      </p>
+      {sig && (
+        <p className="small" style={{ margin: "0 0 6px" }}>
+          <b>Other hemisphere:</b> the latest {sig.hemisphere} season was {sig.ratio !== null ? <b>{pct(sig.ratio)} of usual</b> : "not known"}
+          {sig.countries.length ? <> (median of {sig.countries.length}: {sig.countries.slice(0, 6).map((c) => `${c.name} ${c.season} ${pct(c.ratio)}`).join(", ")}
+            {sig.countries.length > 6 ? "…" : ""})</> : null}.
+          {x.signal_used !== null ? ` Used at half strength, so the forecast starts at ${pct(x.signal_used)} of usual` : " Not used"}
+          {x.fit_weight ? `, then fitted to the weeks seen (${pct(x.fit_weight)} weight)` : ""}.
+        </p>
+      )}
+      {sk && sk.of ? (
+        <details className="small">
+          <summary>How good it has been: the peak forecast before each season missed by {pct(sk.miss ?? 0)} typically, against {pct(sk.plain_miss ?? 0)}{" "}
+            for expecting the usual peak; {sk.inside} of {sk.of} peaks fell in the range.</summary>
+          <table className="small"><thead><tr><th>Season</th><th style={{ textAlign: "right" }}>Forecast</th><th style={{ textAlign: "right" }}>Range</th>
+            <th style={{ textAlign: "right" }}>Usual-peak guess</th><th style={{ textAlign: "right" }}>Actual peak</th></tr></thead>
+            <tbody>{sk.rows.map((r) => <tr key={r.season}><td>{r.season}</td><td style={{ textAlign: "right" }}>{fmt(r.forecast, m)}</td>
+              <td style={{ textAlign: "right" }} className="muted">{fmt(r.lo, m)}-{fmt(r.hi, m)}</td><td style={{ textAlign: "right" }} className="muted">{fmt(r.plain, m)}</td>
+              <td style={{ textAlign: "right" }}><b>{fmt(r.actual, m)}</b></td></tr>)}</tbody></table>
+        </details>
+      ) : null}
+      <p className="caption">Built from {x.from_seasons.length} earlier seasons ({x.from_seasons[0]} to {x.from_seasons[x.from_seasons.length - 1]}), each scaled to the usual peak
+        and the other hemisphere&apos;s signal, and slid and fitted to the weeks seen; the dashed line is their weighted middle, the shading the middle 80%.
+        A new strain can make any season break the pattern.</p>
+    </div>
   );
 }
 
