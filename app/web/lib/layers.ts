@@ -39,6 +39,8 @@ type Style = {
   timed?: boolean; // asked again when the map's time window changes (the fighting layer)
   once?: boolean; // a "window" layer read once, whatever the view (the front line: one shape)
 };
+const riverWidth: ExpressionSpecification =
+  ["interpolate", ["linear"], ["coalesce", ["get", "order"], ["get", "rank"], 5], 1, 3.2, 3, 1.8, 5, 0.8, 7, 0.4];
 const zoomWidth = (w0: number, w5: number): ExpressionSpecification => ["interpolate", ["linear"], ["zoom"], 0, w0, 5, w5];
 
 export const LAYER_STYLE: Record<string, Style> = {
@@ -228,9 +230,9 @@ export const LAYER_STYLE: Record<string, Style> = {
   rivers: {
     legend: "River, wider for more water (more appear as you zoom in)", swatch: () => cssVar("--series-1"), fetch: "window", click: "feature",
     paint: () => ({ "line-color": cssVar("--series-1"), "line-opacity": 0.75,
-      // width by flow order (1 the Amazon, 7 a stream), thicker as you zoom in
-      "line-width": ["*", ["interpolate", ["linear"], ["zoom"], 1, 0.8, 6, 1.4],
-        ["interpolate", ["linear"], ["coalesce", ["get", "order"], ["get", "rank"], 5], 1, 3.2, 3, 1.8, 5, 0.8, 7, 0.4]] }),
+      // width by flow order (1 the Amazon, 7 a stream), thicker as you zoom in; MapLibre needs
+      // "zoom" in a top-level interpolate, so the order's width sits inside each zoom stop
+      "line-width": ["interpolate", ["linear"], ["zoom"], 1, ["*", 0.8, riverWidth], 6, ["*", 1.4, riverWidth]] }),
   },
   basins: {
     legend: "River basin (outlined; darker: shared by several countries)", swatch: () => cssVar("--series-1"), fill: true, fetch: "window", click: "feature",
