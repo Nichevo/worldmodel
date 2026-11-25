@@ -228,5 +228,8 @@ async function addDetailNow(m: maplibregl.Map, mode: BaseMap): Promise<string | 
     : "Map detail: Protomaps, © OpenStreetMap contributors";
 }
 
-// How far in a map may zoom: further with detail to show.
-export const maxZoomFor = (mode: BaseMap, files = 0) => (mode === "online" || (mode === "local" && files > 0) ? 16 : 7);
+// How far in a map may zoom. The same for every kind of detail, "Countries only" too:
+// a plain map used to stop at 7, which felt like zoom was broken (and cut short any
+// picture under the colours, or points and lines on top, which go in much further).
+// The arguments stay so callers need not change.
+export const maxZoomFor = (_mode?: BaseMap, _files = 0) => 16;
