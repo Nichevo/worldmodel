@@ -100,6 +100,8 @@ export const DEFAULT_SETTINGS: Settings = {
   map_hospital_beds: 200,
   map_hospitals_unsized: false,
   map_hospitals_all: true,
+  map_hospitals_lists: "Wikidata,OpenStreetMap,Overture,Official lists",
+  map_hospitals_kinds: "hospital,unsure,clinic",
   hospitals_osm_fetch: true,
   hospitals_overture_fetch: true,
   hospitals_overture_countries: "",

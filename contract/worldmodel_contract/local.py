@@ -72,6 +72,8 @@ SETTINGS: dict[str, object] = {
     "map_hospital_beds": 200,        # the Hospitals map layer shows hospitals with at least this many beds
     "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
     "map_hospitals_all": True,       # the Hospitals layer shows every hospital from every list (the two above apply when off)
+    "map_hospitals_lists": "Wikidata,OpenStreetMap,Overture,Official lists",  # lists whose hospitals the map shows
+    "map_hospitals_kinds": "hospital,unsure,clinic",  # likely hospitals, unsure, likely clinics: which the map shows
     "hospitals_osm_fetch": True,     # refresh fetches OpenStreetMap's hospitals (healthsites.io on HDX, every 3 months) and hospital counts
     "hospitals_overture_fetch": True,  # refresh reads Overture's hospitals for the countries below (every 6 months)
     "hospitals_overture_countries": "",  # three-letter codes, comma separated; empty: the countries in contract health.py

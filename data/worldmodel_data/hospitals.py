@@ -48,6 +48,55 @@ def _metres(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 6_371_000 * math.hypot(x, math.radians(lat2 - lat1))
 
 
+# Likely hospital or likely clinic, from what the lists say. Words are matched in lower case
+# anywhere in the name, so the CJK ones need no spaces round them.
+CLINIC_WORDS = (
+    "clinic", "clínica", "clinica", "clinique", "polyclinic", "poliklinik", "policlínica", "dispensary", "dispensaire",
+    "health centre", "health center", "healthcentre", "health post", "health station", "health unit", "centro de salud",
+    "centro de saúde", "posto de saúde", "unidade básica", "ubs ", "puskesmas", "klinik pratama", "trạm y tế", "phòng khám",
+    "physiotherapy", "maternity home", "birthing", "medical centre",
+    "诊所", "卫生所", "卫生室", "卫生院", "卫生服务", "门诊", "医务室", "保健站", "诊疗", "診療所", "クリニック", "의원", "보건소",
+)
+# A place in or beside a hospital, or a service on its own: never a hospital, whatever else the name says.
+NOT_A_HOSPITAL = ("dental", "dentist", "dialysis", "eye care", "optical", "pharmacy", "pharmacie", "laboratory", "diagnostic",
+                  "imaging", "x-ray", "office", "cafeteria", "parking", "car park", "blood bank", "血液中心")
+HOSPITAL_WORDS = (
+    "hospital", "hôpital", "hopital", "ospedale", "krankenhaus", "klinikum", "ziekenhuis", "sjukhus", "sykehus", "sairaala",
+    "szpital", "nemocnice", "kórház", "spital", "bolnica", "больница", "лікарня", "госпиталь", "rumah sakit", "bệnh viện",
+    "โรงพยาบาล", "hastane", "مستشفى", "बेड", "अस्पताल", "医院", "病院", "병원", "infirmary", "medical college",
+)
+BIG_BEDS, SMALL_BEDS = 50, 20
+
+
+def tier(p: dict) -> str:
+    """'hospital' (likely a full hospital), 'clinic' (likely a clinic, health post or something
+    inside a hospital) or 'unsure'. Beds decide first; then the kind a list gives; then words in
+    the name (a clinic word counts only without a hospital word: Hospital das Clínicas); then the list
+    (Wikidata's and official lists' hospitals, and emergency departments, count as hospitals)."""
+    beds = p.get("beds")
+    if isinstance(beds, (int, float)) and beds >= BIG_BEDS:
+        return "hospital"
+    if isinstance(beds, (int, float)) and 0 < beds < SMALL_BEDS:
+        return "clinic"
+    name = f" {str(p.get('name') or '').lower().replace('hospital (no name given)', '')} "
+    kind = str(p.get("kind") or "").lower()
+    if kind in ("day hospital", "mixed unit") or any(w in kind for w in ("health centre", "health center", "dispensary", "post", "clinic")):
+        return "clinic"
+    if "hospital" in kind:
+        return "hospital"
+    if any(w in name for w in NOT_A_HOSPITAL):
+        return "clinic"
+    has_hospital_word = any(w in name for w in HOSPITAL_WORDS)
+    if any(w in name for w in CLINIC_WORDS) and not has_hospital_word:
+        return "clinic"
+    found = str(p.get("found") or "")
+    if has_hospital_word:
+        return "hospital"
+    if "Wikidata" in found or "Official lists" in found or str(p.get("emergency") or "").lower() == "yes":
+        return "hospital"
+    return "unsure"
+
+
 def merge(layers: dict[str, list[dict]]) -> list[dict]:
     """The features of each list's layer (keyed by contract SOURCES key), merged in SOURCES order."""
     cell = spec.MATCH_M / 111_000  # degrees of latitude
@@ -83,16 +132,17 @@ def merge(layers: dict[str, list[dict]]) -> list[dict]:
                 for key in ("beds",):
                     if isinstance(p.get(key), (int, float)) and (k["props"].get(key) is None or p[key] > k["props"][key]):
                         k["props"][key] = p[key]
-                for key in ("country", "url", "id"):
+                for key in ("country", "url", "id", "kind", "emergency"):
                     if p.get(key) and not k["props"].get(key):
                         k["props"][key] = p[key]
                 continue
             grid[(gy, gx)].append(len(kept))
             kept.append({"lat": lat, "lon": lon, "name": name, "found": [short],
-                         "props": {k: v for k, v in p.items() if k in ("country", "beds", "id", "url", "kind", "list")}})
+                         "props": {k: v for k, v in p.items() if k in ("country", "beds", "id", "url", "kind", "list", "emergency")}})
     out = []
     for n, k in enumerate(kept):
         props = {"name": k["name"], **k["props"], "found": " + ".join(k["found"])}
+        props["tier"] = tier(props)
         props.setdefault("id", f"h{n}")
         out.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(k["lon"], 5), round(k["lat"], 5)]},
                     "properties": props})

@@ -316,7 +316,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "t", id: "transit_stations", label: "Metro and rail stations", group: "cities" },
   { letter: "l", id: "transit_lines", label: "Metro and rail lines", group: "cities", hint: "Straight lines between neighbouring stations, coloured by line (Wikidata)" },
   { letter: "_", id: "nz_wastewater", label: "COVID in wastewater (NZ)", group: "cities", hint: "New Zealand's wastewater test sites, sized by people served, coloured by how the latest week compares with the month before (PHF Science); all countries on the Disease page" },
-  { letter: "h", id: "hospitals", label: "Hospitals", group: "cities", hint: "Hospitals above the size set in Settings > Places (Wikidata)" },
+  { letter: "h", id: "hospitals", label: "Hospitals", group: "cities", hint: "Hospitals from Wikidata, OpenStreetMap, Overture and official lists; pick lists and kinds once it is on" },
   { letter: "m", id: "military_bases", label: "Military bases", group: "conflict", hint: "Military, air and naval bases (Wikidata; the well-known ones)" },
   { letter: "o", id: "companies", label: "Big company head offices", group: "cities" },
   { letter: "H", id: "heritage_sites", label: "World Heritage sites", group: "sights", hint: "UNESCO World Heritage sites; red rings are sites in danger" },

@@ -378,6 +378,7 @@ class HealthsitesOSM(Connector):
 # ----------------------------------------------------------------------------- official national lists
 CNES_URL = "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/CNES/cnes_estabelecimentos.zip"
 CNES_HOSPITAL_TYPES = {"5", "7", "15", "62"}  # general, specialised, mixed unit, day hospital
+CNES_KINDS = {"5": "general hospital", "7": "specialised hospital", "15": "mixed unit", "62": "day hospital"}
 AFRICA_URL = ("https://data.humdata.org/dataset/eb1ba830-9464-43c8-9370-28cee0c99f5d/resource/"
               "758d5c17-88f4-42b2-9d4b-4bfe32d4acf7/download/sub-saharan_health_facilities.xlsx")
 AFRICA_FILE = "sub-saharan_health_facilities.xlsx"
@@ -399,7 +400,8 @@ def cnes_rows(zp: Path) -> list[dict]:
                 if lat is None or lon is None:
                     continue
                 out.append({"name": (r.get("NO_FANTASIA") or r.get("NO_RAZAO_SOCIAL") or "").title(), "lat": lat, "lon": lon,
-                            "country": "BRA", "id": f"cnes:{(r.get('CO_CNES') or '').strip()}", "list": "CNES (Brazil)"})
+                            "country": "BRA", "id": f"cnes:{(r.get('CO_CNES') or '').strip()}", "list": "CNES (Brazil)",
+                            "kind": CNES_KINDS.get(str(r.get("TP_UNIDADE") or "").strip().lstrip("0"))})
     return out
 
 
@@ -442,6 +444,7 @@ class NationalHospitals(Connector):
     switch = "hospitals_national_fetch"
     fetch_every_days = 90
     keeps_files = True
+    stage_version = 2  # 2: Brazil's unit type kept as the hospital's kind
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")

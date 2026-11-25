@@ -54,6 +54,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const on = (l: string) => letters.includes(l);
   const st = useSettings();
   const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized, map_hospitals_all: allHospitals } = st;
+  const hospLists = (st.map_hospitals_lists ?? HOSPITAL_LISTS.join(",")).split(",").filter(Boolean);
+  const hospKinds = (st.map_hospitals_kinds ?? "hospital,unsure,clinic").split(",").filter(Boolean);
   const [spotted, setSpotted] = useState<LayerPoint[] | null>(null);
   useEffect(() => {
     if (!on("0")) return;
@@ -150,7 +152,12 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       earthquakes: ["all", [">=", ["to-string", ["get", "date"]], start], ["<=", ["to-string", ["get", "date"]], `${end}~`]],
       storm_tracks: ["all", [">=", ["get", "year"], +start.slice(0, 4)], ["<=", ["get", "year"], +end.slice(0, 4)]],
       // Every hospital from every list, or (Settings > Places) those above a size and, if asked, those with no bed count.
-      hospitals: allHospitals === false ? ["any", [">=", ["coalesce", ["get", "beds"], -1], minBeds ?? 200], unsized ? ["!", ["has", "beds"]] : false] : null,
+      // Only the lists and likely kinds ticked in the Layers panel (dots from before the lists were split pass the list test).
+      hospitals: ["all",
+        ...(allHospitals === false ? [["any", [">=", ["coalesce", ["get", "beds"], -1], minBeds ?? 200], unsized ? ["!", ["has", "beds"]] : false]] : []),
+        ...(hospLists.length < HOSPITAL_LISTS.length
+          ? [["any", ["!", ["has", "found"]], ...hospLists.map((l) => ["in", l, ["get", "found"]])]] : []),
+        ...(hospKinds.length < 3 ? [["in", ["coalesce", ["get", "tier"], "hospital"], ["literal", hospKinds]]] : [])],
     };
     const legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[] = [];
     if (on("w") && outlines.length) {
@@ -493,6 +500,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       </div>
           )}
           {panel.layers.includes("y") && <PastYear />}
+          {panel.layers.includes("h") && <HospitalPick />}
 
           <div className="lp-section">
             <div className="lp-label">Quick sets</div>
@@ -546,6 +554,43 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
 
 // The World in year layer's own year: a slider over 5,400 years, quick jumps, and Play.
 const JUMPS = [-500, 1, 500, 1000, 1300, 1500, 1700, 1800, 1900, 1914, 1939, 2000];
+// The lists the Hospitals layer is merged from, as each dot's "found" names them.
+export const HOSPITAL_LISTS = ["Wikidata", "OpenStreetMap", "Overture", "Official lists"];
+const HOSPITAL_KINDS: [string, string, string][] = [
+  ["hospital", "Likely hospitals", "Beds of 50 or more, a hospital word in the name, or listed by Wikidata, an official list or with an emergency department"],
+  ["unsure", "Not sure", "Called a hospital by OpenStreetMap or Overture with nothing else to go on (often no name)"],
+  ["clinic", "Likely clinics", "Fewer than 20 beds, or a clinic, health post, dental, dialysis or office word in the name (诊所, 卫生院, puskesmas...)"],
+];
+
+// Hospitals: which lists and which likely kinds the layer shows, on every map (saved in Settings).
+function HospitalPick() {
+  const s = useSettings();
+  const lists = (s.map_hospitals_lists ?? HOSPITAL_LISTS.join(",")).split(",").filter(Boolean);
+  const kinds = (s.map_hospitals_kinds ?? "hospital,unsure,clinic").split(",").filter(Boolean);
+  const flip = (have: string[], x: string, all: string[]) => all.filter((a) => (a === x ? !have.includes(a) : have.includes(a))).join(",");
+  return (
+    <div className="lp-section">
+      <div className="lp-label">Hospitals: lists shown</div>
+      <div className="chips-row">
+        {HOSPITAL_LISTS.map((l) => (
+          <label key={l} className="small" style={{ marginRight: 10 }}>
+            <input type="checkbox" checked={lists.includes(l)} onChange={() => saveSettings({ map_hospitals_lists: flip(lists, l, HOSPITAL_LISTS) })} /> {l}
+          </label>))}
+      </div>
+      <div className="lp-label">Kinds shown</div>
+      <div className="chips-row">
+        {HOSPITAL_KINDS.map(([k, label, why]) => (
+          <label key={k} className="small" style={{ marginRight: 10 }} title={why}>
+            <input type="checkbox" checked={kinds.includes(k)}
+              onChange={() => saveSettings({ map_hospitals_kinds: flip(kinds, k, HOSPITAL_KINDS.map((x) => x[0])) })} /> {label}
+          </label>))}
+      </div>
+      <p className="caption">A hospital two lists share shows if either is ticked. Solid dots are likely hospitals, pale ones unsure,
+        rings likely clinics; hover a kind for how it is told. <Link href="/layers/hospitals?tab=sizes">Details</Link> has counts by list.</p>
+    </div>
+  );
+}
+
 function PastYear() {
   const y = useMapYear();
   const [playing, setPlaying] = useState(false);

@@ -167,7 +167,7 @@ def detail(q: Q, key: str, layer_id: str, live=None, country_of=None) -> dict:
     its = items(q, key, d, live, country_of)
     info = _info(q, d)
     if not its:
-        return {"layer": info, "totals": {"count": 0}, "countries": [], "groups": [], "sizes": [], "categories": []}
+        return {"layer": info, "totals": {"count": 0}, "countries": [], "groups": [], "sizes": [], "categories": [], "by_list": []}
     names = _names(q)
     pop, area = _latest(q, "pop_total"), _latest(q, "land_area")
     offs = {o.indicator: _latest(q, o.indicator) for o in d.official}
@@ -193,7 +193,27 @@ def detail(q: Q, key: str, layer_id: str, live=None, country_of=None) -> dict:
               "largest": (lambda b: {"name": b["name"], "size": b["size"], "entity_id": b["entity_id"]})(
                   max((i for i in uniq if i["size"] is not None), key=lambda i: i["size"])) if sizes else None}
     return {"layer": info, "totals": totals, "countries": countries, "groups": groups,
-            "sizes": _bands(d, uniq), "categories": _categories(d, uniq)}
+            "sizes": _bands(d, uniq), "categories": _categories(d, uniq), "by_list": _by_list(uniq)}
+
+
+def _by_list(uniq: list[dict]) -> list[dict]:
+    """Layers merged from several lists (hospitals): for each list, how many items it has, how many
+    only it has, and how many are likely hospitals, unsure or likely clinics."""
+    if not any((i.get("props") or {}).get("tier") for i in uniq[:200]):
+        return []
+    lists: dict[str, dict] = {}
+    for i in uniq:
+        p = i.get("props") or {}
+        found = [x.strip() for x in str(i.get("category") or p.get("found") or "").split("+") if x.strip()]
+        for name in found:
+            r = lists.setdefault(name, {"list": name, "count": 0, "only": 0, "hospital": 0, "unsure": 0, "clinic": 0})
+            r["count"] += 1
+            r["only"] += len(found) == 1
+            t = p.get("tier") or "unsure"
+            r[t if t in ("hospital", "unsure", "clinic") else "unsure"] += 1
+    total = {"list": "All lists", "count": len(uniq), "only": None,
+             **{t: sum(1 for i in uniq if ((i.get("props") or {}).get("tier") or "unsure") == t) for t in ("hospital", "unsure", "clinic")}}
+    return sorted(lists.values(), key=lambda r: -r["count"]) + [total]
 
 
 def _groups(q: Q, d, by, names, pop, area, offs) -> list[dict]:
