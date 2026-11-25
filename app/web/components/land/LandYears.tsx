@@ -9,6 +9,7 @@ import * as maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import CountryChoice from "@/components/CountryChoice";
+import { quietMapErrors } from "@/lib/basemap";
 import { openAsk } from "@/lib/ai";
 import { cssVar } from "@/lib/colors";
 import { compact } from "@/lib/format";
@@ -109,6 +110,7 @@ function YearsMap({ geometry, tiles, maxzoom, colour }: { geometry?: GeoJSON.Geo
       style: { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": cssVar("--no-data") } }] },
       center: [174, -41], zoom: 3, maxZoom: 14, dragRotate: false, pitchWithRotate: false, renderWorldCopies: true, attributionControl: false,
     });
+    quietMapErrors(m);
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.current = m;
     m.on("load", () => {

@@ -8,6 +8,7 @@
 import * as maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { makeScale } from "@/components/WorldMap";
+import { quietMapErrors } from "@/lib/basemap";
 import { cssVar } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
 import { short } from "@/lib/sectors";
@@ -52,6 +53,7 @@ export default function RegionMap({ shapes, values, unit, decimals, selected, on
       style: { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": cssVar("--surface") } }] },
       center: [-100, 40], zoom: 2, dragRotate: false, pitchWithRotate: false, renderWorldCopies: true, attributionControl: false,
     });
+    quietMapErrors(m);
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.current = m;
     m.on("load", () => {
