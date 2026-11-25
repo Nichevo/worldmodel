@@ -1589,3 +1589,32 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .disease-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; color: inherit; text-decoration: none; }
 .disease-tile:hover { border-color: var(--axis); }
 .disease-tile b { font-size: 1.25rem; }
+
+/* Weather layers: the weather bar over the map, the clicked place's forecast (WeatherOverlay, ForecastCard) */
+.wx-bar, .wx-card { position: absolute; z-index: 500; background: var(--surface); color: var(--ink); border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .18); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.wx-bar { left: 10px; bottom: 28px; width: min(340px, calc(100% - 20px)); max-height: calc(100% - 60px); overflow-y: auto; }
+.wx-bar.shut { width: auto; }
+.wx-bar > *, .wx-card > * { flex-shrink: 0; }
+.wx-bar .caption, .wx-forecast .caption { margin: 0; }
+.wx-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wx-head .small { margin-right: auto; font-variant-numeric: tabular-nums; }
+.wx-time { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.wx-time input { width: 100%; }
+.wx-key { display: flex; flex-direction: column; gap: 2px; }
+.wx-ramp { height: 10px; border-radius: 3px; border: 1px solid var(--border); }
+.wx-ticks { position: relative; height: 13px; font-size: 10.5px; color: var(--ink-2); }
+.wx-ticks span { position: absolute; transform: translateX(-50%); }
+.wx-ticks span:first-child { transform: none; }
+.wx-ticks span:last-child { transform: translateX(-100%); }
+.wx-under { font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.wx-card { right: 52px; top: 10px; width: min(360px, calc(100% - 64px)); max-height: calc(100% - 40px); overflow-y: auto; }
+.wx-forecast { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wx-now { display: flex; gap: 10px; align-items: center; }
+.wx-big { font-size: 2rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.wx-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(44px, 1fr); gap: 2px; overflow-x: auto; }
+.wx-day { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 12px; padding: 4px 2px; border-radius: 6px;
+  background: var(--surface-2); font-variant-numeric: tabular-nums; text-align: center; }
+.wx-rain { color: #2878e6; font-size: 11px; }
+.wx-chart { width: 100%; height: auto; display: block; }
+@media (max-width: 640px) { .wx-card { right: 10px; width: calc(100% - 20px); } }

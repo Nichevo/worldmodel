@@ -20,6 +20,10 @@ terms are marked so they can be swapped if that ever changes
 | Notable episodes | Typed by hand from the sources linked on each row of `notable_episodes.csv` | n/a |
 | Country introductions and pictures (fetched on your computer, not in the repository) | Wikipedia (en.wikipedia.org) text; pictures from Wikimedia Commons, each credited with its author and licence on the page where it is shown | Text CC BY-SA 4.0; pictures under their own licences, mostly CC BY-SA or public domain |
 | Country list and UN M49 regions in the crosswalk | UN M49, packaged by github.com/lukes/ISO-3166-Countries-with-Regional-Codes | CC BY-SA 4.0 (the packaging) |
+| Weather forecast maps (downloaded while a weather layer is on, not in the repository) | NOAA National Centers for Environmental Prediction, Global Forecast System (GFS), from NOMADS | Public domain (US government work) |
+| Rain radar on the map (read in the browser) | RainViewer (rainviewer.com) public weather maps API | Free with attribution |
+| Clouds from satellite (read while the layer is on) | NASA Global Imagery Browse Services (GIBS): JMA Himawari AHI and NOAA GOES ABI band 13 infrared | NASA open data, free with attribution |
+| A place's forecast | Open-Meteo (open-meteo.com), or MET Norway Locationforecast (api.met.no) | CC BY 4.0 (both) |
 | Country outlines on the map (`app/web/public/geo/countries.json`) | Natural Earth, 1:50m admin 0 countries | Public domain |
 | Bloc membership dates | Entered by hand from the sites linked on each row of `memberships.csv` | n/a |
 | Hospitals from OpenStreetMap | © OpenStreetMap contributors, packaged by healthsites.io on the Humanitarian Data Exchange | ODbL 1.0 |

@@ -321,6 +321,23 @@ export default function SettingsPage() {
           on={s.climate_live_map} set={(v) => save({ climate_live_map: v })} />
         <Toggle label="Live fires, heatwaves and coral bleaching on the map" hint="When one of those map layers is on, reads NASA FIRMS (fires, every 3 hours), Open-Meteo (5-day forecasts for about 600 big cities, every 6 hours) and NOAA Coral Reef Watch (daily). Off: those three layers and the country card's line about them stay empty."
           on={s.hazards_live} set={(v) => save({ hazards_live: v })} />
+        <h3 id="weather">Weather</h3>
+        <Toggle label="Weather layers on the map" hint="While a layer in the map's Weather group is on: NOAA's GFS forecast (downloaded to this PC every 6 hours), RainViewer's rain radar, NASA's satellite clouds, and a place's forecast from the source below when you click the map. Off: the Weather layers stay empty and city pages show no Forecast card."
+          on={s.weather_maps} set={(v) => save({ weather_maps: v })} />
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Forecast map detail{" "}
+          <select value={s.weather_detail} onChange={(e) => save({ weather_detail: e.target.value as typeof s.weather_detail })} aria-label="Forecast map detail">
+            <option value="1p00">1° squares (about 100 km), about 2.5 MB a day of forecast</option>
+            <option value="0p50">0.5° squares (about 50 km), about 10 MB a day of forecast</option>
+            <option value="0p25">0.25° squares (about 25 km), about 40 MB a day of forecast</option>
+          </select> <span className="muted">One run is kept (two while a new one downloads). Changing this downloads a new run.</span></label>
+        <NumberField label="Forecast days for the maps" unit="days" value={s.weather_days} min={1} max={10} step={1}
+          note="3-hourly steps. More days: a bigger download every 6 hours."
+          save={(v) => save({ weather_days: v })} />
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Forecast for a place (map click, city pages){" "}
+          <select value={s.weather_point} onChange={(e) => save({ weather_point: e.target.value as typeof s.weather_point })} aria-label="Forecast for a place">
+            <option value="open_meteo">Open-Meteo (best model for each place, chance of rain, local times)</option>
+            <option value="met_norway">MET Norway (yr.no)</option>
+          </select></label>
       </section>
 
       <section className="card" id="nature">

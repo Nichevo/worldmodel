@@ -83,6 +83,9 @@ type Props = {
   // Routes as dated stops joined by straight lines (voyages), with a dot at each stop.
   paths?: MapPath[];
   pictures?: boolean; // relief, satellite or night lights under the colours when chosen (Settings > Maps); off for small maps
+  // A plain click on the map that hits no marker, dot or city (weather layers on): that place, in place of
+  // the country's popup or selection. Shift-click still picks the country.
+  onPoint?: ((lngLat: [number, number]) => void) | null;
 };
 
 export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number; over?: boolean; opacity?: number };
@@ -138,12 +141,21 @@ function colorExpression(scale: Scale): ExpressionSpecification | string {
     cssVar("--no-data")] as ExpressionSpecification;
 }
 
+// A short id for a picture layer's tiles (MapLibre ids can't hold the whole URL comfortably).
+function hashKey(t: string): string {
+  let h = 5381;
+  for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
   raster = null, boxes = [], outlines, marks, onMark, legend = [], hideScale = false, areas = null, onArea, paths,
-  pictures = true,
+  pictures = true, onPoint = null,
 }: Props) {
+  const pointPick = useRef(onPoint);
+  pointPick.current = onPoint;
   const areaPick = useRef(onArea);
   areaPick.current = onArea;
   const markPick = useRef(onMark);
@@ -332,7 +344,10 @@ export default function WorldMap({
         if (typeof key === "string" && key) { areaPick.current(key); return; }
       }
       const id = cityAt(e.point);
-      if (!id) return;
+      if (!id) {
+        if (pointPick.current && !e.originalEvent.shiftKey) { const w = e.lngLat.wrap(); pointPick.current([w.lng, w.lat]); }
+        return;
+      }
       if (cityPick.current) cityPick.current(id);
       else window.location.assign(`/city/${encodeURIComponent(id)}`);
     });
@@ -377,6 +392,7 @@ export default function WorldMap({
       if (measure.on) return;
       const iso = e.features?.[0]?.properties?.iso3;
       if (!iso || cityAt(e.point)) return;
+      if (pointPick.current && !e.originalEvent.shiftKey) return; // the place's weather instead (click handler above)
       const ev: PickEvent = { shift: e.originalEvent.shiftKey, double: false, lngLat: [e.lngLat.lng, e.lngLat.lat] };
       if (!dbl.current || ev.shift) return pick.current(iso, ev);
       clearTimeout(pending);
@@ -526,17 +542,41 @@ export default function WorldMap({
   const rasterList = raster ? (Array.isArray(raster) ? raster : [raster]) : [];
   const rasterKey = rasterList.map((r) => `${r.tiles}|${r.over ? 1 : 0}|${r.opacity ?? ""}`).join(",");
   const boxesKey = JSON.stringify(boxes);
+  const rasterDrop = useRef<(() => void) | null>(null);
   useEffect(() => {
     const m = map.current;
     if (!m) return;
     const apply = () => {
-      for (const l of m.getStyle().layers ?? []) if (l.id.startsWith("wm-raster")) m.removeLayer(l.id);
-      for (const id of Object.keys(m.getStyle().sources ?? {})) if (id.startsWith("wm-raster")) m.removeSource(id);
-      rasterList.forEach((r, i) => {
-        const id = `wm-raster${i}`;
+      // Pictures already on the map stay; new ones are added; ones no longer wanted go once the new
+      // ones have drawn (or after 3 seconds), so stepping through forecast hours doesn't flash.
+      rasterDrop.current?.(); // the last change's leftovers go now
+      const want = rasterList.map((r) => ({ r, id: `wm-raster-${hashKey(`${r.tiles}|${r.over ? 1 : 0}|${r.opacity ?? ""}`)}` }));
+      const keep = new Set(want.map((w) => w.id));
+      const fresh: string[] = [];
+      for (const { r, id } of want) {
+        if (m.getSource(id)) continue;
         m.addSource(id, { type: "raster", tiles: [r.tiles], tileSize: 256, maxzoom: r.maxzoom ?? 7, attribution: r.attribution });
-        m.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": r.opacity ?? 0.95 } }, r.over && m.getLayer("line") ? "line" : "fill");
-      });
+        m.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": r.opacity ?? 0.95, "raster-fade-duration": 0 } },
+          r.over && m.getLayer("line") ? "line" : "fill");
+        fresh.push(id);
+      }
+      for (const { r, id } of want) m.moveLayer(id, r.over && m.getLayer("line") ? "line" : "fill"); // in the order given
+      const stale = Object.keys(m.getStyle().sources ?? {}).filter((id) => id.startsWith("wm-raster") && !keep.has(id));
+      const drop = () => {
+        m.off("sourcedata", check);
+        clearTimeout(timer);
+        if (rasterDrop.current === drop) rasterDrop.current = null;
+        try {
+          for (const id of stale) {
+            if (m.getLayer(id)) m.removeLayer(id);
+            if (m.getSource(id)) m.removeSource(id);
+          }
+        } catch { /* the map was closed meanwhile */ }
+      };
+      const check = () => { if (fresh.every((id) => !m.getSource(id) || m.isSourceLoaded(id))) drop(); };
+      const timer = setTimeout(drop, fresh.length ? 3000 : 0);
+      rasterDrop.current = drop;
+      if (fresh.length) m.on("sourcedata", check);
       for (const id of ["boxes-line", "boxes-label"]) if (m.getLayer(id)) m.removeLayer(id);
       if (m.getSource("boxes")) m.removeSource("boxes");
       if (boxes.length) {

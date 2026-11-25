@@ -7,6 +7,8 @@ import Flag from "@/components/Flag";
 import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import LayersPanel, { useMapMarks } from "@/components/LayersPanel";
+import WeatherOverlay from "@/components/WeatherOverlay";
+import { hasWeather } from "@/lib/weather";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
 import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
@@ -420,6 +422,9 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
   const [mapObj, setMapObj] = useState<maplibregl.Map | null>(null);
   const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; setMapObj(m); }, []);
   const mixOn = panel.layers.includes("M");
+  const wxOn = hasWeather(panel.layers);
+  const [wxPoint, setWxPoint] = useState<[number, number] | null>(null);
+  useEffect(() => { if (!wxOn) setWxPoint(null); }, [wxOn]);
   const [shade, setShade] = useState<MixShade>(null);
   useEffect(() => { if (!mixOn) setShade(null); }, [mixOn]);
   const shaded = mixOn && !!shade;
@@ -444,7 +449,8 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
       });
     },
   };
-  const hint = clicks.mode === "popup" ? "Click a country for its popup; shift-click to select it." : "Click a country to select it; double-click for its popup.";
+  const hint = wxOn ? "Click anywhere for that place's forecast; shift-click a country to select it."
+    : clicks.mode === "popup" ? "Click a country for its popup; shift-click to select it." : "Click a country to select it; double-click for its popup.";
   return (
     <>
       {error && <p className="error">{error}</p>}
@@ -472,8 +478,10 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         legend={marks.legend}
         areas={marks.areas}
         raster={marks.rasters}
+        onPoint={wxOn ? setWxPoint : null}
       />
       {mixOn && <MixOverlay map={mapObj} onShade={setShade} />}
+      {wxOn && <WeatherOverlay map={mapObj} letters={panel.layers} point={wxPoint} onClosePoint={() => setWxPoint(null)} />}
       {layersPanel?.(marks.counts)}
       <p className="caption">
         {shaded ? `${shade.label}, each country's latest year (Our World in Data energy). ` : null}{shaded ? "" : indicator ? `${sourceLine(indicator)}. ${values.length} countries with data.` : "No background indicator: only the layers."}{indicator && scale ? " Colour scale shared with linked maps." : ""}
