@@ -13,6 +13,20 @@ export function countryShapes(): Promise<GeoJSON.FeatureCollection> {
   return shapes;
 }
 
+// Finer outlines (Natural Earth 1:10m, about 5 MB) for a zoomed-in world map; fetched the
+// first time one is needed, then shared by every map on the page.
+let fine: Promise<GeoJSON.FeatureCollection> | null = null;
+export function countryShapesFine(): Promise<GeoJSON.FeatureCollection> {
+  if (!fine) {
+    fine = fetch("/geo/countries_fine.json").then((r) => {
+      if (!r.ok) throw new Error(`fine country shapes: ${r.status}`);
+      return r.json();
+    });
+    fine.catch(() => { fine = null; });
+  }
+  return fine;
+}
+
 // A point inside each country to draw trade routes from: the centre of its largest
 // polygon (area-weighted), so France's lines start in France rather than between it
 // and French Guiana. Worked out once per page.
