@@ -318,6 +318,7 @@ export type Settings = {
   wars_fetch: boolean; // Oryx, claimed losses, DeepState front line
   oryx_backfill: boolean;
   outages_fetch: boolean; // IODA and Cloudflare Radar
+  disease_fetch: boolean; // the Disease page's sources
   ioda_from_year: number;
   sanctions_now_fetch: boolean; // OpenSanctions
   gfp_fetch: boolean; // Global Firepower

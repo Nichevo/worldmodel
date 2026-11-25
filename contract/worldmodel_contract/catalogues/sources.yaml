@@ -3163,3 +3163,204 @@
   default_rank: 1
   standing: 5
   definition: standard
+
+# ---- Flu, COVID and other infections (connectors/disease.py; the Disease page)
+- id: who_flunet
+  name: WHO FluNet influenza and RSV laboratory surveillance
+  short_name: WHO FluNet
+  publisher: World Health Organization, Global Influenza Surveillance and Response System
+  url: https://www.who.int/tools/flunet
+  licence: Free to use with credit to WHO and the reporting countries
+  licence_url: https://www.who.int/about/policies/publishing/copyright
+  commercial_use: false
+  cadence: Weekly; read every three days, a year at a time from 1997
+  attribution: "World Health Organization, FluNet (Global Influenza Surveillance and Response System)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: nz_wastewater
+  name: New Zealand wastewater COVID-19 surveillance (PHF Science, formerly ESR)
+  short_name: PHF Science wastewater
+  publisher: New Zealand Institute for Public Health and Forensic Science (PHF Science), funded by the Ministry of Health
+  url: https://github.com/ESR-NZ/covid_in_wastewater
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Weekly; read every three days
+  attribution: "PHF Science (formerly ESR), Aotearoa New Zealand Wastewater COVID-19 Surveillance Programme."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+
+- id: nz_notifiable
+  name: New Zealand notifiable diseases by year (PHF Science Notifiable Diseases Intelligence Dashboard)
+  short_name: PHF Science notifiable diseases
+  publisher: New Zealand Institute for Public Health and Forensic Science (PHF Science), funded by the Ministry of Health
+  url: https://github.com/ESR-NZ/Notifiable-Diseases-Annual-Dashboard-
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Yearly; read monthly
+  attribution: "PHF Science, Notifiable Diseases Intelligence Dashboard, https://github.com/ESR-NZ/NZ_notifiablediseases_data."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+
+- id: ukhsa
+  name: UK Health Security Agency data dashboard (infectious disease)
+  short_name: UKHSA
+  publisher: UK Health Security Agency
+  url: https://ukhsa-dashboard.data.gov.uk/
+  licence: Open Government Licence v3.0
+  licence_url: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+  commercial_use: true
+  cadence: Weekly; read every three days
+  attribution: "UK Health Security Agency data dashboard. Contains public sector information licensed under the Open Government Licence v3.0."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: delphi_fluview
+  name: US CDC ILINet (outpatient influenza-like illness) through the Delphi Epidata API
+  short_name: CDC ILINet
+  publisher: US Centers for Disease Control and Prevention; served by Carnegie Mellon University's Delphi group
+  url: https://cmu-delphi.github.io/delphi-epidata/api/fluview.html
+  licence: US government work, public domain
+  licence_url: https://www.cdc.gov/other/agencymaterials.html
+  commercial_use: true
+  cadence: Weekly; read every three days
+  attribution: "US CDC ILINet (FluView), via the Delphi Epidata API, Carnegie Mellon University."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: cdc_nhsn
+  name: US CDC NHSN weekly hospital respiratory data by jurisdiction
+  short_name: CDC NHSN
+  publisher: US Centers for Disease Control and Prevention, National Healthcare Safety Network
+  url: https://data.cdc.gov/Public-Health-Surveillance/Weekly-Hospital-Respiratory-Data-HRD-Metrics-by-Ju/ua7e-t2fy
+  licence: US government work, public domain
+  licence_url: https://www.cdc.gov/other/agencymaterials.html
+  commercial_use: true
+  cadence: Weekly; read every three days
+  attribution: "US CDC, National Healthcare Safety Network, Weekly Hospital Respiratory Data."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
+
+- id: cdc_nndss
+  name: US CDC NNDSS weekly notifiable disease tables
+  short_name: CDC NNDSS
+  publisher: US Centers for Disease Control and Prevention, National Notifiable Diseases Surveillance System
+  url: https://data.cdc.gov/NNDSS/NNDSS-Weekly-Data/x9gk-5huc
+  licence: US government work, public domain
+  licence_url: https://www.cdc.gov/other/agencymaterials.html
+  commercial_use: true
+  cadence: Weekly, provisional; read every three days
+  attribution: "US CDC, National Notifiable Diseases Surveillance System, weekly tables (provisional)."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard
+
+- id: ecdc_erviss
+  name: ECDC European Respiratory Virus Surveillance Summary (ERVISS)
+  short_name: ECDC ERVISS
+  publisher: European Centre for Disease Prevention and Control and WHO Europe
+  url: https://github.com/EU-ECDC/Respiratory_viruses_weekly_data
+  licence: Free reuse with attribution
+  licence_url: https://www.ecdc.europa.eu/en/copyright
+  commercial_use: true
+  cadence: Weekly; read every three days
+  attribution: "ECDC and WHO Regional Office for Europe, European Respiratory Virus Surveillance Summary (ERVISS)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: owid_covid
+  name: Our World in Data COVID-19 dataset
+  short_name: OWID COVID-19
+  publisher: Our World in Data
+  url: https://ourworldindata.org/coronavirus
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: Weekly while countries report; read every two weeks
+  attribution: "Our World in Data, COVID-19 dataset (from WHO, national governments and the Human Mortality Database)."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+
+- id: who_gho_disease
+  name: WHO Global Health Observatory, reported cases of infectious diseases
+  short_name: WHO GHO
+  publisher: World Health Organization
+  url: https://www.who.int/data/gho
+  licence: CC BY-NC-SA 3.0 IGO
+  licence_url: https://www.who.int/about/policies/publishing/copyright
+  commercial_use: false
+  cadence: Yearly; read once a month
+  attribution: "World Health Organization, Global Health Observatory."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: opendengue
+  name: OpenDengue global dengue case counts
+  short_name: OpenDengue
+  publisher: OpenDengue project (London School of Hygiene and Tropical Medicine and partners)
+  url: https://opendengue.org/
+  licence: CC BY 4.0
+  licence_url: https://creativecommons.org/licenses/by/4.0/
+  commercial_use: true
+  cadence: A release every few months; read every two months
+  attribution: "Clarke J. et al., OpenDengue: data from the OpenDengue database (opendengue.org)."
+  status: active
+  default_rank: 1
+  standing: 4
+  definition: established
+
+- id: hmd_stmf
+  name: Human Mortality Database, Short-Term Mortality Fluctuations (weekly deaths)
+  short_name: HMD weekly deaths
+  publisher: Max Planck Institute for Demographic Research and University of California, Berkeley
+  url: https://www.mortality.org/Data/STMF
+  licence: CC BY 4.0, after free registration
+  licence_url: https://www.mortality.org/Data/UserAgreement
+  commercial_use: true
+  cadence: Weekly to monthly updates; save the file again now and then
+  attribution: "Human Mortality Database. Max Planck Institute for Demographic Research (Germany), University of California, Berkeley (USA), and French Institute for Demographic Studies (France). Short-Term Mortality Fluctuations series."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: true
+    files: ["stmf*.csv", "*stmf*.zip", "*STMF*"]
+    get: https://www.mortality.org/Data/STMF
+    what: "Sign in (free registration) and download the whole series as one CSV (the 'csv' link, stmf.csv), then save it here. It holds every country's weekly deaths; save it again now and then for the latest weeks."
+
+- id: who_don
+  name: WHO Disease Outbreak News
+  short_name: WHO outbreak news
+  publisher: World Health Organization
+  url: https://www.who.int/emergencies/disease-outbreak-news
+  licence: Free to use with credit to WHO
+  licence_url: https://www.who.int/about/policies/publishing/copyright
+  commercial_use: false
+  cadence: Several reports a month; read every three days
+  attribution: "World Health Organization, Disease Outbreak News."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: standard

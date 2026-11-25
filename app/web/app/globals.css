@@ -1583,3 +1583,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .lp-quick .chip.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .lp-quick .chip.mine { display: inline-flex; gap: 4px; align-items: center; }
 .lp-waiting { display: block; padding: 2px 0 4px 26px; text-align: left; }
+
+/* Disease card: one tile per weekly measure. */
+.disease-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.disease-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; color: inherit; text-decoration: none; }
+.disease-tile:hover { border-color: var(--axis); }
+.disease-tile b { font-size: 1.25rem; }

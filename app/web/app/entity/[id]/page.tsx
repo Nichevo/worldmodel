@@ -30,6 +30,7 @@ import LawsCard from "@/components/LawsCard";
 import HolidaysCard from "@/components/HolidaysCard";
 import CrimeCard from "@/components/CrimeCard";
 import LanguagesCard from "@/components/LanguagesCard";
+import DiseaseCard from "@/components/disease/DiseaseCard";
 import ReadingCard from "@/components/ReadingCard";
 import ReligionCard from "@/components/ReligionCard";
 import LongViewCard from "@/components/long/LongViewCard";
@@ -145,6 +146,7 @@ export default function EntityPage() {
     { key: "education", title: "Education", section: "people", on: true, el: <EducationCard entity={e} name={nm} indicators={byId} /> },
     { key: "religion", title: "Religion", section: "people", on: !isGroup, el: <ReligionCard entity={e} name={nm} /> },
     { key: "languages", title: "Languages", section: "people", on: !isGroup, el: <LanguagesCard entity={e} name={nm} /> },
+    { key: "disease", title: "Disease now", section: "people", on: !isGroup || e === "eu", el: <DiseaseCard entity={e} name={nm} /> },
     { key: "voters", title: "Who votes", section: "people", on: !isGroup, el: <VotersCard entity={e} name={nm} indicators={byId} /> },
     { key: "currency", title: "Currency", section: "money", on: !isGroup || e === "eu", el: <CurrencyCard entity={e} name={nm} /> },
     { key: "outlook", title: "Outlook", section: "money", on: !isGroup, el: <OutlookCard entity={e} name={nm} /> },

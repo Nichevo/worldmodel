@@ -31,6 +31,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/topics", label: "Topics" },
     { href: "/religion", label: "Religion" },
     { href: "/languages", label: "Languages" },
+    { href: "/disease", label: "Disease", hint: "Flu, COVID, RSV, measles: now against usual, seasons, outbreaks" },
     { href: "/crises", label: "Financial crises" },
     { href: "/long", label: "Long history", hint: "Empires, borders over time, people since 10,000 BC, the eight factors, the big cycle and debt cycles" },
     { href: "/episodes", label: "Episodes", hint: "Big episodes from the Great Depression to the 2022 inflation: timeline, charts, who was hit, and does today look like it" },

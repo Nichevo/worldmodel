@@ -94,6 +94,9 @@ CHARTS = (
      "ocean_plastic_per_capita", "pollution"),
     ("share-of-global-plastic-waste-emitted-to-the-ocean", "Meijer et al. (2021): share of the world's plastic reaching the ocean",
      "ocean_plastic_share", "pollution"),
+    # causes of death (the Disease page): age-standardised, from death certificates
+    ("death-rate-by-cause-who-mdb", "WHO Mortality Database: deaths per 100,000 people from each broad group of causes, "
+     "age-standardised, from the underlying cause on death certificates, since 1950", "cause_death_rate", "health"),
     # nature (the Nature tab on the Climate page)
     ("global-living-planet-index", "WWF and ZSL Living Planet Index: average change in tracked wild animal populations "
      "since 1970 (1970 = 100), by region", "living_planet_index", "nature"),
@@ -244,8 +247,8 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 6  # 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
-    fetch_version = 4  # 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts; 4: nuclear warheads
+    stage_version = 7  # 7: causes of death; 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
+    fetch_version = 5  # 5: causes of death; 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts; 4: nuclear warheads
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:

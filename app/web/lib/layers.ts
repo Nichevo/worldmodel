@@ -156,6 +156,15 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "fill-color": ["match", ["get", "level"], 1, "#ffe066", 2, "#f8c56a", 3, "#f08c00", 4, "#c92a2a", "#ced4da"],
       "fill-opacity": ["match", ["get", "level"], 0, 0.12, 0.5], "fill-outline-color": "#7a3b00" }),
   },
+  nz_wastewater: {
+    legend: "Wastewater test site, sized by people served: red rising, blue falling against the month before", swatch: () => "#c92a2a", dot: true,
+    paint: () => ({
+      "circle-color": ["case", ["!", ["to-boolean", ["get", "recent"]]], "#adb5bd", ["==", ["get", "change"], null], "#868e96",
+        ["interpolate", ["linear"], ["get", "change"], -50, "#1c7ed6", -15, "#a5d8ff", 0, "#f1f3f5", 15, "#ffc9c9", 50, "#c92a2a"]],
+      "circle-opacity": 0.9, "circle-stroke-color": "#495057", "circle-stroke-width": 0.8,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "population"], 1000]], 0, 3, 300, 6, 1200, 14],
+    }),
+  },
   power_plants: {
     legend: "Power plant, sized by capacity, coloured by fuel", swatch: () => "#2b8a3e", dot: true,
     paint: () => ({
@@ -448,6 +457,9 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + (typeof p.frp === "number" ? `<br/>Fire power ${num(p.frp)} MW` : "");
   if (layer === "heat_now") return `<b>${esc(p.name)}</b><br/>Forecast high ${esc(p.peak)} °C on ${esc(p.day)}<br/>${esc(p.days)} of the next 5 days at 35 °C or more`;
   if (layer === "coral_alerts") return `<b>${esc(p.name)}</b><br/>Coral bleaching: ${esc(p.label)} (highest in the last 7 days)`;
+  if (layer === "nz_wastewater") return `<b>${esc(p.name)}</b>${p.region ? `, ${esc(p.region)}` : ""}<br/>${num(p.value)} virus copies per person per day, week to ${esc(p.week)}`
+    + `${typeof p.change === "number" ? `<br/>${p.change > 0 ? "+" : ""}${p.change}% on the month before` : ""}${typeof p.population === "number" ? `<br/>Serves ${num(p.population)} people` : ""}`
+    + `${p.recent ? "" : "<br/><span class=\"muted\">No recent samples</span>"}`;
   if (layer === "power_plants") return `<b>${esc(p.name)}</b><br/>${esc(p.fuel)}${typeof p.mw === "number" ? `, ${num(p.mw)} MW` : ""}`
     + `${p.year ? ` · built ${esc(p.year)}` : ""}${p.owner ? `<br/>${esc(p.owner)}` : ""}`;
   if (layer === "power_links") return `<b>${esc(p.from_name)} → ${esc(p.to_name)}</b>, ${esc(p.year)}<br/>${num(p.sent)} GWh sent, `

@@ -259,7 +259,7 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 // Overlays a map panel can draw over the countries. Most come from the warehouse's layers
 // table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
 // ratings), event markers and news that names a watch word. Timed layers follow the
-// map's time window. Letters are the URL form; the group and order are the Layers panel's.
+// map's time window. Letters are the URL form (all 62 letters and digits are taken, so newer ones use "_"); the group and order are the Layers panel's.
 export type LayerGroup = "now" | "conflict" | "quakes" | "cities" | "ports" | "airrail" | "energy" | "nature" | "water" | "sights" | "borders" | "spotted";
 export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
 export const MAP_LAYERS: readonly LayerDef[] = [
@@ -293,7 +293,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "Y", id: "power_lines", label: "Power lines", group: "energy", hint: "High and medium voltage lines: mapped (OpenStreetMap) and predicted from night lights (World Bank gridfinder)" },
   { letter: "7", id: "power_links", label: "Power links between countries", group: "energy", hint: "Electricity traded between European countries in the latest year, a line between capitals, thicker for more, from the net exporter to the importer (Eurostat); hover a line for both directions" },
   { letter: "P", id: "ports", label: "Ports (by ship calls)", group: "ports", hint: "About 1,700 ports sized by ship calls a year (IMF PortWatch)" },
-  { letter: "3", id: "port_pressure", label: "Ports against normal", group: "ports", hint: "Ship calls in the last 4 weeks against each port's normal for that time of year (IMF PortWatch); see Transport > Port pressure" },
+  { letter: "*", id: "port_pressure", label: "Ports against normal", group: "ports", hint: "Ship calls in the last 4 weeks against each port's normal for that time of year (IMF PortWatch); see Transport > Port pressure" },
   { letter: "E", id: "ports_all", label: "Every port", group: "ports", hint: "About 3,800 ports with harbour size (NGA World Port Index)" },
   { letter: "C", id: "chokepoints", label: "Shipping chokepoints", group: "ports", hint: "Straits and canals, sized by ships a day; click one for the countries on its shores" },
   { letter: "L", id: "shipping_lanes", label: "Shipping lanes", group: "ports" },
@@ -315,6 +315,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "u", id: "universities", label: "Universities", group: "cities" },
   { letter: "t", id: "transit_stations", label: "Metro and rail stations", group: "cities" },
   { letter: "l", id: "transit_lines", label: "Metro and rail lines", group: "cities", hint: "Straight lines between neighbouring stations, coloured by line (Wikidata)" },
+  { letter: "_", id: "nz_wastewater", label: "COVID in wastewater (NZ)", group: "cities", hint: "New Zealand's wastewater test sites, sized by people served, coloured by how the latest week compares with the month before (PHF Science); all countries on the Disease page" },
   { letter: "h", id: "hospitals", label: "Hospitals", group: "cities", hint: "Hospitals above the size set in Settings > Places (Wikidata)" },
   { letter: "m", id: "military_bases", label: "Military bases", group: "conflict", hint: "Military, air and naval bases (Wikidata; the well-known ones)" },
   { letter: "o", id: "companies", label: "Big company head offices", group: "cities" },

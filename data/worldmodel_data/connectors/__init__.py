@@ -16,6 +16,8 @@ from worldmodel_data.connectors.coups import Coups
 from worldmodel_data.connectors.crisiswatch import CrisisWatch
 from worldmodel_data.connectors.education import UNDPHDR, Wittgenstein
 from worldmodel_data.connectors.crises import CrisisHistory
+from worldmodel_data.connectors.disease import (CDCNHSN, CDCNNDSS, ECDCERVISS, HMDSTMF, UKHSA, WHODON, DelphiFluView, NZNotifiable, NZWastewater, OpenDengue,
+                                                 OWIDCovid, WHOFluNet, WHOGHODisease)
 from worldmodel_data.connectors.crowd import ViEWS, Manifold, Metaculus, Polymarket
 from worldmodel_data.connectors.pundits import PredictionArchive
 from worldmodel_data.connectors.iea_data import IEAData
@@ -81,6 +83,8 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
     Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OECDCLI, FREDCycle,
     USCensusPEP, USACS, BEARegional, USUnemployment, BLSLAUSCounty, FHFAHPI, MITElections, MITCountyElections,
-    CountyHealthRankings, EIASEDS, USShapes, NEAdmin1, UNSDEnergy, EurostatPowerTrade)}
+    CountyHealthRankings, EIASEDS, USShapes, NEAdmin1, UNSDEnergy, EurostatPowerTrade,
+    WHOFluNet, NZWastewater, UKHSA, DelphiFluView, CDCNHSN, CDCNNDSS, ECDCERVISS, OWIDCovid, WHOGHODisease, OpenDengue,
+    HMDSTMF, WHODON, NZNotifiable)}
 
 __all__ = ["CONNECTORS", "Connector", "ConnectorError"]
