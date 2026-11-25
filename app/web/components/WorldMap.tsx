@@ -11,6 +11,7 @@ import type { CameraBus } from "@/lib/camera";
 import { arc, countryCentres, countryShapes, countryShapesFine } from "@/lib/geo";
 import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
+import CameraView, { type CameraProps } from "@/components/CameraView";
 import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, maxZoomFor, ONLINE_DOWN_NOTE, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
@@ -163,6 +164,10 @@ export default function WorldMap({
     if (st?.click === "here") {
       const c = hereCard(layer, p, at);
       setInfo({ layer, title: c.title, lines: c.lines, links: c.links });
+      return;
+    }
+    if (st?.click === "camera") {
+      setInfo({ layer, title: String(p.name ?? "Camera"), camera: p as CameraProps });
       return;
     }
     if (st?.click === "chokepoint") {
@@ -924,6 +929,7 @@ export default function WorldMap({
               <button className="link small" onClick={() => setInfo(null)} aria-label="Close">×</button></div>
             {info.loading ? <p className="small muted">Loading…</p> : (
               <>
+                {info.camera && <CameraView key={String(info.camera.id)} cam={info.camera} />}
                 {(info.lines ?? []).filter(Boolean).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>)}
                 {info.split?.length ? (
                   <table className="small"><thead><tr><th>Country</th><th>Of the basin</th><th>Of the country</th><th>People (rough)</th></tr></thead>
@@ -1014,7 +1020,7 @@ function detailLinks(layer: string, p: Record<string, unknown>): { label: string
 
 type FeatureInfo = {
   layer: string; title: string; loading?: boolean; lines?: string[]; countries?: { id: string; name: string }[];
-  split?: GeoCard["split"]; links?: { label: string; href: string; hint: string }[];
+  split?: GeoCard["split"]; links?: { label: string; href: string; hint: string }[]; camera?: CameraProps;
 };
 const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%` : "…");
 const n0 = (v: unknown) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : null);

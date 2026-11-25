@@ -35,9 +35,17 @@ type Style = {
   legend: string; swatch: () => string; dot?: boolean; fill?: boolean; fetch?: "window" | "live"; every?: number;
   // what a click on one shows: its card (geo features), the countries on a chokepoint's shores, or a card made
   // from the feature itself with "Look closer" links (located events, military planes)
-  click?: "feature" | "chokepoint" | "here";
+  click?: "feature" | "chokepoint" | "here" | "camera"; // camera: the picture or video, in the card
   timed?: boolean; // asked again when the map's time window changes (the fighting layer)
   once?: boolean; // a "window" layer read once, whatever the view (the front line: one shape)
+};
+// The Cameras layer's kinds and colours (lib/cameras.ts has the rest).
+export const CAMERA_KIND: Record<string, { label: string; color: string }> = {
+  traffic: { label: "Road", color: "#1c7ed6" },
+  weather: { label: "Road weather", color: "#862e9c" },
+  beach: { label: "Beach and coast", color: "#e8590c" },
+  city: { label: "City", color: "#2b8a3e" },
+  nature: { label: "Scenery", color: "#5c940d" },
 };
 const riverWidth: ExpressionSpecification =
   ["interpolate", ["linear"], ["coalesce", ["get", "order"], ["get", "rank"], 5], 1, 3.2, 3, 1.8, 5, 0.8, 7, 0.4];
@@ -354,6 +362,18 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "circle-color": cssVar("--series-1"), "circle-radius": zoomWidth(1.4, 3.5), "circle-opacity": 0.85,
       "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4 }),
   },
+  live_cameras: {
+    legend: "Public camera: road (blue), road weather (purple), beach and coast (orange), city and scenery (green); hollow when offline",
+    swatch: () => CAMERA_KIND.traffic.color, dot: true, fetch: "live", every: 300, click: "camera",
+    paint: () => ({
+      "circle-color": ["match", ["get", "kind"], ...Object.entries(CAMERA_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification,
+      "circle-opacity": ["case", ["boolean", ["get", "offline"], false], 0, 0.9],
+      "circle-radius": zoomWidth(2.2, 5),
+      "circle-stroke-color": ["case", ["boolean", ["get", "offline"], false],
+        ["match", ["get", "kind"], ...Object.entries(CAMERA_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification, cssVar("--surface")],
+      "circle-stroke-width": ["case", ["boolean", ["get", "offline"], false], 1.2, 0.6],
+    }),
+  },
   // ---- detail from the OSINT communities
   conflict_events: {
     legend: "Fighting and unrest in the time window (UCDP, ACLED): bigger for more deaths; red fighting, purple civilians killed, blue protests",
@@ -389,6 +409,7 @@ export function windowData(id: string, b: { west: number; south: number; east: n
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
   const path = id === "live_planes" ? `/live/planes?${q}` : id === "live_ships" ? `/live/ships?${q}`
     : id === "live_military" ? `/live/military-planes?${q}`
+    : id === "live_cameras" ? `/live/cameras?${q}`
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
     : id === "front_line" ? "/osint/front/russia_ukraine"
     : id === "port_pressure" ? `/transport/pressure/map?${portWeeksQuery()}`
@@ -432,6 +453,9 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + (typeof p.speed_kmh === "number" ? ` · ${p.speed_kmh} km/h` : "");
   if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}`
     + (p.sanctioned ? "<br/><b style=\"color:#c92a2a\">On a sanctions list</b> (OpenSanctions)" : "");
+  if (layer === "live_cameras") return `<b>${esc(p.name)}</b>${p.direction ? ` (${esc(p.direction)})` : ""}`
+    + `<br/>${esc(CAMERA_KIND[String(p.kind)]?.label ?? "Camera")}${p.offline ? " · offline" : ""}${p.about ? `<br/>${esc(String(p.about).slice(0, 90))}` : ""}`
+    + "<br/><span class=\"muted\">Click for the latest picture</span>";
   if (layer === "conflict_events") {
     const k = EVENT_KIND[String(p.kind)];
     return `<b>${esc(k?.label ?? p.kind)}</b> · ${esc(p.day)}<br/>${esc(p.place ?? "")}${p.admin1 && p.admin1 !== p.place ? `, ${esc(p.admin1)}` : ""}`

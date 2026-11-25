@@ -201,6 +201,39 @@
   limits: Free. One websocket at a time; the app listens only while the layer is on and for the area in view.
   status: active
 
+- source: live_cameras_windy
+  name: Windy Webcams API (beach, surf, harbour and city webcams worldwide)
+  env: [WINDY_WEBCAMS_API_KEY]
+  needs_key: true
+  signup: https://api.windy.com/keys
+  how: Sign in to Windy (free), open API keys, create a key and pick the Webcams API (free tier).
+  unlocks: Webcams worldwide on the map's "Cameras" layer, the most watched plus beaches and coasts in the area in view,
+    with a live or day-timelapse player when one is clicked. The road agencies' cameras show without it.
+  limits: Free tier for personal use; up to 50 webcams a request, picture links last ten minutes. The app asks only
+    while the layer is on, twice per area, and keeps the answer nine minutes.
+  status: active
+
+- source: live_cameras_nsw
+  name: Transport for NSW Open Data (Live Traffic NSW cameras)
+  env: [TFNSW_API_KEY]
+  needs_key: true
+  signup: https://opendata.transport.nsw.gov.au/
+  how: Sign up (free), create an application in your account and copy its API key.
+  unlocks: New South Wales traffic cameras on the map's "Cameras" layer.
+  limits: Free. The camera list is read only when the view reaches NSW, and kept six hours.
+  status: active
+
+- source: live_cameras_qld
+  name: QLDTraffic GeoJSON API (Queensland traffic cameras)
+  env: [QLDTRAFFIC_API_KEY]
+  needs_key: false
+  signup: https://qldtraffic.qld.gov.au/more/Developers-and-Data/
+  how: Optional. Without it the app uses the public key in QLDTraffic's API specification, which is shared and often
+    busy; ask Transport and Main Roads for a key of your own (the specification says how).
+  unlocks: Queensland traffic cameras on the map's "Cameras" layer when the shared key is busy.
+  limits: Free. The camera list is read only when the view reaches Queensland, and kept six hours.
+  status: active
+
 - source: live_planes
   name: OpenSky Network (planes' positions now)
   env: [OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET]
