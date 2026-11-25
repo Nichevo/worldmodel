@@ -8,7 +8,7 @@ import { sparklineSvg } from "@/lib/charts";
 import { cssVar, divergingRamp, sequentialRamp } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import type { CameraBus } from "@/lib/camera";
-import { arc, countryCentres, countryShapes } from "@/lib/geo";
+import { arc, countryCentres, countryShapes, countryShapesFine } from "@/lib/geo";
 import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
@@ -130,6 +130,9 @@ function strictlyIncreasing(breaks: number[], colors: string[]): Scale {
   return out;
 }
 
+// Zoom from which the world map draws the finer country outlines.
+const FINE_FROM = 3.5;
+
 function colorExpression(scale: Scale): ExpressionSpecification | string {
   if (!scale.breaks.length) return scale.colors[0] ?? cssVar("--no-data");
   const steps: (number | string)[] = [scale.colors[0]];
@@ -180,6 +183,8 @@ export default function WorldMap({
   const map = useRef<maplibregl.Map | null>(null);
   const onLoad = useRef<(() => void)[]>([]); // work waiting for the country layers
   const geo = useRef<GeoJSON.FeatureCollection | null>(null);
+  // Zoomed in past FINE_FROM, the countries switch to finer outlines (and keep them).
+  const [fineShapes, setFineShapes] = useState(false);
   const pick = useRef(onPick);
   pick.current = onPick;
   const settings = useSettings();
@@ -246,6 +251,18 @@ export default function WorldMap({
         paint: { "line-color": cssVar("--ink"), "line-width": 2.2 },
       });
       if (map.current !== m) return; // removed while the shapes loaded
+      let fineAsked = false;
+      const wantFine = () => {
+        if (fineAsked || m.getZoom() < FINE_FROM) return;
+        fineAsked = true;
+        countryShapesFine().then((g) => {
+          if (map.current !== m) return;
+          geo.current = g;
+          setFineShapes(true);
+        }).catch((e) => { fineAsked = false; console.warn("finer country outlines skipped", e); });
+      };
+      m.on("zoomend", wantFine);
+      wantFine();
       onLoad.current.splice(0).forEach((f) => {
         try { f(); } catch (e) { console.warn("map update skipped", e); }
       });
@@ -486,7 +503,7 @@ export default function WorldMap({
     };
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
-  }, [byIso, scale, unit, decimals]);
+  }, [byIso, scale, unit, decimals, fineShapes]);
 
   // Map detail under the colours (Settings > Map): online tiles, the local map files, or none.
   useEffect(() => {

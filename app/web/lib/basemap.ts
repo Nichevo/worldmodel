@@ -52,6 +52,15 @@ const name: ExpressionSpecification = ["coalesce", ["get", "name:en"], ["get", "
 const width = (stops: [number, number][]): ExpressionSpecification =>
   ["interpolate", ["exponential", 1.6], ["zoom"], ...stops.flat()] as ExpressionSpecification;
 
+// Country borders from the map detail itself: drawn from zoom 3 and taking over from our
+// own outline (see refreshFill), so borders and coasts line up with the roads and water.
+const border = (id: string, source: string, layer: string, filter: ExpressionSpecification): LayerSpecification => ({
+  id, type: "line", source, "source-layer": layer, minzoom: 3, filter,
+  layout: { "line-join": "round" },
+  paint: { "line-color": cssVar("--muted"), "line-width": width([[3, 0.6], [8, 1.2], [14, 2.2]]),
+    "line-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0, 5, 0.9] },
+});
+
 function label(id: string, source: string, layer: string, filter: ExpressionSpecification, minzoom: number, size: [number, number]): LayerSpecification {
   return {
     id, type: "symbol", source, "source-layer": layer, filter, minzoom,
@@ -84,6 +93,8 @@ function onlineLayers(src: string): { under: LayerSpecification[]; over: LayerSp
       { id: `${p}-rail`, type: "line", source: src, "source-layer": "transportation", minzoom: 6,
         filter: ["in", ["get", "class"], ["literal", ["rail", "transit"]]],
         paint: { "line-color": cssVar("--map-rail"), "line-width": width([[6, 0.6], [16, 3]]), "line-dasharray": [3, 2] } },
+      // OpenMapTiles: national borders on land only (maritime lines are sea limits, not borders).
+      border(`${p}-border`, src, "boundary", ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]]),
     ],
     over: [
       label(`${p}-label-road`, src, "transportation_name", ["has", "name"], 13, [10, 13]),
@@ -124,6 +135,7 @@ function localLayers(src: string): { under: LayerSpecification[]; over: LayerSpe
       road(["major_road"], 6, "--map-road-major", [[6, 0.4], [16, 8]]),
       road(["highway"], 5, "--map-road-major", [[5, 0.6], [16, 10]]),
       rail("roads"), rail("transit"),
+      border(`${p}-border`, src, "boundaries", ["any", ["==", ["get", "kind"], "country"], ["==", ["to-string", ["get", "kind_detail"]], "2"]]),
     ],
     over: [
       label(`${p}-label-road`, src, "roads", ["has", "name"], 13, [10, 13]),
