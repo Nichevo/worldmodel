@@ -10,7 +10,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from worldmodel_api import live, main
+from worldmodel_api import live, main, ports
 from worldmodel_api.warehouse import SAMPLE, Warehouse
 
 LINE = {"type": "LineString", "coordinates": [[175.0, -38.0], [176.0, -37.5]]}
@@ -257,6 +257,13 @@ def test_port_pressure(client, tmp_path):
     assert {r["id"] for r in pat["resilience"]} == {"port1", "port2"}
     lay = client.get("/api/v1/layers/port_pressure").json()
     assert lay["type"] == "FeatureCollection"  # no ports layer in the sample: no coordinates, so no dots
+    m = client.get("/api/v1/transport/pressure/map").json()
+    assert m["span"] == {"first": "2023-01-02", "last": (start + timedelta(days=7 * 79)).isoformat()}
+    # Looking back: the four weeks to mid-2023 were normal for port1, the last four were not
+    back = {p["id"]: p for p in ports.places(main.rows, end=date(2023, 7, 5), weeks=4)}
+    assert back["port1"]["vs_normal"] == 0.0 and back["port1"]["as_of"] == "2023-07-09" and back["port1"]["from"] == "2023-06-12"
+    assert {p["id"]: p for p in ports.places(main.rows)}["port1"]["vs_normal"] == -50.0
+    assert ports.places(main.rows, end=date(2000, 1, 1))[0]["as_of"] == "2023-01-08"  # before the first week: the first week
     c = client.get("/api/v1/transport/pressure-country/NZL").json()
     assert [p["id"] for p in c["ports"]] == ["port1", "port2"] and len(c["ports"][0]["weeks"]) == 26
 

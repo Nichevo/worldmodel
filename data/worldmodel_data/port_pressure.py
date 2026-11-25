@@ -115,6 +115,8 @@ def impact(v: np.ndarray, t: np.ndarray | None, s: int, e: int) -> dict | None:
     r = np.where(exp > 0, v / np.where(exp > 0, exp, 1), np.nan)
     last_look = min(max(e, s) + 4, n - 1)
     seg = r[s:last_look + 1]
+    if np.isnan(seg).all():
+        return None  # nothing expected in those weeks (a seasonal port in its off season): nothing to compare
     w = int(np.nanargmin(seg)) + s
     worst = float(r[w])
     rec = None

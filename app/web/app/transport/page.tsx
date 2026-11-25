@@ -11,7 +11,7 @@ import NatureEvents from "@/components/NatureEvents";
 import TransportCard, { AccidentList } from "@/components/TransportCard";
 import WorldMap from "@/components/WorldMap";
 import { GoodsView } from "@/components/GoodsByPort";
-import { BiggestHits, Patterns, PressureView } from "@/components/PortPressure";
+import { BiggestHits, Patterns, PressureMapWeeks, PressureView } from "@/components/PortPressure";
 import { ChokeBars, HeadStrip, PortMultiples, useKeys } from "@/components/PageLook";
 import { api, type ChokepointSeries, type HeadTileData, type TransportPage } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
@@ -110,6 +110,7 @@ function TransportView() {
           <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
           {MAP_LAYERS[tab].length ? (
             <div className="card">
+              {tab === "pressure" ? <PressureMapWeeks /> : null}
               <div className="map-box"><WorldMap fill values={[]} unit="" decimals={0} diverging={false} hideScale layers={MAP_LAYERS[tab]} onPick={() => {}} /></div>
               <p className="caption">{loaded(MAP_LAYERS[tab]) || tab === "rivers" || tab === "networks" ? "" : tab === "rail"
                   ? "No railway lines are stored yet: run .\\refresh.bat (Settings > Transport > Railways must be ticked). "

@@ -86,6 +86,14 @@ export function setFightingWindow(start: string, end: string) {
   layerWin = [start, end];
   if (typeof window !== "undefined") window.dispatchEvent(new Event("wm-layer-window"));
 }
+export const setLayerWindow = setFightingWindow;
+// The 'Ports against normal' layer: the weeks to the window's end (1 to 26 of them; the last
+// four stored when no window is set).
+export function portWeeksQuery(): string {
+  if (!layerWin) return "weeks=4";
+  const weeks = Math.round((Date.parse(layerWin[1]) - Date.parse(layerWin[0])) / (7 * 86_400_000));
+  return `weeks=${Math.max(1, Math.min(26, weeks))}&end=${layerWin[1].slice(0, 10)}`;
+}
 export function fightingQuery(): string {
   if (!layerWin) return "days=30";
   const days = Math.max(1, Math.round((Date.parse(layerWin[1]) - Date.parse(layerWin[0])) / 86_400_000));

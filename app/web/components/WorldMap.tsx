@@ -587,11 +587,13 @@ export default function WorldMap({
         const n = ++asked;
         windowData(id, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom()).then((fc) => {
           if (!live || n !== asked) return;
-          if (style.timed && fc.loaded === false) fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
+          if (style.timed && fc.loaded === false && id === "conflict_events") fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
+          const asOf = id === "port_pressure" ? (fc.features[0]?.properties as { from?: string; as_of?: string } | undefined) : undefined;
           (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
           const legend = LAYER_STYLE[id].legend;
           const note = fc.error ? `${legend}: ${fc.error}`
             : style.fetch === "live" ? `${legend}: ${fc.features.length.toLocaleString()} in view${!fc.features.length && fc.note ? ` (${fc.note})` : ""}`
+            : id === "port_pressure" ? (fc.features.length ? `Ports against normal: ${asOf?.from ?? ""} to ${asOf?.as_of ?? ""}` : "Ports against normal: none stored yet (a refresh and rebuild fill it)")
             : style.timed ? `Fighting and unrest: ${fc.features.length.toLocaleString()}${fc.capped ? " biggest" : ""} in view${fc.note ? ` (${fc.note})` : ""}`
             : fc.loaded === false && fc.note ? `${legend}: ${fc.note}` : "";
           setNotes((cur) => ({ ...cur, [id]: note }));

@@ -50,18 +50,24 @@ def _r(v, n=1):
     return None if v is None else round(v, n)
 
 
-def places(q: Q, entity: str | None = None) -> list[dict]:
-    """Every port and chokepoint with a weekly series: its name, country, ships a week over the
-    last 4 full weeks against normal, and its usual ships a week (the last year)."""
+def places(q: Q, entity: str | None = None, end: date | None = None, weeks: int = 4) -> list[dict]:
+    """Every port and chokepoint with a weekly series: its name, country, ships a week over
+    `weeks` full weeks against normal, and its usual ships a week (the year before). The weeks
+    end with the last one stored, or with the week holding `end` for a look back in time."""
     if not _has(q, "traffic_weekly"):
         return []
     last = q("SELECT max(week) AS w FROM traffic_weekly", [])[0]["w"]
     if not last:
         return []
-    a, b = last - timedelta(days=21), last - timedelta(days=364)
-    where, params = "", [a, a, b]
+    if end is not None:
+        first = q("SELECT min(week) AS w FROM traffic_weekly", [])[0]["w"]
+        want = end - timedelta(days=end.weekday())  # weeks start on Monday
+        last = max(first, min(last, want))
+    weeks = max(1, min(int(weeks), 26))
+    a, b = last - timedelta(days=7 * (weeks - 1)), last - timedelta(days=364)
+    where, params = "WHERE week <= ?", [a, a, b, last]
     if entity:
-        where, params = "WHERE entity_id = ?", [*params, entity]
+        where, params = where + " AND entity_id = ?", [*params, entity]
     got = q(f"""SELECT place_kind, place_id, any_value(entity_id) AS entity_id,
                        sum(value) FILTER (WHERE week >= ? AND normal IS NOT NULL) AS now,
                        sum(normal) FILTER (WHERE week >= ? AND normal IS NOT NULL) AS normal_now,
@@ -76,7 +82,15 @@ def places(q: Q, entity: str | None = None) -> list[dict]:
                     "entity_id": g["entity_id"] or p.get("country"), "weekly": _r(g["weekly"]), "vs_normal": vs,
                     "lat": p.get("lat"), "lon": p.get("lon")})
     out.sort(key=lambda r: -(r["weekly"] or 0))
-    return [{**r, "as_of": (last + timedelta(days=6)).isoformat()} for r in out]
+    return [{**r, "as_of": (last + timedelta(days=6)).isoformat(), "from": a.isoformat()} for r in out]
+
+
+def weeks_span(q: Q) -> dict:
+    """The first and last weeks stored, for the map's week picker."""
+    if not _has(q, "traffic_weekly"):
+        return {"first": None, "last": None}
+    r = q("SELECT min(week) AS a, max(week) AS b FROM traffic_weekly WHERE place_kind = 'port'", [])[0]
+    return {"first": r["a"].isoformat() if r["a"] else None, "last": r["b"].isoformat() if r["b"] else None}
 
 
 def place(q: Q, kind: str, ident: str, start: int = 2019, event: str | None = None) -> dict:
@@ -265,16 +279,17 @@ def patterns(q: Q, min_events: int = 2) -> dict:
     return {"curves": curves, "resilience": res, "weeks_before": BEFORE}
 
 
-def layer(q: Q) -> dict:
-    """The map layer 'Ports against normal': each port with a weekly series, its last four weeks
-    against normal (percent) and its usual ships a week."""
+def layer(q: Q, end: date | None = None, weeks: int = 4) -> dict:
+    """The map layer 'Ports against normal': each port with a weekly series, its ships against
+    normal (percent) over `weeks` weeks ending with the last stored or with `end`, and its usual
+    ships a week."""
     feats = []
-    for p in places(q):
+    for p in places(q, end=end, weeks=weeks):
         if p["kind"] != "port" or p["lat"] is None or p["lon"] is None:
             continue
         feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [p["lon"], p["lat"]]},
                       "properties": {"id": p["id"], "name": p["name"], "country": p["entity_id"], "weekly": p["weekly"],
-                                     "vs_normal": p["vs_normal"], "as_of": p["as_of"]}})
+                                     "vs_normal": p["vs_normal"], "as_of": p["as_of"], "from": p["from"]}})
     return {"type": "FeatureCollection", "features": feats}
 
 
