@@ -215,6 +215,7 @@ with identical content is skipped; a revised release becomes a new vintage
 | Microsoft AI Diffusion Report | Share of working-age people using AI (`ai_use_population`), each year's latest half-year or quarter | From github.com/microsoft/ai-diffusion-report every four weeks |
 | BIS policy rates and exchange rates | Central bank policy rates (yearly average and December), and each currency's US dollar rate | BIS statistics API (`WS_CBPOL`, `WS_XRU`) |
 | US Census Bureau voting tables | Who voted and who registered at every November election since 1964: by age group, by sex (also within age groups), and for White non-Hispanic, Black, Asian and Hispanic Americans; citizens and all residents | Table A-1 (`hst_vote01.xlsx`), checked every three months. If the Census site refuses it, download it from the voting historical time series page and run `.\load.bat us_census_voting <file>` |
+| Weather maps | NOAA GFS forecast (temperature, rain, cloud, wind, pressure), RainViewer rain radar, NASA GIBS Himawari and GOES infrared; a place's forecast from Open-Meteo or MET Norway | Read while a weather layer is on: GFS every 6 hours, radar every 5 minutes, satellite every 10 minutes |
 | Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
@@ -520,6 +521,23 @@ several legs shows its total and a rough flight time at 850 km/h.
   project (CC BY-SA 4.0), since ICAO's own file is sold. Each country's regions are shaded
   together when zoomed out, and each region is outlined and named closer in. It is drawn for
   flight simulators: not for navigation.
+
+**Weather** (Map layers, group *Weather now and forecasts*; Settings > Climate > Weather):
+- *Temperature, Rain and snow, Cloud cover, Wind* (shading and arrows) and *Pressure lines*
+  are NOAA's GFS forecast, now to a week ahead in 3-hour steps. A weather bar on the map picks
+  the hour (slider, Play, Now), shows the colour keys and the values under the pointer. While a
+  forecast layer is on, the app downloads only these fields from NOAA's NOMADS subset service
+  every 6 hours into `var\weather\gfs` (about 75 MB a run at 0.5°; 1° or 0.25° in Settings),
+  keeps one run and draws the tiles itself. GRIB files are read with the `eccodes` package
+  (installed by update.bat).
+- *Rain radar (now)* is RainViewer's latest radar picture (where there are radars, New Zealand's
+  included); *Clouds from satellite (now)* is the latest Himawari and GOES infrared from NASA
+  GIBS, with clear ground made see-through (no picture over Europe, Africa and the Middle East).
+- With a weather layer on, a click on the map opens that place's forecast (weather now, the
+  days ahead and the next three days by the hour) from Open-Meteo or MET Norway; shift-click
+  still picks the country. City pages have the same *Forecast* card.
+- API: `/api/v1/weather/status`, `/weather/tiles/{field}/{run}/{step}/{z}/{x}/{y}.png`,
+  `/weather/at`, `/weather/clouds/{z}/{x}/{y}.png`, `/weather/point`.
 
 **How it ranks among…** (a card on each country page, World section): for each measure the
 best country in the group, this country with its rank ("#2 of 6", the cell green near the

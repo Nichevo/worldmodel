@@ -260,6 +260,10 @@ export type Settings = {
   calendar_live: boolean; // the release calendar reads the ONS and ABS calendars once a day
   attention_on: boolean; // Wikipedia page views per country
   hazards_live: boolean; // the map's fires, heatwave and coral layers read NASA, Open-Meteo and NOAA when on
+  weather_maps: boolean; // the map's weather layers read NOAA, RainViewer, NASA and Open-Meteo while one is on
+  weather_detail: "1p00" | "0p50" | "0p25"; // forecast map grid
+  weather_days: number; // forecast days downloaded for the maps
+  weather_point: "open_meteo" | "met_norway"; // click-for-forecast and city Forecast cards
   internet_speeds_fetch: boolean; // refresh reads Ookla's open Speedtest files
   internet_speeds_from: number; // first year of internet speeds kept
   internet_speeds_per_refresh: number; // Ookla files read in one refresh at most

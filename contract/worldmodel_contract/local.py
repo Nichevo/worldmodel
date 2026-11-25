@@ -114,6 +114,11 @@ SETTINGS: dict[str, object] = {
     "climate_storms_from": 1980,     # first year of storm tracks kept on the map (IBTrACS starts in 1980 in this file)
     "climate_live_map": True,        # the Climate page's storms map asks GDACS for the storms, floods and fires happening now
     "hazards_live": True,            # the map's fires, heatwave and coral bleaching layers read NASA, Open-Meteo and NOAA when on
+    # Weather (app/api weather.py): forecast maps from NOAA GFS, rain radar, satellite clouds, click-for-forecast
+    "weather_maps": True,            # the map's weather layers read NOAA, RainViewer, NASA and Open-Meteo while one is on
+    "weather_detail": "0p50",        # forecast map grid: "1p00" (about 17 MB for 7 days), "0p50" (about 75 MB), "0p25" (about 300 MB)
+    "weather_days": 7,               # forecast days downloaded for the maps (3-hourly steps)
+    "weather_point": "open_meteo",   # click-for-forecast and city Forecast cards: "open_meteo" or "met_norway" (yr.no)
     # Nature and pollution (connectors/nature.py)
     "nature_zones_fetch": True,          # refresh reads the Köppen-Geiger climate zones once (a 1 GB zip, about 20 MB kept)
     "nature_climate_extras_fetch": True,  # Berkeley Earth temperatures, PSMSL tide gauges, ND-GAIN adaptation index
@@ -287,7 +292,8 @@ SETTINGS: dict[str, object] = {
     # The weekly digest (Briefing > Week)
     "digest_on": True,               # make each week's digest on the first visit after Monday, and keep it
 }
-CHOICES = {"click_mode": ("popup", "select"), "party_office": ("government", "state"),
+CHOICES = {"click_mode": ("popup", "select"), "weather_detail": ("1p00", "0p50", "0p25"),
+           "weather_point": ("open_meteo", "met_norway"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
            "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
@@ -310,7 +316,7 @@ LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
 PHRASES = {"news_watch_words"}  # comma-separated words or short phrases, lower case
 BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
-RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
+RANGES = {"disk_limit_gb": (1, 10_000), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
@@ -379,9 +385,13 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
+LAYER_MARKS = "_*-!$();@:"  # layer "letters" past the 62 letters and digits (never "." or "~")
+
+
 def _letters(v) -> str:
     """Map layer letters, each once, in the order given."""
-    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z" or "A" <= c <= "Z" or "0" <= c <= "9"))[:62]
+    return "".join(dict.fromkeys(c for c in str(v or "") if "a" <= c <= "z" or "A" <= c <= "Z" or "0" <= c <= "9"
+                                 or c in LAYER_MARKS))[:80]
 
 
 def clean_settings(data: dict, base: dict | None = None) -> dict:

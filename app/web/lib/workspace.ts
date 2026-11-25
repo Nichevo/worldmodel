@@ -259,8 +259,9 @@ export const selectionOf = (ws: Workspace, p: Panel) => (p.links.select ? ws.sel
 // Overlays a map panel can draw over the countries. Most come from the warehouse's layers
 // table (id = layer_id); three are made by the app: CrisisWatch outlines (this month's
 // ratings), event markers and news that names a watch word. Timed layers follow the
-// map's time window. Letters are the URL form (all 62 letters and digits are taken, so newer ones use "_"); the group and order are the Layers panel's.
-export type LayerGroup = "now" | "conflict" | "quakes" | "cities" | "ports" | "airrail" | "energy" | "nature" | "water" | "sights" | "borders" | "spotted";
+// map's time window. Letters are the URL form (all 62 letters and digits are taken, so newer ones use "_" and
+// punctuation; never "." or "~", which split the URL); the group and order are the Layers panel's.
+export type LayerGroup = "now" | "weather" | "conflict" | "quakes" | "cities" | "ports" | "airrail" | "energy" | "nature" | "water" | "sights" | "borders" | "spotted";
 export type LayerDef = { letter: string; id: string; label: string; group: LayerGroup; timed?: boolean; made?: boolean; hint?: string };
 export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "w", id: "crisiswatch", label: "CrisisWatch this month", group: "conflict", made: true, hint: "Countries Crisis Group rated worse, better or on alert this month, outlined" },
@@ -274,6 +275,13 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "i", id: "fires_now", label: "Wildfires now (24 hours)", group: "now", hint: "Every fire seen from space in the last 24 hours (NASA FIRMS, VIIRS), gathered into small squares; read when turned on, every 3 hours" },
   { letter: "d", id: "fires_week", label: "Wildfires this week", group: "now", hint: "Fires seen in the last 7 days (NASA FIRMS, MODIS)" },
   { letter: "j", id: "heat_now", label: "Heatwaves (next 5 days)", group: "now", hint: "Big cities forecast to reach 35 °C or more on two or more of the next five days (Open-Meteo, every 6 hours)" },
+  { letter: "!", id: "wx_temp", label: "Temperature (forecast)", group: "weather", made: true, hint: "Air temperature 2 m above the ground for the hour picked on the weather bar, now to a week ahead (NOAA GFS, drawn here; a new run every 6 hours)" },
+  { letter: "$", id: "wx_rain", label: "Rain and snow (forecast)", group: "weather", made: true, hint: "How hard it rains or snows, in mm an hour, for the hour picked on the weather bar (NOAA GFS)" },
+  { letter: "(", id: "wx_cloud", label: "Cloud cover (forecast)", group: "weather", made: true, hint: "Share of the sky covered by cloud, all heights, for the hour picked on the weather bar (NOAA GFS)" },
+  { letter: ")", id: "wx_wind", label: "Wind (forecast)", group: "weather", made: true, hint: "Wind 10 m above the ground: shading for speed, arrows for the way it blows (NOAA GFS)" },
+  { letter: ";", id: "wx_pressure", label: "Pressure lines (forecast)", group: "weather", made: true, hint: "Isobars: lines of equal air pressure at sea level every 4 hPa, darker every 20 hPa; close lines mean strong wind (NOAA GFS)" },
+  { letter: "@", id: "wx_radar", label: "Rain radar (now)", group: "weather", made: true, hint: "Rain and snow seen by weather radars in the last 10 minutes, where there are radars (RainViewer, including New Zealand's)" },
+  { letter: ":", id: "wx_satellite", label: "Clouds from satellite (now)", group: "weather", made: true, hint: "Clouds in the latest infrared picture from Himawari (Asia, Australia, New Zealand, the Pacific) and GOES (the Americas), about an hour old; brighter = colder, higher cloud (NASA GIBS)" },
   { letter: "r", id: "coral_alerts", label: "Coral bleaching now", group: "now", hint: "Reef regions under bleaching heat stress this week (NOAA Coral Reef Watch, daily)" },
   { letter: "Q", id: "marine_heat", label: "Marine heatwaves (sea warmer than usual)", group: "nature", made: true, hint: "How much warmer or cooler the sea surface is than usual for the day (NASA GIBS, MUR SST anomaly, two days ago)" },
   { letter: "X", id: "tree_height", label: "Tree height", group: "nature", made: true, hint: "How tall the trees are, 1 km squares, from NASA's GEDI laser on the space station (2019-2021; 52°N to 52°S)" },
@@ -330,7 +338,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "0", id: "ai_spotted", label: "Spotted by AI", group: "spotted", made: true, hint: "What your local model reported in area scans (mines, solar farms, airports …) and map places a check said don't look right; start a scan on the Spotting page" },
 ];
 export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
-  { id: "now", label: "Happening now" }, { id: "conflict", label: "Conflict and security" },
+  { id: "now", label: "Happening now" }, { id: "weather", label: "Weather now and forecasts" }, { id: "conflict", label: "Conflict and security" },
   { id: "quakes", label: "Earthquakes, volcanoes, storms" }, { id: "cities", label: "Cities, health and education" },
   { id: "ports", label: "Ports and shipping" }, { id: "airrail", label: "Air, rail and cables" },
   { id: "energy", label: "Energy and pipelines" }, { id: "nature", label: "Climate, land and nature" },
@@ -340,6 +348,7 @@ export const LAYER_GROUPS: { id: LayerGroup; label: string }[] = [
 export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
   { name: "Conflict watch", letters: "wen34", hint: "CrisisWatch, events, news watch words, fighting and unrest, the front line" },
   { name: "Hazards", letters: "qzvpf", hint: "Earthquakes, storms now, volcanoes, plates, faults" },
+  { name: "Weather", letters: "!$);", hint: "Temperature, rain, wind and pressure lines for the hour on the weather bar" },
   { name: "Hazards now", letters: "izjr", hint: "Fires, storms, heatwaves and coral bleaching happening now" },
   { name: "People and places", letters: "cutlo", hint: "Cities, universities, stations and lines, companies" },
   { name: "Trade routes", letters: "PCLK", hint: "Ports, chokepoints, shipping lanes, undersea cables" },

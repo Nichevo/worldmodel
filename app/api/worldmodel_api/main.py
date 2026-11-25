@@ -45,7 +45,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, disease, disease_forecast, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, port_goods, ports, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, disease, disease_forecast, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, port_goods, ports, relationships, sectors, space, spotting, tiles, transport, userdata, weather, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
 from worldmodel_api import grid, learn
@@ -2894,6 +2894,53 @@ def layer_details_items(layer_id: str, country: str | None = Query(None, descrip
                         limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0)):
     """A layer's items, biggest first (or by name), for one country or group or all."""
     return layer_info.list_items(rows, _layer_key(), layer_id, country, q, sort, limit, offset, _live_layer, hazards.country_of)
+
+
+@api.get("/weather/status")
+def weather_status():
+    """The forecast run the weather layers draw (its steps, colours and keys), and a look for a newer
+    run in the background when one is due (Settings > Climate > Weather)."""
+    return weather.status(userdata.settings())
+
+
+@api.get("/weather/tiles/{field}/{run}/{step}/{z}/{x}/{y}.png")
+def weather_tile(field: str, run: str, step: int, z: int, x: int, y: int):
+    """A 256-pixel tile of one forecast field (temp, rain, cloud, wind, pressure) for one run and hour."""
+    if not run.isdigit() or len(run) != 10:
+        raise HTTPException(404, "no such run")
+    try:
+        png = weather.tile(userdata.settings(), field, run, step, z, x, y)
+    except ImportError:
+        raise HTTPException(503, "The eccodes package is missing: run update.bat to install it.") from None
+    if png is None:
+        raise HTTPException(404, "no such forecast step on this PC (a newer run may have replaced it)")
+    return Response(png, media_type="image/png", headers={"Cache-Control": "max-age=21600"})
+
+
+@api.get("/weather/at")
+def weather_at(lat: float, lon: float, step: int = 0):
+    """Every forecast field's value at a point for one step (the line under the map pointer)."""
+    try:
+        return weather.at(userdata.settings(), lat, lon, step)
+    except ImportError:
+        return {"step": step, "values": {}, "note": "The eccodes package is missing: run update.bat to install it."}
+
+
+@api.get("/weather/clouds/{z}/{x}/{y}.png")
+def weather_clouds(z: int, x: int, y: int):
+    """The latest satellite infrared (Himawari, GOES East and West) as see-through clouds."""
+    if not (0 <= z <= 10) or not (0 <= y < 2 ** z) or not userdata.settings().get("weather_maps", True):
+        raise HTTPException(404, "no such tile")
+    return Response(weather.clouds_tile(z, x, y), media_type="image/png", headers={"Cache-Control": "max-age=600"})
+
+
+@api.get("/weather/point")
+def weather_point(lat: float, lon: float):
+    """A place's weather now and hourly forecast (Open-Meteo or MET Norway, Settings > Climate > Weather)."""
+    s = userdata.settings()
+    if not s.get("weather_maps", True):
+        return {"lat": lat, "lon": lon, "error": "Weather is switched off in Settings > Climate."}
+    return weather.point(s, lat, lon)
 
 
 @api.get("/layers/{layer_id}")

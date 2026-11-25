@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=1.26",
     "pillow>=10",
     "shapely>=2.0",  # land: tree and built-up shares inside city outlines
+    "eccodes>=2.38",  # weather: reads NOAA GFS GRIB2 files (the wheels carry the library, Windows too)
 ]
 
 [project.optional-dependencies]

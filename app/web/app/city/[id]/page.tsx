@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import CityLandCard from "@/components/CityLandCard";
+import ForecastCard from "@/components/ForecastCard";
 import CityStressCard from "@/components/cities/CityStressCard";
 import CityDistanceCard from "@/components/cities/CityDistanceCard";
 import PlacesCard from "@/components/PlacesCard";
@@ -17,6 +18,7 @@ import { cityPoints, cityPopulation, people } from "@/lib/cities";
 import { cssVar, seriesColor } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
+import { useSettings } from "@/lib/settings";
 
 // One city: Wikipedia's introduction and photo, population since 1950 with the UN
 // projection to 2035, cost of living and quality figures, Numbeo's everyday prices on
@@ -26,6 +28,7 @@ export default function CityPage() {
   const [d, setD] = useState<CityDetail | null>(null);
   const [wiki, setWiki] = useState<Wikipedia | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const weatherOn = useSettings().weather_maps !== false;
 
   useEffect(() => {
     setD(null); setWiki(null); setError(null);
@@ -119,6 +122,15 @@ export default function CityPage() {
           </section>
         )}
       </div>
+
+      {weatherOn && (
+        <section className="card" id="forecast">
+          <h3>Forecast</h3>
+          <ForecastCard lat={c.lat} lon={c.lon} title={`${c.name} now`} hours={120} />
+          <p className="caption">Next 5 days by the hour; the source is picked in <Link href="/settings#weather">Settings &gt; Climate &gt; Weather</Link>.
+            {" "}<Link href={`/?l=1&p=${encodeURIComponent("map.none.........!$);")}`}>Weather maps</Link></p>
+        </section>
+      )}
 
       {(d.scores ?? []).map((sc) => <CityStressCard key={sc.id} s={sc} name={c.name} />)}
 

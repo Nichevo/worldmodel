@@ -14,6 +14,7 @@ import { LAND_COVER } from "@/lib/maplook";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
+import { forecastFields, hasWeather, useRadar, useWeatherStatus, useWeatherStep, weatherRasters } from "@/lib/weather";
 import { GROUP_LABEL, KIND_GROUP, kindColor, yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn, useYearEvents, yearMarks } from "@/lib/longYear";
 import {
@@ -70,6 +71,9 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const [centres, setCentres] = useState<Record<string, [number, number]> | null>(null);
   const [counts, setCounts] = useState<LayerCounts>({});
   const pastYear = useMapYear();
+  const wx = useWeatherStatus(hasWeather(letters)).status;
+  const wxStep = useWeatherStep();
+  const rad = useRadar(on("@")).radar;
   const world = useWorldIn(on("y"), pastYear);
   const past = useYearEvents(on("y"), pastYear);
   const pastLabels = useSettings().history_map_labels ?? 10;
@@ -226,8 +230,12 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       all.ai_spotted = `${spotted.length} shown`;
       if (spotted.length) legend.push({ label: "Spotted by AI (hollow: less sure, red ring: map place looks wrong)", color: "#862e9c", shape: "ring" });
     }
+    // Weather on top: forecast fields for the hour on the weather bar, satellite clouds, rain radar.
+    rasters.push(...weatherRasters(letters, wx, wxStep, rad));
+    if (wx?.run && forecastFields(letters).length) all.wx_temp = all.wx_rain = all.wx_cloud = all.wx_wind = all.wx_pressure = wx.steps.length < wx.all_steps.length
+      ? `${wx.steps.length} of ${wx.all_steps.length} forecast hours in` : `next ${wx.days} days, every ${wx.step_hours} hours`;
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const TAG_COLOUR: Record<string, string> = {
@@ -256,13 +264,15 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; lab
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
 // Read from the internet while on (marked "live" in the list).
-const LIVE = new Set(["fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
+const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
   crisiswatch: () => cssVar("--div-neg-3"), events: () => cssVar("--series-7"), news: () => cssVar("--series-4"),
   history_world: () => cssVar("--series-4"), electricity_mix: () => "#2c4f9e",
   land_change: () => "#c92a2a", water_change: () => "#1c7ed6", ai_spotted: () => "#862e9c",
+  wx_temp: () => "#f08246", wx_rain: () => "#2878e6", wx_cloud: () => "#b4bcc6", wx_wind: () => "#3c8cc8",
+  wx_pressure: () => "#283040", wx_radar: () => "#1fa34a", wx_satellite: () => "#d0d8e0",
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose }: {
@@ -300,6 +310,12 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     timer.current = setInterval(step, 1500);
   };
   const status = (m: LayerDef): { ok: boolean; why: string; source: string } => {
+    if (m.made && m.id.startsWith("wx_")) {
+      if (!s.weather_maps) return { ok: false, why: "Switched off in Settings > Climate", source: "" };
+      return { ok: true, why: "", source: m.id === "wx_radar" ? "RainViewer, read from the internet every 5 minutes"
+        : m.id === "wx_satellite" ? "NASA GIBS (Himawari, GOES), read from the internet every 10 minutes"
+        : "NOAA GFS, downloaded to this PC every 6 hours while a forecast layer is on" };
+    }
     if (m.made) {
       if (m.id === "crisiswatch") return { ok: true, why: "", source: "Crisis Group, the latest month stored" };
       if (m.id === "events") return { ok: true, why: "", source: "Events from every source, placed on their country" };
