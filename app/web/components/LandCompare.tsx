@@ -128,7 +128,7 @@ export default function LandCompare({ initial, onChange }: { initial: string[]; 
         by country (coastal water and tidal flats left out). Borders: Natural Earth. Maps: ESA WorldCover at 10 m for {useSettings().land_cover_year === "2020" ? 2020 : 2021} (CC BY 4.0), the
         same picture as the Map&apos;s Land cover look, recoloured to match the bars. The two sort land a little differently (WorldCover counts sparse plants as bare;
         flooded shrubs and moss go with shrubs here), and small patches such as towns fade when zoomed out, so zoom in to see them. Same scale draws every
-        country at the same km per pixel at its centre. Rivers: HydroRIVERS, rivers of 10 m³/s and up (the Map&apos;s Rivers layer; needs Settings &gt; Rivers and river basins on and a refresh).</p>
+        country at the same km per pixel at its centre. Rivers: HydroRIVERS, down to 1 m³/s as you zoom in (the Map&apos;s Rivers layer; needs Settings &gt; Rivers and river basins on and a refresh).</p>
     </>
   );
 }

@@ -131,6 +131,32 @@ def iso3_of(name_or_code) -> str | None:
     return country(s, None, set())
 
 
+GEO_COLUMNS = (("layer_id", "VARCHAR"), ("feature_id", "VARCHAR"), ("name", "VARCHAR"), ("rank", "INTEGER"),
+               ("props", "VARCHAR"), ("countries", "VARCHAR"), ("west", "DOUBLE"), ("south", "DOUBLE"),
+               ("east", "DOUBLE"), ("north", "DOUBLE"), ("geojson", "VARCHAR"))
+
+
+def insert_by_file(con: duckdb.DuckDBPyConnection, table: str, out: list[tuple]) -> None:
+    """Rows into a geo table by way of a JSON lines file (executemany takes minutes for 100,000)."""
+    import os
+    import tempfile
+
+    names = [c for c, _ in GEO_COLUMNS]
+    fd, path = tempfile.mkstemp(suffix=".jsonl", prefix="wm-geo-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for r in out:
+                f.write(json.dumps(dict(zip(names, r)), ensure_ascii=False, separators=(",", ":")) + "\n")
+        spec = "{" + ", ".join(f"'{c}': '{t}'" for c, t in GEO_COLUMNS) + "}"
+        con.execute(f"INSERT INTO {table} SELECT * FROM read_json(?, format = 'newline_delimited', columns = {spec}, "
+                    "maximum_object_size = 1073741824)", [path.replace("\\", "/")])
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def stage_geo(con: duckdb.DuckDBPyConnection, rows: list[tuple], table: str = "geo") -> str:
     """Rows (layer_id, feature_id, name, rank, props dict, countries list, geometry) into a
     table and the history query for geo_features."""
@@ -143,9 +169,10 @@ def stage_geo(con: duckdb.DuckDBPyConnection, rows: list[tuple], table: str = "g
             continue
         out.append((layer, str(fid), name, rank, json.dumps(props, separators=(",", ":"), ensure_ascii=False),
                     ",".join(sorted(set(c for c in countries if c))), *b, json.dumps(geom, separators=(",", ":"))))
-    con.execute(f"CREATE TABLE {table} (layer_id VARCHAR, feature_id VARCHAR, name VARCHAR, rank INTEGER, props VARCHAR, "
-                "countries VARCHAR, west DOUBLE, south DOUBLE, east DOUBLE, north DOUBLE, geojson VARCHAR)")
-    if out:
+    con.execute(f"CREATE TABLE {table} ({', '.join(f'{c} {t}' for c, t in GEO_COLUMNS)})")
+    if len(out) > 2000:  # many rows (rivers): through a file, far quicker than one insert a row
+        insert_by_file(con, table, out)
+    elif out:
         con.executemany(f"INSERT INTO {table} VALUES ({', '.join('?' * 11)})", out)
     return f"SELECT DISTINCT ON (layer_id, feature_id) * FROM {table}"
 

@@ -278,8 +278,8 @@ TABLES: dict[str, Table] = {
             "countries": "VARCHAR", "west": "DOUBLE", "south": "DOUBLE", "east": "DOUBLE", "north": "DOUBLE",
             "geojson": "VARCHAR", "source_id": "VARCHAR", "vintage": "VARCHAR",
         }, ("layer_id", "feature_id"),
-            "Lines and areas too big for one map layer, sent by the box in view: rivers (HydroRIVERS, rank = flow "
-            "order, 1 biggest), river_names (Natural Earth), basins (HydroBASINS, whole river basins; props has area, "
+            "Lines and areas too big for one map layer, sent by the box in view: rivers (HydroRIVERS, rank = the flow "
+            "order it shows from, 1 biggest, sooner for a well-known river; props.order is its flow order), river_names (Natural Earth), basins (HydroBASINS, whole river basins; props has area, "
             "shares by country, of_country, flow, transboundary), waterways, cables (TeleGeography), gas_pipelines, "
             "oil_pipelines (Global Energy Monitor). countries is a comma list of entity ids; props is JSON. "
             "Absent before 1.10.0."),

@@ -190,11 +190,18 @@ def test_tourism(built):
 def test_rivers_and_basins(built):
     _, con = built
     rivers = _geo(con, "rivers")
-    waikato = rivers["1:5"]
-    assert waikato[1]["flow"] == 340 and waikato[1]["length"] == 120 and waikato[2] == "NZL"
-    geom = json.loads(con.execute("SELECT geojson FROM geo_features WHERE layer_id = 'rivers' AND feature_id = '1:5'").fetchone()[0])
-    assert geom["type"] == "LineString"  # three reaches chained into one line
-    assert "1:7" not in rivers  # flow order 7 is left out
+    # Smaller rivers (order 4 and up) are stored by square, and by the name they run along
+    waikato = {k: v for k, v in rivers.items() if k.startswith("1:5:")}
+    assert set(waikato) == {"1:5:58_-13", "1:5:waikato:58_-13"}
+    assert sum(v[1]["length"] for v in waikato.values()) == 145 and waikato["1:5:58_-13"][2] == "NZL"
+    # A reach that runs along one of Natural Earth's named rivers takes its name, and a known
+    # river shows from its name's rank (Waikato: scalerank 6 -> 5) or its flow order if sooner
+    named = waikato["1:5:waikato:58_-13"]
+    assert named[0] == "Waikato" and named[1]["order"] == 5 and named[1]["flow"] == 345
+    assert "1:7:117_-26" in rivers  # flow order 7 (under 1 m3/s) is kept in New Zealand ...
+    assert not any(k.startswith("40:") for k in rivers)  # ... but not elsewhere
+    assert rivers["30:6:115_-29"][1]["order"] == 6  # 1 to 10 m3/s is kept everywhere
+    assert {k for k in rivers if k.startswith("10:4:")} == {"10:4:23_-6", "10:4:24_-6"}  # order 4: 6 degree squares
     basins = _geo(con, "basins")
     assert set(basins) == {"500", "600"}  # the small basin outside New Zealand is left out
     name, props, countries = basins["600"]
@@ -231,3 +238,27 @@ def test_railways(built):
     ranks = {props["rank"] for _, props, _ in geo.values()}
     assert ranks == {1, 2, 3}  # the fixture has New Zealand lines from scalerank 5 to 10
     assert any("NZL" in (c or "") for _, _, c in geo.values())
+
+
+def test_river_names_and_many_geo_rows(tmp_path):
+    from worldmodel_data.connectors.networks import RiverNames, clean_river_name, spread
+    from worldmodel_data.connectors.transport import stage_geo
+
+    assert clean_river_name("Waikato  River") == "Waikato" and clean_river_name("") is None
+    assert spread([[0, 0], [4, 0]], 5) == [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
+    f = tmp_path / "ne.geojson"
+    f.write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "properties": {"name": "Big River", "featurecla": "River", "scalerank": 4},
+         "geometry": {"type": "LineString", "coordinates": [[0, 0], [1, 0]]}}]}))
+    names = RiverNames([f, None])
+    assert names.name_of([[0.1, 0.01], [0.5, -0.01], [0.9, 0.02]]) == ("Big", 4)  # runs along it
+    assert names.name_of([[0.5, 0.5], [0.5, 0.2], [0.5, 0.0]]) is None  # a side stream that only meets it
+    assert names.name_of([[0.1, 0.01], [0.5, -0.01], [0.9, 0.02]], 7) is None  # a stream far smaller than it
+    assert names.name_of([[0.1, 0.01], [0.5, -0.01], [0.9, 0.02]], 6) == ("Big", 4)
+    # Many rows go in by way of a file, names with quotes and all
+    con = duckdb.connect()
+    rows = [("rivers", str(i), 'Wai "o" ā' if i % 2 else None, 6, {"flow": 1.5}, ["NZL"],
+             {"type": "LineString", "coordinates": [[170 + i / 1e4, -40], [170.1, -40.1]]}) for i in range(2500)]
+    q = stage_geo(con, rows)
+    got = con.execute(f"SELECT count(*), count(name), max(name), min(west) FROM ({q})").fetchone()
+    assert got == (2500, 1250, 'Wai "o" ā', 170.0)

@@ -1002,12 +1002,13 @@ function cardOf(layer: string, d: GeoCard): FeatureInfo {
     if (typeof p.length_km === "number") lines.push(`${n0(p.length_km)} km long.`);
     if (p.owner) lines.push(`Owner: ${p.owner}.`);
   } else if (layer === "rivers") {
-    if (typeof p.flow === "number") lines.push(`About ${n0(p.flow)} m³ of water a second where this stretch ends; ${n0(p.length)} km of river in this order.`);
+    if (typeof p.flow === "number") lines.push(`About ${p.flow < 10 ? p.flow : n0(p.flow)} m³ of water a second where this stretch ends; ${n0(p.length)} km in this stretch.`);
+    lines.push("Shapes: HydroRIVERS; names: Natural Earth, where the river runs along one of its named rivers.");
   } else if (layer === "waterways") {
     if (p.to) lines.push(`Ships use it as far as ${p.to}.`);
     if (p.cemt) lines.push(`European class ${p.cemt} (V and up take big barges and push convoys).`);
     if (p.source) lines.push(`From ${p.source}.`);
   }
-  const title = d.name ?? (layer === "rivers" ? "River" : layer === "basins" ? "River basin" : "Feature");
+  const title = layer === "rivers" ? (d.name ? `${d.name} (river)` : "River") : d.name ?? (layer === "basins" ? "River basin" : "Feature");
   return { layer, title, lines, countries: d.countries, split: d.split };
 }
