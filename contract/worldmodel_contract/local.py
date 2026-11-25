@@ -114,6 +114,7 @@ SETTINGS: dict[str, object] = {
     "nature_protected_fetch": True,      # WDPA protected areas (900 MB twice a year, about 150 MB kept)
     # Transport, tourism and networks (connectors/transport.py, tourism.py, networks.py)
     "transport_ports_fetch": True,       # IMF PortWatch ports, chokepoints and port calls (weekly), World Port Index, shipping lanes
+    "port_goods_fetch": True,            # goods by port: Stats NZ, Eurostat, UK DfT, US Census (key), Australia BITRE (monthly)
     "transport_air_fetch": True,         # OurAirports and Eurostat airport passengers and freight
     "transport_waterways_fetch": True,   # inland waterways (US network, OpenStreetMap for Europe and big rivers) and Eurostat river freight
     "tourism_fetch": True,               # UNESCO World Heritage sites

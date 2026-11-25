@@ -3,6 +3,14 @@
 Changes to the warehouse schema, stream definitions and catalogue formats.
 External tools that read the API or the warehouse should check this file.
 
+## 1.17.0 (2026-11-25)
+
+- New table `port_goods`: what goes through each port by kind of goods and by partner
+  country (Stats NZ, Eurostat, UK DfT, US Census, Australia BITRE), tied to IMF PortWatch
+  ports where the names agree. New sources statsnz_port_trade, eurostat_port_goods,
+  dft_port_freight, census_port_trade and bitre_sea_freight. Absent before 1.17.0; readers
+  should treat it as empty.
+
 ## 1.16.0 (2026-11-25)
 
 - New tables `port_daily` (ship calls a day by ship type and tonnes at every port),

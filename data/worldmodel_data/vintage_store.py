@@ -216,6 +216,11 @@ HISTORY_COLUMNS = {
         "hazard": "VARCHAR", "alert": "VARCHAR", "country_code": "VARCHAR", "start_date": "DATE", "end_date": "DATE",
         "lat": "DOUBLE", "lon": "DOUBLE", "severity": "VARCHAR", "distance_km": "DOUBLE",
     },
+    "port_goods": {
+        "source_id": "VARCHAR", "vintage": "VARCHAR", "country_code": "VARCHAR", "port_code": "VARCHAR", "port": "VARCHAR",
+        "period": "DATE", "freq": "VARCHAR", "direction": "VARCHAR", "goods": "VARCHAR", "goods_name": "VARCHAR",
+        "partner": "VARCHAR", "tonnes": "DOUBLE", "value": "DOUBLE", "currency": "VARCHAR",
+    },
     "airport_traffic": {
         "source_id": "VARCHAR", "vintage": "VARCHAR", "airport": "VARCHAR", "name": "VARCHAR", "country_code": "VARCHAR",
         "year": "INTEGER", "passengers": "DOUBLE", "freight_t": "DOUBLE",

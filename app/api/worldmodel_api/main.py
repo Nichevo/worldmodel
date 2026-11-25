@@ -45,7 +45,7 @@ from worldmodel_contract import quality as qual
 from worldmodel_contract import relations as relterms
 from worldmodel_contract import forecast as statforecast
 from worldmodel_contract.cities import CITY_INDICATORS
-from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, ports, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
+from worldmodel_api import __version__, ai, attention, basemap, briefing, cityscore, climate, crises, cycles, episodes, hazards, osint, outlook, releases, crowd, predictions, highlights, land, layouts, longhistory, look, markets, nature, news, numbeo, people, port_goods, ports, relationships, sectors, space, spotting, tiles, transport, userdata, wiki
 from worldmodel_api import upkeep as upkeep_jobs
 from worldmodel_api import regions as region_tools
 from worldmodel_api import grid, learn
@@ -3701,6 +3701,33 @@ def transport_patterns():
 def transport_pressure_country(entity: str):
     """A country's busiest ports over the last 26 weeks against normal, and the events that hit them."""
     return ports.country(rows, entity)
+
+
+@api.get("/transport/goods/countries")
+def transport_goods_countries():
+    """Countries with goods by port: how many ports, from which sources, up to when."""
+    return port_goods.countries(rows)
+
+
+@api.get("/transport/goods/ports/{entity}")
+def transport_goods_ports(entity: str):
+    """A country's ports with the last year of goods in and out, busiest first."""
+    return port_goods.ports_of(rows, entity)
+
+
+@api.get("/transport/goods/for/{port_id}")
+def transport_goods_for(port_id: str):
+    """The goods-by-port keys tied to an IMF PortWatch port."""
+    return port_goods.for_port_id(rows, port_id)
+
+
+@api.get("/transport/goods/port/{key}")
+def transport_goods_port(key: str):
+    """One port: totals year by year, last year's goods and partners in and out, biggest goods by year."""
+    d = port_goods.port(rows, key)
+    if d is None:
+        raise HTTPException(404, f"No goods stored for port {key}")
+    return d
 
 
 @api.get("/transport/port/{ident}")

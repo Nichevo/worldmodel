@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-SCHEMA_VERSION = "1.16.0"
+SCHEMA_VERSION = "1.17.0"
 
 # Status codes in observations.status / series.status
 STATUS_ESTIMATE = "E"  # observed or estimated by the source
@@ -319,6 +319,17 @@ TABLES: dict[str, Table] = {
             "Disasters IMF PortWatch tracks (cyclones, earthquakes, floods, droughts, volcanoes, wildfires; alert "
             "level from GDACS) and each port they reached, with its distance. port_id is empty for an event that "
             "reached no port. Absent before 1.16.0."),
+        Table("port_goods", {
+            "port_key": "VARCHAR", "port_name": "VARCHAR", "port_id": "VARCHAR", "kind": "VARCHAR", "entity_id": "VARCHAR",
+            "period": "DATE", "freq": "VARCHAR", "direction": "VARCHAR", "goods": "VARCHAR", "goods_name": "VARCHAR",
+            "partner_id": "VARCHAR", "tonnes": "DOUBLE", "value": "DOUBLE", "currency": "VARCHAR",
+            "source_id": "VARCHAR", "vintage": "VARCHAR",
+        }, ("port_key", "period", "freq", "direction", "goods", "partner_id"),
+            "What goes through each port, from national statistics (Stats NZ, Eurostat, UK DfT, US Census, "
+            "Australia BITRE): tonnes and, where given, value in the source's currency, by period (freq M, Q, A or "
+            "FY for financial years ending on period), direction (in or out) and either a kind of goods (partner_id "
+            "'') or a partner country (goods 'TOTAL'). port_id is the IMF PortWatch port where the names agree; kind "
+            "is sea or air. Absent before 1.17.0."),
         Table("traffic_weekly", {
             "place_kind": "VARCHAR", "place_id": "VARCHAR", "entity_id": "VARCHAR", "week": "DATE", "value": "DOUBLE",
             "tonnes": "DOUBLE", "normal": "DOUBLE", "ratio": "DOUBLE",
