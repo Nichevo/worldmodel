@@ -53,7 +53,7 @@ export type LayerCounts = Record<string, string>;
 export function useMapMarks(letters: string, win: string, year: number | null) {
   const on = (l: string) => letters.includes(l);
   const st = useSettings();
-  const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized } = st;
+  const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized, map_hospitals_all: allHospitals } = st;
   const [spotted, setSpotted] = useState<LayerPoint[] | null>(null);
   useEffect(() => {
     if (!on("0")) return;
@@ -149,8 +149,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     const filters: Record<string, unknown[] | null> = {
       earthquakes: ["all", [">=", ["to-string", ["get", "date"]], start], ["<=", ["to-string", ["get", "date"]], `${end}~`]],
       storm_tracks: ["all", [">=", ["get", "year"], +start.slice(0, 4)], ["<=", ["get", "year"], +end.slice(0, 4)]],
-      // Hospitals above the size in Settings > Places (and, if asked, those with no bed count).
-      hospitals: ["any", [">=", ["coalesce", ["get", "beds"], -1], minBeds ?? 200], unsized ? ["!", ["has", "beds"]] : false],
+      // Every hospital from every list, or (Settings > Places) those above a size and, if asked, those with no bed count.
+      hospitals: allHospitals === false ? ["any", [">=", ["coalesce", ["get", "beds"], -1], minBeds ?? 200], unsized ? ["!", ["has", "beds"]] : false] : null,
     };
     const legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[] = [];
     if (on("w") && outlines.length) {

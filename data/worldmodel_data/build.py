@@ -22,7 +22,7 @@ import duckdb
 
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
-from worldmodel_data import (__version__, cities, crowd_tables, episodes, gates, history, layer_tables, nature_tables, network_tables,
+from worldmodel_data import (__version__, cities, crowd_tables, episodes, gates, history, hospitals, layer_tables, nature_tables, network_tables,
                              osint_tables, port_pressure)
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
@@ -259,6 +259,11 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> se
         if found:
             con.execute(f"INSERT INTO src.{table} BY NAME SELECT * FROM read_parquet([{', '.join(repr(f) for f in found)}], "
                         "union_by_name = true)")
+    # One Hospitals layer from every hospital list, each hospital once.
+    try:
+        hospitals.prepare(con)
+    except Exception as exc:  # noqa: BLE001 - a failed merge leaves the lists' own layers; the build goes on
+        log.warning("hospitals: could not merge the hospital lists (%s); each list's layer is kept as it is", exc)
     # Every dot layer's items with a country, and the map_layers indicators (before dbt, so blocs get them too).
     # A slip here must not stop the build: the layers' details pages are left empty instead.
     try:

@@ -22,3 +22,7 @@ terms are marked so they can be swapped if that ever changes
 | Country list and UN M49 regions in the crosswalk | UN M49, packaged by github.com/lukes/ISO-3166-Countries-with-Regional-Codes | CC BY-SA 4.0 (the packaging) |
 | Country outlines on the map (`app/web/public/geo/countries.json`) | Natural Earth, 1:50m admin 0 countries | Public domain |
 | Bloc membership dates | Entered by hand from the sites linked on each row of `memberships.csv` | n/a |
+| Hospitals from OpenStreetMap | © OpenStreetMap contributors, packaged by healthsites.io on the Humanitarian Data Exchange | ODbL 1.0 |
+| Hospitals from Overture | Overture Maps Foundation, places theme | CDLA Permissive 2.0 (some places ODbL) |
+| Official hospital lists | Brazil Ministry of Health, CNES; Maina J. et al. (2019), "A spatial database of health facilities managed by the public health sector in sub-Saharan Africa", Scientific Data 6:134 | Brazil open government data; CC BY 4.0 |
+| Hospital counts | WHO Global Health Observatory (total density of hospitals per 100,000 people); national statistics as named in `contract/worldmodel_contract/health.py` | CC BY-NC-SA 3.0 IGO (WHO) |

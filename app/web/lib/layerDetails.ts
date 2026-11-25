@@ -34,7 +34,17 @@ export type LayerOverview = { id: string; many: string; kind: string; count: num
 export type CountryLayer = { layer_id: string; many: string; one: string; count: number; rank: number; of: number;
   size: { label: string; unit: string; value: number | null } | null };
 
+export type Grade = "good" | "part" | "thin" | "unknown";
+export type CoverageRow = { entity_id: string; name: string; count: number; per_m: number | null; official: number | null;
+  basis: string | null; coverage: number | null; estimated: boolean; grade: Grade };
+export type LayerCoverage = { layer: LayerInfo; countries: CoverageRow[]; grades: Partial<Record<Grade, number>>; cuts: Record<string, number> };
+export type Gap = { city_id: string; name: string; entity_id: string; lat: number; lon: number; population: number; nearest_km: number | null };
+export type LayerGaps = { towns: Gap[]; total?: number; checked: number; km: number; people: number; note?: string;
+  by_country?: { entity_id: string; name: string; towns: number; people: number }[] };
+
 export const layerApi = {
+  coverage: (id: string) => get<LayerCoverage>(`/layer-details/${encodeURIComponent(id)}/coverage`),
+  gaps: (id: string, country?: string) => get<LayerGaps>(`/layer-details/${encodeURIComponent(id)}/gaps`, country ? { country } : {}),
   list: () => get<LayerOverview[]>("/layer-details"),
   detail: (id: string) => get<LayerDetail>(`/layer-details/${encodeURIComponent(id)}`),
   items: (id: string, p: { country?: string; q?: string; sort?: "size" | "name"; limit?: number; offset?: number }) =>

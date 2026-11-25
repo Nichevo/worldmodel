@@ -1,6 +1,6 @@
 """Places from Wikidata: metro and rail systems with their stations and the links between
 them, universities, companies with their revenue and staff, hospitals and military bases.
-Eight queries, at most once a month.
+Nine queries, at most once a month.
 
     https://query.wikidata.org/sparql   (the Wikidata Query Service, Wikimedia's official API)
 
@@ -23,8 +23,9 @@ Eight queries, at most once a month.
 * currencies: each country's currency code (P38 / ISO 4217 P498), to find the exchange
   rate for a currency;
 * hospitals: hospitals (general, teaching, university, children's...) with a location
-  and either a number of beds (P6801) or articles in three or more Wikipedias; the map
-  shows those above a size (Settings > Places), so changing the size needs no refresh;
+  and either a number of beds (P6801) or articles in three or more Wikipedias, then in a
+  second query every other hospital with a location (the build merges them with the
+  other hospital lists, connectors/health.py);
 * bases: military bases, air bases and naval bases with a location, country and
   operator (P137). Coverage is patchy: Wikidata has the well-known ones.
 
@@ -110,6 +111,17 @@ SELECT ?h ?hLabel ?iso3 ?coord ?beds ?links WHERE {
   OPTIONAL { ?h wdt:P17 ?c . ?c wdt:P298 ?iso3 }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }""" % (_labels(HOSPITAL_TYPES), MIN_HOSPITAL_LINKS),
+    # Every other hospital with a location, whatever its fame: fills China, India, Brazil...
+    # (asked separately so that if it times out the big ones above are still kept).
+    "hospitals_all": """
+SELECT ?h ?hLabel ?iso3 ?coord ?beds WHERE {
+  VALUES ?kindName { %s }
+  ?kind rdfs:label ?kindName .
+  ?h wdt:P31 ?kind ; wdt:P625 ?coord .
+  OPTIONAL { ?h wdt:P6801 ?beds }
+  OPTIONAL { ?h wdt:P17 ?c . ?c wdt:P298 ?iso3 }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul,zh,es,fr,pt,de,ru,ja,ar,hi,id". }
+}""" % _labels(HOSPITAL_TYPES),
     "bases": """
 SELECT ?b ?bLabel ?kindName ?iso3 ?coord ?operatorLabel WHERE {
   VALUES ?kindName { %s }
@@ -158,7 +170,7 @@ class WikidataPlaces(Connector):
     source_id = "wikidata_places"
     switch = "places_fetch"
     fetch_every_days = 28
-    fetch_version = 2  # 2: metro and rail lines, hospitals and military bases (fetched at the next refresh)
+    fetch_version = 3  # 2: metro and rail lines, hospitals and military bases; 3: every hospital with a location
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -218,8 +230,8 @@ class WikidataPlaces(Connector):
                  "Links between neighbouring stations of metro, light rail and commuter rail systems, one colour per line (Wikidata).",
                  line_features(found["links"], found["stations"])),
                 ("hospitals", "Hospitals",
-                 "Hospitals with a number of beds or articles in three or more Wikipedias (Wikidata); the map shows those above "
-                 "the size set in Settings > Places.", hospital_features(found["hospitals"])),
+                 "Hospitals with a location in Wikidata, merged by the build with OpenStreetMap, Overture and official lists; "
+                 "Settings > Places says which are shown.", hospital_features(found["hospitals"] + found["hospitals_all"])),
                 ("military_bases", "Military bases",
                  "Military, air and naval bases (Wikidata). Patchy: the well-known ones only.", base_features(found["bases"]))):
             if feats:

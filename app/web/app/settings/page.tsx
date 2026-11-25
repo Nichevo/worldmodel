@@ -187,13 +187,32 @@ export default function SettingsPage() {
 
       <section className="card">
         <h2>Places</h2>
-        <Toggle label="Metro and rail, universities, big companies, hospitals and military bases" hint="Eight Wikidata queries every four weeks during .\refresh.bat. They fill the Transport, universities and companies card on country and city pages and six map layers. Switching off keeps what is stored."
+        <Toggle label="Metro and rail, universities, big companies, hospitals and military bases" hint="Nine Wikidata queries every four weeks during .\refresh.bat. They fill the Transport, universities and companies card on country and city pages and six map layers. Switching off keeps what is stored."
           on={s.places_fetch} set={(v) => save({ places_fetch: v })} />
+        <Toggle label="Show every hospital" hint="The Hospitals layer shows every hospital from every list below, small ones and those with no bed count too. Switch off to show only hospitals with at least the beds below. Takes effect at once."
+          on={s.map_hospitals_all !== false} set={(v) => save({ map_hospitals_all: v })} />
         <NumberField label="Hospitals on the map: at least" unit="beds" value={s.map_hospital_beds} min={0} max={10000} step={50}
-          note="The Hospitals layer shows hospitals this size or bigger. 0 shows every hospital with a bed count. Takes effect at once."
+          note="With 'Show every hospital' off: hospitals this size or bigger. 0 shows every hospital with a bed count."
           save={(v) => save({ map_hospital_beds: v })} />
-        <Toggle label="Also show well-known hospitals with no bed count" hint="Wikidata gives beds for only some hospitals. This adds the ones with articles in three or more Wikipedias but no bed count, so the map is fuller but no longer only the big ones."
+        <Toggle label="... and also hospitals with no bed count" hint="With 'Show every hospital' off: adds hospitals no list gives a bed count for."
           on={s.map_hospitals_unsized} set={(v) => save({ map_hospitals_unsized: v })} />
+        <h3>More hospital lists</h3>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Wikidata knows mostly the famous hospitals, so the Hospitals layer adds other lists and counts a hospital once where two lists
+          share it. The layer&apos;s <a href="/layers/hospitals?tab=coverage">Coverage tab</a> shows where it is still thin.
+        </p>
+        <Toggle label="OpenStreetMap hospitals and official hospital counts" hint="healthsites.io's country files on the Humanitarian Data Exchange (about 500 MB, every three months), plus the WHO's hospitals per person and typed-in national counts used by the Coverage tab. Switching off keeps what is stored."
+          on={s.hospitals_osm_fetch} set={(v) => save({ hospitals_osm_fetch: v })} />
+        <Toggle label="Overture hospitals" hint="Hospitals from Overture Maps' places, read from its public files for the countries below, every six months. Strong where business listings are (India, Indonesia, Latin America), weak in China. Neighbouring countries share the cost: South and East Asia together read about 1.5 GB. Switching off keeps what is stored."
+          on={s.hospitals_overture_fetch} set={(v) => save({ hospitals_overture_fetch: v })} />
+        <TextField label="Overture hospitals: countries" value={s.hospitals_overture_countries} placeholder="IND,IDN,BGD,PAK,VNM,PHL,THA,MYS,BRA,MEX,..."
+          note="Three-letter codes, comma separated. Empty: India, Indonesia, Bangladesh, Pakistan, Vietnam, the Philippines, Thailand, Malaysia, Brazil, Mexico, Colombia, Peru, Argentina, Nigeria, Egypt, Kenya, South Africa, Türkiye and Iran. Hospitals of neighbours inside a country's box are kept too."
+          save={(v) => save({ hospitals_overture_countries: v })} />
+        <NumberField label="Overture hospitals: least confidence" value={s.hospitals_overture_confidence} min={0} max={1} step={0.05}
+          note="Overture's own confidence that a place is real and open, 0 to 1. Lower adds more, and more mistakes (offices and clinics filed as hospitals)."
+          save={(v) => save({ hospitals_overture_confidence: v })} />
+        <Toggle label="Official hospital lists" hint="Brazil's CNES register and the WHO's list of public health facilities in sub-Saharan Africa (hospitals only), every three months, plus any list you save in var\manual\national_hospitals (a CSV or Excel sheet with name, latitude and longitude; then .\load.bat national_hospitals). Switching off keeps what is stored."
+          on={s.hospitals_national_fetch} set={(v) => save({ hospitals_national_fetch: v })} />
       </section>
 
       <section className="card" id="long-history">

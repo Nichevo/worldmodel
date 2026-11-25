@@ -7,15 +7,17 @@ import AskButton from "@/components/AskButton";
 import Flag from "@/components/Flag";
 import { csvText, fileName, saveText } from "@/lib/download";
 import {
-  fmt, layerApi, rate, showOnMapHref, type LayerDetail, type LayerInfo, type LayerItem, type LayerRow,
+  fmt, layerApi, rate, showOnMapHref, type Grade, type LayerCoverage, type LayerDetail, type LayerGaps, type LayerInfo, type LayerItem,
+  type LayerRow,
 } from "@/lib/layerDetails";
 import { KEY_COUNTRIES } from "@/lib/topics";
 
 // The Details page behind a map layer: how many each country (or bloc) has, per million people
 // and per 10,000 km², the size total where the source gives one and how that compares with an
 // official figure, the spread of sizes, and every item. A click on a country lists its items.
-type Tab = "countries" | "groups" | "items" | "sizes";
-const TABS: [Tab, string][] = [["countries", "By country"], ["groups", "By group"], ["items", "Every item"], ["sizes", "Sizes"]];
+type Tab = "countries" | "groups" | "items" | "sizes" | "coverage";
+const TABS: [Tab, string][] = [["countries", "By country"], ["groups", "By group"], ["items", "Every item"], ["sizes", "Sizes"],
+  ["coverage", "Coverage"]];
 const GROUP_TYPES: [string, string][] = [["bloc", "Blocs"], ["alliance", "Alliances"], ["continent", "Continents"], ["subregion", "Regions"],
   ["income_group", "Income groups"], ["group", "Other groups"]];
 const KEYS = KEY_COUNTRIES.map((k) => k.id);
@@ -83,7 +85,8 @@ function LayerPage() {
       ) : (
         <>
           <div className="seg" role="tablist">
-            {TABS.filter(([k]) => (k !== "groups" || (L.by_country && L.kind !== "trees")) && (k !== "countries" || L.by_country) && (k !== "sizes" || hasSizes))
+            {TABS.filter(([k]) => (k !== "groups" || (L.by_country && L.kind !== "trees")) && (k !== "countries" || L.by_country) && (k !== "sizes" || hasSizes)
+              && (k !== "coverage" || (L.by_country && L.kind === "stored")))
               .map(([k, label]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => go(k)}>
                 {k === "countries" && L.group_label === "Council" ? "By council" : label}</button>)}
           </div>
@@ -91,6 +94,7 @@ function LayerPage() {
             onBack={() => go(tab)} />
             : tab === "items" || !L.by_country ? <Items layer={L} />
               : tab === "sizes" ? <Sizes d={d} />
+              : tab === "coverage" ? <Coverage id={id} many={L.many} onPick={(k) => go("countries", k)} />
                 : <ByTable layer={L} rows={tab === "groups" ? d.groups : d.countries} groups={tab === "groups"} onPick={(k) => go(tab, k || "-")} />}
         </>
       )}
@@ -210,6 +214,85 @@ function ByTable({ layer, rows, groups, onPick }: { layer: LayerInfo; rows: Laye
         {layer.country_from === "place" && "The country is worked out from where each item sits. "}
         Per million people uses the UN&apos;s population for this year; per area, the World Bank&apos;s land area.
       </p>
+    </div>
+  );
+}
+
+// Coverage: how complete the layer is in each country (against an official figure, or what countries
+// of a similar income have), and blank spots: big towns with none of the layer's items nearby.
+const GRADE_LOOK: Record<Grade, [string, string]> = {
+  thin: ["Thin", "var(--bad, #c92a2a)"], part: ["Part", "var(--warn, #e8a200)"], good: ["Good", "var(--good, #2f9e44)"],
+  unknown: ["Unknown", "var(--ink-3, #888)"],
+};
+
+function Coverage({ id, many, onPick }: { id: string; many: string; onPick: (k: string) => void }) {
+  const [c, setC] = useState<LayerCoverage | null>(null);
+  const [g, setG] = useState<LayerGaps | null>(null);
+  const [grade, setGrade] = useState<Grade | "">("");
+  const [where, setWhere] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { layerApi.coverage(id).then(setC).catch((e) => setErr(String(e.message || e))); }, [id]);
+  useEffect(() => { setG(null); layerApi.gaps(id, where || undefined).then(setG).catch(() => setG({ towns: [], checked: 0, km: 25, people: 100000 })); }, [id, where]);
+  if (err) return <p className="error">{err}</p>;
+  if (!c) return <p className="muted">Checking coverage…</p>;
+  const rows = c.countries.filter((r) => !grade || r.grade === grade);
+  const pct = (v: number | null) => v === null ? "–" : `${Math.round(v * 100)}%`;
+  return (
+    <div className="grid">
+      <div className="tiles">
+        {(["thin", "part", "good", "unknown"] as Grade[]).map((k) => (
+          <button key={k} className="tile card" style={{ textAlign: "left", cursor: "pointer", outline: grade === k ? "2px solid var(--accent)" : undefined }}
+            onClick={() => setGrade(grade === k ? "" : k)}>
+            <div className="label" style={{ color: GRADE_LOOK[k][1] }}>{GRADE_LOOK[k][0]}</div>
+            <div className="value">{c.grades[k] ?? 0}</div>
+            <div className="meta">{k === "unknown" ? "nothing to compare with" : k === "good" ? `${pct(c.cuts.good)} or more` : k === "part"
+              ? `${pct(c.cuts.part)} to ${pct(c.cuts.good)}` : `under ${pct(c.cuts.part)}`}</div>
+          </button>))}
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table className="table">
+          <thead><tr><th>Country</th><th style={{ textAlign: "right" }}>On the map</th><th style={{ textAlign: "right" }}>Compared with</th>
+            <th>Figure</th><th style={{ textAlign: "right" }}>Coverage</th><th>Grade</th></tr></thead>
+          <tbody>
+            {rows.slice(0, 400).map((r) => (
+              <tr key={r.entity_id}>
+                <td><button className="link" onClick={() => onPick(r.entity_id)}>{r.name}</button></td>
+                <td style={{ textAlign: "right" }}>{fmt(r.count)}</td>
+                <td style={{ textAlign: "right" }}>{r.official === null ? "–" : `${r.estimated ? "about " : ""}${fmt(r.official)}`}</td>
+                <td className="small muted">{r.basis ?? ""}</td>
+                <td style={{ textAlign: "right", fontWeight: 600, color: GRADE_LOOK[r.grade][1] }}>{pct(r.coverage)}</td>
+                <td style={{ color: GRADE_LOOK[r.grade][1] }}>{GRADE_LOOK[r.grade][0]}{r.estimated ? " (estimate)" : ""}</td>
+              </tr>))}
+          </tbody>
+        </table>
+      </div>
+      <p className="caption">Low coverage means the map&apos;s lists are thin there, not that the country has few {many}. Where no official
+        figure exists, the estimate uses the {many} per person of the 15 countries nearest in income whose coverage is good.</p>
+      <h2 style={{ marginBottom: 0 }}>Blank spots</h2>
+      <p className="small muted" style={{ margin: 0 }}>Towns of {fmt(g?.people ?? 100000)} people or more with none of the {many} on the map
+        within {g?.km ?? 25} km: gaps inside a country.</p>
+      <label className="small">Country{" "}
+        <select value={where} onChange={(e) => setWhere(e.target.value)}>
+          <option value="">All countries</option>
+          {c.countries.slice().sort((a, b) => a.name.localeCompare(b.name)).map((r) => <option key={r.entity_id} value={r.entity_id}>{r.name}</option>)}
+        </select>
+      </label>
+      {!g ? <p className="muted">Looking for gaps…</p> : g.note ? <p className="muted">{g.note}</p> : (
+        <>
+          <p className="small">{fmt(g.total ?? g.towns.length)} of {fmt(g.checked)} towns have none within {g.km} km.</p>
+          {!where && !!g.by_country?.length && (
+            <p className="small">Most people in such towns: {g.by_country.slice(0, 12).map((b, i) => (
+              <span key={b.entity_id}>{i ? ", " : ""}<button className="link" onClick={() => setWhere(b.entity_id)}>{b.name}</button> ({fmt(b.towns)})</span>))}</p>)}
+          <div style={{ overflowX: "auto" }}>
+            <table className="table">
+              <thead><tr><th>Town</th><th>Country</th><th style={{ textAlign: "right" }}>People</th><th style={{ textAlign: "right" }}>Nearest on the map</th></tr></thead>
+              <tbody>{g.towns.slice(0, 200).map((t) => (
+                <tr key={t.city_id}><td><Link href={`/city/${encodeURIComponent(t.city_id)}`}>{t.name}</Link></td><td>{t.entity_id}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(t.population)}</td>
+                  <td style={{ textAlign: "right" }}>{t.nearest_km === null ? `over ${g.km * 2} km` : `${t.nearest_km} km`}</td></tr>))}</tbody>
+            </table>
+          </div>
+        </>)}
     </div>
   );
 }

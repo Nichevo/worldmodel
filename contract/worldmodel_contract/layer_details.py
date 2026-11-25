@@ -37,8 +37,8 @@ class Official:
     indicator: str
     label: str
     # how the official figure becomes the same thing the layer adds up:
-    # per1000: per 1,000 people (times population); kw_to_mw: kilowatts; count: as is
-    as_total: Literal["per1000", "kw_to_mw", "count"]
+    # per1000 / per100k: per 1,000 or 100,000 people (times population); kw_to_mw: kilowatts; count: as is
+    as_total: Literal["per1000", "per100k", "kw_to_mw", "count"]
     of: Literal["size", "count"]  # compared with the layer's size total, or its count
     coverage: bool = True  # False: shown beside as a reference only (it counts something wider)
 
@@ -62,10 +62,14 @@ class LayerDetail:
 
 BEDS = Size("beds", "Beds", "beds", bands=(200, 500, 1000, 2000))
 LAYERS: tuple[LayerDetail, ...] = (
-    LayerDetail("hospitals", "hospital", "hospitals", "stored", "health", BEDS,
-                official=(Official("hospital_beds_per_1000", "Official beds (World Bank)", "per1000", "size"),),
-                note="Wikidata lists hospitals with a bed count or articles in three or more Wikipedias; about four in ten "
-                     "have a bed count, so bed totals are what is listed, not every bed in the country."),
+    LayerDetail("hospitals", "hospital", "hospitals", "stored", "health", BEDS, ("found", "Listed by"),
+                (("kind", "Kind"), ("list", "Official list")),
+                official=(Official("hospitals_official", "Official hospitals (national statistics)", "count", "count"),
+                          Official("who_hospitals_per_100k", "Official hospitals (WHO, 2013)", "per100k", "count"),
+                          Official("hospital_beds_per_1000", "Official beds (World Bank)", "per1000", "size")),
+                note="Hospitals from Wikidata, OpenStreetMap, Overture (chosen countries) and official lists, each counted "
+                     "once where lists share it. Many have no bed count, so bed totals are what is listed, not every bed "
+                     "in the country; compare the hospital counts instead."),
     LayerDetail("military_bases", "base", "military bases", "stored", "military", None, ("type", "Kind"),
                 (("operator", "Run by"),),
                 note="No size figure: Wikidata gives each base's kind and who runs it, and has the well-known bases only."),

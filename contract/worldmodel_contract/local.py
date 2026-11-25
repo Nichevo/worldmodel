@@ -71,6 +71,12 @@ SETTINGS: dict[str, object] = {
     "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
     "map_hospital_beds": 200,        # the Hospitals map layer shows hospitals with at least this many beds
     "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
+    "map_hospitals_all": True,       # the Hospitals layer shows every hospital from every list (the two above apply when off)
+    "hospitals_osm_fetch": True,     # refresh fetches OpenStreetMap's hospitals (healthsites.io on HDX, every 3 months) and hospital counts
+    "hospitals_overture_fetch": True,  # refresh reads Overture's hospitals for the countries below (every 6 months)
+    "hospitals_overture_countries": "",  # three-letter codes, comma separated; empty: the countries in contract health.py
+    "hospitals_overture_confidence": 0.7,  # Overture places below this confidence (0-1) are left out
+    "hospitals_national_fetch": True,  # refresh fetches official lists (Brazil CNES, WHO Africa) and reads your own lists
     # Long history
     "history_borders_fetch": True,   # refresh fetches Cliopatria's borders of states and empires (46 MB, twice a year)
     "history_series_fetch": True,    # refresh fetches long-run figures through Our World in Data (every three months)
@@ -309,7 +315,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "pictures_limit_gb": (0.1, 1_000), "base
           "map_3d_exaggeration": (1, 5), "spot_change_from": (1992, 2025), "spot_change_to": (1993, 2025), "spot_min_sure": (0, 1),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
-          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60),
+          "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "hospitals_overture_confidence": (0, 1), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60),
           "acled_from_year": (1997, 2030), "ioda_from_year": (2020, 2030), "gfp_pages_per_refresh": (0, 145), "ai_temperature": (0, 2),
           "ai_context_tokens": (1024, 1_048_576), "ai_search_results": (1, 20), "brave_daily_limit": (0, 1_000_000),
           "brave_monthly_limit": (0, 10_000_000), "brave_free_monthly": (0, 10_000_000), "brave_price_per_1000": (0, 1_000),
