@@ -50,13 +50,13 @@ import time
 import unicodedata
 import zipfile
 from collections import defaultdict
-from functools import lru_cache
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 
 import duckdb
-
 from worldmodel_contract import catalogue
+
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.cities import country_by_name
 from worldmodel_data.connectors.events_common import EMPTY_OBSERVATIONS, stage_events
@@ -259,7 +259,7 @@ def _csv(path: Path) -> list[dict]:
 
 def nz_wastewater(raw_dir: Path) -> tuple[DatedRows, dict | None]:
     rows = DatedRows()
-    week = lambda r: monday(parse_day(r.get("week_end_date")) - timedelta(days=6)) if parse_day(r.get("week_end_date")) else None  # noqa: E731
+    week = lambda r: monday(parse_day(r.get("week_end_date")) - timedelta(days=6)) if parse_day(r.get("week_end_date")) else None
     for r in _csv(raw_dir / "ww_national.csv"):
         if (d := week(r)):
             rows.add("iso3", "NZL", "covid_wastewater", d, num(r.get("copies_per_day_per_person") or r.get("copies_per_person_per_day")))
@@ -330,7 +330,7 @@ class NZWastewater(Connector):
 
 
 # ------------------------------------------------------------------------------------------- UKHSA
-UKHSA = "https://api.ukhsa-dashboard.data.gov.uk/themes/infectious_disease/sub_themes/"
+UKHSA_API = "https://api.ukhsa-dashboard.data.gov.uk/themes/infectious_disease/sub_themes/"
 # (sub-theme, topic, metric, indicator, daily: averaged to weeks)
 UKHSA_METRICS = (
     ("respiratory", "Influenza", "influenza_healthcare_hospitalAdmissionRateByWeek", "flu_admissions_per_100k", False),
@@ -371,7 +371,7 @@ class UKHSA(Connector):
 
     def download(self, raw_dir: Path, release: str) -> str:
         for sub, topic, metric, _ind, _d in UKHSA_METRICS:
-            url = (f"{UKHSA}{sub}/topics/{topic}/geography_types/Nation/geographies/England/metrics/{metric}"
+            url = (f"{UKHSA_API}{sub}/topics/{topic}/geography_types/Nation/geographies/England/metrics/{metric}"
                    "?page_size=365&format=json")
             out: list[dict] = []
             for _ in range(40):
@@ -385,7 +385,7 @@ class UKHSA(Connector):
                     break
                 time.sleep(self.pause_seconds)
             (raw_dir / f"{metric}.json").write_text(json.dumps(out), encoding="utf-8")
-        return UKHSA
+        return UKHSA_API
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         pages = {f.stem: json.loads(f.read_text(encoding="utf-8")) for f in raw_dir.glob("*.json")}
@@ -414,8 +414,7 @@ class UKHSA(Connector):
 
 # ----------------------------------------------------------------------------- US ILINet (Delphi)
 DELPHI = "https://api.delphi.cmu.edu/epidata/fluview/"
-US_STATES = ("ak al ar az ca co ct dc de fl ga hi ia id il in ks ky la ma md me mi mn mo ms mt nc nd ne nh nj nm nv ny "
-             "oh ok or pa ri sc sd tn tx ut va vt wa wi wv wy").split()
+US_STATES = ["ak", "al", "ar", "az", "ca", "co", "ct", "dc", "de", "fl", "ga", "hi", "ia", "id", "il", "in", "ks", "ky", "la", "ma", "md", "me", "mi", "mn", "mo", "ms", "mt", "nc", "nd", "ne", "nh", "nj", "nm", "nv", "ny", "oh", "ok", "or", "pa", "ri", "sc", "sd", "tn", "tx", "ut", "va", "vt", "wa", "wi", "wv", "wy"]
 
 
 def delphi_rows(payloads: list[dict]) -> DatedRows:
@@ -809,7 +808,7 @@ class OpenDengue(Connector):
             m = re.search(r'href="([^"]+National_extract[^"]+\.zip)"', (raw_dir / "_page.html").read_text(encoding="utf-8", errors="ignore"))
             if m:
                 url = m.group(1)
-        except Exception as exc:  # noqa: BLE001 - the known release will do
+        except Exception as exc:
             log.info("opendengue: could not read the data page (%s); using %s", exc, url)
         (raw_dir / "_page.html").unlink(missing_ok=True)
         self.get(url, raw_dir / "national_extract.zip")
@@ -844,6 +843,26 @@ class OpenDengue(Connector):
 # HMD country codes -> entity; the UK comes as three parts added together when all three report.
 HMD_CODES = {"DEUTNP": "DEU", "FRATNP": "FRA", "NZL_NP": "NZL", "GBRTENW": "GBR:ENW", "GBR_SCO": "GBR:SCO", "GBR_NIR": "GBR:NIR",
              "USA": "USA", "AUS": "AUS"}
+
+
+def stmf_text(raw_dir: Path) -> str:
+    # stmf.csv as it is, or the zip it comes in (saved without unzipping). Only CSVs in the STMF layout
+    # (a CountryCode,Year,Week,Sex... header) are read, so the input-data files some zips also hold are passed over.
+    texts: list[str] = []
+    for f in sorted(raw_dir.iterdir()):
+        if f.suffix.lower() == ".csv":
+            texts.append(f.read_text(encoding="utf-8-sig", errors="replace"))
+        elif f.suffix.lower() == ".zip":
+            with zipfile.ZipFile(f) as z:
+                texts += [z.read(n).decode("utf-8-sig", errors="replace") for n in z.namelist() if n.lower().endswith(".csv")]
+    text = ""
+    for t in texts:
+        lines = t.splitlines()
+        at = next((i for i, ln in enumerate(lines[:20]) if ln.replace('"', "").startswith("CountryCode,")), None)
+        if at is None:
+            continue
+        text += "\n".join(lines[at if not text else at + 1:]) + "\n"
+    return text
 
 
 def stmf_rows(text: str) -> DatedRows:
@@ -904,17 +923,7 @@ class HMDSTMF(Connector):
         raise ConnectorError("hmd_stmf: saved by hand (the Human Mortality Database needs a free login; get.bat opens the page)")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
-        text = ""
-        for f in sorted(raw_dir.iterdir()):
-            if f.suffix.lower() == ".csv":
-                t = f.read_text(encoding="utf-8-sig", errors="replace")
-                text += t if not text else "\n".join(t.splitlines()[1:]) + "\n"
-            elif f.suffix.lower() == ".zip":
-                with zipfile.ZipFile(f) as z:
-                    for n in z.namelist():
-                        if n.lower().endswith(".csv"):
-                            t = z.read(n).decode("utf-8-sig", errors="replace")
-                            text += t if not text else "\n".join(t.splitlines()[1:]) + "\n"
+        text = stmf_text(raw_dir)
         rows = stmf_rows(text)
         if not len(rows):
             raise ConnectorError(f"hmd_stmf: no weeks read from {raw_dir}; is it stmf.csv from mortality.org?")

@@ -11,8 +11,17 @@ import pytest
 from worldmodel_data.build import build
 from worldmodel_data.config import Paths
 from worldmodel_data.connectors import CONNECTORS
-from worldmodel_data.connectors.disease import (don_events, flunet_rows, mmwr_monday, mmwr_start, nhsn_rows, nndss_rows,
-                                                stmf_rows, ukhsa_rows)
+from worldmodel_data.connectors.disease import (
+    don_events,
+    flunet_rows,
+    mmwr_monday,
+    mmwr_start,
+    nhsn_rows,
+    nndss_rows,
+    stmf_rows,
+    stmf_text,
+    ukhsa_rows,
+)
 from worldmodel_data.vintage_store import VintageStore
 
 FIX = Path(__file__).parent / "fixtures" / "disease"
@@ -147,3 +156,16 @@ def test_built(con):
     assert vals(con, "ili_pct_visits", "US-CA") == [(mmwr_monday(2025, 50), "D", 2.5)]
     ev = con.execute("SELECT kind, subkind, title FROM events WHERE source_id = 'who_don' AND entity_id = 'NZL'").fetchall()
     assert ev == [("epidemic", "measles", "Measles (WHO outbreak news)")]
+
+
+def test_stmf_reads_the_zip_and_skips_input_files(tmp_path):
+    import zipfile
+    head = "CountryCode,Year,Week,Sex,D0_14,DTotal,RTotal\n"
+    with zipfile.ZipFile(tmp_path / "STMF_all.zip", "w") as z:
+        z.writestr("input/NZL_input.csv", "PopCode,Area,Year,Week,Sex,Age,Deaths\nNZL,1,2024,1,b,TOT,700\n")
+        z.writestr("stmf.csv", "Short-term mortality fluctuations\n" + head + "NZL_NP,2024,1,b,5,700,0.0134\n")
+    (tmp_path / "more.csv").write_text(head + "AUS,2024,1,b,9,3000,0.0115\n")
+    text = stmf_text(tmp_path)
+    assert text.count("CountryCode") == 1 and "PopCode" not in text
+    ents = {r[1] for r in stmf_rows(text).rows}
+    assert ents == {"NZL", "AUS"}
