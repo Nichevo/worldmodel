@@ -2434,7 +2434,7 @@
     by_hand: true
     files: ["GGIT*", "GOIT*", "*Gas*Infrastructure*Tracker*", "*Oil*Infrastructure*Tracker*", "*LNG*Terminal*"]
     get: https://globalenergymonitor.org/projects/global-gas-infrastructure-tracker/download-data/
-    what: "Fill in the short download form for the Global Gas Infrastructure Tracker, the Global Oil Infrastructure Tracker and the LNG terminals list, and save the Excel files as they come (pipelines have a WKT route column)."
+    what: "Fill in the short download form for the Global Gas Infrastructure Tracker, the Global Oil Infrastructure Tracker and the LNG terminals list, and save what comes as it is: GEM's whole download zip works, or the gas pipelines, oil pipelines and LNG terminals zips (the routes are in the GeoJSON inside them; the Excel pipeline sheets alone have no routes)."
 
 - id: hyde_land
   name: HYDE 3.3 land use since 1700 (cropland and grazing land by country)

@@ -713,34 +713,100 @@ class GEMInfrastructure(Connector):
     def download(self, raw_dir: Path, release: str) -> str:
         raise ConnectorError("gem_infrastructure: save Global Energy Monitor's tracker files by hand (see Data status)")
 
-    def _rows(self, path: Path) -> list[dict]:
+    def _rows(self, path: Path, data: bytes | None = None) -> list[dict]:
+        """Rows of one file (or of a file read out of a zip: `data`), keys normalised with key();
+        a GeoJSON's geometry comes as "_geom"."""
         if path.suffix.lower() in (".geojson", ".json"):
+            raw = data if data is not None else path.read_bytes()
             out = []
-            for f in json.loads(path.read_text(encoding="utf-8")).get("features") or []:
+            for f in json.loads(raw.decode("utf-8-sig")).get("features") or []:
                 out.append({key(k): v for k, v in (f.get("properties") or {}).items()} | {"_geom": f.get("geometry")})
             return out
+        if data is not None:  # a spreadsheet inside a zip: read it from a temporary copy
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                p = Path(tmp) / path.name
+                p.write_bytes(data)
+                return self._rows(p)
+        if path.suffix.lower() in (".xlsx", ".xlsm"):  # the data sheet need not be the first
+            from worldmodel_data.connectors.tabular import xlsx_rows, xlsx_sheet_names
+
+            for i, _ in enumerate(xlsx_sheet_names(path)):
+                table = xlsx_rows(path, i)
+                got = header_rows(table, ("status", "name"))
+                if got and any(k in got[0] for k in ("pipelinename", "terminalname", "projectname")):
+                    return got
+            return []
         table = read_table(path)
         return header_rows(table, ("status",)) or header_rows(table, ("country",))
+
+    def _files(self, raw_dir: Path) -> list[tuple[Path, bytes | None]]:
+        """The files to read: loose ones in the folder, and from any zip (GEM's whole-site
+        download is a zip of every tracker, holding zips of each map file) only the gas
+        pipeline, oil pipeline and LNG terminal files. Where a kind has a GeoJSON (with
+        routes), its spreadsheets are left out so nothing is counted twice."""
+        found: list[tuple[Path, bytes | None]] = []
+
+        def wanted(name: str) -> bool:
+            n = Path(name).name.lower()
+            if n.startswith((".", "_")) or "__macosx" in name.lower() or "carrier" in n:
+                return False
+            return any(w in n for w in ("ggit", "goit", "pipeline", "lng-terminal", "lng terminal", "lng_terminal"))
+
+        def walk(zf: zipfile.ZipFile, depth: int) -> None:
+            for info in zf.infolist():
+                n = info.filename
+                suffix = Path(n).suffix.lower()
+                if suffix == ".zip" and depth < 3 and wanted(n) and not n.lower().endswith("-shp.zip"):
+                    with zipfile.ZipFile(io.BytesIO(zf.read(info))) as inner:
+                        walk(inner, depth + 1)
+                elif suffix in (".xlsx", ".csv", ".geojson", ".json") and wanted(n):
+                    found.append((Path(Path(n).name), zf.read(info)))
+
+        for path in sorted(raw_dir.iterdir()):
+            if path.name.startswith("ne_") or path.name.startswith("_"):
+                continue
+            if path.suffix.lower() == ".zip":
+                try:
+                    with zipfile.ZipFile(path) as zf:
+                        walk(zf, 0)
+                except zipfile.BadZipFile:
+                    log.warning("gem_infrastructure: %s is not a readable zip", path.name)
+            elif path.suffix.lower() in (".xlsx", ".csv", ".geojson", ".json"):
+                found.append((path, None))
+
+        def kind_of(p: Path) -> str:
+            return gem_kind(p, {})
+
+        with_geo = {kind_of(p) for p, _ in found if p.suffix.lower() in (".geojson", ".json")}
+        return [(p, d) for p, d in found if p.suffix.lower() in (".geojson", ".json") or kind_of(p) not in with_geo]
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         cfile = countries_file(raw_dir, self)
         grids = Grids(cfile) if cfile else None
         rows, lng = [], []
-        for path in sorted(raw_dir.iterdir()):
-            if path.suffix.lower() not in (".xlsx", ".csv", ".geojson", ".json") or path.name.startswith("ne_"):
-                continue
-            for r in self._rows(path):
+        seen: set[str] = set()
+        for path, data in self._files(raw_dir):
+            for r in self._rows(path, data):
                 kind = gem_kind(path, r)
                 name = r.get("pipelinename") or r.get("terminalname") or r.get("projectname") or r.get("name")
                 if not name:
                     continue
                 status = str(r.get("status") or "").strip().lower()
-                countries = [c for c in (iso3_of(x.strip()) for x in re.split(r"[;,]", str(r.get("countries") or r.get("country") or ""))
-                                         if x.strip()) if c]
+                places = r.get("countries") or r.get("countriesorareas") or r.get("country") or r.get("countryarea") or ""
+                countries = [c for c in (iso3_of(x.strip()) for x in re.split(r"[;,]", str(places)) if x.strip()) if c]
                 if kind == "lng_terminals":
                     lat, lon = num(r.get("latitude") or r.get("lat")), num(r.get("longitude") or r.get("lon"))
+                    g = r.get("_geom") or {}
+                    if (lat is None or lon is None) and g.get("type") == "Point" and len(g.get("coordinates") or []) >= 2:
+                        lon, lat = num(g["coordinates"][0]), num(g["coordinates"][1])
                     if lat is None or lon is None:
                         continue
+                    uid = str(r.get("unitid") or r.get("terminalid") or r.get("projectid") or f"{key(name)}:{key(r.get('unitname') or '')}")
+                    if f"lng:{uid}" in seen:
+                        continue
+                    seen.add(f"lng:{uid}")
                     lng.append(feature({"type": "Point", "coordinates": [lon, lat]}, {
                         "name": name, "status": status, "facility": r.get("facilitytype") or r.get("type"),
                         "capacity": num(r.get("capacityinmtpa") or r.get("capacitymtpa") or r.get("capacity")),
@@ -754,6 +820,9 @@ class GEMInfrastructure(Connector):
                 if not countries and grids:
                     countries = entity_ids(grids.along(lines, 3))
                 pid = str(r.get("projectid") or r.get("pipelineid") or r.get("id") or f"{key(name)}:{key(r.get('segmentname') or '')}")
+                if f"{kind}:{pid}" in seen:  # the same pipeline in two saved files
+                    continue
+                seen.add(f"{kind}:{pid}")
                 rows.append((kind, pid, name, STATUS_RANK.get(status, 3), {
                     "status": status or None, "fuel": r.get("fuel"), "segment": r.get("segmentname"),
                     "capacity": num(r.get("capacity") or r.get("capacitybcm/y") or r.get("capacitybcmy") or r.get("capacityboed")),
@@ -766,7 +835,9 @@ class GEMInfrastructure(Connector):
                             "description": "Liquefied gas import and export terminals, operating and planned (Global Energy Monitor).",
                             "feature_count": len(lng), "geojson": collection(lng)}]
         if not rows and not lng:
-            raise ConnectorError(f"gem_infrastructure: no pipeline routes or terminals read from {raw_dir}")
+            raise ConnectorError(f"gem_infrastructure: no pipeline routes or terminals read from {raw_dir}. Save GEM's gas "
+                                 "pipelines, oil pipelines and LNG terminals files (the GeoJSON or the zips that hold them; "
+                                 "the Excel pipeline sheets have no routes), or GEM's whole download zip")
         if rows:
             self.history_queries = {"geo_features": stage_geo(con, rows)}
         log.info("gem_infrastructure: %s pipelines, %s LNG terminals", len(rows), len(lng))

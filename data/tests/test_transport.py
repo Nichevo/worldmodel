@@ -231,3 +231,60 @@ def test_railways(built):
     ranks = {props["rank"] for _, props, _ in geo.values()}
     assert ranks == {1, 2, 3}  # the fixture has New Zealand lines from scalerank 5 to 10
     assert any("NZL" in (c or "") for _, _, c in geo.values())
+
+
+def test_gem_whole_download_zip(tmp_path):
+    """GEM's whole-site download: a zip of every tracker, the pipelines' routes in GeoJSON
+    inside zips of their own; the spreadsheets have no routes and other trackers are ignored."""
+    import io
+    import zipfile
+
+    from worldmodel_data.connectors.networks import GEMInfrastructure
+
+    def fc(*feats):
+        return json.dumps({"type": "FeatureCollection", "features": [
+            {"type": "Feature", "properties": p, "geometry": g} for p, g in feats]}).encode()
+
+    gas = fc(({"ProjectID": "P0001", "PipelineName": "Maui Pipeline", "Status": "operating", "CountriesOrAreas": "New Zealand", "Fuel": "Gas"},
+              {"type": "LineString", "coordinates": [[174.0, -39.1], [174.8, -38.0]]}),
+             ({"ProjectID": "P0002", "PipelineName": "Odd one", "Status": "proposed", "CountriesOrAreas": "Australia", "Fuel": "Gas"},
+              {"type": "GeometryCollection", "geometries": [{"type": "LineString", "coordinates": [[150.0, -30.0], [151.0, -31.0]]}]}))
+    oil = fc(({"ProjectID": "O0001", "PipelineName": "Refinery to Auckland Pipeline", "Status": "operating", "CountriesOrAreas": "New Zealand"},
+              {"type": "LineString", "coordinates": [[174.49, -35.84], [174.78, -36.98]]}),
+             ({"ProjectID": "O0002", "PipelineName": "No route yet", "Status": "proposed"}, None))
+    lng = fc(({"ProjectID": "T1", "UnitID": "G1", "TerminalName": "Gladstone LNG", "Status": "operating", "Country/Area": "Australia",
+               "CapacityinMtpa": 7.8, "FacilityType": "export"}, {"type": "Point", "coordinates": [151.3, -23.8]}))
+
+    def zipped(files: dict) -> bytes:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            for n, d in files.items():
+                z.writestr(n, d)
+        return buf.getvalue()
+
+    outer = zipped({
+        "GEM-GGIT-Gas-Pipelines-2025-11.zip": zipped({"GEM-GGIT-Gas-Pipelines-2025-11.geojson": gas,
+                                                      "__MACOSX/._GEM-GGIT-Gas-Pipelines-2025-11.geojson": b"junk"}),
+        "GEM-GOIT-Oil-NGL-Pipelines-2026-06-corrected.zip": zipped({"GEM-GOIT-Oil-NGL-Pipelines-2026-07-21.geojson": oil,
+                                                                    "GEM-GOIT-Oil-NGL-Pipelines-2026-07-21-shp.zip": b"not read"}),
+        "GEM-GGIT-LNG-Terminals-2026-10.zip": zipped({"GEM-GGIT-LNG-Terminals-2026-10.geojson": lng}),
+        "GEM-GGIT-Gas-Pipelines-2025-11.xlsx": b"not a real workbook: left out, the GeoJSON has the routes",
+        "GEM LNG Carrier Tracker - June 2026 release.xlsx": b"other tracker",
+        "Global-Coal-Plant-Tracker-July-2026.xlsx": b"other tracker",
+    })
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    (raw / "gem-data.zip").write_bytes(outer)
+    c = GEMInfrastructure()
+    names = sorted(p.name for p, _ in c._files(raw))
+    assert names == ["GEM-GGIT-Gas-Pipelines-2025-11.geojson", "GEM-GGIT-LNG-Terminals-2026-10.geojson",
+                     "GEM-GOIT-Oil-NGL-Pipelines-2026-07-21.geojson"]
+    con = duckdb.connect()
+    c.stage(con, raw, "2026-11", "v1")
+    g = c.layers[0]["geojson"]
+    lng_feats = (json.loads(g) if isinstance(g, str) else g)["features"]
+    assert [(f["properties"]["name"], f["properties"]["country"], f["properties"]["capacity"]) for f in lng_feats] == [("Gladstone LNG", "AUS", 7.8)]
+    assert lng_feats[0]["geometry"]["coordinates"] == [151.3, -23.8]
+    got = {r[1]: (r[0], r[2], r[5]) for r in con.execute(c.history_queries["geo_features"]).fetchall()}
+    assert got == {"P0001": ("gas_pipelines", "Maui Pipeline", "NZL"), "P0002": ("gas_pipelines", "Odd one", "AUS"),
+                   "O0001": ("oil_pipelines", "Refinery to Auckland Pipeline", "NZL")}  # O0002 has no route
