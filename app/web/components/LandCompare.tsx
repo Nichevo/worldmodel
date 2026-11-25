@@ -8,6 +8,7 @@ import * as maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import CardAsk from "@/components/CardAsk";
 import CountryChoice from "@/components/CountryChoice";
+import { quietMapErrors } from "@/lib/basemap";
 import { openAsk } from "@/lib/ai";
 import { api, type LandCover } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
@@ -197,6 +198,7 @@ function CoverMap({ geometry, colour, show, rivers, zoom, onFit }: { geometry?: 
       maxZoom: 12, scrollZoom: false, dragRotate: false, pitchWithRotate: false, renderWorldCopies: true,
       attributionControl: false, // the caption below names Natural Earth and ESA WorldCover
     });
+    quietMapErrors(m);
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.current = m;
     m.on("load", () => {
