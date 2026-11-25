@@ -3,10 +3,12 @@ live layers are on.
 
 - Planes: OpenSky Network's state vectors for a box (anonymous, or with an API client in
   OPENSKY_CLIENT_ID / OPENSKY_CLIENT_SECRET for more requests a day). One request a minute
-  at most; answers are kept for 60 seconds.
+  at most with a client, every three minutes without; after a 429 nothing more is asked
+  until OpenSky's wait is over, and the last planes stay on show.
 - Ships: aisstream.io's websocket (AISSTREAM_API_KEY), listened to in a background thread
   for the box last asked for. Positions are kept for 20 minutes; the socket closes when no
-  one has asked for five minutes.
+  one has asked for five minutes. When the listener stops (bad key, blocked connection) the
+  reason stays on show and it tries again after 30 seconds.
 """
 
 from __future__ import annotations
@@ -25,7 +27,8 @@ log = logging.getLogger(__name__)
 OPENSKY = "https://opensky-network.org/api/states/all"
 OPENSKY_TOKEN = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 AISSTREAM = "wss://stream.aisstream.io/v0/stream"
-PLANE_EVERY = 60.0     # seconds between OpenSky requests
+PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
+PLANE_EVERY_ANON = 180.0  # without one: anonymous users get about 400 credits a day, 1-4 a request
 SHIP_KEEP = 20 * 60    # seconds a ship's last position is shown
 SHIP_IDLE = 5 * 60     # the socket closes after this long without a request
 MAX_SHIPS = 4000
@@ -56,6 +59,15 @@ class Planes:
         self.last_box: list | None = None
         self.last: dict | None = None
         self.token: tuple[str, float] | None = None
+        self.blocked_until = 0.0
+        self.blocked_why = ""
+
+    def _kept(self, bx: list, error: str) -> dict:
+        """The planes last read (if any), with why they are not new."""
+        if not self.last:
+            return {"type": "FeatureCollection", "features": [], "count": 0, "error": error}
+        mins = max(1, round((time.time() - self.last_at) / 60))
+        return {**self._filter(self.last, bx), "error": f"{error} Showing planes from {mins} min ago."}
 
     def _auth(self, client: httpx.Client) -> dict:
         cid, secret = os.environ.get("OPENSKY_CLIENT_ID"), os.environ.get("OPENSKY_CLIENT_SECRET")
@@ -71,12 +83,15 @@ class Planes:
     def get(self, west: float, south: float, east: float, north: float) -> dict:
         bx = boxes(west, south, east, north)
         with self.lock:
-            fresh = time.time() - self.last_at < PLANE_EVERY
+            every = PLANE_EVERY if os.environ.get("OPENSKY_CLIENT_ID") and os.environ.get("OPENSKY_CLIENT_SECRET") else PLANE_EVERY_ANON
+            fresh = time.time() - self.last_at < every
             if self.last and fresh and self.last_box and all(
                     any(w0 <= w and e <= e0 and s0 <= s and n <= n0 for w0, s0, e0, n0 in self.last_box) for w, s, e, n in bx):
                 return self._filter(self.last, bx)
             if fresh and self.last:  # asked again too soon for a new box: what we have, marked as such
-                return {**self._filter(self.last, bx), "note": "Planes refresh once a minute; moved views fill in at the next."}
+                return {**self._filter(self.last, bx), "note": f"Planes refresh every {int(every // 60)} min; moved views fill in at the next."}
+            if time.time() < self.blocked_until:  # OpenSky said wait: don't spend more requests
+                return self._kept(bx, self.blocked_why)
             states, error = [], None
             try:
                 with httpx.Client(timeout=20) as client:
@@ -84,14 +99,24 @@ class Planes:
                     for w, s, e, n in bx:
                         r = client.get(OPENSKY, params={"lamin": s, "lomin": w, "lamax": n, "lomax": e}, headers=head)
                         if r.status_code == 429:
-                            error = "OpenSky's daily limit is used up; planes come back tomorrow (an OpenSky API client gives more)."
+                            wait = r.headers.get("X-Rate-Limit-Retry-After-Seconds")
+                            wait_s = float(wait) if wait and wait.replace(".", "", 1).isdigit() else 3600.0
+                            self.blocked_until = time.time() + min(wait_s, 24 * 3600)
+                            hours = max(1, round(wait_s / 3600))
+                            error = (f"OpenSky's daily limit is used up; planes come back in about {hours} hour{'s' if hours != 1 else ''}"
+                                     " (a free OpenSky API client in Settings > Keys gives more).")
+                            self.blocked_why = error
+                            break
+                        if r.status_code in (401, 403) and head:
+                            self.token = None
+                            error = "OpenSky refused the API client: check OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET in Settings > Keys."
                             break
                         r.raise_for_status()
                         states += r.json().get("states") or []
             except (httpx.HTTPError, ValueError, KeyError) as exc:
                 error = f"OpenSky did not answer ({exc.__class__.__name__})."
             if error and not states:
-                return {"type": "FeatureCollection", "features": [], "error": error}
+                return self._kept(bx, error)
             feats, seen = [], set()
             for st in states:
                 if st[5] is None or st[6] is None or st[8] or st[0] in seen:  # no position, on the ground, or twice
@@ -159,6 +184,9 @@ class MilitaryPlanes:
 
 
 # ----------------------------------------------------------------------------- ships (aisstream.io)
+RETRY_AFTER = 30.0     # seconds before trying aisstream again after the listener stopped with an error
+
+
 class Ships:
     def __init__(self) -> None:
         self.lock = threading.Lock()
@@ -167,21 +195,26 @@ class Ships:
         self.asked = 0.0
         self.thread: threading.Thread | None = None
         self.error: str | None = None
+        self.failed_at = 0.0
+        self.messages = 0          # messages read since the listener last started
+        self.connected = False
         self.resubscribe = threading.Event()
 
     def get(self, west: float, south: float, east: float, north: float) -> dict:
-        key = os.environ.get("AISSTREAM_API_KEY")
+        key = (os.environ.get("AISSTREAM_API_KEY") or "").strip()
         bx = boxes(west, south, east, north)
         if not key:
             return {"type": "FeatureCollection", "features": [], "count": 0,
-                    "error": "Ships now needs a free aisstream.io key: add AISSTREAM_API_KEY to .env (see Data status > Keys)."}
+                    "error": "Ships now needs a free aisstream.io key: add AISSTREAM_API_KEY in Settings > Keys (or .env)."}
         with self.lock:
             self.asked = time.time()
             if bx != self.box:
                 self.box = bx
                 self.resubscribe.set()
-            if not self.thread or not self.thread.is_alive():
-                self.error = None
+            # (Re)start the listener, but keep the reason it last stopped on show and wait a little
+            # before trying again, so a bad key or a blocked connection is seen rather than retried
+            # silently on every request.
+            if (not self.thread or not self.thread.is_alive()) and time.time() - self.failed_at >= RETRY_AFTER:
                 self.thread = threading.Thread(target=self._run, args=(key,), daemon=True, name="aisstream")
                 self.thread.start()
             now = time.time()
@@ -190,8 +223,13 @@ class Ships:
             feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [v["lon"], v["lat"]]},
                       "properties": {k: v[k] for k in ("id", "name", "imo", "speed_kn", "heading", "seen") if v.get(k) is not None}}
                      for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)][:MAX_SHIPS]
-        out = {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "aisstream.io",
-               "note": "Ships appear as they report; a new area fills in over a few minutes."}
+            if self.connected and self.messages:
+                note = f"{self.messages:,} reports read so far; a new area fills in over a few minutes."
+            elif self.connected:
+                note = "Connected to aisstream.io, waiting for the first reports (a few minutes for a new area)."
+            else:
+                note = "Connecting to aisstream.io…"
+        out = {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "aisstream.io", "note": note}
         if self.error:
             out["error"] = self.error
         return out
@@ -200,20 +238,29 @@ class Ships:
         try:
             asyncio.run(self._listen(key))
         except Exception as exc:  # noqa: BLE001 - shown on the map, not raised
-            self.error = f"aisstream.io: {exc}"
-            log.warning("aisstream stopped: %s", exc)
+            why = self.error or _ship_error(exc)
+            with self.lock:
+                self.error, self.failed_at, self.connected = why, time.time(), False
+            log.warning("aisstream stopped: %s (%s)", why, exc)
+        else:
+            self.connected = False
 
     async def _listen(self, key: str) -> None:
-        import websockets
+        try:
+            import websockets
+        except ImportError as exc:
+            raise RuntimeError("the websockets package is missing; run update.bat") from exc
 
+        self.messages = 0
         while time.time() - self.asked < SHIP_IDLE:
             with self.lock:
                 bx = list(self.box or [])
             self.resubscribe.clear()
-            async with websockets.connect(AISSTREAM, open_timeout=20, ping_interval=30) as ws:
+            async with websockets.connect(AISSTREAM, open_timeout=20, ping_interval=30, max_size=2**22) as ws:
                 await ws.send(json.dumps({"APIKey": key,
                                           "BoundingBoxes": [[[s, w], [n, e]] for w, s, e, n in bx],
                                           "FilterMessageTypes": ["PositionReport", "StandardClassBPositionReport", "ShipStaticData"]}))
+                self.connected = True
                 while time.time() - self.asked < SHIP_IDLE and not self.resubscribe.is_set():
                     try:
                         raw = await asyncio.wait_for(ws.recv(), timeout=5)
@@ -224,7 +271,8 @@ class Ships:
     def take(self, msg: dict) -> None:
         """One aisstream message into the ships kept."""
         if msg.get("error"):
-            self.error = f"aisstream.io: {msg['error']}"
+            self.error = f"aisstream.io refused: {msg['error']}" + (" (check AISSTREAM_API_KEY in Settings > Keys)"
+                                                                    if "key" in str(msg["error"]).lower() else "")
             return
         meta = msg.get("MetaData") or {}
         mmsi = meta.get("MMSI")
@@ -232,6 +280,8 @@ class Ships:
             return
         body = (msg.get("Message") or {}).get(msg.get("MessageType") or "") or {}
         with self.lock:
+            self.messages += 1
+            self.error = None
             s = self.ships.setdefault(mmsi, {"id": mmsi, "seen": int(time.time())})
             name = (meta.get("ShipName") or body.get("Name") or "").strip()
             if name:
@@ -245,6 +295,19 @@ class Ships:
                 return
             s.update(lat=round(lat, 4), lon=round(lon, 4), seen=int(time.time()),
                      speed_kn=body.get("Sog"), heading=body.get("TrueHeading") if body.get("TrueHeading") not in (None, 511) else body.get("Cog"))
+
+
+def _ship_error(exc: Exception) -> str:
+    """Why the aisstream listener stopped, in words."""
+    name = exc.__class__.__name__
+    text = str(exc)
+    if "ConnectionClosed" in name:
+        return f"aisstream.io closed the connection ({text or name}); trying again in {int(RETRY_AFTER)} s. A wrong or expired key is the usual cause."
+    if "InvalidStatus" in name or "InvalidHandshake" in name or "Proxy" in name:
+        return f"aisstream.io would not connect ({text or name}); trying again in {int(RETRY_AFTER)} s."
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError, OSError)):
+        return f"Could not reach aisstream.io ({name}: {text}); trying again in {int(RETRY_AFTER)} s."
+    return f"aisstream.io: {text or name}; trying again in {int(RETRY_AFTER)} s."
 
 
 PLANES = Planes()

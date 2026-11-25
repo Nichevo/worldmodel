@@ -589,15 +589,20 @@ export default function WorldMap({
           if (!live || n !== asked) return;
           if (style.timed && fc.loaded === false) fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
           (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
-          const note = fc.error ?? (style.fetch === "live" ? `${LAYER_STYLE[id].legend}: ${fc.features.length.toLocaleString()} in view`
-            : style.timed ? `Fighting and unrest: ${fc.features.length.toLocaleString()}${fc.capped ? " biggest" : ""} in view${fc.note ? ` (${fc.note})` : ""}` : "");
+          const legend = LAYER_STYLE[id].legend;
+          const note = fc.error ? `${legend}: ${fc.error}`
+            : style.fetch === "live" ? `${legend}: ${fc.features.length.toLocaleString()} in view${!fc.features.length && fc.note ? ` (${fc.note})` : ""}`
+            : style.timed ? `Fighting and unrest: ${fc.features.length.toLocaleString()}${fc.capped ? " biggest" : ""} in view${fc.note ? ` (${fc.note})` : ""}`
+            : fc.loaded === false && fc.note ? `${legend}: ${fc.note}` : "";
           setNotes((cur) => ({ ...cur, [id]: note }));
         }).catch((e) => setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${String(e?.message ?? e)}` })));
       };
       const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
       if (!style.once) m.on("moveend", soon);
       if (style.timed) window.addEventListener("wm-layer-window", soon);
-      const every = style.fetch === "live" ? setInterval(load, (style.every ?? 60) * 1000) : null;
+      // Live layers ask again every so often, but not while the page is in a hidden tab (OpenSky
+      // allows anonymous users only a few hundred requests a day).
+      const every = style.fetch === "live" ? setInterval(() => { if (!document.hidden) load(); }, (style.every ?? 60) * 1000) : null;
       load();
       dynamic.current[id] = () => {
         m.off("moveend", soon);

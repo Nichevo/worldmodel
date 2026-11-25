@@ -58,7 +58,9 @@ def test_geo_by_window_and_zoom(client):
     wrap = client.get("/api/v1/geo/rivers", params={"west": 170, "south": -45, "east": 200, "north": -30, "zoom": 7}).json()
     assert len(wrap["features"]) == 2
     none = client.get("/api/v1/geo/rivers", params={"west": 0, "south": 0, "east": 10, "north": 10, "zoom": 7}).json()
-    assert none["features"] == []
+    assert none["features"] == [] and "loaded" not in none  # loaded, just none here
+    gas = client.get("/api/v1/geo/gas_pipelines").json()  # never loaded: says how to get it
+    assert gas["features"] == [] and gas["loaded"] is False and "gem_infrastructure" in gas["note"]
     assert client.get("/api/v1/geo/nonsense").status_code == 404
 
 
@@ -143,6 +145,37 @@ def test_live_planes(client, monkeypatch):
     assert len(calls) == 2  # inside the last box, within the minute: no new request
 
 
+def test_live_planes_keep_last_after_limit(monkeypatch):
+    class Resp:
+        status_code = 429
+        headers = {"X-Rate-Limit-Retry-After-Seconds": "7200"}
+
+    class Client:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, url, params=None, headers=None):
+            calls.append(1)
+            return Resp()
+
+    calls = []
+    monkeypatch.setattr(live.httpx, "Client", Client)
+    planes = live.Planes()
+    planes.last = {"type": "FeatureCollection", "at": 0, "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [174.8, -37.0]}, "properties": {"id": "abc"}}]}
+    got = planes.get(170, -45, 180, -30)
+    assert len(got["features"]) == 1 and "about 2 hours" in got["error"] and "min ago" in got["error"]
+    planes.last_at = 0  # long past the refresh gap, but OpenSky said wait: no new request
+    planes.get(170, -45, 180, -30)
+    assert len(calls) == 1
+
+
 def test_live_ships_need_a_key_and_read_messages(client, monkeypatch):
     monkeypatch.delenv("AISSTREAM_API_KEY", raising=False)
     r = client.get("/api/v1/live/ships", params={"west": 170, "south": -45, "east": 180, "north": -30}).json()
@@ -155,6 +188,32 @@ def test_live_ships_need_a_key_and_read_messages(client, monkeypatch):
     monkeypatch.setattr(ships, "_run", lambda key: None)
     got = ships.get(170, -45, 180, -30)
     assert [(f["properties"]["name"], f["properties"]["heading"]) for f in got["features"]] == [("AOTEAROA", 80)]
+
+
+def test_live_ships_keep_the_reason_they_stopped(monkeypatch):
+    monkeypatch.setenv("AISSTREAM_API_KEY", "bad")
+    ships = live.Ships()
+    started = []
+
+    def run(key):
+        started.append(key)
+        ships.take({"error": "Api Key Is Not Valid"})  # what aisstream sends before closing
+        ships.failed_at = live.time.time()  # as the real _run records when the socket closes
+
+    monkeypatch.setattr(ships, "_run", run)
+    ships.get(170, -45, 180, -30)
+    ships.thread.join(2)
+    again = ships.get(170, -45, 180, -30)  # within the retry gap: not started again, the reason still shown
+    assert len(started) == 1 and "Api Key Is Not Valid" in again["error"] and "Settings > Keys" in again["error"]
+    assert "Connecting" in again["note"]
+
+
+def test_ship_error_words():
+    class ConnectionClosedError(Exception):
+        pass
+
+    assert "wrong or expired key" in live._ship_error(ConnectionClosedError("received 1008"))
+    assert "Could not reach" in live._ship_error(OSError("blocked"))
 
 
 def test_port_pressure(client, tmp_path):
