@@ -292,6 +292,8 @@ export type Settings = {
   map_hospital_beds: number; // the Hospitals map layer shows hospitals with at least this many beds
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
   map_hospitals_all: boolean; // the Hospitals layer shows every hospital from every list (the two above apply when off)
+  map_hospitals_lists: string; // lists whose hospitals the map shows (comma separated short names)
+  map_hospitals_kinds: string; // likely kinds the map shows: hospital, unsure, clinic
   hospitals_osm_fetch: boolean; // OpenStreetMap hospitals (healthsites.io) and hospital counts
   hospitals_overture_fetch: boolean; // Overture hospitals for the countries below
   hospitals_overture_countries: string; // three-letter codes; empty: contract health.py's list

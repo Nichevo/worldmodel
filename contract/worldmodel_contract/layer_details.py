@@ -63,7 +63,7 @@ class LayerDetail:
 BEDS = Size("beds", "Beds", "beds", bands=(200, 500, 1000, 2000))
 LAYERS: tuple[LayerDetail, ...] = (
     LayerDetail("hospitals", "hospital", "hospitals", "stored", "health", BEDS, ("found", "Listed by"),
-                (("kind", "Kind"), ("list", "Official list")),
+                (("tier", "Likely kind"), ("kind", "Kind"), ("list", "Official list")),
                 official=(Official("hospitals_official", "Official hospitals (national statistics)", "count", "count"),
                           Official("who_hospitals_per_100k", "Official hospitals (WHO, 2013)", "per100k", "count"),
                           Official("hospital_beds_per_1000", "Official beds (World Bank)", "per1000", "size")),

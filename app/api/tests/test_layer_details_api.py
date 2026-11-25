@@ -119,3 +119,25 @@ def test_blank_spots_are_big_towns_with_nothing_near(client):
         assert t["entity_id"] == "NZL" and t["population"] >= 100_000
         assert t["nearest_km"] is None or t["nearest_km"] > 25
     assert client.get("/api/v1/layer-details/nope/gaps").status_code == 404
+
+
+
+def test_hospitals_by_list_and_kind(tmp_path, monkeypatch):
+    monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
+    monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
+    db = tmp_path / "w.duckdb"
+    shutil.copy(SAMPLE, db)
+    con = duckdb.connect(str(db))
+    for n, (found, tier) in enumerate([("Wikidata + OpenStreetMap", "hospital"), ("OpenStreetMap", "unsure"), ("Overture", "clinic")]):
+        con.execute("INSERT INTO layer_items VALUES ('hospitals', ?, ?, 'NZL', -37, 175, NULL, ?, NULL, ?, false, 'wikidata_places', 'v1')",
+                    [f"h{n}", f"H{n}", found, json.dumps({"tier": tier})])
+    con.close()
+    layer_details._cache.clear()
+    main.warehouse = Warehouse(str(db))
+    try:
+        rows = {r["list"]: r for r in TestClient(main.app).get("/api/v1/layer-details/hospitals").json()["by_list"]}
+    finally:
+        main.warehouse = Warehouse(str(SAMPLE))
+        layer_details._cache.clear()
+    assert rows["OpenStreetMap"] == {"list": "OpenStreetMap", "count": 2, "only": 1, "hospital": 1, "unsure": 1, "clinic": 0}
+    assert rows["All lists"]["count"] == 3 and rows["All lists"]["clinic"] == 1

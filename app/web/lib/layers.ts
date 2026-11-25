@@ -98,11 +98,14 @@ export const LAYER_STYLE: Record<string, Style> = {
     }),
   },
   hospitals: {
-    legend: "Hospital, sized by beds (Settings > Places: which are shown)", swatch: () => cssVar("--div-neg-2"), dot: true,
+    legend: "Hospital, sized by beds: solid likely hospital, pale unsure, ring likely clinic", swatch: () => cssVar("--div-neg-2"), dot: true,
     paint: () => ({
-      "circle-color": cssVar("--div-neg-2"), "circle-opacity": 0.8,
-      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "beds"], 100]], 0, 1.8, 20, 3, 50, 7],
-      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
+      "circle-color": cssVar("--div-neg-2"),
+      "circle-opacity": ["match", ["get", "tier"], "clinic", 0, "unsure", 0.45, 0.85],
+      "circle-radius": ["*", ["match", ["get", "tier"], "clinic", 0.75, 1],
+        ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "beds"], 100]], 0, 1.8, 20, 3, 50, 7]],
+      "circle-stroke-color": ["match", ["get", "tier"], "clinic", cssVar("--div-neg-2"), cssVar("--surface")],
+      "circle-stroke-width": ["match", ["get", "tier"], "clinic", 1.2, 0.6],
     }),
   },
   military_bases: {
@@ -481,7 +484,9 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     return `<b>${esc(p.name)}</b> (tide gauge)<br/>${esc(p.from)}-${esc(p.to)}: ${t(p.trend)}<br/>Last 30 years: ${t(p.trend30)}`;
   }
   if (layer === "hospitals") {
-    return `<b>${esc(p.name)}</b> (hospital)${typeof p.beds === "number" ? `<br/>${p.beds.toLocaleString()} beds` : "<br/>Beds not given"}`
+    const kind = p.tier === "clinic" ? "likely a clinic or health post" : p.tier === "unsure" ? "hospital or clinic, not sure" : "hospital";
+    return `<b>${esc(p.name)}</b> (${kind})${typeof p.beds === "number" ? `<br/>${p.beds.toLocaleString()} beds` : "<br/>Beds not given"}`
+      + (p.kind ? `<br/>${esc(p.kind)}` : "")
       + (p.found ? `<br/><span class="small">Listed by ${esc(p.found)}</span>` : "");
   }
   if (layer === "military_bases") {

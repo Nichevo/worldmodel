@@ -141,3 +141,24 @@ def test_country_boxes_split_across_the_date_line(tmp_path):
 def test_osm_file_keeps_hospitals_only(tmp_path):
     rows = osm_hospital_rows(osm_files(tmp_path / "o") / "NZL.csv")
     assert len(rows) == 2 and rows[0]["url"] == "https://www.openstreetmap.org/way/11" and rows[0]["beds"] == "1000"
+
+
+def test_likely_hospital_or_clinic(built):
+    h = {x["name"]: x for x in _hospitals(built)}
+    assert h["Auckland City Hospital"]["tier"] == "hospital"
+    assert h["Hospital (no name given)"]["tier"] == "unsure"  # only OpenStreetMap, nothing else to go on
+    assert h["Hospital Das Clinicas"]["tier"] == "hospital" and h["Hospital Das Clinicas"]["kind"] == "general hospital"
+    tiers = dict(built.execute("""SELECT name, json_extract_string(props, '$.tier') FROM layer_items
+                                  WHERE layer_id = 'hospitals'""").fetchall())
+    assert tiers["Auckland City Hospital"] == "hospital"
+
+
+def test_tier_rules():
+    t = lambda name, found="Overture", **p: hospitals.tier({"name": name, "found": found, **p})  # noqa: E731
+    assert t("Pediatric Clinic LBJ") == "clinic" and t("Hope Dialysis Center") == "clinic"
+    assert t("绿园西新开元周成卫生所", "OpenStreetMap") == "clinic" and t("三亚市人民医院") == "hospital"
+    assert t("Infection Prevention Office, Lbj Hospital") == "clinic"
+    assert t("Small Clinic", beds=120) == "hospital" and t("Riverside Hospital", beds=8) == "clinic"
+    assert t("Hospital (no name given)", "OpenStreetMap") == "unsure"
+    assert t("Hospital (no name given)", "OpenStreetMap", emergency="yes") == "hospital"
+    assert t("Unit 4", "Official lists", kind="day hospital") == "clinic"
