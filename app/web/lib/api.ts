@@ -325,6 +325,7 @@ export type Settings = {
   oryx_backfill: boolean;
   outages_fetch: boolean; // IODA and Cloudflare Radar
   disease_fetch: boolean; // the Disease page's sources
+  disease_forecast: boolean; // flu and RSV season forecasts shown by default
   ioda_from_year: number;
   sanctions_now_fetch: boolean; // OpenSanctions
   gfp_fetch: boolean; // Global Firepower

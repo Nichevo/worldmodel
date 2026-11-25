@@ -133,6 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
   oryx_backfill: true,
   outages_fetch: true,
   disease_fetch: true,
+  disease_forecast: true,
   ioda_from_year: 2022,
   sanctions_now_fetch: true,
   gfp_fetch: true,

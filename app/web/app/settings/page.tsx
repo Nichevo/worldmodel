@@ -446,6 +446,8 @@ export default function SettingsPage() {
         <h2>Disease</h2>
         <Toggle label="Flu, COVID and other infections" hint="WHO FluNet, New Zealand's wastewater (PHF Science), UKHSA, US CDC, ECDC, Our World in Data's COVID figures, WHO's yearly case counts, OpenDengue and WHO outbreak news, every few days (a few MB). They fill the Disease page and the country Disease now card. Off: those stop getting newer."
           on={s.disease_fetch} set={(v) => save({ disease_fetch: v })} />
+        <Toggle label="Show flu and RSV forecasts" hint="Draw the forecast for the season under way (or the next) on the Seasons chart, and open the Now map on forecast peaks. Each chart and the map still have their own switch. Off: forecasts are hidden until switched on there."
+          on={s.disease_forecast} set={(v) => save({ disease_forecast: v })} />
       </section>
 
       <section className="card" id="outlook">
