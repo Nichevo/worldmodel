@@ -254,7 +254,10 @@ def _geo_counts(q: Q) -> dict[str, int]:
 
 def _layer_counts(q: Q, ids: list[str]) -> dict[str, int]:
     got = q(f"SELECT layer_id, feature_count FROM layers WHERE layer_id IN ({', '.join('?' * len(ids))})", ids)
-    return {r["layer_id"]: r["feature_count"] for r in got}
+    out = {r["layer_id"]: r["feature_count"] for r in got}
+    if _has(q, "traffic_weekly"):  # the 'Ports against normal' layer is worked out, not stored
+        out["port_pressure"] = q("SELECT count(DISTINCT place_id) AS n FROM traffic_weekly WHERE place_kind = 'port'", [])[0]["n"]
+    return out
 
 
 # ----------------------------------------------------------------------------- pages and cards

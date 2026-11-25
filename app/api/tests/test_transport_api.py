@@ -155,3 +155,72 @@ def test_live_ships_need_a_key_and_read_messages(client, monkeypatch):
     monkeypatch.setattr(ships, "_run", lambda key: None)
     got = ships.get(170, -45, 180, -30)
     assert [(f["properties"]["name"], f["properties"]["heading"]) for f in got["features"]] == [("AOTEAROA", 80)]
+
+
+def test_port_pressure(client, tmp_path):
+    con = duckdb.connect(str(tmp_path / "w.duckdb"))
+    start = date(2023, 1, 2)
+    weeks = []
+    for i in range(80):
+        w = start + timedelta(days=7 * i)
+        v = 50.0 if i < 76 else 25.0  # the last four weeks at half
+        weeks += [("port", "port1", "NZL", w, v, v * 1000, 50.0, v / 50), ("port", "port2", "NZL", w, 30.0, None, 30.0, 1.0)]
+    con.executemany("INSERT INTO traffic_weekly VALUES (?, ?, ?, ?, ?, ?, ?, ?)", weeks)
+    curve = json.dumps([1, 1, 1, 1, 0.5, 0.6, 0.9, 1.0] + [1.0] * 13)
+    con.executemany(f"INSERT INTO traffic_impacts VALUES (?, ?, 'portwatch', ?, 'cyclone', 'NZL', ?, ?, 'port', ?, ?, 50, ?, ?, ?, ?, ?, 5, true, '{curve}')",
+                    [("e1|port:port1", "portwatch:e1", "Cyclone A", date(2023, 6, 5), date(2023, 6, 8), "port1", "Auckland", -50.0, date(2023, 6, 5), 45.0, 45000, 14),
+                     ("e2|port:port2", "portwatch:e2", "Cyclone B", date(2023, 9, 4), date(2023, 9, 4), "port2", "Tauranga", -30.0, date(2023, 9, 4), 12.0, None, None)])
+    con.execute("INSERT INTO port_links VALUES ('port1', 'port2', 1.5, 12000, 0.12, 'portwatch', 'v1')")
+    con.execute("INSERT INTO port_daily VALUES ('port1', 'NZL', DATE '2024-07-01', 10, 6, 2, 0, 2, 0, 1000, 2000, 'portwatch', 'v1')")
+    con.close()
+    pl = {p["id"]: p for p in client.get("/api/v1/transport/pressure/places").json()}
+    assert pl["port1"]["vs_normal"] == -50.0 and pl["port2"]["vs_normal"] == 0.0 and pl["port1"]["weekly"] > 40
+    one = client.get("/api/v1/transport/pressure/port/port1", params={"event": "e1|port:port1"}).json()
+    assert len(one["weeks"]) == 80 and one["impacts"][0]["recover_days"] == 14 and one["impacts"][0]["curve"][4] == 0.5
+    assert one["links"][0] == {**one["links"][0], "direction": "out", "port_id": "port2", "days": 1.5, "share": 12.0}
+    assert one["mix"][0]["type"] == "container" and one["mix"][0]["share"] == 60.0
+    assert one["knock_on"][0]["port_id"] == "port2" and one["knock_on"][0]["vs_normal"] == 0.0
+    hits = client.get("/api/v1/transport/impacts").json()
+    assert [h["impact_id"] for h in hits] == ["e1|port:port1", "e2|port:port2"]
+    assert client.get("/api/v1/transport/impacts", params={"entity": "AUS"}).json() == []
+    pat = client.get("/api/v1/transport/patterns").json()
+    cy = pat["curves"][0]
+    assert cy["hazard"] == "cyclone" and cy["n"] == 2 and cy["mean"][4] == 0.5 and cy["recover_median"] == 14
+    assert {r["id"] for r in pat["resilience"]} == {"port1", "port2"}
+    lay = client.get("/api/v1/layers/port_pressure").json()
+    assert lay["type"] == "FeatureCollection"  # no ports layer in the sample: no coordinates, so no dots
+    c = client.get("/api/v1/transport/pressure-country/NZL").json()
+    assert [p["id"] for p in c["ports"]] == ["port1", "port2"] and len(c["ports"][0]["weeks"]) == 26
+
+
+def test_port_goods(client, tmp_path):
+    con = duckdb.connect(str(tmp_path / "w.duckdb"))
+    rows = []
+    for m in range(1, 13):
+        p = date(2024, m, 1)
+        rows += [("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "out", "04", "Dairy, eggs and honey", "",
+                  800.0, 4e6, "NZD"),
+                 ("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "out", "44", "Wood and logs", "",
+                  5000.0, 2e6, "NZD"),
+                 ("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "in", "27", "Oil, gas and coal", "",
+                  2000.0, 1e6, "NZD"),
+                 ("NZ:tauranga", "Port of Tauranga", "port2", "sea", "NZL", p, "M", "out", "TOTAL", "All goods", "CHN",
+                  5800.0, 6e6, "NZD"),
+                 ("NZ:akl-air", "Auckland Airport", None, "air", "NZL", p, "M", "in", "87", "Vehicles", "", 3.0, 5e5, "NZD")]
+    rows.append(("AU:port-hedland", "Port Hedland", None, "sea", "AUS", date(2024, 6, 30), "FY", "out", "TOTAL", "All goods", "",
+                 5.6e8, 8.4e10, "AUD"))
+    con.executemany("INSERT INTO port_goods VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'x', 'v1')", rows)
+    con.close()
+    cs = {c["entity_id"]: c for c in client.get("/api/v1/transport/goods/countries").json()}
+    assert cs["NZL"]["ports"] == 2 and cs["AUS"]["ports"] == 1
+    ps = client.get("/api/v1/transport/goods/ports/NZL").json()
+    assert [p["key"] for p in ps] == ["NZ:tauranga", "NZ:akl-air"]
+    assert ps[0]["out_t"] == 5800 * 12 and ps[0]["in_v"] == 12e6 and ps[0]["from"] == "2024-01-01"
+    assert client.get("/api/v1/transport/goods/for/port2").json() == ["NZ:tauranga"]
+    one = client.get("/api/v1/transport/goods/port/NZ:tauranga").json()
+    assert one["measure"] == "value" and one["goods"][0]["id"] == "04" and one["partners"][0]["id"] == "CHN"
+    assert one["years"] == [{"year": 2024, "full": True, "in_t": 24000, "out_t": 69600, "in_v": 12e6, "out_v": 72e6}]
+    assert {k["id"] for k in one["mix"]["keys"]} == {"04", "44", "27"}
+    au = client.get("/api/v1/transport/goods/port/AU:port-hedland").json()
+    assert au["years"][0]["out_t"] == 5.6e8 and au["goods"] == [] and au["freq"] == "FY"
+    assert client.get("/api/v1/transport/goods/port/nope").status_code == 404

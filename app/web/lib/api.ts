@@ -299,6 +299,7 @@ export type Settings = {
   nature_species_fetch: boolean; // GRIIS, IUCN Red List, EPPO
   nature_protected_fetch: boolean; // WDPA protected areas
   transport_ports_fetch: boolean; // PortWatch, World Port Index, shipping lanes
+  port_goods_fetch: boolean; // goods by port (NZ, Europe, UK, US, Australia)
   transport_air_fetch: boolean; // OurAirports, Eurostat airport traffic
   transport_waterways_fetch: boolean; // inland waterways and river freight
   tourism_fetch: boolean; // UNESCO World Heritage sites
@@ -959,6 +960,38 @@ export type TransportCountry = { entity: string; tabs: TransportPage["tabs"]; na
   airports: AirportRow[]; accidents: Accident[]; infrastructure: NatureEvent[]; networks?: Record<string, NetworkItem[]>; counts?: Record<string, number> };
 export type ChokepointSeries = { id: string; name: string; points: { week: string; transits: number; tankers: number | null; container: number | null;
   dry_bulk: number | null; cargo: number | null; capacity: number | null }[]; depends: { id: string; name: string }[] };
+export type PressurePlace = { kind: "port" | "chokepoint"; id: string; name: string; entity_id: string | null; weekly: number | null;
+  vs_normal: number | null; lat: number | null; lon: number | null; as_of: string };
+export type PressureImpact = { impact_id: string; event_key: string; origin: "portwatch" | "events"; title: string; hazard: string;
+  entity_id?: string | null; start_date: string; end_date: string | null; place_kind?: "port" | "chokepoint"; place_id?: string;
+  place_name?: string; base_weekly: number; worst_pct: number; worst_week: string | null; lost_calls: number | null;
+  lost_tonnes: number | null; recover_days: number | null; catchup_pct: number | null; clear: boolean; curve?: (number | null)[] };
+export type PortLink = { direction: "out" | "in"; port_id: string; name: string; entity_id: string | null; days: number | null;
+  capacity_t: number | null; share: number | null; lat: number | null; lon: number | null; vs_normal?: number };
+export type PressureDetail = { kind: "port" | "chokepoint"; id: string; name: string; entity_id: string | null; fact?: string | null;
+  top?: string | null; weeks: { week: string; value: number; tonnes: number | null; normal: number | null; ratio: number | null }[];
+  impacts: PressureImpact[]; links: PortLink[]; mix: { type: string; name: string; calls: number; share: number }[];
+  monthly_types?: ({ month: string } & Record<string, number | string | null>)[];
+  year_calls?: number; year_import_t?: number; year_export_t?: number;
+  disruptions: { event_id: string; name: string; hazard: string; alert: string | null; severity: string | null; start_date: string;
+    end_date: string | null; distance_km: number | null }[];
+  knock_on?: PortLink[]; expect?: { title: string; hazard: string; n: number; weeks: { week: string; value: number | null }[] } | null };
+export type PressurePatterns = { weeks_before: number;
+  curves: { hazard: string; name: string; n: number; worst_median: number | null; recover_median: number | null; not_recovered: number;
+    mean: (number | null)[]; p25: (number | null)[]; p75: (number | null)[] }[];
+  resilience: { kind: string; id: string; name: string; entity_id: string | null; events: number; recover_median: number | null;
+    not_recovered: number; weekly: number | null; worst_median: number | null; size_band?: number }[] };
+export type PressureCountry = { entity: string; ports: (PressurePlace & { weeks: { week: string; value: number; normal: number | null; ratio: number | null }[] })[];
+  impacts: PressureImpact[] };
+export type GoodsRow = { id: string; name: string; in_t: number | null; out_t: number | null; in_v: number | null; out_v: number | null };
+export type GoodsCountry = { entity_id: string; name: string; ports: number; sources: string[]; last: string };
+export type GoodsPort = { key: string; name: string; port_id: string | null; kind: "sea" | "air"; source: string; freq: string;
+  currency: string | null; from: string; to: string; in_t: number | null; out_t: number | null; in_v: number | null; out_v: number | null };
+export type GoodsPortDetail = { key: string; name: string; port_id: string | null; kind: "sea" | "air"; entity_id: string; source: string;
+  source_id: string; currency: string | null; freq: string; from: string; to: string; measure: "value" | "tonnes";
+  years: { year: number; full: boolean; in_t: number | null; out_t: number | null; in_v: number | null; out_v: number | null }[];
+  goods: GoodsRow[]; partners: GoodsRow[];
+  mix: { keys: { id: string; name: string }[]; rows: { year: number; id: string; v: number | null }[] } };
 export type TourismPage = { tabs: Record<"visitors" | "money" | "standing" | "nz", string[]>; names: IndicatorNames;
   top: { entity_id: string; name: string; year: number; value: number; indicator: string }[]; loaded: Record<string, number> };
 export type HeritageSite = { name: string; type: string | null; year: number | null; danger?: number; url?: string; about?: string };
@@ -1356,6 +1389,24 @@ export const api = {
   pollution: () => get<PollutionPage>("/pollution"),
   transport: () => get<TransportPage>("/transport"),
   transportCountry: (id: string) => get<TransportCountry>(`/transport/country/${encodeURIComponent(id)}`),
+  pressurePlaces: (entity?: string) => get<PressurePlace[]>(`/transport/pressure/places${entity ? `?entity=${encodeURIComponent(entity)}` : ""}`),
+  pressure: (kind: string, id: string, event?: string) =>
+    get<PressureDetail>(`/transport/pressure/${kind}/${encodeURIComponent(id)}${event ? `?event=${encodeURIComponent(event)}` : ""}`),
+  pressureImpacts: (o: { entity?: string; hazard?: string; since?: number; kind?: string; all?: boolean } = {}) => {
+    const p = new URLSearchParams();
+    if (o.entity) p.set("entity", o.entity);
+    if (o.hazard) p.set("hazard", o.hazard);
+    if (o.since) p.set("since", String(o.since));
+    if (o.kind) p.set("kind", o.kind);
+    if (o.all) p.set("clear", "false");
+    return get<PressureImpact[]>(`/transport/impacts?${p}`);
+  },
+  pressurePatterns: () => get<PressurePatterns>("/transport/patterns"),
+  goodsCountries: () => get<GoodsCountry[]>("/transport/goods/countries"),
+  goodsPorts: (entity: string) => get<GoodsPort[]>(`/transport/goods/ports/${encodeURIComponent(entity)}`),
+  goodsFor: (portId: string) => get<string[]>(`/transport/goods/for/${encodeURIComponent(portId)}`),
+  goodsPort: (key: string) => get<GoodsPortDetail>(`/transport/goods/port/${encodeURIComponent(key)}`),
+  pressureCountry: (entity: string) => get<PressureCountry>(`/transport/pressure-country/${encodeURIComponent(entity)}`),
   chokepoint: (id: string, start?: number) => get<ChokepointSeries>(`/transport/chokepoint/${encodeURIComponent(id)}${start ? `?start=${start}` : ""}`),
   tourism: () => get<TourismPage>("/tourism"),
   tourismCountry: (id: string) => get<TourismCountry>(`/tourism/country/${encodeURIComponent(id)}`),

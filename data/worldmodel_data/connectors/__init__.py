@@ -40,8 +40,10 @@ from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
 from worldmodel_data.connectors.people import CLDRLanguages, COWReligion, Glottolog, PewReligion
 from worldmodel_data.connectors.tourism import NZTourism, UNESCOHeritage, UNTourism, WEFTTDI
-from worldmodel_data.connectors.transport import (AirportTraffic, EurostatWaterways, OurAirports, PortWatch, ShippingLanes, TAICInquiries,
-                                                   TransportCurated, WorldPortIndex)
+from worldmodel_data.connectors.transport import (AirportTraffic, EurostatWaterways, NYFedGSCPI, OurAirports, PortWatch, ShippingLanes,
+                                                   TAICInquiries, TransportCurated, UNCTADPortCalls, WorldPortIndex)
+from worldmodel_data.connectors.port_goods import (BITRESeaFreight, CensusPortTrade, DfTPortFreight, EurostatPortGoods,
+                                                   StatsNZPortTrade)
 from worldmodel_data.connectors.turnout import IDEATurnout
 from worldmodel_data.connectors.ucdp import UCDPConflicts
 from worldmodel_data.connectors.un_wpp import UNWPP
@@ -74,7 +76,9 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     CLDRLanguages, Glottolog, COWReligion, PewReligion, CrisisHistory, IEAData,
     Cliopatria, OWIDLongRun, WikidataHistory, NOAAHazards,
     KoppenBeck, BerkeleyEarth, PSMSL, UNSDG, NDGAIN, GRIIS, IUCNRedList, EPPOPests, WAHISOutbreaks, WDPA, NatureCurated,
-    PortWatch, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways, TAICInquiries, TransportCurated,
+    PortWatch, NYFedGSCPI, UNCTADPortCalls, StatsNZPortTrade, EurostatPortGoods, DfTPortFreight, CensusPortTrade,
+    BITRESeaFreight, WorldPortIndex, ShippingLanes, OurAirports, AirportTraffic, EurostatWaterways,
+    TAICInquiries, TransportCurated,
     UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure, NERailways,
     HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
     Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OECDCLI, FREDCycle,

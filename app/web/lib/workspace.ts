@@ -293,6 +293,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "Y", id: "power_lines", label: "Power lines", group: "energy", hint: "High and medium voltage lines: mapped (OpenStreetMap) and predicted from night lights (World Bank gridfinder)" },
   { letter: "7", id: "power_links", label: "Power links between countries", group: "energy", hint: "Electricity traded between European countries in the latest year, a line between capitals, thicker for more, from the net exporter to the importer (Eurostat); hover a line for both directions" },
   { letter: "P", id: "ports", label: "Ports (by ship calls)", group: "ports", hint: "About 1,700 ports sized by ship calls a year (IMF PortWatch)" },
+  { letter: "*", id: "port_pressure", label: "Ports against normal", group: "ports", hint: "Ship calls in the last 4 weeks against each port's normal for that time of year (IMF PortWatch); see Transport > Port pressure" },
   { letter: "E", id: "ports_all", label: "Every port", group: "ports", hint: "About 3,800 ports with harbour size (NGA World Port Index)" },
   { letter: "C", id: "chokepoints", label: "Shipping chokepoints", group: "ports", hint: "Straits and canals, sized by ships a day; click one for the countries on its shores" },
   { letter: "L", id: "shipping_lanes", label: "Shipping lanes", group: "ports" },

@@ -335,6 +335,8 @@ export default function SettingsPage() {
         </p>
         <Toggle label="Ports, chokepoints and shipping lanes" hint="IMF PortWatch weekly (ports, chokepoints, ships a day since 2019, port calls a month), the World Port Index twice a year and the shipping lanes once a year. Off: no chokepoint charts or events, no port layers or port calls by country."
           on={s.transport_ports_fetch} set={(v) => save({ transport_ports_fetch: v })} />
+        <Toggle label="Goods by port" hint="What goes through each port, by kind of goods and partner country: Stats NZ (about 28 MB a year, cut down as it arrives), Eurostat for Europe's main ports, the UK's PORT0499 table, US ports from the Census API (needs CENSUS_API_KEY) and Australia's top ten ports (BITRE). Checked once a month. Off: no Goods by port tab."
+          on={s.port_goods_fetch} set={(v) => save({ port_goods_fetch: v })} />
         <Toggle label="Airports and airport traffic" hint="OurAirports (one 12 MB file every three months) and Eurostat passengers and freight by airport. Off: no airports layer and no busiest airports; files you save by hand still load."
           on={s.transport_air_fetch} set={(v) => save({ transport_air_fetch: v })} />
         <Toggle label="Inland waterways and river freight" hint="The US National Waterway Network and OpenStreetMap (Europe's classed waterways and about 30 big rivers, one query at a time, ten seconds apart, once a year), and Eurostat river freight. Off: no waterways layer and no river freight figures."

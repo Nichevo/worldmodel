@@ -1971,6 +1971,121 @@
   standing: 5
   definition: exploratory
 
+- id: nyfed_gscpi
+  name: Global Supply Chain Pressure Index (Federal Reserve Bank of New York)
+  short_name: NY Fed supply chain pressure
+  publisher: Federal Reserve Bank of New York
+  url: https://www.newyorkfed.org/research/policy/gscpi
+  licence: Free to use with attribution (Federal Reserve Bank of New York terms)
+  licence_url: https://www.newyorkfed.org/privacy/termsofuse
+  commercial_use: false
+  cadence: Monthly, from 1997; read weekly
+  attribution: "Benigno, di Giovanni, Groen and Noble, Global Supply Chain Pressure Index, Federal Reserve Bank of New York."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://www.newyorkfed.org/research/policy/gscpi
+    what: "If the refresh is refused, save the 'Download data' file (gscpi_data.xlsx) here."
+    files: ["gscpi*"]
+
+- id: unctad_port_calls
+  name: UNCTAD port calls and performance (median time in port)
+  short_name: UNCTAD time in port
+  publisher: UN Trade and Development (UNCTAD), from MarineTraffic data
+  url: https://unctadstat.unctad.org/datacentre/dataviewer/US.PortCalls
+  licence: Free to use with attribution (UNCTADstat terms)
+  licence_url: https://unctadstat.unctad.org/EN/Terms.html
+  commercial_use: true
+  cadence: Yearly, from 2018; read monthly
+  attribution: "UNCTADstat, Port call and performance statistics (US.PortCalls), from MarineTraffic."
+  status: active
+  default_rank: 3
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    get: https://unctadstat.unctad.org/datacentre/dataviewer/US.PortCalls
+    what: "If the refresh is refused, download the table as CSV (Port calls: performance indicators, all years) and save it here."
+    files: ["US_PortCalls*", "*PortCalls*"]
+
+- id: statsnz_port_trade
+  name: Stats NZ overseas merchandise trade by New Zealand port (HS10 by country by port)
+  short_name: Stats NZ trade by port
+  publisher: Stats NZ
+  url: https://www.stats.govt.nz/large-datasets/csv-files-for-download/overseas-merchandise-trade-datasets/
+  licence: CC BY 4.0
+  licence_url: https://www.stats.govt.nz/about-us/copyright/
+  commercial_use: true
+  cadence: Monthly, one zip a year from 2015; read monthly from 2019
+  attribution: "Stats NZ, Overseas merchandise trade datasets: HS10 by country by port, licensed under CC BY 4.0."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: eurostat_port_goods
+  name: Eurostat maritime transport of goods by main port (mar_go_qm)
+  short_name: Eurostat goods by port
+  publisher: Eurostat
+  url: https://ec.europa.eu/eurostat/web/transport/database
+  licence: CC BY 4.0 (Eurostat reuse policy)
+  licence_url: https://ec.europa.eu/eurostat/about-us/policies/copyright
+  commercial_use: true
+  cadence: Quarterly; read monthly from 2019
+  attribution: "Eurostat, Maritime transport of goods, quarterly data, main ports (mar_go_qm)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: dft_port_freight
+  name: UK Department for Transport port freight statistics (PORT0499, port level dataset)
+  short_name: UK port freight
+  publisher: UK Department for Transport
+  url: https://www.gov.uk/government/statistical-data-sets/port-and-domestic-waterborne-freight-statistics-port
+  licence: Open Government Licence v3.0
+  licence_url: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+  commercial_use: true
+  cadence: Yearly (each summer), from 2000; checked monthly
+  attribution: "Department for Transport, Port Freight Statistics (PORT0499). Contains public sector information licensed under the Open Government Licence v3.0."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: census_port_trade
+  name: US Census Bureau international trade by US port and HS chapter (Census API)
+  short_name: US trade by port
+  publisher: US Census Bureau
+  url: https://www.census.gov/foreign-trade/data/index.html
+  licence: Public domain (US government work)
+  licence_url: https://www.census.gov/data/developers/about/terms-of-service.html
+  commercial_use: true
+  cadence: Monthly, from 2019; checked monthly. Needs a free CENSUS_API_KEY
+  attribution: "US Census Bureau, USA Trade by port (intltrade porths), via the Census Data API. This product uses the Census Bureau Data API but is not endorsed or certified by the Census Bureau."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+
+- id: bitre_sea_freight
+  name: BITRE Australian sea freight (top ten ports by value and weight)
+  short_name: BITRE sea freight
+  publisher: Bureau of Infrastructure and Transport Research Economics (Australia)
+  url: https://www.bitre.gov.au/maritime
+  licence: CC BY 4.0
+  licence_url: https://www.bitre.gov.au/about/copyright
+  commercial_use: true
+  cadence: Yearly (financial years); checked every two months
+  attribution: "Bureau of Infrastructure and Transport Research Economics, Australian sea freight, licensed under CC BY 4.0."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: standard
+
 - id: world_port_index
   name: World Port Index (Pub. 150)
   short_name: World Port Index

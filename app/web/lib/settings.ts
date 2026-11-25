@@ -107,6 +107,7 @@ export const DEFAULT_SETTINGS: Settings = {
   nature_species_fetch: true,
   nature_protected_fetch: true,
   transport_ports_fetch: true,
+  port_goods_fetch: true,
   transport_air_fetch: true,
   transport_waterways_fetch: true,
   tourism_fetch: true,
