@@ -323,6 +323,7 @@ export type Settings = {
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
   live_planes: boolean; // the map's Planes now layer
   live_ships: boolean; // the map's Ships now layer
+  live_cameras: boolean; // the map's Cameras layer (road agencies, Windy webcams)
   live_military_planes: boolean; // the map's Military planes now layer (adsb.lol)
   conflict_events_fetch: boolean; // UCDP located events
   acled_on: boolean; // ACLED battles, protests and riots (free account)

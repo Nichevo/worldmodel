@@ -145,6 +145,7 @@ SETTINGS: dict[str, object] = {
     "energy_infrastructure_fetch": True,  # Global Energy Monitor pipelines and LNG terminals (files saved by hand)
     "live_planes": True,                 # the map's Planes now layer asks OpenSky for planes in view (when the layer is on)
     "live_ships": True,                  # the map's Ships now layer listens to aisstream.io (needs AISSTREAM_API_KEY)
+    "live_cameras": True,                # the map's Cameras layer reads road agencies' public camera lists (and Windy's, with WINDY_WEBCAMS_API_KEY)
     "live_military_planes": True,        # Planes now can show military planes only, from adsb.lol's volunteer receivers (no key)
     # Detail from the OSINT communities (connectors/conflict_events.py, wars.py, outages.py, sanctions_now.py, military.py)
     "conflict_events_fetch": True,       # UCDP located events: the yearly dataset (about 30 MB) and monthly candidate events
@@ -384,7 +385,7 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
-LAYER_MARKS = "_*!$();@:"  # layer "letters" past the 62 letters and digits (never "." or "~")
+LAYER_MARKS = "_*-!$();@:"  # layer "letters" past the 62 letters and digits (never "." or "~")
 
 
 def _letters(v) -> str:

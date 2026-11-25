@@ -67,9 +67,18 @@ export function refreshFill(m: maplibregl.Map, change: Partial<{ picture: boolea
   if (!m.getLayer("fill")) return;
   // The map detail's water would cover the sea in the picture: clear while a picture is on.
   for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith("bm-") && l.id.endsWith("-water")) m.setPaintProperty(l.id, "fill-opacity", st.picture ? 0 : 0.9);
+  // ...and so would its borders, beside ours (which stay on over a picture).
+  for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith("bm-") && l.id.endsWith("-border")) m.setLayoutProperty(l.id, "visibility", st.picture ? "none" : "visible");
   const hasValue: ExpressionSpecification = ["==", ["typeof", ["get", "value"]], "number"];
   const k = st.picture ? st.over : 1;
   const stops: [number, number][] = st.detail ? [[3, 0.92], [6, 0.6], [9, 0.35], [13, 0.2]] : [[3, 1], [13, 1]];
+  // With map detail (and no picture, which hides its water), the detail's own borders and coasts
+  // take over from our outline as you zoom in: they are drawn from street-level data, so they
+  // line up with the roads and water instead of sitting a little off them.
+  if (m.getLayer("line")) {
+    m.setPaintProperty("line", "line-opacity", st.detail && !st.picture
+      ? ["interpolate", ["linear"], ["zoom"], 4, 1, 5.5, 0] as unknown as ExpressionSpecification : 1);
+  }
   if (!st.picture && !st.detail) { m.setPaintProperty("fill", "fill-opacity", 1); return; }
   const expr = ["interpolate", ["linear"], ["zoom"],
     ...stops.flatMap(([z, o]) => [z, st.picture ? ["case", hasValue, o * k, 0] : o])] as unknown as ExpressionSpecification;

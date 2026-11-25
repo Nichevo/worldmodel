@@ -578,6 +578,13 @@ Detail from the OSINT communities (all switchable in Settings > Fighting, wars, 
   transfers (trade register CSV in `var\manual\sipri_arms`) and nuclear warheads (Our World in
   Data, from the Federation of American Scientists) show on each country's *Military strength
   and arms* card. **Military planes now** (Map layer 5) asks adsb.lol's volunteer receivers.
+- **Cameras** (Map layer `-`, under Happening now): public traffic cameras from road agencies
+  (NZ Transport Agency for every state highway, QLDTraffic, Live Traffic NSW with a free
+  `TFNSW_API_KEY`, TfL JamCams in London, Caltrans, Finland's road weather cameras) and, with a
+  free `WINDY_WEBCAMS_API_KEY`, Windy's webcams worldwide (the most watched plus beaches and
+  coasts in view). Click one for its latest picture (asked again every minute), TfL's short
+  clips, Caltrans' live video or Windy's live and timelapse player. An agency's list is read
+  only when the view reaches it and kept six hours; nothing is saved. Off in Settings > Transport.
 - **CrisisWatch**: each month's rating shows what these sources recorded that month, and a
   month whose rating and recorded violence point different ways is marked for a second look.
 

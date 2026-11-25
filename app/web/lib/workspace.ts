@@ -316,6 +316,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "2", id: "airspace", label: "Flight information regions", group: "borders", hint: "The airspace each country's air traffic control covers, joined up per country, and each region as you zoom in (VATSIM's outlines, drawn from official charts; not for navigation)" },
   { letter: "F", id: "live_planes", label: "Planes now", group: "now", hint: "Planes in the air in the area in view (OpenSky Network), once a minute while on" },
   { letter: "5", id: "live_military", label: "Military planes now", group: "now", hint: "Military planes in the air in the area in view (adsb.lol's volunteer receivers, no key), once a minute while on; only planes that broadcast their position show" },
+  { letter: "-", id: "live_cameras", label: "Cameras", group: "now", hint: "Public traffic, beach and city cameras: NZ state highways, Queensland, NSW, London, California, Finland, and webcams worldwide with a free Windy key; click one for its latest picture or video" },
   { letter: "S", id: "live_ships", label: "Ships now", group: "now", hint: "Ships' latest positions in the area in view (aisstream.io, needs a free key); fills in over a few minutes" },
   { letter: "c", id: "major_cities", label: "Major cities", group: "cities" },
   { letter: "Z", id: "city_stress", label: "City stress", group: "cities", hint: "Our City stress score: traffic, cost of living, health care, crime and air, 0 (calm) to 10 (most stressful); see Cities > City stress" },

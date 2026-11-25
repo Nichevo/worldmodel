@@ -132,6 +132,7 @@ export const DEFAULT_SETTINGS: Settings = {
   live_planes: true,
   live_ships: true,
   live_military_planes: true,
+  live_cameras: true,
   conflict_events_fetch: true,
   acled_on: true,
   acled_from_year: 2024,
