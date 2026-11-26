@@ -175,12 +175,19 @@ def _tone_cat(text: str, topic: str = "") -> str:
 
 def _item(source: str, key: str, day: str, headline: str, names: Names, *, url: str | None = None, detail: str = "",
           topic: str = "", tone: str = "neutral", entities: list[str] | None = None, outlet: str | None = None,
-          score: float = 0.4) -> dict:
+          score: float = 0.4, image: str | None = None, time: str | None = None) -> dict:
+    """One news item. image: a picture the source gave with it (feeds); time: when it was
+    published, as an ISO time in UTC, when the source says (feeds give the hour, others only the day)."""
     ents = entities if entities is not None else names.find(f"{headline} {detail}")
-    return {"key": key, "kind": "news", "source": source, "outlet": outlet or SOURCES[source], "date": day,
-            "headline": headline[:400], "detail": detail[:1200], "url": url, "topic": topic, "category": _tone_cat(f"{headline} {detail}", topic),
-            "tone": tone, "entities": ents, "score": score,
-            "tags": [*(names.name.get(e, e) for e in ents), *( [topic] if topic else []), SOURCES[source]]}
+    out = {"key": key, "kind": "news", "source": source, "outlet": outlet or SOURCES[source], "date": day,
+           "headline": headline[:400], "detail": detail[:1200], "url": url, "topic": topic, "category": _tone_cat(f"{headline} {detail}", topic),
+           "tone": tone, "entities": ents, "score": score,
+           "tags": [*(names.name.get(e, e) for e in ents), *( [topic] if topic else []), SOURCES[source]]}
+    if image:
+        out["image"] = image
+    if time:
+        out["time"] = time
+    return out
 
 
 # ----------------------------------------------------------------------------- Wikipedia Current events
@@ -346,6 +353,40 @@ def fetch_gdelt(client: httpx.Client, names: Names, countries: list[str], today:
 
 
 # ----------------------------------------------------------------------------- feeds
+MEDIA = "{http://search.yahoo.com/mrss/}"
+IMG_TAG = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.I)
+
+
+def _https(u: str | None) -> str | None:
+    u = (u or "").strip()
+    return u if u.startswith(("https://", "http://")) else None
+
+
+def feed_image(it: ET.Element) -> str | None:
+    """The picture a feed item comes with: media:content or media:thumbnail (the widest),
+    an image enclosure, or the first picture in its description."""
+    best, width = None, -1
+    for tag in ("content", "thumbnail"):
+        for el in [*it.iter(MEDIA + tag)]:
+            u = _https(el.get("url"))
+            kind = el.get("medium") or el.get("type") or "image"
+            if not u or not (kind == "image" or kind.startswith("image/")):
+                continue
+            try:
+                w = int(el.get("width") or 0)
+            except ValueError:
+                w = 0
+            if w > width:
+                best, width = u, w
+    if best:
+        return best
+    for el in it.iter("enclosure"):
+        if (el.get("type") or "").startswith("image/") and _https(el.get("url")):
+            return _https(el.get("url"))
+    m = IMG_TAG.search(html.unescape(it.findtext("description") or ""))
+    return _https(m.group(1)) if m else None
+
+
 def parse_feed(text: str, feed_id: str, names: Names) -> list[dict]:
     title, _url, home = FEEDS[feed_id]
     try:
@@ -356,17 +397,21 @@ def parse_feed(text: str, feed_id: str, names: Names) -> list[dict]:
     for it in root_el.iter("item"):
         head = html.unescape((it.findtext("title") or "").strip())
         link = (it.findtext("link") or "").strip() or None
-        desc = re.sub(r"<[^>]+>", "", html.unescape(it.findtext("description") or "")).strip()
+        desc = " ".join(re.sub(r"<[^>]+>", " ", html.unescape(it.findtext("description") or "")).split())
         when = it.findtext("pubDate")
+        stamp = None
         try:
-            day = parsedate_to_datetime(when).date().isoformat() if when else date.today().isoformat()
+            at = parsedate_to_datetime(when) if when else None
+            day = at.date().isoformat() if at else date.today().isoformat()
+            if at and at.tzinfo:
+                stamp = at.astimezone(timezone.utc).isoformat(timespec="minutes").replace("+00:00", "Z")
         except (TypeError, ValueError):
             day = date.today().isoformat()
         if not head:
             continue
         ents = names.find(f"{head} {desc}") or ([home] if home else [])
-        out.append(_item("feeds", _key("feeds", link or head), day, head, names, url=link, detail=desc[:400],
-                         entities=ents, outlet=title, score=0.35))
+        out.append(_item("feeds", _key("feeds", link or head), day, head, names, url=link, detail=desc[:800],
+                         entities=ents, outlet=title, score=0.35, image=feed_image(it), time=stamp))
     return out
 
 
@@ -459,7 +504,10 @@ def _run(settings: dict, names: Names, client: httpx.Client | None, today: date 
                 by = {i["key"]: i for i in items() if i.get("date", "") >= keep_from}
                 for i in found:
                     if i["date"] >= keep_from:
-                        by.setdefault(i["key"], {**i, "first_seen": today.isoformat()})
+                        old = by.setdefault(i["key"], {**i, "first_seen": today.isoformat()})
+                        for f in ("image", "time"):  # items kept from before pictures were read gain them
+                            if i.get(f) and not old.get(f):
+                                old[f] = i[f]
                 _write("items.json", sorted(by.values(), key=lambda i: (i["date"], i["key"]), reverse=True))
                 if done:
                     st["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -492,3 +540,122 @@ def start(settings: dict, names: Names) -> bool:
         _running.set()
     threading.Thread(target=_run, args=(settings, names, None, None), daemon=True, name="news").start()
     return True
+
+
+# ----------------------------------------------------------------------------- link previews
+# When a news item is opened on the map, its article's own page is read once for the picture and
+# summary it offers link previews (og:image, og:description). Only the page clicked, never in bulk;
+# kept in previews.json so the same article is never read twice.
+PREVIEW_MAX_BYTES = 1_500_000
+PREVIEW_KEEP = 4000
+PREVIEW_RETRY_HOURS = 24  # a page that failed is tried again after this long
+META = re.compile(r"<meta\s+[^>]*>", re.I)
+ATTR = re.compile(r"""([a-zA-Z_:.-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)""")
+TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
+_preview_lock = threading.Lock()
+
+
+def page_meta(text: str, base: str) -> dict:
+    """The link-preview fields of a web page: title, description, image, site name and publish time."""
+    from urllib.parse import urljoin
+    got: dict[str, str] = {}
+    head = text[: text.lower().find("</head>") + 7] if "</head>" in text.lower() else text[:300_000]
+    for tag in META.findall(head):
+        a = {k.lower(): v.strip("\"'") for k, v in ATTR.findall(tag)}
+        name = (a.get("property") or a.get("name") or a.get("itemprop") or "").lower()
+        if name and "content" in a and name not in got:
+            got[name] = html.unescape(a["content"]).strip()
+    pick = lambda *ks: next((got[k] for k in ks if got.get(k)), None)  # noqa: E731
+    title = pick("og:title", "twitter:title")
+    if not title:
+        m = TITLE.search(head)
+        title = html.unescape(" ".join(m.group(1).split())) if m else None
+    image = pick("og:image:secure_url", "og:image", "og:image:url", "twitter:image", "twitter:image:src", "thumbnailurl")
+    image = urljoin(base, image) if image else None
+    out = {"title": title, "description": pick("og:description", "twitter:description", "description"),
+           "image": _https(image), "site": pick("og:site_name", "application-name"),
+           "published": pick("article:published_time", "og:published_time", "datepublished", "date", "pubdate")}
+    return {k: (v[:1200] if isinstance(v, str) else v) for k, v in out.items() if v}
+
+
+def _public_host(url: str) -> bool:
+    """Only pages on the open internet: never this PC or the local network."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
+    except OSError:
+        return True  # let the fetch report it (and behind a proxy names may not resolve here)
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            return False
+    return True
+
+
+def preview(url: str, client: httpx.Client | None = None) -> dict:
+    """The picture and summary an article's page offers, read once and kept. {url, ...fields} or {url, error}."""
+    url = (url or "").strip()
+    if not _https(url):
+        return {"url": url, "error": "Not a web address"}
+    with _preview_lock:
+        kept = _read("previews.json", {})
+        if not isinstance(kept, dict):
+            kept = {}
+        old = kept.get(url)
+    if old and not old.get("error"):
+        return {"url": url, **old}
+    if old and old.get("at"):
+        try:
+            if datetime.now(timezone.utc) - datetime.fromisoformat(old["at"]) < timedelta(hours=PREVIEW_RETRY_HOURS):
+                return {"url": url, **old}
+        except ValueError:
+            pass
+    if not _public_host(url):
+        return {"url": url, "error": "Only pages on the open internet are read"}
+    own = client is None
+    client = client or httpx.Client(timeout=10, follow_redirects=True, headers={"User-Agent": USER_AGENT, "Accept": "text/html"})
+    now_ = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    try:
+        with client.stream("GET", url) as r:
+            if r.status_code >= 400:
+                found = {"error": f"The site answered {r.status_code}", "at": now_}
+            elif "html" not in (r.headers.get("content-type") or "html").lower():
+                found = {"error": "Not a web page", "at": now_}
+            else:
+                buf = b""
+                for chunk in r.iter_bytes():
+                    buf += chunk
+                    if len(buf) >= PREVIEW_MAX_BYTES or b"</head>" in buf.lower():
+                        break
+                found = page_meta(buf.decode(r.encoding or "utf-8", errors="replace"), str(r.url))
+                found["at"] = now_
+                if not (found.get("image") or found.get("description")):
+                    found.setdefault("note", "The page gives no picture or summary")
+    except httpx.HTTPError as exc:
+        found = {"error": str(exc).splitlines()[0][:160] or type(exc).__name__, "at": now_}
+    finally:
+        if own:
+            client.close()
+    with _preview_lock:
+        kept = _read("previews.json", {})
+        if not isinstance(kept, dict):
+            kept = {}
+        kept[url] = found
+        if len(kept) > PREVIEW_KEEP:
+            kept = dict(sorted(kept.items(), key=lambda kv: kv[1].get("at", ""))[-PREVIEW_KEEP:])
+        _write("previews.json", kept)
+    return {"url": url, **found}
+
+
+def about(entity: str, start: str, end: str, limit: int = 40) -> list[dict]:
+    """News items naming a country between two days, newest first (not GDELT's counts), with any picture kept."""
+    out = [i for i in items() if i.get("source") != "gdelt" and entity in (i.get("entities") or [])
+           and start <= (i.get("date") or "")[:10] <= end]
+    out.sort(key=lambda i: (i.get("time") or i.get("date") or "", i.get("score", 0)), reverse=True)
+    keep = ("key", "source", "outlet", "date", "time", "headline", "detail", "url", "topic", "tone", "entities", "image")
+    return [{k: i.get(k) for k in keep} for i in out[:limit]]

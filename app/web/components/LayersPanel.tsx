@@ -152,7 +152,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
           opacity: fade(h.date), href: h.url ?? undefined,
           label: `<b>${esc(h.headline)}</b><br/>${esc(h.date)} · "${esc(h.word)}" · ${esc(h.outlets.join(", "))}`
             + `<br/>${h.confirmed ? `Confirmed: ${esc(h.confirmed_by ?? "a dataset has it")}` : "Reported in the news, not yet confirmed by a dataset"}`
-            + (h.place ? `<br/>Placed at ${esc(h.place.name)}` : "<br/>Placed at the country's centre") });
+            + (h.place ? `<br/>Placed at ${esc(h.place.name)}` : "<br/>Placed at the country's centre")
+            + "<br/><span class=\"muted\">Click for the story, its picture and more news from there</span>" });
       }
     }
     const filters: Record<string, unknown[] | null> = {
@@ -244,7 +245,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       ? `${wx.steps.length} of ${wx.all_steps.length} forecast hours in` : `next ${wx.days} days, ${wx.model_name}`;
     if (wx?.waves.run && hasWaves(letters)) all.wx_waves = all.wx_swell = wx.waves.steps.length < wx.waves.all_steps.length
       ? `${wx.waves.steps.length} of ${wx.waves.all_steps.length} wave steps in` : `next ${wx.days} days, every 6 hours`;
-    return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
+    return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters,
+      watch: on("n") ? ev?.watch ?? [] : [] };
   }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden, st.map_cameras_hidden, quakeMin]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 

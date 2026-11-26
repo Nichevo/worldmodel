@@ -85,6 +85,9 @@ def place_in(text: str, cities: list[tuple[str, float, float]]) -> dict | None:
     return None
 
 
+ARTICLE_FIELDS = ("key", "source", "outlet", "date", "time", "headline", "detail", "url", "topic", "image")
+
+
 def watch_hits(items: list[dict], ws: list[str], since: str, *, until: str | None = None, min_outlets: int = 1,
                cities: dict[str, list[tuple[str, float, float]]] | None = None,
                confirm: list[dict] | None = None) -> list[dict]:
@@ -112,15 +115,22 @@ def watch_hits(items: list[dict], ws: list[str], since: str, *, until: str | Non
                 "entity_id": ents[0], "entities": list(ents), "headline": it.get("headline", ""), "detail": it.get("detail", ""),
                 "url": it.get("url"), "outlets": [], "urls": [], "score": it.get("score", 0.4), "place": None,
                 "confirmed": False, "tone": "bad" if hit[0] not in ("ceasefire",) else "good",
+                "image": it.get("image"), "time": it.get("time"), "outlet": it.get("outlet") or it.get("source"),
+                "source": it.get("source"), "articles": [],
             }
         outlet = it.get("outlet") or it.get("source") or ""
         if outlet and outlet not in g["outlets"]:
             g["outlets"].append(outlet)
         if it.get("url") and it["url"] not in g["urls"]:
             g["urls"].append(it["url"])
+        if len(g["articles"]) < 12 and all(a["url"] != it.get("url") or not a["url"] for a in g["articles"]):
+            # every report merged into this one, for the news panel's list and related links
+            g["articles"].append({k: it.get(k) for k in ARTICLE_FIELDS})
         g["words"] = list(dict.fromkeys([*g["words"], *hit]))
         if it.get("score", 0) > g["score"]:
-            g.update(headline=it.get("headline", ""), detail=it.get("detail", ""), url=it.get("url"), score=it.get("score", 0))
+            g.update(headline=it.get("headline", ""), detail=it.get("detail", ""), url=it.get("url"), score=it.get("score", 0),
+                     time=it.get("time"), outlet=it.get("outlet") or it.get("source"), source=it.get("source"),
+                     image=it.get("image"))
         if g["place"] is None and cities:
             g["place"] = place_in(text, cities.get(ents[0], []))
     out = [g for g in groups.values() if len(g["outlets"]) >= min_outlets]

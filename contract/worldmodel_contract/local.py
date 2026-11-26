@@ -295,6 +295,7 @@ SETTINGS: dict[str, object] = {
                         "ceasefire,invasion,airstrike,air strike,massacre,hostage,blockade,sanctions,default,impeachment,resigns,"
                         "tsunami,eruption,famine,outbreak",  # news naming one of these words is put on the map, hollow until a dataset confirms it
     "news_watch_outlets": 1,         # how many outlets must report it before a watch-word item shows on the map
+    "news_previews": True,           # opening a news item on the map reads that article's page once for its picture and summary
     # WORLD Policy Analysis Center on Harvard Dataverse: its guestbook asks who is downloading
     "world_dataverse_fetch": True,   # refresh downloads WORLD's data files every 90 days once the guestbook is filled in
     "world_dataverse_name": "",      # the guestbook answers, sent with each download (kept on this PC only)

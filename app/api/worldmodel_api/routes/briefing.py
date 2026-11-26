@@ -224,6 +224,23 @@ def news_fetch(force: bool = False):
     return {"started": news.start(s, _news_names()), **news.state()}
 
 
+@api.get("/news/preview")
+def news_preview(url: str = Query(..., min_length=8, max_length=2000)):
+    """The picture and summary an article's own page offers for link previews, read once when the
+    article is opened on the map and kept (Settings > Map: Read article pages for pictures)."""
+    if not userdata.settings().get("news_previews", True):
+        return {"url": url, "off": True}
+    return news.preview(url)
+
+
+@api.get("/news/about")
+def news_about(entity: str = Query(..., min_length=2, max_length=12),
+               start: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"), end: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
+               limit: int = Query(40, ge=1, le=200)):
+    """News kept that names a country between two days, newest first: the map news panel's "More articles"."""
+    return {"entity": entity, "start": start, "end": end, "items": news.about(entity, start, end, limit)}
+
+
 @api.post("/discover-rescan")
 def discover_rescan():
     """Work the finds out again on the live build (after changing Discover's settings)."""

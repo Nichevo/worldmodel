@@ -492,6 +492,7 @@ export type Settings = {
   map_layer_sets: Record<string, string>; // your own quick sets: name -> layer letters
   news_watch_words: string; // comma-separated words that put a news item on the map
   news_watch_outlets: number; // outlets needed before a reported item shows on the map
+  news_previews: boolean; // opening a news item on the map reads its article's page once for a picture and summary
   world_dataverse_fetch: boolean; // refresh downloads WORLD Policy's files from Harvard Dataverse
   world_dataverse_name: string;
   world_dataverse_email: string;
@@ -1260,7 +1261,16 @@ export type WatchHit = {
   key: string; word: string; words: string[]; date: string; entity_id: string; entities: string[]; headline: string;
   detail: string; url: string | null; outlets: string[]; urls: string[]; n_outlets: number; confirmed: boolean;
   confirmed_by?: string; place: { name: string; lat: number; lon: number } | null; group: string; tone: Tone;
+  image?: string | null; time?: string | null; outlet?: string | null; source?: string | null; articles?: NewsArticle[];
 };
+// One news report: a feed item, a Wikipedia Current events line or a ReliefWeb entry, with any picture it came with.
+export type NewsArticle = {
+  key: string; source: string | null; outlet: string | null; date: string; time?: string | null; headline: string;
+  detail?: string | null; url: string | null; topic?: string | null; image?: string | null; tone?: Tone; entities?: string[];
+};
+// What an article's own page offers for link previews (read once when opened on the map).
+export type NewsPreview = { url: string; title?: string; description?: string; image?: string; site?: string; published?: string;
+  error?: string; note?: string; off?: boolean };
 export type MapEvents = { start: string; end: string; events: MapEvent[]; watch: WatchHit[]; words: string[] };
 
 
@@ -1335,6 +1345,9 @@ export const api = {
   briefing: (days?: number) => get<Briefing>("/briefing", { days }),
   entityLatest: (id: string, days = 30) => get<EntityLatest>(`/entities/${encodeURIComponent(id)}/latest`, { days }),
   mapEvents: (start: string, end: string) => get<MapEvents>("/map-events", { start, end }),
+  newsPreview: (url: string) => get<NewsPreview>("/news/preview", { url }),
+  newsAbout: (entity: string, start: string, end: string) =>
+    get<{ entity: string; items: NewsArticle[] }>("/news/about", { entity, start, end }),
   discover: (o: { tab?: DiscoverTab; category?: string; kind?: string; tone?: string; entity?: string; tag?: string; q?: string;
     sort?: string; new?: string; since?: string; until?: string; limit?: number; offset?: number } = {}) => get<DiscoverFeed>("/discover", o),
   discoverMark: (key: string, change: { rating?: number; tags?: string[]; tone?: Tone | null }) =>

@@ -11,6 +11,7 @@ import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import LayersPanel, { useMapMarks } from "@/components/LayersPanel";
 import WeatherOverlay from "@/components/WeatherOverlay";
+import NewsPanel from "@/components/NewsPanel";
 import { hasWeather } from "@/lib/weather";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
@@ -460,6 +461,9 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
   const wxOn = hasWeather(panel.layers);
   const [wxPoint, setWxPoint] = useState<[number, number] | null>(null);
   useEffect(() => { if (!wxOn) setWxPoint(null); }, [wxOn]);
+  // A news mark opens the news panel (other marks open their link as before).
+  const [newsKey, setNewsKey] = useState<string | null>(null);
+  const newsHit = newsKey ? marks.watch.find((h) => h.key === newsKey) ?? null : null;
   const [shade, setShade] = useState<MixShade>(null);
   useEffect(() => { if (!mixOn) setShade(null); }, [mixOn]);
   const shaded = mixOn && !!shade;
@@ -514,7 +518,9 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         areas={marks.areas}
         raster={marks.rasters}
         onPoint={wxOn ? setWxPoint : null}
+        onMark={(k) => { if (!marks.watch.some((h) => h.key === k)) return false; setNewsKey(k); }}
       />
+      {newsHit && <NewsPanel hit={newsHit} start={marks.start} end={marks.end} onClose={() => setNewsKey(null)} />}
       {mixOn && <MixOverlay map={mapObj} onShade={setShade} />}
       {wxOn && <WeatherOverlay map={mapObj} letters={panel.layers} point={wxPoint} onClosePoint={() => setWxPoint(null)} />}
       {layersPanel?.(marks.counts)}
