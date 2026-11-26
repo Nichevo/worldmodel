@@ -147,7 +147,11 @@ def test_council_trees_download(tmp_path, monkeypatch):
     from worldmodel_data.connectors import land as land_mod
 
     monkeypatch.setattr(land_mod, "_settings", lambda: {"council_trees_overseas": True})
-    monkeypatch.setattr(land_mod, "COUNCILS", {k: contract_land.COUNCILS[k] for k in ("auckland", "wellington", "christchurch", "newyork", "melbourne", "london")})
+    councils = {k: contract_land.COUNCILS[k] for k in ("auckland", "wellington", "christchurch", "newyork", "melbourne", "london")}
+    # Auckland is saved by hand now (its open data has only notable trees); here it stands in for a "hub" council.
+    councils["auckland"] = {**councils["auckland"], "how": "hub",
+                            "url": "https://data-aucklandcouncil.opendata.arcgis.com/api/search/v1/collections/dataset/items?q=trees"}
+    monkeypatch.setattr(land_mod, "COUNCILS", councils)
     seen = []
 
     def handler(request: httpx.Request):
