@@ -64,3 +64,15 @@ def test_parsing_helpers():
                            "pm25_concentration", "no2_concentration", "pm25_tempcov", "latitude", "longitude"])
     assert cols["pm25"] == 6 and cols["pm10"] == 5 and cols["lat"] == 9
     assert who_aq_columns(["a", "b"]) == {}
+
+
+def test_who_air_quality_workbook_with_csv_lines_in_one_cell():
+    """WHO's 2026 V8.0 workbook holds each CSV line in a single cell."""
+    from worldmodel_data.connectors.cities import who_aq_rows
+
+    rows = [['who_region,"iso3","country_name","city","year","version","pm10_concentration","pm25_concentration",'
+             '"no2_concentration","pm10_tempcov","latitude","longitude"'],
+            ['WPR,"NZL","New Zealand","Auckland/NZL",2019,"V8.0 (2026) (n=1)",14.5,6.2,NA,90,-36.85,174.76'],
+            [None]]
+    got = {r[4]: r[7] for r in who_aq_rows(rows)}
+    assert got == {"who_pm10_city": 14.5, "who_pm25_city": 6.2}

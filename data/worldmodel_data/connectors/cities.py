@@ -689,9 +689,27 @@ def who_aq_columns(head: list) -> dict[str, int]:
     return out if {"city", "year"} <= out.keys() and any(p in out for p in WHO_AQ_POLLUTANTS) else {}
 
 
+def _unpack_csv_cells(rows: list[list]) -> list[list]:
+    """The 2026 V8.0 workbook holds each line of a CSV file in a single cell
+    ('who_region,"iso3","country_name",...'): split such rows into their columns."""
+    def lone(r):
+        cells = [c for c in r if c not in (None, "")]
+        return cells[0] if len(cells) == 1 and isinstance(cells[0], str) and "," in cells[0] else None
+
+    head = next((r for r in rows[:30] if any(c not in (None, "") for c in r)), None)
+    if head is None or lone(head) is None:
+        return rows
+    out = []
+    for r in rows:
+        text = lone(r)
+        out.append(next(csv.reader([text])) if text is not None else list(r))
+    return out
+
+
 def who_aq_rows(rows: list[list]) -> list[tuple]:
     """City figures from the rows of a WHO air quality sheet: the mean of each place's
     measurements for a year, as (city, country, lat, lon, indicator, year, status, value)."""
+    rows = _unpack_csv_cells(rows)
     i = next((i for i, r in enumerate(rows[:30]) if who_aq_columns(r)), None)
     if i is None:
         return []
