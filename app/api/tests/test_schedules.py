@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -178,3 +179,23 @@ def test_singapore_needs_its_key(tmp_path, monkeypatch):
     s = Schedules(tmp_path)
     s.fetch_ports(None)  # no key: nothing asked
     assert "needs a free key" in s.notes["singapore"]
+
+
+def test_liner_listed_for_several_calls_is_not_copied_each_hour(tmp_path):
+    s = Schedules(tmp_path)
+    day = 86400
+    rows = [{"name": "JPO AQUARIUS", "imo": 9220316, "arrival": NOW + d * day, "departs": None, "state": "expected"} for d in (1, 22, 43)]
+    for h in range(4):
+        s.record_bookings("auckland", rows, now=NOW + h * 3600)
+    assert [c["first"][1] for c in s.bookings["NZAKL|9220316"]] == [NOW + day, NOW + 22 * day, NOW + 43 * day]
+    # copies saved by the old code are joined when the file is read
+    s.bookings["NZAKL|9220316"].append(dict(s.bookings["NZAKL|9220316"][0], versions=[]))
+    s.dirty = True
+    s.save(now=NOW)
+    assert len(Schedules(tmp_path).bookings["NZAKL|9220316"]) == 3
+
+
+def test_tauranga_single_quoted_table_ids():
+    html = (FIX / "tauranga.html").read_text().replace('id="pot-data-table-', "id='pot-data-table-")
+    html = re.sub(r"id='pot-data-table-(\d+)\"", r"id='pot-data-table-\1'", html)
+    assert len(schedules.parse_tauranga(html)) == 4
