@@ -244,6 +244,13 @@ def _todo_items() -> list[dict]:
             add(f"form:{sid}", "form", f"Fill in the form for {names.get(sid, sid)}",
                 "Its site asks who is downloading; the refresh fetches it once the form in Settings is filled in.",
                 source_id=sid, link="/settings", order=4)
+    if s.get("find_data", True):
+        from worldmodel_api import dateno
+        for w in dateno.wishes():
+            where = ", ".join(filter(None, [w.get("publisher"), ", ".join(w.get("countries") or [])]))
+            add(f"wish:{w['id']}", "wish", f"Make a source from {w['title']}",
+                " · ".join(filter(None, [where, " ".join(w.get("formats") or []), w.get("licence"), w.get("note")])) or "Kept from Find data.",
+                link=w.get("url"), order=6, wish_id=w["id"])
     items.sort(key=lambda r: (r["order"], -r["uses"], r["title"]))
     return items
 
@@ -265,7 +272,8 @@ def todo():
             hidden.append({**it, "mark": mark})
         else:
             shown.append(it)
-    return {"items": shown, "count": len(shown), "hidden": hidden}
+    # Datasets kept from Find data wait on a source being written, not on you: listed, not counted on the menu.
+    return {"items": shown, "count": sum(1 for i in shown if i["kind"] != "wish"), "hidden": hidden}
 
 
 @api.put("/todo/{key:path}")

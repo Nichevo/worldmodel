@@ -1,5 +1,6 @@
 "use client";
 
+import FindDataLink from "@/components/FindDataLink";
 import Link from "next/link";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -183,7 +184,7 @@ export default function IndicatorsPage() {
         {list.length > shown && (
           <p className="small"><button onClick={() => setShown(shown + PAGE)}>Show more</button> <span className="muted">{shown} of {list.length} shown</span></p>
         )}
-        {all && list.length === 0 && <p className="muted">No indicators match.</p>}
+        {all && list.length === 0 && <p className="muted">No indicators match. {q.trim() && <FindDataLink topic={q} label="Search open data portals for it" />}</p>}
       </div>
     </div>
   );
