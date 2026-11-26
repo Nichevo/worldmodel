@@ -148,4 +148,33 @@ def test_australian_port_lists_parse():
     assert vic["Green Wave"]["state"] == "in_port" and vic["Green Wave"]["next"] == "Auckland"
     assert vic["Adria Ace"]["state"] == "departed" and vic["MSC New Haven VIII"]["prev"] == "Sydney"
     assert vic["Star Japan"]["departs"] == datetime(2026, 12, 4, 8, 0, tzinfo=timezone.utc).timestamp()
-    assert set(schedules.PARSERS) == set(schedules.PORT_LISTS)
+    assert set(schedules.PARSERS) == {k for k, p in schedules.PORT_LISTS.items() if p["url"]}
+
+
+def test_singapore_api_rows_merge():
+    due = {"data": [{"vesselParticulars": {"vesselName": "MAERSK KOWLOON", "imoNumber": "9784270", "callSign": "9V1", "flag": "SG"},
+                     "duetoArriveTime": "2026-11-27 14:30:00", "locationFrom": "PORT KLANG", "locationTo": "PASIR PANJANG"},
+                    {"vesselParticulars": [{"vesselName": "EVER GIVEN", "imoNumber": "9811000"}],
+                     "dueToArriveTime": "2026-11-28T06:00:00+08:00", "locationFrom": "COLOMBO"}]}
+    arrived = [{"vesselParticulars": {"vesselName": "MAERSK KOWLOON", "imoNumber": "9784270"}, "arrivedTime": "2026-11-27 15:10:00",
+                "locationFrom": "PORT KLANG", "locationTo": "PEBGA"}]
+    leaving = [{"vesselParticulars": {"vesselName": "MAERSK KOWLOON", "imoNumber": "9784270"}, "duetoDepartTime": "2026-11-28 09:00:00",
+                "nextPort": "JAKARTA"},
+               {"vesselParticulars": {"vesselName": "NO ARRIVAL KNOWN", "imoNumber": "9000001"}, "duetoDepartTime": "2026-11-28 09:00:00"}]
+    rows = schedules.merge_sg([schedules.parse_sg(due, "expected"), schedules.parse_sg(arrived, "in_port"),
+                               schedules.parse_sg(leaving, "leaving")])
+    by = {r["name"]: r for r in rows}
+    assert set(by) == {"MAERSK KOWLOON", "EVER GIVEN"}
+    k = by["MAERSK KOWLOON"]
+    assert k["imo"] == 9784270 and k["state"] == "in_port" and k["prev"] == "PORT KLANG" and k["next"] == "JAKARTA"
+    assert k["arrival"] == datetime(2026, 11, 27, 7, 10, tzinfo=timezone.utc).timestamp()  # 15:10 Singapore time
+    assert k["departs"] == datetime(2026, 11, 28, 1, 0, tzinfo=timezone.utc).timestamp()
+    assert by["EVER GIVEN"]["arrival"] == datetime(2026, 11, 27, 22, 0, tzinfo=timezone.utc).timestamp()
+
+
+def test_singapore_needs_its_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("SG_OCEANSX_API_KEY", raising=False)
+    monkeypatch.setattr(schedules, "PORT_LISTS", {"singapore": schedules.PORT_LISTS["singapore"]})
+    s = Schedules(tmp_path)
+    s.fetch_ports(None)  # no key: nothing asked
+    assert "needs a free key" in s.notes["singapore"]

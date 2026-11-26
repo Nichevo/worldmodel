@@ -254,6 +254,18 @@
   limits: Free. Same pace as Maersk.
   status: active
 
+- source: port_list_singapore
+  name: Singapore MPA vessel arrivals and departures (OCEANS-X)
+  env: [SG_OCEANSX_API_KEY]
+  needs_key: true
+  signup: https://oceans-x.mpa.gov.sg/
+  how: Sign up on OCEANS-X (email and two-step sign-in), create an application, subscribe it to Vessels Due to Arrive,
+    Vessel Arrivals and Vessels Due to Depart, then Production Keys > Generate Key (shown once). If an API's page shows
+    a different address, put it in .env as SG_DUE_TO_ARRIVE_URL, SG_ARRIVALS_URL or SG_DUE_TO_DEPART_URL ({date} for the day).
+  unlocks: "Singapore in Live > Schedules and in ships' Schedule part: ships due, arrived and due to leave, for the on-time measure."
+  limits: Free; 10 requests a minute shared across the application. The app asks four times an hour.
+  status: active
+
 - source: live_cameras_windy
   name: Windy Webcams API (beach, surf, harbour and city webcams worldwide)
   env: [WINDY_WEBCAMS_API_KEY]
