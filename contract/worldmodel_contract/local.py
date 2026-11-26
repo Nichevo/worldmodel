@@ -154,7 +154,7 @@ SETTINGS: dict[str, object] = {
     "ships_world_every_hours": 6,        # with the Pacific area: also a 10-minute whole-world snapshot this often (0: none)
     "ships_keep_days": 30,               # days of saved ship positions kept (older days deleted)
     "ship_schedules": True,              # cargo ships: keep each ETA and port call, and say whether a ship is on time (Live > Schedules)
-    "port_lists_fetch": True,            # ... read the Auckland and Tauranga ports' arrival lists every hour
+    "port_lists_fetch": True,            # ... read the ports' arrival lists every hour (Auckland, Tauranga, NSW ports, Melbourne)
     "carrier_schedules": True,           # ... ask the lines' schedules (Maersk, Hapag-Lloyd, CMA CGM) when their free keys are set
     "schedules_keep_days": 90,           # days of ETA history, port calls and bookings kept
     "planes_collect": True,              # save every plane OpenSky sends the map (var/live/planes) for the time slider, tracks and table
