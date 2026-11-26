@@ -496,7 +496,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         scale={shaded ? shade.scale : scale}
         hovered={hovered}
         onHover={onHover}
-        camera={panel.links.camera ? { bus: cameraBus, id: panel.id, group: panel.group } : null}
+        camera={{ bus: cameraBus, id: panel.id, group: panel.group, linked: panel.links.camera }}
         overlays={overlays}
         spark={spark}
         onMap={onMap}

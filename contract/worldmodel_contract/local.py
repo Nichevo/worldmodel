@@ -274,6 +274,7 @@ SETTINGS: dict[str, object] = {
     "start_page": "briefing_after_refresh",  # what the Map link and the app open on: "briefing_after_refresh", "briefing" or "map"
     "briefing_days": 7,              # the Briefing's "Happening" lane looks back this many days
     "map_open_layers": "wen",        # layers the opening map turns on (letters, see the Layers panel): w CrisisWatch, e events, n news watch words
+    "map_remember": "always",        # the Map link opens the map as it was left: "always" (kept in this browser), "visit" (until the browser closes) or "off"
     "map_window": "30d",             # time window for timed map layers (events, earthquakes, storms, news): 7d, 30d, 90d or 1y
     "map_layer_sets": {},            # your own quick sets in the Layers panel: name -> layer letters
     "news_watch_words": "assassination,assassinated,coup,protest,protests,riot,riots,uprising,martial law,state of emergency,"
@@ -319,6 +320,7 @@ CHOICES = {"click_mode": ("popup", "select"), "ships_area": ("pacific", "world")
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
            "start_page": ("briefing_after_refresh", "briefing", "map"), "map_window": ("7d", "30d", "90d", "1y"),
+           "map_remember": ("always", "visit", "off"),
            "schedule_often": ("weekly", "daily"), "schedule_day": ("mon", "tue", "wed", "thu", "fri", "sat", "sun"),
            "schedule_time": tuple(f"{h:02d}:{m}" for h in range(24) for m in ("00", "30"))}
 # Free text settings (addresses and model names), kept to one line.

@@ -81,7 +81,8 @@ type Props = {
   scale?: Scale; // a colour scale shared with other maps; default: this map's own
   hovered?: string | null; // a country hovered in a linked panel
   onHover?: (iso3: string | null) => void;
-  camera?: { bus: CameraBus; id: string; group: string } | null; // linked map position
+  // Map position: shared with the group's other maps when linked, and always remembered by panel id.
+  camera?: { bus: CameraBus; id: string; group: string; linked?: boolean } | null;
   layers?: string[]; // overlays to draw over the countries (ids in the layers table)
   points?: MapPoint[]; // places to mark (cities on the Cities page), sized by size
   fitPoints?: boolean; // zoom to the points whenever they change
@@ -1031,23 +1032,25 @@ export default function WorldMap({
     return clear;
   }, [hovered]);
 
-  // Follow and lead the other maps in the group.
-  const camKey = camera ? `${camera.id}|${camera.group}` : "";
+  // Follow and lead the other maps in the group, and keep where this one looked.
+  const camKey = camera ? `${camera.id}|${camera.group}|${camera.linked !== false}` : "";
   useEffect(() => {
     const m = map.current;
     if (!m || !camera) return;
     const { bus, id, group } = camera;
-    const unsubscribe = bus.subscribe(id, group, (c) => m.jumpTo(c));
-    const start = bus.last.get(group);
+    const linked = camera.linked !== false;
+    const unsubscribe = linked ? bus.subscribe(id, group, (c) => m.jumpTo(c)) : () => undefined;
+    const start = (linked ? bus.last.get(group) : undefined) ?? bus.own.get(id);
     if (start) m.jumpTo(start);
-    const onMove = () => {
-      const c = m.getCenter();
-      bus.publish(id, group, { center: [c.lng, c.lat], zoom: m.getZoom() });
-    };
+    const here = () => { const c = m.getCenter(); return { center: [c.lng, c.lat] as [number, number], zoom: m.getZoom() }; };
+    const onMove = () => { if (linked) bus.publish(id, group, here()); };
+    const onEnd = () => bus.keep(id, here());
     m.on("move", onMove);
+    m.on("moveend", onEnd);
     return () => {
       unsubscribe();
       m.off("move", onMove);
+      m.off("moveend", onEnd);
     };
   }, [camKey]);
 
