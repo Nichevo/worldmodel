@@ -108,6 +108,8 @@ def load(
     record = {"kind": "load", "started_at": now_utc().isoformat(), "status": "ok", "sources": []}
     for s_id in sources:
         d = manual.folder(p, s_id)
+        for line in manual.set_aside(p, s_id):
+            typer.echo(line)
         if not manual.files(d):
             if source:
                 typer.echo(f"Nothing to load: save the file in {d} first (see the note there on where to get it).", err=True)
@@ -362,6 +364,8 @@ def refresh(allow_shrink: bool = typer.Option(False),
             typer.echo(f"{source_id}: skipped (switched off in Settings)")
             continue
         folder = manual.folder(p, source_id)
+        for line in manual.set_aside(p, source_id):
+            typer.echo(line)
         missing = [v for v in cls.needs_env if not os.environ.get(v, "").strip()]
         if missing and not manual.files(folder):
             entry.update(status="skipped", vintage=last.vintage if last else None, note=f"needs {', '.join(missing)} in .env")
