@@ -21,6 +21,7 @@ import io
 import json
 import logging
 import math
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -216,8 +217,11 @@ def mc_question(post: dict) -> tuple[dict | None, list[dict], list[dict]]:
         "url": f"https://www.metaculus.com/questions/{post['id']}/", "kind": kind, "tags": tags,
         "created": ts(post.get("published_at") or post.get("created_at")),
         "closes": ts(q.get("scheduled_close_time") or post.get("scheduled_close_time")),
-        "resolved_at": ts(q.get("actual_resolve_time") or post.get("actual_resolve_time")) if resolution else None,
-        "status": "resolved" if resolution else "closed" if status == "closed" else "open", "resolution": resolution,
+        # Since 2026 the API hides the resolution unless you forecast on the question: a resolved
+        # post with no resolution given is still resolved.
+        "resolved_at": ts(q.get("actual_resolve_time") or post.get("actual_resolve_time")) if resolution or status == "resolved" else None,
+        "status": "resolved" if resolution or status == "resolved" else "closed" if status == "closed" else "open",
+        "resolution": resolution,
         "chance": chance, "lower": lower, "upper": upper, "volume": None,
         "forecasters": post.get("nr_forecasters") or q.get("nr_forecasters"), "comments": post.get("comment_count"),
         "description": (q.get("description") or post.get("description") or "")[:1500], "options": options,
@@ -551,13 +555,30 @@ class Manifold(_Crowd):
     def download(self, raw_dir: Path, release: str) -> str:
         s, follow = self._settings(raw_dir), self._follow(raw_dir)
         at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-        qs = []
+        qs, failed, asked = [], [], 0
         for cat in self._categories(s):
             for slug in crowd.SITE_TAGS["manifold"][cat]:
+                asked += 1
                 for filt, sort, limit in (("open", "most-popular", 500), ("resolved", "newest", 200)):
-                    got = self._get(self.SEARCH, params={"term": "", "topicSlug": slug, "filter": filt, "sort": sort,
-                                                         "contractType": "BINARY", "limit": limit})
+                    # A topic the site no longer has (renamed or merged) answers 500, not 404: leave that
+                    # topic out and carry on; only every topic failing stops the source.
+                    try:
+                        got = self._get(self.SEARCH, params={"term": "", "topicSlug": slug, "filter": filt, "sort": sort,
+                                                             "contractType": "BINARY", "limit": limit})
+                    except httpx.HTTPStatusError as exc:
+                        if exc.response.status_code < 400 or exc.response.status_code in (401, 403, 429):
+                            raise
+                        failed.append(f"{slug} ({exc.response.status_code})")
+                        break
+                    except httpx.TransportError as exc:
+                        failed.append(f"{slug} ({type(exc).__name__})")
+                        break
                     qs += mf_markets(got if isinstance(got, list) else [], slug)
+        if failed:
+            log.warning("manifold: topics the site could not answer, left out: %s (renamed on the site? "
+                        "the list is SITE_TAGS in contract crowd.py)", "; ".join(failed))
+        if asked and len(failed) >= asked:
+            raise ConnectorError(f"manifold: every topic failed: {'; '.join(failed)}")
         uniq = {q["key"]: q for q in qs}
         n = self.save_state(raw_dir, list(uniq.values()), [], at, follow)
         return f"{self.SEARCH} ({n:,} questions kept)"
@@ -676,7 +697,15 @@ class Metaculus(_Crowd):
         have = {p["question_key"] for p in old_p if p.get("origin") == "site"} | {p["question_key"] for p in pts}
         kept = [q for q in qs if keep_question(q, follow)]
         skipped: list[str] = []
-        for q in tracked(kept, follow):  # the full community history, once per question
+        # Since 2026 Metaculus hides the community forecast (and its history) from ordinary API
+        # accounts: every chance comes back empty. Asking each question's history then only costs
+        # requests (and 429 pauses), so it is skipped; titles, dates and your own forecasts still load.
+        hidden = bool(qs) and all(q.get("chance") is None and q.get("lower") is None for q in qs)
+        if hidden:
+            log.warning("metaculus: the site hides community forecasts from this API account (its 2026 access "
+                        "rules), so questions load without chances. Metaculus grants fuller access on request "
+                        "(Data Needs Form, linked from metaculus.com/api).")
+        for q in [] if hidden else tracked(kept, follow):  # the full community history, once per question
             if q["key"] in have:
                 continue
             try:
@@ -695,16 +724,15 @@ class Metaculus(_Crowd):
         busy = [q for q in kept if q["key"] in follow] + sorted(
             (q for q in kept if q["key"] not in follow and q.get("status") == "open"), key=lambda q: -(q.get("comments") or 0))
         for q in busy[:COMMENTED] if s.get("crowd_comments", True) else []:
+            # Ordinary API accounts may read only staff comments (author_is_staff=true) since 2026.
             try:
-                d = self._get(self.COMMENTS, headers=headers, params={"on_post": q["site_id"], "limit": 100, "sort": "-created_at"})
+                d = self._get(self.COMMENTS, headers=headers, params={"on_post": q["site_id"], "author_is_staff": "true",
+                                                                      "limit": 100, "sort": "-created_at"})
             except Refused as exc:
-                if exc.status == 429:  # comments are extras: keep what came and carry on
-                    skipped.append("the remaining comments (429, too many requests; next refresh)")
-                    break
-                if not exc.answered:
-                    raise
-                skipped.append(f"comments on {q['key']} ({exc.status})")
-                continue
+                # Comments are extras: on a refusal keep what came and stop asking (the same answer
+                # would come for every question).
+                skipped.append(f"the remaining comments ({exc.status})")
+                break
             comments += mc_comments(q["key"], d.get("results") if isinstance(d, dict) else d)
         mine = []
         if s.get("crowd_mine", True):
@@ -746,12 +774,25 @@ def views_rows(pages: list[dict]) -> list[tuple]:
     return out
 
 
+def newest_views_run(runs: list[str]) -> str | None:
+    """The newest of the API's run names like fatalities003_2026_09_t01 (model, year, month, try)."""
+    best, key = None, None
+    for name in runs:
+        m = re.fullmatch(r"fatalities(\d+)_(\d{4})_(\d{2})_t(\d+)", str(name))
+        if m:
+            k = (int(m[2]), int(m[3]), int(m[1]), int(m[4]))
+            if key is None or k > key:
+                best, key = name, k
+    return best
+
+
 class ViEWS(Connector):
     source_id = "views"
     switch = "views_fetch"
     fetch_every_days = 25
     keep_vintages = 4
-    URL = "https://api.viewsforecasting.org/current/cm/sb"
+    BASE = "https://api.viewsforecasting.org/"
+    URL = BASE + "current/cm/sb"
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -759,19 +800,38 @@ class ViEWS(Connector):
     def release_from_files(self, files: list[Path]) -> str | None:
         return None
 
+    def _newest_run(self) -> str:
+        """The newest monthly fatalities run the API lists (its "current" alias was dropped in 2026)."""
+        r = self.client.get(self.BASE)
+        r.raise_for_status()
+        run = newest_views_run((r.json() or {}).get("runs") or [])
+        if not run:
+            raise ConnectorError(f"views: no fatalities run in the list at {self.BASE}")
+        return run
+
     def download(self, raw_dir: Path, release: str) -> str:
-        url, page = self.URL, 0
+        first, run = self.URL, "current"
+        r = self.client.get(first)
+        if r.status_code in (404, 422):  # "current" is not a run name any more: ask for the newest one
+            run = self._newest_run()
+            first = f"{self.BASE}{run}/cm/sb"
+            log.info("views: reading run %s", run)
+            r = self.client.get(first)
+        url, page = first, 0
         while url and page < 200:
-            r = self.client.get(url)
+            if page:
+                r = self.client.get(url)
             if r.status_code in (401, 403, 429):
                 raise ConnectorError(f"views: the site refused the request ({r.status_code})")
             r.raise_for_status()
             d = r.json()
+            if isinstance(d, dict) and not (d.get("run") or d.get("run_id")):
+                d["run"] = run
             (raw_dir / f"views_page_{page:03d}.json").write_text(json.dumps(d), encoding="utf-8")
             url = d.get("next_page") or None
             page += 1
             time.sleep(1.0)
-        return self.URL
+        return first
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         pages = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(Path(raw_dir).glob("views_page_*.json"))]

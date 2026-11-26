@@ -240,3 +240,102 @@ def test_metaculus_resolved_list_keeps_only_recent_and_survives_a_refused_filter
     monkeypatch.setattr(c, "_follow", lambda raw: set())
     monkeypatch.setattr(c, "_last", lambda raw: None)
     c.download(tmp_path, "2026-11-24")  # no "every category was turned down"
+
+
+def test_metaculus_hidden_community_forecasts_skip_histories_and_staff_comments(tmp_path, monkeypatch):
+    """Under the site's 2026 access rules chances come back empty: no per-question history requests,
+    comments asked as staff-only, one refusal stops the comments, and a resolved post with its
+    resolution hidden is still resolved."""
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    posts = [{"id": 7, "title": "Will NZ inflation exceed 3% in 2027?", "status": "open", "comment_count": 9,
+              "question": {"id": 70, "type": "binary", "aggregations": {"recency_weighted": {"latest": None}}}},
+             {"id": 8, "title": "Will the US enter a recession in 2026?", "status": "resolved", "comment_count": 3,
+              "question": {"id": 80, "type": "binary", "resolution": None, "actual_resolve_time": "2026-11-01T00:00:00Z"}}]
+    seen = {"history": 0, "comments": []}
+
+    def handler(req):
+        p = req.url.path
+        if p.endswith("/comments/"):
+            seen["comments"].append(dict(req.url.params))
+            return httpx.Response(403, json={"detail": "Comments need author or author_is_staff"})
+        if p.endswith("/users/me/"):
+            return httpx.Response(200, json={"id": None})
+        if p.endswith("/posts/"):
+            return httpx.Response(200, json={"results": posts if req.url.params.get("statuses") == "open" else [], "next": None})
+        seen["history"] += 1
+        return httpx.Response(200, json={})
+
+    c = cc.Metaculus(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.gap = 0
+    monkeypatch.setenv("METACULUS_TOKEN", "test")
+    monkeypatch.setattr(c, "_settings", lambda raw: {"crowd_categories": "economics"})
+    monkeypatch.setattr(c, "_follow", lambda raw: set())
+    monkeypatch.setattr(c, "_last", lambda raw: None)
+    monkeypatch.setattr(cc, "keep_question", lambda q, follow: True)
+    c.download(tmp_path, "2026-11-26")
+    assert seen["history"] == 0
+    assert len(seen["comments"]) == 1 and seen["comments"][0]["author_is_staff"] == "true"
+    qs = read_gz_json(tmp_path / QUESTIONS, {})
+    assert qs["metaculus:8"]["status"] == "resolved" and qs["metaculus:8"]["resolution"] is None
+    assert qs["metaculus:7"]["status"] == "open"
+
+
+def test_manifold_skips_a_topic_the_site_no_longer_has(tmp_path, monkeypatch):
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    market = {"id": "m1", "question": "Will a ceasefire be agreed in Ukraine by 2027?", "outcomeType": "BINARY",
+              "probability": 0.3, "closeTime": 1893456000000}
+
+    def handler(req):
+        if req.url.params.get("topicSlug") == "geopolitics":
+            return httpx.Response(200, json=[market])
+        return httpx.Response(500, json={"message": "An unexpected error occurred."})
+
+    c = cc.Manifold(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.gap = 0
+    monkeypatch.setattr(c, "_settings", lambda raw: {"crowd_categories": "geopolitics"})
+    monkeypatch.setattr(c, "_follow", lambda raw: set())
+    monkeypatch.setattr(c, "_last", lambda raw: None)
+    c.download(tmp_path, "2026-11-26")
+    assert "manifold:m1" in read_gz_json(tmp_path / QUESTIONS, {})
+
+    c2 = cc.Manifold(httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(500, json={}))))
+    c2.gap = 0
+    monkeypatch.setattr(c2, "_settings", lambda raw: {"crowd_categories": "geopolitics"})
+    monkeypatch.setattr(c2, "_follow", lambda raw: set())
+    with pytest.raises(cc.ConnectorError, match="every topic failed"):
+        c2.download(tmp_path, "2026-11-26")
+
+
+def test_views_reads_the_newest_run_when_current_is_gone(tmp_path, monkeypatch):
+    import json
+
+    import httpx
+
+    from worldmodel_data.connectors import crowd as cc
+
+    assert cc.newest_views_run(["fatalities002_2025_10_t01", "fatalities003_2025_10_t01", "fatalities003_2026_09_t01",
+                                "fatalities003_2026_08_t02", "predictors_fatalities003_0000_00", "r_2021_12_01"]) \
+        == "fatalities003_2026_09_t01"
+    asked = []
+
+    def handler(req):
+        asked.append(str(req.url))
+        if req.url.path == "/current/cm/sb":
+            return httpx.Response(422, json={"detail": [{"msg": "value is not a valid enumeration member"}]})
+        if req.url.path == "/":
+            return httpx.Response(200, json={"runs": ["fatalities003_2026_08_t01", "fatalities003_2026_09_t01"]})
+        return httpx.Response(200, json={"next_page": "", "data": [
+            {"isoab": "UKR", "year": 2026, "month": 10, "main_mean": 120.0, "main_dich": 0.9}]})
+
+    monkeypatch.setattr(cc.time, "sleep", lambda s: None)
+    c = cc.ViEWS(httpx.Client(transport=httpx.MockTransport(handler)))
+    c.download(tmp_path, "2026-11")
+    assert asked[-1].endswith("/fatalities003_2026_09_t01/cm/sb")
+    page = json.loads((tmp_path / "views_page_000.json").read_text())
+    assert cc.views_rows([page]) == [("UKR", "2026-10-01", 120.0, 0.9, "sb", "fatalities003_2026_09_t01")]

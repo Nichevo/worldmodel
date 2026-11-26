@@ -39,7 +39,8 @@ SITE_TAGS = {
                   "science": ["health-pandemics", "artificial-intelligence", "technology", "space"]},
     "manifold": {"politics": ["politics-default", "world-politics", "elections"],
                  "economics": ["economics-default", "finance", "inflation"],
-                 "geopolitics": ["geopolitics", "ukraine-russia", "israel-hamas", "china"],
+                 # Manifold renames topics now and then; an unknown slug is a 500 (skipped, with a warning).
+                 "geopolitics": ["geopolitics", "ukrainerussia-war", "middle-east", "china"],
                  "climate": ["climate", "weather"],
                  "science": ["science-default", "ai", "health", "space"]},
 }
