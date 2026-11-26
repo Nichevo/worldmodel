@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { get } from "@/lib/api";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
-import { journeyText, planeJourney, shipJourney, useShipStatus, type Journey } from "@/lib/ships";
+import { journeyLines, journeyText, planeJourney, shipJourney, useShipStatus, type Journey } from "@/lib/ships";
+import SpotMap from "@/components/SpotMap";
 import { mapLayersHref } from "@/lib/workspace";
 import { useSettings } from "@/lib/settings";
 import { ON_TIME_STATES, OnTimePill, SchedulePart, SchedulesBoard, type OnTime } from "@/components/ShipSchedule";
@@ -379,6 +380,8 @@ function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
         {err ? <p className="error">{err}</p> : !s ? <p className="muted">Loading…</p> : (
           <>
             {s.sanctioned && <p><b style={{ color: "#c92a2a" }}>On a sanctions list</b> (OpenSanctions); see <Link href="/sanctions">Sanctions now</Link>.</p>}
+            {s.lat != null && s.lon != null && <SpotMap lon={s.lon} lat={s.lat} label={s.name ?? undefined}
+              lines={j ? journeyLines(j, { lng: s.lon, lat: s.lat }, false) : null} />}
             <table className="small"><tbody>{rows.filter(([, v]) => v !== "" && v != null).map(([k, v]) => <tr key={k}><th style={{ textAlign: "left", paddingRight: 12 }}>{k}</th><td>{v}</td></tr>)}</tbody></table>
             <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>
             {j ? journeyText(j, false).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>) : <p className="small muted">Loading…</p>}
@@ -631,6 +634,8 @@ function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose:
     <div className="find-big-back" onClick={onClose}>
       <div className="find-big card" role="dialog" aria-modal="true" aria-label={plane?.callsign ?? id} style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
         <div className="row"><h2 style={{ margin: 0 }}>{plane?.callsign ?? id}</h2><span className="spacer" /><button className="link" onClick={onClose} aria-label="Close">×</button></div>
+        {plane && <SpotMap lon={plane.lon} lat={plane.lat} label={plane.callsign ?? id}
+          lines={j ? journeyLines(j, { lng: plane.lon, lat: plane.lat }, true) : null} />}
         <table className="small"><tbody>{rows.filter(([, v]) => v !== "" && v != null).map(([k, v]) => <tr key={k}><th style={{ textAlign: "left", paddingRight: 12 }}>{k}</th><td>{v}</td></tr>)}</tbody></table>
         <FlightsPart icao={id} callsign={plane?.callsign ?? null} />
         <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>

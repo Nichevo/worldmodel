@@ -107,6 +107,7 @@ class Planes:
         self.blocked_why = ""
         self._tables: dict = {}
         self._tables_lock = threading.Lock()
+        self._table_build = threading.Lock()
 
     @property
     def store(self):
@@ -365,7 +366,12 @@ class Planes:
             hit = self._tables.get(key)
         if hit and time.monotonic() - hit[0] < TABLE_KEEP:
             return hit[1]
-        out = self._table(hours)
+        with self._table_build:  # one build at a time: the table, its counts and filters ask together
+            with self._tables_lock:
+                hit = self._tables.get(key)
+            if hit and time.monotonic() - hit[0] < TABLE_KEEP:
+                return hit[1]
+            out = self._table(hours)
         with self._tables_lock:
             self._tables = {k: v for k, v in self._tables.items() if time.monotonic() - v[0] < TABLE_KEEP}
             self._tables[key] = (time.monotonic(), out)
