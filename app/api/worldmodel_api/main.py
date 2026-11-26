@@ -2140,10 +2140,18 @@ def basemap_file(name: str):
 
 @api.get("/basemap/fonts/{stack}/{part}")
 def basemap_font(stack: str, part: str):
-    p = basemap.root() / "fonts" / stack / part
-    if not re.fullmatch(r"\d+-\d+\.pbf", part) or p.parent.parent != basemap.root() / "fonts" or not p.is_file():
+    # MapLibre asks for a whole font stack ("Open Sans Regular,Arial Unicode MS Regular" is its
+    # default when a layer names none). Serve the first font in the stack that is here, else
+    # Noto Sans Regular, so a label never fails just because its font was not downloaded.
+    if not re.fullmatch(r"\d+-\d+\.pbf", part):
         raise HTTPException(404, "no such font range")
-    return FileResponse(p, media_type="application/x-protobuf", headers={"Cache-Control": "max-age=604800"})
+    base = basemap.root() / "fonts"
+    names = [n.strip() for n in stack.split(",") if n.strip()] + [basemap.FONTS[0]]
+    for name in names:
+        p = base / name / part
+        if p.parent.parent == base and p.is_file():
+            return FileResponse(p, media_type="application/x-protobuf", headers={"Cache-Control": "max-age=604800"})
+    raise HTTPException(404, "no such font range")
 
 
 @api.get("/space")
