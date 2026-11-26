@@ -60,7 +60,7 @@ def append(paths: Paths, record: dict) -> None:
 
 def storage_lines(paths: Paths) -> list[str]:
     """Plain-text storage summary for the refresh output and build report, with any warning."""
-    st = local.storage(paths.home)
+    st = local.storage(paths.home, freeable=False)
     lines = []
     for lim in st["limits"]:
         share = lim["used"] / lim["limit"] if lim["limit"] else 0

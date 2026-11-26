@@ -23,7 +23,7 @@ import duckdb
 from worldmodel_contract import SCHEMA_VERSION, catalogue
 from worldmodel_contract.schema import TABLES
 from worldmodel_data import (__version__, cities, crowd_tables, episodes, gates, history, hospitals, layer_tables, nature_tables, network_tables,
-                             osint_tables, port_pressure)
+                             osint_tables, port_pressure, stepcache)
 from worldmodel_data.config import Paths
 from worldmodel_data.vintage_store import (CITY_COLUMNS, CITY_VALUE_COLUMNS, EVENT_COLUMNS, HISTORY_COLUMNS, LAYER_COLUMNS, PLACE_COLUMNS, TEXT_COLUMNS,
                                           VintageStore, now_utc)
@@ -49,7 +49,31 @@ class BuildResult:
     checks: list[gates.Check] = field(default_factory=list)
 
 
-def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
+def inputs_hash(paths: Paths, manifests=None) -> str:
+    """What a build reads: every stored vintage (and how it was staged), the code and its lists,
+    and the year (the map layer counts are dated by it). The same hash means the same warehouse."""
+    manifests = VintageStore(paths).manifests() if manifests is None else manifests
+    stored = sorted((m.source_id, m.vintage, m.sha256, m.stage_version, m.row_count) for m in manifests)
+    return stepcache.key("build", SCHEMA_VERSION, now_utc().year, stored)
+
+
+def unchanged_since(paths: Paths) -> str | None:
+    """The live build's id when it was made from exactly what a build would read now, else None."""
+    current = paths.current_build()
+    if current is None:
+        return None
+    try:
+        con = duckdb.connect(str(current), read_only=True)
+        try:
+            meta = dict(con.execute("SELECT key, value FROM meta").fetchall())
+        finally:
+            con.close()
+    except (duckdb.Error, OSError):
+        return None
+    return meta.get("build_id") if meta.get("inputs") and meta.get("inputs") == inputs_hash(paths) else None
+
+
+def build(paths: Paths, allow_shrink: bool = False, reuse: bool = True) -> BuildResult:
     problems = catalogue.validate()
     if problems:
         raise BuildFailed("catalogue problems:\n  " + "\n  ".join(problems))
@@ -61,6 +85,8 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
 
     started = now_utc()
     build_id = started.strftime("%Y%m%dT%H%M%SZ")
+    inputs = inputs_hash(paths, manifests)
+    cache = stepcache.StepCache(paths.builds / "step_cache", on=reuse)
     paths.builds.mkdir(parents=True, exist_ok=True)
     paths.reports.mkdir(parents=True, exist_ok=True)
     tmp = paths.builds / f"{build_id}.duckdb.tmp"
@@ -72,7 +98,7 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
     try:
         con = duckdb.connect(str(tmp))
         try:
-            left_out = _load_sources(con, paths, manifests)
+            left_out = _load_sources(con, paths, manifests, cache)
         finally:
             con.close()
 
@@ -114,7 +140,7 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"{net['port_daily']:,} port days, {net['port_links']:,} port links, {net['port_goods']:,} goods-by-port rows, "
                                               f"{net['chokepoint_traffic']:,} chokepoint days, {net['airport_traffic']:,} airport years"))
                 try:
-                    pp = port_pressure.compute(con)
+                    pp = port_pressure.compute(con, cache)
                 except Exception as exc:  # noqa: BLE001 -- a slip here must not stop the build
                     log.warning("port pressure left out of this build: %s", exc)
                     for t in ("traffic_weekly", "traffic_impacts"):
@@ -149,7 +175,11 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
                                               f"Map layer details: {sum(lay.values()):,} items in {len(lay)} layers "
                                               f"({', '.join(f'{k} {v:,}' for k, v in sorted(lay.items()))})"))
                 checks += gates.run(con, previous=paths.current_build(), allow_shrink=allow_shrink, shrink_ok=left_out)
-            _finish(con, build_id, started, checks)
+            if cache.reused:
+                checks.append(gates.Check("build:reused", "build", "info",
+                                          "Unchanged since the last build, so reused instead of worked out again: "
+                                          + ", ".join(cache.reused)))
+            _finish(con, build_id, started, checks, inputs)
             failed = [c for c in checks if c.status == "fail"]
             if not failed and dbt_ok:
                 _compact(con, compact)
@@ -188,7 +218,7 @@ def build(paths: Paths, allow_shrink: bool = False) -> BuildResult:
     return BuildResult(build_id, final, report_path, checks)
 
 
-def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> set[str]:
+def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests, cache: stepcache.StepCache = stepcache.OFF) -> set[str]:
     """Copy the contract catalogues and every staged vintage into schema src. Returns the
     sources deliberately left out of this build (their lost rows are a warning, not a failure)."""
     con.execute("CREATE SCHEMA src")
@@ -261,13 +291,13 @@ def _load_sources(con: duckdb.DuckDBPyConnection, paths: Paths, manifests) -> se
                         "union_by_name = true)")
     # One Hospitals layer from every hospital list, each hospital once.
     try:
-        hospitals.prepare(con)
+        hospitals.prepare(con, cache)
     except Exception as exc:  # noqa: BLE001 - a failed merge leaves the lists' own layers; the build goes on
         log.warning("hospitals: could not merge the hospital lists (%s); each list's layer is kept as it is", exc)
     # Every dot layer's items with a country, and the map_layers indicators (before dbt, so blocs get them too).
     # A slip here must not stop the build: the layers' details pages are left empty instead.
     try:
-        layer_tables.prepare(con, paths.raw)
+        layer_tables.prepare(con, paths.raw, cache=cache)
     except Exception as exc:  # noqa: BLE001
         log.warning("map layer details left out of this build: %s", exc)
         con.execute("DROP TABLE IF EXISTS src.raw_layer_items")
@@ -406,7 +436,7 @@ def _fmt(v) -> str:
     return f"{v:,.6g}" if isinstance(v, float) else str(v)
 
 
-def _finish(con: duckdb.DuckDBPyConnection, build_id: str, started, checks: list[gates.Check]) -> None:
+def _finish(con: duckdb.DuckDBPyConnection, build_id: str, started, checks: list[gates.Check], inputs: str = "") -> None:
     if not any(c.status == "fail" for c in checks):  # a failed build keeps them for debugging
         con.execute("DROP SCHEMA IF EXISTS src CASCADE")
         con.execute("DROP SCHEMA IF EXISTS int CASCADE")
@@ -428,6 +458,7 @@ def _finish(con: duckdb.DuckDBPyConnection, build_id: str, started, checks: list
         "built_at": started.isoformat(),
         "builder": f"worldmodel-data {__version__}",
         "vintages": json.dumps([list(r) for r in latest]),
+        "inputs": inputs,  # inputs_hash(): a refresh with nothing new leaves this build as it is
     }
     con.execute("CREATE OR REPLACE TABLE meta (key VARCHAR, value VARCHAR)")
     con.executemany("INSERT INTO meta VALUES (?, ?)", list(meta.items()))

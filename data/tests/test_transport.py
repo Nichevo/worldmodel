@@ -32,6 +32,7 @@ def built(tmp_path_factory):
         CONNECTORS[source]().ingest(store, FIXTURES / source)
     CONNECTORS["transport_curated"]().ingest(store)
     result = build(home)
+    result.home = home
     return result, duckdb.connect(str(result.path), read_only=True)
 
 
@@ -357,3 +358,45 @@ def test_world_port_index_outage_copy(tmp_path):
     assert not (raw / "UpdatedPub150.csv").exists()
     conn.stage(duckdb.connect(), raw, "x", "v")
     assert conn.layers and conn.layers[0]["feature_count"] == 2
+
+
+def test_port_pressure_reused_when_traffic_and_events_unchanged(built):
+    result, con = built
+    same = "SELECT count(*), sum(hash(t)) FROM {} t"
+    before = [con.execute(same.format(t)).fetchone() for t in ("traffic_weekly", "traffic_impacts")]
+    again = build(result.home)
+    reused = next((c.detail for c in again.checks if c.check_id == "build:reused"), "")
+    assert "port_pressure_weeks" in reused and "port_pressure_impacts" in reused
+    con2 = duckdb.connect(str(again.path), read_only=True)
+    try:
+        assert [con2.execute(same.format(t)).fetchone() for t in ("traffic_weekly", "traffic_impacts")] == before
+    finally:
+        con2.close()
+
+
+def test_port_pressure_impacts_redone_when_only_events_change(tmp_path):
+    from worldmodel_data import port_pressure
+    from worldmodel_data.stepcache import StepCache
+
+    def con_with(events: list[tuple]):
+        c = duckdb.connect()
+        c.execute("""CREATE TABLE port_daily AS SELECT 'p1' AS port_id, 'NZL' AS entity_id, d::DATE AS day,
+                     CASE WHEN d BETWEEN DATE '2024-06-10' AND DATE '2024-06-23' THEN 2 ELSE 10 END AS calls,
+                     100.0 AS import_t, 50.0 AS export_t
+                     FROM range(DATE '2023-01-02', DATE '2024-12-30', INTERVAL 1 DAY) r(d)""")
+        c.execute("CREATE TABLE port_disruptions (event_id VARCHAR, port_id VARCHAR, name VARCHAR, hazard VARCHAR, "
+                  "entity_id VARCHAR, start_date DATE, end_date DATE)")
+        c.executemany("INSERT INTO port_disruptions VALUES (?, 'p1', ?, 'cyclone', 'NZL', ?, ?)", events)
+        return c
+
+    cache = StepCache(tmp_path)
+    one = [("e1", "Storm", date(2024, 6, 10), date(2024, 6, 20))]
+    first = port_pressure.compute(con_with(one), cache)
+    assert first["traffic_impacts"] == 1 and cache.reused == []
+    port_pressure.compute(con_with(one), cache)
+    assert cache.reused == ["port_pressure_weeks", "port_pressure_impacts"]
+    cache.reused.clear()
+    c = con_with(one + [("e2", "Second storm", date(2024, 6, 12), date(2024, 6, 20))])
+    got = port_pressure.compute(c, cache)
+    assert cache.reused == ["port_pressure_weeks"] and got["traffic_impacts"] == 2
+    assert got["traffic_weekly"] == first["traffic_weekly"]

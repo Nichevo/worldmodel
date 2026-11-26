@@ -34,6 +34,8 @@ from pathlib import Path
 import duckdb
 import numpy as np
 
+from worldmodel_data.stepcache import OFF, StepCache, key, rows_hash
+
 log = logging.getLogger(__name__)
 
 WEEKLY_DDL = """CREATE TABLE traffic_weekly (place_kind VARCHAR, place_id VARCHAR, entity_id VARCHAR, week DATE,
@@ -191,48 +193,80 @@ def _series(con, sql: str, last_week: date) -> dict[str, dict]:
     return out
 
 
-def compute(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Create traffic_weekly and traffic_impacts (empty when there is no traffic). Row counts."""
+PORT_WEEKS = """SELECT port_id, any_value(entity_id), date_trunc('week', day)::DATE, sum(calls),
+                       sum(coalesce(import_t, 0) + coalesce(export_t, 0))
+                FROM port_daily GROUP BY 1, 3"""
+CHOKE_WEEKS = """SELECT chokepoint_id, NULL, date_trunc('week', day)::DATE, sum(transits), NULL
+                 FROM chokepoint_traffic GROUP BY 1, 3"""
+EVENTS_SQL = f"""SELECT event_id, title, kind, subkind, entity_id, start_date, end_date, place FROM events
+                 WHERE start_date >= DATE '2019-03-01' AND kind IN ({', '.join(repr(k) for k in EVENT_KINDS)})
+                   AND coalesce(precision, 'day') IN ('day', 'month') AND source_id <> 'portwatch'"""
+DISRUPTIONS_SQL = ("SELECT event_id, port_id, name, hazard, entity_id, start_date, end_date FROM port_disruptions "
+                   "WHERE port_id <> '' AND start_date IS NOT NULL")
+NAMES_SQL = "SELECT layer_id, geojson FROM layers WHERE layer_id IN ('ports', 'chokepoints')"
+
+
+def _weeks_last(con, table: str) -> date | None:
+    last = con.execute(f"SELECT max(day) FROM {table}").fetchone()[0] if _has(con, table) else None
+    return (monday(last) - timedelta(days=7 if last.weekday() < 6 else 0)) if last else None
+
+
+def compute(con: duckdb.DuckDBPyConnection, cache: StepCache = OFF) -> dict[str, int]:
+    """Create traffic_weekly and traffic_impacts (empty when there is no traffic). Row counts.
+
+    Saved in two parts: the weeks (redone only when port or chokepoint traffic changed) and
+    the impacts (redone when the weeks, the events or the disruptions changed)."""
     con.execute(WEEKLY_DDL)
     con.execute(IMPACTS_DDL)
+    last_p, last_c = _weeks_last(con, "port_daily"), _weeks_last(con, "chokepoint_traffic")
+    k_weeks = key("port_pressure_weeks", last_p, last_c,
+                  rows_hash(con, PORT_WEEKS) if last_p else None, rows_hash(con, CHOKE_WEEKS) if last_c else None)
+    k_impacts = key("port_pressure_impacts", k_weeks,
+                    rows_hash(con, EVENTS_SQL) if _has(con, "events") else None,
+                    rows_hash(con, DISRUPTIONS_SQL) if _has(con, "port_disruptions") else None,
+                    rows_hash(con, NAMES_SQL), rows_hash(con, "SELECT chokepoint_id, name FROM chokepoint_traffic")
+                    if last_c else None)
+    have_weeks = cache.load(con, "port_pressure_weeks", k_weeks, {"weekly": "traffic_weekly"})
+    if have_weeks and cache.load(con, "port_pressure_impacts", k_impacts, {"impacts": "traffic_impacts"}):
+        out = {t: con.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in ("traffic_weekly", "traffic_impacts")}
+        log.info("port pressure: traffic and events unchanged since the last build; reused %s impacts", out["traffic_impacts"])
+        return out
     places: dict[tuple[str, str], dict] = {}
-    if _has(con, "port_daily"):
-        last = con.execute("SELECT max(day) FROM port_daily").fetchone()[0]
-        if last:
-            last_week = monday(last) - timedelta(days=7 if last.weekday() < 6 else 0)
-            for pid, s in _series(con, """SELECT port_id, any_value(entity_id), date_trunc('week', day)::DATE, sum(calls),
-                                                 sum(coalesce(import_t, 0) + coalesce(export_t, 0))
-                                          FROM port_daily GROUP BY 1, 3""", last_week).items():
-                places[("port", pid)] = s
-    if _has(con, "chokepoint_traffic"):
-        last = con.execute("SELECT max(day) FROM chokepoint_traffic").fetchone()[0]
-        if last:
-            last_week = monday(last) - timedelta(days=7 if last.weekday() < 6 else 0)
-            for cid, s in _series(con, """SELECT chokepoint_id, NULL, date_trunc('week', day)::DATE, sum(transits), NULL
-                                          FROM chokepoint_traffic GROUP BY 1, 3""", last_week).items():
-                s["t"] = None
-                places[("chokepoint", cid)] = s
+    if last_p:
+        for pid, s in _series(con, PORT_WEEKS, last_p).items():
+            places[("port", pid)] = s
+    if last_c:
+        for cid, s in _series(con, CHOKE_WEEKS, last_c).items():
+            s["t"] = None
+            places[("chokepoint", cid)] = s
     if not places:
         return {"traffic_weekly": 0, "traffic_impacts": 0}
-    rows = []
-    for (kind, pid), s in places.items():
-        norm = normal_series(s["v"])
-        s["normal"] = norm
-        for i, w in enumerate(s["weeks"]):
-            nv = None if np.isnan(norm[i]) else round(float(norm[i]), 2)
-            ratio = round(float(s["v"][i] / norm[i]), 4) if nv else None
-            rows.append((kind, pid, s["entity"], w.isoformat(), s["v"][i],
-                         None if s["t"] is None else round(float(s["t"][i])), nv, ratio))
-    _insert(con, "traffic_weekly", rows)
+    if have_weeks:
+        n_weeks = con.execute("SELECT count(*) FROM traffic_weekly").fetchone()[0]
+        log.info("port pressure: traffic unchanged since the last build; reused its weeks, working out event impacts again")
+    else:
+        rows = []
+        for (kind, pid), s in places.items():
+            norm = normal_series(s["v"])
+            for i, w in enumerate(s["weeks"]):
+                nv = None if np.isnan(norm[i]) else round(float(norm[i]), 2)
+                ratio = round(float(s["v"][i] / norm[i]), 4) if nv else None
+                rows.append((kind, pid, s["entity"], w.isoformat(), s["v"][i],
+                             None if s["t"] is None else round(float(s["t"][i])), nv, ratio))
+        _insert(con, "traffic_weekly", rows)
+        n_weeks = len(rows)
+        cache.save(con, "port_pressure_weeks", k_weeks, {"weekly": "SELECT * FROM traffic_weekly"})
     impacts = _impacts(con, places)
     _insert(con, "traffic_impacts", impacts)
-    return {"traffic_weekly": len(rows), "traffic_impacts": len(impacts)}
+    cache.save(con, "port_pressure_impacts", k_impacts, {"impacts": "SELECT * FROM traffic_impacts"})
+    cache.note_worked("port_pressure")
+    return {"traffic_weekly": n_weeks, "traffic_impacts": len(impacts)}
 
 
 def _names(con) -> tuple[dict[str, str], dict[str, str]]:
     ports, chokes = {}, {}
     try:
-        got = con.execute("SELECT layer_id, geojson FROM layers WHERE layer_id IN ('ports', 'chokepoints')").fetchall()
+        got = con.execute(NAMES_SQL).fetchall()
     except duckdb.Error:
         got = []
     for layer, gj in got:
@@ -266,15 +300,10 @@ def _impacts(con, places: dict) -> list[tuple]:
 
     jobs: list[tuple] = []  # (event_key, origin, title, hazard, entity, start, end, kind, place)
     if _has(con, "port_disruptions"):
-        for eid, pid, name, hazard, ent, start, end in con.execute(
-                "SELECT event_id, port_id, name, hazard, entity_id, start_date, end_date FROM port_disruptions "
-                "WHERE port_id <> '' AND start_date IS NOT NULL").fetchall():
+        for eid, pid, name, hazard, ent, start, end in con.execute(DISRUPTIONS_SQL).fetchall():
             jobs.append((f"portwatch:{eid}", "portwatch", name, hazard, ent, start, end or start, "port", pid))
     if _has(con, "events"):
-        got = con.execute(f"""
-            SELECT event_id, title, kind, subkind, entity_id, start_date, end_date, place FROM events
-            WHERE start_date >= DATE '2019-03-01' AND kind IN ({', '.join(repr(k) for k in EVENT_KINDS)})
-              AND coalesce(precision, 'day') IN ('day', 'month') AND source_id <> 'portwatch'""").fetchall()
+        got = con.execute(EVENTS_SQL).fetchall()
         seen = set()
         for eid, title, kind, sub, ent, start, end, place in got:
             hazard = (sub or kind).replace("_", " ")

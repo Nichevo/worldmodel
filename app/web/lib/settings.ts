@@ -176,6 +176,7 @@ export const DEFAULT_SETTINGS: Settings = {
   inbox_downloads_days: 14,
   inbox_downloads_folder: "",
   sources_off: "",
+  build_reuse: true,
   schedule_on: false,
   schedule_often: "weekly",
   schedule_day: "sun",

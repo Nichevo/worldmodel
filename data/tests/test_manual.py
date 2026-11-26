@@ -18,7 +18,7 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path / "var"))
     monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
     built = []
-    monkeypatch.setattr(cli, "_build_and_log", lambda allow_shrink, record: built.append(record))
+    monkeypatch.setattr(cli, "_build_and_log", lambda allow_shrink, record, force=True: built.append(record))
     return tmp_path / "var", built
 
 
