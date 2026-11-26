@@ -221,3 +221,70 @@ def test_good_news_words_and_date_filter(client):
     assert client.get("/api/v1/discover?tab=news&until=2025").json()["total"] == 0
     assert client.get("/api/v1/discover?since=1800").json()["total"] == client.get("/api/v1/discover").json()["total"]
     assert client.get("/api/v1/discover?since=bad").status_code == 422
+
+
+MEDIA_RSS = """<?xml version="1.0"?><rss xmlns:media="http://search.yahoo.com/mrss/"><channel>
+<item><title>Fiji cyclone nears Suva</title><link>https://x/3</link><pubDate>Wed, 05 Nov 2026 10:30:00 +1300</pubDate>
+<media:thumbnail url="https://img/small.jpg" width="240"/><media:thumbnail url="https://img/big.jpg" width="976"/></item>
+<item><title>Ukraine talks</title><link>https://x/4</link><description>&lt;img src="https://img/in-text.png"&gt; Talks resume</description></item>
+<item><title>Russia vote</title><link>https://x/5</link><enclosure url="https://img/enc.jpg" type="image/jpeg"/></item>
+</channel></rss>"""
+
+
+def test_feed_pictures_and_time():
+    a, b, c = news.parse_feed(MEDIA_RSS, "bbc", NAMES)
+    assert a["image"] == "https://img/big.jpg" and a["time"] == "2026-11-04T21:30Z"
+    assert b["image"] == "https://img/in-text.png" and b["detail"] == "Talks resume" and "time" not in b
+    assert c["image"] == "https://img/enc.jpg"
+
+
+PAGE = """<html><head><title>Fallback title</title>
+<meta property="og:title" content="Serbia&#39;s leaders seek more" />
+<meta content="A longer summary of the story." property="og:description">
+<meta name="twitter:image" content="/pics/lead.jpg">
+<meta property="og:site_name" content="Example News"><meta property="article:published_time" content="2026-11-26T15:33:00Z">
+</head><body>...</body></html>"""
+
+
+def test_page_meta_reads_link_preview_fields():
+    m = news.page_meta(PAGE, "https://example.org/world/story")
+    assert m["title"] == "Serbia's leaders seek more" and m["description"] == "A longer summary of the story."
+    assert m["image"] == "https://example.org/pics/lead.jpg" and m["site"] == "Example News"
+    assert m["published"] == "2026-11-26T15:33:00Z"
+    assert news.page_meta("<html><head><title> Just  a title </title></head></html>", "https://x/")["title"] == "Just a title"
+
+
+def test_preview_is_read_once_and_kept(tmp_path, monkeypatch):
+    import httpx
+    monkeypatch.setattr(news, "root", lambda: tmp_path)
+    monkeypatch.setattr(news, "_public_host", lambda u: True)
+    calls = []
+
+    def answer(req):
+        calls.append(str(req.url))
+        return httpx.Response(200, headers={"content-type": "text/html; charset=utf-8"}, text=PAGE)
+    client = httpx.Client(transport=httpx.MockTransport(answer))
+    got = news.preview("https://example.org/world/story", client)
+    again = news.preview("https://example.org/world/story", client)
+    assert got["image"] == "https://example.org/pics/lead.jpg" and again["description"] == got["description"]
+    assert len(calls) == 1
+    assert news.preview("file:///etc/passwd")["error"]
+
+
+def test_preview_refuses_local_addresses():
+    assert not news._public_host("http://127.0.0.1:8000/api/v1/settings")
+    assert not news._public_host("http://localhost/")
+    assert not news._public_host("ftp://example.org/")
+
+
+def test_news_about_a_country(tmp_path, monkeypatch):
+    monkeypatch.setattr(news, "root", lambda: tmp_path)
+    news._write("items.json", [
+        {"key": "1", "kind": "news", "source": "feeds", "outlet": "BBC World", "date": "2026-11-05", "time": "2026-11-05T09:00Z",
+         "headline": "Fiji one", "entities": ["FJI"], "image": "https://img/1.jpg"},
+        {"key": "2", "kind": "news", "source": "wikipedia", "date": "2026-11-06", "headline": "Fiji two", "entities": ["FJI", "NZL"]},
+        {"key": "3", "kind": "news", "source": "gdelt", "date": "2026-11-06", "headline": "News about Fiji up", "entities": ["FJI"]},
+        {"key": "4", "kind": "news", "source": "feeds", "date": "2026-10-01", "headline": "Old", "entities": ["FJI"]},
+    ])
+    got = news.about("FJI", "2026-11-01", "2026-11-30")
+    assert [g["key"] for g in got] == ["2", "1"] and got[1]["image"] == "https://img/1.jpg"

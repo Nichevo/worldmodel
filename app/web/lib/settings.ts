@@ -266,6 +266,7 @@ export const DEFAULT_SETTINGS: Settings = {
   map_layer_sets: {},
   news_watch_words: "assassination,assassinated,coup,protest,protests,riot,riots,uprising,martial law,state of emergency,ceasefire,invasion,airstrike,air strike,massacre,hostage,blockade,sanctions,default,impeachment,resigns,tsunami,eruption,famine,outbreak",
   news_watch_outlets: 1,
+  news_previews: true,
   world_dataverse_fetch: true,
   world_dataverse_name: "",
   world_dataverse_email: "",

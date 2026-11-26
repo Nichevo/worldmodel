@@ -100,9 +100,9 @@ type Props = {
   // Countries outlined in a colour (CrisisWatch's month), with a line for the hover text.
   outlines?: MapOutline[];
   // Markers at places (events, news), solid or hollow, with hover text; a click opens href
-  // (or, with onMark, hands the mark's key to the page instead).
+  // (or, with onMark, hands the mark's key to the page instead; onMark returning false lets href open as usual).
   marks?: MapMark[];
-  onMark?: (key: string) => void;
+  onMark?: (key: string) => boolean | void;
   // Extra legend entries for outlines and markers.
   legend?: { label: string; color: string; shape: "dot" | "ring" | "outline" }[];
   hideScale?: boolean; // colours stand for categories, so the number legend would mislead
@@ -422,7 +422,7 @@ export default function WorldMap({
       }
       if (m.getLayer("ov-marks")) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: ["ov-marks"] })[0];
-        if (f && markPick.current && typeof f.properties?.key === "string") { markPick.current(f.properties.key); return; }
+        if (f && markPick.current && typeof f.properties?.key === "string" && markPick.current(f.properties.key) !== false) return;
         const href = f?.properties?.href;
         if (typeof href === "string" && href) {
           if (/^https?:/.test(href)) window.open(href, "_blank", "noopener");

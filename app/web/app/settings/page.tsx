@@ -962,6 +962,8 @@ function BriefingSettings({ s, save }: { s: Settings; save: (patch: Partial<Sett
       <NumberField label="Outlets before it shows" unit="outlets" value={s.news_watch_outlets} min={1} max={5} step={1}
         note="1 shows a story as soon as one outlet has it. More waits for others to report it too: fewer false alarms, but slower, and stories from one outlet never show."
         save={(v) => save({ news_watch_outlets: v })} />
+      <Toggle label="Read article pages for pictures" hint="Opening a news item on the map reads that one article's page once (and keeps it) for the picture and summary it offers link previews. Off: the news panel shows only what the feeds gave, so items from Wikipedia and some feeds have no picture and a short summary."
+        on={s.news_previews} set={(v) => save({ news_previews: v })} />
       <p className="caption">News is fetched when the Briefing or Discover &gt; News is opened (Settings &gt; Discover: sources and how often).</p>
     </section>
   );

@@ -40,6 +40,7 @@ def test_watch_hits_merge_outlets_place_and_confirm():
     ner, fji = hits
     assert ner["n_outlets"] == 2 and ner["headline"].startswith("Coup in Niamey") and ner["place"]["name"] == "Niamey"
     assert ner["confirmed"] and ner["confirmed_by"] == "2026 Niger coup" and ner["group"] == "conflict"
+    assert [a["outlet"] for a in ner["articles"]] == ["BBC World", "The Guardian, world"] and ner["outlet"] == "BBC World"
     assert fji["place"]["name"] == "Suva" and not fji["confirmed"]
     two = briefing.watch_hits(items, WORDS, "2026-11-01", min_outlets=2)
     assert [h["entity_id"] for h in two] == ["NER"]
