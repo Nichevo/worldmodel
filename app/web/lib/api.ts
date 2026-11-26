@@ -439,6 +439,7 @@ export type Settings = {
   night_year: "2016" | "2012" | "latest";
   map_3d: boolean;
   map_3d_exaggeration: number;
+  plain_map_borders: boolean;
   map_globe: boolean;
   globe_space: boolean;
   globe_grid: boolean;

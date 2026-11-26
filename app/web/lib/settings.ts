@@ -217,6 +217,7 @@ export const DEFAULT_SETTINGS: Settings = {
   night_year: "2016",
   map_3d: false,
   map_3d_exaggeration: 1.5,
+  plain_map_borders: false,
   map_globe: false,
   globe_space: true,
   globe_grid: true,
