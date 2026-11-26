@@ -224,6 +224,36 @@
   limits: Free for non-commercial use. Asked once per ship when its details are opened, and kept for 30 days.
   status: active
 
+- source: carrier_schedules_maersk
+  name: Maersk Commercial Schedules API (DCSA)
+  env: [MAERSK_CONSUMER_KEY]
+  needs_key: true
+  signup: https://developer.maersk.com/
+  how: Register on the Maersk Developer Portal, create an app, add the Commercial Schedules (DCSA) product and copy its Consumer Key. Maersk marks it "available for Maersk Ocean customers", so it may not be granted to a private account.
+  unlocks: "Live > Schedules and a ship's Schedule part: each Maersk ship's planned port calls, so the app can say how late it is against Maersk's own schedule."
+  limits: Free. Asked for Maersk ships seen in the last two days, at most 30 ships an hour, each again after 12 hours.
+  status: active
+
+- source: carrier_schedules_hlag
+  name: Hapag-Lloyd schedules API (DCSA Commercial Schedules)
+  env: [HLAG_CLIENT_ID, HLAG_CLIENT_SECRET]
+  needs_key: true
+  signup: https://api-portal.hlag.com/
+  how: Register on the Hapag-Lloyd API Developer Portal, create an app subscribed to the Commercial Schedules API, and copy its client id and secret.
+  unlocks: Planned port calls of Hapag-Lloyd ships, for the on-time measure.
+  limits: Free. Same pace as Maersk.
+  status: active
+
+- source: carrier_schedules_cmacgm
+  name: CMA CGM schedules API (DCSA Commercial Schedules)
+  env: [CMACGM_API_KEY]
+  needs_key: true
+  signup: https://api-portal.cma-cgm.com/
+  how: Register on the CMA CGM API portal, subscribe an app to the commercial schedules API, and copy its key.
+  unlocks: Planned port calls of CMA CGM, ANL and APL ships, for the on-time measure.
+  limits: Free. Same pace as Maersk.
+  status: active
+
 - source: live_cameras_windy
   name: Windy Webcams API (beach, surf, harbour and city webcams worldwide)
   env: [WINDY_WEBCAMS_API_KEY]
