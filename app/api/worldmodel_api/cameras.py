@@ -29,6 +29,8 @@ from worldmodel_api.live import boxes, inside
 UA = {"User-Agent": "worldmodel (personal research tool)", "Digitraffic-User": "worldmodel/personal"}
 LIST_KEEP = 6 * 3600       # seconds an agency's camera list is kept
 RETRY_AFTER = 15 * 60      # after a failed read, seconds before asking that agency again
+WAIT = 6.0                 # seconds a view waits for agency lists still being read
+RETRY_SOON = 10            # seconds after which the map asks again for lists still being read
 WINDY_KEEP = 9 * 60        # Windy's picture links last ten minutes on the free tier
 WINDY = "https://api.windy.com/webcams/api/v3/webcams"
 QLD_PUBLIC_KEY = "3e83add325cbb69ac4d8e5bf433d770b"  # published in QLDTraffic's API specification for public use
@@ -265,30 +267,51 @@ def parse_windy(body: dict) -> list[dict]:
 
 
 class Cameras:
+    """Agencies' camera lists are read in the background, one thread per agency: a wide view
+    (the whole Pacific, say) can reach six agencies and California alone is twelve files, which
+    took longer than the web app's proxy waits (it then reported "socket hang up"). A view waits
+    up to WAIT seconds for lists not yet read, gets what is ready, and asks again RETRY_SOON
+    seconds later for the rest."""
+
     def __init__(self) -> None:
-        self.lock = threading.Lock()
+        self.lock = threading.Lock()      # held only to read and write the lists, never over the network
         self.lists: dict[str, tuple[float, list[dict]]] = {}
         self.failed: dict[str, tuple[float, str]] = {}
+        self.loading: dict[str, threading.Thread] = {}
         self.windy: dict[tuple, tuple[float, list[dict]]] = {}
         self.windy_error: tuple[float, str] | None = None
 
-    def _source(self, source: str, client: httpx.Client) -> tuple[list[dict], str | None]:
+    def _due(self, source: str) -> bool:
+        """Whether an agency's list needs reading (not kept, and not failed a short while ago)."""
         now = time.time()
-        kept = self.lists.get(source)
-        if kept and now - kept[0] < LIST_KEEP:
-            return kept[1], None
-        failed = self.failed.get(source)
-        if failed and now - failed[0] < RETRY_AFTER:
-            return (kept[1] if kept else []), failed[1]
+        kept, failed = self.lists.get(source), self.failed.get(source)
+        return not (kept and now - kept[0] < LIST_KEEP) and not (failed and now - failed[0] < RETRY_AFTER)
+
+    def _load(self, source: str, client: httpx.Client | None = None) -> None:
+        own = client is None
+        client = client or httpx.Client(timeout=25, headers=UA, follow_redirects=True)
         try:
             cams = read_list(source, client)
         except (httpx.HTTPError, ValueError, KeyError, Busy, Refused) as exc:
-            why = _why(source, exc)
-            self.failed[source] = (now, why)
-            return (kept[1] if kept else []), why
-        self.lists[source] = (now, cams)
-        self.failed.pop(source, None)
-        return cams, None
+            with self.lock:
+                self.failed[source] = (time.time(), _why(source, exc))
+            return
+        finally:
+            if own:
+                client.close()
+        with self.lock:
+            self.lists[source] = (time.time(), cams)
+            self.failed.pop(source, None)
+
+    def _source(self, source: str, client: httpx.Client) -> tuple[list[dict], str | None]:
+        """An agency's list, read now with the given client if due (used by tests and one-off callers)."""
+        with self.lock:
+            due = self._due(source)
+        if due:
+            self._load(source, client)
+        with self.lock:
+            kept, failed = self.lists.get(source), self.failed.get(source)
+        return (kept[1] if kept else []), (failed[1] if failed else None)
 
     def _windy(self, bx: list, client: httpx.Client) -> tuple[list[dict], str | None]:
         key = (os.environ.get("WINDY_WEBCAMS_API_KEY") or "").strip()
@@ -320,33 +343,60 @@ class Cameras:
             self.windy[box] = (time.time(), got)
             if len(self.windy) > 200:  # forget the oldest boxes
                 for k in sorted(self.windy, key=lambda k: self.windy[k][0])[:100]:
-                    del self.windy[k]
+                    self.windy.pop(k, None)
             out += got
         self.windy_error = None
         return out, None
 
     def get(self, west: float, south: float, east: float, north: float, client: httpx.Client | None = None) -> dict:
+        """Cameras in view. With a client (tests), lists are read there and then; without one,
+        in the background (see the class)."""
         bx = boxes(west, south, east, north)
         notes: list[str] = []
         feats: list[dict] = []
-        own = client is None
-        client = client or httpx.Client(timeout=25, headers=UA, follow_redirects=True)
-        try:
+        wanted = []
+        for source, region in REGIONS.items():
+            if not _meets(region, bx):
+                continue
+            if source == "nsw" and not (os.environ.get("TFNSW_API_KEY") or "").strip():
+                notes.append("NSW cameras need a free Transport for NSW key: TFNSW_API_KEY in Settings > Keys.")
+                continue
+            wanted.append(source)
+        if client is not None:
+            for source in wanted:
+                self._source(source, client)
+        else:
+            threads = []
             with self.lock:
-                for source, region in REGIONS.items():
-                    if not _meets(region, bx):
-                        continue
-                    if source == "nsw" and not (os.environ.get("TFNSW_API_KEY") or "").strip():
-                        notes.append("NSW cameras need a free Transport for NSW key: TFNSW_API_KEY in Settings > Keys.")
-                        continue
-                    cams, why = self._source(source, client)
-                    feats += [c for c in cams if inside(*c["geometry"]["coordinates"], bx)]
-                    if why:
-                        notes.append(why)
-                web, why = self._windy(bx, client)
+                for source in wanted:
+                    t = self.loading.get(source)
+                    if not (t and t.is_alive()) and self._due(source):
+                        t = threading.Thread(target=self._load, args=(source,), name=f"cameras-{source}", daemon=True)
+                        self.loading[source] = t
+                        t.start()
+                    if t and t.is_alive():
+                        threads.append(t)
+            until = time.monotonic() + WAIT
+            for t in threads:
+                t.join(max(0.0, until - time.monotonic()))
+        waiting = []
+        with self.lock:
+            for source in wanted:
+                kept, failed = self.lists.get(source), self.failed.get(source)
+                if kept:
+                    feats += [c for c in kept[1] if inside(*c["geometry"]["coordinates"], bx)]
+                t = self.loading.get(source)
+                if client is None and t and t.is_alive():
+                    waiting.append(SOURCE_NAME[source].split(" (")[0])
+                elif failed and not (kept and kept[0] > failed[0]):
+                    notes.append(failed[1])
+        own = client is None
+        wclient = client or httpx.Client(timeout=20, headers=UA, follow_redirects=True)
+        try:
+            web, why = self._windy(bx, wclient)
         finally:
             if own:
-                client.close()
+                wclient.close()
         seen = {(round(c["geometry"]["coordinates"][0], 3), round(c["geometry"]["coordinates"][1], 3)) for c in feats}
         feats += [c for c in web if (round(c["geometry"]["coordinates"][0], 3), round(c["geometry"]["coordinates"][1], 3)) not in seen]
         if why:
@@ -355,6 +405,9 @@ class Cameras:
             notes.append("Beach, surf and city webcams worldwide come with a free Windy key: WINDY_WEBCAMS_API_KEY in Settings > Keys.")
         out = {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "Road agencies and Windy webcams",
                "at": int(time.time())}
+        if waiting:
+            notes.insert(0, f"Still reading the camera lists of {', '.join(waiting)}; they show in a moment.")
+            out["retry_in"] = RETRY_SOON
         if notes:
             out["note"] = " ".join(dict.fromkeys(notes))
         return out

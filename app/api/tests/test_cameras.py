@@ -140,3 +140,27 @@ def test_endpoint_respects_the_setting(tmp_path, monkeypatch):
     monkeypatch.setattr(local, "load_settings", lambda *a, **k: {"live_cameras": False})
     r = TestClient(main.app).get("/api/v1/live/cameras", params={"west": 170, "south": -45, "east": 180, "north": -30}).json()
     assert "switched off" in r["error"]
+
+
+def test_a_slow_agency_list_is_read_in_the_background(monkeypatch):
+    import threading
+    import time
+
+    release = threading.Event()
+
+    def slow(source, client):
+        release.wait(5)
+        return [cameras._cam(source, 1, "Slow cam", -36.9, 174.8)]
+
+    monkeypatch.setattr(cameras, "read_list", slow)
+    monkeypatch.setattr(cameras, "WAIT", 0.2)
+    monkeypatch.delenv("WINDY_WEBCAMS_API_KEY", raising=False)
+    cams = cameras.Cameras()
+    started = time.monotonic()
+    got = cams.get(165, -48, 180, -34)  # no client: lists read in the background
+    assert time.monotonic() - started < 2 and got["features"] == [] and got["retry_in"] == cameras.RETRY_SOON
+    assert "Still reading" in got["note"]
+    release.set()
+    cams.loading["nzta"].join(5)
+    got = cams.get(165, -48, 180, -34)
+    assert [c["properties"]["name"] for c in got["features"]] == ["Slow cam"] and "retry_in" not in got

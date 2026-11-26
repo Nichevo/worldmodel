@@ -24,6 +24,9 @@ const lanHosts = [
 const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: lanHosts,
+  // The proxy to the API gives up after 30 s by default and reports "socket hang up"; a few calls
+  // (a first read of outside data, big tables) can take longer, so it waits up to 2 minutes.
+  experimental: { proxyTimeout: 120_000 },
   // As a fallback, so app/api/public (the public API, which passes on who is calling) is matched first.
   async rewrites() {
     return { beforeFiles: [], afterFiles: [], fallback: [{ source: "/api/:path*", destination: `${api}/api/:path*` }] };
