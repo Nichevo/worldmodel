@@ -16,7 +16,11 @@ gvp_volcanoes
     be loaded instead: worldmodel-data fetch gvp_volcanoes --from <file>.
 usgs_earthquakes
     USGS earthquake catalogue (ComCat) through its FDSN event service: every
-    earthquake of magnitude 6 or more since 1900, with place, date and depth.
+    earthquake of magnitude 6 or more since 1900, and those of 4.5 to 6 since
+    SMALL_FROM (a file a year), with place, date and depth. Around New Zealand the
+    smaller ones come from GeoNet's own catalogue instead (FDSN text, magnitude 3 to
+    6, a file a year), which sees far more of them. Years before last year are kept
+    from the previous vintage rather than fetched again.
 """
 
 from __future__ import annotations
@@ -174,28 +178,94 @@ class GVPVolcanoes(_Layer):
         return out
 
 
+SMALL_FROM = 2016  # quakes below magnitude 6 from this year on (about 8,000 a year worldwide)
+# GeoNet's area: New Zealand and its seas out to the Kermadecs (longitudes past 180 wrap to -180).
+NZ_BOX = (-52.0, -28.0, 160.0, -174.0)
+
+
+def in_nz_box(lon: float, lat: float) -> bool:
+    s, n, w, e = NZ_BOX
+    return s <= lat <= n and (lon >= w or lon <= e)
+
+
 class USGSEarthquakes(_Layer):
     source_id = "usgs_earthquakes"
     fetch_every_days = 7
+    keeps_files = True  # the yearly files of years already over are carried from the last vintage
+    fetch_version = 2   # yearly files of smaller quakes, and GeoNet's around New Zealand
+    stage_version = 2
     layer_id, kind = "earthquakes", "point"
-    layer_name = "Earthquakes (magnitude 6+)"
-    layer_description = "Every earthquake of magnitude 6 or more since 1900 (USGS catalogue), sized by magnitude."
+    layer_name = "Earthquakes"
+    layer_description = (f"Every earthquake of magnitude 6 or more since 1900 and of 4.5 or more since {SMALL_FROM} (USGS "
+                         f"catalogue); around New Zealand of 3 or more since {SMALL_FROM} (GeoNet). Sized by magnitude.")
     url = ("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=1900-01-01&minmagnitude=6"
            "&orderby=time-asc&limit=20000&eventtype=earthquake")
     file = "earthquakes_m6.geojson"
+    small_url = ("https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime={y}-01-01&endtime={y1}-01-01"
+                 "&minmagnitude=4.5&maxmagnitude=5.99&orderby=time-asc&limit=20000&eventtype=earthquake")
+    nz_url = ("https://service.geonet.org.nz/fdsnws/event/1/query?format=text&starttime={y}-01-01&endtime={y1}-01-01"
+              "&minmagnitude=3&maxmagnitude=5.99&eventtype=earthquake")
+
+    def download(self, raw_dir: Path, release: str) -> str:
+        self.get(self.url, raw_dir / self.file)
+        prev = self.last_vintage_dir(raw_dir)
+        this = datetime.now(timezone.utc).year
+        for y in range(SMALL_FROM, this + 1):
+            for name, url in ((f"usgs_m45_{y}.geojson", self.small_url), (f"geonet_m3_{y}.txt", self.nz_url)):
+                if y < this - 1 and prev is not None and (prev / name).is_file():
+                    continue  # a year long over: keeps_files carries the last copy
+                try:
+                    self.get(url.format(y=y, y1=y + 1), raw_dir / name)
+                except Exception as e:  # noqa: BLE001 - the big quakes still load without one year of small ones
+                    log.warning("%s: %s not fetched (%s); the map goes without it for now", self.source_id, name, e)
+        return self.url
 
     def features(self, raw_dir: Path) -> list[dict]:
-        files = sorted(raw_dir.glob("*.geojson")) + sorted(raw_dir.glob("*.json"))
+        big = raw_dir / self.file
+        if not big.is_file():  # a file loaded by hand under another name
+            files = [f for f in sorted(raw_dir.glob("*.geojson")) + sorted(raw_dir.glob("*.json")) if not f.name.startswith("usgs_m45_")]
+            big = files[0] if files else None
+        out = self._usgs(big, small=False) if big else []
+        for f in sorted(raw_dir.glob("usgs_m45_*.geojson")):
+            out += self._usgs(f, small=True)
+        for f in sorted(raw_dir.glob("geonet_m3_*.txt")):
+            out += self._geonet(f)
+        return out
+
+    def _usgs(self, path: Path, small: bool) -> list[dict]:
         out = []
-        for f in read_geojson(files[0]) if files else []:
+        for f in read_geojson(path):
             p = f.get("properties") or {}
             coords = f["geometry"]["coordinates"]
+            mag = num(p.get("mag"))
+            if small and (mag is None or mag >= 6 or in_nz_box(coords[0], coords[1])):
+                continue  # 6+ are in the big file; around New Zealand GeoNet's own list is used
             t = p.get("time")
             # Not fromtimestamp: on Windows it fails (Errno 22) for times before 1970.
             when = (EPOCH + timedelta(milliseconds=t)).date().isoformat() if isinstance(t, (int, float)) else None
             out.append(feature({"type": "Point", "coordinates": coords[:2]}, {
-                "name": p.get("title") or p.get("place") or "Earthquake", "mag": p.get("mag"), "date": when,
+                "id": f.get("id"), "name": p.get("title") or p.get("place") or "Earthquake", "mag": mag, "date": when,
                 "depth": round(coords[2]) if len(coords) > 2 and coords[2] is not None else None,
                 "tsunami": 1 if p.get("tsunami") else None, "url": p.get("url"),
+            }))
+        return out
+
+    def _geonet(self, path: Path) -> list[dict]:
+        """GeoNet's FDSN text: #EventID|Time|Latitude|Longitude|Depth/km|...|MagType|Magnitude|MagAuthor|EventLocationName|EventType"""
+        out = []
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip() or line.startswith("#"):
+                continue
+            c = [x.strip() for x in line.split("|")]
+            if len(c) < 13:
+                continue
+            lat, lon, mag, depth = num(c[2]), num(c[3]), num(c[10]), num(c[4])
+            if lat is None or lon is None or mag is None or mag >= 6 or not in_nz_box(lon, lat):
+                continue
+            place = c[12] or "New Zealand"
+            out.append(feature({"type": "Point", "coordinates": [lon, lat]}, {
+                "id": c[0], "name": f"M {mag:.1f} - {place}", "mag": round(mag, 1), "date": c[1][:10],
+                "depth": round(depth) if depth is not None else None, "src": "GeoNet",
+                "url": f"https://www.geonet.org.nz/earthquake/{c[0]}",
             }))
         return out

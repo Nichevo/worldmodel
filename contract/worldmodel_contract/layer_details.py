@@ -58,6 +58,11 @@ class LayerDetail:
     country_from: str = "item"   # "item": the source says; "place": worked out from where it sits; "mixed"
     indicators: bool = True      # count, per million people and the size total as indicators
     by_country: bool = True      # False: listed only (chokepoints)
+    # A layer of dated events (earthquakes): its count indicator is per year, from the item's date
+    # property `yearly`, counting only items whose size is at least `yearly_min` (and no per million one).
+    yearly: str = ""
+    yearly_min: float | None = None
+    yearly_name: str = ""        # "Earthquakes of magnitude 6 or more"
 
 
 BEDS = Size("beds", "Beds", "beds", bands=(200, 500, 1000, 2000))
@@ -113,10 +118,12 @@ LAYERS: tuple[LayerDetail, ...] = (
                 Size("visitors", "Visitors a year", "visitors", bands=(2e6, 5e6, 1e7, 2e7)), fields=(("year", "Year"),)),
     LayerDetail("volcanoes", "volcano", "volcanoes", "stored", "hazards", None, ("type", "Type"),
                 (("last", "Last eruption"), ("elevation", "Height (m)"))),
-    LayerDetail("earthquakes", "earthquake", "earthquakes of magnitude 6 or more", "stored", "hazards",
-                Size("mag", "Magnitude", "", 1, "max", (6.5, 7, 7.5, 8)), fields=(("date", "Date"), ("depth", "Depth (km)")),
-                country_from="place", note="Since 1900. Offshore quakes count for the nearest country within about 20 km; "
-                                           "the rest are listed as at sea."),
+    LayerDetail("earthquakes", "earthquake", "earthquakes", "stored", "hazards",
+                Size("mag", "Magnitude", "", 1, "max", (4, 5, 6, 6.5, 7, 7.5, 8)), fields=(("date", "Date"), ("depth", "Depth (km)")),
+                country_from="place", yearly="date", yearly_min=6, yearly_name="Earthquakes of magnitude 6 or more",
+                note="Magnitude 6 or more since 1900 and 4.5 or more since 2016 (USGS); around New Zealand 3 or more since 2016 "
+                     "(GeoNet). Offshore quakes count for the nearest country within about 20 km; the rest are listed as at sea. "
+                     "The indicator counts magnitude 6 or more in each year."),
     LayerDetail("tide_gauges", "tide gauge", "tide gauges", "stored", "climate",
                 Size("trend", "Sea level trend", "mm a year", 1, "mean"), fields=(("trend30", "Last 30 years"), ("years", "Years"))),
     LayerDetail("antarctic_stations", "station", "Antarctic research stations", "stored", "polar", None,
@@ -166,6 +173,8 @@ def indicator_ids(d: LayerDetail) -> dict[str, str]:
     """The indicators a layer gives: count, per million people and, if it has one, its size total."""
     if not d.indicators or d.kind != "stored":
         return {}
+    if d.yearly:
+        return {"count": f"map_{d.id}_count"}
     out = {"count": f"map_{d.id}_count", "per_m": f"map_{d.id}_per_m"}
     if d.size and d.size.total == "sum":
         out["size"] = f"map_{d.id}_{d.size.prop}"
@@ -180,6 +189,11 @@ def indicators(found: set[str] | None = None) -> list[dict]:
             continue
         ids = indicator_ids(d)
         if not ids:
+            continue
+        if d.yearly:
+            out.append(_ind(ids["count"], f"{d.yearly_name} (a year)",
+                            f"{d.yearly_name} each year in the country or within about 20 km of its coast, from the map layer.",
+                            d.many, d.domain, {"method": "sum"}, 0, (0, 1e5)))
             continue
         many = d.many[0].upper() + d.many[1:]
         listed = "as listed on the map (only what the map layer's source has, so lower than the real total where it is patchy)"

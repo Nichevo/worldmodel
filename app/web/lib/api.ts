@@ -328,6 +328,7 @@ export type Settings = {
   basemap_limit_gb: number;
   places_fetch: boolean; // refresh fetches metro and rail, universities and companies
   map_hospital_beds: number; // the Hospitals map layer shows hospitals with at least this many beds
+  map_quake_min: number; // the Earthquakes map layer shows quakes of at least this magnitude
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
   map_hospitals_all: boolean; // the Hospitals layer shows every hospital from every list (the two above apply when off)
   map_hospital_sources: string; // lists whose hospitals the map shows: wikidata, osm, overture, national (comma separated)

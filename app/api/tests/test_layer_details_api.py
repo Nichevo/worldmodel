@@ -26,6 +26,10 @@ def client(tmp_path, monkeypatch):
                  ("Q3", "Small Clinic", "NZL", None), ("Q4", "Royal Brisbane", "AUS", 929)]
     con.executemany("INSERT INTO layer_items VALUES ('hospitals', ?, ?, ?, -37, 175, ?, NULL, NULL, '{}', false, 'wikidata_places', 'v1')",
                     hospitals)
+    quakes = [("q1", "M 7.8 - Kaikoura", 7.8, "2016-11-13"), ("q2", "M 3.4 - Wellington", 3.4, "2024-06-02"),
+              ("q3", "M 5.1 - Taupo", 5.1, "2025-03-01")]
+    con.executemany("INSERT INTO layer_items VALUES ('earthquakes', ?, ?, 'NZL', -41, 174, ?, NULL, NULL, ?, true, 'usgs_earthquakes', 'v1')",
+                    [(i, n, m, json.dumps({"date": d})) for i, n, m, d in quakes])
     con.execute("""INSERT INTO geo_features VALUES ('cables', 'scn', 'Southern Cross NEXT', 1, ?, 'AUS,NZL,USA',
                    151.2, -33.9, 178.4, -18.1, '{"type":"LineString","coordinates":[[151.2,-33.9],[178.4,-18.1]]}', 'x', 'v1')""",
                 [json.dumps({"length": "15,840 km", "owners": ["Spark", "Telstra"], "rfs": 2022})])
@@ -143,3 +147,13 @@ def test_hospitals_by_list_and_kind(tmp_path, monkeypatch):
         layer_details._cache.clear()
     assert rows["OpenStreetMap"] == {"list": "OpenStreetMap", "count": 2, "only": 1, "hospital": 1, "unsure": 1, "clinic": 0}
     assert rows["All lists"]["count"] == 3 and rows["All lists"]["clinic"] == 1
+
+
+def test_items_newest_first_with_a_smallest_size_and_dates(client):
+    url = "/api/v1/layer-details/earthquakes/items"
+    got = client.get(url, params={"country": "NZL", "sort": "date"}).json()
+    assert [r["item_id"] for r in got["rows"]] == ["q3", "q2", "q1"] and got["rows"][0]["fields"]["date"] == "2025-03-01"
+    assert [r["item_id"] for r in client.get(url, params={"country": "NZL"}).json()["rows"]] == ["q1", "q3", "q2"]
+    assert client.get(url, params={"country": "NZL", "min_size": 5}).json()["total"] == 2
+    got = client.get(url, params={"country": "NZL", "date_from": "2024-01-01", "date_to": "2024-12-31"}).json()
+    assert [r["item_id"] for r in got["rows"]] == ["q2"]

@@ -68,10 +68,14 @@ def layer_details_gaps(layer_id: str, country: str | None = Query(None, descript
 
 @api.get("/layer-details/{layer_id}/items")
 def layer_details_items(layer_id: str, country: str | None = Query(None, description="A country, council or group id; '-' for none"),
-                        q: str | None = None, sort: Literal["size", "name"] = "size",
-                        limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0)):
-    """A layer's items, biggest first (or by name), for one country or group or all."""
-    return layer_info.list_items(rows, _layer_key(), layer_id, country, q, sort, limit, offset, _live_layer, hazards.country_of)
+                        q: str | None = None, sort: Literal["size", "name", "date"] = "size",
+                        limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0),
+                        min_size: float | None = Query(None, description="Only items at least this big (a magnitude, beds...)"),
+                        date_from: str | None = Query(None, description="Only items dated on or after this day (layers with a date)"),
+                        date_to: str | None = Query(None, description="Only items dated on or before this day")):
+    """A layer's items, biggest first (or by name, or newest first), for one country or group or all."""
+    return layer_info.list_items(rows, _layer_key(), layer_id, country, q, sort, limit, offset, _live_layer, hazards.country_of,
+                                 min_size=min_size, date_from=date_from, date_to=date_to)
 
 
 @api.get("/weather/status")

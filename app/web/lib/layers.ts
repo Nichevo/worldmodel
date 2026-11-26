@@ -43,6 +43,7 @@ type Style = {
   once?: boolean; // a "window" layer read once, whatever the view (the front line: one shape)
   // drawn as small shapes (lib/mapIcons.ts) turned to the heading, not dots: the symbol layer's layout
   symbol?: () => SymbolLayerSpecification["layout"];
+  sortKey?: unknown[]; // dots: drawn in this order, highest on top (earthquakes: the biggest)
 };
 // The MapLibre layer drawn for an overlay (lid: its layer id, also the source's id). The map adds it,
 // and the Self check validates it against MapLibre's style rules, so both use exactly this.
@@ -50,7 +51,8 @@ export function layerSpec(id: string, lid: string): LayerSpecification {
   const style = LAYER_STYLE[id];
   if (style.symbol) return { id: lid, type: "symbol", source: lid, layout: style.symbol(), paint: style.paint() as SymbolLayerSpecification["paint"] };
   if (style.fill) return { id: lid, type: "fill", source: lid, paint: style.paint() as FillLayerSpecification["paint"] };
-  if (style.dot) return { id: lid, type: "circle", source: lid, paint: style.paint() as CircleLayerSpecification["paint"] };
+  if (style.dot) return { id: lid, type: "circle", source: lid, paint: style.paint() as CircleLayerSpecification["paint"],
+    ...(style.sortKey ? { layout: { "circle-sort-key": style.sortKey } as CircleLayerSpecification["layout"] } : {}) };
   return { id: lid, type: "line", source: lid, paint: style.paint() as LineLayerSpecification["paint"], layout: { "line-cap": "round", "line-join": "round" } };
 }
 
@@ -105,11 +107,17 @@ export const LAYER_STYLE: Record<string, Style> = {
     }),
   },
   earthquakes: {
-    legend: "Earthquake, sized by magnitude (6 to 9+)", swatch: () => cssVar("--series-8"), dot: true,
+    legend: "Earthquake, sized by magnitude (darker: 6 or more)", swatch: () => cssVar("--series-8"), dot: true,
+    sortKey: ["coalesce", ["get", "mag"], 0],
+    // Sized by magnitude and growing as you zoom in; small ones paler so the big ones stand out.
     paint: () => ({
-      "circle-color": cssVar("--series-8"), "circle-opacity": 0.4,
-      "circle-radius": ["interpolate", ["linear"], ["coalesce", ["get", "mag"], 6], 6, 2, 7, 3.5, 8, 7, 9, 12],
-      "circle-stroke-color": cssVar("--series-8"), "circle-stroke-width": 0.6, "circle-stroke-opacity": 0.8,
+      "circle-color": cssVar("--series-8"),
+      "circle-opacity": ["interpolate", ["linear"], ["coalesce", ["get", "mag"], 6], 3, 0.35, 5.9, 0.45, 6, 0.6],
+      "circle-radius": ["interpolate", ["linear"], ["zoom"],
+        1, ["interpolate", ["linear"], ["coalesce", ["get", "mag"], 6], 3, 1.2, 4.5, 1.8, 6, 3, 7, 4.5, 8, 8, 9, 13],
+        6, ["interpolate", ["linear"], ["coalesce", ["get", "mag"], 6], 3, 3, 4.5, 4.5, 6, 7, 7, 10, 8, 15, 9, 22]],
+      "circle-stroke-color": cssVar("--series-8"), "circle-stroke-width": 0.6,
+      "circle-stroke-opacity": ["interpolate", ["linear"], ["coalesce", ["get", "mag"], 6], 3, 0.4, 6, 0.9],
     }),
   },
   major_cities: {
@@ -538,7 +546,8 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   }
   if (layer === "earthquakes") {
     return `<b>Magnitude ${esc(p.mag)}</b> · ${esc(p.date)}<br/>${esc(p.name)}`
-      + (typeof p.depth === "number" ? `<br/>Depth ${p.depth} km` : "") + (p.tsunami ? " · tsunami" : "");
+      + (typeof p.depth === "number" ? `<br/>Depth ${p.depth} km` : "") + (p.tsunami ? " · tsunami" : "")
+      + `<br/><span class="muted">${p.src === "GeoNet" ? "GeoNet" : "USGS"}</span>`;
   }
   if (layer === "major_cities") {
     const pop = typeof p.population === "number" ? `${(p.population / 1e6).toFixed(p.population >= 1e7 ? 0 : 1)} million people` : "";

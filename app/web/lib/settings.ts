@@ -106,6 +106,7 @@ export const DEFAULT_SETTINGS: Settings = {
   basemap_limit_gb: 20,
   places_fetch: true,
   map_hospital_beds: 200,
+  map_quake_min: 4.5,
   map_hospitals_unsized: false,
   map_hospitals_all: true,
   map_hospital_sources: "wikidata,osm,overture,national",

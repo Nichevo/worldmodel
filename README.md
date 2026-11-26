@@ -217,7 +217,7 @@ with identical content is skipped; a revised release becomes a new vintage
 | US Census Bureau voting tables | Who voted and who registered at every November election since 1964: by age group, by sex (also within age groups), and for White non-Hispanic, Black, Asian and Hispanic Americans; citizens and all residents | Table A-1 (`hst_vote01.xlsx`), checked every three months. If the Census site refuses it, download it from the voting historical time series page and run `.\load.bat us_census_voting <file>` |
 | Weather maps | NOAA GFS forecast (temperature, rain, cloud, wind, pressure), RainViewer rain radar, NASA GIBS Himawari and GOES infrared; a place's forecast from Open-Meteo or MET Norway | Read while a weather layer is on: GFS every 6 hours, radar every 5 minutes, satellite every 10 minutes |
 | Weather extras | ECMWF IFS open data (optional model), NOAA GFS-Wave (waves and swell), Open-Meteo air quality (CAMS) and six-model comparison | ECMWF twice a day and waves every 6 hours while a layer needs them; air every 3 hours; models per clicked place, kept 3 hours |
-| Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
+| Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 and 4.5 and over since 2016 (USGS), 3 and over around New Zealand since 2016 (GeoNet) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly (years already over are kept, not fetched again) |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
 **Country pages** open with the Wikipedia introduction, pictures and the
@@ -289,9 +289,11 @@ from 1950 with the Wittgenstein Centre's projection to 2100, and the shares
 by highest level of education.
 
 **Map layers.** A map panel's **Layers** menu draws plate boundaries, active
-faults, volcanoes (darker if they have erupted since 1900) and earthquakes of
-magnitude 6 and over (sized by magnitude) over the countries. Hover one for its
-name; the layers are saved with the panel and in pictures' credits.
+faults, volcanoes (darker if they have erupted since 1900) and earthquakes
+(sized by magnitude; pick the smallest shown, 3+ to 7+, under the list; with a
+country selected the panel lists its quakes in the time window, biggest or newest
+first, linking to the full list). Hover one for its name; the layers are saved
+with the panel and in pictures' credits.
 
 **Your ratios.** On the Indicators page, **Make a ratio** divides one
 indicator by another (times 100, 1,000 or any number): household debt by GDP,

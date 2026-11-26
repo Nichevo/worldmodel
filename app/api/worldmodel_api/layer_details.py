@@ -297,8 +297,11 @@ def _info(q: Q, d: spec.LayerDetail) -> dict:
 
 
 def list_items(q: Q, key: str, layer_id: str, country: str | None, text: str | None, sort: str, limit: int, offset: int,
-               live=None, country_of=None) -> dict:
-    """The items themselves, biggest (or by name) first, for one country, council or group, or all."""
+               live=None, country_of=None, min_size: float | None = None, date_from: str | None = None,
+               date_to: str | None = None) -> dict:
+    """The items themselves, biggest (or by name, or newest) first, for one country, council or group, or all.
+    min_size keeps items at least that big; date_from/date_to (YYYY-MM-DD) keep those dated within, for a
+    layer with a "date" field (earthquakes)."""
     d = spec.BY_ID.get(layer_id)
     if d is None:
         return {"rows": [], "total": 0}
@@ -314,6 +317,12 @@ def list_items(q: Q, key: str, layer_id: str, country: str | None, text: str | N
     if text:
         t = text.lower()
         its = [i for i in its if t in str(i["name"]).lower() or t in str(i.get("category") or "").lower()]
+    if min_size is not None:
+        its = [i for i in its if i["size"] is not None and i["size"] >= min_size]
+    dated = any(k == "date" for k, _ in d.fields)
+    day = (lambda i: str((i["props"] or {}).get("date") or ""))
+    if dated and (date_from or date_to):
+        its = [i for i in its if (not date_from or day(i) >= date_from) and (not date_to or day(i)[:len(date_to)] <= date_to)]
     seen: dict[str, dict] = {}
     for i in its:  # one row per item, its countries together
         r = seen.get(i["item_id"])
@@ -324,6 +333,8 @@ def list_items(q: Q, key: str, layer_id: str, country: str | None, text: str | N
     rows = list(seen.values())
     if sort == "name":
         rows.sort(key=lambda r: str(r["name"]).lower())
+    elif sort == "date" and dated:
+        rows.sort(key=lambda r: (day(r), r["size"] or 0), reverse=True)
     else:
         rows.sort(key=lambda r: (r["size"] is None, -(r["size"] or 0), str(r["name"]).lower()))
     names = _names(q)
