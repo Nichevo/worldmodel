@@ -108,6 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
   map_hospital_kinds: "hospital",
   map_ships_hidden: "",
   map_planes_hidden: "",
+  map_cameras_hidden: "",
   hospitals_osm_fetch: true,
   hospitals_overture_fetch: true,
   hospitals_overture_countries: "",

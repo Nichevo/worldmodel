@@ -12,6 +12,8 @@ import { arc, countryCentres, countryShapes, countryShapesFine } from "@/lib/geo
 import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import CameraView, { type CameraProps } from "@/components/CameraView";
+import CameraWall from "@/components/CameraWall";
+import { toggleWall } from "@/lib/cameraWall";
 import { hereCard, LAYER_STYLE, layerData, layerSpec, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
@@ -212,8 +214,8 @@ export default function WorldMap({
   const [detailTry, setDetailTry] = useState(0);
   // The clicked ship's or plane's path (solid) and the line on to where it is going (dashed).
   const drawJourney = useRef<(fc: GeoJSON.FeatureCollection | null) => void>(() => {});
-  const featurePick = useRef<(layer: string, p: Record<string, unknown>, at: { lng: number; lat: number }) => void>(() => {});
-  featurePick.current = (layer, p, at) => {
+  const featurePick = useRef<(layer: string, p: Record<string, unknown>, at: { lng: number; lat: number }, ctrl?: boolean) => void>(() => {});
+  featurePick.current = (layer, p, at, ctrl) => {
     const st = LAYER_STYLE[layer];
     if (st?.click === "here") {
       const c = hereCard(layer, p, at);
@@ -235,7 +237,13 @@ export default function WorldMap({
       return;
     }
     if (st?.click === "camera") {
-      setInfo({ layer, title: String(p.name ?? "Camera"), camera: p as CameraProps });
+      // The map hands back lists (a station's pictures, Windy's categories) as JSON text.
+      const cam = Object.fromEntries(Object.entries(p).map(([k, v]) => {
+        if (typeof v === "string" && v.startsWith("[")) { try { return [k, JSON.parse(v)]; } catch { /* plain text */ } }
+        return [k, v];
+      })) as CameraProps;
+      if (ctrl) { toggleWall({ ...cam, lng: at.lng, lat: at.lat }); return; }  // ctrl-click: straight onto the camera wall
+      setInfo({ layer, title: String(p.name ?? "Camera"), camera: { ...cam, lng: at.lng, lat: at.lat } as CameraProps });
       return;
     }
     if (st?.click === "chokepoint") {
@@ -397,7 +405,7 @@ export default function WorldMap({
         if (f) {
           const g = f.geometry;
           const at = g.type === "Point" ? { lng: g.coordinates[0], lat: g.coordinates[1] } : { lng: e.lngLat.lng, lat: e.lngLat.lat };
-          featurePick.current(f.layer.id.slice(3), f.properties as Record<string, unknown>, at);
+          featurePick.current(f.layer.id.slice(3), f.properties as Record<string, unknown>, at, e.originalEvent.ctrlKey || e.originalEvent.metaKey);
           return;
         }
       }
@@ -1083,13 +1091,16 @@ export default function WorldMap({
             })}
           </div>
         )}
+        {layers.includes("live_cameras") && (
+          <CameraWall onGo={(lng, lat) => map.current?.flyTo({ center: [lng, lat], zoom: Math.max(map.current.getZoom(), 12) })} />
+        )}
         {info && (
           <div className="map-info" role="dialog" aria-label={info.title}>
             <div className="row"><b>{info.title}</b><span className="spacer" />
               <button className="link small" onClick={() => setInfo(null)} aria-label="Close">×</button></div>
             {info.loading ? <p className="small muted">Loading…</p> : (
               <>
-                {info.camera && <CameraView key={String(info.camera.id)} cam={info.camera} />}
+                {info.camera && <CameraView key={String(info.camera.id)} cam={info.camera} wallButton />}
                 {(info.lines ?? []).filter(Boolean).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>)}
                 {info.split?.length ? (
                   <table className="small"><thead><tr><th>Country</th><th>Of the basin</th><th>Of the country</th><th>People (rough)</th></tr></thead>

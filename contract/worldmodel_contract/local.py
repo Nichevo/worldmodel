@@ -78,6 +78,7 @@ SETTINGS: dict[str, object] = {
     "map_hospital_kinds": "hospital",  # likely kinds the map shows: hospital, unsure, clinic (likely hospitals only at first)
     "map_ships_hidden": "",   # ship kinds the map's Ships layer leaves out (cargo, tanker ...), comma separated
     "map_planes_hidden": "",  # plane types the map's Planes layer leaves out (airliner, light ...), comma separated
+    "map_cameras_hidden": "",  # camera kinds and owners the map's Cameras layer leaves out (traffic, beach, caltrans, windy, offline ...), comma separated
     "hospitals_osm_fetch": True,     # refresh fetches OpenStreetMap's hospitals (healthsites.io on HDX, every 3 months) and hospital counts
     "hospitals_overture_fetch": True,  # refresh reads Overture's hospitals for the countries below (every 6 months)
     "hospitals_overture_countries": "",  # three-letter codes, comma separated; empty: the countries in contract health.py
@@ -336,7 +337,7 @@ TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reli
          "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities", "spot_ask_model", "spot_scan_model"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off", "map_ships_hidden", "map_planes_hidden"}  # comma-separated ids, order kept
+IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off", "map_ships_hidden", "map_planes_hidden", "map_cameras_hidden"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
 LETTERS = {"map_open_layers"}  # map layer letters, each once
 LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
