@@ -135,7 +135,9 @@ models:
       - unique_combination:
           arguments:
             columns: [entity_id, indicator_id, period_start, freq, breakdown, variant, source_id]
-      - within_indicator_bounds
+      - within_indicator_bounds:
+          arguments:
+            has_aggregates: true
     columns:
       - name: coverage
         tests:
