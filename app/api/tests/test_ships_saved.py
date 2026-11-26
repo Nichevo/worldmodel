@@ -90,3 +90,14 @@ def test_saved_at_uses_long_look_back_outside_the_pacific(tmp_path):
     area = live.SHIP_AREAS["pacific"][1]
     got = {s["name"] for s in st.at(time.time(), [(-180, -90, 180, 90)], area, 6 * 3600 + 600)}
     assert got == {"CHANNEL"}
+
+
+def test_world_snapshot_uses_the_one_connection(tmp_path, monkeypatch):
+    monkeypatch.setenv("AISSTREAM_API_KEY", "k")
+    ships = _ships(tmp_path)
+    assert ships.wanted_boxes() == live.SHIP_AREAS["pacific"][1]
+    ships.world_until = time.time() + 600  # a snapshot is on: the same connection widens to the world
+    assert ships.wanted_boxes() == live.SHIP_AREAS["world"][1]
+    ships.world_until = time.time() - 1
+    assert ships.wanted_boxes() == live.SHIP_AREAS["pacific"][1]
+    assert not hasattr(ships, "_listen_world")

@@ -197,8 +197,18 @@
   needs_key: true
   signup: https://aisstream.io/authenticate
   how: Sign in with a GitHub account, open API Keys and create a key.
-  unlocks: The map's "Ships now" layer, for whatever part of the world is in view (only while the layer is on).
-  limits: Free. One websocket at a time; the app listens only while the layer is on and for the area in view.
+  unlocks: The map's "Ships now" layer and the ships collector (Settings > Transport), which saves ships' positions for the map's time slider, tracks and the Ships table.
+  limits: Free. One websocket at a time; the collector keeps one open for its area and opens a second for a short whole-world snapshot every few hours.
+  status: active
+
+- source: ship_owners_gfw
+  name: Global Fishing Watch (ship owners, flags and registries)
+  env: [GFW_API_TOKEN]
+  needs_key: true
+  signup: https://globalfishingwatch.org/our-apis/tokens
+  how: Make a free Global Fishing Watch account, open API access tokens, and request a token for non-commercial use.
+  unlocks: "Owner and builder in a ship's details (Ships and planes page): registered owners, flag history, registry details and authorisations, mostly for fishing boats and the carriers that serve them."
+  limits: Free for non-commercial use. Asked once per ship when its details are opened, and kept for 30 days.
   status: active
 
 - source: live_cameras_windy

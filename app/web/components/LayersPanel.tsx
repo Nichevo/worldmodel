@@ -12,7 +12,7 @@ import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
-import { setShipsAt, useShipStatus, useShipsAt } from "@/lib/ships";
+import { setShipsAt, usePlaneStatus, useShipStatus, useShipsAt } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
@@ -163,6 +163,9 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
         ...(hospLists.length < HOSPITAL_LISTS.length
           ? [["any", ["!", ["has", "found"]], ...hospLists.map((k) => ["in", HOSPITAL_LIST_NAME[k], ["get", "found"]])]] : []),
         ...(hospKinds.length < 3 ? [["in", ["coalesce", ["get", "tier"], "hospital"], ["literal", hospKinds]]] : [])],
+      // Ship kinds and plane types switched off with the chips in the Layers panel.
+      live_ships: hiddenFilter(st.map_ships_hidden),
+      live_planes: hiddenFilter(st.map_planes_hidden),
     };
     const legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[] = [];
     if (on("w") && outlines.length) {
@@ -236,7 +239,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     if (wx?.run && forecastFields(letters).length) all.wx_temp = all.wx_rain = all.wx_cloud = all.wx_wind = all.wx_pressure = wx.steps.length < wx.all_steps.length
       ? `${wx.steps.length} of ${wx.all_steps.length} forecast hours in` : `next ${wx.days} days, every ${wx.step_hours} hours`;
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const TAG_COLOUR: Record<string, string> = {
@@ -519,7 +522,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       </div>
           )}
           {panel.layers.includes("y") && <PastYear />}
-          {panel.layers.includes("S") && <ShipsTime />}
+          {(panel.layers.includes("S") || panel.layers.includes("F")) && <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />}
           {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
           {panel.layers.includes("h") && <HospitalPick />}
 
@@ -619,26 +622,55 @@ function HospitalPick() {
   );
 }
 
+function hiddenFilter(hidden?: string): unknown[] | null {
+  const off = (hidden ?? "").split(",").filter(Boolean);
+  return off.length ? ["!", ["in", ["coalesce", ["get", "group"], "unknown"], ["literal", off]]] : null;
+}
+
+// Coloured chips for a layer's kinds; clicking one hides or shows that kind on the map (kept in settings).
+function KindChips({ groups, setting }: { groups: { id: string; label: string; color: string }[]; setting: "map_ships_hidden" | "map_planes_hidden" }) {
+  const hidden = (useSettings()[setting] ?? "").split(",").filter(Boolean);
+  const save = (v: string[]) => saveSettings({ [setting]: v.join(",") });
+  const only = (id: string) => save(groups.map((g) => g.id).filter((x) => x !== id));
+  return (
+    <>
+      <div className="chips-row">
+        {groups.map((g) => {
+          const off = hidden.includes(g.id);
+          return (
+            <button key={g.id} className="chip small" aria-pressed={!off} style={{ opacity: off ? 0.45 : 1, textDecoration: off ? "line-through" : undefined }}
+              title={off ? "Hidden: click to show. Shift-click to show only this kind." : "Click to hide. Shift-click to show only this kind."}
+              onClick={(e) => e.shiftKey ? only(g.id) : save(off ? hidden.filter((x) => x !== g.id) : [...hidden, g.id])}>
+              <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}
+            </button>);
+        })}
+      </div>
+      <p className="caption">Click a kind to hide or show it; shift-click to show only that kind.
+        {hidden.length ? <> {hidden.length} hidden. <button className="link small" onClick={() => save([])}>Show all</button></> : null}</p>
+    </>
+  );
+}
+
 function Kinds({ title, groups, href }: { title: string; groups: { id: string; label: string; color: string }[]; href: string }) {
   return (
     <div className="lp-section">
       <div className="lp-label">{title} <Link className="small" href={href}>Table</Link></div>
-      <div className="chips-row">
-        {groups.map((g) => <span key={g.id} className="chip small" style={{ cursor: "default" }}>
-          <i className="dot" style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}</span>)}
-      </div>
+      <KindChips groups={groups} setting="map_planes_hidden" />
       <p className="caption">Shapes point where each is heading. Click one for where it came from and where it is going.</p>
     </div>
   );
 }
 
-// The Ships layer's time: now, or any time since ships were first saved (the collector in Settings > Transport).
-function ShipsTime() {
-  const st = useShipStatus(true);
+// The Ships and Planes layers' time: now, or any time since they were first saved (Settings > Transport).
+function ShipsTime({ ships, planes }: { ships: boolean; planes: boolean }) {
+  const st = useShipStatus(ships);
+  const pst = usePlaneStatus(planes);
   const at = useShipsAt();
   const [playing, setPlaying] = useState(false);
-  const first = st?.first ?? null;
-  const last = st?.last ?? Math.round(Date.now() / 1000);
+  const firsts = [ships ? st?.first : null, planes ? pst?.first : null].filter((x): x is number => typeof x === "number");
+  const lasts = [ships ? st?.last : null, planes ? pst?.last : null].filter((x): x is number => typeof x === "number");
+  const first = firsts.length ? Math.min(...firsts) : null;
+  const last = lasts.length ? Math.max(...lasts) : Math.round(Date.now() / 1000);
   useEffect(() => () => setShipsAt(null), []); // back to now when the layer is turned off
   useEffect(() => {
     if (!playing || !first) return;
@@ -654,7 +686,8 @@ function ShipsTime() {
   const size = st ? (st.bytes > 1e9 ? `${(st.bytes / 1e9).toFixed(1)} GB` : `${Math.max(0.1, st.bytes / 1e6).toFixed(1)} MB`) : "";
   return (
     <div className="lp-section">
-      <div className="lp-label">Ships {at ? <>at <b>{fmt(at)}</b></> : <b>now</b>} <Link className="small" href="/live?tab=ships">Table</Link></div>
+      <div className="lp-label">{ships && planes ? "Ships and planes" : ships ? "Ships" : "Planes"} {at ? <>at <b>{fmt(at)}</b></> : <b>now</b>}
+        {ships && <> <Link className="small" href="/live?tab=ships">Ships table</Link></>}{planes && <> <Link className="small" href="/live?tab=planes">Planes table</Link></>}</div>
       {first && first < last - 1800 ? (
         <>
           <input type="range" min={first} max={last} step={600} value={at ?? last} style={{ width: "100%" }} aria-label="Time the ships show"
@@ -665,19 +698,22 @@ function ShipsTime() {
             {at && <button className="link small" onClick={() => { setPlaying(false); setShipsAt(null); }}>Now</button>}
           </div>
         </>
-      ) : <p className="caption">The time slider appears once ships have been saved for a while.</p>}
-      <div className="chips-row">
-        {SHIP_GROUPS.map((g) => <span key={g.id} className="chip small" style={{ cursor: "default" }}>
-          <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}</span>)}
-      </div>
-      <p className="caption">
+      ) : <p className="caption">The time slider appears once {ships ? "ships" : "planes"} have been saved for a while.</p>}
+      {planes && pst && (
+        <p className="caption">{pst.collecting
+          ? <>Saving planes as the map gets them: {(pst.planes ?? 0).toLocaleString()} planes, {pst.days} day{pst.days === 1 ? "" : "s"},{" "}
+            {pst.bytes > 1e9 ? `${(pst.bytes / 1e9).toFixed(1)} GB` : `${Math.max(0.1, pst.bytes / 1e6).toFixed(1)} MB`} (kept {pst.keep_days} days).</>
+          : <>Planes are not being saved; turn on Save planes in <Link href="/settings#transport">Settings</Link>.</>}</p>
+      )}
+      {ships && <KindChips groups={SHIP_GROUPS} setting="map_ships_hidden" />}
+      {ships && <p className="caption">
         {st?.collecting
           ? <>Saving ships for {st.area}{st.world_every_hours ? `, and the whole world for 10 minutes every ${st.world_every_hours} hours` : ""}:
             {" "}{(st.ships ?? 0).toLocaleString()} ships, {st.days} day{st.days === 1 ? "" : "s"}, {size} (kept {st.keep_days} days).{st.world_note ? ` ${st.world_note}` : ""}</>
           : <>Ships are not being saved: only the area in view, while the layer is on. Turn on Collect ships in <Link href="/settings#transport">Settings</Link>.</>}
         {st?.error ? <> <b>{st.error}</b></> : null}
         {" "}Red-ringed ships are on a sanctions list. Click a ship for where it has been and where it is going.
-      </p>
+      </p>}
     </div>
   );
 }

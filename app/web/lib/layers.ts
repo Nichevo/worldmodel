@@ -415,7 +415,7 @@ export const LAYER_STYLE: Record<string, Style> = {
 export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number) {
   const r = (v: number) => Math.round(v * 100) / 100;
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
-  const path = id === "live_planes" ? `/live/planes?${q}` : id === "live_ships" ? `/live/ships?${q}${shipsAtQuery()}`
+  const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}${shipsAtQuery()}`
     : id === "live_military" ? `/live/military-planes?${q}`
     : id === "live_cameras" ? `/live/cameras?${q}`
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
@@ -457,7 +457,7 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + `${p.status ? `<br/>${esc(p.status)}` : ""}${typeof p.capacity === "number" ? ` · ${p.capacity} Mt a year` : ""}`;
   if (layer === "heritage_sites") return `<b>${esc(p.name)}</b><br/>World Heritage (${esc(p.type)}), ${esc(p.year)}${p.danger ? "<br/><b>In danger</b>" : ""}`;
   if (layer === "visited_sites") return `<b>${esc(p.name)}</b><br/>${num(p.visitors)} visitors${p.year ? ` (${esc(p.year)})` : ""}`;
-  if (layer === "live_planes") return `<b>${esc(p.callsign ?? p.id)}</b> (${esc(p.country)})${typeof p.altitude_m === "number" ? `<br/>${num(p.altitude_m)} m` : ""}`
+  if (layer === "live_planes") return `<b>${esc(p.callsign ?? p.id)}</b>${p.airline ? ` ${esc(p.airline)}` : ""} (${esc(p.country)})${typeof p.altitude_m === "number" ? `<br/>${num(p.altitude_m)} m` : ""}`
     + `${typeof p.speed_kmh === "number" ? ` · ${num(p.speed_kmh)} km/h` : ""}${p.group && p.group !== "unknown" ? `<br/>${esc(PLANE_GROUPS.find((g) => g.id === p.group)?.label)}` : ""}`
     + "<br/><span class=\"muted\">Click for where from and to</span>";
   if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${p.group ? ` (${esc(SHIP_GROUPS.find((g) => g.id === p.group)?.label.toLowerCase())})` : ""}`

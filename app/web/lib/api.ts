@@ -298,6 +298,8 @@ export type Settings = {
   map_hospitals_all: boolean; // the Hospitals layer shows every hospital from every list (the two above apply when off)
   map_hospital_sources: string; // lists whose hospitals the map shows: wikidata, osm, overture, national (comma separated)
   map_hospital_kinds: string; // likely kinds the map shows: hospital, unsure, clinic
+  map_ships_hidden: string; // ship kinds the Ships layer leaves out, comma separated
+  map_planes_hidden: string; // plane types the Planes layer leaves out, comma separated
   hospitals_osm_fetch: boolean; // OpenStreetMap hospitals (healthsites.io) and hospital counts
   hospitals_overture_fetch: boolean; // Overture hospitals for the countries below
   hospitals_overture_countries: string; // three-letter codes; empty: contract health.py's list
@@ -327,6 +329,11 @@ export type Settings = {
   ships_area: "pacific" | "world"; // where ships are collected
   ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
   ships_keep_days: number; // days of saved ships kept
+  planes_collect: boolean; // save the planes OpenSky sends the map (var/live/planes)
+  planes_keep_days: number; // days of saved planes kept
+  ship_owners_gfw: boolean; // ship details ask Global Fishing Watch for owners (GFW_API_TOKEN)
+  ship_owners_wikidata: boolean; // ... and Wikidata by IMO
+  ship_owners_equasis: boolean; // ... and show an Equasis link
   live_cameras: boolean; // the map's Cameras layer (road agencies, Windy webcams)
   live_military_planes: boolean; // the map's Military planes now layer (adsb.lol)
   conflict_events_fetch: boolean; // UCDP located events

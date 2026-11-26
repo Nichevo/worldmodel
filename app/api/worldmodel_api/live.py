@@ -22,6 +22,8 @@ import time
 
 import httpx
 
+from worldmodel_api.airlines import airline
+
 log = logging.getLogger(__name__)
 
 OPENSKY = "https://opensky-network.org/api/states/all"
@@ -76,7 +78,12 @@ def plane_group(cat) -> str:
     return "unknown"
 
 class Planes:
-    def __init__(self) -> None:
+    def __init__(self, store=None, settings=None) -> None:
+        self._store = store
+        self._settings_fn = settings
+        self.tidied = 0.0
+        self.route_thread: threading.Thread | None = None
+        self.route_failed: dict[str, float] = {}
         self.lock = threading.Lock()
         self.last_at = 0.0
         self.last_box: list | None = None
@@ -84,6 +91,58 @@ class Planes:
         self.token: tuple[str, float] | None = None
         self.blocked_until = 0.0
         self.blocked_why = ""
+
+    @property
+    def store(self):
+        if self._store is None:
+            from worldmodel_contract import local
+
+            from worldmodel_api.planestore import PlaneStore
+
+            self._store = PlaneStore(local.home() / "live" / "planes")
+        return self._store
+
+    def settings(self) -> dict:
+        return (self._settings_fn or _settings)() or {}
+
+    def collecting(self) -> bool:
+        return bool(self.settings().get("planes_collect", True))
+
+    def _save(self, feats: list) -> None:
+        """Keep every OpenSky answer's planes (Settings > Transport), and tidy the files hourly."""
+        if not self.collecting():
+            return
+        try:
+            self.store.add_many(feats)
+            if time.time() - self.tidied >= TIDY_EVERY:
+                self.tidied = time.time()
+                keep = int(self.settings().get("planes_keep_days") or 30)
+                threading.Thread(target=self.store.tidy, args=(keep,), daemon=True, name="planes-tidy").start()
+        except Exception as exc:  # noqa: BLE001 - the map still gets its planes
+            log.warning("plane store: %s", exc)
+
+    def saved_at(self, when: float, west: float, south: float, east: float, north: float) -> dict:
+        """Planes where they were at a saved time (the map's time slider)."""
+        bx = boxes(west, south, east, north)
+        try:
+            found = self.store.at(when, bx)
+        except Exception as exc:  # noqa: BLE001 - shown on the map
+            return {"type": "FeatureCollection", "features": [], "count": 0, "error": f"Could not read saved planes ({exc.__class__.__name__})."}
+        feats = []
+        for v in found:
+            al = airline(v.get("callsign"))
+            feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(v["lon"], 4), round(v["lat"], 4)]},
+                          "properties": {**{k: x for k, x in v.items() if k not in ("lat", "lon")}, "airline": al["name"] if al else None}})
+        when_txt = time.strftime("%d %b %Y %H:%M", time.localtime(when))
+        return {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "OpenSky Network (saved)", "at": int(when),
+                "note": f"Planes as saved at {when_txt}" + ("" if feats else ": none saved for this area and time")}
+
+    def status(self) -> dict:
+        try:
+            out = self.store.status()
+        except Exception as exc:  # noqa: BLE001
+            out = {"days": 0, "bytes": 0, "first": None, "last": None, "error": str(exc)}
+        return {**out, "collecting": self.collecting(), "keep_days": int(self.settings().get("planes_keep_days") or 30)}
 
     def _kept(self, bx: list, error: str) -> dict:
         """The planes last read (if any), with why they are not new."""
@@ -146,6 +205,7 @@ class Planes:
                     continue
                 seen.add(st[0])
                 cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
+                al = airline(st[1])
                 feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
                               "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
                                              "altitude_m": round(st[7]) if st[7] is not None else None,
@@ -154,26 +214,88 @@ class Planes:
                                              "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
                                              "squawk": st[14] if len(st) > 14 else None,
                                              "seen": st[4] if len(st) > 4 else None,
-                                             "category": cat, "group": plane_group(cat)}})
+                                             "category": cat, "group": plane_group(cat),
+                                             "airline": al["name"] if al else None}})
             self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
             self.last_at, self.last_box = time.time(), bx
+            self._save(feats)
             return self._filter(self.last, bx)
 
-    def table(self) -> dict:
-        """Every plane from the last OpenSky answer, for the planes table."""
+    def table(self, hours: float = 1) -> dict:
+        """Every plane from the last OpenSky answer, and (when saving) every plane saved in the last
+        `hours`, each at its latest position, for the planes table."""
+        feats = {f["properties"]["id"]: f for f in (self.last or {}).get("features") or []}
+        if self.collecting() and hours > 0:
+            try:
+                for v in self.store.at(time.time(), [(-180, -90, 180, 90)], back=hours * 3600):
+                    if v["id"] not in feats:
+                        feats[v["id"]] = {"geometry": {"coordinates": [v["lon"], v["lat"]]},
+                                          "properties": {k: x for k, x in v.items() if k not in ("lat", "lon")}}
+            except Exception as exc:  # noqa: BLE001 - the last answer still shows
+                log.warning("plane store: table: %s", exc)
+        self._fill_routes(list(feats.values()))
         rows = []
-        for f in (self.last or {}).get("features") or []:
+        for f in feats.values():
             p = dict(f["properties"])
             p["lon"], p["lat"] = f["geometry"]["coordinates"]
             p["category_name"] = PLANE_CATEGORY.get(p.get("category")) if p.get("category") is not None else None
+            al = airline(p.get("callsign"))
+            p["airline"], p["airline_code"], p["airline_country"] = (al["name"], al["code"], al["country"]) if al else (None, None, None)
+            p["from"] = p["to"] = None
+            if al:
+                from worldmodel_api.journeys import ROUTE_KEEP, _key
+
+                hit = self.store.lookup("route", _key(p["callsign"]), ROUTE_KEEP)
+                ports = ((hit[0] or {}).get("airports") or []) if hit else []
+                if len(ports) >= 2:
+                    p["from"], p["to"] = _place(ports[0]), _place(ports[-1])
+                    p["route_plausible"] = hit[0].get("plausible", True)
             rows.append(p)
         return {"planes": rows, "at": (self.last or {}).get("at"), "source": "OpenSky Network",
-                "note": "The planes in the map's area from the last request (the map asks every one to three minutes while Planes now is on)."}
+                "note": "The planes in the map's area from the last request (the map asks every one to three minutes while Planes now is on)"
+                        + (f", and every plane saved in the last {hours:g} hour{'s' if hours != 1 else ''}." if self.collecting() and hours > 0 else ".")}
 
     @staticmethod
     def _filter(found: dict, bx: list) -> dict:
         feats = [f for f in found["features"] if inside(*f["geometry"]["coordinates"], bx)]
         return {**found, "features": feats, "count": len(feats), "source": "OpenSky Network"}
+
+    def _fill_routes(self, feats: list) -> None:
+        """Ask adsb.lol, in the background and in batches, the routes of airline flights in the
+        table not yet known; each answer is kept (3 days), so a callsign is asked only once."""
+        if self.route_thread and self.route_thread.is_alive():
+            return
+        from worldmodel_api.journeys import ROUTE_KEEP, _key
+
+        want = []
+        for f in feats:
+            p = f["properties"]
+            cs = _key(p.get("callsign") or "")
+            if cs and airline(cs) and not self.store.lookup("route", cs, ROUTE_KEEP) and time.time() - self.route_failed.get(cs, 0) > 3600:
+                lon, lat = f["geometry"]["coordinates"]
+                want.append((cs, lat, lon))
+        if not want:
+            return
+
+        def run(batch):
+            from worldmodel_api import journeys
+
+            try:
+                got = journeys.routes(batch)
+            except Exception as exc:  # noqa: BLE001 - tried again on a later table load
+                log.info("adsb.lol routes: %s", exc)
+                return
+            self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_KEEP)
+            for cs, _, _ in batch:
+                if cs not in got:
+                    self.route_failed[cs] = time.time()
+
+        self.route_thread = threading.Thread(target=run, args=(want[:500],), daemon=True, name="plane-routes")
+        self.route_thread.start()
+
+
+def _place(a: dict) -> dict:
+    return {"name": a.get("name"), "iata": a.get("iata"), "icao": a.get("icao"), "city": a.get("city"), "country": a.get("country")}
 
 
 # ----------------------------------------------------------------------------- military planes (adsb.lol)
@@ -227,6 +349,7 @@ RETRY_AFTER = 30.0     # seconds before trying aisstream again after the listene
 OPEN_TIMEOUT = 60      # aisstream can take 20 s or more to answer a new connection
 TIDY_EVERY = 3600.0    # seconds between turning finished days into Parquet and deleting old ones
 WORLD_LISTEN = 10 * 60  # how long each whole-world snapshot listens
+WORLD_FIRST_AFTER = 30 * 60  # the first whole-world snapshot this long after the app starts
 DETAILS_EVERY = 300.0   # seconds between saves of the ships' details file
 SHIP_MESSAGES = ["PositionReport", "StandardClassBPositionReport", "ExtendedClassBPositionReport", "ShipStaticData", "StaticDataReport"]
 # Where Ships are collected in the background (Settings > Transport). aisstream boxes are
@@ -277,8 +400,8 @@ class Ships:
         self._settings: tuple[float, dict] = (0.0, {})
         self.tidied = 0.0
         self.details_saved = time.time()
-        self.world_thread: threading.Thread | None = None
-        self.world_at = 0.0          # when the last whole-world snapshot started
+        self.world_at = 0.0          # when the last whole-world snapshot started (0: not yet planned)
+        self.world_until = 0.0       # while before this, the one connection listens to the whole world
         self.world_note: str | None = None
 
     def settings(self) -> dict:
@@ -307,7 +430,9 @@ class Ships:
 
     def wanted_boxes(self) -> list:
         if self.collecting():
-            return self.area()[1]
+            # aisstream.io drops a key's connections when a second one opens, so the whole-world
+            # snapshot uses the same connection: it widens to the world for ten minutes, then back.
+            return SHIP_AREAS["world"][1] if time.time() < self.world_until else self.area()[1]
         with self.lock:
             return list(self.box or [])
 
@@ -340,10 +465,11 @@ class Ships:
                 if self.collecting():
                     self.ensure()
                 every = self.world_every()
-                if every and time.time() - self.world_at >= every and not (self.world_thread and self.world_thread.is_alive()):
-                    self.world_at = time.time()
-                    self.world_thread = threading.Thread(target=self._world, args=(self.key(),), daemon=True, name="aisstream-world")
-                    self.world_thread.start()
+                if every and not self.world_at:  # the first snapshot half an hour after the app starts
+                    self.world_at = time.time() - max(0.0, every - WORLD_FIRST_AFTER)
+                if every and time.time() - self.world_at >= every and self.connected:
+                    self.world_at, self.world_until = time.time(), time.time() + WORLD_LISTEN
+                    self.resubscribe.set()
                 if time.time() - self.details_saved >= DETAILS_EVERY:
                     self.details_saved = time.time()
                     self.store.save_details(int(self.settings().get("ships_keep_days") or 30))
@@ -454,11 +580,23 @@ class Ships:
                 "first_seen": d.get("first_seen"), "last_seen": last}
 
     def table(self, q: str = "", group: str = "", flag_code: str = "", sort: str = "last_seen", limit: int = 200,
-              offset: int = 0, hours: float = 0) -> dict:
-        """Every ship seen (saved details while collecting, else those in memory), filtered and sorted."""
+              offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None) -> dict:
+        """Every ship seen (saved details while collecting, else those in memory), filtered and sorted.
+        With a port index each row gets the port its destination names; `to` keeps ships whose
+        destination, port or port country contains it."""
         with self.lock:
             ids = set(self.store.details) | set(self.ships)
             rows = [self._row(m, self.store.details.get(m, {})) for m in ids]
+        if ports is not None:
+            from worldmodel_api.journeys import match_port
+
+            for r in rows:
+                pt = match_port(r.get("destination"), ports)
+                r["to_port"] = {k: pt.get(k) for k in ("name", "country", "locode")} if pt else None
+        if to:
+            tl = to.lower()
+            rows = [r for r in rows if tl in " ".join(str(x or "") for x in (
+                r.get("destination"), *((r.get("to_port") or {}).values()))).lower()]
         if hours:
             cut = time.time() - hours * 3600
             rows = [r for r in rows if (r["last_seen"] or 0) >= cut]
@@ -502,40 +640,15 @@ class Ships:
                 "world_every_hours": self.world_every() / 3600, "world_note": self.world_note}
 
     # ------------------------------------------------------------------ whole-world snapshots
-    def _world(self, key: str) -> None:
-        """Listen to the whole world for ten minutes and save what reports (every few hours)."""
-        try:
-            got = asyncio.run(self._listen_world(key))
-            self.world_note = f"Last whole-world snapshot {time.strftime('%H:%M', time.localtime(self.world_at))}: {got:,} reports."
-        except Exception as exc:  # noqa: BLE001 - shown in the status
-            self.world_note = f"Whole-world snapshot failed: {_ship_error(exc).split(';')[0]}."
-            log.warning("aisstream world snapshot: %s", exc)
-
-    async def _listen_world(self, key: str) -> int:
-        import websockets
-
-        got, until = 0, time.time() + WORLD_LISTEN
-        async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, max_size=2**22) as ws:
-            await ws.send(json.dumps({"APIKey": key, "BoundingBoxes": [[[-90, -180], [90, 180]]],
-                                      "FilterMessageTypes": SHIP_MESSAGES}))
-            while time.time() < until and self.collecting():
-                try:
-                    raw = await asyncio.wait_for(ws.recv(), timeout=5)
-                except asyncio.TimeoutError:
-                    continue
-                msg = json.loads(raw)
-                if msg.get("error"):
-                    raise RuntimeError(str(msg["error"]))
-                got += 1
-                self.take(msg, count=False)
-        return got
-
     # ------------------------------------------------------------------ the connection
     def _run(self, key: str) -> None:
         try:
             asyncio.run(self._listen(key))
         except Exception as exc:  # noqa: BLE001 - shown on the map, not raised
             why = self.error or _ship_error(exc)
+            if time.time() < self.world_until:  # the snapshot failed: back to the area, try again next time
+                self.world_until = 0.0
+                self.world_note = f"Whole-world snapshot failed: {why.split(';')[0]}."
             with self.lock:
                 self.error, self.failed_at, self.connected = why, time.time(), False
             log.warning("aisstream stopped: %s (%s)", why, exc)
@@ -554,6 +667,7 @@ class Ships:
             if not bx:
                 return
             self.resubscribe.clear()
+            world, got = bx == SHIP_AREAS["world"][1] and self.area()[1] != bx, 0
             async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, max_size=2**22) as ws:
                 await ws.send(json.dumps({"APIKey": key,
                                           "BoundingBoxes": [[[s, w], [n, e]] for w, s, e, n in bx],
@@ -569,7 +683,11 @@ class Ships:
                         raw = await asyncio.wait_for(ws.recv(), timeout=5)
                     except asyncio.TimeoutError:
                         continue
+                    got += 1
                     self.take(json.loads(raw))
+            if world:
+                self.world_until = 0.0
+                self.world_note = f"Last whole-world snapshot {time.strftime('%H:%M', time.localtime(self.world_at))}: {got:,} reports."
 
     def take(self, msg: dict, count: bool = True) -> None:
         """One aisstream message into the ships kept (and saved, while collecting). The whole-world

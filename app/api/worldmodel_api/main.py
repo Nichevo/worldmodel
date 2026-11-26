@@ -3976,10 +3976,13 @@ def tourism_country(entity: str):
 
 
 @api.get("/live/planes")
-def live_planes(west: float, south: float, east: float, north: float):
-    """Planes in the air in a map window now (OpenSky Network; at most one request a minute)."""
+def live_planes(west: float, south: float, east: float, north: float, at: float | None = None):
+    """Planes in the air in a map window now (OpenSky Network; at most one request a minute), or
+    with `at` (seconds since 1970) where the saved planes were then."""
     from worldmodel_api import live
 
+    if at is not None:
+        return live.PLANES.saved_at(at, west, south, east, north)
     if not local.load_settings().get("live_planes", True):
         return {"type": "FeatureCollection", "features": [], "error": "Planes now is switched off in Settings > Transport."}
     return live.PLANES.get(west, south, east, north)
@@ -4013,11 +4016,13 @@ def live_ships_status():
 
 @api.get("/live/ships/table")
 def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "last_seen",
-                     limit: int = Query(200, ge=1, le=2000), offset: int = Query(0, ge=0), hours: float = Query(0, ge=0)):
-    """Every ship seen: name, MMSI, IMO, call sign, flag, type, size, destination and where it was last."""
-    from worldmodel_api import live
+                     limit: int = Query(200, ge=1, le=2000), offset: int = Query(0, ge=0), hours: float = Query(0, ge=0),
+                     to: str = ""):
+    """Every ship seen: name, MMSI, IMO, call sign, flag, type, size, destination (matched to a port)
+    and where it was last; `to` keeps ships going to a port, code or country containing it."""
+    from worldmodel_api import journeys, live
 
-    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours)
+    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=journeys.ports(rows))
     banned = osint.sanctioned_ship_ids(rows)
     for r in out["rows"]:
         r["sanctioned"] = bool(banned and (str(r["id"]) in banned or (r.get("imo") and str(r["imo"]) in banned)))
@@ -4037,6 +4042,23 @@ def live_ship_detail(mmsi: int):
     return got
 
 
+@api.get("/live/ships/owner/{mmsi}")
+def live_ship_owner(mmsi: int):
+    """Who owns, runs and built a ship: Global Fishing Watch (with a token), Wikidata by IMO, an Equasis link."""
+    from worldmodel_api import live, shipowners
+
+    got = live.SHIPS.detail(mmsi)
+    if got is None:
+        raise HTTPException(404, "no ship with that MMSI seen")
+    global _SHIP_OWNERS
+    if _SHIP_OWNERS is None or _SHIP_OWNERS.file.parent != live.SHIPS.store.folder:
+        _SHIP_OWNERS = shipowners.Owners(live.SHIPS.store.folder)
+    return shipowners.owner(_SHIP_OWNERS, mmsi, got, live.SHIPS.settings())
+
+
+_SHIP_OWNERS = None
+
+
 @api.get("/live/ships/journey/{mmsi}")
 def live_ship_journey(mmsi: int, hours: float = Query(72, gt=0, le=24 * 400)):
     """Where a ship has been (its saved path) and where it says it is going (its destination, matched to a port)."""
@@ -4052,15 +4074,23 @@ def live_plane_journey(icao24: str, callsign: str | None = None, lat: float | No
 
     if not re.fullmatch(r"[0-9a-fA-F]{6}", icao24):
         raise HTTPException(400, "icao24 is six hex digits")
-    return journeys.plane_journey(rows, live.PLANES._auth, icao24, callsign, lat, lon)
+    return journeys.plane_journey(rows, live.PLANES._auth, icao24, callsign, lat, lon, store=live.PLANES.store)
 
 
 @api.get("/live/planes/table")
-def live_planes_table():
-    """The planes from the last OpenSky request (the planes table)."""
+def live_planes_table(hours: float = Query(1, ge=0, le=24 * 7)):
+    """The planes from the last OpenSky request, and those saved in the last `hours` (the planes table)."""
     from worldmodel_api import live
 
-    return live.PLANES.table()
+    return live.PLANES.table(hours)
+
+
+@api.get("/live/planes/status")
+def live_planes_status():
+    """How many planes are saved, from when to when (the map's time slider)."""
+    from worldmodel_api import live
+
+    return live.PLANES.status()
 
 
 @api.get("/live/ships/track/{mmsi}")

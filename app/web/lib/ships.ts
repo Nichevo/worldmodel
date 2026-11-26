@@ -36,6 +36,20 @@ export function useShipStatus(on: boolean): ShipStatus | null {
   return st;
 }
 
+export type PlaneStatus = { collecting: boolean; days: number; bytes: number; first: number | null; last: number | null; planes?: number; keep_days: number };
+export function usePlaneStatus(on: boolean): PlaneStatus | null {
+  const [st, setSt] = useState<PlaneStatus | null>(null);
+  useEffect(() => {
+    if (!on) return;
+    let live = true;
+    const load = () => get<PlaneStatus>("/live/planes/status").then((s) => live && setSt(s)).catch(() => {});
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { live = false; clearInterval(t); };
+  }, [on]);
+  return st;
+}
+
 type Place = { name: string | null; lon: number; lat: number; iata?: string | null; icao?: string | null; city?: string | null; country?: string | null; locode?: string | null };
 export type Journey = {
   track: (GeoJSON.FeatureCollection & { from?: number | null; points?: number }) | null;
@@ -43,6 +57,8 @@ export type Journey = {
   destination?: string | null; eta?: string | null; port?: Place | null; note?: string | null;
   // planes
   route?: { codes: string; plausible: boolean; airports: Place[] } | null; from_airport?: Place | null;
+  airline?: { code: string; name: string; country: string; iata: string } | null;
+  kept_at?: number; // when the path was asked of OpenSky, if this answer was kept from then
   aircraft?: { registration?: string; type?: string; description?: string; operator?: string; year?: string; emergency?: string | null;
     squawk?: string; target_altitude_m?: number | null; military?: boolean } | null;
 };
@@ -84,6 +100,7 @@ export function journeyText(j: Journey, plane: boolean): string[] {
   const out: string[] = [];
   if (plane) {
     const a = j.aircraft;
+    if (j.airline) out.push(`Airline: ${j.airline.name}${j.airline.country ? ` (${j.airline.country})` : ""}`);
     if (a && (a.type || a.registration)) out.push([a.description || a.type, a.registration].filter(Boolean).join(", ") + (a.operator ? ` (${a.operator})` : ""));
     if (a?.emergency) out.push(`Emergency: ${a.emergency}`);
     const r = j.route?.airports ?? [];
@@ -91,7 +108,7 @@ export function journeyText(j: Journey, plane: boolean): string[] {
     else if (j.from_airport) out.push(`Took off near ${place(j.from_airport)}`);
     else out.push("Route not known (only airline flights are in the route list)");
     if (typeof a?.target_altitude_m === "number") out.push(`Climbing or descending to ${a.target_altitude_m.toLocaleString()} m`);
-    if (j.track?.from) out.push(`Path drawn from ${ago(j.track.from)}`);
+    if (j.track?.from) out.push(`Path drawn from ${ago(j.track.from)}${j.kept_at ? ` (asked of OpenSky ${ago(j.kept_at)}; asked again after 30 min)` : ""}`);
   } else {
     if (j.destination) out.push(`Going to: ${j.destination}${j.port ? ` (${place(j.port)})` : ""}${j.eta ? `, due ${j.eta}` : ""}`);
     else out.push("No destination given");
