@@ -124,3 +124,12 @@ def test_statistical_forecast_models():
     assert not use_log([1, 2], "percent") and use_log([1, 2], "US dollars")
     with pytest.raises(ValueError):
         forecast([2000, 2001], [1, 2])
+
+
+def test_hospital_picks_survive_saving():
+    """The Layers panel's hospital tick boxes save list keys and kinds the settings check keeps as they are."""
+    from worldmodel_contract import health, local
+    got = local.clean_settings({"map_hospital_sources": "osm,national", "map_hospital_kinds": "hospital,clinic"})
+    assert got["map_hospital_sources"] == "osm,national" and got["map_hospital_kinds"] == "hospital,clinic"
+    assert set(local.SETTINGS["map_hospital_sources"].split(",")) == set(health.SOURCES)
+    assert local.SETTINGS["map_hospital_kinds"] == "hospital"
