@@ -39,21 +39,15 @@ const THREE_COLS = new Set<Layout>(["3h", "5", "6"]);
 
 function ExploreWorkspace() {
   const params = useSearchParams();
-  // The Map link (no view in the address) opens the map as it was left, if this browser kept it
-  // (Settings > Map > Remember the map); a link or bookmark with a view opens that view.
-  const [start] = useState(() => {
-    const kept = rememberedQuery();
-    if (!params.get("p") && kept) return { q: new URLSearchParams(kept), restored: true, cams: true };
-    // Back to the same view (browser Back, or a link to it): its map positions come back too.
-    return { q: params, restored: false, cams: !!kept && kept === toQuery(fromQuery(params)) };
-  });
-  const [ws, dispatch] = useReducer(reducer, start.q, fromQuery);
+  // The first render follows the address only, as the server did (no browser storage there), so
+  // the page hydrates cleanly; the remembered map is put back just after (see "Put back" below).
+  const [ws, dispatch] = useReducer(reducer, params, fromQuery);
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<{ entity: string; group: Group } | null>(null);
   const [values, setValues] = useState<Record<string, Value[]>>({});
-  const cameraBus = useMemo(() => new CameraBus(start.cams ? rememberedCameras() : undefined, rememberCameras), [start]);
+  const cameraBus = useMemo(() => new CameraBus(undefined, rememberCameras), []);
   const settings = useSettings();
   useEffect(() => setRememberMode(settings.map_remember), [settings.map_remember]);
   // The popup open now (one at a time); pinned ones live in the workspace.
@@ -167,8 +161,27 @@ function ExploreWorkspace() {
   const [focus, setFocus] = useMapFocus();
 
   // The opening map (no view in the address) turns on the layers chosen in Settings: CrisisWatch and events by default.
-  // A map remembered from before keeps its own layers.
-  const fresh = useRef(!params.get("p") && !start.restored);
+  const [resetKey, setResetKey] = useState(0);
+  // Put back: the Map link (no view in the address) opens the map as it was left, if this browser
+  // kept it (Settings > Remember the map); a link or bookmark with a view opens that view, with its
+  // map positions too when it is the view last seen (browser Back). Runs before the effects below.
+  const fresh = useRef(!params.get("p"));
+  const putBack = useRef(false);
+  useEffect(() => {
+    if (putBack.current) return; // once (development runs effects twice; the second would read the address just saved)
+    putBack.current = true;
+    const kept = rememberedQuery();
+    if (!kept) return;
+    const restore = !params.get("p");
+    if (!restore && kept !== toQuery(fromQuery(params))) return;
+    for (const [id, c] of rememberedCameras()) cameraBus.own.set(id, c);
+    if (restore) {
+      fresh.current = false; // a remembered map keeps its own layers
+      dispatch({ type: "load", ws: fromQuery(new URLSearchParams(kept)) });
+    }
+    setResetKey((k) => k + 1); // new maps, which open where the remembered ones were looking
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!fresh.current || !ws.panels[0]) return;
     dispatch({ type: "panel", id: ws.panels[0].id, patch: { layers: settings.map_open_layers } });
@@ -183,7 +196,6 @@ function ExploreWorkspace() {
     rememberQuery(q);
   }, [ws]);
 
-  const [resetKey, setResetKey] = useState(0);
   // Start again: the map as it first opens (the opening layers from Settings, the whole world).
   const startAgain = () => {
     cameraBus.own.clear();
