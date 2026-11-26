@@ -34,6 +34,7 @@ AISSTREAM = "wss://stream.aisstream.io/v0/stream"
 PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
 PLANE_WORLD_EVERY = 5 * 60.0        # background whole-world requests with an OpenSky API client
 PLANE_WORLD_EVERY_ANON = 30 * 60.0  # ... and without one (48 a day, about half the anonymous credits)
+SAVED_FILL = 40 * 60.0  # a view outside the last OpenSky box shows saved positions up to this old
 PLANE_EVERY_ANON = 180.0  # without one: anonymous users get about 400 credits a day, 1-4 a request
 SHIP_KEEP = 20 * 60    # seconds a ship's last position is shown
 SHIP_IDLE = 5 * 60     # the socket closes after this long without a request
@@ -220,7 +221,29 @@ class Planes:
         if not self.last:
             return {"type": "FeatureCollection", "features": [], "count": 0, "error": error}
         mins = max(1, round((time.time() - self.last_at) / 60))
-        return {**self._filter(self.last, bx), "error": f"{error} Showing planes from {mins} min ago."}
+        return {**self._with_saved(self._filter(self.last, bx), bx, outside_only=False), "error": f"{error} Showing planes from {mins} min ago."}
+
+    def _with_saved(self, found: dict, bx: list, note: str | None = None, outside_only: bool = True) -> dict:
+        """Planes of the last answer, plus the saved positions (from the whole-world requests and other
+        views, up to SAVED_FILL old) of planes in the view that answer did not cover, so a view
+        outside the last box still shows planes until its own request."""
+        if not self.collecting():
+            return {**found, **({"note": note} if note else {})}
+        try:
+            saved = self.store.at(time.time(), bx, back=SAVED_FILL)
+        except Exception as exc:  # noqa: BLE001 - the last answer is still shown
+            log.warning("plane store: %s", exc)
+            saved = []
+        have = {f["properties"].get("id") for f in found["features"]}
+        extra = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(v["lon"], 4), round(v["lat"], 4)]},
+                  "properties": self.describe({**{k: x for k, x in v.items() if k not in ("lat", "lon")}, "saved": True})}
+                 for v in saved if v["id"] not in have and not (outside_only and self.last_box and inside(v["lon"], v["lat"], self.last_box))]
+        if not extra:
+            return {**found, **({"note": note} if note else {})}
+        feats = found["features"] + extra
+        mins = max(1, round(max(0.0, time.time() - min(f["properties"].get("seen") or time.time() for f in extra)) / 60))
+        words = f"{len(extra):,} of these planes are where they were last saved (up to {mins} min ago)."
+        return {**found, "features": feats, "count": len(feats), "note": f"{note} {words}" if note else words}
 
     def _auth(self, client: httpx.Client) -> dict:
         cid, secret = os.environ.get("OPENSKY_CLIENT_ID"), os.environ.get("OPENSKY_CLIENT_SECRET")
@@ -242,7 +265,8 @@ class Planes:
                     any(w0 <= w and e <= e0 and s0 <= s and n <= n0 for w0, s0, e0, n0 in self.last_box) for w, s, e, n in bx):
                 return self._filter(self.last, bx)
             if fresh and self.last:  # asked again too soon for a new box: what we have, marked as such
-                return {**self._filter(self.last, bx), "note": f"Planes refresh every {int(every // 60)} min; moved views fill in at the next."}
+                return self._with_saved(self._filter(self.last, bx), bx,
+                                        f"Planes refresh every {int(every // 60)} min; moved views fill in at the next.")
             if time.time() < self.blocked_until:  # OpenSky said wait: don't spend more requests
                 return self._kept(bx, self.blocked_why)
             states, error = [], None

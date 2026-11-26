@@ -83,41 +83,57 @@ const loadImg = (src: string) => new Promise<HTMLImageElement | null>((ok) => {
   img.src = src;
 });
 
-export function watchPlaneBadges(m: MlMap, relayout: () => void) {
-  const asked = new Set<string>();
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  m.on("styleimagemissing", (e: { id: string }) => {
-    const id = e.id;
-    if (!id.startsWith("wm-b-") || asked.has(id)) return;
-    if (id === "wm-b--") { m.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) }); return; }
-    asked.add(id);
-    const [flag, code] = id.slice(5).split("-");
-    Promise.all([flag ? loadImg(`/flags/${flag.toLowerCase()}.svg`) : null, code ? loadImg(`/api/v1/live/planes/logo/${code}`) : null])
-      .then(([f, l]) => {
-        if (!m.getStyle() || m.hasImage(id)) return;
-        const R = 2, fw = f ? 20 : 0, lw = l ? 18 : 0, gap = f && l ? 3 : 0;
-        const w = Math.max(1, fw + gap + lw), h = l ? 18 : f ? 15 : 1;
-        const c = document.createElement("canvas");
-        c.width = w * R;
-        c.height = h * R;
-        const g = c.getContext("2d");
-        if (!g) return;
-        if (f) {
-          const y = (h - 15) / 2;
-          g.drawImage(f, 0, y * R, 20 * R, 15 * R);
-          g.strokeStyle = "rgba(0,0,0,0.35)";
-          g.lineWidth = R;
-          g.strokeRect(0, y * R, 20 * R, 15 * R);
-        }
-        if (l) {
-          g.fillStyle = "#fff";
-          g.fillRect((fw + gap) * R, 0, 18 * R, 18 * R);
-          g.drawImage(l, (fw + gap) * R, 0, 18 * R, 18 * R);
-        }
-        const img = g.getImageData(0, 0, c.width, c.height);
-        m.addImage(id, { width: c.width, height: c.height, data: new Uint8Array(img.data.buffer) }, { pixelRatio: R });
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(relayout, 400);
-      });
+// MapLibre asks for each wm-b-<flag>-<airline> image the first time a plane needs it and waits for
+// this resolver: it always adds an image (an empty one when neither flag nor logo loads), so the
+// map never warns about a missing image. The map waits for it before drawing those planes, so after
+// WAIT_MS (a logo the server is still fetching) an empty image stands in and the real one replaces
+// it when it comes. Other missing images are left to MapLibre.
+const WAIT_MS = 1200;
+export function watchPlaneBadges(m: MlMap) {
+  const empty = { width: 1, height: 1, data: new Uint8Array(4) };
+  const pending = new Map<string, Promise<void>>();
+  m.setMissingStyleImageResolver((id: string) => {
+    if (!id.startsWith("wm-b-")) return;
+    if (m.hasImage(id)) return;
+    const was = pending.get(id);
+    if (was) return was;
+    const put = (img: Parameters<MlMap["addImage"]>[1], opts?: Parameters<MlMap["addImage"]>[2]) => {
+      if (!m.style) return;
+      if (m.hasImage(id)) m.removeImage(id);
+      m.addImage(id, img, opts);
+    };
+    const build = (async () => {
+      const [flag, code] = id.slice(5).split("-");
+      const [f, l] = await Promise.all([flag ? loadImg(`/flags/${flag.toLowerCase()}.svg`) : null,
+        code ? loadImg(`/api/v1/live/planes/logo/${code}`) : null]);
+      if (!m.style) return;
+      if (!f && !l) { if (!m.hasImage(id)) put(empty); return; }
+      const R = 2, fw = f ? 20 : 0, lw = l ? 18 : 0, gap = f && l ? 3 : 0;
+      const w = fw + gap + lw, h = l ? 18 : 15;
+      const c = document.createElement("canvas");
+      c.width = w * R;
+      c.height = h * R;
+      const g = c.getContext("2d");
+      if (!g) { if (!m.hasImage(id)) put(empty); return; }
+      if (f) {
+        const y = (h - 15) / 2;
+        g.drawImage(f, 0, y * R, 20 * R, 15 * R);
+        g.strokeStyle = "rgba(0,0,0,0.35)";
+        g.lineWidth = R;
+        g.strokeRect(0, y * R, 20 * R, 15 * R);
+      }
+      if (l) {
+        g.fillStyle = "#fff";
+        g.fillRect((fw + gap) * R, 0, 18 * R, 18 * R);
+        g.drawImage(l, (fw + gap) * R, 0, 18 * R, 18 * R);
+      }
+      const img = g.getImageData(0, 0, c.width, c.height);
+      put({ width: c.width, height: c.height, data: new Uint8Array(img.data.buffer) }, { pixelRatio: R });
+    })().catch(() => { if (m.style && !m.hasImage(id)) put(empty); });
+    const job = Promise.race([build, new Promise<void>((ok) => setTimeout(ok, WAIT_MS))])
+      .then(() => { if (m.style && !m.hasImage(id)) put(empty); })
+      .finally(() => pending.delete(id));
+    pending.set(id, job);
+    return job;
   });
 }

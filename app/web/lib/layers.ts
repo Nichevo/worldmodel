@@ -378,6 +378,18 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "icon-color": groupColor(SHIP_GROUPS, "#6b7785"), "icon-halo-color": ["case", ["boolean", ["get", "sanctioned"], false], "#c92a2a", cssVar("--surface")],
       "icon-halo-width": ["case", ["boolean", ["get", "sanctioned"], false], 2, 1] }) as never,
   },
+  live_cameras: {
+    legend: "Public camera: road (blue), road weather (purple), beach and coast (orange), city and scenery (green); hollow when offline",
+    swatch: () => CAMERA_KIND.traffic.color, dot: true, fetch: "live", every: 300, click: "camera",
+    paint: () => ({
+      "circle-color": ["match", ["get", "kind"], ...Object.entries(CAMERA_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification,
+      "circle-opacity": ["case", ["boolean", ["get", "offline"], false], 0, 0.9],
+      "circle-radius": zoomWidth(2.2, 5),
+      "circle-stroke-color": ["case", ["boolean", ["get", "offline"], false],
+        ["match", ["get", "kind"], ...Object.entries(CAMERA_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification, cssVar("--surface")],
+      "circle-stroke-width": ["case", ["boolean", ["get", "offline"], false], 1.2, 0.6],
+    }),
+  },
   // ---- detail from the OSINT communities
   conflict_events: {
     legend: "Fighting and unrest in the time window (UCDP, ACLED): bigger for more deaths; red fighting, purple civilians killed, blue protests",

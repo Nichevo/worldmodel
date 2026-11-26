@@ -150,3 +150,19 @@ def test_counts_filters_and_route_misses_asked_again(tmp_path, monkeypatch):
     monkeypatch.setattr(journeys, "routes", lambda b: {"ANZ1": {"codes": "KJFK-NZAA", "airports": []}})
     j = journeys.plane_journey(None, None, "c81d90", "ANZ1", 0, 0, store=st)
     assert j["route"]["codes"] == "KJFK-NZAA"
+
+
+def test_view_outside_last_box_filled_from_saved(tmp_path):
+    from tests.test_planes_saved import _plane
+
+    st = PlaneStore(tmp_path / "planes")
+    st.add_many([_plane("c81d90", 174.8, -36.9, "ANZ101"), _plane("a1befc", -156.6, 21.3, "UAL1169")], now=time.time() - 600)
+    planes = live.Planes(store=st, settings=lambda: {"planes_collect": True, "planes_types": False})
+    planes.last = {"type": "FeatureCollection", "features": [_plane("c81d90", 175.0, -37.0, "ANZ101")], "at": int(time.time())}
+    planes.last_at, planes.last_box = time.time(), live.boxes(160, -50, 180, -30)
+    got = planes.get(-180, -80, 180, 80)  # asked too soon for a new box: the last answer plus saved planes elsewhere
+    ids = sorted(f["properties"]["id"] for f in got["features"])
+    assert ids == ["a1befc", "c81d90"] and "last saved" in got["note"]
+    hawaii = next(f for f in got["features"] if f["properties"]["id"] == "a1befc")
+    assert hawaii["properties"]["saved"] is True
+    assert next(f for f in got["features"] if f["properties"]["id"] == "c81d90")["geometry"]["coordinates"] == [175.0, -37.0]

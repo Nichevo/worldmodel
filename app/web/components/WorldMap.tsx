@@ -304,10 +304,7 @@ export default function WorldMap({
     quietMapErrors(m, () => setDetailNote((cur) => cur ?? `${ONLINE_DOWN_NOTE} some of it is missing.`));
     map.current = m;
     onMap?.(m);
-    watchPlaneBadges(m, () => {
-      const src = m.getSource("ov-live_planes") as GeoJSONSource | undefined;
-      src?.getData().then((d) => src.setData(d)).catch(() => {});
-    });
+    watchPlaneBadges(m);
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
 
     m.on("load", async () => {
