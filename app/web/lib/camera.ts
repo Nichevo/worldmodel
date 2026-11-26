@@ -18,6 +18,25 @@ export class CameraBus {
     this.onKeep = onKeep;
   }
 
+  // The area each map shows ("west,south,east,north"), the last one moved first, for panels that
+  // list only what is in view (the Ships and planes panel).
+  views = new Map<string, string>();
+  private viewListeners = new Set<(box: string) => void>();
+  lastView = "";
+
+  /** Notes the area a map shows now (after it moved) and tells the panels that follow it. */
+  setView(id: string, box: string) {
+    this.views.set(id, box);
+    if (box === this.lastView) return;
+    this.lastView = box;
+    for (const l of this.viewListeners) l(box);
+  }
+
+  onView(fn: (box: string) => void): () => void {
+    this.viewListeners.add(fn);
+    return () => { this.viewListeners.delete(fn); };
+  }
+
   /** Notes where one map is looking now (after it moved). */
   keep(id: string, cam: Camera) {
     this.own.set(id, cam);

@@ -150,9 +150,40 @@ def airport_country(a: dict | None) -> str | None:
     return country_name(a.get("country")) if a else None
 
 
+def parse_box(box: str) -> tuple[float, float, float, float] | None:
+    """The map view as "west,south,east,north" (longitudes may run past ±180, as MapLibre gives them),
+    or None for no box or a bad one."""
+    try:
+        w, s, e, n = (float(x) for x in box.split(","))
+    except ValueError:
+        return None
+    if e < w or n < s:
+        return None
+    return w, s, e, n
+
+
+def in_box(lon, lat, box: tuple[float, float, float, float] | None) -> bool:
+    """Whether a point is inside the view; a point with no position is not. Works across the date line."""
+    if box is None:
+        return True
+    if not isinstance(lon, (int, float)) or not isinstance(lat, (int, float)):
+        return False
+    w, s, e, n = box
+    if not s <= lat <= n:
+        return False
+    if e - w >= 360:
+        return True
+    lon = (lon - w) % 360 + w  # the same longitude, moved into [w, w + 360)
+    return lon <= e
+
+
 def filter_planes(rows: list[dict], group: str = "", airline: str = "", flag: str = "", q: str = "", frm: str = "", to: str = "",
-                  from_country: str = "", to_country: str = "") -> list[dict]:
-    """The plane rows matching the counts tab's filters (the same as the planes table's)."""
+                  from_country: str = "", to_country: str = "", box: str = "") -> list[dict]:
+    """The plane rows matching the counts tab's filters (the same as the planes table's); `box` keeps
+    those inside the map view ("west,south,east,north")."""
+    b = parse_box(box) if box else None
+    if b is not None:
+        rows = [p for p in rows if in_box(p.get("lon"), p.get("lat"), b)]
     ql, fl, tl = q.strip().lower(), frm.strip().lower(), to.strip().lower()
     fc, tc = from_country.strip().lower(), to_country.strip().lower()
     out = []

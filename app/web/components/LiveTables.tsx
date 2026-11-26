@@ -12,6 +12,7 @@ import { mapLayersHref } from "@/lib/workspace";
 import { useSettings } from "@/lib/settings";
 import { ON_TIME_STATES, OnTimePill, SchedulePart, SchedulesBoard, type OnTime } from "@/components/ShipSchedule";
 import type { LiveTab } from "@/lib/workspace";
+import type { CameraBus } from "@/lib/camera";
 
 // A plane's flag (from the country that issued its transponder address) and its airline's logo.
 function PlaneFlag({ code, title }: { code?: string | null; title?: string | null }) {
@@ -80,7 +81,7 @@ type CountsData = { total: number; hours: number; parts: CountPart[]; moving?: n
   airline?: number; military?: number };
 
 // Counts of ships or planes by kind, flag, airline, where from and to; a row opens the list filtered to it.
-export function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" | "planes", f: Record<string, string>) => void }) {
+export function Counts({ what, drill, box }: { what: "ships" | "planes"; drill: (t: "ships" | "planes", f: Record<string, string>) => void; box?: string }) {
   const [hours, setHours] = useState(24);
   const [d, setD] = useState<CountsData | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -96,7 +97,7 @@ export function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "
   useEffect(() => {
     let live = true;
     setErr(null);
-    const load = () => get<CountsData>(`/live/${what}/stats`, { hours, top: 0, ...f }).then((x) => {
+    const load = () => get<CountsData>(`/live/${what}/stats`, { hours, top: 0, ...f, box: box || undefined }).then((x) => {
       if (!live) return;
       setD(x);
       if (!Object.values(f).some(Boolean)) setOpts(x);
@@ -104,7 +105,7 @@ export function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "
     load();
     const t = setInterval(() => { if (!document.hidden) load(); }, 120_000);
     return () => { live = false; clearInterval(t); };
-  }, [what, hours, fkey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [what, hours, fkey, box]); // eslint-disable-line react-hooks/exhaustive-deps
   const optRows = (id: string) => (opts ?? d)?.parts.find((p) => p.id === id)?.rows ?? [];
   const pick = (k: string, v: string) => setF((c) => ({ ...c, [k]: v }));
   const type = (k: string, v: string) => setTyped((c) => ({ ...c, [k]: v }));
@@ -258,7 +259,7 @@ export function Sweeps() {
   );
 }
 
-export function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
+export function Ships({ open, setOpen, init, box }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string; box?: string }) {
   const [q, setQ] = useState(init("q"));
   const [group, setGroup] = useState(init("group"));
   const [hours, setHours] = useState(0);
@@ -275,10 +276,10 @@ export function Ships({ open, setOpen, init }: { open: string | null; setOpen: (
   const st = useShipStatus(true);
   useEffect(() => {
     let live = true;
-    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came, ontime, from_country: fromC, to_country: toC });
+    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came, ontime, from_country: fromC, to_country: toC, box: box ?? "" });
     const t = setTimeout(() => get<typeof d>(`/live/ships/table?${qs}`).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e))), 250);
     return () => { live = false; clearTimeout(t); };
-  }, [q, group, sort, limit, hours, to, came, ontime, fromC, toC]);
+  }, [q, group, sort, limit, hours, to, came, ontime, fromC, toC, box]);
   if (err) return <p className="error">{err}</p>;
   const head = (key: string, label: string) => (
     <th><button className="link small" onClick={() => setSort(sort === key ? `-${key}` : key)}>{label}{sort.replace("-", "") === key ? (sort.startsWith("-") ? " ▲" : " ▼") : ""}</button></th>
@@ -469,7 +470,7 @@ function OwnerPart({ id }: { id: string }) {
 // and sort are sent with each ask, and a page of rows comes back with how many matched.
 const PLANES_PAGE = 500;
 
-export function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
+export function Planes({ open, setOpen, init, box }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string; box?: string }) {
   type Answer = { planes: Plane[]; at: number | null; note: string; route_note?: string | null; total?: number; all?: number; airlines?: [string, number][];
     countries?: { from: [string, number][]; to: [string, number][] } };
   const [d, setD] = useState<Answer | null>(null);
@@ -493,13 +494,13 @@ export function Planes({ open, setOpen, init }: { open: string | null; setOpen: 
   useEffect(() => {
     let live = true;
     const load = () => get<Answer>("/live/planes/table", { hours: 24, q: typed.q.trim(), group, airline: line, from: typed.from.trim(), to: typed.to.trim(),
-      from_country: fromC || undefined, to_country: toC || undefined, mins: mins || undefined, sort: String(sort), limit: PLANES_PAGE * more }).then((x) => live && setD(x)).catch(() => {});
+      from_country: fromC || undefined, to_country: toC || undefined, mins: mins || undefined, sort: String(sort), limit: PLANES_PAGE * more, box: box || undefined }).then((x) => live && setD(x)).catch(() => {});
     load();
     const t = setInterval(() => { if (!document.hidden) load(); }, 60_000);
     const back = () => { if (!document.hidden) load(); };
     document.addEventListener("visibilitychange", back);
     return () => { live = false; clearInterval(t); document.removeEventListener("visibilitychange", back); };
-  }, [typed, group, line, mins, sort, more, fromC, toC]);
+  }, [typed, group, line, mins, sort, more, fromC, toC, box]);
   const rows = d?.planes ?? [];
   const airlines = d?.airlines ?? [];
   const picked = rows.find((p) => p.id === open);
@@ -645,8 +646,14 @@ function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose:
 const LIVE_LABEL: Record<LiveTab, string> = { ships: "Ships", planes: "Planes", "ship-counts": "Ship counts", "plane-counts": "Plane counts", schedules: "Schedules" };
 
 // A map page panel showing one of the Ships and planes tables; a counts row opens the list with that filter.
-export function LivePanel({ tab, setTab }: { tab: LiveTab; setTab: (t: LiveTab) => void }) {
+export function LivePanel({ tab, setTab, cameraBus }: { tab: LiveTab; setTab: (t: LiveTab) => void; cameraBus?: CameraBus }) {
   const [filter, setFilter] = useState<Record<string, string>>({});
+  // Only what is in the map's view (the map moved last), on by default; remembered in this browser.
+  const [inView, setInView] = useState(() => { try { return localStorage.getItem("wm-live-in-view") !== "0"; } catch { return true; } });
+  const [box, setBox] = useState(cameraBus?.lastView ?? "");
+  useEffect(() => cameraBus?.onView(setBox), [cameraBus]);
+  const keepInView = (on: boolean) => { setInView(on); try { localStorage.setItem("wm-live-in-view", on ? "1" : "0"); } catch { /* not kept */ } };
+  const area = inView && cameraBus ? box : "";
   const [open, setOpen] = useState<string | null>(null);
   const init = (k: string) => filter[k] ?? "";
   const key = Object.entries(filter).map(([k, v]) => `${k}=${v}`).join("&");
@@ -658,11 +665,16 @@ export function LivePanel({ tab, setTab }: { tab: LiveTab; setTab: (t: LiveTab) 
           <button key={t} className={t === tab ? "on" : ""} aria-pressed={t === tab} onClick={() => go(t)}>{LIVE_LABEL[t]}</button>
         ))}
         <Link className="small" href={`/live?tab=${tab}`} style={{ marginLeft: 8 }}>Open full page</Link>
+        {cameraBus && tab !== "schedules" && (
+          <label className="small" style={{ marginLeft: 10 }} title="List and count only the ships or planes inside the area the map shows (the map you moved last); they follow the map as you pan and zoom">
+            <input type="checkbox" checked={inView} onChange={(e) => keepInView(e.target.checked)} /> Only what&apos;s in the map view
+          </label>
+        )}
       </div>
-      {tab === "ships" && <Ships key={key} init={init} open={open} setOpen={setOpen} />}
-      {tab === "planes" && <Planes key={key} init={init} open={open} setOpen={setOpen} />}
-      {tab === "ship-counts" && <Counts what="ships" drill={(t, f) => go(t, f)} />}
-      {tab === "plane-counts" && <Counts what="planes" drill={(t, f) => go(t, f)} />}
+      {tab === "ships" && <Ships key={key} init={init} open={open} setOpen={setOpen} box={area} />}
+      {tab === "planes" && <Planes key={key} init={init} open={open} setOpen={setOpen} box={area} />}
+      {tab === "ship-counts" && <Counts what="ships" drill={(t, f) => go(t, f)} box={area} />}
+      {tab === "plane-counts" && <Counts what="planes" drill={(t, f) => go(t, f)} box={area} />}
       {tab === "schedules" && <><SchedulesBoard openShip={setOpen} />{open && <ShipCard id={open} onClose={() => setOpen(null)} />}</>}
     </div>
   );

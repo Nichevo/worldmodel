@@ -207,3 +207,14 @@ def test_plane_country_filters():
     assert livestats.country_name("NZ") == "New Zealand" and livestats.airport_country(rows[0]["to"]) == "Australia"
     assert [p["callsign"] for p in livestats.filter_planes(rows, from_country="new zealand")] == ["ANZ101"]
     assert [p["callsign"] for p in livestats.filter_planes(rows, to="new zealand")] == ["QFA44"]  # typed country names match too
+
+
+def test_map_view_box_across_the_date_line():
+    from worldmodel_api.livestats import filter_planes, in_box, parse_box
+
+    pacific = parse_box("150,-50,200,-10")  # MapLibre runs past 180 when the view crosses it
+    assert in_box(174.8, -36.8, pacific) and in_box(-170.0, -14.3, pacific)  # Auckland, Samoa
+    assert not in_box(-118.2, 33.7, pacific) and not in_box(None, None, pacific)
+    assert in_box(10, 10, parse_box("-200,-80,200,80")) and parse_box("bad") is None and in_box(1, 1, None)
+    planes = [{"id": "a", "lon": 174.8, "lat": -36.8}, {"id": "b", "lon": 0.0, "lat": 51.5}]
+    assert [p["id"] for p in filter_planes(planes, box="150,-50,200,-10")] == ["a"]

@@ -858,13 +858,18 @@ class Ships:
 
     def table(self, q: str = "", group: str = "", flag_code: str = "", sort: str = "last_seen", limit: int = 200,
               offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None, came: str = "",
-              schedule_fn=None, ontime: str = "", from_country: str = "", to_country: str = "") -> dict:
+              schedule_fn=None, ontime: str = "", from_country: str = "", to_country: str = "", box: str = "") -> dict:
         """Every ship seen (saved details while collecting, else those in memory), filtered and sorted.
         With a port index each row gets the port its destination names; `to` keeps ships whose
         destination, port or port country contains it."""
         with self.lock:
             ids = set(self.store.details) | set(self.ships)
             rows = [self._row(m, self.store.details.get(m, {})) for m in ids]
+        if box:  # only ships inside the map view ("west,south,east,north")
+            from worldmodel_api.livestats import in_box, parse_box
+
+            b = parse_box(box)
+            rows = [r for r in rows if in_box(r.get("lon"), r.get("lat"), b)]
         if ports is not None:
             from worldmodel_api.journeys import match_port
 

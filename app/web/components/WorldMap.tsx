@@ -1088,9 +1088,14 @@ export default function WorldMap({
     if (start) m.jumpTo(start);
     const here = () => { const c = m.getCenter(); return { center: [c.lng, c.lat] as [number, number], zoom: m.getZoom() }; };
     const onMove = () => { if (linked) bus.publish(id, group, here()); };
-    const onEnd = () => bus.keep(id, here());
+    const view = () => {
+      const b = m.getBounds();
+      bus.setView(id, [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((x) => x.toFixed(2)).join(","));
+    };
+    const onEnd = () => { bus.keep(id, here()); view(); };
     m.on("move", onMove);
     m.on("moveend", onEnd);
+    if (m.loaded()) view(); else m.once("load", view);
     return () => {
       unsubscribe();
       m.off("move", onMove);
