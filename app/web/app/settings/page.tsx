@@ -426,7 +426,7 @@ export default function SettingsPage() {
           save={(v) => save({ planes_keep_days: v })} />
         <Toggle label="Ship owners: Global Fishing Watch" hint="Opening a ship's details asks Global Fishing Watch (free GFW_API_TOKEN in Settings > Keys, non-commercial use) for its registered owners, flag history and authorisations, kept 30 days. Strongest for fishing boats and their carriers. Off: that part of the details is left out."
           on={s.ship_owners_gfw} set={(v) => save({ ship_owners_gfw: v })} />
-        <Toggle label="Ship owners: Wikidata" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner, year and picture, by IMO number. Only well-known ships are there. Off: that part is left out."
+        <Toggle label="Ship owners: Wikidata and photos" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner and year, and Wikimedia Commons for up to 6 freely licensed photos filed under its IMO number, with credits. Only ships with an IMO number; well-known ones have the most. Off: those parts are left out."
           on={s.ship_owners_wikidata} set={(v) => save({ ship_owners_wikidata: v })} />
         <Toggle label="Ship owners: Equasis link" hint="A ship's details link to Equasis (free sign-in), which has owners and managers for nearly every merchant ship; its terms forbid automated reading, so it is only a link. Off: no link."
           on={s.ship_owners_equasis} set={(v) => save({ ship_owners_equasis: v })} />

@@ -172,12 +172,13 @@ function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
 
 type Owner = {
   imo: string | null; notes: string[];
-  gfw: null | { error?: string; none?: boolean; name?: string; flag?: string; built?: number | string; gear?: string; tonnage_gt?: number; link?: string | null;
+  gfw: null | { error?: string; none?: boolean; name?: string | null; flag?: string | null; built?: number | string; gear?: string; tonnage_gt?: number; link?: string | null;
     owners?: { name: string; flag?: string; from?: string; to?: string }[]; flags?: { flag: string; from?: string; to?: string }[];
     authorisations?: { by?: string; from?: string; to?: string }[] };
   wikidata: null | { error?: string; none?: boolean; builder?: string[]; operator?: string[]; owner?: string[]; class?: string | null;
     launched?: string | null; entered_service?: string | null; image?: string | null; wikipedia?: string | null; link?: string | null };
   equasis: null | { href: string; how: string };
+  photos?: { thumb: string; page?: string | null; title?: string; author?: string | null; licence?: string | null; date?: string | null }[] | null;
 };
 
 // Who owns, runs and built the ship (Settings > Transport picks the sources).
@@ -202,6 +203,9 @@ function OwnerPart({ id }: { id: string }) {
     if (w.class) lines.push(<>Class: {w.class}</>);
   }
   if (g && !g.error && !g.none) {
+    const since = (g.flags ?? [])[0]?.from;
+    lines.push(<>Global Fishing Watch knows it as <b>{g.name ?? "(no name)"}</b>{g.flag || g.flags?.length ? `, flag ${g.flag ?? g.flags![g.flags!.length - 1].flag}` : ""}
+      {since ? `, broadcasting since ${since.slice(0, 7)}` : ""}{!(g.owners ?? []).length ? "; no public registry or owner record" : ""}</>);
     for (const ow of (g.owners ?? []).slice(0, 4)) lines.push(<>Registered owner: {ow.name}{ow.flag ? ` [${ow.flag}]` : ""}{span(ow.from, ow.to)}</>);
     if (g.built && !(w && w.launched)) lines.push(<>Built {g.built}</>);
     if (g.gear) lines.push(<>Gear: {g.gear}</>);
@@ -217,7 +221,20 @@ function OwnerPart({ id }: { id: string }) {
   return (
     <>
       <h3 className="small" style={{ marginBottom: 2 }}>Owner and builder</h3>
-      {w?.image && <img src={`${w.image.replace("http://", "https://")}?width=300`} alt="" style={{ maxWidth: 300, maxHeight: 160, display: "block", margin: "4px 0" }} />}
+      {w?.image && !o.photos?.length && <img src={`${w.image.replace("http://", "https://")}?width=300`} alt="" style={{ maxWidth: 300, maxHeight: 160, display: "block", margin: "4px 0" }} />}
+      {!!o.photos?.length && (
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", margin: "4px 0" }}>
+          {o.photos.map((ph) => (
+            <figure key={ph.thumb} style={{ margin: 0, flex: "0 0 auto", maxWidth: 200 }}>
+              <a href={ph.page ?? ph.thumb} target="_blank" rel="noreferrer"><img src={ph.thumb} alt={ph.title ?? ""} loading="lazy" style={{ height: 110, display: "block" }} /></a>
+              <figcaption className="caption" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={[ph.author, ph.licence, ph.date].filter(Boolean).join(", ")}>
+                {[ph.date?.slice(0, 4), ph.author, ph.licence].filter(Boolean).join(" · ") || "Wikimedia Commons"}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
       {lines.map((l, i) => <p key={i} className="small" style={{ margin: "2px 0" }}>{l}</p>)}
       {!lines.length && <p className="small muted" style={{ margin: "2px 0" }}>Nothing found in the free sources.</p>}
       {[...said.map((t) => `${t}.`), ...o.notes].map((t) => <p key={t} className="caption" style={{ margin: "2px 0" }}>{t}</p>)}
@@ -225,6 +242,7 @@ function OwnerPart({ id }: { id: string }) {
         {[g?.link && <a key="g" href={g.link} target="_blank" rel="noreferrer">Global Fishing Watch</a>,
           w?.wikipedia && <a key="wp" href={w.wikipedia} target="_blank" rel="noreferrer">Wikipedia</a>,
           w?.link && <a key="w" href={w.link} target="_blank" rel="noreferrer">Wikidata</a>,
+          o.imo && !!o.photos?.length && <a key="c" href={`https://commons.wikimedia.org/wiki/Category:IMO_${o.imo}`} target="_blank" rel="noreferrer">All photos (Commons)</a>,
           o.equasis && <span key="e"><a href={o.equasis.href} target="_blank" rel="noreferrer">Equasis</a> <span className="muted">({o.equasis.how})</span></span>]
           .filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x]))}
       </p>

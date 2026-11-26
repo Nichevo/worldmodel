@@ -157,7 +157,7 @@ SETTINGS: dict[str, object] = {
     "planes_world": True,                # also ask OpenSky for the whole world in the background (every 30 min, 5 with an API client) and save it
     "planes_keep_days": 30,              # days of saved plane positions kept (older days deleted)
     "ship_owners_gfw": True,             # a ship's details ask Global Fishing Watch for owners and registries (needs GFW_API_TOKEN)
-    "ship_owners_wikidata": True,        # ... and Wikidata for builder, operator and owner by IMO number
+    "ship_owners_wikidata": True,        # ... and Wikidata (builder, operator, owner) + Commons photos by IMO number
     "ship_owners_equasis": True,         # ... and show an Equasis link (owners and managers, after signing in)
     "live_cameras": True,                # the map's Cameras layer reads road agencies' public camera lists (and Windy's, with WINDY_WEBCAMS_API_KEY)
     "live_military_planes": True,        # Planes now can show military planes only, from adsb.lol's volunteer receivers (no key)

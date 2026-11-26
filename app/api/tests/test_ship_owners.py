@@ -61,6 +61,7 @@ def test_owner_uses_settings_keeps_answers_and_retries_failures(tmp_path, monkey
 
     monkeypatch.setattr(shipowners, "gfw", fake_gfw)
     monkeypatch.setattr(shipowners, "wikidata", fake_wd)
+    monkeypatch.setattr(shipowners, "commons", lambda imo: [{"thumb": "t", "page": "p", "title": "x"}])
     store = shipowners.Owners(tmp_path)
     detail = {"imo": 9300001}
     monkeypatch.delenv("GFW_API_TOKEN", raising=False)
@@ -100,3 +101,16 @@ def test_plane_journey_is_kept(monkeypatch):
     again = journeys.plane_journey(lambda s, p: [], lambda c: {}, "c81d90", "ANZ1", None, None)
     assert asked == {"track": 1, "aircraft": 1} and "kept_at" in again and "kept_at" not in first
     assert again["airline"]["name"] == "Air New Zealand" and again["aircraft"]["registration"] == "ZK-NZE"
+
+
+def test_parse_commons_photos():
+    body = {"query": {"pages": {
+        "2": {"index": 2, "title": "File:B.jpg", "imageinfo": [{"thumburl": "https://u/b.jpg", "descriptionurl": "https://c/B",
+                                                                 "extmetadata": {"Artist": {"value": "<a href='x'>Jo Bloggs</a>"},
+                                                                                 "LicenseShortName": {"value": "CC BY-SA 4.0"},
+                                                                                 "DateTimeOriginal": {"value": "2019-03-04 10:00"}}}]},
+        "1": {"index": 1, "title": "File:A.jpg", "imageinfo": [{"thumburl": "https://u/a.jpg"}]},
+        "3": {"index": 3, "title": "File:C.pdf", "imageinfo": [{}]}}}}
+    got = shipowners.parse_commons(body)
+    assert [p["title"] for p in got] == ["A.jpg", "B.jpg"]
+    assert got[1]["author"] == "Jo Bloggs" and got[1]["licence"] == "CC BY-SA 4.0" and got[1]["date"] == "2019-03-04"
