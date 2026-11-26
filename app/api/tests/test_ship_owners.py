@@ -93,7 +93,7 @@ def test_plane_journey_is_kept(monkeypatch):
 
     monkeypatch.setattr(journeys, "_track", fake_track)
     monkeypatch.setattr(journeys, "_aircraft", fake_aircraft)
-    monkeypatch.setattr(journeys, "_route", lambda cs, lat, lon: None)
+    monkeypatch.setattr(journeys, "_route", lambda cs, lat, lon: (None, True))
     journeys._tracks.clear()
     journeys._aircraft_kept.clear()
     first = journeys.plane_journey(lambda s, p: [], lambda c: {}, "C81D90", "ANZ1", None, None)

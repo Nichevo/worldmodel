@@ -16,12 +16,16 @@ type Ship = {
   kind: number | null; type: string | null; group: string; length_m: number | null; width_m: number | null; draught_m: number | null;
   destination: string | null; eta: string | null; status: string | null; speed_kn: number | null; heading: number | null;
   lat: number | null; lon: number | null; first_seen: number | null; last_seen: number | null; sanctioned?: boolean;
-  links?: { label: string; href: string }[];
+  links?: { label: string; href: string }[]; to_port?: { name: string | null; country: string | null; locode: string | null } | null;
 };
+type Airport = { name: string | null; iata: string | null; icao: string | null; city: string | null; country: string | null };
+const airport = (a?: Airport | null) => (a ? `${a.city || a.name || ""}${a.iata ? ` (${a.iata})` : ""}` : "");
+const airportText = (a?: Airport | null) => (a ? [a.name, a.iata, a.icao, a.city, a.country].filter(Boolean).join(" ").toLowerCase() : "");
 type Plane = {
   id: string; callsign: string | null; country: string | null; altitude_m: number | null; speed_kmh: number | null; heading: number | null;
   climb_ms: number | null; squawk: string | null; seen: number | null; category: number | null; category_name: string | null; group: string;
   lat: number; lon: number; airline?: string | null; airline_code?: string | null;
+  from?: Airport | null; to?: Airport | null; route_plausible?: boolean;
 };
 
 const when = (t?: number | null) => (t ? new Date(t * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
@@ -58,6 +62,7 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
   const [q, setQ] = useState("");
   const [group, setGroup] = useState("");
   const [hours, setHours] = useState(0);
+  const [to, setTo] = useState("");
   const [sort, setSort] = useState("last_seen");
   const [limit, setLimit] = useState(200);
   const [d, setD] = useState<{ rows: Ship[]; total: number; groups: Record<string, number>; collecting: boolean } | null>(null);
@@ -65,10 +70,10 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
   const st = useShipStatus(true);
   useEffect(() => {
     let live = true;
-    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours) });
+    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to });
     const t = setTimeout(() => get<typeof d>(`/live/ships/table?${qs}`).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e))), 250);
     return () => { live = false; clearTimeout(t); };
-  }, [q, group, sort, limit, hours]);
+  }, [q, group, sort, limit, hours, to]);
   if (err) return <p className="error">{err}</p>;
   const head = (key: string, label: string) => (
     <th><button className="link small" onClick={() => setSort(sort === key ? `-${key}` : key)}>{label}{sort.replace("-", "") === key ? (sort.startsWith("-") ? " ▲" : " ▼") : ""}</button></th>
@@ -87,8 +92,9 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
           <option value="">All ({n(d ? Object.values(d.groups).reduce((a, b) => a + b, 0) : 0)})</option>
           {SHIP_GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}{d?.groups[g.id] ? ` (${n(d.groups[g.id])})` : ""}</option>)}
         </select></label>
+        <label>Going to <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
         <label>Seen <select value={hours} onChange={(e) => setHours(+e.target.value)}>
-          <option value={0}>Any time</option><option value={1}>In the last hour</option><option value={24}>In the last day</option><option value={168}>In the last week</option>
+          <option value={0}>Any time</option><option value={0.25}>In the last 15 minutes</option><option value={1}>In the last hour</option><option value={24}>In the last day</option><option value={168}>In the last week</option>
         </select></label>
         <span className="muted">{d ? `${n(d.total)} ships` : "Loading…"}</span>
       </div>
@@ -104,7 +110,7 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
                 <td>{r.flag ?? ""}</td>
                 <td>{r.length_m ? `${r.length_m} m` : ""}</td>
                 <td>{typeof r.speed_kn === "number" ? `${r.speed_kn} kn` : ""}</td>
-                <td>{r.destination ?? ""}</td>
+                <td>{r.destination ?? ""}{r.to_port ? <span className="muted"> ({[r.to_port.name, r.to_port.country].filter(Boolean).join(", ")})</span> : null}</td>
                 <td>{r.status ?? ""}</td>
                 <td>{when(r.last_seen)}</td>
               </tr>
@@ -224,10 +230,13 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
   const [q, setQ] = useState("");
   const [group, setGroup] = useState("");
   const [line, setLine] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [mins, setMins] = useState(0);
   const [sort, setSort] = useState<keyof Plane>("altitude_m");
   useEffect(() => {
     let live = true;
-    const load = () => get<NonNullable<typeof d>>("/live/planes/table").then((x) => live && setD(x)).catch(() => {});
+    const load = () => get<NonNullable<typeof d>>("/live/planes/table?hours=24").then((x) => live && setD(x)).catch(() => {});
     load();
     const t = setInterval(load, 60_000);
     return () => { live = false; clearInterval(t); };
@@ -235,12 +244,15 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
   const rows = useMemo(() => {
     const ql = q.trim().toLowerCase();
     return (d?.planes ?? []).filter((p) => (!group || p.group === group) && (!line || (line === "-" ? !p.airline : p.airline === line))
-      && (!ql || [p.callsign, p.id, p.country, p.airline].some((x) => String(x ?? "").toLowerCase().includes(ql))))
+      && (!ql || [p.callsign, p.id, p.country, p.airline].some((x) => String(x ?? "").toLowerCase().includes(ql)))
+      && (!from.trim() || airportText(p.from).includes(from.trim().toLowerCase()))
+      && (!to.trim() || airportText(p.to).includes(to.trim().toLowerCase()))
+      && (!mins || (p.seen ?? 0) >= Date.now() / 1000 - mins * 60))
       .sort((a, b) => {
         const x = a[sort], y = b[sort];
         return typeof x === "number" || typeof y === "number" ? ((y as number) ?? -1e9) - ((x as number) ?? -1e9) : String(x ?? "").localeCompare(String(y ?? ""));
       });
-  }, [d, q, group, line, sort]);
+  }, [d, q, group, line, from, to, mins, sort]);
   // Airlines in the last answer, most planes first.
   const airlines = useMemo(() => {
     const c = new Map<string, number>();
@@ -261,23 +273,31 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
           <option value="">All</option><option value="-">No airline (private, military, other)</option>
           {airlines.map(([a, k]) => <option key={a} value={a}>{a} ({n(k)})</option>)}
         </select></label>
+        <label>From <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Airport, code, city, country" style={{ width: 150 }} /></label>
+        <label>To <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Airport, code, city, country" style={{ width: 150 }} /></label>
+        <label>Seen <select value={mins} onChange={(e) => setMins(+e.target.value)}>
+          <option value={0}>In the last day</option><option value={10}>In the last 10 minutes</option><option value={60}>In the last hour</option><option value={360}>In the last 6 hours</option>
+        </select></label>
         <span className="muted">{n(rows.length)} planes</span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="small">
-          <thead><tr>{head("callsign", "Callsign")}{head("airline", "Airline")}{head("category_name", "Type")}{head("country", "Registered in")}{head("altitude_m", "Height")}
-            {head("speed_kmh", "Speed")}{head("climb_ms", "Climbing")}{head("squawk", "Squawk")}</tr></thead>
+          <thead><tr>{head("callsign", "Callsign")}{head("airline", "Airline")}<th>From</th><th>To</th>{head("category_name", "Type")}{head("country", "Registered in")}{head("altitude_m", "Height")}
+            {head("speed_kmh", "Speed")}{head("climb_ms", "Climbing")}{head("squawk", "Squawk")}{head("seen", "Last heard")}</tr></thead>
           <tbody>
             {rows.slice(0, 1000).map((p) => (
               <tr key={p.id} onClick={() => setOpen(p.id)} style={{ cursor: "pointer" }} className={open === p.id ? "selected" : undefined}>
                 <td>{dot(PLANE_GROUPS, p.group)}{p.callsign ?? <span className="muted">{p.id}</span>}</td>
                 <td>{p.airline ?? ""}</td>
+                <td title={p.from?.name ?? undefined}>{airport(p.from)}</td>
+                <td title={p.to?.name ?? undefined}>{airport(p.to)}{p.route_plausible === false ? <span className="muted"> ?</span> : null}</td>
                 <td>{p.category_name ?? <span className="muted">not sent</span>}</td>
                 <td>{p.country ?? ""}</td>
                 <td>{p.altitude_m != null ? `${n(p.altitude_m)} m` : ""}</td>
                 <td>{p.speed_kmh != null ? `${n(p.speed_kmh)} km/h` : ""}</td>
                 <td>{p.climb_ms != null ? `${p.climb_ms > 0 ? "+" : ""}${p.climb_ms} m/s` : ""}</td>
                 <td>{p.squawk ?? ""}{["7500", "7600", "7700"].includes(String(p.squawk)) ? <b style={{ color: "#c92a2a" }}> emergency</b> : null}</td>
+                <td>{when(p.seen)}</td>
               </tr>
             ))}
           </tbody>

@@ -36,6 +36,20 @@ export function useShipStatus(on: boolean): ShipStatus | null {
   return st;
 }
 
+export type PlaneStatus = { collecting: boolean; days: number; bytes: number; first: number | null; last: number | null; planes?: number; keep_days: number };
+export function usePlaneStatus(on: boolean): PlaneStatus | null {
+  const [st, setSt] = useState<PlaneStatus | null>(null);
+  useEffect(() => {
+    if (!on) return;
+    let live = true;
+    const load = () => get<PlaneStatus>("/live/planes/status").then((s) => live && setSt(s)).catch(() => {});
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { live = false; clearInterval(t); };
+  }, [on]);
+  return st;
+}
+
 type Place = { name: string | null; lon: number; lat: number; iata?: string | null; icao?: string | null; city?: string | null; country?: string | null; locode?: string | null };
 export type Journey = {
   track: (GeoJSON.FeatureCollection & { from?: number | null; points?: number }) | null;

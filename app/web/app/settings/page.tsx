@@ -417,6 +417,11 @@ export default function SettingsPage() {
         <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
           note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
           save={(v) => save({ ships_keep_days: v })} />
+        <Toggle label="Save planes" hint="Every plane OpenSky sends the map is saved (a position every 4 minutes each, in var\live\planes), so the time slider, plane paths and the Planes table keep planes that have landed or left the view; what was looked up about a plane (route, aircraft, path) is kept too and not asked again. Planes are only fetched while the Planes layer is open, so it grows only then: a whole-world view open all day is roughly 150 MB that day, about 30 MB once compacted overnight. Off: only the last answer is shown."
+          on={s.planes_collect} set={(v) => save({ planes_collect: v })} />
+        <NumberField label="Keep saved planes for" unit="days" value={s.planes_keep_days} min={1} max={400} step={1}
+          note="Older days of plane positions are deleted."
+          save={(v) => save({ planes_keep_days: v })} />
         <Toggle label="Ship owners: Global Fishing Watch" hint="Opening a ship's details asks Global Fishing Watch (free GFW_API_TOKEN in Settings > Keys, non-commercial use) for its registered owners, flag history and authorisations, kept 30 days. Strongest for fishing boats and their carriers. Off: that part of the details is left out."
           on={s.ship_owners_gfw} set={(v) => save({ ship_owners_gfw: v })} />
         <Toggle label="Ship owners: Wikidata" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner, year and picture, by IMO number. Only well-known ships are there. Off: that part is left out."

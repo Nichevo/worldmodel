@@ -329,6 +329,8 @@ export type Settings = {
   ships_area: "pacific" | "world"; // where ships are collected
   ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
   ships_keep_days: number; // days of saved ships kept
+  planes_collect: boolean; // save the planes OpenSky sends the map (var/live/planes)
+  planes_keep_days: number; // days of saved planes kept
   ship_owners_gfw: boolean; // ship details ask Global Fishing Watch for owners (GFW_API_TOKEN)
   ship_owners_wikidata: boolean; // ... and Wikidata by IMO
   ship_owners_equasis: boolean; // ... and show an Equasis link

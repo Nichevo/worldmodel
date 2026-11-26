@@ -715,7 +715,7 @@ export default function WorldMap({
       };
       const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
       if (!style.once) m.on("moveend", soon);
-      if (style.timed || id === "live_ships") window.addEventListener("wm-layer-window", soon);
+      if (style.timed || id === "live_ships" || id === "live_planes") window.addEventListener("wm-layer-window", soon);
       // Live layers ask again every so often, but not while the page is in a hidden tab (OpenSky
       // allows anonymous users only a few hundred requests a day).
       const every = style.fetch === "live" ? setInterval(() => { if (!document.hidden) load(); }, (style.every ?? 60) * 1000) : null;

@@ -78,7 +78,12 @@ def plane_group(cat) -> str:
     return "unknown"
 
 class Planes:
-    def __init__(self) -> None:
+    def __init__(self, store=None, settings=None) -> None:
+        self._store = store
+        self._settings_fn = settings
+        self.tidied = 0.0
+        self.route_thread: threading.Thread | None = None
+        self.route_failed: dict[str, float] = {}
         self.lock = threading.Lock()
         self.last_at = 0.0
         self.last_box: list | None = None
@@ -86,6 +91,58 @@ class Planes:
         self.token: tuple[str, float] | None = None
         self.blocked_until = 0.0
         self.blocked_why = ""
+
+    @property
+    def store(self):
+        if self._store is None:
+            from worldmodel_contract import local
+
+            from worldmodel_api.planestore import PlaneStore
+
+            self._store = PlaneStore(local.home() / "live" / "planes")
+        return self._store
+
+    def settings(self) -> dict:
+        return (self._settings_fn or _settings)() or {}
+
+    def collecting(self) -> bool:
+        return bool(self.settings().get("planes_collect", True))
+
+    def _save(self, feats: list) -> None:
+        """Keep every OpenSky answer's planes (Settings > Transport), and tidy the files hourly."""
+        if not self.collecting():
+            return
+        try:
+            self.store.add_many(feats)
+            if time.time() - self.tidied >= TIDY_EVERY:
+                self.tidied = time.time()
+                keep = int(self.settings().get("planes_keep_days") or 30)
+                threading.Thread(target=self.store.tidy, args=(keep,), daemon=True, name="planes-tidy").start()
+        except Exception as exc:  # noqa: BLE001 - the map still gets its planes
+            log.warning("plane store: %s", exc)
+
+    def saved_at(self, when: float, west: float, south: float, east: float, north: float) -> dict:
+        """Planes where they were at a saved time (the map's time slider)."""
+        bx = boxes(west, south, east, north)
+        try:
+            found = self.store.at(when, bx)
+        except Exception as exc:  # noqa: BLE001 - shown on the map
+            return {"type": "FeatureCollection", "features": [], "count": 0, "error": f"Could not read saved planes ({exc.__class__.__name__})."}
+        feats = []
+        for v in found:
+            al = airline(v.get("callsign"))
+            feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(v["lon"], 4), round(v["lat"], 4)]},
+                          "properties": {**{k: x for k, x in v.items() if k not in ("lat", "lon")}, "airline": al["name"] if al else None}})
+        when_txt = time.strftime("%d %b %Y %H:%M", time.localtime(when))
+        return {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "OpenSky Network (saved)", "at": int(when),
+                "note": f"Planes as saved at {when_txt}" + ("" if feats else ": none saved for this area and time")}
+
+    def status(self) -> dict:
+        try:
+            out = self.store.status()
+        except Exception as exc:  # noqa: BLE001
+            out = {"days": 0, "bytes": 0, "first": None, "last": None, "error": str(exc)}
+        return {**out, "collecting": self.collecting(), "keep_days": int(self.settings().get("planes_keep_days") or 30)}
 
     def _kept(self, bx: list, error: str) -> dict:
         """The planes last read (if any), with why they are not new."""
@@ -161,25 +218,84 @@ class Planes:
                                              "airline": al["name"] if al else None}})
             self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
             self.last_at, self.last_box = time.time(), bx
+            self._save(feats)
             return self._filter(self.last, bx)
 
-    def table(self) -> dict:
-        """Every plane from the last OpenSky answer, for the planes table."""
+    def table(self, hours: float = 1) -> dict:
+        """Every plane from the last OpenSky answer, and (when saving) every plane saved in the last
+        `hours`, each at its latest position, for the planes table."""
+        feats = {f["properties"]["id"]: f for f in (self.last or {}).get("features") or []}
+        if self.collecting() and hours > 0:
+            try:
+                for v in self.store.at(time.time(), [(-180, -90, 180, 90)], back=hours * 3600):
+                    if v["id"] not in feats:
+                        feats[v["id"]] = {"geometry": {"coordinates": [v["lon"], v["lat"]]},
+                                          "properties": {k: x for k, x in v.items() if k not in ("lat", "lon")}}
+            except Exception as exc:  # noqa: BLE001 - the last answer still shows
+                log.warning("plane store: table: %s", exc)
+        self._fill_routes(list(feats.values()))
         rows = []
-        for f in (self.last or {}).get("features") or []:
+        for f in feats.values():
             p = dict(f["properties"])
             p["lon"], p["lat"] = f["geometry"]["coordinates"]
             p["category_name"] = PLANE_CATEGORY.get(p.get("category")) if p.get("category") is not None else None
             al = airline(p.get("callsign"))
             p["airline"], p["airline_code"], p["airline_country"] = (al["name"], al["code"], al["country"]) if al else (None, None, None)
+            p["from"] = p["to"] = None
+            if al:
+                from worldmodel_api.journeys import ROUTE_KEEP, _key
+
+                hit = self.store.lookup("route", _key(p["callsign"]), ROUTE_KEEP)
+                ports = ((hit[0] or {}).get("airports") or []) if hit else []
+                if len(ports) >= 2:
+                    p["from"], p["to"] = _place(ports[0]), _place(ports[-1])
+                    p["route_plausible"] = hit[0].get("plausible", True)
             rows.append(p)
         return {"planes": rows, "at": (self.last or {}).get("at"), "source": "OpenSky Network",
-                "note": "The planes in the map's area from the last request (the map asks every one to three minutes while Planes now is on)."}
+                "note": "The planes in the map's area from the last request (the map asks every one to three minutes while Planes now is on)"
+                        + (f", and every plane saved in the last {hours:g} hour{'s' if hours != 1 else ''}." if self.collecting() and hours > 0 else ".")}
 
     @staticmethod
     def _filter(found: dict, bx: list) -> dict:
         feats = [f for f in found["features"] if inside(*f["geometry"]["coordinates"], bx)]
         return {**found, "features": feats, "count": len(feats), "source": "OpenSky Network"}
+
+    def _fill_routes(self, feats: list) -> None:
+        """Ask adsb.lol, in the background and in batches, the routes of airline flights in the
+        table not yet known; each answer is kept (3 days), so a callsign is asked only once."""
+        if self.route_thread and self.route_thread.is_alive():
+            return
+        from worldmodel_api.journeys import ROUTE_KEEP, _key
+
+        want = []
+        for f in feats:
+            p = f["properties"]
+            cs = _key(p.get("callsign") or "")
+            if cs and airline(cs) and not self.store.lookup("route", cs, ROUTE_KEEP) and time.time() - self.route_failed.get(cs, 0) > 3600:
+                lon, lat = f["geometry"]["coordinates"]
+                want.append((cs, lat, lon))
+        if not want:
+            return
+
+        def run(batch):
+            from worldmodel_api import journeys
+
+            try:
+                got = journeys.routes(batch)
+            except Exception as exc:  # noqa: BLE001 - tried again on a later table load
+                log.info("adsb.lol routes: %s", exc)
+                return
+            self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_KEEP)
+            for cs, _, _ in batch:
+                if cs not in got:
+                    self.route_failed[cs] = time.time()
+
+        self.route_thread = threading.Thread(target=run, args=(want[:500],), daemon=True, name="plane-routes")
+        self.route_thread.start()
+
+
+def _place(a: dict) -> dict:
+    return {"name": a.get("name"), "iata": a.get("iata"), "icao": a.get("icao"), "city": a.get("city"), "country": a.get("country")}
 
 
 # ----------------------------------------------------------------------------- military planes (adsb.lol)
@@ -464,11 +580,23 @@ class Ships:
                 "first_seen": d.get("first_seen"), "last_seen": last}
 
     def table(self, q: str = "", group: str = "", flag_code: str = "", sort: str = "last_seen", limit: int = 200,
-              offset: int = 0, hours: float = 0) -> dict:
-        """Every ship seen (saved details while collecting, else those in memory), filtered and sorted."""
+              offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None) -> dict:
+        """Every ship seen (saved details while collecting, else those in memory), filtered and sorted.
+        With a port index each row gets the port its destination names; `to` keeps ships whose
+        destination, port or port country contains it."""
         with self.lock:
             ids = set(self.store.details) | set(self.ships)
             rows = [self._row(m, self.store.details.get(m, {})) for m in ids]
+        if ports is not None:
+            from worldmodel_api.journeys import match_port
+
+            for r in rows:
+                pt = match_port(r.get("destination"), ports)
+                r["to_port"] = {k: pt.get(k) for k in ("name", "country", "locode")} if pt else None
+        if to:
+            tl = to.lower()
+            rows = [r for r in rows if tl in " ".join(str(x or "") for x in (
+                r.get("destination"), *((r.get("to_port") or {}).values()))).lower()]
         if hours:
             cut = time.time() - hours * 3600
             rows = [r for r in rows if (r["last_seen"] or 0) >= cut]

@@ -23,9 +23,9 @@ Q = Callable[[str, list], list[dict]]
 OPENSKY_TRACK = "https://opensky-network.org/api/tracks/all"
 ADSB_ROUTES = "https://api.adsb.lol/api/0/routeset"
 ADSB_HEX = "https://api.adsb.lol/v2/hex/{}"
-ROUTE_KEEP = 6 * 3600
+ROUTE_KEEP = 3 * 86400  # a callsign flies the same route for days
 TRACK_KEEP = 30 * 60      # a plane's path is asked of OpenSky at most once in this time
-AIRCRAFT_KEEP = 24 * 3600  # registration and type change rarely
+AIRCRAFT_KEEP = 90 * 86400  # registration and type change rarely
 _lock = threading.Lock()
 _index: dict[str, tuple[float, dict]] = {}
 _routes: dict[str, tuple[float, dict | None]] = {}
@@ -117,32 +117,43 @@ def airports(q: Q) -> dict:
     return _cached("airports", build)
 
 
-def _route(callsign: str, lat: float | None, lon: float | None) -> dict | None:
-    cs = _key(callsign)
-    if not cs:
+def _parse_route(first: dict) -> dict | None:
+    if not first.get("airport_codes") or first.get("airport_codes") == "unknown":
         return None
-    with _lock:
-        hit = _routes.get(cs)
-        if hit and time.time() - hit[0] < ROUTE_KEEP:
-            return hit[1]
-    got = None
-    try:
-        with httpx.Client(timeout=15, headers={"User-Agent": "worldmodel (personal research tool)"}) as client:
-            r = client.post(ADSB_ROUTES, json={"planes": [{"callsign": cs, "lat": lat or 0, "lng": lon or 0}]})
+    return {"codes": first.get("airport_codes"), "plausible": bool(first.get("plausible", True)),
+            "airports": [{"name": a.get("name"), "iata": a.get("iata"), "icao": a.get("icao"), "city": a.get("location"),
+                          "country": a.get("countryiso2"), "lon": a.get("lon"), "lat": a.get("lat")}
+                         for a in first.get("_airports") or []]}
+
+
+def routes(planes: list[tuple[str, float | None, float | None]]) -> dict[str, dict | None]:
+    """Routes for many callsigns in one adsb.lol request (at most 100 each); callsigns it did not
+    answer for are left out, so they are asked again later. Raises on a failed request."""
+    out: dict[str, dict | None] = {}
+    with httpx.Client(timeout=30, headers={"User-Agent": "worldmodel (personal research tool)"}) as client:
+        for k in range(0, len(planes), 100):
+            part = planes[k:k + 100]
+            r = client.post(ADSB_ROUTES, json={"planes": [{"callsign": _key(cs), "lat": lat or 0, "lng": lon or 0} for cs, lat, lon in part]})
             r.raise_for_status()
             body = r.json()
-            first = (body[0] if isinstance(body, list) and body else None) or {}
-            if first.get("airport_codes") and first.get("airport_codes") != "unknown":
-                got = {"codes": first.get("airport_codes"), "plausible": bool(first.get("plausible", True)),
-                       "airports": [{"name": a.get("name"), "iata": a.get("iata"), "icao": a.get("icao"), "city": a.get("location"),
-                                     "country": a.get("countryiso2"), "lon": a.get("lon"), "lat": a.get("lat")}
-                                    for a in first.get("_airports") or []]}
+            for row in body if isinstance(body, list) else []:
+                cs = _key(row.get("callsign") or "")
+                if cs:
+                    out[cs] = _parse_route(row)
+    return out
+
+
+def _route(callsign: str, lat: float | None, lon: float | None) -> tuple[dict | None, bool]:
+    """The route a callsign flies (adsb.lol), and whether the answer is worth keeping (not an error)."""
+    cs = _key(callsign)
+    if not cs:
+        return None, False
+    try:
+        got = routes([(cs, lat, lon)]).get(cs)
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         log.info("adsb.lol route for %s: %s", cs, exc)
-        return None  # not kept: try again on the next click
-    with _lock:
-        _routes[cs] = (time.time(), got)
-    return got
+        return None, False  # not kept: try again on the next click
+    return got, True
 
 
 def _nearest_airport(index: dict, lon: float, lat: float, within_km: float = 25) -> dict | None:
@@ -163,37 +174,92 @@ def _nearest_airport(index: dict, lon: float, lat: float, within_km: float = 25)
 
 
 def plane_journey(q: Q, auth: Callable[[httpx.Client], dict], icao24: str, callsign: str | None,
-                  lat: float | None, lon: float | None) -> dict:
+                  lat: float | None, lon: float | None, store=None) -> dict:
     """A plane's path, route and details. Each part is kept once asked (path 30 minutes, route
-    6 hours, aircraft a day), so clicking the same plane again asks no one."""
+    3 days, aircraft 90 days; on disk when a store is given, else in memory), so clicking the same
+    plane again asks no one. With no path from OpenSky, the positions saved locally are drawn."""
     icao24 = icao24.lower()
-    with _lock:
-        hit = _tracks.get(icao24)
-    if hit and time.time() - hit[0] < TRACK_KEEP:
-        out = {**hit[1], "kept_at": int(hit[0])}
+    hit = _kept(store, _tracks, "track", icao24, TRACK_KEEP)
+    if hit:
+        out = {**hit[0], "kept_at": int(hit[1])}
     else:
         out = _track(q, auth, icao24)
         if out.get("track") or out.get("kept_ok"):
-            with _lock:
-                _tracks[icao24] = (time.time(), out)
-                for k in [k for k, v in _tracks.items() if time.time() - v[0] > TRACK_KEEP]:
-                    _tracks.pop(k, None)
+            _keep(store, _tracks, "track", icao24, out, 2 * 86400)
     out = {k: v for k, v in out.items() if k != "kept_ok"}
+    if not out.get("track") and store is not None:
+        saved = _saved_track(store, icao24)
+        if saved:
+            out["track"] = saved
+            out["note"] = ((out.get("note") or "") + " The path drawn is from the positions saved here.").strip()
     if callsign:
         from worldmodel_api.airlines import airline
 
         out["airline"] = airline(callsign)
-        out["route"] = _route(callsign, lat, lon)
-    with _lock:
-        hit_a = _aircraft_kept.get(icao24)
-    if hit_a and time.time() - hit_a[0] < AIRCRAFT_KEEP:
-        out["aircraft"] = hit_a[1]
+        cs = _key(callsign)
+        hit = _kept(store, _routes, "route", cs, ROUTE_KEEP)
+        if hit:
+            out["route"] = hit[0]
+        else:
+            out["route"], ok = _route(callsign, lat, lon)
+            if ok:
+                _keep(store, _routes, "route", cs, out["route"], ROUTE_KEEP)
+    hit = _kept(store, _aircraft_kept, "aircraft", icao24, AIRCRAFT_KEEP)
+    if hit:
+        out["aircraft"] = hit[0]
     else:
         out["aircraft"] = _aircraft(icao24)
         if out["aircraft"]:
-            with _lock:
-                _aircraft_kept[icao24] = (time.time(), out["aircraft"])
+            _keep(store, _aircraft_kept, "aircraft", icao24, out["aircraft"], AIRCRAFT_KEEP)
     return out
+
+
+def _kept(store, memory: dict, kind: str, key: str, max_age: float):
+    """(value, when) kept for a look-up, from the store's file if there is one, else memory."""
+    if store is not None:
+        return store.lookup(kind, key, max_age)
+    with _lock:
+        hit = memory.get(key)
+    return (hit[1], hit[0]) if hit and time.time() - hit[0] < max_age else None
+
+
+def _keep(store, memory: dict, kind: str, key: str, value, drop_after: float) -> None:
+    if store is not None:
+        store.keep(kind, key, value, drop_after)
+        return
+    with _lock:
+        memory[key] = (time.time(), value)
+        for k in [k for k, v in memory.items() if time.time() - v[0] > drop_after]:
+            memory.pop(k, None)
+
+
+def _saved_track(store, icao24: str, hours: float = 18) -> dict | None:
+    """This flight's path from the positions saved here: the last run with no gap over an hour."""
+    try:
+        pts = store.track(icao24, time.time() - hours * 3600, time.time())
+    except Exception as exc:  # noqa: BLE001 - no saved path then
+        log.info("saved plane track %s: %s", icao24, exc)
+        return None
+    run: list = []
+    for p in pts:
+        if run and p[0] - run[-1][0] > 3600:
+            run = []
+        run.append(p)
+    if len(run) < 2:
+        return None
+    lines, cur = [], []
+    for _, x, y in run:
+        if cur and abs(x - cur[-1][0]) > 180:
+            lines.append(cur)
+            cur = []
+        cur.append([round(x, 4), round(y, 4)])
+    lines.append(cur)
+    lines = [ln for ln in lines if len(ln) >= 2]
+    if not lines:
+        return None
+    geom = {"type": "LineString", "coordinates": lines[0]} if len(lines) == 1 else {"type": "MultiLineString", "coordinates": lines}
+    return {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": geom, "properties": {"id": icao24}}],
+            "from": run[0][0], "points": len(run)}
 
 
 def _track(q: Q, auth: Callable[[httpx.Client], dict], icao24: str) -> dict:
