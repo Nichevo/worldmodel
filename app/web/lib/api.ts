@@ -297,6 +297,7 @@ export type Settings = {
   weather_model: "gfs" | "ecmwf";           // forecast maps: NOAA GFS or ECMWF IFS open data
   weather_waves: boolean;                   // Waves and Swell layers download NOAA's wave model
   weather_air: boolean;                     // Air quality layer and air line on forecast cards (Open-Meteo CAMS)
+  weather_skill: boolean;                   // record and score 8 models' forecasts for 78 cities (Forecast accuracy)
   internet_speeds_fetch: boolean; // refresh reads Ookla's open Speedtest files
   internet_speeds_from: number; // first year of internet speeds kept
   internet_speeds_per_refresh: number; // Ookla files read in one refresh at most

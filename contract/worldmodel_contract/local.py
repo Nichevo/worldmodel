@@ -127,6 +127,7 @@ SETTINGS: dict[str, object] = {
     "weather_model": "gfs",          # forecast maps from "gfs" (NOAA) or "ecmwf" (ECMWF IFS open data, about 170 MB a run)
     "weather_waves": True,           # Waves and Swell map layers download NOAA's wave model while one is on (about 120 MB a run)
     "weather_air": True,             # Air quality layer and the forecast card's air line read Open-Meteo (CAMS)
+    "weather_skill": True,           # record 8 models' forecasts for 77 cities every 6 h and score them (Forecast accuracy)
     # Nature and pollution (connectors/nature.py)
     "nature_zones_fetch": True,          # refresh reads the Köppen-Geiger climate zones once (a 1 GB zip, about 20 MB kept)
     "nature_climate_extras_fetch": True,  # Berkeley Earth temperatures, PSMSL tide gauges, ND-GAIN adaptation index
@@ -418,7 +419,7 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
-LAYER_MARKS = "_*-!$();@:^=[]"  # layer "letters" past the 62 letters and digits (never "." or "~")
+LAYER_MARKS = "_*-!$();@:^=[]{"  # layer "letters" past the 62 letters and digits (never "." or "~")
 
 
 def _letters(v) -> str:

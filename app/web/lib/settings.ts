@@ -57,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weather_model: "gfs",
   weather_waves: true,
   weather_air: true,
+  weather_skill: true,
   outlook_fetch: true,
   calendar_live: true,
   attention_on: true,

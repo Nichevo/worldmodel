@@ -248,6 +248,25 @@ const modelSets = new Map<string, Promise<ModelsAgree>>();
 export const placeAir = (lat: number, lon: number) => kept(airs, "/weather/air", lat, lon);
 export const placeModels = (lat: number, lon: number) => kept(modelSets, "/weather/models", lat, lon);
 
+// Forecast accuracy: which model has been most right in each scored city (last 60 days).
+export type SkillModel = { model: string; name: string; temp: number | null; wind: number | null; rain: number | null; n: number;
+  airport_share: number; wet_hours: number; mean_rank: number | null };
+export type SkillCity = { id: string; name: string; country: string; region: string; icao: string | null; lat: number; lon: number;
+  best: string | null; best_name: string | null; models: SkillModel[] };
+export type SkillTable = { lead: "day1" | "day2"; cities: SkillCity[]; models?: Record<string, string>;
+  regions: { region: string; cities: number; wins: { model: string; name: string; cities: number }[] }[];
+  last_round: string | null; days: number; rounds: number; running: boolean; note: string; error: string };
+export type SkillNear = { city: string | null; city_id?: string; km?: number; best?: string; best_name?: string; temp?: number | null;
+  wind?: number | null; rain?: number | null; n?: number; airport_share?: number; order?: string[]; days: number };
+// One colour per model, the same on the map, the leaderboard and the forecast card.
+export const MODEL_COLOURS: Record<string, string> = {
+  best_match: "#868e96", ecmwf_ifs025: "#1c7ed6", gfs_seamless: "#e03131", icon_seamless: "#2f9e44", ukmo_seamless: "#7048e8",
+  gem_seamless: "#f08c00", jma_seamless: "#c2255c", meteofrance_seamless: "#0c8599",
+};
+export const SKILL_ENOUGH_DAYS = 21; // until about three weeks are in, the ranking is shown as early
+const skillNear = new Map<string, Promise<SkillNear>>();
+export const placeSkill = (lat: number, lon: number) => kept(skillNear, "/weather/skill/near", lat, lon);
+
 // The wind on a 1° grid for the moving wind lines (u and v in m/s).
 export type WindGrid = { lat0: number; lon0: number; d: number; nj: number; ni: number; u: Float32Array; v: Float32Array };
 const grids = new Map<string, Promise<WindGrid>>();

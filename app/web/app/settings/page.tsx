@@ -370,6 +370,8 @@ export default function SettingsPage() {
           on={s.weather_waves} set={(v) => save({ weather_waves: v })} />
         <Toggle label="Air quality" hint="The map's Air quality layer (about 600 big cities, every 3 hours) and the air line on forecast cards, from Open-Meteo's CAMS forecast. Off: both stay empty."
           on={s.weather_air} set={(v) => save({ weather_air: v })} />
+        <Toggle label="Score the forecast models" hint="Every 6 hours while the app runs, stores 8 models' forecasts for the next two days in 77 key cities and what then happened (airport weather reports, Open-Meteo where there are none): a few requests a round, a few MB a month. Off: Forecast accuracy, the Best forecast model layer and the forecast card's best-model line stop updating."
+          on={s.weather_skill} set={(v) => save({ weather_skill: v })} />
       </section>
 
       <section className="card" id="nature">

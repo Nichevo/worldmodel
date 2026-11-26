@@ -16,6 +16,16 @@ def _no_starter_tiles():
         yield
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _no_forecast_scoring_loop():
+    """The same for the forecast scoring rounds, which start a minute after the app does."""
+    from worldmodel_api import forecast_skill
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(forecast_skill, "start", lambda settings_fn: None)
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _fresh_live_settings():
     """live.py keeps the settings for a few seconds; each test starts with them read afresh."""

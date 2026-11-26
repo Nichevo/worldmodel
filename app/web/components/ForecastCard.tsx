@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  aqiColour, aqiWords, compass, hourDate, placeAir, placeForecast, placeModels, r0, r1, windyLink,
+  aqiColour, aqiWords, compass, hourDate, MODEL_COLOURS, placeAir, placeForecast, placeModels, placeSkill, r0, r1, SKILL_ENOUGH_DAYS, type SkillNear, windyLink,
   type AirNow, type ModelsAgree, type PlaceForecast, type RainSoon,
 } from "@/lib/weather";
 
@@ -129,14 +129,21 @@ function RainSoonLine({ r, f }: { r: RainSoon; f: PlaceForecast }) {
 // Today's and tomorrow's high and rain from six models side by side, and whether they agree.
 function ModelsLine({ lat, lon }: { lat: number; lon: number }) {
   const [m, setM] = useState<ModelsAgree | null>(null);
+  const [best, setBest] = useState<SkillNear | null>(null);
   useEffect(() => {
     let live = true;
     setM(null);
+    setBest(null);
     placeModels(lat, lon).then((d) => live && setM(d)).catch(() => live && setM(null));
+    placeSkill(lat, lon).then((d) => live && setBest(d)).catch(() => live && setBest(null));
     return () => { live = false; };
   }, [lat, lon]);
   if (!m?.days?.length) return null;
   const label = (i: number) => (i === 0 ? "Today" : "Tomorrow");
+  // The model most right lately near here goes first, the rest in its city's order.
+  const order = best?.order ?? [];
+  const pos = (id: string) => { const i = order.indexOf(id); return i < 0 ? 99 : i; };
+  const rows = m.days[0].models.map((x, j) => ({ x, j })).sort((a, b) => pos(a.x.model) - pos(b.x.model));
   return (
     <details className="wx-models small">
       <summary>
@@ -145,18 +152,28 @@ function ModelsLine({ lat, lon }: { lat: number; lon: number }) {
             {d.rain_hi !== null ? `, rain ${r1(d.rain_lo)} to ${r1(d.rain_hi)} mm` : ""}{" "}
             {d.agree ? <span className="muted">(agree)</span> : <b className="wx-disagree">(disagree: {d.why})</b>}</span>
         ))}
+        {best?.city && best.best_name && (
+          <span className="wx-best">
+            <span className="skill-swatch" style={{ background: MODEL_COLOURS[best.best ?? ""] ?? "#ced4da" }} aria-hidden="true" />
+            Most right lately{best.km && best.km > 30 ? ` in ${best.city} (${best.km} km away)` : ""}: <b>{best.best_name}</b>
+            <span className="muted">{typeof best.temp === "number" ? `, about ${best.temp.toFixed(1)}° off` : ""}, {best.n} checks
+              {typeof best.airport_share === "number" && best.airport_share > 0 ? " against airport reports" : ""}
+              {best.days < SKILL_ENOUGH_DAYS ? ` (only ${best.days} days in)` : ""}</span>
+          </span>
+        )}
       </summary>
       <table>
         <thead><tr><th>Model</th>{m.days.map((d, i) => <th key={d.date} colSpan={2}>{label(i)}</th>)}</tr></thead>
         <tbody>
-          {m.days[0].models.map((x, j) => (
+          {rows.map(({ x, j }) => (
             <tr key={x.model}>
-              <td>{x.name}</td>
+              <td>{x.name}{best?.best === x.model ? <b> (most right lately)</b> : ""}</td>
               {m.days!.map((d) => [<td key={`${d.date}h`}>{r1(d.models[j]?.high)}°</td>, <td key={`${d.date}r`}>{r1(d.models[j]?.rain)} mm</td>])}
             </tr>
           ))}
         </tbody>
       </table>
+      {best?.city && <p className="caption"><a href="/climate?tab=skill">Forecast accuracy</a> scores the models in {best.city} every 6 hours.</p>}
     </details>
   );
 }
