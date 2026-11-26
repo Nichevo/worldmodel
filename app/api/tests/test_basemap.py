@@ -81,6 +81,9 @@ def test_make_files_then_serve_them_in_pieces(client):
     assert client.get("/api/v1/basemap/files/..%2Fsettings.json").status_code == 404
     assert client.get("/api/v1/basemap/fonts/Noto Sans Regular/0-255.pbf").content == b"font"
     assert client.get("/api/v1/basemap/fonts/..%2F..%2Fuser/0-255.pbf").status_code == 404
+    # a stack, or a font that is not here, falls back to Noto Sans Regular
+    assert client.get("/api/v1/basemap/fonts/Open Sans Regular,Arial Unicode MS Regular/0-255.pbf").content == b"font"
+    assert client.get("/api/v1/basemap/fonts/Noto Sans Regular/0-255.txt").status_code == 404
     assert client.delete("/api/v1/basemap/files/NZL.pmtiles").json()["ok"]
     assert [f["name"] for f in client.get("/api/v1/basemap").json()["files"]] == ["world.pmtiles"]
     usage = client.get("/api/v1/storage").json()

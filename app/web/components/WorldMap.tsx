@@ -13,7 +13,7 @@ import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import CameraView, { type CameraProps } from "@/components/CameraView";
 import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
-import { addDetail, baseMapStatus, maxZoomFor, ONLINE_DOWN_NOTE, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
+import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool, greatCircle } from "@/lib/measure";
 import { useSettings } from "@/lib/settings";
@@ -231,6 +231,7 @@ export default function WorldMap({
       container: el.current,
       style: {
         version: 8,
+        glyphs: ONLINE_FONTS, // so our own labels show on the plain map too; local detail swaps in local fonts
         sources: {},
         layers: [{ id: "bg", type: "background", paint: { "background-color": cssVar("--surface") } }],
       },
@@ -606,7 +607,7 @@ export default function WorldMap({
           type: "Feature", properties: { name: b.name },
           geometry: { type: "Polygon", coordinates: [[[b.west, b.south], [b.east, b.south], [b.east, b.north], [b.west, b.north], [b.west, b.south]]] } })) } });
         m.addLayer({ id: "boxes-line", type: "line", source: "boxes", paint: { "line-color": cssVar("--ink"), "line-width": 1.5, "line-dasharray": [3, 2] } });
-        m.addLayer({ id: "boxes-label", type: "symbol", source: "boxes", layout: { "text-field": ["get", "name"], "text-size": 11, "text-anchor": "bottom", "text-offset": [0, -1] },
+        m.addLayer({ id: "boxes-label", type: "symbol", source: "boxes", layout: { "text-field": ["get", "name"], "text-font": LABEL_FONT, "text-size": 11, "text-anchor": "bottom", "text-offset": [0, -1] },
           paint: { "text-color": cssVar("--ink"), "text-halo-color": cssVar("--surface"), "text-halo-width": 1.5 } });
       }
     };
@@ -850,7 +851,7 @@ export default function WorldMap({
       } }, "hover");
       // Names beside the marks that carry one (the best-known events on the World-in-year maps).
       m.addLayer({ id: "ov-marks-text", type: "symbol", source: "ov-marks", filter: ["!=", ["get", "text"], ""],
-        layout: { "text-field": ["get", "text"], "text-size": 11, "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true,
+        layout: { "text-field": ["get", "text"], "text-font": LABEL_FONT, "text-size": 11, "text-anchor": "left", "text-offset": [0.9, 0], "text-optional": true,
           "text-max-width": 12 },
         paint: { "text-color": cssVar("--ink"), "text-halo-color": cssVar("--surface"), "text-halo-width": 1.5, "text-opacity": ["get", "o"] } }, "hover");
     };

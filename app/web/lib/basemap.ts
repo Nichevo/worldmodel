@@ -26,9 +26,13 @@ export type BaseMapEstimate = {
 };
 
 const ONLINE_TILES = "https://tiles.openfreemap.org/planet";
-const ONLINE_FONTS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
+export const ONLINE_FONTS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 const LOCAL_FONTS = "/api/v1/basemap/fonts/{fontstack}/{range}.pbf";
-const FONT = ["Noto Sans Regular"];
+// Every label on our maps uses this font: both OpenFreeMap and the local fonts have it. A label
+// layer that names no font asks for MapLibre's default "Open Sans Regular,Arial Unicode MS
+// Regular", which neither has (a 404 for every glyph range).
+export const LABEL_FONT = ["Noto Sans Regular"];
+const FONT = LABEL_FONT;
 export const DETAIL_PREFIX = "bm-";
 
 let protocolAdded = false;
