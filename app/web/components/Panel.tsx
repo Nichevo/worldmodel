@@ -447,6 +447,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
   win: string; layersPanel: ((counts: Record<string, string>) => React.ReactNode) | null;
 }) {
   const marks = useMapMarks(panel.layers, win, year);
+  const plainBorders = useSettings().plain_map_borders;
   const timed = MAP_LAYERS.some((m) => m.timed && panel.layers.includes(m.letter));
   const { values, error } = useMapValues(indicator?.indicator_id ?? null, year);
   useEffect(() => { onValues(panel.id, values); }, [panel.id, values, onValues]);
@@ -500,6 +501,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         decimals={shaded ? 1 : indicator?.decimals ?? 0}
         diverging={!shaded && !!indicator && DIVERGING.has(indicator.indicator_id)}
         hideScale={shaded || !indicator}
+        borders={shaded || !!indicator || plainBorders}
         selected={selection}
         onPick={(iso, e) => clicks.activate(iso, { shift: e.shift, double: e.double }, { lng: e.lngLat[0], lat: e.lngLat[1] })}
         doubleClick={clicks.mode === "select"}

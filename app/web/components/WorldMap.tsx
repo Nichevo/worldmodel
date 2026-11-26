@@ -117,6 +117,9 @@ type Props = {
   // A plain click on the map that hits no marker, dot or city (weather layers on): that place, in place of
   // the country's popup or selection. Shift-click still picks the country.
   onPoint?: ((lngLat: [number, number]) => void) | null;
+  // Country outlines (default on). Off for the world map with "None (plain map)" picked, so only the
+  // base map and layers show (Settings > Maps > Borders on the plain map).
+  borders?: boolean;
 };
 
 export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number; over?: boolean; opacity?: number };
@@ -188,7 +191,7 @@ export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
   raster = null, boxes = [], outlines, marks, onMark, legend = [], hideScale = false, areas = null, onArea, paths,
-  pictures = true, onPoint = null,
+  pictures = true, onPoint = null, borders = true,
 }: Props) {
   const pointPick = useRef(onPoint);
   pointPick.current = onPoint;
@@ -613,6 +616,15 @@ export default function WorldMap({
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
   }, [byIso, scale, unit, decimals, fineShapes, globeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Country outlines on or off (off on the plain world map; the base map's own borders stay).
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => { if (m.getLayer("line")) m.setLayoutProperty("line", "visibility", borders ? "visible" : "none"); };
+    if (m.getLayer("line")) apply();
+    else onLoad.current.push(apply);
+  }, [borders]);
 
   // Flat or globe, with the globe's space look and grid lines.
   useEffect(() => {

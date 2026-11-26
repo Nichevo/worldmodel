@@ -1203,6 +1203,7 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
       </Field>
       <Toggle label="3D" hint="Tilts the map and raises the land (right-drag or Ctrl-drag to turn and tilt). Slower on older PCs. Off: flat maps." on={s.map_3d} set={(v) => save({ map_3d: v })} />
       <NumberField label="Raise the land by" unit="times" value={s.map_3d_exaggeration} min={1} max={5} step={0.5} save={(v) => save({ map_3d_exaggeration: v })} />
+      <Toggle label="Borders on the plain map" hint="Country outlines on the world map when no figure is picked (None, plain map). Off: just the base map and the layers; outlines come back as soon as you pick a figure." on={s.plain_map_borders} set={(v) => save({ plain_map_borders: v })} />
       <Toggle label="Globe" hint="Draws the world map as a globe you can drag to spin, with every layer, colour and background still on it (the globe button under the zoom buttons switches it too). Small maps on other pages stay flat. Off: the flat map." on={s.map_globe} set={(v) => save({ map_globe: v })} />
       <Toggle label="Globe space look" hint="Dark sky round the globe with a blue glow, blue land and a dark sea, like a view from space. Countries with a figure keep their colours. Off: the page's own colours." on={s.globe_space} set={(v) => save({ globe_space: v })} />
       <Toggle label="Globe grid lines" hint="Lines of latitude and longitude every 15 degrees on the globe, so you can see which way it is turned." on={s.globe_grid} set={(v) => save({ globe_grid: v })} />
