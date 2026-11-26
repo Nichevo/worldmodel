@@ -17,6 +17,7 @@ type Ship = {
   destination: string | null; eta: string | null; status: string | null; speed_kn: number | null; heading: number | null;
   lat: number | null; lon: number | null; first_seen: number | null; last_seen: number | null; sanctioned?: boolean;
   links?: { label: string; href: string }[]; to_port?: { name: string | null; country: string | null; locode: string | null } | null;
+  last_port?: { name: string | null; country: string | null; locode: string | null } | null; last_port_at?: number | null; from_typed?: string | null;
 };
 type Airport = { name: string | null; iata: string | null; icao: string | null; city: string | null; country: string | null };
 const airport = (a?: Airport | null) => (a ? `${a.city || a.name || ""}${a.iata ? ` (${a.iata})` : ""}` : "");
@@ -63,6 +64,7 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
   const [group, setGroup] = useState("");
   const [hours, setHours] = useState(0);
   const [to, setTo] = useState("");
+  const [came, setCame] = useState("");
   const [sort, setSort] = useState("last_seen");
   const [limit, setLimit] = useState(200);
   const [d, setD] = useState<{ rows: Ship[]; total: number; groups: Record<string, number>; collecting: boolean } | null>(null);
@@ -70,10 +72,10 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
   const st = useShipStatus(true);
   useEffect(() => {
     let live = true;
-    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to });
+    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came });
     const t = setTimeout(() => get<typeof d>(`/live/ships/table?${qs}`).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e))), 250);
     return () => { live = false; clearTimeout(t); };
-  }, [q, group, sort, limit, hours, to]);
+  }, [q, group, sort, limit, hours, to, came]);
   if (err) return <p className="error">{err}</p>;
   const head = (key: string, label: string) => (
     <th><button className="link small" onClick={() => setSort(sort === key ? `-${key}` : key)}>{label}{sort.replace("-", "") === key ? (sort.startsWith("-") ? " ▲" : " ▼") : ""}</button></th>
@@ -92,6 +94,7 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
           <option value="">All ({n(d ? Object.values(d.groups).reduce((a, b) => a + b, 0) : 0)})</option>
           {SHIP_GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}{d?.groups[g.id] ? ` (${n(d.groups[g.id])})` : ""}</option>)}
         </select></label>
+        <label>Came from <input value={came} onChange={(e) => setCame(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
         <label>Going to <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
         <label>Seen <select value={hours} onChange={(e) => setHours(+e.target.value)}>
           <option value={0}>Any time</option><option value={0.25}>In the last 15 minutes</option><option value={1}>In the last hour</option><option value={24}>In the last day</option><option value={168}>In the last week</option>
@@ -101,6 +104,7 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
       <div style={{ overflowX: "auto" }}>
         <table className="small">
           <thead><tr>{head("name", "Name")}{head("type", "Kind")}{head("flag", "Flag")}{head("length_m", "Length")}{head("speed_kn", "Speed")}
+            <th title="The last port the ship was seen stopped at (while collecting), or the FROM of a destination typed as FROM>TO">Came from</th>
             {head("destination", "Going to")}<th>Doing</th>{head("last_seen", "Last seen")}</tr></thead>
           <tbody>
             {(d?.rows ?? []).map((r) => (
@@ -110,6 +114,8 @@ function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | 
                 <td>{r.flag ?? ""}</td>
                 <td>{r.length_m ? `${r.length_m} m` : ""}</td>
                 <td>{typeof r.speed_kn === "number" ? `${r.speed_kn} kn` : ""}</td>
+                <td>{r.last_port ? <>{[r.last_port.name, r.last_port.country].filter(Boolean).join(", ")}<span className="muted"> {when(r.last_port_at)}</span></>
+                  : r.from_typed ?? ""}</td>
                 <td>{r.destination ?? ""}{r.to_port ? <span className="muted"> ({[r.to_port.name, r.to_port.country].filter(Boolean).join(", ")})</span> : null}</td>
                 <td>{r.status ?? ""}</td>
                 <td>{when(r.last_seen)}</td>
@@ -140,6 +146,7 @@ function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
     ["Size", s.length_m ? `${s.length_m} m long, ${s.width_m ?? "?"} m wide` : ""], ["Draught", s.draught_m ? `${s.draught_m} m` : ""],
     ["Doing", s.status ?? ""], ["Speed", typeof s.speed_kn === "number" ? `${s.speed_kn} knots, heading ${n(s.heading)}°` : ""],
     ["Where", s.lat != null && s.lon != null ? `${s.lat.toFixed(3)}, ${s.lon.toFixed(3)}` : ""],
+    ["Came from", s.last_port ? `${[s.last_port.name, s.last_port.country].filter(Boolean).join(", ")} (stopped there ${when(s.last_port_at)})` : s.from_typed ?? ""],
     ["Going to", [s.destination, s.eta ? `due ${s.eta}` : ""].filter(Boolean).join(", ")],
     ["First seen", when(s.first_seen)], ["Last seen", when(s.last_seen)],
   ] : [];

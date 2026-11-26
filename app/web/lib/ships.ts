@@ -36,7 +36,8 @@ export function useShipStatus(on: boolean): ShipStatus | null {
   return st;
 }
 
-export type PlaneStatus = { collecting: boolean; days: number; bytes: number; first: number | null; last: number | null; planes?: number; keep_days: number };
+export type PlaneStatus = { collecting: boolean; days: number; bytes: number; first: number | null; last: number | null; planes?: number; keep_days: number;
+  world_every_minutes?: number; world_note?: string | null };
 export function usePlaneStatus(on: boolean): PlaneStatus | null {
   const [st, setSt] = useState<PlaneStatus | null>(null);
   useEffect(() => {
@@ -55,6 +56,7 @@ export type Journey = {
   track: (GeoJSON.FeatureCollection & { from?: number | null; points?: number }) | null;
   // ships
   destination?: string | null; eta?: string | null; port?: Place | null; note?: string | null;
+  came_from?: { name: string | null; country: string | null } | null; came_from_at?: number | null;
   // planes
   route?: { codes: string; plausible: boolean; airports: Place[] } | null; from_airport?: Place | null;
   airline?: { code: string; name: string; country: string; iata: string } | null;
@@ -73,6 +75,31 @@ export function planeJourney(icao24: string, callsign?: string | null, lng?: num
   return get<Journey>(`/live/planes/journey/${encodeURIComponent(icao24)}?${q.toString()}`);
 }
 
+// The shortest way round the globe between two points, as a curve of short steps whose longitudes
+// carry on past ±180 instead of jumping back (MapLibre then draws it across the date line, not the
+// long way round the world).
+export function greatCircle(a: [number, number], b: [number, number], steps = 64): [number, number][] {
+  const r = Math.PI / 180;
+  const [l1, p1, l2, p2] = [a[0] * r, a[1] * r, b[0] * r, b[1] * r];
+  const d = 2 * Math.asin(Math.sqrt(Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin((l2 - l1) / 2) ** 2));
+  if (!(d > 1e-6)) return [a, b];
+  const out: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    const A = Math.sin((1 - f) * d) / Math.sin(d), B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(p1) * Math.cos(l1) + B * Math.cos(p2) * Math.cos(l2);
+    const y = A * Math.cos(p1) * Math.sin(l1) + B * Math.cos(p2) * Math.sin(l2);
+    const z = A * Math.sin(p1) + B * Math.sin(p2);
+    let lon = Math.atan2(y, x) / r;
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) / r;
+    const prev = out.length ? out[out.length - 1][0] : a[0];
+    while (lon - prev > 180) lon -= 360;
+    while (lon - prev < -180) lon += 360;
+    out.push([lon, lat]);
+  }
+  return out;
+}
+
 // The lines to draw for a journey: the path so far (solid) and a straight line on to where it
 // says it is going (dashed), as one collection with a "part" property.
 export function journeyLines(j: Journey, at: { lng: number; lat: number }, plane: boolean): GeoJSON.FeatureCollection {
@@ -80,7 +107,7 @@ export function journeyLines(j: Journey, at: { lng: number; lat: number }, plane
   for (const f of j.track?.features ?? []) feats.push({ ...f, properties: { part: "path" } });
   const to = plane ? j.route?.airports?.[j.route.airports.length - 1] : j.port;
   if (to && typeof to.lon === "number") {
-    feats.push({ type: "Feature", properties: { part: "ahead" }, geometry: { type: "LineString", coordinates: [[at.lng, at.lat], [to.lon, to.lat]] } });
+    feats.push({ type: "Feature", properties: { part: "ahead" }, geometry: { type: "LineString", coordinates: greatCircle([at.lng, at.lat], [to.lon, to.lat]) } });
   }
   const from = plane ? (j.route?.airports?.[0] ?? j.from_airport) : null;
   if (from && typeof from.lon === "number") feats.push({ type: "Feature", properties: { part: "end" }, geometry: { type: "Point", coordinates: [from.lon, from.lat] } });
@@ -110,6 +137,7 @@ export function journeyText(j: Journey, plane: boolean): string[] {
     if (typeof a?.target_altitude_m === "number") out.push(`Climbing or descending to ${a.target_altitude_m.toLocaleString()} m`);
     if (j.track?.from) out.push(`Path drawn from ${ago(j.track.from)}${j.kept_at ? ` (asked of OpenSky ${ago(j.kept_at)}; asked again after 30 min)` : ""}`);
   } else {
+    if (j.came_from) out.push(`Came from: ${[j.came_from.name, j.came_from.country].filter(Boolean).join(", ")} (stopped there ${ago(j.came_from_at)})`);
     if (j.destination) out.push(`Going to: ${j.destination}${j.port ? ` (${place(j.port)})` : ""}${j.eta ? `, due ${j.eta}` : ""}`);
     else out.push("No destination given");
     if (j.track?.points) out.push(`Path saved from ${ago(j.track.from)} (${j.track.points} positions)`);

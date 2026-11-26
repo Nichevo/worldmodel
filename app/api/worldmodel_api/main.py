@@ -74,9 +74,11 @@ async def lifespan(_app: FastAPI):
     background = wiki.Background(wiki_targets)
     background.start()
     try:  # ships saved in the background while the app runs (Settings > Transport: Collect ships)
-        from worldmodel_api import live
+        from worldmodel_api import journeys, live
 
+        live.SHIPS.ports_fn = lambda: journeys.ports(rows)
         live.SHIPS.start()
+        live.PLANES.start()
     except Exception:  # noqa: BLE001 - the map says what is wrong
         pass
     starter = threading.Timer(30, _tiles_starter)  # the starter map copies, once, after the app is up
@@ -4017,12 +4019,12 @@ def live_ships_status():
 @api.get("/live/ships/table")
 def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "last_seen",
                      limit: int = Query(200, ge=1, le=2000), offset: int = Query(0, ge=0), hours: float = Query(0, ge=0),
-                     to: str = ""):
+                     to: str = "", came: str = ""):
     """Every ship seen: name, MMSI, IMO, call sign, flag, type, size, destination (matched to a port)
     and where it was last; `to` keeps ships going to a port, code or country containing it."""
     from worldmodel_api import journeys, live
 
-    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=journeys.ports(rows))
+    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=journeys.ports(rows), came=came)
     banned = osint.sanctioned_ship_ids(rows)
     for r in out["rows"]:
         r["sanctioned"] = bool(banned and (str(r["id"]) in banned or (r.get("imo") and str(r["imo"]) in banned)))

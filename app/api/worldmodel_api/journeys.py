@@ -99,6 +99,7 @@ def ship_journey(q: Q, ships, mmsi: int, hours: float = 72) -> dict:
     detail = ships.detail(mmsi) or {}
     port = match_port(detail.get("destination"), ports(q))
     return {"track": track, "destination": detail.get("destination"), "eta": detail.get("eta"), "port": port,
+            "came_from": detail.get("last_port"), "came_from_at": detail.get("last_port_at"),
             "from_time": track.get("from"), "now": [detail.get("lon"), detail.get("lat")] if detail.get("lat") is not None else None,
             "note": None if track.get("points") else "No saved path yet: paths are saved while ships are collected (Settings > Transport)."}
 

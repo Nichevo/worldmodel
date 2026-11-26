@@ -419,6 +419,8 @@ export default function SettingsPage() {
           save={(v) => save({ ships_keep_days: v })} />
         <Toggle label="Save planes" hint="Every plane OpenSky sends the map is saved (a position every 4 minutes each, in var\live\planes), so the time slider, plane paths and the Planes table keep planes that have landed or left the view; what was looked up about a plane (route, aircraft, path) is kept too and not asked again. Planes are only fetched while the Planes layer is open, so it grows only then: a whole-world view open all day is roughly 150 MB that day, about 30 MB once compacted overnight. Off: only the last answer is shown."
           on={s.planes_collect} set={(v) => save({ planes_collect: v })} />
+        <Toggle label="Planes from the whole world" hint="While the app runs, ask OpenSky for every plane in the world every 30 minutes (every 5 with a free OpenSky API client in Settings > Keys) and save them, so planes build up from everywhere even with the map closed. Each whole-world request uses 4 of OpenSky's daily credits (about 400 anonymous, 4,000 with a client). Off: only the map's view is fetched, while the Planes layer is on."
+          on={s.planes_world} set={(v) => save({ planes_world: v })} />
         <NumberField label="Keep saved planes for" unit="days" value={s.planes_keep_days} min={1} max={400} step={1}
           note="Older days of plane positions are deleted."
           save={(v) => save({ planes_keep_days: v })} />

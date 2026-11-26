@@ -702,7 +702,8 @@ function ShipsTime({ ships, planes }: { ships: boolean; planes: boolean }) {
       {planes && pst && (
         <p className="caption">{pst.collecting
           ? <>Saving planes as the map gets them: {(pst.planes ?? 0).toLocaleString()} planes, {pst.days} day{pst.days === 1 ? "" : "s"},{" "}
-            {pst.bytes > 1e9 ? `${(pst.bytes / 1e9).toFixed(1)} GB` : `${Math.max(0.1, pst.bytes / 1e6).toFixed(1)} MB`} (kept {pst.keep_days} days).</>
+            {pst.bytes > 1e9 ? `${(pst.bytes / 1e9).toFixed(1)} GB` : `${Math.max(0.1, pst.bytes / 1e6).toFixed(1)} MB`} (kept {pst.keep_days} days).
+            {pst.world_every_minutes ? ` The whole world is asked every ${pst.world_every_minutes} minutes.` : ""}{pst.world_note ? ` ${pst.world_note}` : ""}</>
           : <>Planes are not being saved; turn on Save planes in <Link href="/settings#transport">Settings</Link>.</>}</p>
       )}
       {ships && <KindChips groups={SHIP_GROUPS} setting="map_ships_hidden" />}

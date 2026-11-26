@@ -138,6 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ships_world_every_hours: 6,
   ships_keep_days: 30,
   planes_collect: true,
+  planes_world: true,
   planes_keep_days: 30,
   ship_owners_gfw: true,
   ship_owners_wikidata: true,
