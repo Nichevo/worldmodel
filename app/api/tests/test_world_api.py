@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture()
@@ -37,9 +38,9 @@ def client(tmp_path, monkeypatch):
     con.execute("""INSERT INTO events (event_id, entity_id, source_id, vintage, kind, subkind, title, start_date, precision)
         VALUES ('gsdb:1:al-qaeda', 'al-qaeda', 'test', 'v1', 'sanction', 'financial', 'Sanctions by UN', DATE '1999-10-15', 'year')""")
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_voting_lines_with_a_group_average(client):

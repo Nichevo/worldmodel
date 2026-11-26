@@ -14,3 +14,25 @@ def _no_starter_tiles():
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(tiles, "start_starter", lambda: dict(tiles._job))
         yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_live_settings():
+    """live.py keeps the settings for a few seconds; each test starts with them read afresh."""
+    from worldmodel_api import live
+
+    live.forget_settings()
+    yield
+    live.forget_settings()
+
+
+@pytest.fixture(autouse=True)
+def _warehouse_put_back():
+    """Some tests point the app at a warehouse of their own; the next test gets the one before.
+    Run in parallel, tests land on workers in a different order each time, so a test left
+    pointing at a small warehouse failed whichever test happened to follow it."""
+    from worldmodel_api import core
+
+    before = core.warehouse
+    yield
+    core.warehouse = before

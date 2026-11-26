@@ -34,6 +34,7 @@ AISSTREAM = "wss://stream.aisstream.io/v0/stream"
 PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
 PLANE_WORLD_EVERY = 5 * 60.0        # background whole-world requests with an OpenSky API client
 PLANE_WORLD_EVERY_ANON = 30 * 60.0  # ... and without one (48 a day, about half the anonymous credits)
+TABLE_KEEP = 45.0  # seconds the planes table (and its counts) is kept before being worked out again
 SAVED_FILL = 40 * 60.0  # a view outside the last OpenSky box shows saved positions up to this old
 PLANE_EVERY_ANON = 180.0  # without one: anonymous users get about 400 credits a day, 1-4 a request
 SHIP_KEEP = 20 * 60    # seconds a ship's last position is shown
@@ -96,12 +97,15 @@ class Planes:
         self.route_note: str | None = None
         self.route_pause = 0.0
         self.lock = threading.Lock()
+        self._fetching = False
         self.last_at = 0.0
         self.last_box: list | None = None
         self.last: dict | None = None
         self.token: tuple[str, float] | None = None
         self.blocked_until = 0.0
         self.blocked_why = ""
+        self._tables: dict = {}
+        self._tables_lock = threading.Lock()
 
     @property
     def store(self):
@@ -258,8 +262,10 @@ class Planes:
 
     def get(self, west: float, south: float, east: float, north: float) -> dict:
         bx = boxes(west, south, east, north)
+        every = PLANE_EVERY if os.environ.get("OPENSKY_CLIENT_ID") and os.environ.get("OPENSKY_CLIENT_SECRET") else PLANE_EVERY_ANON
+        # The lock covers only the checks and the swap of the new answer: OpenSky can take up to
+        # 20 s, and other views asking meanwhile get what is already here instead of waiting.
         with self.lock:
-            every = PLANE_EVERY if os.environ.get("OPENSKY_CLIENT_ID") and os.environ.get("OPENSKY_CLIENT_SECRET") else PLANE_EVERY_ANON
             fresh = time.time() - self.last_at < every
             if self.last and fresh and self.last_box and all(
                     any(w0 <= w and e <= e0 and s0 <= s and n <= n0 for w0, s0, e0, n0 in self.last_box) for w, s, e, n in bx):
@@ -269,51 +275,69 @@ class Planes:
                                         f"Planes refresh every {int(every // 60)} min; moved views fill in at the next.")
             if time.time() < self.blocked_until:  # OpenSky said wait: don't spend more requests
                 return self._kept(bx, self.blocked_why)
-            states, error = [], None
-            try:
-                with httpx.Client(timeout=20) as client:
-                    head = self._auth(client)
-                    for w, s, e, n in bx:
-                        r = client.get(OPENSKY, params={"lamin": s, "lomin": w, "lamax": n, "lomax": e, "extended": 1}, headers=head)
-                        if r.status_code == 429:
-                            wait = r.headers.get("X-Rate-Limit-Retry-After-Seconds")
-                            wait_s = float(wait) if wait and wait.replace(".", "", 1).isdigit() else 3600.0
-                            self.blocked_until = time.time() + min(wait_s, 24 * 3600)
-                            hours = max(1, round(wait_s / 3600))
-                            error = (f"OpenSky's daily limit is used up; planes come back in about {hours} hour{'s' if hours != 1 else ''}"
-                                     " (a free OpenSky API client in Settings > Keys gives more).")
-                            self.blocked_why = error
-                            break
-                        if r.status_code in (401, 403) and head:
-                            self.token = None
-                            error = "OpenSky refused the API client: check OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET in Settings > Keys."
-                            break
-                        r.raise_for_status()
-                        states += r.json().get("states") or []
-            except (httpx.HTTPError, ValueError, KeyError) as exc:
-                error = f"OpenSky did not answer ({exc.__class__.__name__})."
+            busy = self._fetching
+            self._fetching = True
+        if busy:  # another view is asking OpenSky right now
+            return self._kept(bx, "Planes are being fetched; they show at the next reload.")
+        try:
+            states, error = self._ask(bx)
             if error and not states:
                 return self._kept(bx, error)
-            feats, seen = [], set()
-            for st in states:
-                if st[5] is None or st[6] is None or st[8] or st[0] in seen:  # no position, on the ground, or twice
-                    continue
-                seen.add(st[0])
-                cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
-                feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
-                              "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
-                                             "altitude_m": round(st[7]) if st[7] is not None else None,
-                                             "speed_kmh": round(st[9] * 3.6) if st[9] is not None else None,
-                                             "heading": round(st[10]) if st[10] is not None else 0,
-                                             "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
-                                             "squawk": st[14] if len(st) > 14 else None,
-                                             "seen": st[4] if len(st) > 4 else None,
-                                             "category": cat, "group": plane_group(cat)}})
-                self.describe(feats[-1]["properties"])
-            self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
-            self.last_at, self.last_box = time.time(), bx
+            feats = self._features(states)
+            with self.lock:
+                self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
+                self.last_at, self.last_box = time.time(), bx
             self._save(feats)
             return self._filter(self.last, bx)
+        finally:
+            with self.lock:
+                self._fetching = False
+
+    def _ask(self, bx: list) -> tuple[list, str | None]:
+        """OpenSky's states for the boxes (one request each), and why it stopped, if it did."""
+        states, error = [], None
+        try:
+            with httpx.Client(timeout=20) as client:
+                head = self._auth(client)
+                for w, s, e, n in bx:
+                    r = client.get(OPENSKY, params={"lamin": s, "lomin": w, "lamax": n, "lomax": e, "extended": 1}, headers=head)
+                    if r.status_code == 429:
+                        wait = r.headers.get("X-Rate-Limit-Retry-After-Seconds")
+                        wait_s = float(wait) if wait and wait.replace(".", "", 1).isdigit() else 3600.0
+                        self.blocked_until = time.time() + min(wait_s, 24 * 3600)
+                        hours = max(1, round(wait_s / 3600))
+                        error = (f"OpenSky's daily limit is used up; planes come back in about {hours} hour{'s' if hours != 1 else ''}"
+                                 " (a free OpenSky API client in Settings > Keys gives more).")
+                        self.blocked_why = error
+                        break
+                    if r.status_code in (401, 403) and head:
+                        self.token = None
+                        error = "OpenSky refused the API client: check OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET in Settings > Keys."
+                        break
+                    r.raise_for_status()
+                    states += r.json().get("states") or []
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            error = f"OpenSky did not answer ({exc.__class__.__name__})."
+        return states, error
+
+    def _features(self, states: list) -> list:
+        feats, seen = [], set()
+        for st in states:
+            if st[5] is None or st[6] is None or st[8] or st[0] in seen:  # no position, on the ground, or twice
+                continue
+            seen.add(st[0])
+            cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
+            feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
+                          "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
+                                         "altitude_m": round(st[7]) if st[7] is not None else None,
+                                         "speed_kmh": round(st[9] * 3.6) if st[9] is not None else None,
+                                         "heading": round(st[10]) if st[10] is not None else 0,
+                                         "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
+                                         "squawk": st[14] if len(st) > 14 else None,
+                                         "seen": st[4] if len(st) > 4 else None,
+                                         "category": cat, "group": plane_group(cat)}})
+            self.describe(feats[-1]["properties"])
+        return feats
 
     def flights(self, icao: str | None, callsign: str | None, days: float = 30) -> dict:
         """The flights saved for one aircraft, or for every aircraft that flew a callsign, with each
@@ -333,7 +357,20 @@ class Planes:
 
     def table(self, hours: float = 1) -> dict:
         """Every plane from the last OpenSky answer, and (when saving) every plane saved in the last
-        `hours`, each at its latest position, for the planes table."""
+        `hours`, each at its latest position, for the planes table. Kept TABLE_KEEP seconds (the
+        table, its counts and the Plane counts filters all ask, and reading a day of positions is slow)."""
+        key = (hours, (self.last or {}).get("at"))
+        with self._tables_lock:
+            hit = self._tables.get(key)
+        if hit and time.monotonic() - hit[0] < TABLE_KEEP:
+            return hit[1]
+        out = self._table(hours)
+        with self._tables_lock:
+            self._tables = {k: v for k, v in self._tables.items() if time.monotonic() - v[0] < TABLE_KEEP}
+            self._tables[key] = (time.monotonic(), out)
+        return out
+
+    def _table(self, hours: float) -> dict:
         feats = {f["properties"]["id"]: f for f in (self.last or {}).get("features") or []}
         if self.collecting() and hours > 0:
             try:
@@ -404,6 +441,8 @@ class Planes:
                 self.route_pause = time.time() + 600
                 return
             self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
+            with self._tables_lock:  # the tables kept show the new routes at their next ask
+                self._tables = {}
             found = sum(1 for cs, _, _ in batch if got.get(cs))
             self.route_note = f"Routes: asked adsb.lol for {len(batch):,} flights at {time.strftime('%H:%M')}, {found:,} found."
             for cs, _, _ in batch:
@@ -480,6 +519,9 @@ class MilitaryPlanes:
 RETRY_AFTER = 30.0     # seconds before trying aisstream again after the listener stopped with an error
 RETRY_MOST = 10 * 60   # ... doubling after each failure in a row, up to this
 WORLD_RETRY = 15 * 60  # a whole-world snapshot cut short is tried again this much later
+PING_TIMEOUT = 90      # seconds to wait for aisstream's answer to a keepalive ping
+MAX_QUEUE = 20_000     # reports held while this side catches up (see _listen)
+STALE = 300            # seconds without a report before the connection is opened again
 OPEN_TIMEOUT = 60      # aisstream can take 20 s or more to answer a new connection
 TIDY_EVERY = 3600.0    # seconds between turning finished days into Parquet and deleting old ones
 WORLD_LISTEN = 10 * 60  # how long each whole-world snapshot listens
@@ -494,13 +536,28 @@ SHIP_AREAS = {
 }
 
 
+_SETTINGS_CACHE: list = [0.0, {}]
+SETTINGS_TTL = 5.0  # seconds: describe() asks once per plane, thousands of times a request
+
+
 def _settings() -> dict:
+    """Settings, read from disk at most every SETTINGS_TTL seconds (a change in Settings shows within that)."""
     from worldmodel_contract import local
 
+    now = time.monotonic()
+    if now - _SETTINGS_CACHE[0] < SETTINGS_TTL:
+        return _SETTINGS_CACHE[1]
     try:
-        return local.load_settings()
+        got = local.load_settings()
     except Exception:  # noqa: BLE001 - defaults if the file can't be read
-        return {}
+        got = {}
+    _SETTINGS_CACHE[:] = [now, got]
+    return got
+
+
+def forget_settings() -> None:
+    """Read the settings afresh next time (after Settings are saved)."""
+    _SETTINGS_CACHE[0] = 0.0
 
 
 def _store():
@@ -613,6 +670,7 @@ class Ships:
                     self.world_at, self.world_until = time.time(), time.time() + WORLD_LISTEN
                     self.sweep_at, self.sweep_got, self.sweep_new = time.time(), 0, 0
                     self.resubscribe.set()
+                self.store.flush()  # positions waiting in memory, when reports are few
                 if time.time() - self.details_saved >= DETAILS_EVERY:
                     self.details_saved = time.time()
                     self.store.save_details(int(self.settings().get("ships_keep_days") or 30))
@@ -861,14 +919,19 @@ class Ships:
                 return
             self.resubscribe.clear()
             world, got = bx == SHIP_AREAS["world"][1] and self.area()[1] != bx, 0
-            async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, max_size=2**22) as ws:
+            # The whole world sends hundreds of reports a second: a short queue (the default 16) stops the
+            # reading whenever this loop falls behind, so the server's pong waits behind unread reports and the
+            # keepalive gives up ("1011 keepalive ping timeout", every minute or two). A long queue and a
+            # longer pong wait ride out the bursts; a connection silent for STALE seconds is opened again.
+            async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, ping_timeout=PING_TIMEOUT,
+                                          max_size=2**22, max_queue=MAX_QUEUE) as ws:
                 await ws.send(json.dumps({"APIKey": key,
                                           "BoundingBoxes": [[[s, w], [n, e]] for w, s, e, n in bx],
                                           "FilterMessageTypes": SHIP_MESSAGES}))
                 self.connected = True
                 if not self.conn_at:
                     self.conn_at, self.conn_got = time.time(), 0
-                checked = time.time()
+                checked = heard = time.time()
                 while not self.resubscribe.is_set():
                     if time.time() - checked > 30:  # settings changed (area, collecting on or off)?
                         checked = time.time()
@@ -877,7 +940,10 @@ class Ships:
                     try:
                         raw = await asyncio.wait_for(ws.recv(), timeout=5)
                     except asyncio.TimeoutError:
+                        if time.time() - heard > STALE:
+                            raise ConnectionError(f"no reports for {STALE // 60} minutes") from None
                         continue
+                    heard = time.time()
                     got += 1
                     self.conn_got += 1
                     if world:
@@ -1086,6 +1152,8 @@ def _ship_error(exc: Exception, wait: float = RETRY_AFTER) -> str:
     """Why the aisstream listener stopped, in words."""
     name = exc.__class__.__name__
     text = str(exc)
+    if "ConnectionClosed" in name and "keepalive" in text:
+        return f"aisstream.io connection timed out ({text}); trying again in {_wait_words(wait)}."
     if "ConnectionClosed" in name:
         return f"aisstream.io closed the connection ({text or name}); trying again in {_wait_words(wait)}. A wrong or expired key is the usual cause."
     if "InvalidStatus" in name or "InvalidHandshake" in name or "Proxy" in name:

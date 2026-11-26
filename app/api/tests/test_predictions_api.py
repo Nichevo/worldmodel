@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main, predictions
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
+from worldmodel_api.routes import forecasts as forecasts_routes
 
 
 @pytest.fixture()
@@ -25,11 +27,11 @@ def client(tmp_path, monkeypatch):
     con.execute("""INSERT INTO conflict_forecasts SELECT e, date_trunc('month', current_date) + INTERVAL (m) MONTH, d, c, 'sb', 'test', 'views', 'v1'
         FROM (VALUES ('SDN', 500.0, 0.9), ('UKR', 900.0, 0.95)) t(e, d, c), range(3) r(m)""")
     con.close()
-    main.warehouse = Warehouse(str(db))
-    main._pred_state.clear()
+    core.warehouse = Warehouse(str(db))
+    forecasts_routes._pred_state.clear()
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
-    main._pred_state.clear()
+    core.warehouse = Warehouse(str(SAMPLE))
+    forecasts_routes._pred_state.clear()
 
 
 def test_log_and_scores(client):

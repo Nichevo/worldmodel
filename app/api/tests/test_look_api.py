@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import look, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture()
@@ -49,9 +50,9 @@ def client(tmp_path, monkeypatch):
         con.execute("DELETE FROM indicator_sources WHERE indicator_id = ?", [i])
         con.execute("INSERT INTO indicator_sources BY NAME SELECT ? AS indicator_id, ? AS source_id, ? AS series, 1.0 AS scale, 1 AS rank", [i, src, i])
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_ranked_with_guideline(client):

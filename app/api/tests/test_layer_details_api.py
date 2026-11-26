@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import layer_details, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
+from worldmodel_api.routes import maps as maps_routes
 
 
 @pytest.fixture()
@@ -29,9 +31,9 @@ def client(tmp_path, monkeypatch):
                 [json.dumps({"length": "15,840 km", "owners": ["Spark", "Telstra"], "rfs": 2022})])
     con.close()
     layer_details._cache.clear()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     layer_details._cache.clear()
 
 
@@ -56,7 +58,7 @@ def test_groups_add_up_their_members(client):
 
 
 def _members(group):
-    con = main.warehouse.cursor()
+    con = core.warehouse.cursor()
     return [r[0] for r in con.execute("SELECT member_id FROM memberships WHERE group_id = ?", [group]).fetchall()]
 
 
@@ -91,7 +93,7 @@ def test_live_layers_are_counted_when_opened(client, monkeypatch):
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [150, -33]}, "properties": {"frp": 40, "country": "AUS"}},
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [151, -33]}, "properties": {"frp": 10, "country": "AUS"}},
     ]}
-    monkeypatch.setattr(main, "_live_layer", lambda layer_id: fires)
+    monkeypatch.setattr(maps_routes, "_live_layer", lambda layer_id: fires)
     got = client.get("/api/v1/layer-details/fires_now").json()
     assert got["countries"][0]["entity_id"] == "AUS" and got["countries"][0]["count"] == 2
     assert got["totals"]["size_total"] == 50
@@ -133,11 +135,11 @@ def test_hospitals_by_list_and_kind(tmp_path, monkeypatch):
                     [f"h{n}", f"H{n}", found, json.dumps({"tier": tier})])
     con.close()
     layer_details._cache.clear()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     try:
         rows = {r["list"]: r for r in TestClient(main.app).get("/api/v1/layer-details/hospitals").json()["by_list"]}
     finally:
-        main.warehouse = Warehouse(str(SAMPLE))
+        core.warehouse = Warehouse(str(SAMPLE))
         layer_details._cache.clear()
     assert rows["OpenStreetMap"] == {"list": "OpenStreetMap", "count": 2, "only": 1, "hospital": 1, "unsure": 1, "clinic": 0}
     assert rows["All lists"]["count"] == 3 and rows["All lists"]["clinic"] == 1

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import live, main, ports
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 LINE = {"type": "LineString", "coordinates": [[175.0, -38.0], [176.0, -37.5]]}
 
@@ -47,9 +48,9 @@ def client(tmp_path, monkeypatch):
                    VALUES ('wikidata:a1', 'wikidata', 'v1', 'NZL', 'transport', 'air', 'Air New Zealand Flight 901', '1979-11-28', 'day', 257),
                           ('wikidata:a2', 'wikidata', 'v1', 'NZL', 'transport', 'sea', 'Small boat', '2001-01-01', 'day', 3)""")
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_geo_by_window_and_zoom(client):
@@ -154,7 +155,7 @@ def test_live_planes(client, monkeypatch):
     assert len(calls) == 2  # inside the last box, within the minute: no new request
 
 
-def test_live_planes_keep_last_after_limit(monkeypatch):
+def test_live_planes_keep_last_after_limit(monkeypatch, tmp_path):
     class Resp:
         status_code = 429
         headers = {"X-Rate-Limit-Retry-After-Seconds": "7200"}
@@ -175,7 +176,10 @@ def test_live_planes_keep_last_after_limit(monkeypatch):
 
     calls = []
     monkeypatch.setattr(live.httpx, "Client", Client)
-    planes = live.Planes()
+    from worldmodel_api.planestore import PlaneStore
+
+    # A store of its own: the default one (in the data folder) can hold planes other tests saved.
+    planes = live.Planes(store=PlaneStore(tmp_path / "planes"), settings=lambda: {})
     planes.last = {"type": "FeatureCollection", "at": 0, "features": [
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [174.8, -37.0]}, "properties": {"id": "abc"}}]}
     got = planes.get(170, -45, 180, -30)

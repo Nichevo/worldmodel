@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import grid, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture()
@@ -42,9 +43,9 @@ def client(tmp_path, monkeypatch):
                 vals = {"city_id": cid, "name": cid, "country_id": cc, "lat": lat, "lon": lon, "capital": "national"}
                 con.execute(f"INSERT INTO cities ({', '.join(vals)}) VALUES ({', '.join('?' * len(vals))})", list(vals.values()))
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_energy_flow_sources(client):

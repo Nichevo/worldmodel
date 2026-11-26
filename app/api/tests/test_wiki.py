@@ -8,6 +8,8 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main, wiki
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
+from worldmodel_api.routes import basics as basics_routes
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 64
 
@@ -16,7 +18,7 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 64
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     return TestClient(main.app)
 
 
@@ -93,7 +95,7 @@ def test_wikipedia_daily_limit_and_monthly_refresh(client, wikipedia, tmp_path):
 def test_wikipedia_background_takes_half_the_limit(client, wikipedia):
     client.put("/api/v1/settings", json={"wikipedia_countries_daily": 4})
     client.post("/api/v1/history", json={"kind": "page", "title": "Chile", "entity": "CHL"})
-    bg = wiki.Background(main.wiki_targets)
+    bg = wiki.Background(basics_routes.wiki_targets)
     assert bg.step() and bg.step() and not bg.step()  # 2 of 4
     first = [r.url.params["titles"] for r in wikipedia if "extracts" in r.url.params.get("prop", "")]
     assert first[0] == "Chile"  # opened countries first, then by population

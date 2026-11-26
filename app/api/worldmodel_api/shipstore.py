@@ -24,6 +24,7 @@ MOVING_EVERY = 10 * 60   # seconds between saved positions of a moving ship
 STILL_EVERY = 60 * 60    # ... and of one at anchor or alongside
 STILL_KNOTS = 0.5
 LOOK_BACK = STILL_EVERY + 5 * 60  # how far before a time to look for a ship's last position
+FLUSH_EVERY = 2.0        # seconds: positions wait in memory at most this long before going to disk
 COLUMNS = "ts BIGINT, mmsi BIGINT, lat DOUBLE, lon DOUBLE, sog DOUBLE, heading DOUBLE, name VARCHAR, kind INTEGER"
 
 
@@ -38,6 +39,10 @@ class ShipStore:
         self.written: dict[int, float] = {}  # mmsi -> when last saved
         self.names: dict[int, str] = {}
         self.kinds: dict[int, int] = {}  # AIS ship type code (70-79 cargo, 80-89 tanker ...)
+        # Positions wait here and go to disk in batches (flush): opening the day's file for every
+        # position slowed the aisstream loop enough, with the whole world, to drop the connection.
+        self.pending: list[list] = []
+        self.flushed_at = 0.0
         self.details: dict[int, dict] = {}  # mmsi -> what the ship says about itself, and where it was last
         self.details_dirty = False
         self._load_details()
@@ -56,34 +61,60 @@ class ShipStore:
         if last is not None and now - last < (MOVING_EVERY if moving else STILL_EVERY):
             return False
         with self.lock:
-            self.folder.mkdir(parents=True, exist_ok=True)
-            with (self.folder / f"{_day(now)}.csv").open("a", newline="", encoding="utf-8") as f:
-                csv.writer(f).writerow([int(now), mmsi, lat, lon, "" if sog is None else sog,
-                                        "" if heading is None else heading, self.names.get(mmsi, ""), self.kinds.get(mmsi, "")])
+            self.pending.append([int(now), mmsi, lat, lon, "" if sog is None else sog,
+                                 "" if heading is None else heading, self.names.get(mmsi, ""), self.kinds.get(mmsi, "")])
             self.written[mmsi] = now
+        if time.time() - self.flushed_at >= FLUSH_EVERY:
+            self.flush()
         return True
+
+    def flush(self) -> int:
+        """Write the positions waiting in memory to their days' files; returns how many."""
+        with self.lock:
+            rows, self.pending = self.pending, []
+            self.flushed_at = time.time()
+            if not rows:
+                return 0
+            try:
+                self.folder.mkdir(parents=True, exist_ok=True)
+                by_day: dict[str, list] = {}
+                for r in rows:
+                    by_day.setdefault(_day(r[0]), []).append(r)
+                for day, part in by_day.items():
+                    with (self.folder / f"{day}.csv").open("a", newline="", encoding="utf-8") as f:
+                        csv.writer(f).writerows(part)
+            except OSError:
+                self.pending = rows + self.pending  # kept for the next try
+                raise
+        return len(rows)
 
     def tidy(self, keep_days: int, now: float | None = None) -> None:
         """Turn finished days into Parquet and delete days older than keep_days. Run about hourly."""
         now = now or time.time()
         today = _day(now)
+        self.flush()
         if not self.folder.exists():
             return
         import duckdb
 
-        with self.lock:
-            for f in sorted(self.folder.glob("*.csv")):
-                if f.stem >= today:
-                    continue
-                out = f.with_suffix(".parquet")
-                try:
-                    con = duckdb.connect()
-                    con.execute(f"COPY (SELECT * FROM read_csv(?, header=false, columns={_cols()}, ignore_errors=true) ORDER BY mmsi, ts) "
-                                f"TO '{_q(out)}' (FORMAT parquet, COMPRESSION zstd)", [str(f)])
-                    con.close()
+        # The slow part (reading a day's CSV into Parquet) runs without the lock, so new positions
+        # keep coming in; only the swap of the finished file is done holding it.
+        for f in sorted(self.folder.glob("*.csv")):
+            if f.stem >= today:
+                continue
+            out, tmp = f.with_suffix(".parquet"), f.with_suffix(".parquet.tmp")
+            try:
+                con = duckdb.connect()
+                con.execute(f"COPY (SELECT * FROM read_csv(?, header=false, columns={_cols()}, ignore_errors=true) ORDER BY mmsi, ts) "
+                            f"TO '{_q(tmp)}' (FORMAT parquet, COMPRESSION zstd)", [str(f)])
+                con.close()
+                with self.lock:
+                    tmp.replace(out)
                     f.unlink()
-                except Exception as exc:  # noqa: BLE001 - tried again next hour
-                    log.warning("ship store: could not compact %s: %s", f.name, exc)
+            except Exception as exc:  # noqa: BLE001 - tried again next hour
+                tmp.unlink(missing_ok=True)
+                log.warning("ship store: could not compact %s: %s", f.name, exc)
+        with self.lock:
             cutoff = _day(now - keep_days * 86400)
             for f in list(self.folder.glob("*.parquet")) + list(self.folder.glob("*.csv")):
                 if f.stem < cutoff:
@@ -135,6 +166,10 @@ class ShipStore:
         return [str(f) for f in sorted(self.folder.iterdir()) if f.suffix in (".csv", ".parquet") and lo <= f.stem <= hi]
 
     def _query(self, start: float, end: float, sql: str, params: list) -> list[tuple]:
+        try:
+            self.flush()  # what is waiting in memory counts too
+        except OSError as exc:
+            log.warning("ship store: could not save: %s", exc)
         files = self._files(start, end)
         if not files:
             return []
@@ -183,6 +218,10 @@ class ShipStore:
         return [s for s in found if now - s["seen"] <= seconds]
 
     def status(self) -> dict:
+        try:
+            self.flush()
+        except OSError as exc:
+            log.warning("ship store: could not save: %s", exc)
         files = [f for f in sorted(self.folder.glob("*")) if f.suffix in (".csv", ".parquet")] if self.folder.exists() else []
         out = {"days": len({f.stem for f in files}), "bytes": sum(f.stat().st_size for f in files), "first": None, "last": None}
         if files:

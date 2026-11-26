@@ -459,6 +459,7 @@ def refresh(allow_shrink: bool = typer.Option(False),
     tally = {k: sum(e.get("status") == k for e in record["sources"]) for k in ("new", "unchanged", "skipped", "error")}
     typer.echo(f"Sources: {tally['new']} brought something new, {tally['unchanged']} unchanged, "
                f"{tally['skipped']} not due or left alone, {tally['error']} failed.")
+    _check_addresses(p, {e["source_id"] for e in record["sources"] if e.get("status") in ("new", "unchanged")})
     progress.start("(building the warehouse)")
     try:
         _build_and_log(allow_shrink, record, force=False)
@@ -468,6 +469,27 @@ def refresh(allow_shrink: bool = typer.Option(False),
         _echo_problems(p)
         typer.echo(f"Some sources failed to fetch and kept their previous data: {', '.join(failed)}", err=True)
         raise typer.Exit(1)
+
+
+def _check_addresses(p, fetched: set[str]) -> None:
+    """Once a week (Settings), ask whether the addresses of the sources not fetched today still answer."""
+    from worldmodel_data import addresses
+
+    every = local.load_settings(p.home).get("address_check_days", 7)
+    if not addresses.due(p.home, every):
+        return
+    try:
+        addresses.check(p.home, skip=fetched, say=typer.echo)
+    except Exception as exc:  # noqa: BLE001 - a nicety; never stops a refresh
+        typer.echo(f"Download address check did not finish: {exc}", err=True)
+
+
+@app.command("check-addresses")
+def check_addresses():
+    """Ask every remembered download address whether it still answers (a refresh does this weekly)."""
+    from worldmodel_data import addresses
+
+    addresses.check(paths().home, say=typer.echo)
 
 
 def _newer_file(last, folder: Path) -> bool:
@@ -925,7 +947,7 @@ def _due_downloads(p) -> list[str]:
 @app.command()
 def backup(to: Optional[Path] = typer.Option(None, help="Folder for the backup (default: Settings, or worldmodel-backups beside this folder)."),
            auto: bool = typer.Option(False, "--auto", help="As update.bat runs it: only when switched on in Settings, once a day.")):
-    """Zip the files only you can replace (var\\manual, var\\user and .env) into the backup folder."""
+    """Zip the files only you can replace (var\\manual, var\\user and the key names in .env) into the backup folder."""
     from worldmodel_contract import upkeep
 
     p = paths()

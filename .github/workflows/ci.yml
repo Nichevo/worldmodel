@@ -16,7 +16,7 @@ jobs:
       - name: Install
         run: pip install -e contract -e "data[test]" -e "app/api[test]" -e "client[mcp,test]"
       - name: Test contract, pipeline (on fixtures) and API (on the sample warehouse)
-        run: pytest -q contract/tests data/tests app/api/tests client/tests
+        run: pytest -q -n auto contract/tests data/tests app/api/tests client/tests
 
   web:
     runs-on: ubuntu-latest
@@ -35,3 +35,43 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  smoke:
+    # Every page and every map layer opened in a real browser against the sample warehouse,
+    # in development mode so React's hydration warnings show; fails on any error the app's own
+    # code makes (scripts/smoke.mjs), and on a map layer style MapLibre would refuse (Self check).
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/web/package-lock.json
+      - name: Install
+        run: |
+          pip install -e contract -e "app/api"
+          cd app/web && npm ci && npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Start the API on the sample warehouse, collectors off
+        run: |
+          mkdir -p "$RUNNER_TEMP/wm/user"
+          echo '{"live_planes": false, "live_ships": false, "planes_collect": false, "ships_collect": false, "weather_maps": false}' > "$RUNNER_TEMP/wm/user/settings.json"
+          WORLDMODEL_WAREHOUSE="$PWD/app/sample/worldmodel-sample.duckdb" WORLDMODEL_HOME="$RUNNER_TEMP/wm" nohup worldmodel-api > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 60); do curl -sf localhost:8000/api/v1/meta > /dev/null && break; sleep 1; done
+      - name: Start the web app (development mode)
+        working-directory: app/web
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          nohup npx next dev -p 3030 > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 120); do curl -s -o /dev/null localhost:3030/ && break; sleep 1; done
+      - name: Smoke test
+        working-directory: app/web
+        run: node scripts/smoke.mjs http://localhost:3030
+      - name: Server logs
+        if: failure()
+        run: tail -n 80 "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"

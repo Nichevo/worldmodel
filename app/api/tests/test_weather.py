@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from worldmodel_api import main, weather
+from worldmodel_api import userdata
 
 pytest.importorskip("eccodes")
 
@@ -112,7 +113,7 @@ def test_candidates_are_runs_already_out():
 def test_routes_serve_status_tiles_and_values(_home, monkeypatch):
     rid = "2026112512"
     _fake_run(_home, rid, weather.steps_for(1))
-    monkeypatch.setattr(main.userdata, "settings", lambda: {"weather_maps": True, "weather_days": 1, "weather_detail": "0p50"})
+    monkeypatch.setattr(userdata, "settings", lambda: {"weather_maps": True, "weather_days": 1, "weather_detail": "0p50"})
     monkeypatch.setattr(weather, "_maybe_start", lambda *a: None)
     c = TestClient(main.app)
     st = c.get("/api/v1/weather/status").json()

@@ -165,6 +165,7 @@ class Connector(ABC):
         self._client = client
         self._cache: HttpCache | None = None
         self.downloaded_bytes = 0  # over the network, this run; for the refresh log
+        self.fetched_urls: list[str] = []  # addresses that answered, for the weekly address check
         # Set by stage() for sources that describe themselves; saved beside the vintage.
         self.listed_indicators: list[dict] = []   # indicators.json: catalogue-shaped, see catalogue.source_indicators
         self.listed_memberships: list[dict] = []  # memberships.json: rows shaped like memberships.csv
@@ -194,8 +195,12 @@ class Connector(ABC):
     def client(self) -> httpx.Client:
         if self._client is None:
             self._client = httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=120, follow_redirects=True,
-                                        verify=tls_context())
+                                        verify=tls_context(), event_hooks={"response": [self._answered]})
         return self._client
+
+    def _answered(self, response: httpx.Response) -> None:
+        if response.status_code < 400 and response.request.method == "GET" and len(self.fetched_urls) < 50:
+            self.fetched_urls.append(str(response.request.url))
 
     # -- to implement ------------------------------------------------------------
     @abstractmethod
@@ -270,6 +275,9 @@ class Connector(ABC):
                 release = release or self.default_release(fetched_at)
                 self._cache = HttpCache(store.paths.raw / self.source_id / "http_cache.json", store.paths.home)
                 origin = self.download(staging, release)
+                if self.fetched_urls:
+                    from worldmodel_data import addresses
+                    addresses.remember(store.paths.home, self.source_id, self.fetched_urls)
             files = [p for p in staging.iterdir() if p.is_file()]
             if not files:
                 raise ConnectorError(f"{self.source_id}: no files fetched")

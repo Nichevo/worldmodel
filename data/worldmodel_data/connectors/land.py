@@ -288,9 +288,15 @@ class HYDELand(Connector):
 
 
 # ----------------------------------------------------------------------------- GHSL urban centres
+# Tried in order. In late 2026 the JRC moved the R2024A files one folder down (GHS_UCDB_GLOBE_R2024A/
+# GHS_UCDB_GLOBE_R2024A/V1-n/) and renamed the R2019A zip with its version; the old addresses stay last.
+_GHSL = "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/"
 GHSL_URLS = [
-    "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_UCDB_GLOBE_R2024A/V1-1/GHS_UCDB_GLOBE_R2024A_V1_1.zip",
-    "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_STAT_UCDB2015MT_GLOBE_R2019A/V1-2/GHS_STAT_UCDB2015MT_GLOBE_R2019A.zip",
+    _GHSL + "GHS_UCDB_GLOBE_R2024A/GHS_UCDB_GLOBE_R2024A/V1-1/GHS_UCDB_GLOBE_R2024A_V1_1.zip",
+    _GHSL + "GHS_UCDB_GLOBE_R2024A/GHS_UCDB_GLOBE_R2024A/V1-2/GHS_UCDB_GLOBE_R2024A_V1_2.zip",
+    _GHSL + "GHS_UCDB_GLOBE_R2024A/V1-1/GHS_UCDB_GLOBE_R2024A_V1_1.zip",
+    _GHSL + "GHS_STAT_UCDB2015MT_GLOBE_R2019A/V1-2/GHS_STAT_UCDB2015MT_GLOBE_R2019A_V1_2.zip",
+    _GHSL + "GHS_STAT_UCDB2015MT_GLOBE_R2019A/V1-2/GHS_STAT_UCDB2015MT_GLOBE_R2019A.zip",
 ]
 POP_COL = re.compile(r"(?:^|_)POP(?:_TOT)?_(\d{4})$|^P(\d{2})$", re.IGNORECASE)
 BUILT_COL = re.compile(r"(?:^|_)BU[SA]?(?:_TOT)?_(\d{4})$|^B(\d{2})$", re.IGNORECASE)

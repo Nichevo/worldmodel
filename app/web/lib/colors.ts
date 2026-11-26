@@ -1,9 +1,41 @@
 // Chart colours come from CSS variables in globals.css, so light and dark
 // mode each use their own validated steps. Read them at draw time.
 
+import { useCallback, useSyncExternalStore } from "react";
+
 export function cssVar(name: string): string {
   if (typeof window === "undefined") return "";
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+// Theme colours for markup (SVG fills, inline styles). cssVar() gives "" on the server and the
+// real colour in the browser, so markup drawn with it during the first render does not match
+// the server's and React reports a hydration error. useCss() hands out a reader that gives ""
+// (so the fallbacks after `||` apply) until hydration is over, then the real colours, and
+// draws again when light/dark mode changes. Charts drawn in effects can keep calling cssVar.
+let themeVersion = 1;
+const themeSubs = new Set<() => void>();
+let themeWatching = false;
+function watchTheme(onChange: () => void) {
+  themeSubs.add(onChange);
+  if (!themeWatching && typeof window !== "undefined") {
+    themeWatching = true;
+    const bump = () => { themeVersion += 1; themeSubs.forEach((f) => f()); };
+    window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", bump);
+    new MutationObserver(bump).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
+  }
+  return () => { themeSubs.delete(onChange); };
+}
+
+/** 0 on the server and while hydrating; a number that changes with the theme afterwards. */
+export function useThemeVersion(): number {
+  return useSyncExternalStore(watchTheme, () => themeVersion, () => 0);
+}
+
+/** A cssVar() that is safe to call while rendering markup (see above). */
+export function useCss(): (name: string) => string {
+  const v = useThemeVersion();
+  return useCallback((name: string) => (v ? cssVar(name) : ""), [v]);
 }
 
 export function seriesColor(i: number): string {

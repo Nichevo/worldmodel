@@ -115,7 +115,7 @@ function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" 
       if (!Object.values(f).some(Boolean)) setOpts(x);
     }).catch((e) => live && setErr(String(e.message ?? e)));
     load();
-    const t = setInterval(load, 120_000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 120_000);
     return () => { live = false; clearInterval(t); };
   }, [what, hours, fkey]); // eslint-disable-line react-hooks/exhaustive-deps
   const optRows = (id: string) => (opts ?? d)?.parts.find((p) => p.id === id)?.rows ?? [];
@@ -234,7 +234,7 @@ function Sweeps() {
     let live = true;
     const load = () => get<SweepLog>("/live/ships/sweeps", { days }).then((x) => live && setD(x)).catch(() => {});
     load();
-    const t = setInterval(load, 120_000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 120_000);
     return () => { live = false; clearInterval(t); };
   }, [days]);
   if (!d) return null;
@@ -462,8 +462,13 @@ function OwnerPart({ id }: { id: string }) {
   );
 }
 
+// The planes table is worked out on the server (a day of planes is thousands of rows): the filters
+// and sort are sent with each ask, and a page of rows comes back with how many matched.
+const PLANES_PAGE = 500;
+
 function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
-  const [d, setD] = useState<{ planes: Plane[]; at: number | null; note: string; route_note?: string | null } | null>(null);
+  type Answer = { planes: Plane[]; at: number | null; note: string; route_note?: string | null; total?: number; all?: number; airlines?: [string, number][] };
+  const [d, setD] = useState<Answer | null>(null);
   const [q, setQ] = useState(init("q"));
   const [group, setGroup] = useState(init("group"));
   const [line, setLine] = useState(init("airline"));
@@ -471,32 +476,27 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
   const [to, setTo] = useState(init("to"));
   const [mins, setMins] = useState(0);
   const [sort, setSort] = useState<keyof Plane>("altitude_m");
+  const [more, setMore] = useState(1);
+  // Typing waits a moment before asking; the list is asked again every minute while the page is in view.
+  const [typed, setTyped] = useState({ q, from, to });
+  useEffect(() => {
+    const t = setTimeout(() => setTyped({ q, from, to }), 350);
+    return () => clearTimeout(t);
+  }, [q, from, to]);
+  useEffect(() => setMore(1), [typed, group, line, mins, sort]);
   useEffect(() => {
     let live = true;
-    const load = () => get<NonNullable<typeof d>>("/live/planes/table?hours=24").then((x) => live && setD(x)).catch(() => {});
+    const load = () => get<Answer>("/live/planes/table", { hours: 24, q: typed.q.trim(), group, airline: line, from: typed.from.trim(), to: typed.to.trim(),
+      mins: mins || undefined, sort: String(sort), limit: PLANES_PAGE * more }).then((x) => live && setD(x)).catch(() => {});
     load();
-    const t = setInterval(load, 60_000);
-    return () => { live = false; clearInterval(t); };
-  }, []);
-  const rows = useMemo(() => {
-    const ql = q.trim().toLowerCase();
-    return (d?.planes ?? []).filter((p) => (!group || p.group === group) && (!line || (line === "-" ? !p.airline : p.airline === line))
-      && (!ql || [p.callsign, p.id, p.country, p.airline, p.reg, p.type, p.model].some((x) => String(x ?? "").toLowerCase().includes(ql)))
-      && (!from.trim() || airportText(p.from).includes(from.trim().toLowerCase()))
-      && (!to.trim() || airportText(p.to).includes(to.trim().toLowerCase()))
-      && (!mins || (p.seen ?? 0) >= Date.now() / 1000 - mins * 60))
-      .sort((a, b) => {
-        const x = a[sort], y = b[sort];
-        return typeof x === "number" || typeof y === "number" ? ((y as number) ?? -1e9) - ((x as number) ?? -1e9) : String(x ?? "").localeCompare(String(y ?? ""));
-      });
-  }, [d, q, group, line, from, to, mins, sort]);
-  // Airlines in the last answer, most planes first.
-  const airlines = useMemo(() => {
-    const c = new Map<string, number>();
-    for (const p of d?.planes ?? []) if (p.airline) c.set(p.airline, (c.get(p.airline) ?? 0) + 1);
-    return [...c.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  }, [d]);
-  const picked = rows.find((p) => p.id === open) ?? d?.planes.find((p) => p.id === open);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 60_000);
+    const back = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", back);
+    return () => { live = false; clearInterval(t); document.removeEventListener("visibilitychange", back); };
+  }, [typed, group, line, mins, sort, more]);
+  const rows = d?.planes ?? [];
+  const airlines = d?.airlines ?? [];
+  const picked = rows.find((p) => p.id === open);
   const head = (key: keyof Plane, label: string) => <th><button className="link small" onClick={() => setSort(key)}>{label}{sort === key ? " ▼" : ""}</button></th>;
   return (
     <section className="card">
@@ -515,14 +515,14 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
         <label>Seen <select value={mins} onChange={(e) => setMins(+e.target.value)}>
           <option value={0}>In the last day</option><option value={10}>In the last 10 minutes</option><option value={60}>In the last hour</option><option value={360}>In the last 6 hours</option>
         </select></label>
-        <span className="muted">{n(rows.length)} planes</span>
+        <span className="muted">{n(d?.total ?? rows.length)} planes{d?.all !== undefined && d.all !== d.total ? ` of ${n(d.all)}` : ""}</span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="small">
           <thead><tr>{head("callsign", "Callsign")}{head("airline", "Airline")}<th>From</th><th>To</th>{head("model", "Aircraft")}{head("reg", "Registration")}{head("country", "Registered in")}{head("altitude_m", "Height")}
             {head("speed_kmh", "Speed")}{head("climb_ms", "Climbing")}{head("squawk", "Squawk")}{head("seen", "Last heard")}</tr></thead>
           <tbody>
-            {rows.slice(0, 1000).map((p) => (
+            {rows.map((p) => (
               <tr key={p.id} onClick={() => setOpen(p.id)} style={{ cursor: "pointer" }} className={open === p.id ? "selected" : undefined}>
                 <td>{dot(PLANE_GROUPS, p.group)}{p.callsign ?? <span className="muted">{p.id}</span>}</td>
                 <td><AirlineLogo code={p.airline ? p.airline_code : null} />{p.airline ?? ""}</td>
@@ -542,6 +542,9 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
           </tbody>
         </table>
       </div>
+      {(d?.total ?? 0) > rows.length && (
+        <p className="small">Showing {n(rows.length)} of {n(d?.total ?? 0)}. <button className="link small" onClick={() => setMore((m) => m + 1)}>Show {n(PLANES_PAGE)} more</button></p>
+      )}
       {open && <PlaneCard id={open} plane={picked} onClose={() => setOpen(null)} />}
     </section>
   );

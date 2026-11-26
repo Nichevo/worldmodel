@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Indicator, Ranking, RankingRow } from "@/lib/api";
-import { cssVar } from "@/lib/colors";
+import { useCss } from "@/lib/colors";
 import { csvText, type Exporter } from "@/lib/download";
 import { useFlagCodes, flagUrl } from "@/lib/flags";
 import { formatValue } from "@/lib/format";
@@ -58,6 +58,7 @@ export default function ShareCircle({ indicator, ranking, onPick, exporter, fill
 
   // The layout in a unit circle (radius 1, centre 0), scaled when drawn; worked out again only
   // when the figures or the detail change.
+  const cssVar = useCss();
   const layout = useMemo(() => {
     if (!rows.length || !(total > 0)) return null;
     const amer = cssVar("--cont-americas") || "#c2413a";
@@ -104,7 +105,7 @@ export default function ShareCircle({ indicator, ranking, onPick, exporter, fill
       }
     });
     return { cells, contCells, used, arcs, sums };
-  }, [rows, total, detail]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, total, detail, cssVar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const year = ranking?.year;
   useEffect(() => {
@@ -209,6 +210,7 @@ export default function ShareCircle({ indicator, ranking, onPick, exporter, fill
 
 // A cell's flag, name and value, as large as fits in the cell.
 function Label({ c, R, C, flag, value, keyCountry }: { c: Cell; R: number; C: number; flag?: string; value: string; keyCountry: boolean }) {
+  const cssVar = useCss();
   if (c.poly.length < 3 || polyArea(c.poly) <= 0) return null;
   const spot = labelSpot(c.poly);
   const r = spot.r * R;

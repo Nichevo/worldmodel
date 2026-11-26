@@ -10,7 +10,7 @@ import EChart from "@/components/EChart";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import WorldMap, { makeScale } from "@/components/WorldMap";
 import { api, get, type Indicator } from "@/lib/api";
-import { cssVar } from "@/lib/colors";
+import { cssVar, useCss } from "@/lib/colors";
 import { compact, formatValue } from "@/lib/format";
 import { countryCentres, countryShapes } from "@/lib/geo";
 import { logHistory } from "@/lib/history";
@@ -229,6 +229,7 @@ const W = 1000;
 const MAX_R = 80; // the biggest bubble on the cartogram
 
 function EqualArea({ indicators }: { indicators: Indicator[] }) {
+  const cssVar = useCss();
   const [centre, centrePicker] = useCentre();
   const [indicator, setIndicator] = useState("pop_density");
   const [year, setYear] = useState(new Date().getFullYear() - 2);
@@ -280,6 +281,7 @@ type Range = { years: number[]; last_estimate_year: number | null; rows: Record<
 // Hover a country for its line through the years (projections dashed); the strip under the map adds
 // them all up and is where the year is chosen.
 function Cartogram({ indicators }: { indicators: Indicator[] }) {
+  const cssVar = useCss();
   const router = useRouter();
   const [centre, centrePicker] = useCentre();
   const [indicator, setIndicator] = useState("pop_total");

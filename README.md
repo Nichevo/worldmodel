@@ -129,8 +129,8 @@ forms to fill in. To get every due file in one go:
 Data status > **Every source** shows each source's state, when it last worked, when it is
 next due, its size and what reads it, with a button to refresh just that one and a switch
 to turn it off. Settings > **Looking after the data** sets up a weekly (or nightly) refresh
-as a Windows scheduled task and backups of your saved files, settings and keys
-(`update.bat` makes one first, once a day at most).
+as a Windows scheduled task and backups of your saved files and settings, with the names of your keys but not the keys
+themselves unless you switch that on (`update.bat` makes one first, once a day at most).
 
 ### Sources read from web pages
 
@@ -556,7 +556,7 @@ Detail from the OSINT communities (all switchable in Settings > Fighting, wars, 
   yearly GED file since 1989, plus monthly candidate events for this year) and ACLED's
   battles, explosions, violence against civilians, protests and riots. ACLED needs a free
   myACLED account: put `ACLED_EMAIL` and `ACLED_PASSWORD` in `.env` (the password then sits in
-  `.env` and in backups in plain text), or save its CSV export in `var\manual\acled`. Click an
+  `.env` in plain text, and in backups only if Settings puts keys in them), or save its CSV export in `var\manual\acled`. Click an
   event for **Look closer** links (Copernicus Browser, NASA FIRMS, GeoConfirmed, Liveuamap,
   Google Earth). Each country page has *Fighting, unrest and outages by month* (UCDP and ACLED
   side by side, never added), and the yearly indicators `fighting_deaths`,

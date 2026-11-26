@@ -14,6 +14,7 @@ from PIL import Image
 
 from worldmodel_api import land, main, tiles
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 SQUARE = {"type": "Polygon", "coordinates": [[[174.6, -37.0], [174.9, -37.0], [174.9, -36.7], [174.6, -36.7], [174.6, -37.0]]]}
 
@@ -68,9 +69,9 @@ def client(tmp_path, monkeypatch):
         con.execute("INSERT INTO geo_features VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'landtest', 'v1')",
                     [layer, fid, name, rank, json.dumps(props), ctry, min(xs), min(ys), max(xs), max(ys), json.dumps(g)])
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_land_overview_ranking_where(client):

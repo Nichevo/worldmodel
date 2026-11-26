@@ -8,7 +8,18 @@ call "%CONDA_BAT%" activate worldmodel || (echo Run setup.bat first. & exit /b 1
 call :free 3030 || exit /b 1
 call :free 8000 || exit /b 1
 start "worldmodel API" cmd /k worldmodel-api
-start "worldmodel web" /d "%~dp0app\web" cmd /k npm run dev
+rem The built web app (fast) unless Settings > How the web app runs > Development mode is on;
+rem built first when the code changed since the last build, and development mode if that fails.
+set "WEB=dev"
+for /f %%m in ('call "%~dp0scripts\web-build.bat" --check') do set "WEB=%%m"
+if "%WEB%"=="build" (
+  call "%~dp0scripts\web-build.bat" && set "WEB=prod" || set "WEB=dev"
+)
+if "%WEB%"=="prod" (
+  start "worldmodel web" /d "%~dp0app\web" cmd /k npm run start
+) else (
+  start "worldmodel web" /d "%~dp0app\web" cmd /k npm run dev
+)
 rem Windows' own timeout.exe by full path: a conda env or Git can put a Unix "timeout" first on PATH.
 set "WAIT=%SystemRoot%\System32\timeout.exe"
 echo Waiting for the app to start...

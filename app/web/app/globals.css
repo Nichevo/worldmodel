@@ -1636,3 +1636,4 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .pic-scroll svg { display: block; font-family: inherit; }
 .bands-pic .band-tile rect { transition: fill 0.12s; }
 .share-pic path { transition: fill 0.12s; }
+.banner button.link { border: 0; background: none; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }

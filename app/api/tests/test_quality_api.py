@@ -7,16 +7,18 @@ from fastapi.testclient import TestClient
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
 from worldmodel_contract import quality as qual
+from worldmodel_api import core
+from worldmodel_api.routes import indicators as indicators_routes
 
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
-    main._q_cache["key"] = None
+    core.warehouse = Warehouse(str(SAMPLE))
+    indicators_routes._q_cache["key"] = None
     yield TestClient(main.app)
-    main._q_cache["key"] = None
+    indicators_routes._q_cache["key"] = None
 
 
 def test_every_indicator_has_a_grade_and_a_type(client):
@@ -48,7 +50,7 @@ def test_summary_counts_and_changes_since_the_build_before(client, tmp_path):
     assert sum(first["totals"].values()) == len(client.get("/api/v1/quality").json()["indicators"])
     assert first["changes"] is None and first["by_domain"] and first["by_source"]
     # The build before had population at D: it has gained a grade since.
-    build = main._build_id()
+    build = core._build_id()
     earlier = {k: dict(v) for k, v in qual.load(tmp_path, build).items()}
     earlier["pop_total"]["grade"] = "D"
     qual.save(tmp_path, "00000000T000000Z", earlier)

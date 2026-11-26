@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main, people
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 def add_rows(path):
@@ -59,10 +60,10 @@ def client(tmp_path_factory):
     mp = pytest.MonkeyPatch()
     mp.setenv("WORLDMODEL_HOME", str(d))
     mp.setenv("WORLDMODEL_USER_DIR", str(d / "user"))
-    old = main.warehouse
-    main.warehouse = Warehouse(str(path))
+    old = core.warehouse
+    core.warehouse = Warehouse(str(path))
     yield TestClient(main.app)
-    main.warehouse = old
+    core.warehouse = old
     mp.undo()
 
 

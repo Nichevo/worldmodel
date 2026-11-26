@@ -303,8 +303,11 @@ SETTINGS: dict[str, object] = {
     "backup_on_update": True,        # update.bat backs up your saved files, settings and keys first (once a day at most)
     "backup_folder": "",             # blank: worldmodel-backups beside the worldmodel folder
     "backup_keep": 10,               # backups kept; older ones the app made are removed
+    "address_check_days": 7,         # a refresh checks that the download addresses still answer this often (0: never)
+    "backup_keys": False,            # put .env (keys and passwords, in plain text) in backups; off: only the key names
     "backup_big_mb": 200,            # files bigger than this (big downloads the site can give again) are left out; 0 keeps all
     # The public API (/api/public/v1) for scripts, the Python client, Excel and AI assistants (Settings > API access)
+    "web_dev_mode": False,           # off: start.bat serves a built (faster) web app, built by update.bat; on: the development server
     "data_console": False,           # off: no Data console page; on: read-only questions in SQL to the warehouse, from this PC only
     "api_public_on": False,          # off: nothing outside the app itself can read the data through the public API
     "api_daily_limit": 2000,         # calls a day for each key (calls from this PC need no key and are not limited)
@@ -353,7 +356,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "sh
           "storage_years": (2, 15), "discover_keep": (50, 5000), "discover_key_boost": (1, 5), "news_keep_days": (7, 36_500),
           "news_every_hours": (1, 720),
           "briefing_days": (1, 90), "news_watch_outlets": (1, 5), "crowd_move_points": (1, 50), "crowd_score_days": (0, 365),
-          "inbox_downloads_days": (1, 365), "backup_keep": (1, 100), "backup_big_mb": (0, 100_000),
+          "inbox_downloads_days": (1, 365), "backup_keep": (1, 100), "address_check_days": (0, 90), "backup_big_mb": (0, 100_000),
           "api_daily_limit": (10, 1_000_000)}
 WARN_AT, CRITICAL_AT = 0.80, 0.95
 

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 Z = "01a05faa-0000-7000-8000-000000000001"
 
@@ -14,7 +15,7 @@ Z = "01a05faa-0000-7000-8000-000000000001"
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     return TestClient(main.app)
 
 

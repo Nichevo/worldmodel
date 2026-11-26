@@ -2,14 +2,17 @@
 Windows scheduled task that runs refresh.bat on its own.
 
 Backups hold <home>/manual (the files you saved by hand), <home>/user (settings,
-predictions, highlights, layouts) and the .env file (your keys), zipped into one file
-in the backup folder (by default worldmodel-backups beside the worldmodel folder).
+predictions, highlights, layouts) and the names of the keys in .env (not their values,
+unless the backup_keys setting is on), zipped into one file in the backup folder (by
+default worldmodel-backups beside the worldmodel folder). Backup zips are not encrypted,
+so keys stay out of them unless asked for.
 Downloads, vintages and warehouse builds are left out: a refresh makes them again.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -39,6 +42,16 @@ def env_file() -> Path:
     return repo_dir() / ".env"
 
 
+def key_names(text: str) -> str:
+    """The .env with every value taken out: which keys were set, to type in again after a restore."""
+    out = ["# The keys this copy had (values left out of backups; Settings > Keys takes them again)."]
+    for line in text.splitlines():
+        m = re.match(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)", line)
+        if m:
+            out.append(f"{m.group(1)}=" if m.group(2).strip() else f"# {m.group(1)} was blank")
+    return "\n".join(out) + "\n"
+
+
 def backup_dir(settings: dict | None = None, root: Path | None = None) -> Path:
     s = settings or local.load_settings(root)
     if s.get("backup_folder"):
@@ -58,7 +71,8 @@ def backups(settings: dict | None = None, root: Path | None = None) -> list[dict
 
 
 def backup(root: Path | None = None, settings: dict | None = None, to: Path | None = None, say=print) -> Path:
-    """Zip the manual folder, the user folder and .env into one file; keep the newest
+    """Zip the manual folder, the user folder and .env (key names only, unless the backup_keys
+    setting is on) into one file; keep the newest
     `backup_keep` backups the app made and remove older ones (only files named worldmodel-backup-*.zip)."""
     root = root or local.home()
     s = settings or local.load_settings(root)
@@ -87,7 +101,10 @@ def backup(root: Path | None = None, settings: dict | None = None, to: Path | No
                     n += 1
         env = env_file()
         if env.is_file():
-            z.write(env, ".env")
+            if s.get("backup_keys"):
+                z.write(env, ".env")
+            else:
+                z.writestr(".env.names", key_names(env.read_text(encoding="utf-8", errors="replace")))
             n += 1
     say(f"Backed up {n} files to {target} ({target.stat().st_size / 1024 ** 2:.1f} MB).")
     if skipped:

@@ -71,18 +71,23 @@ class PlaneStore:
         import duckdb
 
         today = _day(now)
-        with self.lock:
-            for f in sorted(self.folder.glob("*.csv")):
-                if f.stem >= today:
-                    continue
-                try:
-                    con = duckdb.connect()
-                    con.execute(f"COPY (SELECT * FROM read_csv(?, header=false, columns={_cols()}, ignore_errors=true) ORDER BY icao, ts) "
-                                f"TO '{_q(f.with_suffix('.parquet'))}' (FORMAT parquet, COMPRESSION zstd)", [str(f)])
-                    con.close()
+        # Compacting runs without the lock (map requests keep saving planes); only the swap holds it.
+        for f in sorted(self.folder.glob("*.csv")):
+            if f.stem >= today:
+                continue
+            tmp = f.with_suffix(".parquet.tmp")
+            try:
+                con = duckdb.connect()
+                con.execute(f"COPY (SELECT * FROM read_csv(?, header=false, columns={_cols()}, ignore_errors=true) ORDER BY icao, ts) "
+                            f"TO '{_q(tmp)}' (FORMAT parquet, COMPRESSION zstd)", [str(f)])
+                con.close()
+                with self.lock:
+                    tmp.replace(f.with_suffix(".parquet"))
                     f.unlink()
-                except Exception as exc:  # noqa: BLE001 - tried again next hour
-                    log.warning("plane store: could not compact %s: %s", f.name, exc)
+            except Exception as exc:  # noqa: BLE001 - tried again next hour
+                tmp.unlink(missing_ok=True)
+                log.warning("plane store: could not compact %s: %s", f.name, exc)
+        with self.lock:
             cutoff = _day(now - keep_days * 86400)
             for f in list(self.folder.glob("*.parquet")) + list(self.folder.glob("*.csv")):
                 if f.stem < cutoff:

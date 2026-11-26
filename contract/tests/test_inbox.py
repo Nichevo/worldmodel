@@ -87,3 +87,19 @@ def test_backup_keeps_your_files_only(tmp_path, monkeypatch):
     names = zipfile.ZipFile(z).namelist()
     assert "manual/emdat/a.xlsx" in names and "user/settings.json" in names and not any(n.startswith("raw") for n in names)
     assert len(upkeep.backups(root=home)) == 1
+
+
+def test_backup_lists_key_names_but_not_their_values(tmp_path, monkeypatch):
+    home = _home(tmp_path, monkeypatch, backup_folder=str(tmp_path / "bk"))
+    env = tmp_path / ".env"
+    env.write_text("BRAVE_API_KEY=secret1\n# a comment\nACLED_PASSWORD = hunter2\nEMPTY_KEY=\n")
+    monkeypatch.setattr(upkeep, "env_file", lambda: env)
+    z = zipfile.ZipFile(upkeep.backup(home, say=lambda *_: None))
+    assert ".env" not in z.namelist()
+    names = z.read(".env.names").decode()
+    assert "BRAVE_API_KEY=" in names and "ACLED_PASSWORD=" in names and "EMPTY_KEY was blank" in names
+    assert "secret1" not in names and "hunter2" not in names
+    z.close()
+    s = {**upkeep.local.load_settings(home), "backup_keys": True}
+    z = zipfile.ZipFile(upkeep.backup(home, s, to=tmp_path / "bk2", say=lambda *_: None))
+    assert b"secret1" in z.read(".env")

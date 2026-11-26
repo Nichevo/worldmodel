@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import ai, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 CALLS: list[dict] = []
 
@@ -47,7 +48,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("BRAVE_API_KEY", "test-key")
     monkeypatch.setattr(ai, "_client", lambda timeout=30: httpx.Client(transport=httpx.MockTransport(fake)))
     CALLS.clear()
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     return TestClient(main.app)
 
 

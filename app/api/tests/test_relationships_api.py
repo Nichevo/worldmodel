@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
 from worldmodel_contract import relations as rel
+from worldmodel_api import core
 
 LAGS = "[0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.4, 0.1, 0.0, 0.0, 0.0]"
 
@@ -49,7 +50,7 @@ def _scan(home, build_id):
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     _scan(tmp_path, SAMPLE.stem)
     yield TestClient(main.app)
 

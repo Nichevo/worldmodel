@@ -110,7 +110,7 @@ class IODA(Connector):
         last = self.last_vintage_dir(raw_dir)
         have = {p.name for p in last.iterdir()} if last else set()
         recent = date(today.year, today.month, 1) - timedelta(days=40)
-        n = 0
+        n, failed, last_err = 0, [], None
         for m in _months(int(_settings().get("ioda_from_year", 2022)), today):
             name = f"ioda_{m:%Y-%m}.json"
             if name in have and m < recent:
@@ -118,8 +118,32 @@ class IODA(Connector):
             end = date(m.year + (m.month == 12), m.month % 12 + 1, 1)
             if n:
                 time.sleep(self.pause_seconds)
-            self.get(f"{IODA_URL}?entityType=country&from={_ts(m)}&until={_ts(end)}&limit=5000", raw_dir / name, cached=False)
             n += 1
+            try:
+                self.get(f"{IODA_URL}?entityType=country&from={_ts(m)}&until={_ts(end)}&limit=5000", raw_dir / name, cached=False)
+                continue
+            except ConnectorError as exc:  # IODA answers 500 for some months: try them in halves
+                last_err = exc
+            try:
+                halves = []
+                mid = m + timedelta(days=15)
+                for a, b in ((m, mid), (mid, end)):
+                    time.sleep(self.pause_seconds)
+                    part = raw_dir / f"{name}.part"
+                    self.get(f"{IODA_URL}?entityType=country&from={_ts(a)}&until={_ts(b)}&limit=5000", part, cached=False)
+                    d = json.loads(part.read_text(encoding="utf-8"))
+                    halves += d.get("data") or [] if isinstance(d, dict) else d
+                    part.unlink()
+                (raw_dir / name).write_text(json.dumps({"data": halves}), encoding="utf-8")
+            except (ConnectorError, ValueError) as exc:  # left out this time; asked again at the next refresh
+                last_err = exc
+                failed.append(f"{m:%Y-%m}")
+                (raw_dir / f"{name}.part").unlink(missing_ok=True)
+                log.warning("ioda: %s skipped (%s)", f"{m:%Y-%m}", exc)
+        if n and len(failed) == n:
+            raise ConnectorError(f"ioda: no month could be read ({last_err})")
+        if failed:
+            log.warning("ioda: %d month(s) not read this time: %s", len(failed), ", ".join(failed))
         return IODA_URL
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:

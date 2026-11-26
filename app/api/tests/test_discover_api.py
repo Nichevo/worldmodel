@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 from worldmodel_api import main, news
 from worldmodel_api.warehouse import SAMPLE, Warehouse
 from worldmodel_contract import discover
+from worldmodel_api import core
+from worldmodel_api.routes import briefing as briefing_routes
 
 NAMES = news.Names([("NZL", "New Zealand"), ("FJI", "Fiji"), ("UKR", "Ukraine"), ("RUS", "Russia")])
 
@@ -102,10 +104,10 @@ def test_run_keeps_items_once_and_skips_sources_switched_off(tmp_path, monkeypat
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
-    main._d_cache["build"] = None
+    core.warehouse = Warehouse(str(SAMPLE))
+    briefing_routes._d_cache["build"] = None
     yield TestClient(main.app)
-    main._d_cache["build"] = None
+    briefing_routes._d_cache["build"] = None
 
 
 def test_feed_marks_and_tabs(client, tmp_path):
