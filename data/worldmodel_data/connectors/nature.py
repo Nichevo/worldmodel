@@ -806,7 +806,8 @@ def _col(header: list[str], *names: str) -> int | None:
 def wahis_rows(table: list[list]) -> list[tuple[str, int, str, float]]:
     """(entity, year, disease, outbreaks) from a WAHIS export: a row per outbreak or per
     country, disease and period with a count column."""
-    head_at = next((i for i, r in enumerate(table[:20]) if any(key(c) in ("country", "countryname") for c in r if c)), None)
+    head_at = next((i for i, r in enumerate(table[:20])
+                    if any(key(c) in ("country", "countryname", "countryterritory") for c in r if c)), None)
     if head_at is None:
         raise ConnectorError("wahis: no Country column found")
     header = [str(c or "") for c in table[head_at]]
@@ -849,7 +850,10 @@ class WAHISOutbreaks(Connector):
             if p.suffix.lower() in (".xlsx", ".xlsm"):
                 table = xlsx_rows(p)
             elif p.suffix.lower() == ".csv":
-                table = list(csv.reader(io.StringIO(p.read_text(encoding="utf-8-sig", errors="replace"))))
+                text = p.read_text(encoding="utf-8-sig", errors="replace")
+                # WAHIS's event list export is separated by semicolons.
+                first = text.split("\n", 1)[0]
+                table = list(csv.reader(io.StringIO(text), delimiter=";" if first.count(";") > first.count(",") else ","))
             else:
                 continue
             for ent, y, disease, v in wahis_rows(table):
