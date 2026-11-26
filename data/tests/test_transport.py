@@ -327,3 +327,33 @@ def test_gem_whole_download_zip(tmp_path):
     got = {r[1]: (r[0], r[2], r[5]) for r in con.execute(c.history_queries["geo_features"]).fetchall()}
     assert got == {"P0001": ("gas_pipelines", "Maui Pipeline", "NZL"), "P0002": ("gas_pipelines", "Odd one", "AUS"),
                    "O0001": ("oil_pipelines", "Refinery to Auckland Pipeline", "NZL")}  # O0002 has no route
+
+
+def test_world_port_index_outage_copy(tmp_path):
+    """While NGA's portal answers 503, the zipped copy its outage page links to is used."""
+    import zipfile
+
+    import httpx
+
+    csv_bytes = (FIXTURES / "world_port_index" / "UpdatedPub150.csv").read_bytes()
+    zp = tmp_path / "WPI.zip"
+    with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("UpdatedPub150.csv", csv_bytes)
+
+    def handler(req):
+        if req.url.path == "/apology_objects/WPI.zip":
+            return httpx.Response(200, content=zp.read_bytes())
+        return httpx.Response(503, text="<html>MSI IS CURRENTLY UNDER MAINTENANCE</html>")
+
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    conn = CONNECTORS["world_port_index"](client=httpx.Client(transport=httpx.MockTransport(handler)))
+    from worldmodel_data.connectors import base
+    real_sleep, base.time.sleep = base.time.sleep, lambda s: None
+    try:
+        assert conn.download(raw, "x").endswith("WPI.zip")
+    finally:
+        base.time.sleep = real_sleep
+    assert not (raw / "UpdatedPub150.csv").exists()
+    conn.stage(duckdb.connect(), raw, "x", "v")
+    assert conn.layers and conn.layers[0]["feature_count"] == 2

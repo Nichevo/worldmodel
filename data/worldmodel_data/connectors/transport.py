@@ -52,6 +52,7 @@ import json
 import logging
 import re
 import time
+import zipfile
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -820,7 +821,30 @@ class UNCTADPortCalls(Connector):
 
 # ----------------------------------------------------------------------------- World Port Index
 WPI_URL = "https://msi.nga.mil/api/publications/download?type=view&key=16920959/SFH00000/UpdatedPub150.csv"
+# What msi.nga.mil serves for the index while the portal is down for maintenance.
+WPI_OUTAGE_ZIP = "https://msi.nga.mil/apology_objects/WPI.zip"
 HARBOR_SIZE = {"L": "large", "M": "medium", "S": "small", "V": "very small"}
+
+
+def _wpi_rows(path: Path) -> list[dict]:
+    """Port rows from the index CSV (or Excel), or from the CSV inside a zip of it."""
+    if path.suffix.lower() == ".zip":
+        try:
+            with zipfile.ZipFile(path) as z:
+                out = []
+                for info in z.infolist():
+                    if info.filename.lower().endswith(".csv"):
+                        text = z.read(info).decode("utf-8-sig", errors="replace")
+                        out += header_rows(list(csv.reader(io.StringIO(text))), ("latitude", "longitude"))
+                return out
+        except zipfile.BadZipFile:
+            return []
+    return header_rows(read_table(path), ("latitude", "longitude"))
+
+
+def _wpi_csv(path: Path) -> bool:
+    """True when a downloaded file holds the port table (not a maintenance page)."""
+    return path.exists() and bool(_wpi_rows(path))
 
 
 class WorldPortIndex(Connector):
@@ -835,13 +859,35 @@ class WorldPortIndex(Connector):
         return None
 
     def download(self, raw_dir: Path, release: str) -> str:
-        self.get(WPI_URL, raw_dir / "UpdatedPub150.csv")
-        return WPI_URL
+        """The CSV from NGA's publications API; while the MSI portal is down for maintenance
+        (it answers HTTP 503 to everything), the zipped copy its outage page links to. The
+        file changes rarely, so a short wait is enough before trying the copy."""
+        dest = raw_dir / "UpdatedPub150.csv"
+        try:
+            self.get(WPI_URL, dest, timeout=60, retry_waits=(10,))
+            if _wpi_csv(dest):
+                return WPI_URL
+            log.info("world_port_index: the publications API sent no port table; trying the outage copy")
+        except Exception as exc:
+            log.info("world_port_index: the publications API failed (%s); trying the outage copy", exc)
+        dest.unlink(missing_ok=True)
+        zp = raw_dir / "WPI.zip"
+        try:
+            self.get(WPI_OUTAGE_ZIP, zp, timeout=60, retry_waits=(10,))
+        except Exception as exc:
+            zp.unlink(missing_ok=True)
+            raise ConnectorError(f"world_port_index: NGA's site is not answering ({exc}). The ports map keeps the "
+                                 "last copy; the next refresh tries again, or save the World Port Index CSV from "
+                                 "https://msi.nga.mil/Publications/WPI into var\\manual\\world_port_index") from exc
+        if not _wpi_csv(zp):
+            zp.unlink(missing_ok=True)
+            raise ConnectorError("world_port_index: NGA's outage copy holds no port table; the next refresh tries again")
+        return WPI_OUTAGE_ZIP
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         feats = []
         for p in sorted(raw_dir.iterdir()):
-            for r in header_rows(read_table(p), ("latitude", "longitude")):
+            for r in _wpi_rows(p):
                 lat, lon = num(pick(r, "latitude")), num(pick(r, "longitude"))
                 name = pick(r, "mainportname", "portname")
                 if lat is None or lon is None or not name:

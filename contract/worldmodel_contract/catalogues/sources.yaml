@@ -2085,6 +2085,11 @@
   default_rank: 2
   standing: 4
   definition: standard
+  manual:
+    by_hand: false
+    files: ["asf-*chapter-1*.zip", "*Table*1.3*.xlsx", "*Table*1.4*.xlsx"]
+    get: https://www.bitre.gov.au/maritime
+    what: "If the download fails: open the newest Australian sea freight page under Maritime and save the 'Chapter 1' tables zip as it comes (asf-<year>-chapter-1.zip)."
 
 - id: world_port_index
   name: World Port Index (Pub. 150)
@@ -2102,9 +2107,9 @@
   definition: standard
   manual:
     by_hand: false
-    files: ["UpdatedPub150*", "*World*Port*Index*"]
+    files: ["UpdatedPub150*", "*World*Port*Index*", "WPI*.zip"]
     get: https://msi.nga.mil/Publications/WPI
-    what: "If the download fails: download the World Port Index as CSV and save it as it comes (UpdatedPub150.csv)."
+    what: "If the download fails: download the World Port Index as CSV and save it as it comes (UpdatedPub150.csv, or WPI.zip while the site is under maintenance)."
 
 - id: shipping_lanes
   name: Shipping lanes (major, middle and minor routes)
