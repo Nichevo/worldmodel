@@ -84,3 +84,34 @@ def test_tables_loaded_by_hand(con):
 
 def test_no_event_for_the_first_year():
     assert change_events("NZL", "x", "X", YES_NO, {2000: 1.0, 2001: 1.0}, "s", None) == []
+
+
+def test_unodc_files_found_on_the_new_portal(tmp_path, monkeypatch):
+    """dataunodc.un.org now answers every file address with a web page; the files are linked
+    from data.unodc.org's report pages, and a web page saved as .xlsx is not kept."""
+    import io
+    import zipfile
+
+    from worldmodel_data.connectors import laws
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("x", "y")
+    xlsx = buf.getvalue()
+    c = laws.UNODCCrime()
+
+    class Page:
+        status_code = 200
+        text = '<a href="/sites/dataportal.unodc.org/files/2026-07/data_cts_intentional_homicide.xlsx">x</a>'
+
+    monkeypatch.setattr(type(c), "client", property(lambda self: type("C", (), {"get": lambda *a, **k: Page()})()))
+    asked = []
+
+    def get(url, dest, **kw):
+        asked.append(url)
+        dest.write_bytes(xlsx if "dataportal.unodc.org/files/2026-07" in url else b"<!DOCTYPE html>")
+
+    monkeypatch.setattr(c, "get", get)
+    c.download(tmp_path, "2026-11")
+    assert [p.name for p in tmp_path.iterdir()] == ["data_cts_intentional_homicide.xlsx"]
+    assert asked[0] == "https://data.unodc.org/sites/dataportal.unodc.org/files/2026-07/data_cts_intentional_homicide.xlsx"
