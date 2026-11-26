@@ -225,6 +225,9 @@ SETTINGS: dict[str, object] = {
     "night_year": "2016",                # night lights: "2016" or "2012" (NASA Black Marble), or "latest" (last night's VIIRS picture)
     "map_3d": False,                     # tilt the map and raise the land (right-drag or Ctrl-drag to tilt)
     "map_3d_exaggeration": 1.5,          # how much the land is raised in 3D
+    "map_globe": False,                  # the world map drawn as a globe you can spin (the Globe button on the map) instead of flat
+    "globe_space": True,                 # globe: dark space round it, a blue glow, blue land and a dark sea (off: the page's own colours)
+    "globe_grid": True,                  # globe: lines of latitude and longitude every 15 degrees
     "map_tiles": "local_first",          # relief, satellite and night pictures: "local_first" (saved copies, online for the rest) or "online"
     "map_tiles_starter": True,           # download the starter copies once: world relief to zoom 6, NZ relief, satellite and land cover closer, newest night lights
     "land_cover_years_keep": "every5",   # yearly land cover maps saved for the world to zoom 6: "every5" (1992, 1995 ... 2020, about 350 MB), "every" (about 1.5 GB) or "none" (online only)

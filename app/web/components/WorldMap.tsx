@@ -17,8 +17,9 @@ import { toggleWall } from "@/lib/cameraWall";
 import { hereCard, LAYER_STYLE, layerData, layerSpec, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
+import { addGlobeButton, applyGlobe, noDataColour } from "@/lib/globe";
 import { MeasureTool, greatCircle } from "@/lib/measure";
-import { readSettings, useSettings } from "@/lib/settings";
+import { readSettings, saveSettings, useSettings } from "@/lib/settings";
 import { askHere } from "@/lib/spotting";
 import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
 import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
@@ -166,12 +167,12 @@ function strictlyIncreasing(breaks: number[], colors: string[]): Scale {
 // Zoom from which the world map draws the finer country outlines.
 const FINE_FROM = 3.5;
 
-function colorExpression(scale: Scale): ExpressionSpecification | string {
-  if (!scale.breaks.length) return scale.colors[0] ?? cssVar("--no-data");
+function colorExpression(scale: Scale, noData = cssVar("--no-data")): ExpressionSpecification | string {
+  if (!scale.breaks.length) return scale.colors[0] ?? noData;
   const steps: (number | string)[] = [scale.colors[0]];
   scale.breaks.forEach((b, i) => steps.push(b, scale.colors[i + 1]));
   return ["case", ["has", "value"], ["step", ["get", "value"], ...steps] as unknown as ExpressionSpecification,
-    cssVar("--no-data")] as ExpressionSpecification;
+    noData] as ExpressionSpecification;
 }
 
 // A short id for a picture layer's tiles (MapLibre ids can't hold the whole URL comfortably).
@@ -282,6 +283,12 @@ export default function WorldMap({
     map_3d_exaggeration: settings.map_3d_exaggeration, map_tiles: settings.map_tiles,
   } as const;
   const lookKey = JSON.stringify(look);
+  // The world as a globe (the Globe button on the map; Settings > Maps), on the full-size maps only.
+  const globeLook = { globe: pictures && settings.map_globe === true, space: settings.globe_space !== false, grid: settings.globe_grid !== false };
+  const globeKey = JSON.stringify(globeLook);
+  const globeOn = useRef(globeLook.globe);
+  globeOn.current = globeLook.globe;
+  const globeShow = useRef<((on: boolean) => void) | null>(null);
   const hover = useRef(onHover);
   hover.current = onHover;
   const dbl = useRef(doubleClick);
@@ -312,6 +319,7 @@ export default function WorldMap({
       renderWorldCopies: true, // drag round the globe without running off the edge
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    if (pictures) globeShow.current = addGlobeButton(m, () => globeOn.current, (on) => { saveSettings({ map_globe: on }).catch(() => undefined); });
     quietMapErrors(m, () => setDetailNote((cur) => cur ?? `${ONLINE_DOWN_NOTE} some of it is missing.`));
     map.current = m;
     onMap?.(m);
@@ -590,11 +598,23 @@ export default function WorldMap({
         }),
       };
       (m.getSource("countries") as GeoJSONSource).setData(data);
-      m.setPaintProperty("fill", "fill-color", colorExpression(scale));
+      m.setPaintProperty("fill", "fill-color", colorExpression(scale, noDataColour(globeLook)));
     };
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
-  }, [byIso, scale, unit, decimals, fineShapes]);
+  }, [byIso, scale, unit, decimals, fineShapes, globeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Flat or globe, with the globe's space look and grid lines.
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    globeShow.current?.(globeLook.globe);
+    const apply = () => {
+      try { applyGlobe(m, globeLook, { fit: true, flatBounds: mapCentre === "atlantic" ? [[-170, -56], [180, 78]] : [[10, -56], [360, 78]] }); } catch (e) { console.warn("globe view skipped", e); }
+    };
+    if (m.getLayer("line")) apply();
+    else onLoad.current.push(apply);
+  }, [globeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Map detail under the colours (Settings > Map): online tiles, the local map files, or none.
   useEffect(() => {

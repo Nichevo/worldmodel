@@ -57,6 +57,18 @@ const RELIEF_COLOURS: ExpressionSpecification = ["interpolate", ["linear"], ["el
 const GREY_COLOURS: ExpressionSpecification = ["interpolate", ["linear"], ["elevation"],
   -6000, "#a7b8c6", -1, "#d6e1ea", 0, "#ecebe6", 3000, "#f4f3ef"];
 
+// The sea colour (the map's background) when no picture covers it: the page colour, or the
+// globe's space look (lib/globe.ts). Night lights keep their own near-black.
+const seas = new WeakMap<maplibregl.Map, string | null>();
+const seaColour = (m: maplibregl.Map) => seas.get(m) || getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
+
+export function refreshSea(m: maplibregl.Map, colour: string | null) {
+  seas.set(m, colour);
+  if (!m.getLayer("bg")) return;
+  if (!m.getLayer(`${LOOK_PREFIX}night`)) m.setPaintProperty("bg", "background-color", seaColour(m));
+  refreshFill(m);
+}
+
 // Per map: whether a picture is under the colours (so the colours fade and blanks clear).
 const state = new WeakMap<maplibregl.Map, { picture: boolean; over: number; detail: boolean }>();
 
@@ -66,7 +78,12 @@ export function refreshFill(m: maplibregl.Map, change: Partial<{ picture: boolea
   state.set(m, st);
   if (!m.getLayer("fill")) return;
   // The map detail's water would cover the sea in the picture: clear while a picture is on.
-  for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith("bm-") && l.id.endsWith("-water")) m.setPaintProperty(l.id, "fill-opacity", st.picture ? 0 : 0.9);
+  // The globe's space look has its own dark sea, which the detail's water takes on too.
+  for (const l of m.getStyle()?.layers ?? []) {
+    if (!(l.id.startsWith("bm-") && l.id.endsWith("-water"))) continue;
+    m.setPaintProperty(l.id, "fill-opacity", st.picture ? 0 : 0.9);
+    m.setPaintProperty(l.id, "fill-color", seas.get(m) || getComputedStyle(document.documentElement).getPropertyValue("--map-water").trim() || "#c4e2ef");
+  }
   // ...and so would its borders, beside ours (which stay on over a picture).
   for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith("bm-") && l.id.endsWith("-border")) m.setLayoutProperty(l.id, "visibility", st.picture ? "none" : "visible");
   const hasValue: ExpressionSpecification = ["==", ["typeof", ["get", "value"]], "number"];
@@ -89,7 +106,7 @@ export function removeLook(m: maplibregl.Map) {
   if (m.getTerrain?.()) m.setTerrain(null);
   for (const l of m.getStyle()?.layers ?? []) if (l.id.startsWith(LOOK_PREFIX)) m.removeLayer(l.id);
   for (const s of Object.keys(m.getStyle()?.sources ?? {})) if (s.startsWith(LOOK_PREFIX)) m.removeSource(s);
-  if (m.getLayer("bg")) m.setPaintProperty("bg", "background-color", getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff");
+  if (m.getLayer("bg")) m.setPaintProperty("bg", "background-color", seaColour(m));
   refreshFill(m, { picture: false });
 }
 

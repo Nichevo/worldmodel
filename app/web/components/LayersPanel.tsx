@@ -442,6 +442,17 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       </div>
 
           <div className="lp-section">
+        <div className="lp-label">Shape</div>
+        <div className="lp-look-opts">
+          <label className="small"><input type="checkbox" checked={s.map_globe} onChange={(e) => saveSettings({ map_globe: e.target.checked }).catch(() => undefined)} /> Globe (drag to spin; the globe button on the map does the same)</label>
+          {s.map_globe && (<>
+            <label className="small"><input type="checkbox" checked={s.globe_space} onChange={(e) => saveSettings({ globe_space: e.target.checked }).catch(() => undefined)} /> Space look (dark sky, blue glow and land)</label>
+            <label className="small"><input type="checkbox" checked={s.globe_grid} onChange={(e) => saveSettings({ globe_grid: e.target.checked }).catch(() => undefined)} /> Grid lines</label>
+          </>)}
+        </div>
+      </div>
+
+          <div className="lp-section">
         <div className="lp-label">Background <span className="muted">under the colours</span></div>
         <div className="lp-base lp-look" role="radiogroup" aria-label="Background">
           {LOOKS.map((b) => (

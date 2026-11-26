@@ -1486,6 +1486,16 @@ td.num { font-family: var(--mono); font-size: 0.85rem; }
 /* ---- Measure distance (the ruler on every map; lib/measure.ts) */
 .measure-btn { display: grid; place-items: center; color: #333; }
 .measure-btn.on { background: var(--ink) !important; color: var(--surface); }
+/* The globe (lib/globe.ts): the Globe button, and the space look's dark sky behind the globe. */
+.globe-btn { display: grid; place-items: center; color: #333; }
+.globe-btn.on { background: var(--ink) !important; color: var(--surface); }
+.map.globe-space {
+  background:
+    radial-gradient(circle calc(var(--globe-r, 240px) * 1.3) at 50% 50%, #3d6bff 0%, #3d6bff 76.5%, rgba(61, 107, 255, 0.55) 78%,
+      rgba(40, 80, 230, 0.22) 86%, rgba(20, 50, 180, 0.08) 93%, transparent 100%),
+    radial-gradient(ellipse at 50% 50%, #0a1847 0%, #050d2a 50%, #02050f 100%);
+}
+.map.globe-space.globe-tilted { background: radial-gradient(ellipse at 50% 50%, #0a1847 0%, #050d2a 50%, #02050f 100%); }
 .measure-pt { width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--ink); cursor: grab; }
 .measure-label { background: var(--ink); color: var(--surface); font: 700 12.5px/1 var(--sans, system-ui), sans-serif; letter-spacing: .02em;
   padding: 6px 12px; border-radius: 999px; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; box-shadow: 0 1px 4px rgba(0,0,0,.25); }

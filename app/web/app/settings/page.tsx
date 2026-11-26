@@ -1181,6 +1181,9 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
       </Field>
       <Toggle label="3D" hint="Tilts the map and raises the land (right-drag or Ctrl-drag to turn and tilt). Slower on older PCs. Off: flat maps." on={s.map_3d} set={(v) => save({ map_3d: v })} />
       <NumberField label="Raise the land by" unit="times" value={s.map_3d_exaggeration} min={1} max={5} step={0.5} save={(v) => save({ map_3d_exaggeration: v })} />
+      <Toggle label="Globe" hint="Draws the world map as a globe you can drag to spin, with every layer, colour and background still on it (the globe button under the zoom buttons switches it too). Small maps on other pages stay flat. Off: the flat map." on={s.map_globe} set={(v) => save({ map_globe: v })} />
+      <Toggle label="Globe space look" hint="Dark sky round the globe with a blue glow, blue land and a dark sea, like a view from space. Countries with a figure keep their colours. Off: the page's own colours." on={s.globe_space} set={(v) => save({ globe_space: v })} />
+      <Toggle label="Globe grid lines" hint="Lines of latitude and longitude every 15 degrees on the globe, so you can see which way it is turned." on={s.globe_grid} set={(v) => save({ globe_grid: v })} />
       <Field label="Where the pictures come from" hint="Saved copies first: the map uses what is saved on this PC and fetches the rest online through the app (nothing extra is saved while you browse). Always online: straight from the sites, nothing read from this PC.">
         <div className="seg" role="group" aria-label="Picture source">
           {([["local_first", "Saved copies first"], ["online", "Always online"]] as const).map(([v, t]) => (
