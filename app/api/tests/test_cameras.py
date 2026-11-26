@@ -66,7 +66,8 @@ def mock(calls: list, *, windy=WINDY, nzta_status=200):
 
 
 @pytest.fixture(autouse=True)
-def no_keys(monkeypatch):
+def no_keys(monkeypatch, tmp_path):
+    monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))  # saved camera lists go to a scratch folder
     for k in ("WINDY_WEBCAMS_API_KEY", "TFNSW_API_KEY", "QLDTRAFFIC_API_KEY"):
         monkeypatch.delenv(k, raising=False)
 
@@ -148,7 +149,7 @@ def test_a_slow_agency_list_is_read_in_the_background(monkeypatch):
 
     release = threading.Event()
 
-    def slow(source, client):
+    def slow(source, client, old=None):
         release.wait(5)
         return [cameras._cam(source, 1, "Slow cam", -36.9, 174.8)]
 
@@ -164,3 +165,60 @@ def test_a_slow_agency_list_is_read_in_the_background(monkeypatch):
     cams.loading["nzta"].join(5)
     got = cams.get(165, -48, 180, -34)
     assert [c["properties"]["name"] for c in got["features"]] == ["Slow cam"] and "retry_in" not in got
+
+
+def test_lists_are_saved_and_shown_at_once_after_a_restart(monkeypatch, tmp_path):
+    import threading
+    import time
+
+    calls: list = []
+    cameras.Cameras().get(165, -48, 180, -34, client=mock(calls))  # New Zealand, read and saved
+    assert (tmp_path / "live" / "cameras" / "nzta.json").is_file()
+
+    release = threading.Event()
+
+    def slow(source, client, old=None):
+        release.wait(5)
+        return [cameras._cam(source, 1, "New cam", -36.9, 174.8)]
+
+    monkeypatch.setattr(cameras, "read_list", slow)
+    monkeypatch.setattr(cameras, "LIST_KEEP", 0)  # the saved list is old: ask the agency again
+    cams = cameras.Cameras()  # a restart
+    started = time.monotonic()
+    got = cams.get(165, -48, 180, -34)
+    assert time.monotonic() - started < 1  # no waiting: the saved cameras show straight away
+    assert {c["properties"]["name"] for c in got["features"]} == {"SH1 Memorial Ave North", "SH1 Memorial Ave South"}
+    assert got["checking"] == ["NZ Transport Agency Waka Kotahi"] and got["retry_in"] == cameras.RETRY_SOON
+    release.set()
+    cams.loading["nzta"].join(5)
+    monkeypatch.setattr(cameras, "LIST_KEEP", 3600)
+    got = cams.get(165, -48, 180, -34)
+    assert [c["properties"]["name"] for c in got["features"]] == ["New cam"] and "checking" not in got
+
+
+def test_an_agency_that_stops_answering_keeps_its_saved_list():
+    calls: list = []
+    cameras.Cameras().get(165, -48, 180, -34, client=mock(calls))
+    cams = cameras.Cameras()  # a restart, with the saved list old and the agency down
+    cameras.LIST_KEEP, keep = 0, cameras.LIST_KEEP
+    try:
+        got = cams.get(165, -48, 180, -34, client=mock(calls, nzta_status=503))
+    finally:
+        cameras.LIST_KEEP = keep
+    assert got["count"] == 2 and "did not answer" in got["note"] and "Showing its cameras as saved" in got["note"]
+
+
+def test_a_california_district_that_times_out_keeps_its_last_cameras():
+    old = cameras.parse_caltrans(CALTRANS)  # district 7's camera from the last read
+
+    def handle(req: httpx.Request) -> httpx.Response:
+        if "/d7/" in req.url.path:
+            raise httpx.ReadTimeout("slow", request=req)
+        if "/d4/" in req.url.path:
+            body = {"data": [dict(CALTRANS["data"][0], cctv=dict(CALTRANS["data"][0]["cctv"], index="9",
+                                                                  location=dict(CALTRANS["data"][0]["cctv"]["location"], district="4")))]}
+            return httpx.Response(200, json=body)
+        return httpx.Response(404)
+
+    got = cameras.read_list("caltrans", httpx.Client(transport=httpx.MockTransport(handle)), old=old)
+    assert sorted(c["properties"]["id"] for c in got) == ["caltrans:4-9", "caltrans:7-1"]

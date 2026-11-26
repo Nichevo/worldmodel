@@ -12,19 +12,25 @@ watch; nothing is saved, and the pictures are shown straight from each owner's s
   the most watched plus beaches and coasts; picture links expire after ten minutes, so the card asks
   for a fresh one when it opens.
 
-An agency's list is read only when the area in view reaches its region, and kept six hours.
+An agency's list is read only when the area in view reaches its region, and kept six hours. Each
+list read is also saved (var/live/cameras/<agency>.json), so after a restart the map shows the saved
+cameras at once and reads the agency again in the background; when an agency does not answer, its
+last saved list stays on the map.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import threading
 import time
+from pathlib import Path
 
 import httpx
 
 from worldmodel_api.live import boxes, inside
+from worldmodel_contract import local
 
 UA = {"User-Agent": "worldmodel (personal research tool)", "Digitraffic-User": "worldmodel/personal"}
 LIST_KEEP = 6 * 3600       # seconds an agency's camera list is kept
@@ -186,8 +192,8 @@ class Refused(Exception):
     pass
 
 
-def read_list(source: str, client: httpx.Client) -> list[dict]:
-    """One agency's whole camera list, read now."""
+def read_list(source: str, client: httpx.Client, old: list[dict] | None = None) -> list[dict]:
+    """One agency's whole camera list, read now (old: the last list, to fill in parts that did not answer)."""
     if source == "nzta":
         return parse_nzta(_get(client, "https://www.journeys.nzta.govt.nz/assets/map-data-cache/cameras.json"))
     if source == "qld":
@@ -200,11 +206,17 @@ def read_list(source: str, client: httpx.Client) -> list[dict]:
         return parse_tfl(_get(client, "https://api.tfl.gov.uk/Place/Type/JamCam"))
     if source == "caltrans":
         out: list[dict] = []
+        missed = []
         for d in range(1, 13):
             try:
                 out += parse_caltrans(_get(client, f"https://cwwp2.dot.ca.gov/data/d{d}/cctv/cctvStatusD{d:02d}.json"))
             except httpx.HTTPStatusError:
                 continue  # a district without cameras or a list being rebuilt: the others still show
+            except (httpx.HTTPError, ValueError, Busy, Refused):
+                missed.append(d)  # slow or broken this time: keep the district's cameras from the last read
+        if missed and old:
+            keep = tuple(f"caltrans:{d}-" for d in missed)
+            out += [c for c in old if str(c["properties"]["id"]).startswith(keep)]
         if not out:
             raise httpx.HTTPError("no district answered")
         return out
@@ -222,6 +234,10 @@ def _why(source: str, exc: Exception) -> str:
         return (f"{name} refused the key: check TFNSW_API_KEY in Settings > Keys." if source == "nsw"
                 else f"{name} refused the request ({exc}).")
     return f"{name} did not answer ({exc.__class__.__name__}); trying again in {RETRY_AFTER // 60} min."
+
+
+def _when(at: float) -> str:
+    return time.strftime("%d %b %H:%M", time.localtime(at))
 
 
 def _meets(region: tuple[float, float, float, float], bx: list) -> bool:
@@ -270,16 +286,45 @@ class Cameras:
     """Agencies' camera lists are read in the background, one thread per agency: a wide view
     (the whole Pacific, say) can reach six agencies and California alone is twelve files, which
     took longer than the web app's proxy waits (it then reported "socket hang up"). A view waits
-    up to WAIT seconds for lists not yet read, gets what is ready, and asks again RETRY_SOON
-    seconds later for the rest."""
+    up to WAIT seconds for lists it has never had, gets what is ready, and asks again RETRY_SOON
+    seconds later for the rest. A list saved earlier (even an old one) is shown at once while the
+    agency is asked again."""
 
-    def __init__(self) -> None:
+    def __init__(self, folder: Path | None = None) -> None:
         self.lock = threading.Lock()      # held only to read and write the lists, never over the network
+        self.folder = folder              # where lists are saved; None: var/live/cameras
         self.lists: dict[str, tuple[float, list[dict]]] = {}
         self.failed: dict[str, tuple[float, str]] = {}
         self.loading: dict[str, threading.Thread] = {}
+        self.opened: set[str] = set()     # agencies whose saved list has been looked for
         self.windy: dict[tuple, tuple[float, list[dict]]] = {}
         self.windy_error: tuple[float, str] | None = None
+
+    def _file(self, source: str) -> Path:
+        return (self.folder or local.home() / "live" / "cameras") / f"{source}.json"
+
+    def _open(self, source: str) -> None:
+        """Bring in the agency's saved list the first time it is wanted (call with the lock held)."""
+        if source in self.opened:
+            return
+        self.opened.add(source)
+        try:
+            body = json.loads(self._file(source).read_text(encoding="utf-8"))
+            at, cams = float(body["at"]), list(body["cameras"])
+        except (OSError, ValueError, KeyError, TypeError):
+            return
+        if cams and source not in self.lists:
+            self.lists[source] = (at, cams)
+
+    def _save(self, source: str, at: float, cams: list[dict]) -> None:
+        f = self._file(source)
+        try:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            tmp = f.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"at": at, "source": source, "cameras": cams}, separators=(",", ":")), encoding="utf-8")
+            tmp.replace(f)
+        except OSError:
+            pass  # the list still shows; it is just read again after a restart
 
     def _due(self, source: str) -> bool:
         """Whether an agency's list needs reading (not kept, and not failed a short while ago)."""
@@ -290,8 +335,10 @@ class Cameras:
     def _load(self, source: str, client: httpx.Client | None = None) -> None:
         own = client is None
         client = client or httpx.Client(timeout=25, headers=UA, follow_redirects=True)
+        with self.lock:
+            kept = self.lists.get(source)
         try:
-            cams = read_list(source, client)
+            cams = read_list(source, client, old=kept[1] if kept else None)
         except (httpx.HTTPError, ValueError, KeyError, Busy, Refused) as exc:
             with self.lock:
                 self.failed[source] = (time.time(), _why(source, exc))
@@ -299,13 +346,16 @@ class Cameras:
         finally:
             if own:
                 client.close()
+        at = time.time()
         with self.lock:
-            self.lists[source] = (time.time(), cams)
+            self.lists[source] = (at, cams)
             self.failed.pop(source, None)
+        self._save(source, at, cams)
 
     def _source(self, source: str, client: httpx.Client) -> tuple[list[dict], str | None]:
         """An agency's list, read now with the given client if due (used by tests and one-off callers)."""
         with self.lock:
+            self._open(source)
             due = self._due(source)
         if due:
             self._load(source, client)
@@ -369,27 +419,30 @@ class Cameras:
             threads = []
             with self.lock:
                 for source in wanted:
+                    self._open(source)
                     t = self.loading.get(source)
                     if not (t and t.is_alive()) and self._due(source):
                         t = threading.Thread(target=self._load, args=(source,), name=f"cameras-{source}", daemon=True)
                         self.loading[source] = t
                         t.start()
-                    if t and t.is_alive():
-                        threads.append(t)
+                    if t and t.is_alive() and source not in self.lists:
+                        threads.append(t)  # only wait for lists never had; saved ones show at once
             until = time.monotonic() + WAIT
             for t in threads:
                 t.join(max(0.0, until - time.monotonic()))
         waiting = []
+        checking = []
         with self.lock:
             for source in wanted:
                 kept, failed = self.lists.get(source), self.failed.get(source)
                 if kept:
                     feats += [c for c in kept[1] if inside(*c["geometry"]["coordinates"], bx)]
                 t = self.loading.get(source)
+                name = SOURCE_NAME[source].split(" (")[0]
                 if client is None and t and t.is_alive():
-                    waiting.append(SOURCE_NAME[source].split(" (")[0])
+                    (checking if kept else waiting).append(name)
                 elif failed and not (kept and kept[0] > failed[0]):
-                    notes.append(failed[1])
+                    notes.append(failed[1] + (f" Showing its cameras as saved {_when(kept[0])}." if kept else ""))
         own = client is None
         wclient = client or httpx.Client(timeout=20, headers=UA, follow_redirects=True)
         try:
@@ -405,9 +458,12 @@ class Cameras:
             notes.append("Beach, surf and city webcams worldwide come with a free Windy key: WINDY_WEBCAMS_API_KEY in Settings > Keys.")
         out = {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "Road agencies and Windy webcams",
                "at": int(time.time())}
-        if waiting:
-            notes.insert(0, f"Still reading the camera lists of {', '.join(waiting)}; they show in a moment.")
+        if waiting or checking:
+            if waiting:
+                notes.insert(0, f"Still reading the camera lists of {', '.join(waiting)}; they show in a moment.")
             out["retry_in"] = RETRY_SOON
+            if checking:
+                out["checking"] = checking  # saved lists shown while the agencies are asked again
         if notes:
             out["note"] = " ".join(dict.fromkeys(notes))
         return out

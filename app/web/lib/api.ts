@@ -305,6 +305,7 @@ export type Settings = {
   map_hospital_kinds: string; // likely kinds the map shows: hospital, unsure, clinic
   map_ships_hidden: string; // ship kinds the Ships layer leaves out, comma separated
   map_planes_hidden: string; // plane types the Planes layer leaves out, comma separated
+  map_cameras_hidden: string; // camera kinds and owners the Cameras layer leaves out (traffic, beach, caltrans, windy, offline ...)
   hospitals_osm_fetch: boolean; // OpenStreetMap hospitals (healthsites.io) and hospital counts
   hospitals_overture_fetch: boolean; // Overture hospitals for the countries below
   hospitals_overture_countries: string; // three-letter codes; empty: contract health.py's list
