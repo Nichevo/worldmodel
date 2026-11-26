@@ -57,6 +57,7 @@ export type Journey = {
   // ships
   destination?: string | null; eta?: string | null; port?: Place | null; note?: string | null;
   came_from?: { name: string | null; country: string | null } | null; came_from_at?: number | null;
+  sea_path?: { coords: number[][]; nm: number; passages: string[] } | null; // ships: the way by sea to the port
   // planes
   route?: { codes: string; plausible: boolean; airports: Place[] } | null; from_airport?: Place | null;
   airline?: { code: string; name: string; country: string; iata: string } | null;
@@ -100,14 +101,29 @@ export function greatCircle(a: [number, number], b: [number, number], steps = 64
   return out;
 }
 
-// The lines to draw for a journey: the path so far (solid) and a straight line on to where it
-// says it is going (dashed), as one collection with a "part" property.
+// Longitudes carried on past ±180 instead of jumping back, so a sea path across the Pacific draws the short way.
+function unwrap(coords: number[][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [lon0, lat] of coords) {
+    let lon = lon0;
+    const prev = out.length ? out[out.length - 1][0] : lon;
+    while (lon - prev > 180) lon -= 360;
+    while (lon - prev < -180) lon += 360;
+    out.push([lon, lat]);
+  }
+  return out;
+}
+
+// The lines to draw for a journey: the path so far (solid) and the way on to where it says it is
+// going (dashed): by sea through the shipping lanes for a ship when the API found one, else the
+// shortest line over the globe. One collection with a "part" property.
 export function journeyLines(j: Journey, at: { lng: number; lat: number }, plane: boolean): GeoJSON.FeatureCollection {
   const feats: GeoJSON.Feature[] = [];
   for (const f of j.track?.features ?? []) feats.push({ ...f, properties: { part: "path" } });
   const to = plane ? j.route?.airports?.[j.route.airports.length - 1] : j.port;
   if (to && typeof to.lon === "number") {
-    feats.push({ type: "Feature", properties: { part: "ahead" }, geometry: { type: "LineString", coordinates: greatCircle([at.lng, at.lat], [to.lon, to.lat]) } });
+    const sea = !plane && j.sea_path?.coords && j.sea_path.coords.length >= 2 ? unwrap(j.sea_path.coords) : null;
+    feats.push({ type: "Feature", properties: { part: "ahead" }, geometry: { type: "LineString", coordinates: sea ?? greatCircle([at.lng, at.lat], [to.lon, to.lat]) } });
   }
   const from = plane ? (j.route?.airports?.[0] ?? j.from_airport) : null;
   if (from && typeof from.lon === "number") feats.push({ type: "Feature", properties: { part: "end" }, geometry: { type: "Point", coordinates: [from.lon, from.lat] } });
@@ -115,6 +131,9 @@ export function journeyLines(j: Journey, at: { lng: number; lat: number }, plane
   return { type: "FeatureCollection", features: feats };
 }
 
+const PASSAGE: Record<string, string> = { suez: "the Suez Canal", panama: "the Panama Canal", malacca: "the Strait of Malacca",
+  gibraltar: "Gibraltar", babalmandab: "Bab-el-Mandeb", bosporus: "the Bosporus", ormuz: "the Strait of Hormuz", sunda: "the Sunda Strait",
+  northwest: "the Northwest Passage", chili: "southern Chile", south_africa: "the Cape of Good Hope", bering: "the Bering Strait" };
 const place = (p?: Place | null) => (p ? [p.name, p.iata ? `(${p.iata})` : p.locode ? `(${p.locode})` : ""].filter(Boolean).join(" ") : "");
 const ago = (t?: number | null) => {
   if (!t) return "";
@@ -139,6 +158,7 @@ export function journeyText(j: Journey, plane: boolean): string[] {
   } else {
     if (j.came_from) out.push(`Came from: ${[j.came_from.name, j.came_from.country].filter(Boolean).join(", ")} (stopped there ${ago(j.came_from_at)})`);
     if (j.destination) out.push(`Going to: ${j.destination}${j.port ? ` (${place(j.port)})` : ""}${j.eta ? `, due ${j.eta}` : ""}`);
+    if (j.sea_path?.nm) out.push(`By sea: ${j.sea_path.nm.toLocaleString()} nautical miles to go${j.sea_path.passages.length ? ` via ${j.sea_path.passages.map((p) => PASSAGE[p] ?? p).join(", ")}` : ""}`);
     else out.push("No destination given");
     if (j.track?.points) out.push(`Path saved from ${ago(j.track.from)} (${j.track.points} positions)`);
   }

@@ -100,7 +100,11 @@ def ship_journey(q: Q, ships, mmsi: int, hours: float = 72) -> dict:
     track = ships.track(mmsi, hours)
     detail = ships.detail(mmsi) or {}
     port = match_port(detail.get("destination"), ports(q))
-    return {"track": track, "destination": detail.get("destination"), "eta": detail.get("eta"), "port": port,
+    sea = None  # the way by sea to the port, through the lanes and straits (seapath.py)
+    if port and port.get("lon") is not None and detail.get("lat") is not None:
+        from worldmodel_api.seapath import sea_path
+        sea = sea_path(detail["lon"], detail["lat"], port["lon"], port["lat"])
+    return {"track": track, "sea_path": sea, "destination": detail.get("destination"), "eta": detail.get("eta"), "port": port,
             "came_from": detail.get("last_port"), "came_from_at": detail.get("last_port_at"),
             "from_time": track.get("from"), "now": [detail.get("lon"), detail.get("lat")] if detail.get("lat") is not None else None,
             "note": None if track.get("points") else "No saved path yet: paths are saved while ships are collected (Settings > Transport)."}
