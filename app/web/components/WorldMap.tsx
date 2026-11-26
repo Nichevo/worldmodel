@@ -727,6 +727,9 @@ export default function WorldMap({
           if (style.timed && fc.loaded === false && id === "conflict_events") fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
           const asOf = id === "port_pressure" ? (fc.features[0]?.properties as { from?: string; as_of?: string } | undefined) : undefined;
           (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
+          // The server is still reading part of the data (camera lists): ask again shortly.
+          const retry = Number((fc as { retry_in?: number }).retry_in);
+          if (retry > 0) { if (timer) clearTimeout(timer); timer = setTimeout(load, retry * 1000); }
           if (isLive) setLiveState((cur) => ({ ...cur, [id]: { loading: false, at: Date.now(), count: fc.features.length, every: style.every ?? 60,
             error: fc.error ? String(fc.error) : !fc.features.length && fc.note ? String(fc.note) : undefined } }));
           const legend = LAYER_STYLE[id].legend;
