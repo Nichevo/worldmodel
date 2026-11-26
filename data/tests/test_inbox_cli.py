@@ -38,7 +38,7 @@ def test_a_build_that_stops_without_a_report_says_where(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
 
-    def stop(p, allow_shrink=False):
+    def stop(p, allow_shrink=False, **kw):
         raise RuntimeError("something broke")
 
     monkeypatch.setattr(build_mod, "build", stop)
