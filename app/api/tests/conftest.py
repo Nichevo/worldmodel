@@ -14,3 +14,13 @@ def _no_starter_tiles():
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(tiles, "start_starter", lambda: dict(tiles._job))
         yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_live_settings():
+    """live.py keeps the settings for a few seconds; each test starts with them read afresh."""
+    from worldmodel_api import live
+
+    live.forget_settings()
+    yield
+    live.forget_settings()

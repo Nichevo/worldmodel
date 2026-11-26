@@ -51,7 +51,15 @@ def whc_sites(xml_text: str) -> list[dict]:
     root = ET.fromstring(xml_text)
     out = []
     for row in root.iter("row"):
-        out.append({c.tag: (c.text or "").strip() for c in row})
+        site = {c.tag: (c.text or "").strip() for c in row if c.tag != "geolocations"}
+        # Since 2026 the list gives each site's points under <geolocations><poi> (several for a serial
+        # site) instead of one latitude and longitude: the first point stands for the site.
+        if not site.get("latitude") or not site.get("longitude"):
+            poi = row.find("geolocations/poi")
+            if poi is not None:
+                site["latitude"] = (poi.findtext("latitude") or "").strip()
+                site["longitude"] = (poi.findtext("longitude") or "").strip()
+        out.append(site)
     return out
 
 
@@ -62,6 +70,7 @@ def _plain(html: str) -> str:
 class UNESCOHeritage(Connector):
     source_id = "unesco_heritage"
     switch = "tourism_fetch"
+    stage_version = 2  # points read from <geolocations> too
     fetch_every_days = 182
 
     def default_release(self, fetched_at: datetime) -> str:

@@ -1430,7 +1430,11 @@ def get_settings():
 @api.put("/settings")
 def put_settings(patch: dict = Body(...)):
     """Change some settings; unknown keys are ignored and numbers held to their ranges."""
-    return {"settings": userdata.save_settings(patch), "defaults": local.SETTINGS}
+    saved = userdata.save_settings(patch)
+    from worldmodel_api import live
+
+    live.forget_settings()  # live layers and collectors see the change at once
+    return {"settings": saved, "defaults": local.SETTINGS}
 
 
 @api.get("/history")

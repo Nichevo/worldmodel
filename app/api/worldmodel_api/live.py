@@ -34,6 +34,7 @@ AISSTREAM = "wss://stream.aisstream.io/v0/stream"
 PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
 PLANE_WORLD_EVERY = 5 * 60.0        # background whole-world requests with an OpenSky API client
 PLANE_WORLD_EVERY_ANON = 30 * 60.0  # ... and without one (48 a day, about half the anonymous credits)
+TABLE_KEEP = 45.0  # seconds the planes table (and its counts) is kept before being worked out again
 SAVED_FILL = 40 * 60.0  # a view outside the last OpenSky box shows saved positions up to this old
 PLANE_EVERY_ANON = 180.0  # without one: anonymous users get about 400 credits a day, 1-4 a request
 SHIP_KEEP = 20 * 60    # seconds a ship's last position is shown
@@ -102,6 +103,8 @@ class Planes:
         self.token: tuple[str, float] | None = None
         self.blocked_until = 0.0
         self.blocked_why = ""
+        self._tables: dict = {}
+        self._tables_lock = threading.Lock()
 
     @property
     def store(self):
@@ -333,7 +336,20 @@ class Planes:
 
     def table(self, hours: float = 1) -> dict:
         """Every plane from the last OpenSky answer, and (when saving) every plane saved in the last
-        `hours`, each at its latest position, for the planes table."""
+        `hours`, each at its latest position, for the planes table. Kept TABLE_KEEP seconds (the
+        table, its counts and the Plane counts filters all ask, and reading a day of positions is slow)."""
+        key = (hours, (self.last or {}).get("at"))
+        with self._tables_lock:  # not self.lock, which is held while OpenSky answers
+            hit = self._tables.get(key)
+        if hit and time.monotonic() - hit[0] < TABLE_KEEP:
+            return hit[1]
+        out = self._table(hours)
+        with self._tables_lock:
+            self._tables = {k: v for k, v in self._tables.items() if time.monotonic() - v[0] < TABLE_KEEP}
+            self._tables[key] = (time.monotonic(), out)
+        return out
+
+    def _table(self, hours: float) -> dict:
         feats = {f["properties"]["id"]: f for f in (self.last or {}).get("features") or []}
         if self.collecting() and hours > 0:
             try:
@@ -480,6 +496,9 @@ class MilitaryPlanes:
 RETRY_AFTER = 30.0     # seconds before trying aisstream again after the listener stopped with an error
 RETRY_MOST = 10 * 60   # ... doubling after each failure in a row, up to this
 WORLD_RETRY = 15 * 60  # a whole-world snapshot cut short is tried again this much later
+PING_TIMEOUT = 90      # seconds to wait for aisstream's answer to a keepalive ping
+MAX_QUEUE = 20_000     # reports held while this side catches up (see _listen)
+STALE = 300            # seconds without a report before the connection is opened again
 OPEN_TIMEOUT = 60      # aisstream can take 20 s or more to answer a new connection
 TIDY_EVERY = 3600.0    # seconds between turning finished days into Parquet and deleting old ones
 WORLD_LISTEN = 10 * 60  # how long each whole-world snapshot listens
@@ -494,13 +513,28 @@ SHIP_AREAS = {
 }
 
 
+_SETTINGS_CACHE: list = [0.0, {}]
+SETTINGS_TTL = 5.0  # seconds: describe() asks once per plane, thousands of times a request
+
+
 def _settings() -> dict:
+    """Settings, read from disk at most every SETTINGS_TTL seconds (a change in Settings shows within that)."""
     from worldmodel_contract import local
 
+    now = time.monotonic()
+    if now - _SETTINGS_CACHE[0] < SETTINGS_TTL:
+        return _SETTINGS_CACHE[1]
     try:
-        return local.load_settings()
+        got = local.load_settings()
     except Exception:  # noqa: BLE001 - defaults if the file can't be read
-        return {}
+        got = {}
+    _SETTINGS_CACHE[:] = [now, got]
+    return got
+
+
+def forget_settings() -> None:
+    """Read the settings afresh next time (after Settings are saved)."""
+    _SETTINGS_CACHE[0] = 0.0
 
 
 def _store():
@@ -861,14 +895,19 @@ class Ships:
                 return
             self.resubscribe.clear()
             world, got = bx == SHIP_AREAS["world"][1] and self.area()[1] != bx, 0
-            async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, max_size=2**22) as ws:
+            # The whole world sends hundreds of reports a second: a short queue (the default 16) stops the
+            # reading whenever this loop falls behind, so the server's pong waits behind unread reports and the
+            # keepalive gives up ("1011 keepalive ping timeout", every minute or two). A long queue and a
+            # longer pong wait ride out the bursts; a connection silent for STALE seconds is opened again.
+            async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, ping_timeout=PING_TIMEOUT,
+                                          max_size=2**22, max_queue=MAX_QUEUE) as ws:
                 await ws.send(json.dumps({"APIKey": key,
                                           "BoundingBoxes": [[[s, w], [n, e]] for w, s, e, n in bx],
                                           "FilterMessageTypes": SHIP_MESSAGES}))
                 self.connected = True
                 if not self.conn_at:
                     self.conn_at, self.conn_got = time.time(), 0
-                checked = time.time()
+                checked = heard = time.time()
                 while not self.resubscribe.is_set():
                     if time.time() - checked > 30:  # settings changed (area, collecting on or off)?
                         checked = time.time()
@@ -877,7 +916,10 @@ class Ships:
                     try:
                         raw = await asyncio.wait_for(ws.recv(), timeout=5)
                     except asyncio.TimeoutError:
+                        if time.time() - heard > STALE:
+                            raise ConnectionError(f"no reports for {STALE // 60} minutes") from None
                         continue
+                    heard = time.time()
                     got += 1
                     self.conn_got += 1
                     if world:
@@ -1086,6 +1128,8 @@ def _ship_error(exc: Exception, wait: float = RETRY_AFTER) -> str:
     """Why the aisstream listener stopped, in words."""
     name = exc.__class__.__name__
     text = str(exc)
+    if "ConnectionClosed" in name and "keepalive" in text:
+        return f"aisstream.io connection timed out ({text}); trying again in {_wait_words(wait)}."
     if "ConnectionClosed" in name:
         return f"aisstream.io closed the connection ({text or name}); trying again in {_wait_words(wait)}. A wrong or expired key is the usual cause."
     if "InvalidStatus" in name or "InvalidHandshake" in name or "Proxy" in name:

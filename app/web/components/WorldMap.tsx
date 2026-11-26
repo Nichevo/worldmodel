@@ -193,6 +193,9 @@ export default function WorldMap({
   areaPick.current = onArea;
   const markPick = useRef(onMark);
   markPick.current = onMark;
+  // Swatch colours come from CSS variables, which the server can't read: drawn after hydration only.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
   // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
   const [info, setInfo] = useState<FeatureInfo | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -1129,7 +1132,7 @@ export default function WorldMap({
           ))}
           {layers.filter((id) => LAYER_STYLE[id]).map((id) => (
             <span key={id} className="step">
-              <i className={LAYER_STYLE[id].dot ? "dot" : "line"} style={{ background: LAYER_STYLE[id].swatch() }} />
+              <i className={LAYER_STYLE[id].dot ? "dot" : "line"} style={hydrated ? { background: LAYER_STYLE[id].swatch() } : undefined} />
               {LAYER_STYLE[id].legend}
             </span>
           ))}
