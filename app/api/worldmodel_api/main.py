@@ -4032,20 +4032,25 @@ def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "
 
 
 @api.get("/live/ships/stats")
-def live_ships_stats(hours: float = Query(24, ge=0, le=24 * 400)):
-    """Counts of the ships heard in the last `hours` (0: every ship kept): by kind, flag, where from, where to and more."""
+def live_ships_stats(hours: float = Query(24, ge=0, le=24 * 400), top: int = Query(25, ge=0, le=100_000),
+                     group: str = "", flag: str = "", q: str = "", to: str = "", came: str = ""):
+    """Counts of the ships heard in the last `hours` (0: every ship kept): by kind, flag, where from, where to and more.
+    The same filters as the ships table narrow what is counted."""
     from worldmodel_api import journeys, live, livestats
 
-    found = live.SHIPS.table(limit=10**9, hours=hours, ports=journeys.ports(rows))["rows"]
-    return {**livestats.ships(found, {}), "hours": hours}
+    found = live.SHIPS.table(q=q, group=group, flag_code=flag, limit=10**9, hours=hours, to=to, ports=journeys.ports(rows), came=came)["rows"]
+    return {**livestats.ships(found, {}, top), "hours": hours, "top": top}
 
 
 @api.get("/live/planes/stats")
-def live_planes_stats(hours: float = Query(24, ge=0.1, le=24 * 7)):
-    """Counts of the planes heard in the last `hours`: by kind, airline, country, from, to, route, aircraft and height."""
+def live_planes_stats(hours: float = Query(24, ge=0.1, le=24 * 7), top: int = Query(25, ge=0, le=100_000),
+                      group: str = "", airline: str = "", flag: str = "", q: str = "", frm: str = Query("", alias="from"), to: str = ""):
+    """Counts of the planes heard in the last `hours`: by kind, airline, country, from, to, route, aircraft and height.
+    group, airline (name, or - for none), flag (two letters), from, to and q (any text) narrow what is counted."""
     from worldmodel_api import live, livestats
 
-    return {**livestats.planes(live.PLANES.table(hours)["planes"], {}), "hours": hours}
+    found = livestats.filter_planes(live.PLANES.table(hours)["planes"], group=group, airline=airline, flag=flag, q=q, frm=frm, to=to)
+    return {**livestats.planes(found, {}, top), "hours": hours, "top": top}
 
 
 @api.get("/live/ships/detail/{mmsi}")
