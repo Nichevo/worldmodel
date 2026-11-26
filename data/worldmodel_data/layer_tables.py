@@ -22,6 +22,7 @@ import duckdb
 
 from worldmodel_contract import layer_details as spec
 from worldmodel_contract.schema import TABLES
+from worldmodel_data.stepcache import OFF, StepCache, key, rows_hash
 
 log = logging.getLogger(__name__)
 
@@ -152,29 +153,59 @@ def items(layer: spec.LayerDetail, features: list[dict], placer: Placer) -> list
     return out
 
 
-def prepare(con: duckdb.DuckDBPyConnection, raw: Path, today: date | None = None) -> dict[str, int]:
-    """Create src.raw_layer_items and add the map_layers indicators and figures. Returns items per layer."""
+STEP = "layer_items"
+
+
+def prepare(con: duckdb.DuckDBPyConnection, raw: Path, today: date | None = None, cache: StepCache = OFF) -> dict[str, int]:
+    """Create src.raw_layer_items and add the map_layers indicators and figures. Returns items per layer.
+    A layer whose dots (and the countries they are placed in) are the same as at the last build
+    takes its items saved then, so only layers with new dots are placed again."""
     con.execute(f"CREATE TABLE src.raw_layer_items ({DDL})")
     stored = {d.id: d for d in spec.LAYERS if d.kind == "stored"}
-    layers = con.execute("SELECT layer_id, geojson, source_id, vintage FROM src.raw_layers WHERE layer_id IN "
-                         f"({', '.join('?' * len(stored))}) QUALIFY row_number() OVER (PARTITION BY layer_id ORDER BY vintage DESC) = 1",
+    latest = ("SELECT layer_id, geojson, source_id, vintage FROM src.raw_layers WHERE layer_id IN "
+              f"({', '.join('?' * len(stored))}) QUALIFY row_number() OVER (PARTITION BY layer_id ORDER BY vintage DESC) = 1")
+    layers = con.execute(f"SELECT layer_id, md5(coalesce(geojson, '')), source_id, vintage FROM ({latest})",
                          list(stored)).fetchall() if stored else []
     if not layers:
         return {}
-    placer = Placer(con, countries_file(raw))
+    cfile = countries_file(raw)
+    where = (cfile.as_posix(), cfile.stat().st_size, cfile.stat().st_mtime_ns) if cfile else None
+    place_key = (rows_hash(con, "SELECT entity_id FROM src.entities"),
+                 rows_hash(con, "SELECT scheme, code, entity_id, valid_to FROM src.entity_codes WHERE scheme IN ('iso3', 'iso2')"),
+                 where)
+    placer = None
     counts: dict[str, int] = {}
     cols = list(COLUMNS)
-    for layer_id, geojson, source_id, vintage in layers:
+    kept, reused, worked = set(), [], []
+    for layer_id, digest, source_id, vintage in layers:
+        ck = f"{layer_id}-{key(STEP, layer_id, digest, source_id, vintage, place_key)}"
+        kept.add(ck)
+        if cache.load(con, STEP, ck, {"items": "src.raw_layer_items"}):
+            n = con.execute("SELECT count(DISTINCT item_id) FROM src.raw_layer_items WHERE layer_id = ?", [layer_id]).fetchone()[0]
+            if n:
+                counts[layer_id] = n
+            reused.append(layer_id)
+            continue
+        geojson = con.execute(f"SELECT geojson FROM ({latest}) WHERE layer_id = ?", [*stored, layer_id]).fetchone()[0]
         try:
             feats = json.loads(geojson or "{}").get("features") or []
         except json.JSONDecodeError:
             log.warning("map layer details: %s is not GeoJSON; skipped", layer_id)
             continue
+        if placer is None:
+            placer = Placer(con, cfile)
         rows = items(stored[layer_id], feats, placer)
-        if not rows:
-            continue
-        insert_many(con, "src.raw_layer_items", cols, [(layer_id, *r, source_id, vintage) for r in rows])
-        counts[layer_id] = len({r[0] for r in rows})
+        worked.append(layer_id)
+        if rows:
+            insert_many(con, "src.raw_layer_items", cols, [(layer_id, *r, source_id, vintage) for r in rows])
+            counts[layer_id] = len({r[0] for r in rows})
+        cache.save(con, STEP, ck, {"items": "SELECT * FROM src.raw_layer_items WHERE layer_id = ?"},
+                   params={"items": [layer_id]}, keep_others=True)
+    cache.prune(STEP, kept)
+    if reused:
+        cache.reused.append(f"{STEP} ({len(reused)} layers)")
+        log.info("map layer details: %s layers unchanged since the last build, reused; %s placed again%s", len(reused),
+                 len(worked), f" ({', '.join(worked)})" if worked else "")
     # Universities and companies: the country Wikidata gives (their dots leave it out).
     con.execute("""UPDATE src.raw_layer_items l SET entity_id = p.country_id, placed = false
                    FROM (SELECT place_key, kind, any_value(country_id) AS country_id FROM src.raw_places

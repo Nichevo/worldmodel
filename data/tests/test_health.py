@@ -83,7 +83,12 @@ def built(tmp_path_factory):
         {"SpatialDimType": "COUNTRY", "SpatialDim": "NZL", "TimeDim": 2013, "NumericValue": 1.9}]}), encoding="utf-8")
     CONNECTORS["hospital_counts"]().ingest(store, counts)
     result = build(home)
-    return duckdb.connect(str(result.path), read_only=True)
+    con = duckdb.connect(str(result.path), read_only=True)
+    HOMES[id(con)] = (home, tmp)
+    return con
+
+
+HOMES: dict[int, tuple[Paths, Path]] = {}
 
 
 def _hospitals(con) -> list[dict]:
@@ -162,3 +167,41 @@ def test_tier_rules():
     assert t("Hospital (no name given)", "OpenStreetMap") == "unsure"
     assert t("Hospital (no name given)", "OpenStreetMap", emergency="yes") == "hospital"
     assert t("Unit 4", "Official lists", kind="day hospital") == "clinic"
+
+
+def _reused(result) -> str:
+    return next((c.detail for c in result.checks if c.check_id == "build:reused"), "")
+
+
+def test_second_build_reuses_unchanged_steps(built):
+    home, tmp = HOMES[id(built)]
+    first = sorted(json.dumps(x, sort_keys=True) for x in _hospitals(built))
+    items = built.execute("SELECT count(*), sum(hash(l)) FROM layer_items l").fetchone()
+    again = build(home)
+    assert "hospitals" in _reused(again) and "layer_items" in _reused(again)
+    con = duckdb.connect(str(again.path), read_only=True)
+    try:
+        assert sorted(json.dumps(x, sort_keys=True) for x in _hospitals(con)) == first
+        assert con.execute("SELECT count(*), sum(hash(l)) FROM layer_items l").fetchone() == items
+    finally:
+        con.close()
+    # A changed list: the merge is done again, and only the hospitals layer's dots are placed again.
+    d = tmp / "osm2"
+    osm_files(d)
+    with (d / "AUS.csv").open("w", encoding="utf-8") as fh:
+        fh.write("X,Y,osm_id,osm_type,completeness,amenity,healthcare,name,operator,beds,operator_type,emergency\n"
+                 '151.2,-33.9,"31",node,,hospital,hospital,Sydney Hospital,,,,\n')
+    CONNECTORS["healthsites_osm"]().ingest(VintageStore(home), d)
+    third = build(home)
+    assert "hospitals" not in _reused(third).replace("layer_items", "")
+    con = duckdb.connect(str(third.path), read_only=True)
+    try:
+        assert any(x["name"] == "Sydney Hospital" for x in _hospitals(con))
+        assert con.execute("SELECT count(*) FROM layer_items WHERE layer_id = 'hospitals' AND name = 'Sydney Hospital'").fetchone()[0] == 1
+    finally:
+        con.close()
+
+
+def test_reuse_switched_off_works_everything_out(built):
+    home, _ = HOMES[id(built)]
+    assert _reused(build(home, reuse=False)) == ""

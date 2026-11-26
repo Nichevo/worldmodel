@@ -283,6 +283,7 @@ SETTINGS: dict[str, object] = {
     "inbox_downloads_days": 14,      # how far back in Downloads to look
     "inbox_downloads_folder": "",    # blank: your own Downloads folder
     "sources_off": "",               # sources switched off on Data status: never fetched, never on the To do list
+    "build_reuse": True,             # skip a rebuild when nothing new came in; reuse build steps whose inputs are unchanged
     "schedule_on": False,            # Windows runs refresh.bat on its own
     "schedule_often": "weekly",
     "schedule_day": "sun",
@@ -497,21 +498,42 @@ def load_settings(root: Path | None = None) -> dict:
 
 # ----------------------------------------------------------------------------- disk use
 def _size(path: Path) -> int:
-    if path.is_file():
-        return path.stat().st_size
-    total = 0
-    for dirpath, _, files in os.walk(path):
-        for f in files:
-            try:
-                total += os.path.getsize(os.path.join(dirpath, f))
-            except OSError:
-                pass
+    """Bytes under a folder. os.scandir's entries carry their sizes on Windows, so this is much
+    quicker than a stat() of every file (the data folder holds hundreds of thousands)."""
+    try:
+        if path.is_file():
+            return path.stat().st_size
+    except OSError:
+        return 0
+    total, stack = 0, [str(path)]
+    while stack:
+        try:
+            with os.scandir(stack.pop()) as it:
+                for e in it:
+                    try:
+                        if e.is_dir(follow_symlinks=False):
+                            stack.append(e.path)
+                        elif e.is_file(follow_symlinks=False):
+                            total += e.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        pass
+        except OSError:
+            pass
     return total
 
 
-def disk_usage(root: Path | None = None) -> dict[str, int]:
-    """Bytes per category, plus "total"."""
+_USAGE: dict[str, tuple[float, dict[str, int]]] = {}  # root -> (when, bytes per category)
+
+
+def disk_usage(root: Path | None = None, max_age: float = 0) -> dict[str, int]:
+    """Bytes per category, plus "total". max_age: seconds an earlier count in this process may be
+    reused for (a refresh asks several times within a minute; each count reads the whole folder)."""
     root = root or home()
+    import time
+
+    got = _USAGE.get(str(root))
+    if max_age and got and time.monotonic() - got[0] <= max_age:
+        return dict(got[1])
     out = {k: 0 for k, _ in CATEGORIES}
     if not root.exists():
         return {**out, "total": 0}
@@ -527,6 +549,7 @@ def disk_usage(root: Path | None = None) -> dict[str, int]:
         else:
             out["other"] += _size(child)
     out["total"] = sum(out.values())
+    _USAGE[str(root)] = (time.monotonic(), dict(out))
     return out
 
 
@@ -535,11 +558,12 @@ def level(used: float, limit: float) -> str:
     return "full" if share >= 1 else "critical" if share >= CRITICAL_AT else "warn" if share >= WARN_AT else "ok"
 
 
-def storage(root: Path | None = None) -> dict:
-    """Disk use against the limits in settings, with a warning level for each limit."""
+def storage(root: Path | None = None, freeable: bool = True, max_age: float = 0) -> dict:
+    """Disk use against the limits in settings, with a warning level for each limit.
+    freeable=False leaves out the old downloads that could go (a second walk of raw/)."""
     s = load_settings(root)
     root = root or home()
-    use = disk_usage(root)
+    use = disk_usage(root, max_age)
     disk, pics = s["disk_limit_gb"] * GB, s["pictures_limit_gb"] * GB
     limits = [
         {"key": "disk", "label": "Whole data folder", "used": use["total"], "limit": disk, "level": level(use["total"], disk)},
@@ -552,7 +576,7 @@ def storage(root: Path | None = None) -> dict:
     worst = max((lim["level"] for lim in limits), key=order.index)
     return {"home": str(root), "categories": [{"key": k, "label": label, "bytes": use[k]} for k, label in CATEGORIES],
             "total": use["total"], "limits": limits, "level": worst, "warn_at": WARN_AT, "critical_at": CRITICAL_AT,
-            "freeable": sum(f["bytes"] for f in freeable_raw(root))}
+            "freeable": sum(f["bytes"] for f in freeable_raw(root)) if freeable else None}
 
 
 def pictures_room(root: Path | None = None) -> int:
