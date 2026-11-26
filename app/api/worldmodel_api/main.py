@@ -4095,6 +4095,37 @@ def live_planes_status():
     return live.PLANES.status()
 
 
+@api.get("/live/ships/sweeps")
+def live_ship_sweeps(days: float = Query(7, ge=0.1, le=400)):
+    """Each whole-world snapshot (finished or cut short, reports, new ships) and each dropped connection."""
+    from worldmodel_api import live
+
+    return live.SHIPS.sweeps(days)
+
+
+@api.get("/live/planes/flights")
+def live_plane_flights(icao: str | None = None, callsign: str | None = None, days: float = Query(30, ge=0.1, le=400)):
+    """Flights saved for one aircraft (icao) or every aircraft that flew a callsign, newest first."""
+    from worldmodel_api import live
+
+    if not (icao or callsign):
+        raise HTTPException(400, "Give icao or callsign.")
+    return live.PLANES.flights(icao, callsign, days)
+
+
+@api.get("/live/planes/logo/{code}")
+def live_plane_logo(code: str):
+    """An airline's logo by its ICAO code (Settings > Transport: Airline logos), kept on disk once fetched."""
+    from worldmodel_api import aircraftdb, live
+
+    if not local.load_settings().get("planes_logos", True):
+        raise HTTPException(404, "Airline logos are off (Settings > Transport).")
+    png = aircraftdb.logo(live.PLANES.store.folder / "logos", code)
+    if not png:
+        raise HTTPException(404, f"No logo for {code}.")
+    return Response(png, media_type="image/png", headers={"Cache-Control": "max-age=604800"})
+
+
 @api.get("/live/ships/track/{mmsi}")
 def live_ship_track(mmsi: int, hours: float = Query(24, gt=0, le=24 * 400), end: float | None = None):
     """One ship's saved path over the hours before `end` (default now), as GeoJSON."""

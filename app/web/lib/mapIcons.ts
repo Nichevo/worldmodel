@@ -58,3 +58,66 @@ export const PLANE_GROUPS: { id: string; label: string; color: string; icon: str
 
 export const groupColor = (groups: { id: string; color: string }[], fallback: string) =>
   ["match", ["get", "group"], ...groups.flatMap((g) => [g.id, g.color]), fallback] as unknown as ExpressionSpecification;
+
+// Flags and airline logos beside planes once the map is zoomed in: images named
+// wm-b-<flag>-<airline> are drawn when the map first asks for one (a flag 20 x 15 and the logo
+// 18 x 18, side by side), then the planes are laid out again so they appear.
+export const BADGE_MIN_ZOOM = 4.5;
+
+// flags: each plane's flag; logos: airliners' airline logo. Images are named wm-b-<flag>-<airline>.
+export function planeBadgeLayout(flags: boolean, logos: boolean): Record<string, unknown> {
+  return {
+    "icon-image": ["concat", "wm-b-", flags ? ["coalesce", ["get", "flag"], ""] : "", "-",
+      logos ? ["case", ["all", ["==", ["get", "group"], "airliner"], ["to-boolean", ["get", "airline"]]], ["coalesce", ["get", "airline_code"], ""], ""] : ""],
+    "icon-anchor": "left", "icon-offset": [11, 0], "icon-allow-overlap": false, "icon-padding": 1,
+  };
+}
+export const planeBadgeFilter = (flags: boolean, logos: boolean) => ["any",
+  flags ? ["to-boolean", ["get", "flag"]] : false,
+  logos ? ["all", ["==", ["get", "group"], "airliner"], ["to-boolean", ["get", "airline"]]] : false];
+
+const loadImg = (src: string) => new Promise<HTMLImageElement | null>((ok) => {
+  const img = new Image();
+  img.onload = () => ok(img);
+  img.onerror = () => ok(null);
+  img.src = src;
+});
+
+export function watchPlaneBadges(m: MlMap, relayout: () => void) {
+  const asked = new Set<string>();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  m.on("styleimagemissing", (e: { id: string }) => {
+    const id = e.id;
+    if (!id.startsWith("wm-b-") || asked.has(id)) return;
+    if (id === "wm-b--") { m.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) }); return; }
+    asked.add(id);
+    const [flag, code] = id.slice(5).split("-");
+    Promise.all([flag ? loadImg(`/flags/${flag.toLowerCase()}.svg`) : null, code ? loadImg(`/api/v1/live/planes/logo/${code}`) : null])
+      .then(([f, l]) => {
+        if (!m.getStyle() || m.hasImage(id)) return;
+        const R = 2, fw = f ? 20 : 0, lw = l ? 18 : 0, gap = f && l ? 3 : 0;
+        const w = Math.max(1, fw + gap + lw), h = l ? 18 : f ? 15 : 1;
+        const c = document.createElement("canvas");
+        c.width = w * R;
+        c.height = h * R;
+        const g = c.getContext("2d");
+        if (!g) return;
+        if (f) {
+          const y = (h - 15) / 2;
+          g.drawImage(f, 0, y * R, 20 * R, 15 * R);
+          g.strokeStyle = "rgba(0,0,0,0.35)";
+          g.lineWidth = R;
+          g.strokeRect(0, y * R, 20 * R, 15 * R);
+        }
+        if (l) {
+          g.fillStyle = "#fff";
+          g.fillRect((fw + gap) * R, 0, 18 * R, 18 * R);
+          g.drawImage(l, (fw + gap) * R, 0, 18 * R, 18 * R);
+        }
+        const img = g.getImageData(0, 0, c.width, c.height);
+        m.addImage(id, { width: c.width, height: c.height, data: new Uint8Array(img.data.buffer) }, { pixelRatio: R });
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(relayout, 400);
+      });
+  });
+}

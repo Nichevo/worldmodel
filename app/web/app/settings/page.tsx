@@ -421,6 +421,12 @@ export default function SettingsPage() {
           on={s.planes_collect} set={(v) => save({ planes_collect: v })} />
         <Toggle label="Planes from the whole world" hint="While the app runs, ask OpenSky for every plane in the world every 30 minutes (every 5 with a free OpenSky API client in Settings > Keys) and save them, so planes build up from everywhere even with the map closed. Each whole-world request uses 4 of OpenSky's daily credits (about 400 anonymous, 4,000 with a client). Off: only the map's view is fetched, while the Planes layer is on."
           on={s.planes_world} set={(v) => save({ planes_world: v })} />
+        <Toggle label="Plane types and flags" hint="Download the free aircraft database tar1090 uses (about 600,000 aircraft, 9 MB, again once a month, into var\live\planes) so each plane gets its type (Boeing 737-800, Robinson R-44), registration and a map shape by type, even when it sends no category; the flag comes from the country that issued its transponder address. Off: shapes only from what the plane sends (most say nothing), no registration."
+          on={s.planes_types} set={(v) => save({ planes_types: v })} />
+        <Toggle label="Airline logos" hint="Show an airline's logo beside its planes (zoomed in on the map, and in the Planes table and card), fetched once per airline from a public collection on GitHub (github.com/Jxck-S/airline-logos) and kept in var\live\planes\logos. Logos belong to the airlines; for identification only. Off: no logos and nothing fetched."
+          on={s.planes_logos} set={(v) => save({ planes_logos: v })} />
+        <Toggle label="Flags beside planes on the map" hint="When the map is zoomed in to about a country's size, each plane gets its flag beside the shape (airliners also their logo, under Airline logos); badges that would overlap are left out. Also a tickbox under Planes in the map's Layers panel. Off: no flags on the map."
+          on={s.planes_badges} set={(v) => save({ planes_badges: v })} />
         <NumberField label="Keep saved planes for" unit="days" value={s.planes_keep_days} min={1} max={400} step={1}
           note="Older days of plane positions are deleted."
           save={(v) => save({ planes_keep_days: v })} />

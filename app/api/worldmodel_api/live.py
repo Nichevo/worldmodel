@@ -14,6 +14,7 @@ live layers are on.
 from __future__ import annotations
 
 import asyncio
+import csv
 import json
 import logging
 import math
@@ -84,6 +85,7 @@ class Planes:
     def __init__(self, store=None, settings=None) -> None:
         self._store = store
         self._settings_fn = settings
+        self._aircraft = None
         self.tidied = 0.0
         self.keeper: threading.Thread | None = None
         self.world_at = 0.0
@@ -111,6 +113,26 @@ class Planes:
     def settings(self) -> dict:
         return (self._settings_fn or _settings)() or {}
 
+    @property
+    def aircraft(self):
+        if self._aircraft is None:
+            from worldmodel_api.aircraftdb import AircraftDb
+
+            self._aircraft = AircraftDb(self.store.folder)
+        return self._aircraft
+
+    def describe(self, p: dict) -> dict:
+        """Add what the aircraft database knows (type, model, registration, flag, military) and a better
+        map group when the plane sent no ADS-B category: by its type, else airliner when its callsign is
+        an airline's."""
+        info = self.aircraft.find(p.get("id")) if self.settings().get("planes_types", True) else {}
+        al = airline(p.get("callsign"))
+        p.update(type=info.get("type"), model=info.get("model"), reg=info.get("reg"), flag=info.get("flag"),
+                 military=bool(info.get("military")), airline=al["name"] if al else None, airline_code=al["code"] if al else None)
+        if (p.get("group") or "unknown") == "unknown":
+            p["group"] = info.get("group") or ("airliner" if al else "unknown")
+        return p
+
     def collecting(self) -> bool:
         return bool(self.settings().get("planes_collect", True))
 
@@ -133,6 +155,14 @@ class Planes:
     def _keep(self) -> None:
         time.sleep(60)  # let the app start first
         while True:
+            try:
+                if self.settings().get("planes_types", True):
+                    if self.aircraft.due():
+                        self.aircraft.download()
+                    elif not len(self.aircraft.keys):
+                        self.aircraft.load()
+            except Exception as exc:  # noqa: BLE001 - planes still show, by ADS-B category only
+                log.warning("aircraft database: %s", exc)
             try:
                 every = self.world_every()
                 if every and time.time() - self.world_at >= every:
@@ -166,9 +196,8 @@ class Planes:
             return {"type": "FeatureCollection", "features": [], "count": 0, "error": f"Could not read saved planes ({exc.__class__.__name__})."}
         feats = []
         for v in found:
-            al = airline(v.get("callsign"))
             feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(v["lon"], 4), round(v["lat"], 4)]},
-                          "properties": {**{k: x for k, x in v.items() if k not in ("lat", "lon")}, "airline": al["name"] if al else None}})
+                          "properties": self.describe({k: x for k, x in v.items() if k not in ("lat", "lon")})})
         when_txt = time.strftime("%d %b %Y %H:%M", time.localtime(when))
         return {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "OpenSky Network (saved)", "at": int(when),
                 "note": f"Planes as saved at {when_txt}" + ("" if feats else ": none saved for this area and time")}
@@ -242,7 +271,6 @@ class Planes:
                     continue
                 seen.add(st[0])
                 cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
-                al = airline(st[1])
                 feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
                               "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
                                              "altitude_m": round(st[7]) if st[7] is not None else None,
@@ -251,12 +279,28 @@ class Planes:
                                              "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
                                              "squawk": st[14] if len(st) > 14 else None,
                                              "seen": st[4] if len(st) > 4 else None,
-                                             "category": cat, "group": plane_group(cat),
-                                             "airline": al["name"] if al else None}})
+                                             "category": cat, "group": plane_group(cat)}})
+                self.describe(feats[-1]["properties"])
             self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
             self.last_at, self.last_box = time.time(), bx
             self._save(feats)
             return self._filter(self.last, bx)
+
+    def flights(self, icao: str | None, callsign: str | None, days: float = 30) -> dict:
+        """The flights saved for one aircraft, or for every aircraft that flew a callsign, with each
+        one's route when it was looked up (kept 3 days)."""
+        from worldmodel_api.journeys import ROUTE_HISTORY, _key
+
+        found = self.store.flights(time.time() - days * 86400, time.time() + 60, icao=icao, callsign=callsign)
+        for f in found[:300]:
+            hit = self.store.lookup("route", _key(f["callsign"]), ROUTE_HISTORY) if f["callsign"] and airline(f["callsign"]) else None
+            ports = ((hit[0] or {}).get("airports") or []) if hit else []
+            f["from"], f["to"] = (_place(ports[0]), _place(ports[-1])) if len(ports) >= 2 else (None, None)
+            f["airline"] = (airline(f["callsign"]) or {}).get("name")
+        return {"flights": found[:300], "days": days, "icao": icao, "callsign": callsign,
+                "note": "Cut from the positions saved here (every 4 minutes while in the air and in a fetched area): a new flight starts "
+                        "when the callsign changes, after 3 hours unheard, or when the plane was low before and after 20 minutes or more unheard. Planes out of the map's "
+                        "view are only seen at the whole-world requests, so short flights there can be missed or joined."}
 
     def table(self, hours: float = 1) -> dict:
         """Every plane from the last OpenSky answer, and (when saving) every plane saved in the last
@@ -276,6 +320,8 @@ class Planes:
             p = dict(f["properties"])
             p["lon"], p["lat"] = f["geometry"]["coordinates"]
             p["category_name"] = PLANE_CATEGORY.get(p.get("category")) if p.get("category") is not None else None
+            if "airline_code" not in p:
+                self.describe(p)
             al = airline(p.get("callsign"))
             p["airline"], p["airline_code"], p["airline_country"] = (al["name"], al["code"], al["country"]) if al else (None, None, None)
             p["from"] = p["to"] = None
@@ -302,7 +348,7 @@ class Planes:
         table not yet known; each answer is kept (3 days), so a callsign is asked only once."""
         if self.route_thread and self.route_thread.is_alive():
             return
-        from worldmodel_api.journeys import ROUTE_KEEP, _key
+        from worldmodel_api.journeys import ROUTE_HISTORY, ROUTE_KEEP, _key
 
         want = []
         for f in feats:
@@ -322,7 +368,7 @@ class Planes:
             except Exception as exc:  # noqa: BLE001 - tried again on a later table load
                 log.info("adsb.lol routes: %s", exc)
                 return
-            self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_KEEP)
+            self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
             for cs, _, _ in batch:
                 if cs not in got:
                     self.route_failed[cs] = time.time()
@@ -395,6 +441,8 @@ class MilitaryPlanes:
 
 # ----------------------------------------------------------------------------- ships (aisstream.io)
 RETRY_AFTER = 30.0     # seconds before trying aisstream again after the listener stopped with an error
+RETRY_MOST = 10 * 60   # ... doubling after each failure in a row, up to this
+WORLD_RETRY = 15 * 60  # a whole-world snapshot cut short is tried again this much later
 OPEN_TIMEOUT = 60      # aisstream can take 20 s or more to answer a new connection
 TIDY_EVERY = 3600.0    # seconds between turning finished days into Parquet and deleting old ones
 WORLD_LISTEN = 10 * 60  # how long each whole-world snapshot listens
@@ -441,6 +489,12 @@ class Ships:
         self.keeper: threading.Thread | None = None
         self.error: str | None = None
         self.failed_at = 0.0
+        self.fails = 0               # failures in a row since aisstream last sent anything
+        self.conn_at = 0.0           # when the current connection opened, and reports on it so far
+        self.conn_got = 0
+        self.sweep_got = 0           # reports and new ships in the current whole-world snapshot
+        self.sweep_new = 0
+        self.sweep_at = 0.0
         self.messages = 0          # messages read since the listener last started
         self.connected = False
         self.resubscribe = threading.Event()
@@ -520,6 +574,7 @@ class Ships:
                     self.world_at = time.time() - max(0.0, every - WORLD_FIRST_AFTER)
                 if every and time.time() - self.world_at >= every and self.connected:
                     self.world_at, self.world_until = time.time(), time.time() + WORLD_LISTEN
+                    self.sweep_at, self.sweep_got, self.sweep_new = time.time(), 0, 0
                     self.resubscribe.set()
                 if time.time() - self.details_saved >= DETAILS_EVERY:
                     self.details_saved = time.time()
@@ -531,6 +586,10 @@ class Ships:
                 log.warning("ship collector: %s", exc)
             time.sleep(RETRY_AFTER)
 
+    def retry_wait(self) -> float:
+        """Seconds to wait after the last failure: 30 s, doubling for each failure in a row, at most 10 minutes."""
+        return min(RETRY_MOST, RETRY_AFTER * 2 ** max(0, self.fails - 1))
+
     def ensure(self) -> None:
         """(Re)start the listener, but keep the reason it last stopped on show and wait a little before
         trying again, so a bad key or a blocked connection is seen rather than retried on every request."""
@@ -538,7 +597,7 @@ class Ships:
         if not key:
             return
         with self.lock:
-            if (not self.thread or not self.thread.is_alive()) and time.time() - self.failed_at >= RETRY_AFTER:
+            if (not self.thread or not self.thread.is_alive()) and time.time() - self.failed_at >= self.retry_wait():
                 self.thread = threading.Thread(target=self._run, args=(key,), daemon=True, name="aisstream")
                 self.thread.start()
 
@@ -731,10 +790,21 @@ class Ships:
         try:
             asyncio.run(self._listen(key))
         except Exception as exc:  # noqa: BLE001 - shown on the map, not raised
-            why = self.error or _ship_error(exc)
-            if time.time() < self.world_until:  # the snapshot failed: back to the area, try again next time
+            self.fails += 1
+            refused = self.error if (self.error or "").startswith("aisstream.io refused") else None
+            why = refused or _ship_error(exc, self.retry_wait())
+            was_world = time.time() < self.world_until
+            if was_world:  # the snapshot failed: back to the area, try again in 15 minutes
                 self.world_until = 0.0
-                self.world_note = f"Whole-world snapshot failed: {why.split(';')[0]}."
+                every = self.world_every()
+                if every:
+                    self.world_at = time.time() - max(0.0, every - WORLD_RETRY)
+                self.world_note = f"Whole-world snapshot cut short ({why.split(';')[0]}); trying again in {WORLD_RETRY // 60} minutes."
+            if was_world:
+                self.log_sweep("sweep", self.sweep_at, "cut short", self.sweep_got, self.sweep_new, why.split(";")[0])
+            if self.conn_at:
+                self.log_sweep("connection", self.conn_at, "dropped", self.conn_got, None, why.split(";")[0])
+                self.conn_at = 0.0
             with self.lock:
                 self.error, self.failed_at, self.connected = why, time.time(), False
             log.warning("aisstream stopped: %s (%s)", why, exc)
@@ -759,6 +829,8 @@ class Ships:
                                           "BoundingBoxes": [[[s, w], [n, e]] for w, s, e, n in bx],
                                           "FilterMessageTypes": SHIP_MESSAGES}))
                 self.connected = True
+                if not self.conn_at:
+                    self.conn_at, self.conn_got = time.time(), 0
                 checked = time.time()
                 while not self.resubscribe.is_set():
                     if time.time() - checked > 30:  # settings changed (area, collecting on or off)?
@@ -770,10 +842,59 @@ class Ships:
                     except asyncio.TimeoutError:
                         continue
                     got += 1
-                    self.take(json.loads(raw))
+                    self.conn_got += 1
+                    if world:
+                        self.sweep_got += 1
+                    msg = json.loads(raw)
+                    if not msg.get("error"):
+                        self.fails = 0
+                    self.take(msg)
             if world:
                 self.world_until = 0.0
-                self.world_note = f"Last whole-world snapshot {time.strftime('%H:%M', time.localtime(self.world_at))}: {got:,} reports."
+                self.world_note = (f"Last whole-world snapshot {time.strftime('%H:%M', time.localtime(self.world_at))}: "
+                                   f"{got:,} reports, {self.sweep_new:,} ships not seen before.")
+                self.log_sweep("sweep", self.sweep_at or self.world_at, "finished", got, self.sweep_new, "")
+
+    # ------------------------------------------------------------------ sweep and drop log
+    SWEEP_COLUMNS = ("start", "end", "what", "outcome", "minutes", "reports", "new_ships", "why")
+
+    def log_sweep(self, what: str, start: float, outcome: str, reports: int, new: int | None, why: str) -> None:
+        """One line in <home>/live/ships/sweeps.csv for each whole-world snapshot and each dropped
+        connection, so how often aisstream cuts off, and how much each sweep brings, can be seen."""
+        end = time.time()
+        try:
+            f = self.store.folder / "sweeps.csv"
+            f.parent.mkdir(parents=True, exist_ok=True)
+            new_file = not f.exists()
+            with f.open("a", newline="", encoding="utf-8") as fh:
+                w = csv.writer(fh)
+                if new_file:
+                    w.writerow(self.SWEEP_COLUMNS)
+                w.writerow([int(start), int(end), what, outcome, round((end - start) / 60, 1), reports, "" if new is None else new, why])
+        except OSError as exc:
+            log.warning("ship sweep log: %s", exc)
+
+    def sweeps(self, days: float = 7) -> dict:
+        """The sweep and drop log for the last `days`, newest first, with totals."""
+        rows = []
+        try:
+            with (self.store.folder / "sweeps.csv").open(encoding="utf-8", newline="") as fh:
+                for r in csv.DictReader(fh):
+                    try:
+                        if time.time() - int(r["start"]) <= days * 86400:
+                            rows.append({"start": int(r["start"]), "end": int(r["end"]), "what": r["what"], "outcome": r["outcome"],
+                                         "minutes": float(r["minutes"] or 0), "reports": int(r["reports"] or 0),
+                                         "new_ships": int(r["new_ships"]) if r.get("new_ships") else None, "why": r.get("why") or None})
+                    except (KeyError, ValueError):
+                        continue
+        except OSError:
+            pass
+        rows.reverse()
+        sw = [r for r in rows if r["what"] == "sweep"]
+        return {"rows": rows[:200], "days": days, "totals": {
+            "sweeps": len(sw), "finished": sum(r["outcome"] == "finished" for r in sw), "cut_short": sum(r["outcome"] != "finished" for r in sw),
+            "reports": sum(r["reports"] for r in sw), "new_ships": sum(r["new_ships"] or 0 for r in sw),
+            "drops": sum(r["what"] == "connection" for r in rows)}}
 
     def take(self, msg: dict, count: bool = True) -> None:
         """One aisstream message into the ships kept (and saved, while collecting). The whole-world
@@ -791,6 +912,8 @@ class Ships:
             if count:
                 self.messages += 1
                 self.error = None
+            if mmsi not in self.ships and time.time() < self.world_until:
+                self.sweep_new += 1
             s = self.ships.setdefault(mmsi, {"id": mmsi, "seen": int(time.time())})
             name = (meta.get("ShipName") or body.get("Name") or "").strip()
             if name:
@@ -918,17 +1041,21 @@ def _ship_feature(v: dict) -> dict:
     return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [v["lon"], v["lat"]]}, "properties": props}
 
 
-def _ship_error(exc: Exception) -> str:
+def _wait_words(seconds: float) -> str:
+    return f"{int(seconds)} s" if seconds < 90 else f"{round(seconds / 60)} minutes"
+
+
+def _ship_error(exc: Exception, wait: float = RETRY_AFTER) -> str:
     """Why the aisstream listener stopped, in words."""
     name = exc.__class__.__name__
     text = str(exc)
     if "ConnectionClosed" in name:
-        return f"aisstream.io closed the connection ({text or name}); trying again in {int(RETRY_AFTER)} s. A wrong or expired key is the usual cause."
+        return f"aisstream.io closed the connection ({text or name}); trying again in {_wait_words(wait)}. A wrong or expired key is the usual cause."
     if "InvalidStatus" in name or "InvalidHandshake" in name or "Proxy" in name:
-        return f"aisstream.io would not connect ({text or name}); trying again in {int(RETRY_AFTER)} s."
+        return f"aisstream.io would not connect ({text or name}); trying again in {_wait_words(wait)}."
     if isinstance(exc, (asyncio.TimeoutError, TimeoutError, OSError)):
-        return f"Could not reach aisstream.io ({name}: {text}); trying again in {int(RETRY_AFTER)} s."
-    return f"aisstream.io: {text or name}; trying again in {int(RETRY_AFTER)} s."
+        return f"Could not reach aisstream.io ({name}: {text}); trying again in {_wait_words(wait)}."
+    return f"aisstream.io: {text or name}; trying again in {_wait_words(wait)}."
 
 
 PLANES = Planes()

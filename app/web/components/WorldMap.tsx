@@ -16,9 +16,9 @@ import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/
 import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool, greatCircle } from "@/lib/measure";
-import { useSettings } from "@/lib/settings";
+import { readSettings, useSettings } from "@/lib/settings";
 import { askHere } from "@/lib/spotting";
-import { ensureMapIcons } from "@/lib/mapIcons";
+import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
 import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
@@ -27,6 +27,30 @@ if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-g
 type Value = { entity_id: string; value: number; status: string };
 export type PickEvent = { shift: boolean; double: boolean; lngLat: [number, number] };
 // Caps a popup card's height to the room between its point and the map's edge (at least 140px).
+// A layer's filter (hidden kinds); a plane layer's flag-and-logo badges follow it too.
+const badgeFlags = () => readSettings().planes_badges !== false;
+const badgeLogos = () => readSettings().planes_logos !== false;
+
+function setLayerFilter(m: maplibregl.Map, lid: string, f: unknown[] | null | undefined) {
+  m.setFilter(lid, (f ?? null) as maplibregl.FilterSpecification | null);
+  if (m.getLayer(`${lid}-badge`)) {
+    const own = planeBadgeFilter(badgeFlags(), badgeLogos());
+    m.setFilter(`${lid}-badge`, (f ? ["all", own, f] : own) as maplibregl.FilterSpecification);
+  }
+}
+
+// Flags and airline logos beside planes when zoomed in (Layers panel or Settings > Transport turn each off).
+function planeBadges(m: maplibregl.Map, f?: unknown[] | null) {
+  const lid = "ov-live_planes", bid = `${lid}-badge`;
+  if (m.getLayer(bid)) m.removeLayer(bid);
+  if (!m.getLayer(lid) || !(badgeFlags() || badgeLogos())) return;
+  m.addLayer({ id: bid, type: "symbol", source: lid, minzoom: BADGE_MIN_ZOOM,
+    layout: planeBadgeLayout(badgeFlags(), badgeLogos()) as maplibregl.SymbolLayerSpecification["layout"] });
+  const own = planeBadgeFilter(badgeFlags(), badgeLogos());
+  const extra = f ?? (m.getFilter(lid) as unknown[] | null | undefined);
+  m.setFilter(bid, (extra ? ["all", own, extra] : own) as maplibregl.FilterSpecification);
+}
+
 function fitOverlay(m: maplibregl.Map, mk: maplibregl.Marker) {
   const el = mk.getElement();
   const pt = m.project(mk.getLngLat());
@@ -233,6 +257,10 @@ export default function WorldMap({
   const pick = useRef(onPick);
   pick.current = onPick;
   const settings = useSettings();
+  useEffect(() => {
+    const m = map.current;
+    if (m?.getLayer("ov-live_planes")) planeBadges(m);
+  }, [settings.planes_badges, settings.planes_logos]);
   const aiOn = useRef(true);
   aiOn.current = settings.ai_enabled !== false;
   const { base_map: baseMap, map_centre: mapCentre } = settings;
@@ -275,6 +303,10 @@ export default function WorldMap({
     quietMapErrors(m, () => setDetailNote((cur) => cur ?? `${ONLINE_DOWN_NOTE} some of it is missing.`));
     map.current = m;
     onMap?.(m);
+    watchPlaneBadges(m, () => {
+      const src = m.getSource("ov-live_planes") as GeoJSONSource | undefined;
+      src?.getData().then((d) => src.setData(d)).catch(() => {});
+    });
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
 
     m.on("load", async () => {
@@ -651,7 +683,7 @@ export default function WorldMap({
     const m = map.current;
     if (!m) return;
     for (const [id, f] of Object.entries(filters.current)) {
-      if (m.getLayer(`ov-${id}`)) m.setFilter(`ov-${id}`, (f ?? null) as maplibregl.FilterSpecification | null);
+      if (m.getLayer(`ov-${id}`)) setLayerFilter(m, `ov-${id}`, f);
     }
   }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -671,8 +703,9 @@ export default function WorldMap({
       if (style.symbol) {
         ensureMapIcons(m);
         m.addLayer({ id: lid, type: "symbol", source: lid, layout: style.symbol(), paint: style.paint() as maplibregl.SymbolLayerSpecification["paint"] }, before);
+        if (id === "live_planes") planeBadges(m);
         const f = filters.current[id];
-        if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
+        if (f) setLayerFilter(m, lid, f);
         return;
       }
       m.addLayer(style.fill
@@ -736,6 +769,7 @@ export default function WorldMap({
         if (!want.has(id)) {
           dynamic.current[id]?.();
           delete dynamic.current[id];
+          if (m.getLayer(`${lid}-badge`)) m.removeLayer(`${lid}-badge`);
           if (m.getLayer(lid)) m.removeLayer(lid);
           if (m.getSource(lid)) m.removeSource(lid);
           continue;

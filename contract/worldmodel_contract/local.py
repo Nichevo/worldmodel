@@ -155,6 +155,9 @@ SETTINGS: dict[str, object] = {
     "ships_keep_days": 30,               # days of saved ship positions kept (older days deleted)
     "planes_collect": True,              # save every plane OpenSky sends the map (var/live/planes) for the time slider, tracks and table
     "planes_world": True,                # also ask OpenSky for the whole world in the background (every 30 min, 5 with an API client) and save it
+    "planes_types": True,                # download the free aircraft database (~9 MB a month) for each plane's type, registration and flag
+    "planes_logos": True,                # airline logos beside airliners (fetched once per airline from GitHub, kept in var/live/planes/logos)
+    "planes_badges": True,               # flags (and airline logos on airliners) beside planes on the map when zoomed in
     "planes_keep_days": 30,              # days of saved plane positions kept (older days deleted)
     "ship_owners_gfw": True,             # a ship's details ask Global Fishing Watch for owners and registries (needs GFW_API_TOKEN)
     "ship_owners_wikidata": True,        # ... and Wikidata (builder, operator, owner) + Commons photos by IMO number
