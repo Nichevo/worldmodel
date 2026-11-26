@@ -879,7 +879,18 @@ function BriefingSettings({ s, save }: { s: Settings; save: (patch: Partial<Sett
         note="The Briefing's first lane: CrisisWatch's month, news with a watch word, events and top news from this many days." save={(v) => save({ briefing_days: v })} />
       <Toggle label="Keep a weekly digest" hint="Briefing > Week: each Monday-to-Sunday week is made on the first visit after it ends and kept, so it reads the same later. Off: weeks are still shown, worked out each time, and nothing is kept (past weeks then show what the app holds now, not what it held then)."
         on={s.digest_on} set={(v) => save({ digest_on: v })} />
-      <Field label="Layers the opening map turns on" hint="Only the map you open without a saved view; layouts and links keep their own layers. None ticked: a plain map.">
+      <Field label="Remember the map" hint={{
+        always: "The Map link opens the map as you left it (panels, layers, years, pins, zoom and position), even after the app or browser was closed. Layouts > Start again gives a fresh map. Breaks: the opening layers below only apply after Start again.",
+        visit: "As you left it while this browser stays open; a new browser window opens a fresh map with the layers below.",
+        off: "Every visit to the Map link opens a fresh map with the layers below; what you had set up is lost when you leave (save it under Layouts to keep it).",
+      }[s.map_remember ?? "always"]}>
+        <div className="seg" role="group" aria-label="Remember the map">
+          {([["always", "Always"], ["visit", "Until the browser closes"], ["off", "Off"]] as const).map(([v, t]) => (
+            <button key={v} className={(s.map_remember ?? "always") === v ? "on" : ""} aria-pressed={(s.map_remember ?? "always") === v} onClick={() => save({ map_remember: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Layers the opening map turns on" hint="Only a fresh map (first visit, Start again, or Remember the map off); layouts and links keep their own layers. None ticked: a plain map.">
         <div>{LAYER_TEXT.map(([l, label]) => (
           <label key={l} style={{ marginRight: 10, whiteSpace: "nowrap" }}>
             <input type="checkbox" checked={s.map_open_layers.includes(l)} onChange={(e) => flip(l, e.target.checked)} /> {label}

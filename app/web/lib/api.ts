@@ -437,6 +437,7 @@ export type Settings = {
   briefing_days: number; // the Briefing's Happening lane looks back this far
   map_open_layers: string; // layer letters the opening map turns on
   map_window: "7d" | "30d" | "90d" | "1y"; // time window for timed map layers
+  map_remember: "always" | "visit" | "off"; // the Map link opens the map as it was left
   map_layer_sets: Record<string, string>; // your own quick sets: name -> layer letters
   news_watch_words: string; // comma-separated words that put a news item on the map
   news_watch_outlets: number; // outlets needed before a reported item shows on the map

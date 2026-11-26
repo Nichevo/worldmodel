@@ -13,6 +13,7 @@ import { CameraBus } from "@/lib/camera";
 import { DIVERGING, seriesVar } from "@/lib/colors";
 import { BRIEFING_SEEN } from "@/lib/briefing";
 import { logHistory } from "@/lib/history";
+import { rememberCameras, rememberQuery, rememberedCameras, rememberedQuery, setRememberMode } from "@/lib/mapMemory";
 import { useSettings } from "@/lib/settings";
 import {
   LAYOUTS, MAX_PANELS, MAX_PINS, MAX_SELECTION, NO_INDICATOR, STARTERS, fromQuery, reducer, selectionOf, toQuery,
@@ -38,14 +39,23 @@ const THREE_COLS = new Set<Layout>(["3h", "5", "6"]);
 
 function ExploreWorkspace() {
   const params = useSearchParams();
-  const [ws, dispatch] = useReducer(reducer, params, fromQuery);
+  // The Map link (no view in the address) opens the map as it was left, if this browser kept it
+  // (Settings > Map > Remember the map); a link or bookmark with a view opens that view.
+  const [start] = useState(() => {
+    const kept = rememberedQuery();
+    if (!params.get("p") && kept) return { q: new URLSearchParams(kept), restored: true, cams: true };
+    // Back to the same view (browser Back, or a link to it): its map positions come back too.
+    return { q: params, restored: false, cams: !!kept && kept === toQuery(fromQuery(params)) };
+  });
+  const [ws, dispatch] = useReducer(reducer, start.q, fromQuery);
   const [indicators, setIndicators] = useState<Indicator[]>([]);
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<{ entity: string; group: Group } | null>(null);
   const [values, setValues] = useState<Record<string, Value[]>>({});
-  const cameraBus = useMemo(() => new CameraBus(), []);
+  const cameraBus = useMemo(() => new CameraBus(start.cams ? rememberedCameras() : undefined, rememberCameras), [start]);
   const settings = useSettings();
+  useEffect(() => setRememberMode(settings.map_remember), [settings.map_remember]);
   // The popup open now (one at a time); pinned ones live in the workspace.
   const [open, setOpen] = useState<{ entity: string; panel: string; at: At | null } | null>(null);
 
@@ -157,25 +167,39 @@ function ExploreWorkspace() {
   const [focus, setFocus] = useMapFocus();
 
   // The opening map (no view in the address) turns on the layers chosen in Settings: CrisisWatch and events by default.
-  const fresh = useRef(!params.get("p"));
+  // A map remembered from before keeps its own layers.
+  const fresh = useRef(!params.get("p") && !start.restored);
   useEffect(() => {
     if (!fresh.current || !ws.panels[0]) return;
     dispatch({ type: "panel", id: ws.panels[0].id, patch: { layers: settings.map_open_layers } });
   }, [settings.map_open_layers]); // eslint-disable-line react-hooks/exhaustive-deps
-  useStartPage(fresh.current);
+  useStartPage(!params.get("p"));
 
-  // Keep the URL in step without a navigation, so the view can be bookmarked.
+  // Keep the URL in step without a navigation, so the view can be bookmarked, and remember it
+  // for the next time the Map link is used.
   useEffect(() => {
     const q = toQuery(ws);
     if (q !== window.location.search.slice(1)) window.history.replaceState(null, "", `?${q}`);
+    rememberQuery(q);
   }, [ws]);
+
+  const [resetKey, setResetKey] = useState(0);
+  // Start again: the map as it first opens (the opening layers from Settings, the whole world).
+  const startAgain = () => {
+    cameraBus.own.clear();
+    cameraBus.last.clear();
+    rememberCameras(cameraBus.own);
+    const ws0 = fromQuery(new URLSearchParams());
+    dispatch({ type: "load", ws: { ...ws0, panels: ws0.panels.map((p, i) => (i === 0 ? { ...p, layers: settings.map_open_layers } : p)) } });
+    setResetKey((k) => k + 1); // new maps, which open on the whole world
+  };
 
   return (
     <div className="workspace-page">
       <div className="controls ws-bar">
         <h1 className="ws-title">World map</h1>
         <LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />
-        <LayoutsMenu ws={ws} onLoad={(query) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) })} />
+        <LayoutsMenu ws={ws} onLoad={(query) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) })} onStartAgain={startAgain} />
         <SelectionBar ws={ws} names={names} dispatch={dispatch} />
         <button className="small" onClick={() => setFocus(true)} title="Hide the menus and panel toolbars so the panels fill the window (F)">
           Hide controls
@@ -198,7 +222,7 @@ function ExploreWorkspace() {
       <Grid ws={ws} dispatch={dispatch}>
         {(ws.maximised ? ws.panels.filter((p) => p.id === ws.maximised) : ws.panels).map((p, i) => (
           <Panel
-            key={p.id}
+            key={`${p.id}.${resetKey}`}
             panel={p}
             indicators={menu}
             names={names}
@@ -367,7 +391,7 @@ export default function ExplorePage() {
 
 // Save the whole workspace under a name, and load saved ones or a starter.
 // Saved layouts are kept by the API in a user folder beside the data.
-function LayoutsMenu({ ws, onLoad }: { ws: Workspace; onLoad: (query: string) => void }) {
+function LayoutsMenu({ ws, onLoad, onStartAgain }: { ws: Workspace; onLoad: (query: string) => void; onStartAgain: () => void }) {
   const box = useRef<HTMLDetailsElement>(null);
   const [saved, setSaved] = useState<SavedLayout[]>([]);
   const [name, setName] = useState("");
@@ -426,6 +450,8 @@ function LayoutsMenu({ ws, onLoad }: { ws: Workspace; onLoad: (query: string) =>
           </div>
         ))}
         <div className="menu-head">Starters</div>
+        <button className="link" onClick={() => { onStartAgain(); if (box.current) box.current.open = false; }}
+          title="The map as it first opens: the opening layers from Settings, the whole world in view">Start again (fresh map)</button>
         {STARTERS.map((l) => (
           <button className="link" key={l.name} onClick={() => load(l.query)}>{l.name}</button>
         ))}

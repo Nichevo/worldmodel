@@ -245,6 +245,7 @@ export const DEFAULT_SETTINGS: Settings = {
   briefing_days: 7,
   map_open_layers: "wen",
   map_window: "30d",
+  map_remember: "always",
   map_layer_sets: {},
   news_watch_words: "assassination,assassinated,coup,protest,protests,riot,riots,uprising,martial law,state of emergency,ceasefire,invasion,airstrike,air strike,massacre,hostage,blockade,sanctions,default,impeachment,resigns,tsunami,eruption,famine,outbreak",
   news_watch_outlets: 1,
