@@ -142,7 +142,7 @@ def test_refresh_passes_a_hand_loaded_source_with_nothing_stored(tmp_path, monke
     monkeypatch.delenv("WORLDMODEL_USER_DIR", raising=False)
     monkeypatch.setattr(cli, "CONNECTORS", {"emdat": CONNECTORS["emdat"]})
     built = []
-    monkeypatch.setattr(cli, "_build_and_log", lambda allow_shrink, record: built.append(record))
+    monkeypatch.setattr(cli, "_build_and_log", lambda allow_shrink, record, force=True: built.append(record))
     out = CliRunner().invoke(cli.app, ["refresh"])
     assert out.exit_code == 0, out.output
     assert "emdat: skipped" in out.output and "nothing loaded yet" in out.output
