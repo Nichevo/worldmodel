@@ -47,7 +47,8 @@ GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom be
     "nz_land_change": ("Land cover change (NZ)", [(7, 1), (99, 2)], 6000),
     "power_lines": ("Power lines", [(4, 1), (99, 2)], 6000),
     "eez_lines": ("Economic zones", [(99, 1)], 6000),
-    "airspace": ("Flight information regions", [(3.5, 1), (99, 2)], 3000),  # whole countries, then each region closer in  # 1° squares: mapped lines (1), then predicted (2) closer in
+    "airspace": ("Flight information regions", [(3.5, 1), (99, 2)], 3000),
+    "timezones": ("Time zones", [(99, 1)], 1000),  # every zone (about 300), simplified to the zoom  # whole countries, then each region closer in  # 1° squares: mapped lines (1), then predicted (2) closer in
 }
 # What to do when a layer has nothing loaded at all (shown on the map instead of an empty layer).
 NOT_LOADED = {
@@ -92,23 +93,37 @@ def _spans(west: float, east: float) -> list[tuple[float, float]]:
     return [(w, e)] if w <= e else [(w, 180.0), (-180.0, e)]
 
 
-SIMPLIFY = {"rivers"}
+SIMPLIFY = {"rivers", "timezones"}
 
 
 def simplified(geom: dict, tol: float) -> dict:
-    """A line or lines with points closer than tol (degrees) to the straight line dropped."""
-    if not tol or not geom or geom.get("type") not in ("LineString", "MultiLineString"):
+    """A line or lines (or areas, kept whole) with points closer than tol (degrees) to the straight line dropped."""
+    kinds = ("LineString", "MultiLineString", "Polygon", "MultiPolygon")
+    if not tol or not geom or geom.get("type") not in kinds:
         return geom
     from shapely.geometry import mapping, shape
 
     try:
-        g = shape(geom).simplify(tol, preserve_topology=False)
+        g = shape(geom).simplify(tol, preserve_topology=geom["type"].endswith("Polygon"))
         if g.is_empty:
             return geom
         out = mapping(g)
         return {"type": out["type"], "coordinates": out["coordinates"]}
     except Exception:  # noqa: BLE001 - an odd line is sent as stored
         return geom
+
+
+_ZONES: dict[tuple, dict] = {}
+
+
+def _zone_shape(fid: str, text: str, tol: float) -> dict:
+    """A time zone simplified for a zoom step, kept (about 300 zones and six steps)."""
+    key = (fid, tol, len(text), hash(text))
+    if key not in _ZONES:
+        if len(_ZONES) > 4000:
+            _ZONES.clear()
+        _ZONES[key] = simplified(json.loads(text), tol)
+    return _ZONES[key]
 
 
 def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, zoom: float = 2,
@@ -130,6 +145,8 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
                 ORDER BY rank NULLS FIRST, (east - west) * (north - south) DESC LIMIT {int(limit)}""", params)
     # Lines simplified to about a pixel when zoomed out (stored at about 1 km)
     tol = 360 / (512 * 2 ** zoom) if layer in SIMPLIFY and zoom < 5.5 else 0
+    if layer == "timezones" and tol:  # whole zones every time the map moves: by whole zoom steps, kept
+        tol = 360 / (512 * 2 ** int(zoom))
     feats = []
     for r in got:
         props = json.loads(r["props"] or "{}")
@@ -137,9 +154,12 @@ def geo(q: Q, layer: str, west: float, south: float, east: float, north: float, 
             props = {k: props.get(k) for k in ("area", "flow", "transboundary")}
         elif layer == "cables":
             props = {k: props.get(k) for k in ("color", "rfs", "planned")}
+        elif layer == "timezones":
+            props = {k: props.get(k) for k in ("tz", "sea")}
         elif layer == "urban_centres":
             props = {k: props.get(k) for k in ("people", "growth", "now", "first")}
-        feats.append({"type": "Feature", "geometry": simplified(json.loads(r["geojson"]), tol),
+        geom = _zone_shape(r["feature_id"], r["geojson"], tol) if layer == "timezones" else simplified(json.loads(r["geojson"]), tol)
+        feats.append({"type": "Feature", "geometry": geom,
                       "properties": {"id": r["feature_id"], "name": r["name"], "rank": r["rank"], "layer": layer,
                                      "countries": r["countries"] or "", **props}})
     out: dict = {"type": "FeatureCollection", "features": feats}

@@ -2693,6 +2693,26 @@
   standing: 3
   definition: exploratory
 
+- id: tz_boundaries
+  name: Time zone boundaries (timezone-boundary-builder, IANA zones with the seas)
+  short_name: Time zone boundaries
+  publisher: Evan Siroky, timezone-boundary-builder (from OpenStreetMap)
+  url: https://github.com/evansiroky/timezone-boundary-builder
+  licence: ODbL 1.0
+  licence_url: https://opendatacommons.org/licenses/odbl/
+  commercial_use: true
+  cadence: A release after each IANA time zone database release; checked twice a year
+  attribution: "Time zone boundaries from timezone-boundary-builder by Evan Siroky, (c) OpenStreetMap contributors (ODbL)."
+  status: active
+  default_rank: 1
+  standing: 4
+  definition: established
+  manual:
+    by_hand: false
+    files: ["timezones*"]
+    get: https://github.com/evansiroky/timezone-boundary-builder/releases/latest
+    what: "If the download fails, save timezones-with-oceans-now.geojson.zip from the latest release here."
+
 # ----------------------------------------------------------------------------- OSINT detail (schema 1.12.0)
 - id: ucdp_ged
   name: UCDP Georeferenced Event Dataset (GED)

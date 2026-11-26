@@ -360,7 +360,8 @@ export default function WorldMap({
 
     // The overlay feature under the pointer, if any (a few pixels' slack for thin lines and small dots).
     const overlayAt = (pt: maplibregl.Point) => {
-      const ids = [...Object.keys(LAYER_STYLE), "points", "lines", "marks", "paths", "pathstops", "areas"].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      const ids = [...Object.keys(LAYER_STYLE), "points", "lines", "marks", "paths", "pathstops", "areas"].filter((k) => k !== "night") // the shade says nothing
+        .map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (!ids.length) return null;
       const f = m.queryRenderedFeatures([[pt.x - 4, pt.y - 4], [pt.x + 4, pt.y + 4]], { layers: ids })[0];
       if (f && ["ov-lines", "ov-marks", "ov-paths", "ov-pathstops", "ov-areas"].includes(f.layer.id)) return String((f.properties as { label?: string }).label || "") || null;
@@ -720,6 +721,13 @@ export default function WorldMap({
       m.addLayer(layerSpec(id, lid), before);
       const f = filters.current[id];
       if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
+      // Time zones: each one's offset written on it ("+13", "DST" under it while on daylight saving).
+      if (id === "timezones") {
+        m.addLayer({ id: `${lid}-badge`, type: "symbol", source: lid,
+          layout: { "text-field": ["get", "label"], "text-font": LABEL_FONT, "text-size": ["interpolate", ["linear"], ["zoom"], 1, 10, 5, 13],
+            "text-padding": 6, "symbol-placement": "point" },
+          paint: { "text-color": cssVar("--ink"), "text-halo-color": cssVar("--surface"), "text-halo-width": 1.4, "text-opacity": 0.85 } }, "hover");
+      }
     };
     const follow = (id: string, lid: string) => {
       const style = LAYER_STYLE[id];
@@ -758,7 +766,8 @@ export default function WorldMap({
       if (style.timed || id === "live_ships" || id === "live_planes") window.addEventListener("wm-layer-window", soon);
       // Live layers ask again every so often, but not while the page is in a hidden tab (OpenSky
       // allows anonymous users only a few hundred requests a day).
-      const every = style.fetch === "live" ? setInterval(() => { if (!document.hidden) load(); }, (style.every ?? 60) * 1000) : null;
+      const every = style.fetch === "live" ? setInterval(() => { if (!document.hidden) load(); }, (style.every ?? 60) * 1000)
+        : style.every ? setInterval(() => { if (!document.hidden) load(); }, style.every * 1000) : null; // night moves, clocks change
       load();
       dynamic.current[id] = () => {
         m.off("moveend", soon);

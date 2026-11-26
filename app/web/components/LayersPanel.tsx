@@ -360,6 +360,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.id === "front_line") return { ok: true, why: "", source: "DeepStateMap via GitHub (a refresh loads it)" };
     if (m.id === "live_ships") return s.live_ships ? { ok: true, why: "", source: "aisstream.io, the area in view (needs AISSTREAM_API_KEY)" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "night") return { ok: true, why: "", source: "Worked out here from the time and the Sun's position, every minute" };
+    if (m.id === "timezones") return { ok: true, why: "", source: "timezone-boundary-builder outlines (a refresh loads them); offsets and local times from your browser's time zone rules" };
     if (LAYER_STYLE[m.id]?.fetch === "window") return { ok: true, why: "", source: "Read for the area in view (a refresh loads them)" };
     const info = have?.get(m.id);
     if (!have) return { ok: true, why: "", source: "" };
@@ -401,7 +403,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
           {m.label}
           {m.timed && <span className="lp-tag" title="Follows the time window">timed</span>}
           {LIVE.has(m.id) && <span className="lp-tag" title="Read from the internet while it is on">live</span>}
-          {LAYER_STYLE[m.id]?.fetch === "window" && <span className="lp-tag" title="Big: read for the area in view as you move">big</span>}
+          {LAYER_STYLE[m.id]?.fetch === "window" && m.id !== "night" && <span className="lp-tag" title="Big: read for the area in view as you move">big</span>}
           {!st.ok && <small className="muted">{st.why}</small>}
           {checked && counts[m.id] ? <small className="muted">{counts[m.id]}</small> : null}
         </label>

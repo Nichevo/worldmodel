@@ -317,6 +317,8 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "G", id: "gas_pipelines", label: "Gas pipelines", group: "energy", hint: "Operating and planned (Global Energy Monitor, files saved by hand); click one for its countries" },
   { letter: "O", id: "oil_pipelines", label: "Oil pipelines", group: "energy", hint: "Operating and planned (Global Energy Monitor, files saved by hand)" },
   { letter: "N", id: "lng_terminals", label: "LNG terminals", group: "energy" },
+  { letter: "{", id: "timezones", label: "Time zones", group: "borders", hint: "Every time zone, out at sea too, coloured by how far ahead of or behind UTC it is now and labelled with the hours (DST: on daylight saving); hover one for its local time and when its clocks next change (timezone-boundary-builder)" },
+  { letter: "}", id: "night", label: "Day and night now", group: "now", hint: "Where it is night now, darker through twilight to full night; moves with the Sun, worked out here (no download)" },
   { letter: "2", id: "airspace", label: "Flight information regions", group: "borders", hint: "The airspace each country's air traffic control covers, joined up per country, and each region as you zoom in (VATSIM's outlines, drawn from official charts; not for navigation)" },
   { letter: "F", id: "live_planes", label: "Planes now", group: "now", hint: "Planes in the air in the area in view (OpenSky Network), once a minute while on" },
   { letter: "5", id: "live_military", label: "Military planes now", group: "now", hint: "Military planes in the air in the area in view (adsb.lol's volunteer receivers, no key), once a minute while on; only planes that broadcast their position show" },
