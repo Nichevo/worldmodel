@@ -166,3 +166,34 @@ def test_view_outside_last_box_filled_from_saved(tmp_path):
     hawaii = next(f for f in got["features"] if f["properties"]["id"] == "a1befc")
     assert hawaii["properties"]["saved"] is True
     assert next(f for f in got["features"] if f["properties"]["id"] == "c81d90")["geometry"]["coordinates"] == [175.0, -37.0]
+
+
+def test_routes_from_adsbdb(monkeypatch):
+    import httpx
+
+    from worldmodel_api import journeys
+
+    akl = {"iata_code": "AKL", "icao_code": "NZAA", "municipality": "Auckland", "country_iso_name": "NZ", "name": "Auckland International Airport",
+           "latitude": -37.0081, "longitude": 174.79201}
+    syd = {"iata_code": "SYD", "icao_code": "YSSY", "municipality": "Sydney", "country_iso_name": "AU", "name": "Sydney Kingsford Smith",
+           "latitude": -33.9461, "longitude": 151.177}
+    answers = {"ANZ101": (200, {"response": {"flightroute": {"callsign": "ANZ101", "origin": akl, "destination": syd}}}),
+               "ZKWKT": (404, {"response": "unknown callsign"}), "QFA1": (429, {}), "EMPTY": (201, None)}
+    asked = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        cs = req.url.path.rsplit("/", 1)[-1]
+        asked.append(cs)
+        status, body = answers[cs]
+        return httpx.Response(status, json=body) if body is not None else httpx.Response(status, content=b"")
+
+    real = httpx.Client
+    monkeypatch.setattr(journeys.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    monkeypatch.setattr(journeys, "ROUTE_GAP", 0)
+    got = journeys.routes([("ANZ101", -36.9, 174.8), ("ZK-WKT", None, None), ("QFA1", 0, 0), ("ANZ101", 0, 0)])
+    assert got["ANZ101"]["codes"] == "NZAA-YSSY" and got["ANZ101"]["airports"][1]["city"] == "Sydney"
+    assert got["ZKWKT"] is None and "QFA1" not in got  # too many requests: left for later, the rest kept
+    assert asked == ["ANZ101", "ZKWKT", "QFA1"]
+    # an empty answer on the first ask is an error the plane card can show
+    route, ok = journeys._route("EMPTY", None, None)
+    assert route is None and not ok and "HTTP 201" in journeys.ROUTE_ERRORS[-1]

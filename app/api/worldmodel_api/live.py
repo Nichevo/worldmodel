@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 OPENSKY = "https://opensky-network.org/api/states/all"
 OPENSKY_TOKEN = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 AISSTREAM = "wss://stream.aisstream.io/v0/stream"
+ROUTES_PER_ROUND = 100  # routes asked of adsbdb per background round (one request each, 0.3 s apart)
 PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
 PLANE_WORLD_EVERY = 5 * 60.0        # background whole-world requests with an OpenSky API client
 PLANE_WORLD_EVERY_ANON = 30 * 60.0  # ... and without one (48 a day, about half the anonymous credits)
@@ -410,7 +411,7 @@ class Planes:
         return {**found, "features": feats, "count": len(feats), "source": "OpenSky Network"}
 
     def _fill_routes(self, feats: list) -> None:
-        """Ask adsb.lol, in the background and in batches, the routes of airline flights in the
+        """Ask adsbdb, in the background and a few at a time, the routes of airline flights in the
         table not yet known; each answer is kept (3 days), so a callsign is asked only once."""
         if (self.route_thread and self.route_thread.is_alive()) or time.time() < self.route_pause:
             return
@@ -436,20 +437,21 @@ class Planes:
             try:
                 got = journeys.routes(batch)
             except Exception as exc:  # noqa: BLE001 - tried again later
-                log.warning("adsb.lol routes: %s", exc)
-                self.route_note = f"Routes: adsb.lol did not answer at {time.strftime('%H:%M')} ({exc.__class__.__name__}: {str(exc)[:160]}); trying again in 10 minutes."
+                log.warning("adsbdb routes: %s", exc)
+                self.route_note = f"Routes: adsbdb did not answer at {time.strftime('%H:%M')} ({exc.__class__.__name__}: {str(exc)[:160]}); trying again in 10 minutes."
                 self.route_pause = time.time() + 600
                 return
             self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
             with self._tables_lock:  # the tables kept show the new routes at their next ask
                 self._tables = {}
             found = sum(1 for cs, _, _ in batch if got.get(cs))
-            self.route_note = f"Routes: asked adsb.lol for {len(batch):,} flights at {time.strftime('%H:%M')}, {found:,} found."
+            self.route_note = (f"Routes: asked adsbdb for {len(got):,} flights at {time.strftime('%H:%M')}, {found:,} found"
+                               + (f"; {len(batch) - len(got):,} left for later." if len(got) < len(batch) else "."))
             for cs, _, _ in batch:
-                if cs not in got:
+                if cs in got and got[cs] is None:
                     self.route_failed[cs] = time.time()
 
-        self.route_thread = threading.Thread(target=run, args=(want[:500],), daemon=True, name="plane-routes")
+        self.route_thread = threading.Thread(target=run, args=(want[:ROUTES_PER_ROUND],), daemon=True, name="plane-routes")
         self.route_thread.start()
 
 

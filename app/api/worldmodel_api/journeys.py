@@ -3,7 +3,7 @@
 - Ships: the path saved while collecting (shipstore.py), and the destination its crew typed into
   its AIS set, matched to a port in the World Port Index by UN/LOCODE ("NZ AKL", "NZAKL") or name.
 - Planes: the path of its flight so far from OpenSky's tracks endpoint (one request per click),
-  and the route its callsign flies from adsb.lol's route database (airline flights only).
+  and the route its callsign flies from adsbdb's route database (airline flights only).
 """
 
 from __future__ import annotations
@@ -21,11 +21,11 @@ log = logging.getLogger(__name__)
 
 Q = Callable[[str, list], list[dict]]
 OPENSKY_TRACK = "https://opensky-network.org/api/tracks/all"
-ADSB_ROUTES = "https://api.adsb.lol/api/0/routeset"
+ROUTES_URL = "https://api.adsbdb.com/v0/callsign/{}"  # adsb.lol's routeset now answers only its own map page
 ADSB_HEX = "https://api.adsb.lol/v2/hex/{}"
 ROUTE_KEEP = 3 * 86400  # a callsign flies the same route for days: looked up again after this
 ROUTE_HISTORY = 60 * 86400  # ... but kept this long on disk, for the routes of past flights
-ROUTE_MISS = 6 * 3600  # a callsign adsb.lol had no route for is asked again after this
+ROUTE_MISS = 6 * 3600  # a callsign adsbdb had no route for is asked again after this
 TRACK_KEEP = 30 * 60      # a plane's path is asked of OpenSky at most once in this time
 AIRCRAFT_KEEP = 90 * 86400  # registration and type change rarely
 _lock = threading.Lock()
@@ -120,44 +120,73 @@ def airports(q: Q) -> dict:
     return _cached("airports", build)
 
 
-def _parse_route(first: dict) -> dict | None:
-    if not first.get("airport_codes") or first.get("airport_codes") == "unknown":
+def _parse_route(body) -> dict | None:
+    """adsbdb's answer for a callsign: {"response": {"flightroute": {origin, midpoint?, destination}}}."""
+    resp = body.get("response") if isinstance(body, dict) else None
+    fr = resp.get("flightroute") if isinstance(resp, dict) else None
+    if not isinstance(fr, dict):
         return None
-    return {"codes": first.get("airport_codes"), "plausible": bool(first.get("plausible", True)),
-            "airports": [{"name": a.get("name"), "iata": a.get("iata"), "icao": a.get("icao"), "city": a.get("location"),
-                          "country": a.get("countryiso2"), "lon": a.get("lon"), "lat": a.get("lat")}
-                         for a in first.get("_airports") or []]}
+    stops = [a for a in (fr.get("origin"), fr.get("midpoint"), fr.get("destination")) if isinstance(a, dict)]
+    if len(stops) < 2:
+        return None
+    return {"codes": "-".join(a.get("icao_code") or a.get("iata_code") or "?" for a in stops), "plausible": True,
+            "airports": [{"name": a.get("name"), "iata": a.get("iata_code"), "icao": a.get("icao_code"), "city": a.get("municipality"),
+                          "country": a.get("country_iso_name"), "lon": a.get("longitude"), "lat": a.get("latitude")} for a in stops]}
 
 
-ROUTE_ERRORS: list[str] = []  # the last few failed adsb.lol route requests, for the planes status
+ROUTE_ERRORS: list[str] = []  # the last few failed route requests, for the planes status
+ROUTE_GAP = 0.3  # seconds between adsbdb requests: one callsign per request, asked politely
+
+
+class RouteError(Exception):
+    """adsbdb did not give a usable answer (busy, down, or something other than JSON)."""
+
+
+def _ask_route(client: httpx.Client, cs: str) -> dict | None:
+    r = client.get(ROUTES_URL.format(cs))
+    if r.status_code == 404:
+        return None  # adsbdb answers 404 {"response": "unknown callsign"}: no route known
+    if r.status_code == 429:
+        raise RouteError("adsbdb says too many requests (HTTP 429)")
+    if r.status_code != 200:
+        raise RouteError(f"HTTP {r.status_code}, {len(r.content)} bytes")
+    try:
+        body = r.json()
+    except ValueError:
+        raise RouteError(f"HTTP {r.status_code} but not JSON ({len(r.content)} bytes: {r.text[:60]!r})") from None
+    return _parse_route(body)
 
 
 def routes(planes: list[tuple[str, float | None, float | None]]) -> dict[str, dict | None]:
-    """Routes for many callsigns in one adsb.lol request (at most 100 each); callsigns it did not
-    answer for are left out, so they are asked again later. Raises on a failed request."""
+    """Routes for many callsigns from adsbdb, one request each with a short gap. Callsigns it has
+    no route for map to None; callsigns not reached (it stopped answering part way) are left out,
+    so they are asked again later. Raises when not even the first could be asked."""
     out: dict[str, dict | None] = {}
-    with httpx.Client(timeout=30, headers={"User-Agent": "worldmodel (personal research tool)"}) as client:
-        for k in range(0, len(planes), 100):
-            part = planes[k:k + 100]
-            r = client.post(ADSB_ROUTES, json={"planes": [{"callsign": _key(cs), "lat": lat or 0, "lng": lon or 0} for cs, lat, lon in part]})
-            r.raise_for_status()
-            body = r.json()
-            for row in body if isinstance(body, list) else []:
-                cs = _key(row.get("callsign") or "")
-                if cs:
-                    out[cs] = _parse_route(row)
+    with httpx.Client(timeout=20, headers={"User-Agent": "worldmodel (personal research tool)", "Accept": "application/json"}) as client:
+        for i, (cs, _lat, _lon) in enumerate(planes):
+            k = _key(cs)
+            if not k or k in out:
+                continue
+            if i:
+                time.sleep(ROUTE_GAP)
+            try:
+                out[k] = _ask_route(client, k)
+            except (httpx.HTTPError, RouteError):
+                if not out:
+                    raise
+                break
     return out
 
 
 def _route(callsign: str, lat: float | None, lon: float | None) -> tuple[dict | None, bool]:
-    """The route a callsign flies (adsb.lol), and whether the answer is worth keeping (not an error)."""
+    """The route a callsign flies (adsbdb), and whether the answer is worth keeping (not an error)."""
     cs = _key(callsign)
     if not cs:
         return None, False
     try:
         got = routes([(cs, lat, lon)]).get(cs)
-    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
-        log.warning("adsb.lol route for %s: %s", cs, exc)
+    except (httpx.HTTPError, RouteError, ValueError, KeyError, TypeError) as exc:
+        log.warning("adsbdb route for %s: %s", cs, exc)
         ROUTE_ERRORS.append(f"{time.strftime('%H:%M')} {exc.__class__.__name__}: {str(exc)[:160]}")
         del ROUTE_ERRORS[:-5]
         return None, False  # not kept: try again on the next click
@@ -213,7 +242,7 @@ def plane_journey(q: Q, auth: Callable[[httpx.Client], dict], icao24: str, calls
         else:
             out["route"], ok = _route(callsign, lat, lon)
             if not ok and ROUTE_ERRORS:
-                out["note"] = ((out.get("note") or "") + f" The route look-up at adsb.lol failed ({ROUTE_ERRORS[-1].split(' ', 1)[1]}).").strip()
+                out["note"] = ((out.get("note") or "") + f" The route look-up at adsbdb failed ({ROUTE_ERRORS[-1].split(' ', 1)[1]}).").strip()
             if ok:
                 _keep(store, _routes, "route", cs, out["route"], ROUTE_HISTORY if store is not None else ROUTE_KEEP)
     hit = _kept(store, _aircraft_kept, "aircraft", icao24, AIRCRAFT_KEEP)
