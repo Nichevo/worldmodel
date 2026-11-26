@@ -477,6 +477,14 @@ def _column(cols: list[str], name: str) -> str | None:
     return next((c for c in cols if c.replace("﻿", "").strip().lower() == name), None)
 
 
+# Words people search for, beside the World Bank's own names.
+SYNONYMS: dict[str, list[str]] = {
+    "trade_share_gdp": ["trade dependence", "trade-dependent", "trade openness", "openness to trade", "exports plus imports"],
+    "exports_share_gdp": ["export dependence", "exports of GDP"],
+    "imports_share_gdp": ["import dependence", "imports of GDP"],
+}
+
+
 def _indicator(code: str, ind: str, meta: dict[str, str], name: str, main: bool) -> dict:
     """A catalogue-shaped indicator for one WDI series, from the World Bank's own metadata."""
     name = (meta.get("indicator name") or name).strip()
@@ -492,7 +500,7 @@ def _indicator(code: str, ind: str, meta: dict[str, str], name: str, main: bool)
     method = meta.get("aggregation method", "").strip().lower()
     notes = re.sub(r"\s+", " ", meta.get("source", "")).strip()[:500]
     return {
-        "id": ind, "name": name, "description": description, "synonyms": [code],
+        "id": ind, "name": name, "description": description, "synonyms": [code, *SYNONYMS.get(ind, [])],
         "domain": domain, "unit": unit, "decimals": _decimals(unit),
         "aggregation": {"method": "sum" if method in SUM_METHODS else "none"},
         "bounds": [-1e18, 1e18],  # the World Bank's values as published; only NaN and infinity fail

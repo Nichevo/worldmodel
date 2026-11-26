@@ -10,7 +10,10 @@ baci
       - each sector stage's exports by exporter and importer (routes of at least
         US$ 1 million), with totals, in US$ and tonnes, and its imports by importer;
       - every HS chapter's exports and imports by country (the By country view), with
-        the top five partners in the latest two years.
+        the top five partners in the latest two years;
+      - how concentrated each country's goods trade is, every year: the share of exports
+        (and imports) with its top one and top five partners, the number of partners, and
+        UNCTAD's normalized Herfindahl-Hirschman index over partners and over HS chapters.
     Years from Settings: Sectors (trade from 2005 by default) to keep the warehouse lean.
 
 usgs_mcs
@@ -91,7 +94,7 @@ BACI_SPECIAL = {"490": "TWN", "S19": "TWN"}  # "Other Asia, nes" is Taiwan
 
 class BACI(Connector):
     source_id = "baci"
-    stage_version = 2  # 2: the sectors added in version 4
+    stage_version = 3  # 2: the sectors added in version 4; 3: market concentration
     switch = "sectors_trade_fetch"
     fetch_every_days = 120
 
@@ -228,7 +231,75 @@ def baci_query(source_id: str, vintage: str, last2: list[int]) -> str:
               SELECT *, row_number() OVER (PARTITION BY y, j, ch ORDER BY v DESC) AS n FROM baci_chapter WHERE y IN ({yrs}))
             WHERE n <= {TOP_PARTNERS}""",
     ]
+    parts += concentration_parts()
     return " UNION ALL ".join(obs(p) for p in parts)
+
+
+# UNCTAD's normalized Herfindahl-Hirschman index: (sqrt(sum of squared shares) - sqrt(1/n)) / (1 - sqrt(1/n)),
+# 0 when trade is spread evenly over n partners (or products), 1 when it all goes to one.
+def _hhi(share_sq: str, n: str) -> str:
+    return f"CASE WHEN {n} > 1 THEN (sqrt({share_sq}) - sqrt(1.0 / {n})) / (1 - sqrt(1.0 / {n})) ELSE 1.0 END"
+
+
+def concentration_parts() -> list[str]:
+    """Selects (ent, ind, y, bd, val) for the market and product concentration indicators."""
+    out = []
+    for side, own, other in (("export", "i", "j"), ("import", "j", "i")):
+        pairs = (f"SELECT y, {own} AS ent, {other} AS p, sum(v) AS v FROM baci_chapter "
+                 f"WHERE {own} <> {other} GROUP BY ALL")
+        ranked = (f"SELECT *, v / sum(v) OVER (PARTITION BY y, ent) AS s, "
+                  f"row_number() OVER (PARTITION BY y, ent ORDER BY v DESC, p) AS r FROM ({pairs})")
+        stats = (f"SELECT y, ent, count(*) AS cnt, sum(s * s) AS sq, 100 * sum(s) FILTER (WHERE r <= 5) AS top5, "
+                 f"100 * max(s) AS top1 FROM ({ranked}) GROUP BY ALL")
+        out += [
+            f"SELECT ent, '{side}_top5_partner_share' AS ind, y, '' AS bd, top5 AS val FROM ({stats})",
+            f"SELECT ent, '{side}_top1_partner_share' AS ind, y, '' AS bd, top1 AS val FROM ({stats})",
+            f"SELECT ent, '{side}_market_hhi' AS ind, y, '' AS bd, {_hhi('sq', 'cnt')} AS val FROM ({stats})",
+            f"SELECT ent, '{side}_partner_count' AS ind, y, '' AS bd, cnt AS val FROM ({stats})",
+        ]
+    chapters = ("SELECT y, i AS ent, ch, sum(v) AS v FROM baci_chapter WHERE i <> j GROUP BY ALL")
+    prod = (f"SELECT y, ent, count(*) AS cnt, sum(s * s) AS sq FROM ("
+            f"SELECT *, v / sum(v) OVER (PARTITION BY y, ent) AS s FROM ({chapters})) GROUP BY ALL")
+    out.append(f"SELECT ent, 'export_product_hhi' AS ind, y, '' AS bd, {_hhi('sq', 'cnt')} AS val FROM ({prod})")
+    return out
+
+
+CONCENTRATION_NOTE = ("Worked out from CEPII BACI (HS 1992) goods trade by partner; goods only, services left out. "
+                      "UNCTAD publishes the same measures from its own trade figures, so values differ a little.")
+
+
+def concentration_indicators(source_id: str) -> list[dict]:
+    hhi_words = ("UNCTAD's normalized Herfindahl-Hirschman index: 0 when trade is spread evenly, "
+                 "1 when it all goes to one {what}. Above about 0.4 is usually called concentrated.")
+    out = []
+    for side, verb, to in (("export", "exports", "to"), ("import", "imports", "from")):
+        out += [
+            indicator(f"{side}_top5_partner_share", f"Goods {verb} {to} top 5 partners",
+                      f"Share of a country's goods {verb} that {'go to' if side == 'export' else 'come from'} its five "
+                      f"biggest partner countries that year. High means it depends on a few markets.",
+                      "%", "trade", source_id, f"{side}_top5_partner_share", decimals=1, notes=CONCENTRATION_NOTE,
+                      default_on=side == "export", bounds=(0, 100.0001)),
+            indicator(f"{side}_top1_partner_share", f"Goods {verb} {to} the biggest partner",
+                      f"Share of a country's goods {verb} with its single biggest partner country that year.",
+                      "%", "trade", source_id, f"{side}_top1_partner_share", decimals=1, notes=CONCENTRATION_NOTE,
+                      default_on=side == "export", bounds=(0, 100.0001)),
+            indicator(f"{side}_market_hhi", f"{side.title()} market concentration index",
+                      f"How concentrated a country's goods {verb} are across partner countries. "
+                      + hhi_words.format(what="partner"),
+                      "index (0-1)", "trade", source_id, f"{side}_market_hhi", decimals=3, notes=CONCENTRATION_NOTE,
+                      default_on=side == "export", bounds=(-0.0001, 1.0001)),
+            indicator(f"{side}_partner_count", f"Number of {side} partners",
+                      f"How many countries a country's goods {verb} were traded with that year.",
+                      "countries", "trade", source_id, f"{side}_partner_count", decimals=0, notes=CONCENTRATION_NOTE,
+                      default_on=False, bounds=(0, 300)),
+        ]
+    out.append(indicator("export_product_hhi", "Export product concentration index",
+                         "How concentrated a country's goods exports are across kinds of goods (the 97 HS chapters). "
+                         + hhi_words.format(what="kind of goods") +
+                         " UNCTAD's own product index uses finer SITC groups, so its values run a little higher.",
+                         "index (0-1)", "trade", source_id, "export_product_hhi", decimals=3, notes=CONCENTRATION_NOTE,
+                         bounds=(-0.0001, 1.0001)))
+    return out
 
 
 def baci_indicators(source_id: str) -> list[dict]:
@@ -248,7 +319,7 @@ def baci_indicators(source_id: str) -> list[dict]:
             out.append(indicator(f"{pre}_{cc}", f"{name} (HS {cc}): {what}", f"Goods trade in HS chapter {cc}, {name.lower()}, {what}.",
                                  sec.TRADE_UNIT, "trade", source_id, f"{pre}_{cc}", decimals=0, default_on=False, notes=note,
                                  breakdowns=["partner"], bounds=(0, 1e13)))
-    return out
+    return out + concentration_indicators(source_id)
 
 
 # ----------------------------------------------------------------------------- production
@@ -373,7 +444,7 @@ def usgs_rows(table: list[list], rows: Rows, found: set[str]) -> None:
 
 class WorldMiningData(Connector):
     source_id = "wmd"
-    stage_version = 2  # 2: the sectors added in version 4
+    stage_version = 3  # 2: the sectors added in version 4; 3: market concentration
     fetch_every_days = 120
     keeps_files = True
     URL = "https://www.world-mining-data.info/wmd/downloads/XLS/6.4.%20Production_of_Mineral_Raw_Materials_of_individual_Countries_by_Minerals.xlsx"

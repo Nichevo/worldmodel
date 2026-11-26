@@ -136,6 +136,12 @@
   map: tourism_share_exports
   indicators: [tourist_arrivals, tourism_receipts_usd, tourism_share_exports, tourist_departures, tourism_spending_abroad_usd, unt_arrivals, unt_nights, ttdi_score, heritage_sites]
 
+- id: trade
+  name: Trade dependence and export markets
+  intro: How much each country lives off trade, and how many markets it sells to. Exports plus imports can be worth more than the whole economy in small, open places such as Singapore or Luxembourg, and under a third of it in big ones such as the United States, China or Brazil. Selling mostly to a few partners makes a country more exposed when one of them slows down, falls out with it or puts up tariffs; Mexico and Canada send most of their goods to the United States, while China, the United Kingdom and the United States spread theirs widely. The concentration index runs from 0 (spread evenly) to 1 (one partner); the product index does the same across kinds of goods.
+  map: export_top5_partner_share
+  indicators: [trade_share_gdp, exports_share_gdp, imports_share_gdp, export_top5_partner_share, export_top1_partner_share, export_market_hhi, export_partner_count, export_product_hhi, import_top5_partner_share, import_market_hhi]
+
 - id: transport
   name: Transport and trade routes
   intro: How goods and people move between countries, by sea, air, rail and river. About 80% of world trade by volume goes by sea, much of it through a handful of straits and canals, so a blocked canal or a war near a strait is felt everywhere. The Transport page shows ports, chokepoints, cables, pipelines and the accidents along the way.

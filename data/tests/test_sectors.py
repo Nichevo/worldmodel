@@ -76,6 +76,26 @@ def test_baci_chapters_for_the_by_country_view(con):
     assert "Dairy" in names["tgx_04"] and "chips" in names["sx_chips"]
 
 
+def test_baci_market_concentration(con):
+    # NZL 2021 exports: CHN 3,002,000, JPN 800,000, AUS 500 (thousand US$)
+    total = 3_002_000 + 800_000 + 500
+    shares = [3_002_000 / total, 800_000 / total, 500 / total]
+    assert value(con, "NZL", "export_top1_partner_share", "2021-01-01") == pytest.approx(100 * shares[0])
+    assert value(con, "NZL", "export_top5_partner_share", "2021-01-01") == pytest.approx(100)
+    assert value(con, "NZL", "export_partner_count", "2021-01-01") == 3
+    hhi = ((sum(s * s for s in shares)) ** 0.5 - (1 / 3) ** 0.5) / (1 - (1 / 3) ** 0.5)
+    assert value(con, "NZL", "export_market_hhi", "2021-01-01") == pytest.approx(hhi)
+    # AUS 2021: CHN 500,000, NZL 400,000, JPN 100,000
+    assert value(con, "AUS", "export_top1_partner_share", "2021-01-01") == pytest.approx(50)
+    # CHN 2021 imports from AUS, TWN, KOR, NZL; a single partner is fully concentrated
+    assert value(con, "CHN", "import_partner_count", "2021-01-01") == 4
+    assert value(con, "USA", "import_market_hhi", "2021-01-01") == pytest.approx(1)
+    # product spread over HS chapters: NZL 2021 sells dairy (04), aluminium (76) and animals (01)
+    assert 0 < value(con, "NZL", "export_product_hhi", "2021-01-01") < 1
+    name, unit = con.execute("SELECT name, unit FROM indicators WHERE indicator_id = 'export_top5_partner_share'").fetchone()
+    assert "top 5" in name and unit == "%"
+
+
 def test_usgs_production_reserves_and_units(con):
     assert value(con, "AUS", "sp_bauxite", "2024-01-01", source="usgs_mcs") == 100_000_000
     assert value(con, "AUS", "sr_bauxite", "2024-01-01") == 3_500_000_000
