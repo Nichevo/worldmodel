@@ -510,8 +510,10 @@ def bitre_top_ports(rows: list[list], what: str) -> list[tuple]:
     out = []
     ports: list[str] = []
     direction = None
-    for r in rows:
-        cells = ["" if c is None else str(c).strip() for c in r]
+    table = [["" if c is None else str(c).strip() for c in r] for r in rows]
+    # The 2023-24 tables start in column B; drop the empty columns on the left.
+    skip = min((next(i for i, c in enumerate(r) if c) for r in table if any(r)), default=0)
+    for cells in (r[skip:] for r in table):
         if not any(cells):
             continue
         first = cells[0].lower()

@@ -122,6 +122,9 @@ def test_bitre_top_ports():
     assert got[("Port Hedland", "2024-06-30", "out")] == pytest.approx(563.8e6)
     assert got[("Sydney", "2024-06-30", "in")] == pytest.approx(20.5e6)
     assert not any(r[2].startswith("All ports") for r in rows) and len(rows) == 6
+    # The 2023-24 workbooks start in column B.
+    shifted = bitre_top_ports([[None] + r for r in table], "weight")
+    assert sorted(shifted) == sorted(rows)
 
 
 def test_port_names_match():
