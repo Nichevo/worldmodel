@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Indicator, Ranking } from "@/lib/api";
 import { bandOf, makeBands, type BandDetail } from "@/lib/bands";
-import { cssVar } from "@/lib/colors";
+import { useCss } from "@/lib/colors";
 import { csvText, type Exporter } from "@/lib/download";
 import { useFlagCodes, flagUrl } from "@/lib/flags";
 import { FIXED_ENTITY, shortValue } from "@/lib/look";
@@ -29,6 +29,7 @@ export default function CountryBands({ indicator, ranking, onPick, selection = [
   const [hover, setHover] = useState<string | null>(null);
   const rows = useMemo(() => (ranking?.rows ?? []).filter((r) => Number.isFinite(r.value)), [ranking]);
 
+  const cssVar = useCss();
   const model = useMemo(() => {
     if (!rows.length) return null;
     const bands = makeBands(rows.map((r) => r.value), indicator.unit, detail);
@@ -46,7 +47,7 @@ export default function CountryBands({ indicator, ranking, onPick, selection = [
     });
     const worldBand = ranking?.world ? bandOf(bands, ranking.world.value) : null;
     return { bands, cols, colours, worldBand };
-  }, [rows, indicator.unit, detail, ranking?.world]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, indicator.unit, detail, ranking?.world, cssVar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const surface = cssVar("--surface") || "#fff", ink = cssVar("--ink") || "#111", muted = cssVar("--muted") || "#888";
   const nCols = model?.bands.length ?? 1;

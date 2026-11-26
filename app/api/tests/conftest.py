@@ -24,3 +24,15 @@ def _fresh_live_settings():
     live.forget_settings()
     yield
     live.forget_settings()
+
+
+@pytest.fixture(autouse=True)
+def _warehouse_put_back():
+    """Some tests point the app at a warehouse of their own; the next test gets the one before.
+    Run in parallel, tests land on workers in a different order each time, so a test left
+    pointing at a small warehouse failed whichever test happened to follow it."""
+    from worldmodel_api import main
+
+    before = main.warehouse
+    yield
+    main.warehouse = before

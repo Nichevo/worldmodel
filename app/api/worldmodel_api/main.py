@@ -22,6 +22,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from pathlib import Path
@@ -1965,6 +1966,21 @@ def _source_sizes() -> dict[str, int]:
     return out
 
 
+@api.get("/address-check")
+def address_check():
+    """The weekly check of download addresses: when it last ran and the sources whose
+    remembered addresses did not answer (gone: 404/410; down: no answer or a server error)."""
+    try:
+        got = json.loads((local.home() / "warehouse" / "addresses.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        got = {}
+    every = userdata.settings().get("address_check_days", 7)
+    bad = [{"source_id": s, "results": r, "gone": any(x.get("status") == "gone" for x in r)}
+           for s, r in sorted((got.get("results") or {}).items())]
+    return {"checked_at": got.get("checked_at"), "checked": got.get("checked", 0),
+            "remembered": len(got.get("sources") or {}), "every_days": every, "problems": bad}
+
+
 @api.get("/source-health")
 def source_health():
     """Every source in one table: how it is doing, when it last worked, when it is next due,
@@ -2647,6 +2663,8 @@ def base_rate(preset: str | None = None, event: str | None = None, indicator: st
     """How often something has happened before: a preset, or your own: an event kind per country-year
     (event=coup), or an indicator rule (indicator, if_op/if_value, then_op/then_value, within years)."""
     kind = "event" if event else "rule" if indicator else None
+    if not (preset or kind):
+        raise HTTPException(400, "give a preset, an event or an indicator")
     try:
         return predictions.base_rate(rows, preset, kind=kind, event=event, indicator=indicator, if_op=if_op, if_value=if_value,
                                      then_op=then_op, then_value=then_value, within=within, entity=entity, group=group, start=start)
@@ -4105,12 +4123,37 @@ def live_plane_journey(icao24: str, callsign: str | None = None, lat: float | No
     return journeys.plane_journey(rows, live.PLANES._auth, icao24, callsign, lat, lon, store=live.PLANES.store)
 
 
-@api.get("/live/planes/table")
-def live_planes_table(hours: float = Query(1, ge=0, le=24 * 7)):
-    """The planes from the last OpenSky request, and those saved in the last `hours` (the planes table)."""
-    from worldmodel_api import live
+PLANE_SORTS = {"callsign", "airline", "model", "reg", "country", "altitude_m", "speed_kmh", "climb_ms", "squawk", "seen"}
 
-    return live.PLANES.table(hours)
+
+@api.get("/live/planes/table")
+def live_planes_table(hours: float = Query(1, ge=0, le=24 * 7), q: str = "", group: str = "", airline: str = "",
+                      frm: str = Query("", alias="from"), to: str = "", mins: float = Query(0, ge=0, le=24 * 60 * 7),
+                      sort: str = "", limit: int = Query(0, ge=0, le=100_000)):
+    """The planes from the last OpenSky request, and those saved in the last `hours` (the planes table).
+    Filters as on the Live page (q any text, group, airline name or - for none, from, to, heard in the
+    last `mins`), sorted by `sort` (numbers largest first); `limit` rows (0: all), with `total` matching
+    and `airlines` (every airline in the table, most planes first) for the drop-down."""
+    from worldmodel_api import live, livestats
+
+    out = live.PLANES.table(hours)
+    if not (q or group or airline or frm or to or mins or sort or limit):
+        return out
+    every = out["planes"]
+    rows = livestats.filter_planes(every, group=group, airline=airline, q=q, frm=frm, to=to)
+    if mins:
+        since = time.time() - mins * 60
+        rows = [p for p in rows if (p.get("seen") or 0) >= since]
+    if sort in ("altitude_m", "speed_kmh", "climb_ms", "seen"):  # largest first, the unknown last
+        rows = sorted(rows, key=lambda p: -p[sort] if isinstance(p.get(sort), (int, float)) else float("inf"))
+    elif sort in PLANE_SORTS:
+        rows = sorted(rows, key=lambda p: (p.get(sort) in (None, ""), str(p.get(sort) or "").lower()))
+    counts: dict[str, int] = {}
+    for p in every:
+        if p.get("airline"):
+            counts[p["airline"]] = counts.get(p["airline"], 0) + 1
+    airlines = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return {**out, "planes": rows[:limit] if limit else rows, "total": len(rows), "all": len(every), "airlines": airlines}
 
 
 @api.get("/live/planes/status")

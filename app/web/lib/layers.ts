@@ -2,7 +2,7 @@
 // plate boundaries and faults as lines, volcanoes and earthquakes as dots, each
 // with a line of text on hover. Fetched once per page and shared by every map.
 
-import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LineLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
+import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LayerSpecification, LineLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
 import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { shipsAtQuery } from "@/lib/ships";
 import { get } from "@/lib/api";
@@ -43,6 +43,16 @@ type Style = {
   // drawn as small shapes (lib/mapIcons.ts) turned to the heading, not dots: the symbol layer's layout
   symbol?: () => SymbolLayerSpecification["layout"];
 };
+// The MapLibre layer drawn for an overlay (lid: its layer id, also the source's id). The map adds it,
+// and the Self check validates it against MapLibre's style rules, so both use exactly this.
+export function layerSpec(id: string, lid: string): LayerSpecification {
+  const style = LAYER_STYLE[id];
+  if (style.symbol) return { id: lid, type: "symbol", source: lid, layout: style.symbol(), paint: style.paint() as SymbolLayerSpecification["paint"] };
+  if (style.fill) return { id: lid, type: "fill", source: lid, paint: style.paint() as FillLayerSpecification["paint"] };
+  if (style.dot) return { id: lid, type: "circle", source: lid, paint: style.paint() as CircleLayerSpecification["paint"] };
+  return { id: lid, type: "line", source: lid, paint: style.paint() as LineLayerSpecification["paint"], layout: { "line-cap": "round", "line-join": "round" } };
+}
+
 // The Cameras layer's kinds and colours (lib/cameras.ts has the rest).
 export const CAMERA_KIND: Record<string, { label: string; color: string }> = {
   traffic: { label: "Road", color: "#1c7ed6" },

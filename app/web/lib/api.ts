@@ -1,5 +1,10 @@
 // Typed helpers for the local worldmodel API (proxied at /api by next.config.mjs).
 
+export type AddressCheck = {
+  checked_at: string | null; checked: number; remembered: number; every_days: number;
+  problems: { source_id: string; gone: boolean; results: { url: string; status: "ok" | "gone" | "down"; code: number | null; note: string }[] }[];
+};
+
 export type Entity = {
   entity_id: string;
   name: string;
@@ -379,9 +384,12 @@ export type Settings = {
   backup_on_update: boolean;
   backup_folder: string;
   backup_keep: number;
+  backup_keys: boolean;
+  address_check_days: number;
   backup_big_mb: number;
   views_fetch: boolean; // ViEWS conflict forecasts
   predictions_on_charts: boolean; // your predictions as dots on charts
+  web_dev_mode: boolean; // start.bat runs the development server instead of the built app
   data_console: boolean; // read-only SQL questions to the warehouse, from this PC only
   api_public_on: boolean; // the public API for scripts, Python, Excel and AI assistants
   api_daily_limit: number; // calls a day per key
@@ -1471,6 +1479,7 @@ export const api = {
   inboxAssign: (name: string, source_id: string) => send<{ filed: unknown; job: Job }>("POST", "/inbox/assign", { name, source_id }),
   job: () => get<Job>("/jobs"),
   startJob: (kind: Job["kind"], sources?: string[]) => send<Job>("POST", "/jobs", { kind, sources }),
+  addressCheck: () => get<AddressCheck>("/address-check"),
   sourceHealth: () => get<{ sources: SourceHealth[]; off: string[] }>("/source-health"),
   upkeep: () => get<Upkeep>("/upkeep"),
   setSchedule: (on: boolean, often: string, day: string, time: string) =>

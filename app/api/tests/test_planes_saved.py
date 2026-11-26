@@ -109,3 +109,52 @@ def test_planes_world_every_follows_settings_and_client(tmp_path, monkeypatch):
     assert planes.world_every() == live.PLANE_WORLD_EVERY
     s["planes_world"] = False
     assert planes.world_every() == 0 and planes.status()["world_every_minutes"] == 0
+
+
+def test_planes_table_filters_sorts_and_pages(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from worldmodel_api import main
+
+    planes = live.Planes(store=PlaneStore(tmp_path / "planes"), settings=lambda: {"planes_collect": False})
+    feats = [_plane("c81d90", 174.8, -36.9, "ANZ123"), _plane("7c6b2d", 151.2, -33.9, "QFA1"), _plane("abc123", 150.0, -30.0, "N123AB", "light")]
+    feats[1]["properties"]["altitude_m"] = 12000
+    planes.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
+    monkeypatch.setattr(planes, "_fill_routes", lambda feats: None)
+    monkeypatch.setattr(live, "PLANES", planes)
+    c = TestClient(main.app)
+    whole = c.get("/api/v1/live/planes/table", params={"hours": 0}).json()
+    assert len(whole["planes"]) == 3 and "total" not in whole  # no filters: as before
+    got = c.get("/api/v1/live/planes/table", params={"hours": 0, "sort": "altitude_m", "limit": 2}).json()
+    assert [p["id"] for p in got["planes"]] == ["7c6b2d", "c81d90"] and got["total"] == 3 and got["all"] == 3
+    assert dict(got["airlines"]) == {"Air New Zealand": 1, "Qantas": 1}
+    got = c.get("/api/v1/live/planes/table", params={"hours": 0, "airline": "-"}).json()
+    assert [p["id"] for p in got["planes"]] == ["abc123"]
+    got = c.get("/api/v1/live/planes/table", params={"hours": 0, "q": "qfa"}).json()
+    assert got["total"] == 1 and got["planes"][0]["callsign"] == "QFA1"
+
+
+def test_a_slow_opensky_answer_does_not_hold_other_views(tmp_path, monkeypatch):
+    import threading
+
+    monkeypatch.delenv("OPENSKY_CLIENT_ID", raising=False)
+    planes = live.Planes(store=PlaneStore(tmp_path / "planes"), settings=lambda: {"planes_collect": False})
+    asked, release = threading.Event(), threading.Event()
+    state = ["abc123", "ANZ1 ", "New Zealand", 0, 0, 174.8, -36.9, 10000, False, 250, 90, 0, None, None, None, None, None, 4]
+
+    def slow(bx):
+        asked.set()
+        release.wait(5)
+        return [state], None
+
+    monkeypatch.setattr(planes, "_ask", slow)
+    first: list = []
+    t = threading.Thread(target=lambda: first.append(planes.get(170, -40, 178, -34)))
+    t.start()
+    assert asked.wait(5)
+    started = time.time()
+    other = planes.get(100, -40, 110, -30)  # answered at once while the first waits on OpenSky
+    assert time.time() - started < 1 and "being fetched" in other["error"]
+    release.set()
+    t.join(5)
+    assert [f["properties"]["id"] for f in first[0]["features"]] == ["abc123"]

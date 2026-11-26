@@ -12,7 +12,7 @@ import { arc, countryCentres, countryShapes, countryShapesFine } from "@/lib/geo
 import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import CameraView, { type CameraProps } from "@/components/CameraView";
-import { hereCard, LAYER_STYLE, layerData, layerLabel, windowData } from "@/lib/layers";
+import { hereCard, LAYER_STYLE, layerData, layerSpec, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
 import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool, greatCircle } from "@/lib/measure";
@@ -703,18 +703,13 @@ export default function WorldMap({
         : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-city_stress", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
       if (style.symbol) {
         ensureMapIcons(m);
-        m.addLayer({ id: lid, type: "symbol", source: lid, layout: style.symbol(), paint: style.paint() as maplibregl.SymbolLayerSpecification["paint"] }, before);
+        m.addLayer(layerSpec(id, lid), before);
         if (id === "live_planes") planeBadges(m);
         const f = filters.current[id];
         if (f) setLayerFilter(m, lid, f);
         return;
       }
-      m.addLayer(style.fill
-        ? { id: lid, type: "fill", source: lid, paint: style.paint() as maplibregl.FillLayerSpecification["paint"] }
-        : style.dot
-          ? { id: lid, type: "circle", source: lid, paint: style.paint() as maplibregl.CircleLayerSpecification["paint"] }
-          : { id: lid, type: "line", source: lid, paint: style.paint() as maplibregl.LineLayerSpecification["paint"],
-              layout: { "line-cap": "round", "line-join": "round" } }, before);
+      m.addLayer(layerSpec(id, lid), before);
       const f = filters.current[id];
       if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
     };

@@ -5,7 +5,7 @@ PY ?= python3
 VENV := .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup setup-data setup-app update refresh build status api web dev test typecheck
+.PHONY: setup setup-data setup-app update refresh build status api web dev test quick typecheck
 
 setup: setup-data setup-app  ## install everything
 
@@ -42,8 +42,11 @@ web:  ## the web app on http://localhost:3030 (needs the API running)
 dev:  ## API and web app together
 	$(BIN)/worldmodel-api & cd app/web && npm run dev
 
-test:
-	$(BIN)/pytest -q contract/tests data/tests app/api/tests
+test:  ## every test, spread over the CPU's cores (about 4 minutes)
+	$(BIN)/pytest -q -n auto contract/tests data/tests app/api/tests client/tests
+
+quick:  ## the tests that do not build a whole warehouse (under 2 minutes)
+	$(BIN)/pytest -q -n auto -m "not slow" contract/tests data/tests app/api/tests client/tests
 
 typecheck:
 	cd app/web && npm run typecheck

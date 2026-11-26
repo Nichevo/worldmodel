@@ -101,3 +101,20 @@ def test_world_snapshot_uses_the_one_connection(tmp_path, monkeypatch):
     ships.world_until = time.time() - 1
     assert ships.wanted_boxes() == live.SHIP_AREAS["pacific"][1]
     assert not hasattr(ships, "_listen_world")
+
+
+def test_positions_wait_in_memory_and_are_read_with_the_rest(tmp_path, monkeypatch):
+    """Positions go to disk in batches (opening the file for each one slowed the aisstream loop);
+    reads, status and tidy write what is waiting first."""
+    import time as _time
+
+    from worldmodel_api import shipstore
+
+    st = shipstore.ShipStore(tmp_path / "ships")
+    st.flushed_at = _time.time()  # just flushed: the next adds wait
+    now = _time.time()
+    assert st.add(7, -36.8, 174.8, 12, 90, "WAITING", now=now)
+    assert st.pending and not list((tmp_path / "ships").glob("*.csv"))
+    got = st.at(now + 1, [(170, -40, 180, -30)])
+    assert [s["name"] for s in got] == ["WAITING"] and not st.pending
+    assert st.status()["ships"] == 1

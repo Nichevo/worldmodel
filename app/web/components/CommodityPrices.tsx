@@ -7,7 +7,7 @@ import EChart from "@/components/EChart";
 import Help from "@/components/Help";
 import { api, type PriceSeries, type PriceTrade, type PricesTable } from "@/lib/api";
 import { openAsk } from "@/lib/ai";
-import { seriesColor } from "@/lib/colors";
+import { seriesVar } from "@/lib/colors";
 import { useChartEvents } from "@/lib/events";
 import { change, priceName, priceUnit, priceValue, pricesChart, shownLines, type PriceMode } from "@/lib/prices";
 import { money } from "@/lib/sectors";
@@ -94,7 +94,7 @@ export default function CommodityPrices({ ids, setIds }: { ids: string[]; setIds
         <div className="sx-chips" role="group" aria-label="Prices on the chart">
           <span className="muted small">Showing</span>
           {picked.map((i, k) => (
-            <button key={i} className="sx-chip on" style={{ ["--chip" as string]: seriesColor(k) }} onClick={() => toggle(i)}
+            <button key={i} className="sx-chip on" style={{ ["--chip" as string]: seriesVar(k) }} onClick={() => toggle(i)}
               title="Take off the chart">{priceName(byId.get(i)?.name ?? i)} ×</button>
           ))}
           <select value="" onChange={(e) => e.target.value && toggle(e.target.value)} aria-label="Add a price">

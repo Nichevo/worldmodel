@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@maplibre/maplibre-gl-style-spec": "26.5.0",
     "echarts": "6.1.0",
     "flag-icons": "7.6.0",
     "hls.js": "1.7.4",

@@ -88,22 +88,46 @@ export default function ProblemsCard() {
   );
 }
 
-// One line at the top of every page while a problem is open (switchable in Settings).
+// Problems already shown in the banner (by key), kept in this browser. A problem goes in once
+// it has been hidden with the cross or seen on Data status, so the banner names each failure
+// once and then leaves it to the Problems list. A key is dropped when its problem is fixed,
+// so the same failure coming back later shows again.
+const SEEN = "worldmodel-problems-seen";
+function readSeen(): string[] {
+  try { return JSON.parse(localStorage.getItem(SEEN) || "[]"); } catch { return []; }
+}
+function writeSeen(keys: string[]) {
+  try { localStorage.setItem(SEEN, JSON.stringify(keys)); } catch { /* private window: shows again next time */ }
+}
+
+// One line at the top of every page while a new problem is open (switchable in Settings).
 export function ProblemBanner() {
   const s = useSettings();
   const path = usePathname();
   const [open, setOpen] = useState<Problem[]>([]);
+  const [seen, setSeen] = useState<string[]>([]);
   useEffect(() => {
     if (!s.problem_banner) return;
-    api.problems().then((l) => setOpen(l.filter((p) => p.open))).catch(() => setOpen([]));
+    api.problems().then((l) => {
+      const now = l.filter((p) => p.open);
+      const keys = new Set(now.map((p) => p.key));
+      // Data status lists them all, so being there counts as having seen them.
+      const kept = path === "/data" ? [...keys] : readSeen().filter((k) => keys.has(k));
+      writeSeen(kept);
+      setSeen(kept);
+      setOpen(now);
+    }).catch(() => setOpen([]));
   }, [path, s.problem_banner]);
-  if (!s.problem_banner || open.length === 0 || path === "/data") return null;
-  const p = open[0];
+  const fresh = open.filter((p) => !seen.includes(p.key));
+  if (!s.problem_banner || fresh.length === 0 || path === "/data") return null;
+  const p = fresh[0];
+  const hide = () => { const all = [...new Set([...seen, ...fresh.map((x) => x.key)])]; writeSeen(all); setSeen(all); };
   return (
     <div className="banner critical" role="status">
-      Last refresh problem: <b>{p.title}</b>{p.times > 1 ? ` (${p.times} times, ${p.in_a_row} in a row)` : ""}
-      {open.length > 1 ? ` and ${open.length - 1} more` : ""}. The app keeps the last good data.{" "}
-      See <Link href="/data#problems">Data status</Link>.
+      New refresh problem: <b>{p.title}</b>{p.times > 1 ? ` (${p.times} times, ${p.in_a_row} in a row)` : ""}
+      {fresh.length > 1 ? ` and ${fresh.length - 1} more` : ""}. The app keeps the last good data.{" "}
+      See <Link href="/data#problems">Data status</Link>.{" "}
+      <button className="link" onClick={hide} title="Hide until a new problem comes up; they stay listed on Data status">Hide</button>
     </div>
   );
 }

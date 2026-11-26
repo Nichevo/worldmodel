@@ -8,7 +8,7 @@ import FetchMethodsCard from "@/components/FetchMethods";
 import ProblemsCard from "@/components/Problems";
 import QualityTab from "@/components/QualityTab";
 import { RefreshHistoryCard, StorageCard } from "@/components/RefreshHistory";
-import { api, type Dataset, type Meta, type Source } from "@/lib/api";
+import { api, type AddressCheck, type Dataset, type Meta, type Source } from "@/lib/api";
 import Link from "next/link";
 import { InboxCard, JobPanel, SourceHealthCard, useJob } from "@/components/Upkeep";
 
@@ -88,11 +88,13 @@ export default function DataPage() {
         <button role="tab" aria-selected={tab === "quality"} className={tab === "quality" ? "on" : ""} onClick={() => switchTab("quality")}>Quality</button>
       </div>
       {tab === "quality" ? <QualityTab /> : <>
-      <p className="small" style={{ margin: 0 }}>What needs you is gathered on the <Link href="/todo">To do</Link> page.</p>
+      <p className="small" style={{ margin: 0 }}>What needs you is gathered on the <Link href="/todo">To do</Link> page.
+        Something not working? <Link href="/selfcheck">Run a self check</Link> of every page, map layer, API call and collector.</p>
       <JobPanel job={job} />
       <SourceHealthCard start={start} busy={!!job?.running} />
       <InboxCard start={() => start("inbox")} busy={!!job?.running} />
       <ProblemsCard />
+      <AddressesCard />
       <FetchMethodsCard />
       <ManualFilesCard />
       <ScrapersCard />
@@ -228,6 +230,37 @@ export default function DataPage() {
         </table></div>
       </div>
       </>}
+    </div>
+  );
+}
+
+// The weekly check that download addresses still answer, so a moved file shows up before
+// its source is next due (a yearly source could otherwise fail unnoticed for months).
+function AddressesCard() {
+  const [got, setGot] = useState<AddressCheck | null>(null);
+  useEffect(() => { api.addressCheck().then(setGot).catch(() => setGot(null)); }, []);
+  if (!got || (!got.checked_at && !got.remembered)) return null;
+  const gone = got.problems.filter((p) => p.gone);
+  const down = got.problems.filter((p) => !p.gone);
+  return (
+    <div className="card" id="addresses">
+      <h2>Download addresses{gone.length ? ` (${gone.length} gone)` : ""}</h2>
+      <p className="ink-2 small" style={{ marginTop: 0 }}>
+        {got.checked_at
+          ? `Checked ${new Date(got.checked_at).toLocaleString("en", { dateStyle: "medium", timeStyle: "short" })}: ${got.checked} sources not fetched that day were asked whether their files are still there.`
+          : `${got.remembered} sources have addresses to check; the next refresh checks them.`}
+        {got.every_days ? ` A refresh checks every ${got.every_days} days (Settings > Looking after the data).` : " The check is off in Settings."}
+      </p>
+      {got.checked_at && got.problems.length === 0 && <p className="small">Every address answered.</p>}
+      {[...gone, ...down].map((p) => (
+        <div key={p.source_id} className="small" style={{ margin: "6px 0" }}>
+          <b>{p.source_id}</b> <span className={`status ${p.gone ? "critical" : "warn"}`}>{p.gone ? "file gone" : "not answering"}</span>
+          <ul style={{ margin: "2px 0" }}>
+            {p.results.filter((r) => r.status !== "ok").map((r) => <li key={r.url}><code>{r.url}</code> {r.note}</li>)}
+          </ul>
+        </div>
+      ))}
+      {gone.length > 0 && <p className="small ink-2">The source keeps its stored data. Its next download will fail unless the site put the file back; paste the lines above into the project thread to have the address fixed.</p>}
     </div>
   );
 }

@@ -151,8 +151,8 @@ export default function SettingsPage() {
           note={used("pictures") ? `${gb(used("pictures")!.used)} used now` : undefined} save={(v) => save({ pictures_limit_gb: v })} />
         <NumberField label="Map files" unit="GB" value={s.basemap_limit_gb} min={0.1} max={5000} step={1}
           note={used("basemap") ? `${gb(used("basemap")!.used)} used now` : undefined} save={(v) => save({ basemap_limit_gb: v })} />
-        <Toggle label="Banner while a refresh problem is open"
-          hint="Shows the latest failed check or download at the top of every page, with how often it has happened, until a later refresh passes. The Problems list on Data status is always there."
+        <Toggle label="Banner when a new refresh problem comes up"
+          hint="Names a new failed check or download at the top of every page until you hide it or open Data status; after that it stays only in the Problems list there, and shows again only if it is fixed and later comes back. Off: no banner at all."
           on={s.problem_banner} set={(v) => save({ problem_banner: v })} />
       </section>
 
@@ -180,6 +180,17 @@ export default function SettingsPage() {
         <Toggle label="Data console"
           hint="On: Data console appears in the Data menu. Off: the menu item is hidden and the page says it is switched off; nothing else changes."
           on={s.data_console} set={(v) => save({ data_console: v })} />
+      </section>
+
+      <section className="card" id="web-app">
+        <h2>How the web app runs</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          start.bat serves a built copy of the web app: pages open faster and use less memory. update.bat builds it after each
+          update (about a minute), and start.bat builds it first if the code changed since.
+        </p>
+        <Toggle label="Development mode"
+          hint="On: start.bat runs the development server instead (slower pages, but code changes show without a build, and React's own warnings appear). Takes effect the next time you run start.bat."
+          on={s.web_dev_mode} set={(v) => save({ web_dev_mode: v })} />
       </section>
 
       <MapDetail s={s} save={save} />
@@ -986,10 +997,13 @@ function LookingAfter({ s, save }: { s: Settings; save: (p: Partial<Settings>) =
           {times.map((t) => <option key={t} value={t}>{t}</option>)}</select>
       </Field>
       {note && <p className="small muted">{note}</p>}
+      <NumberField label="Check download addresses every" unit="days" value={s.address_check_days} min={0} max={90} step={1}
+        note="A refresh asks whether the files of sources not due that day are still where they were (one small request each), so a moved file shows on Data status before its source is next fetched. 0: never."
+        save={(v) => save({ address_check_days: v })} />
       <h3>Backups</h3>
       <p className="small ink-2" style={{ marginTop: 0 }}>
         A backup holds what only you can replace: the files you saved by hand (var\manual), your settings, predictions, highlights and
-        layouts (var\user) and your keys (.env). Downloads and builds are left out; a refresh makes them again.
+        layouts (var\user) and the names of your keys (.env). Downloads and builds are left out; a refresh makes them again.
       </p>
       <Toggle label="Back up when update.bat runs" hint="Once a day at most, before the update rebuilds anything. Off: only when you press Back up now."
         on={s.backup_on_update} set={(v) => save({ backup_on_update: v })} />
@@ -997,6 +1011,9 @@ function LookingAfter({ s, save }: { s: Settings; save: (p: Partial<Settings>) =
         note={u ? `Now: ${u.backup_folder}` : undefined} save={(v) => save({ backup_folder: v })} />
       <NumberField label="Backups kept" unit="" value={s.backup_keep} min={1} max={100} step={1}
         note="Older backups the app made (worldmodel-backup-*.zip) are removed; nothing else in the folder is touched." save={(v) => save({ backup_keep: v })} />
+      <Toggle label="Put the keys themselves in backups"
+        hint="Off: a backup lists which keys were set (.env.names) so you can type them in again after a restore. On: the whole .env goes in, keys and the ACLED password in plain text, as the zips are not encrypted; keep the backup folder private."
+        on={s.backup_keys} set={(v) => save({ backup_keys: v })} />
       <NumberField label="Leave out files bigger than" unit="MB" value={s.backup_big_mb} min={0} max={100000} step={50}
         note="Big downloads (trade or map files) the site can give again; 0 keeps everything." save={(v) => save({ backup_big_mb: v })} />
       <Field label="Back up now" hint={u?.backups[0] ? `Last: ${u.backups[0].name} (${(u.backups[0].bytes / 1024 ** 2).toFixed(1)} MB); ${u.backups.length} kept.` : "No backup yet."}>

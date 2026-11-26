@@ -11,7 +11,7 @@ import PredictDialog from "@/components/PredictDialog";
 import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
   type WhatIfLevers } from "@/lib/api";
 import { cardLinesOption, inputOption, pyramidCompareOption, trackOption, whatifOption, type CardLine } from "@/lib/charts";
-import { seriesColor } from "@/lib/colors";
+import { seriesColor, seriesVar } from "@/lib/colors";
 import { formatValue } from "@/lib/format";
 import { logHistory } from "@/lib/history";
 import { useSettings } from "@/lib/settings";
@@ -145,8 +145,8 @@ function Forecasts() {
         <span className="vs-picker small" role="group" aria-label="Compare with">
           <span className="muted">Compare with</span>
           {others.map((o, i) => (
-            <span key={o.id} className="chip vs-chip" style={{ borderColor: seriesColor(i + 1) }}>
-              <i className="swatch" style={{ background: seriesColor(i + 1) }} />{o.name}
+            <span key={o.id} className="chip vs-chip" style={{ borderColor: seriesVar(i + 1) }}>
+              <i className="swatch" style={{ background: seriesVar(i + 1) }} />{o.name}
               <button className="x" aria-label={`Stop comparing with ${o.name}`} onClick={() => setVs(vs.filter((v) => v !== o.id))}>×</button>
             </span>
           ))}
@@ -331,7 +331,7 @@ function WhatIfCompare({ main, levers, others, changed }: { main: WhatIf; levers
         <tbody>{all.map(({ d, i }) => {
           const e = d.years.length - 1;
           return (
-            <tr key={i}><td><i className="swatch" style={{ background: seriesColor(i) }} /> {d.name}</td>
+            <tr key={i}><td><i className="swatch" style={{ background: seriesVar(i) }} /> {d.name}</td>
               <td className="num">{formatValue(d.baseline[0], "persons")}</td>
               <td className="num">{formatValue(d.baseline[e], "persons")} ({pct(d.baseline[e], d.baseline[0])})</td>
               {changed && <><td className="num">{formatValue(d.scenario[e], "persons")}</td><td className="num">{pct(d.scenario[e], d.baseline[e])}</td></>}
@@ -588,7 +588,7 @@ function TrackCompare({ entity, others, indicator, label, src, who, all }: {
         <tbody>{ids.map((id, i) => {
           const r = row(id);
           return (
-            <tr key={id}><td><i className="swatch" style={{ background: seriesColor(i) }} /> {r?.name ?? others.find((o) => o.id === id)?.name ?? id}</td>
+            <tr key={id}><td><i className="swatch" style={{ background: seriesVar(i) }} /> {r?.name ?? others.find((o) => o.id === id)?.name ?? id}</td>
               <td className="num">{r?.n ?? "–"}</td><td className="num">{pts(r?.mae ?? null)}</td><td className="num">{pts(r?.bias ?? null, true)}</td>
               <td>{winner(id) ?? "–"}</td></tr>
           );

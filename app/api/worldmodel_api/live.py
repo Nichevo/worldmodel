@@ -97,6 +97,7 @@ class Planes:
         self.route_note: str | None = None
         self.route_pause = 0.0
         self.lock = threading.Lock()
+        self._fetching = False
         self.last_at = 0.0
         self.last_box: list | None = None
         self.last: dict | None = None
@@ -261,8 +262,10 @@ class Planes:
 
     def get(self, west: float, south: float, east: float, north: float) -> dict:
         bx = boxes(west, south, east, north)
+        every = PLANE_EVERY if os.environ.get("OPENSKY_CLIENT_ID") and os.environ.get("OPENSKY_CLIENT_SECRET") else PLANE_EVERY_ANON
+        # The lock covers only the checks and the swap of the new answer: OpenSky can take up to
+        # 20 s, and other views asking meanwhile get what is already here instead of waiting.
         with self.lock:
-            every = PLANE_EVERY if os.environ.get("OPENSKY_CLIENT_ID") and os.environ.get("OPENSKY_CLIENT_SECRET") else PLANE_EVERY_ANON
             fresh = time.time() - self.last_at < every
             if self.last and fresh and self.last_box and all(
                     any(w0 <= w and e <= e0 and s0 <= s and n <= n0 for w0, s0, e0, n0 in self.last_box) for w, s, e, n in bx):
@@ -272,51 +275,69 @@ class Planes:
                                         f"Planes refresh every {int(every // 60)} min; moved views fill in at the next.")
             if time.time() < self.blocked_until:  # OpenSky said wait: don't spend more requests
                 return self._kept(bx, self.blocked_why)
-            states, error = [], None
-            try:
-                with httpx.Client(timeout=20) as client:
-                    head = self._auth(client)
-                    for w, s, e, n in bx:
-                        r = client.get(OPENSKY, params={"lamin": s, "lomin": w, "lamax": n, "lomax": e, "extended": 1}, headers=head)
-                        if r.status_code == 429:
-                            wait = r.headers.get("X-Rate-Limit-Retry-After-Seconds")
-                            wait_s = float(wait) if wait and wait.replace(".", "", 1).isdigit() else 3600.0
-                            self.blocked_until = time.time() + min(wait_s, 24 * 3600)
-                            hours = max(1, round(wait_s / 3600))
-                            error = (f"OpenSky's daily limit is used up; planes come back in about {hours} hour{'s' if hours != 1 else ''}"
-                                     " (a free OpenSky API client in Settings > Keys gives more).")
-                            self.blocked_why = error
-                            break
-                        if r.status_code in (401, 403) and head:
-                            self.token = None
-                            error = "OpenSky refused the API client: check OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET in Settings > Keys."
-                            break
-                        r.raise_for_status()
-                        states += r.json().get("states") or []
-            except (httpx.HTTPError, ValueError, KeyError) as exc:
-                error = f"OpenSky did not answer ({exc.__class__.__name__})."
+            busy = self._fetching
+            self._fetching = True
+        if busy:  # another view is asking OpenSky right now
+            return self._kept(bx, "Planes are being fetched; they show at the next reload.")
+        try:
+            states, error = self._ask(bx)
             if error and not states:
                 return self._kept(bx, error)
-            feats, seen = [], set()
-            for st in states:
-                if st[5] is None or st[6] is None or st[8] or st[0] in seen:  # no position, on the ground, or twice
-                    continue
-                seen.add(st[0])
-                cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
-                feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
-                              "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
-                                             "altitude_m": round(st[7]) if st[7] is not None else None,
-                                             "speed_kmh": round(st[9] * 3.6) if st[9] is not None else None,
-                                             "heading": round(st[10]) if st[10] is not None else 0,
-                                             "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
-                                             "squawk": st[14] if len(st) > 14 else None,
-                                             "seen": st[4] if len(st) > 4 else None,
-                                             "category": cat, "group": plane_group(cat)}})
-                self.describe(feats[-1]["properties"])
-            self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
-            self.last_at, self.last_box = time.time(), bx
+            feats = self._features(states)
+            with self.lock:
+                self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
+                self.last_at, self.last_box = time.time(), bx
             self._save(feats)
             return self._filter(self.last, bx)
+        finally:
+            with self.lock:
+                self._fetching = False
+
+    def _ask(self, bx: list) -> tuple[list, str | None]:
+        """OpenSky's states for the boxes (one request each), and why it stopped, if it did."""
+        states, error = [], None
+        try:
+            with httpx.Client(timeout=20) as client:
+                head = self._auth(client)
+                for w, s, e, n in bx:
+                    r = client.get(OPENSKY, params={"lamin": s, "lomin": w, "lamax": n, "lomax": e, "extended": 1}, headers=head)
+                    if r.status_code == 429:
+                        wait = r.headers.get("X-Rate-Limit-Retry-After-Seconds")
+                        wait_s = float(wait) if wait and wait.replace(".", "", 1).isdigit() else 3600.0
+                        self.blocked_until = time.time() + min(wait_s, 24 * 3600)
+                        hours = max(1, round(wait_s / 3600))
+                        error = (f"OpenSky's daily limit is used up; planes come back in about {hours} hour{'s' if hours != 1 else ''}"
+                                 " (a free OpenSky API client in Settings > Keys gives more).")
+                        self.blocked_why = error
+                        break
+                    if r.status_code in (401, 403) and head:
+                        self.token = None
+                        error = "OpenSky refused the API client: check OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET in Settings > Keys."
+                        break
+                    r.raise_for_status()
+                    states += r.json().get("states") or []
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            error = f"OpenSky did not answer ({exc.__class__.__name__})."
+        return states, error
+
+    def _features(self, states: list) -> list:
+        feats, seen = [], set()
+        for st in states:
+            if st[5] is None or st[6] is None or st[8] or st[0] in seen:  # no position, on the ground, or twice
+                continue
+            seen.add(st[0])
+            cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
+            feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
+                          "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
+                                         "altitude_m": round(st[7]) if st[7] is not None else None,
+                                         "speed_kmh": round(st[9] * 3.6) if st[9] is not None else None,
+                                         "heading": round(st[10]) if st[10] is not None else 0,
+                                         "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
+                                         "squawk": st[14] if len(st) > 14 else None,
+                                         "seen": st[4] if len(st) > 4 else None,
+                                         "category": cat, "group": plane_group(cat)}})
+            self.describe(feats[-1]["properties"])
+        return feats
 
     def flights(self, icao: str | None, callsign: str | None, days: float = 30) -> dict:
         """The flights saved for one aircraft, or for every aircraft that flew a callsign, with each
@@ -339,7 +360,7 @@ class Planes:
         `hours`, each at its latest position, for the planes table. Kept TABLE_KEEP seconds (the
         table, its counts and the Plane counts filters all ask, and reading a day of positions is slow)."""
         key = (hours, (self.last or {}).get("at"))
-        with self._tables_lock:  # not self.lock, which is held while OpenSky answers
+        with self._tables_lock:
             hit = self._tables.get(key)
         if hit and time.monotonic() - hit[0] < TABLE_KEEP:
             return hit[1]
@@ -420,6 +441,8 @@ class Planes:
                 self.route_pause = time.time() + 600
                 return
             self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
+            with self._tables_lock:  # the tables kept show the new routes at their next ask
+                self._tables = {}
             found = sum(1 for cs, _, _ in batch if got.get(cs))
             self.route_note = f"Routes: asked adsb.lol for {len(batch):,} flights at {time.strftime('%H:%M')}, {found:,} found."
             for cs, _, _ in batch:
@@ -647,6 +670,7 @@ class Ships:
                     self.world_at, self.world_until = time.time(), time.time() + WORLD_LISTEN
                     self.sweep_at, self.sweep_got, self.sweep_new = time.time(), 0, 0
                     self.resubscribe.set()
+                self.store.flush()  # positions waiting in memory, when reports are few
                 if time.time() - self.details_saved >= DETAILS_EVERY:
                     self.details_saved = time.time()
                     self.store.save_details(int(self.settings().get("ships_keep_days") or 30))
