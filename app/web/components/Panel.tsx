@@ -32,7 +32,9 @@ import {
   CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, NO_INDICATOR, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
   rankOptions, rankString, rankTable, rankYears, type RankOptions,
   scatterOptions, scatterString, toQuery, DEFAULT as DEFAULT_WORKSPACE, type Action, type Group, type Panel as PanelState, type View,
+  type LiveTab,
 } from "@/lib/workspace";
+import { LivePanel } from "@/components/LiveTables";
 import { csvTable, keep, openAsk, useRegisterChart, type AskPart } from "@/lib/ai";
 
 export type Value = { entity_id: string; value: number; status: string };
@@ -70,9 +72,10 @@ type Props = {
   onWin: (win: string) => void;
 };
 
-const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks", bands: "Bands", shares: "Shares" };
+const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks", bands: "Bands", shares: "Shares", live: "Ships and planes" };
 const VIEW_HINT: Partial<Record<View, string>> = {
   bands: "Every country as a tile, stacked in columns by value band",
+  live: "Ships and planes now: the ships and planes tables, their counts and port schedules, beside the map",
   shares: "Each country's share of the world total, as a circle cut into continents (figures that add up only)",
 };
 
@@ -127,12 +130,12 @@ export default function Panel({
             </button>
           ))}
         </div>
-        {panel.view !== "pyramid" && (
+        {panel.view !== "pyramid" && panel.view !== "live" && (
           <IndicatorSelect indicators={indicators} value={panel.indicator} onChange={(id) => set({ indicator: id })}
             none={panel.view === "map" ? "None (plain map)" : undefined} />
         )}
-        {indicator && panel.view !== "pyramid" && <Help indicator={indicator} />}
-        {indicator && year !== null && (
+        {indicator && panel.view !== "pyramid" && panel.view !== "live" && <Help indicator={indicator} />}
+        {indicator && year !== null && panel.view !== "live" && (
           <label className="year">
             <button className="play" aria-label={playing.on ? "Pause" : "Play through the years"} title={playing.on ? "Pause" : "Play"}
               onClick={(e) => { e.preventDefault(); playing.toggle(); }}>{playing.on ? "❚❚" : "▶"}</button>
@@ -157,7 +160,7 @@ export default function Panel({
             Layers{panel.layers ? <span className="muted"> {panel.layers.length}</span> : null}
           </button>
         )}
-        <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />
+        {panel.view !== "live" && <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />}
         <LinksMenu panel={panel} dispatch={dispatch} />
         <div className="panel-actions">
           <button title="Duplicate panel" aria-label="Duplicate panel" disabled={!canDuplicate}
@@ -179,7 +182,8 @@ export default function Panel({
         ))}</>}
       </div>
       <div className="panel-body" ref={body}>
-        {!indicator && !plain && <p className="muted">{panel.indicator === NO_INDICATOR ? "Choose an indicator above." : "Loading…"}</p>}
+        {panel.view === "live" && <LivePanel tab={(panel.lv || "ships") as LiveTab} setTab={(t) => set({ lv: t })} />}
+        {!indicator && !plain && panel.view !== "live" && <p className="muted">{panel.indicator === NO_INDICATOR ? "Choose an indicator above." : "Loading…"}</p>}
         {((indicator && year !== null) || plain) && panel.view === "map" && (
           <MapView panel={panel} indicator={plain ? null : indicator!} year={plain ? null : year} selection={selection}
             hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}

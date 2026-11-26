@@ -612,6 +612,15 @@ def live_ship_schedule(mmsi: int):
             "on": live.SHIPS.schedules_on()}
 
 
+def _port_only_state(b: dict, arr: float, first: float) -> str:
+    """On time by the port's booking alone, for a ship we haven't heard from: late once the booking
+    has moved more than a day; arrived on its booking counts as on time; otherwise not tracked,
+    since a booking that hasn't moved says nothing about where the ship is."""
+    if (arr - first) / 3600 > 24:
+        return "late"
+    return "on_time" if b.get("arrived_at") else "not_tracked"
+
+
 @api.get("/live/schedules")
 def live_schedules(port: str = "", days: float = Query(7, gt=0, le=60)):
     """The ports' arrival lists (Auckland, Tauranga, NSW ports, Melbourne, Singapore) as a board: each ship's booked arrival, how often
@@ -639,7 +648,7 @@ def live_schedules(port: str = "", days: float = Query(7, gt=0, le=60)):
                         "moved_h": round((arr - first) / 3600, 1), "changes": max(0, len(b.get("versions") or []) - 1),
                         "own_eta": v.get("eta"), "estimate": ((st or {}).get("estimate") or {}).get("at"),
                         "arrived_at": b.get("arrived_at") or (st or {}).get("arrived_at"), "in_port": b.get("state") == "in_port",
-                        "state": (st or {}).get("state") or ("late" if (arr - first) / 3600 > 24 else "on_time"),
+                        "state": (st or {}).get("state") or _port_only_state(b, arr, first),
                         "late_h": (st or {}).get("late_h") if st and st.get("measured_by") else round((arr - first) / 3600, 1),
                         "measured_by": (st or {}).get("measured_by") or "port", "prev": b.get("prev"), "next": b.get("next"),
                         "cargo": b.get("cargo"), "voyage": b.get("voyage"), "line": ln[0] if ln else None})

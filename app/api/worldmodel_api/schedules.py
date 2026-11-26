@@ -176,7 +176,7 @@ def parse_tauranga(html: str) -> list[dict]:
     """Port of Tauranga's shipping schedules: tables 'In Port' (11), 'Expected Arrivals' (2) and
     'Departed Vessels' (3), times in New Zealand time as 27/11/2026 15:30."""
     out = []
-    for tid, body in re.findall(r'<table[^>]*id="pot-data-table-(\d+)"[^>]*>(.*?)</table>', html, re.S):
+    for tid, body in re.findall(r'<table[^>]*id=["\']pot-data-table-(\d+)["\'][^>]*>(.*?)</table>', html, re.S):
         state = TAURANGA_TABLES.get(tid)
         if not state:
             continue
@@ -411,6 +411,21 @@ def parse_dcsa(body) -> dict:
 
 
 # ----------------------------------------------------------------------------- the store
+def _booked(call: dict) -> float:
+    return call.get("arrival") or call["first"][1]
+
+
+def _one_per_call(calls: list[dict]) -> list[dict]:
+    """A port's bookings for one ship with copies of the same call joined (older versions could add
+    a call again each hour when the ship was listed for several calls): the copy with the longest
+    history is kept."""
+    out: list[dict] = []
+    for c in sorted(calls, key=lambda c: -len(c.get("versions") or [])):
+        if not any(abs(_booked(c) - _booked(o)) <= SAME_CALL / 2 for o in out):
+            out.append(c)
+    return sorted(out, key=_booked)
+
+
 class Schedules:
     def __init__(self, folder: Path) -> None:
         self.file = folder / "schedules.json"
@@ -431,7 +446,7 @@ class Schedules:
             return
         self.etas = {int(k): v for k, v in (got.get("etas") or {}).items()}
         self.calls = {int(k): v for k, v in (got.get("calls") or {}).items()}
-        self.bookings = got.get("bookings") or {}
+        self.bookings = {k: _one_per_call(v) for k, v in (got.get("bookings") or {}).items()}
         self.carrier = got.get("carrier") or {}
         self.notes = got.get("notes") or {}
 
@@ -506,11 +521,14 @@ class Schedules:
                     continue
                 key = f"{port['locode']}|{r.get('imo') or _key(r['name'])}"
                 calls = self.bookings.setdefault(key, [])
-                last = calls[-1] if calls else None
-                if not last or abs(r["arrival"] - (last.get("arrival") or 0)) > SAME_CALL:
+                # a liner can be listed for several calls weeks apart: match the nearest, not only the last
+                last = min((c for c in calls if abs(r["arrival"] - _booked(c)) <= SAME_CALL),
+                           key=lambda c: abs(r["arrival"] - _booked(c)), default=None)
+                if not last:
                     last = {"port": port["name"], "locode": port["locode"], "name": r["name"], "imo": r.get("imo"),
                             "first": [now, int(r["arrival"])], "versions": [], "arrival": None, "departs": None}
                     calls.append(last)
+                    calls.sort(key=_booked)
                     del calls[:-20]
                 for k in ("voyage", "prev", "next", "cargo"):
                     if r.get(k):

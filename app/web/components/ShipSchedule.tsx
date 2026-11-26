@@ -8,15 +8,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { get } from "@/lib/api";
 
-export type OnTime = "on_time" | "early" | "slipping" | "late" | "none";
+export type OnTime = "on_time" | "early" | "slipping" | "late" | "none" | "not_tracked";
 const PILL: Record<OnTime, { label: string; color: string }> = {
   on_time: { label: "On time", color: "#2b8a3e" },
   early: { label: "Early", color: "#1c7ed6" },
   slipping: { label: "Slipping", color: "#d9480f" },
   late: { label: "Late", color: "#c92a2a" },
   none: { label: "No ETA", color: "#868e96" },
+  not_tracked: { label: "Not tracked", color: "#868e96" },
 };
-export const ON_TIME_STATES = Object.entries(PILL).map(([id, p]) => ({ id: id as OnTime, label: p.label }));
+export const ON_TIME_STATES = Object.entries(PILL).filter(([id]) => id !== "not_tracked").map(([id, p]) => ({ id: id as OnTime, label: p.label }));
 
 const hrs = (h?: number | null) => {
   if (typeof h !== "number") return "";
@@ -34,7 +35,7 @@ export function OnTimePill({ state, late, by }: { state?: OnTime | null; late?: 
     <span title={by ? `${hrs(late)} ${BY[by] ?? ""}` : undefined} style={{ whiteSpace: "nowrap" }}>
       <span style={{ display: "inline-block", padding: "0 7px", borderRadius: 999, fontSize: "0.85em", fontWeight: 600, color: p.color,
         background: `color-mix(in srgb, ${p.color} 15%, transparent)` }}>{p.label}</span>
-      {state !== "none" && typeof late === "number" ? <span className="muted"> {hrs(late)}</span> : null}
+      {state !== "none" && state !== "not_tracked" && typeof late === "number" ? <span className="muted"> {hrs(late)}</span> : null}
     </span>
   );
 }
