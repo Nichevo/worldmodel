@@ -213,3 +213,22 @@ def test_ghsl_reads_2026_file_with_byte_order_marks(tmp_path):
     con.close()
     auckland = next(c for c in ghsl_centres(p) if c["id"] == "1")
     assert auckland["name"] == "Auckland" and auckland["pop"][1975] == 700000
+
+
+def test_gfw_download_tries_the_yearly_folder_first(tmp_path, monkeypatch):
+    """The old file address answers 404; since 2026 the file is at .../download/<year>/global.xlsx."""
+    from worldmodel_data.connectors.base import ConnectorError
+    from worldmodel_data.connectors.land import GFWTreeCover
+
+    c = GFWTreeCover()
+    asked = []
+
+    def get(url, dest, **kw):
+        asked.append(url)
+        if len(asked) < 2:  # this year's folder is not there yet
+            raise ConnectorError(f"GET {url} returned HTTP 404")
+        dest.write_bytes(b"x")
+
+    monkeypatch.setattr(c, "get", get)
+    assert c.download(tmp_path, "2026").endswith("/global.xlsx") and "/download/20" in asked[1]
+    assert (tmp_path / "global_country_stats.xlsx").exists() and "/download/" in asked[0]

@@ -482,6 +482,9 @@ class GHSLUrbanCentres(Connector):
 
 
 # ----------------------------------------------------------------------------- Global Forest Watch
+# Since 2026 (Global Forest Watch became Global Nature Watch) the file is in a folder per year of
+# data: .../download/2025/global.xlsx. The newest years are tried first, then the old names.
+GFW_YEARLY = "https://gfw2-data.s3.amazonaws.com/country-pages/country_stats/download/{year}/global.xlsx"
 GFW_URLS = [
     "https://gfw2-data.s3.amazonaws.com/country-pages/country_stats/download/global_country_stats.xlsx",
     "https://gfw2-data.s3.amazonaws.com/country-pages/country_stats/download/global_country_stats.zip",
@@ -532,14 +535,17 @@ class GFWTreeCover(Connector):
 
     def download(self, raw_dir: Path, release: str) -> str:
         last = None
-        for url in GFW_URLS:
+        this_year = date.today().year
+        for url in [GFW_YEARLY.format(year=y) for y in range(this_year, this_year - 4, -1)] + GFW_URLS:
+            name = url.rsplit("/", 1)[-1]
             try:
-                self.get(url, raw_dir / url.rsplit("/", 1)[-1])
+                self.get(url, raw_dir / ("global_country_stats.xlsx" if name == "global.xlsx" else name))
                 return url
             except ConnectorError as exc:
                 last = exc
         raise ConnectorError(f"gfw_treecover: the country statistics file could not be downloaded ({last}); "
-                             "save it by hand from the Global Forest Watch dashboard (see Data status)")
+                             "save it by hand from https://www.globalforestwatch.org/dashboards/global/ ('Download global statistics by "
+                             "country') into var\\manual\\gfw_treecover")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         from worldmodel_data.connectors.tabular import xlsx_sheet_names
