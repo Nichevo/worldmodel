@@ -73,10 +73,10 @@ PORT_LISTS = {
 # MPA's vessel movement APIs. Each address can be changed in .env (SG_DUE_TO_ARRIVE_URL,
 # SG_ARRIVALS_URL, SG_DUE_TO_DEPART_URL) to the one shown on the API's page in OCEANS-X; {date} is
 # filled with yyyy-MM-dd. Four asks an hour against a quota of 10 a minute.
-SG_BASE = "https://sg-mdh-api.mpa.gov.sg/v1/vessel"
-SG_ASKS = [("SG_DUE_TO_ARRIVE_URL", SG_BASE + "/duetoarrive/date/{date}", "expected", (0, 1)),
-           ("SG_ARRIVALS_URL", SG_BASE + "/arrivals/date/{date}", "in_port", (0,)),
-           ("SG_DUE_TO_DEPART_URL", SG_BASE + "/duetodepart/date/{date}", "leaving", (0,))]
+SG_BASE = "https://oceans-x.mpa.gov.sg/api/v1/vessel"
+SG_ASKS = [("SG_DUE_TO_ARRIVE_URL", SG_BASE + "/duetoarrive/1.0.0/date/{date}", "expected", (0, 1)),
+           ("SG_ARRIVALS_URL", SG_BASE + "/arrivals/1.0.0/date/{date}", "in_port", (0,)),
+           ("SG_DUE_TO_DEPART_URL", SG_BASE + "/duetodepart/1.0.0/date/{date}", "leaving", (0,))]
 
 # Which line runs a ship, by its name, for asking that line's schedule and for the reliability table.
 LINES = [("MAERSK", "Maersk", "maersk"), ("SEALAND", "Maersk", "maersk"), ("CMA CGM", "CMA CGM", "cmacgm"),
