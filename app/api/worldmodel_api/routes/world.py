@@ -503,12 +503,17 @@ def live_ships_status():
 @api.get("/live/ships/table")
 def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "last_seen",
                      limit: int = Query(200, ge=1, le=2000), offset: int = Query(0, ge=0), hours: float = Query(0, ge=0),
-                     to: str = "", came: str = ""):
+                     to: str = "", came: str = "", ontime: str = ""):
     """Every ship seen: name, MMSI, IMO, call sign, flag, type, size, destination (matched to a port)
-    and where it was last; `to` keeps ships going to a port, code or country containing it."""
+    and where it was last; `to` keeps ships going to a port, code or country containing it. Cargo
+    ships also get on_time (on_time, early, slipping, late, none) and late_h; `ontime` keeps one state
+    (any: every cargo ship with one)."""
     from worldmodel_api import journeys, live
 
-    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=journeys.ports(rows), came=came)
+    ix = journeys.ports(rows)
+    now = time.time()
+    fn = (lambda m: _schedule_of(m, ix, now)) if live.SHIPS.settings().get("ship_schedules", True) else None
+    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=ix, came=came, schedule_fn=fn, ontime=ontime)
     banned = osint.sanctioned_ship_ids(rows)
     for r in out["rows"]:
         r["sanctioned"] = bool(banned and (str(r["id"]) in banned or (r.get("imo") and str(r["imo"]) in banned)))
@@ -573,6 +578,104 @@ def live_ship_journey(mmsi: int, hours: float = Query(72, gt=0, le=24 * 400)):
     from worldmodel_api import journeys, live
 
     return journeys.ship_journey(rows, live.SHIPS, mmsi, hours)
+
+
+def _schedule_of(mmsi: int, ports: dict, now: float | None = None) -> dict | None:
+    """A cargo ship's on-time state (schedules.py), or None for other ships."""
+    from worldmodel_api import journeys, live
+    from worldmodel_api.schedules import is_cargo
+
+    d = live.SHIPS.store.details.get(mmsi) or {}
+    here = live.SHIPS.ships.get(mmsi) or {}
+    if not is_cargo(d.get("kind") or here.get("kind")):
+        return None
+    return live.SHIPS.schedules.status(mmsi, {**d, "imo": d.get("imo") or here.get("imo"), "name": d.get("name") or here.get("name")},
+                                       here, journeys.match_port(d.get("destination"), ports), now)
+
+
+@api.get("/live/ships/schedule/{mmsi}")
+def live_ship_schedule(mmsi: int):
+    """A cargo ship's schedule: on time or late (against its line's schedule, the port's booking or its
+    own first ETA), our estimate of its arrival, its ETA over time, its port calls and its learned route."""
+    from worldmodel_api import journeys, live
+    from worldmodel_api.schedules import line_of
+
+    sch = live.SHIPS.schedules
+    st = _schedule_of(mmsi, journeys.ports(rows))
+    if st is None:
+        raise HTTPException(404, "schedules are kept for cargo and container ships only")
+    d = live.SHIPS.store.details.get(mmsi) or {}
+    ln = line_of(d.get("name"))
+    return {**st, "id": mmsi, "name": d.get("name"), "imo": d.get("imo"), "line": ln[0] if ln else None,
+            "voyages": sch.voyages(mmsi)[-5:], "calls": sch.calls.get(mmsi, [])[-15:], "route": sch.route(mmsi),
+            "on": live.SHIPS.schedules_on()}
+
+
+@api.get("/live/schedules")
+def live_schedules(port: str = "", days: float = Query(7, gt=0, le=60)):
+    """The ports' arrival lists (Auckland, Tauranga) as a board: each ship's booked arrival, how often
+    the booking moved, its own ETA, our estimate and whether it is on time. `port` keeps one port."""
+    from worldmodel_api import journeys, live
+    from worldmodel_api.schedules import PORT_LISTS, line_of
+
+    sch, now = live.SHIPS.schedules, time.time()
+    by_imo = {d.get("imo"): m for m, d in live.SHIPS.store.details.items() if d.get("imo")}
+    ports_ix = journeys.ports(rows)
+    out = []
+    for calls in list(sch.bookings.values()):
+        for b in calls:
+            if port and port.lower() not in (b["port"].lower(), b["locode"].lower()):
+                continue
+            arr = b.get("arrival") or b["first"][1]
+            if b.get("departed_at") or arr < now - 2 * 86400 or arr > now + days * 86400:
+                continue
+            mmsi = by_imo.get(b.get("imo"))
+            st = _schedule_of(mmsi, ports_ix, now) if mmsi else None
+            first = b["versions"][0][1] if b.get("versions") else b["first"][1]
+            v = (st or {}).get("voyage") or {}
+            ln = line_of(b["name"])
+            out.append({"name": b["name"], "imo": b.get("imo"), "id": mmsi, "port": b["port"], "booked": arr, "first_booked": first,
+                        "moved_h": round((arr - first) / 3600, 1), "changes": max(0, len(b.get("versions") or []) - 1),
+                        "own_eta": v.get("eta"), "estimate": ((st or {}).get("estimate") or {}).get("at"),
+                        "arrived_at": b.get("arrived_at") or (st or {}).get("arrived_at"), "in_port": b.get("state") == "in_port",
+                        "state": (st or {}).get("state") or ("late" if (arr - first) / 3600 > 24 else "on_time"),
+                        "late_h": (st or {}).get("late_h") if st and st.get("measured_by") else round((arr - first) / 3600, 1),
+                        "measured_by": (st or {}).get("measured_by") or "port", "prev": b.get("prev"), "next": b.get("next"),
+                        "cargo": b.get("cargo"), "voyage": b.get("voyage"), "line": ln[0] if ln else None})
+    out.sort(key=lambda r: r["booked"])
+    return {"rows": out, "ports": [p["name"] for p in PORT_LISTS.values()], "notes": dict(sch.notes),
+            "on": live.SHIPS.schedules_on(), "lists_on": bool(live.SHIPS.settings().get("port_lists_fetch", True))}
+
+
+@api.get("/live/schedules/reliability")
+def live_schedules_reliability(days: float = Query(30, gt=0, le=400)):
+    """Share of calls on time (within a day of the first booking) by line and by port, from the
+    bookings whose arrival we saw in the last `days`. Our own small sample, not an industry table."""
+    from worldmodel_api import live
+    from worldmodel_api.schedules import ON_TIME_H, line_of
+
+    sch, now = live.SHIPS.schedules, time.time()
+    by_imo = {d.get("imo"): m for m, d in live.SHIPS.store.details.items() if d.get("imo")}
+    tally: dict[tuple[str, str], list[int]] = {}
+    for calls in list(sch.bookings.values()):
+        for b in calls:
+            first = b["versions"][0][1] if b.get("versions") else b["first"][1]
+            mmsi = by_imo.get(b.get("imo"))
+            got = b.get("arrived_at") or (sch._arrived(mmsi, b["locode"], first) if mmsi else None)
+            if not got or got < now - days * 86400:
+                continue
+            ok = abs(got - first) / 3600 <= ON_TIME_H
+            ln = line_of(b["name"])
+            for key in (("line", ln[0] if ln else "Other or not told"), ("port", b["port"])):
+                t = tally.setdefault(key, [0, 0, 0])
+                t[0] += 1
+                t[1] += ok
+                t[2] += max(0, got - first)
+    def part(kind):
+        rows_ = [{"name": k[1], "calls": v[0], "on_time": v[1], "share": v[1] / v[0], "avg_late_h": round(v[2] / v[0] / 3600, 1)}
+                 for k, v in tally.items() if k[0] == kind]
+        return sorted(rows_, key=lambda r: -r["calls"])
+    return {"days": days, "lines": part("line"), "ports": part("port")}
 
 
 @api.get("/live/planes/journey/{icao24}")

@@ -602,6 +602,19 @@ class Ships:
         self.ports_fn = None         # () -> the port index (journeys.ports), set by the API at start
         self._port_grid: tuple[float, dict] | None = None
         self.world_note: str | None = None
+        self._schedules = None
+
+    @property
+    def schedules(self):
+        """Cargo ships' ETA history, port calls and bookings (schedules.py)."""
+        if self._schedules is None:
+            from worldmodel_api.schedules import Schedules
+
+            self._schedules = Schedules(self.store.folder)
+        return self._schedules
+
+    def schedules_on(self) -> bool:
+        return self.collecting() and bool(self.settings().get("ship_schedules", True))
 
     def settings(self) -> dict:
         """Settings, read again at most every 10 seconds (take() asks for each message)."""
@@ -657,6 +670,16 @@ class Ships:
             log.warning("ship store: could not read recent ships: %s", exc)
         self.keeper = threading.Thread(target=self._keep, daemon=True, name="aisstream-keeper")
         self.keeper.start()
+        self.schedules.start(self.settings, self.followed_cargo)
+
+    def followed_cargo(self, days: float = 2) -> list[dict]:
+        """Cargo ships with an IMO number heard in the last `days`, newest first (whose lines' schedules are asked)."""
+        from worldmodel_api.schedules import is_cargo
+
+        cut = time.time() - days * 86400
+        got = [{"id": m, "imo": d.get("imo"), "name": d.get("name"), "seen": d.get("last_seen") or 0}
+               for m, d in list(self.store.details.items()) if is_cargo(d.get("kind")) and d.get("imo") and (d.get("last_seen") or 0) >= cut]
+        return sorted(got, key=lambda r: -r["seen"])
 
     def _keep(self) -> None:
         while True:
@@ -674,6 +697,8 @@ class Ships:
                 if time.time() - self.details_saved >= DETAILS_EVERY:
                     self.details_saved = time.time()
                     self.store.save_details(int(self.settings().get("ships_keep_days") or 30))
+                    if self._schedules is not None:
+                        self._schedules.save(int(self.settings().get("schedules_keep_days") or 90))
                 if time.time() - self.tidied >= TIDY_EVERY:
                     self.tidied = time.time()
                     self.store.tidy(int(self.settings().get("ships_keep_days") or 30))
@@ -816,7 +841,8 @@ class Ships:
                 "from_typed": _typed_from(d.get("destination"))}
 
     def table(self, q: str = "", group: str = "", flag_code: str = "", sort: str = "last_seen", limit: int = 200,
-              offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None, came: str = "") -> dict:
+              offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None, came: str = "",
+              schedule_fn=None, ontime: str = "") -> dict:
         """Every ship seen (saved details while collecting, else those in memory), filtered and sorted.
         With a port index each row gets the port its destination names; `to` keeps ships whose
         destination, port or port country contains it."""
@@ -840,6 +866,14 @@ class Ships:
         if hours:
             cut = time.time() - hours * 3600
             rows = [r for r in rows if (r["last_seen"] or 0) >= cut]
+        if schedule_fn is not None:  # cargo ships: on time, slipping, late (schedules.py)
+            for r in rows:
+                if r["group"] == "cargo":
+                    st = schedule_fn(r["id"]) or {}
+                    r["on_time"], r["late_h"] = st.get("state"), st.get("late_h")
+                    r["eta_moved_h"], r["estimate_at"] = st.get("moved_h"), (st.get("estimate") or {}).get("at")
+        if ontime:
+            rows = [r for r in rows if r.get("on_time") == ontime or (ontime == "any" and r.get("on_time") not in (None, "none"))]
         if q:
             ql = q.lower()
             rows = [r for r in rows if any(ql in str(r.get(k) or "").lower() for k in ("name", "id", "imo", "callsign", "destination", "flag"))]
@@ -1037,6 +1071,8 @@ class Ships:
         if saving:
             if self.collecting():
                 self.store.note(mmsi, **static)
+                if self.schedules_on() and _cargo(static.get("kind") or s.get("kind")) and ("eta" in static or "destination" in static):
+                    self.schedules.note_eta(mmsi, static.get("destination"), static.get("eta"))
             return
         with self.lock:
             lat, lon = meta.get("latitude"), meta.get("longitude")
@@ -1050,10 +1086,15 @@ class Ships:
                 saved = self.store.add(mmsi, ship["lat"], ship["lon"], ship.get("speed_kn"), ship.get("heading"), ship.get("name"),
                                        kind=ship.get("kind"))
                 sog = ship.get("speed_kn")
+                cargo = self.schedules_on() and _cargo(ship.get("kind"))
                 if saved and isinstance(sog, (int, float)) and sog < 0.5:  # stopped: in which port?
                     port = self.port_near(ship["lon"], ship["lat"])
                     if port:
                         self.store.note(mmsi, last_port=port, last_port_at=int(time.time()))
+                        if cargo:
+                            self.schedules.note_stop(mmsi, port)
+                elif cargo and isinstance(sog, (int, float)) and sog >= 3:
+                    self.schedules.note_move(mmsi)
                 self.store.note(mmsi, name=ship.get("name"), lat=ship["lat"], lon=ship["lon"], speed_kn=ship.get("speed_kn"),
                                 heading=ship.get("heading"), status=(body.get("NavigationalStatus") if isinstance(body.get("NavigationalStatus"), int) else None))
             except OSError as exc:
@@ -1110,6 +1151,10 @@ def _static(kind: str, body: dict) -> dict:
         out["length_m"] = (dim.get("A") or 0) + (dim.get("B") or 0) or None
         out["width_m"] = (dim.get("C") or 0) + (dim.get("D") or 0) or None
     return out
+
+
+def _cargo(kind) -> bool:
+    return isinstance(kind, int) and 70 <= kind <= 79
 
 
 def ship_group(code) -> str:
