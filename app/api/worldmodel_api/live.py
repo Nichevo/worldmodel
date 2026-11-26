@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -30,6 +31,8 @@ OPENSKY = "https://opensky-network.org/api/states/all"
 OPENSKY_TOKEN = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 AISSTREAM = "wss://stream.aisstream.io/v0/stream"
 PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
+PLANE_WORLD_EVERY = 5 * 60.0        # background whole-world requests with an OpenSky API client
+PLANE_WORLD_EVERY_ANON = 30 * 60.0  # ... and without one (48 a day, about half the anonymous credits)
 PLANE_EVERY_ANON = 180.0  # without one: anonymous users get about 400 credits a day, 1-4 a request
 SHIP_KEEP = 20 * 60    # seconds a ship's last position is shown
 SHIP_IDLE = 5 * 60     # the socket closes after this long without a request
@@ -82,6 +85,9 @@ class Planes:
         self._store = store
         self._settings_fn = settings
         self.tidied = 0.0
+        self.keeper: threading.Thread | None = None
+        self.world_at = 0.0
+        self.world_note: str | None = None
         self.route_thread: threading.Thread | None = None
         self.route_failed: dict[str, float] = {}
         self.lock = threading.Lock()
@@ -107,6 +113,36 @@ class Planes:
 
     def collecting(self) -> bool:
         return bool(self.settings().get("planes_collect", True))
+
+    def world_every(self) -> float:
+        """Seconds between background whole-world requests (0: off). A world request costs OpenSky
+        4 credits: anonymous users get about 400 a day, an API client about 4,000."""
+        s = self.settings()
+        if not (s.get("live_planes", True) and s.get("planes_collect", True) and s.get("planes_world", True)):
+            return 0.0
+        client = os.environ.get("OPENSKY_CLIENT_ID") and os.environ.get("OPENSKY_CLIENT_SECRET")
+        return PLANE_WORLD_EVERY if client else PLANE_WORLD_EVERY_ANON
+
+    def start(self) -> None:
+        """At app start: ask OpenSky for the whole world every so often and save it (Settings > Transport)."""
+        if self.keeper and self.keeper.is_alive():
+            return
+        self.keeper = threading.Thread(target=self._keep, daemon=True, name="planes-world")
+        self.keeper.start()
+
+    def _keep(self) -> None:
+        time.sleep(60)  # let the app start first
+        while True:
+            try:
+                every = self.world_every()
+                if every and time.time() - self.world_at >= every:
+                    self.world_at = time.time()
+                    got = self.get(-180, -90, 180, 90)
+                    self.world_note = (f"Whole world at {time.strftime('%H:%M')}: {len(got.get('features') or []):,} planes."
+                                       + (f" {got['error']}" if got.get("error") else ""))
+            except Exception as exc:  # noqa: BLE001 - keep going
+                log.warning("planes world: %s", exc)
+            time.sleep(30)
 
     def _save(self, feats: list) -> None:
         """Keep every OpenSky answer's planes (Settings > Transport), and tidy the files hourly."""
@@ -142,7 +178,8 @@ class Planes:
             out = self.store.status()
         except Exception as exc:  # noqa: BLE001
             out = {"days": 0, "bytes": 0, "first": None, "last": None, "error": str(exc)}
-        return {**out, "collecting": self.collecting(), "keep_days": int(self.settings().get("planes_keep_days") or 30)}
+        return {**out, "collecting": self.collecting(), "keep_days": int(self.settings().get("planes_keep_days") or 30),
+                "world_every_minutes": round(self.world_every() / 60), "world_note": self.world_note}
 
     def _kept(self, bx: list, error: str) -> dict:
         """The planes last read (if any), with why they are not new."""
@@ -294,6 +331,18 @@ class Planes:
         self.route_thread.start()
 
 
+def _km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    h = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(min(1.0, h)))
+
+
+def _typed_from(dest) -> str | None:
+    """The FROM of a destination typed as FROM>TO (some crews do), else None."""
+    text = str(dest or "")
+    return text.split(">")[0].strip() or None if ">" in text else None
+
+
 def _place(a: dict) -> dict:
     return {"name": a.get("name"), "iata": a.get("iata"), "icao": a.get("icao"), "city": a.get("city"), "country": a.get("country")}
 
@@ -402,6 +451,8 @@ class Ships:
         self.details_saved = time.time()
         self.world_at = 0.0          # when the last whole-world snapshot started (0: not yet planned)
         self.world_until = 0.0       # while before this, the one connection listens to the whole world
+        self.ports_fn = None         # () -> the port index (journeys.ports), set by the API at start
+        self._port_grid: tuple[float, dict] | None = None
         self.world_note: str | None = None
 
     def settings(self) -> dict:
@@ -562,6 +613,35 @@ class Ships:
         return {"type": "FeatureCollection", "features": feats, "points": len(pts), "hours": hours,
                 "from": pts[0][0] if pts else None, "to": pts[-1][0] if pts else None}
 
+    def port_near(self, lon: float, lat: float, within_km: float = 15) -> dict | None:
+        """The World Port Index port nearest a stopped ship, if one is within_km (ports_fn is set by
+        the API at start; ports are kept in 1-degree cells so this is quick)."""
+        if self.ports_fn is None:
+            return None
+        if self._port_grid is None or time.time() - self._port_grid[0] > 3600:
+            grid: dict[tuple[int, int], list[dict]] = {}
+            try:
+                index = self.ports_fn()
+            except Exception as exc:  # noqa: BLE001 - no ports loaded yet
+                log.info("ports for ships: %s", exc)
+                index = {}
+            seen = set()
+            for pt in list((index.get("code") or {}).values()) + list((index.get("name") or {}).values()):
+                if id(pt) in seen or pt.get("lat") is None:
+                    continue
+                seen.add(id(pt))
+                grid.setdefault((math.floor(pt["lat"]), math.floor(pt["lon"])), []).append(pt)
+            self._port_grid = (time.time(), grid)
+        grid = self._port_grid[1]
+        best, best_d = None, within_km
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                for pt in grid.get((math.floor(lat) + dy, (math.floor(lon) + dx + 180) % 360 - 180), []):
+                    d = _km(lon, lat, pt["lon"], pt["lat"])
+                    if d < best_d:
+                        best, best_d = pt, d
+        return {k: best.get(k) for k in ("name", "country", "locode")} if best else None
+
     def _row(self, mmsi: int, d: dict) -> dict:
         from worldmodel_api.shipflags import flag
 
@@ -577,10 +657,12 @@ class Ships:
                 "status": NAV_STATUS.get(d.get("status")) if isinstance(d.get("status"), int) else None,
                 "speed_kn": live.get("speed_kn", d.get("speed_kn")), "heading": live.get("heading", d.get("heading")),
                 "lat": live.get("lat", d.get("lat")), "lon": live.get("lon", d.get("lon")),
-                "first_seen": d.get("first_seen"), "last_seen": last}
+                "first_seen": d.get("first_seen"), "last_seen": last,
+                "last_port": d.get("last_port"), "last_port_at": d.get("last_port_at"),
+                "from_typed": _typed_from(d.get("destination"))}
 
     def table(self, q: str = "", group: str = "", flag_code: str = "", sort: str = "last_seen", limit: int = 200,
-              offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None) -> dict:
+              offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None, came: str = "") -> dict:
         """Every ship seen (saved details while collecting, else those in memory), filtered and sorted.
         With a port index each row gets the port its destination names; `to` keeps ships whose
         destination, port or port country contains it."""
@@ -593,6 +675,10 @@ class Ships:
             for r in rows:
                 pt = match_port(r.get("destination"), ports)
                 r["to_port"] = {k: pt.get(k) for k in ("name", "country", "locode")} if pt else None
+        if came:
+            cl = came.lower()
+            rows = [r for r in rows if cl in " ".join(str(x or "") for x in (
+                r.get("from_typed"), *((r.get("last_port") or {}).values()))).lower()]
         if to:
             tl = to.lower()
             rows = [r for r in rows if tl in " ".join(str(x or "") for x in (
@@ -735,8 +821,13 @@ class Ships:
             ship = dict(s)
         if self.collecting():
             try:
-                self.store.add(mmsi, ship["lat"], ship["lon"], ship.get("speed_kn"), ship.get("heading"), ship.get("name"),
-                               kind=ship.get("kind"))
+                saved = self.store.add(mmsi, ship["lat"], ship["lon"], ship.get("speed_kn"), ship.get("heading"), ship.get("name"),
+                                       kind=ship.get("kind"))
+                sog = ship.get("speed_kn")
+                if saved and isinstance(sog, (int, float)) and sog < 0.5:  # stopped: in which port?
+                    port = self.port_near(ship["lon"], ship["lat"])
+                    if port:
+                        self.store.note(mmsi, last_port=port, last_port_at=int(time.time()))
                 self.store.note(mmsi, name=ship.get("name"), lat=ship["lat"], lon=ship["lon"], speed_kn=ship.get("speed_kn"),
                                 heading=ship.get("heading"), status=(body.get("NavigationalStatus") if isinstance(body.get("NavigationalStatus"), int) else None))
             except OSError as exc:

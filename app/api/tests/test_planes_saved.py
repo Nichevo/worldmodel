@@ -80,3 +80,32 @@ def test_ships_table_going_to_filter(tmp_path, monkeypatch):
     t = ships.table(ports=idx, to="new zealand")
     assert [r["id"] for r in t["rows"]] == [512000001] and t["rows"][0]["to_port"]["name"] == "Tauranga"
     assert [r["id"] for r in ships.table(ports=idx, to="syd")["rows"]] == [512000002]
+
+
+def test_ships_last_port_and_typed_from(tmp_path, monkeypatch):
+    from worldmodel_api.shipstore import ShipStore
+
+    monkeypatch.setenv("AISSTREAM_API_KEY", "k")
+    ships = live.Ships(store=ShipStore(tmp_path / "ships"), settings=lambda: {"live_ships": True, "ships_collect": True})
+    tauranga = {"name": "Tauranga", "country": "New Zealand", "locode": "NZ TRG", "lon": 176.18, "lat": -37.65}
+    ships.ports_fn = lambda: {"code": {"NZTRG": tauranga}, "name": {}}
+    msg = {"MessageType": "PositionReport", "MetaData": {"MMSI": 512000009, "ShipName": "KIWI", "latitude": -37.66, "longitude": 176.19},
+           "Message": {"PositionReport": {"Sog": 0.1, "TrueHeading": 10, "NavigationalStatus": 5}}}
+    ships.take(msg)
+    ships.store.note(512000009, destination="NZTRG>AUSYD")
+    row = ships.table()["rows"][0]
+    assert row["last_port"]["name"] == "Tauranga" and row["from_typed"] == "NZTRG"
+    assert ships.table(came="tauranga")["total"] == 1 and ships.table(came="sydney")["total"] == 0
+    assert ships.port_near(150.0, -30.0) is None
+
+
+def test_planes_world_every_follows_settings_and_client(tmp_path, monkeypatch):
+    s = {"planes_collect": True, "planes_world": True}
+    planes = live.Planes(store=PlaneStore(tmp_path / "planes"), settings=lambda: s)
+    monkeypatch.delenv("OPENSKY_CLIENT_ID", raising=False)
+    assert planes.world_every() == live.PLANE_WORLD_EVERY_ANON
+    monkeypatch.setenv("OPENSKY_CLIENT_ID", "a")
+    monkeypatch.setenv("OPENSKY_CLIENT_SECRET", "b")
+    assert planes.world_every() == live.PLANE_WORLD_EVERY
+    s["planes_world"] = False
+    assert planes.world_every() == 0 and planes.status()["world_every_minutes"] == 0

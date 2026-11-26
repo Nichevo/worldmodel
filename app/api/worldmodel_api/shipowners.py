@@ -4,7 +4,8 @@ opened and kept for 30 days in <home>/live/ships/owners.json.
 - Global Fishing Watch's vessel identity API (needs a free GFW_API_TOKEN; non-commercial use):
   registered owners, flags, registry details and authorisations. Best for fishing boats and the
   carriers that serve them.
-- Wikidata (no key): notable ships by IMO number, with builder, operator, owner, year and a picture.
+- Wikidata (no key): notable ships by IMO number, with builder, operator, owner, year and a picture,
+  and Wikimedia Commons photos filed under the ship's "IMO nnnnnnn" category (free licences).
 - Equasis has owners and managers for nearly every merchant ship but forbids automated reading,
   so it is only a link (search by IMO there after signing in).
 
@@ -189,12 +190,45 @@ def wikidata(imo: str) -> dict | None:
         return parse_wikidata(r.json()) or {"none": True}
 
 
+# ----------------------------------------------------------------------------- Wikimedia Commons photos
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+
+
+def parse_commons(body: dict) -> list[dict]:
+    """Photos in a Commons 'IMO nnnnnnn' category: thumbnail, page, author and licence."""
+    import re as _re
+
+    out = []
+    for page in sorted(((body.get("query") or {}).get("pages") or {}).values(), key=lambda p: p.get("index", 0)):
+        info = (page.get("imageinfo") or [{}])[0]
+        if not info.get("thumburl"):
+            continue
+        meta = info.get("extmetadata") or {}
+
+        def text(k):
+            return _re.sub(r"<[^>]+>", "", str((meta.get(k) or {}).get("value") or "")).strip() or None
+
+        out.append({"thumb": info["thumburl"], "page": info.get("descriptionurl"), "title": page.get("title", "").removeprefix("File:"),
+                    "author": text("Artist"), "licence": text("LicenseShortName"), "date": (text("DateTimeOriginal") or "")[:10] or None})
+    return out
+
+
+def commons(imo: str, limit: int = 6) -> list[dict]:
+    params = {"action": "query", "format": "json", "generator": "categorymembers", "gcmtitle": f"Category:IMO {imo}",
+              "gcmtype": "file", "gcmlimit": str(limit), "prop": "imageinfo", "iiprop": "url|extmetadata", "iiurlwidth": "400",
+              "iiextmetadatafilter": "Artist|LicenseShortName|DateTimeOriginal"}
+    with httpx.Client(timeout=20, headers=UA) as client:
+        r = client.get(COMMONS_API, params=params)
+        r.raise_for_status()
+        return parse_commons(r.json())
+
+
 # ----------------------------------------------------------------------------- together
 def owner(store: Owners, mmsi: int, detail: dict, settings: dict) -> dict:
     imo = str(detail.get("imo") or "").strip() or None
     if imo and not imo.isdigit():
         imo = None
-    out: dict = {"mmsi": mmsi, "imo": imo, "gfw": None, "wikidata": None, "equasis": None, "notes": []}
+    out: dict = {"mmsi": mmsi, "imo": imo, "gfw": None, "wikidata": None, "photos": None, "equasis": None, "notes": []}
     if settings.get("ship_owners_gfw", True):
         token = gfw_token()
         if not token:
@@ -204,6 +238,8 @@ def owner(store: Owners, mmsi: int, detail: dict, settings: dict) -> dict:
     if settings.get("ship_owners_wikidata", True):
         if imo:
             out["wikidata"] = store.get(imo, "wikidata", lambda: wikidata(imo))
+            photos = store.get(imo, "commons", lambda: commons(imo))
+            out["photos"] = photos if isinstance(photos, list) else None
         else:
             out["notes"].append("Wikidata is searched by IMO number, which this ship has not sent.")
     if settings.get("ship_owners_equasis", True):

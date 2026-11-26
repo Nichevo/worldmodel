@@ -419,12 +419,14 @@ export default function SettingsPage() {
           save={(v) => save({ ships_keep_days: v })} />
         <Toggle label="Save planes" hint="Every plane OpenSky sends the map is saved (a position every 4 minutes each, in var\live\planes), so the time slider, plane paths and the Planes table keep planes that have landed or left the view; what was looked up about a plane (route, aircraft, path) is kept too and not asked again. Planes are only fetched while the Planes layer is open, so it grows only then: a whole-world view open all day is roughly 150 MB that day, about 30 MB once compacted overnight. Off: only the last answer is shown."
           on={s.planes_collect} set={(v) => save({ planes_collect: v })} />
+        <Toggle label="Planes from the whole world" hint="While the app runs, ask OpenSky for every plane in the world every 30 minutes (every 5 with a free OpenSky API client in Settings > Keys) and save them, so planes build up from everywhere even with the map closed. Each whole-world request uses 4 of OpenSky's daily credits (about 400 anonymous, 4,000 with a client). Off: only the map's view is fetched, while the Planes layer is on."
+          on={s.planes_world} set={(v) => save({ planes_world: v })} />
         <NumberField label="Keep saved planes for" unit="days" value={s.planes_keep_days} min={1} max={400} step={1}
           note="Older days of plane positions are deleted."
           save={(v) => save({ planes_keep_days: v })} />
         <Toggle label="Ship owners: Global Fishing Watch" hint="Opening a ship's details asks Global Fishing Watch (free GFW_API_TOKEN in Settings > Keys, non-commercial use) for its registered owners, flag history and authorisations, kept 30 days. Strongest for fishing boats and their carriers. Off: that part of the details is left out."
           on={s.ship_owners_gfw} set={(v) => save({ ship_owners_gfw: v })} />
-        <Toggle label="Ship owners: Wikidata" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner, year and picture, by IMO number. Only well-known ships are there. Off: that part is left out."
+        <Toggle label="Ship owners: Wikidata and photos" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner and year, and Wikimedia Commons for up to 6 freely licensed photos filed under its IMO number, with credits. Only ships with an IMO number; well-known ones have the most. Off: those parts are left out."
           on={s.ship_owners_wikidata} set={(v) => save({ ship_owners_wikidata: v })} />
         <Toggle label="Ship owners: Equasis link" hint="A ship's details link to Equasis (free sign-in), which has owners and managers for nearly every merchant ship; its terms forbid automated reading, so it is only a link. Off: no link."
           on={s.ship_owners_equasis} set={(v) => save({ ship_owners_equasis: v })} />
