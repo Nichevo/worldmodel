@@ -218,3 +218,44 @@ def test_downloads(tmp_path):
         d.mkdir()
         CONNECTORS[source](client=client).download(d, "2026-11-23")
         assert sorted(p.name for p in d.iterdir()) == want
+
+
+def test_bls_county_api(tmp_path, monkeypatch):
+    """With BLS_API_KEY the county rates come from the BLS API, 50 series a question; the key goes in the body."""
+    import httpx
+    from worldmodel_data.connectors import us
+
+    asked = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "www.bls.gov" in str(req.url):
+            return httpx.Response(403)
+        body = json.loads(req.content)
+        asked.append(body)
+        assert body["registrationkey"] == "k" and len(body["seriesid"]) <= 50 and "k" not in str(req.url)
+        series = [{"seriesID": s, "data": [{"year": body["endyear"], "period": "M13", "value": "5.8"},
+                                           {"year": body["endyear"], "period": "M12", "value": "9.9"}]}
+                  for s in body["seriesid"]]
+        return httpx.Response(200, json={"status": "REQUEST_SUCCEEDED", "Results": {"series": series}})
+
+    monkeypatch.setattr(us.time, "sleep", lambda s: None)
+    monkeypatch.setattr(us, "county_fips", lambda: ["06037", "06059", "35013"])
+    monkeypatch.setenv("BLS_API_KEY", "k")
+    d = tmp_path / "raw"
+    d.mkdir()
+    c = CONNECTORS["bls_laus_county"](client=httpx.Client(transport=httpx.MockTransport(handler)))
+    c.download(d, "2026-11-26")
+    assert len(asked) == 2 and asked[0]["startyear"] == "1990" and asked[1]["startyear"] == "2010"
+    assert "k" not in (d / "laus_api_1990_000.json").read_text()
+    (d / "laucnty09.xlsx.csv").write_text("CN0603700000000,06,037,Los Angeles County,2009,1,1,1,1.0\n")
+    con = duckdb.connect()
+    c.stage(con, d, "2026-11-26", "v1")
+    got = dict(con.execute("SELECT source_code || ':' || year(period_start), value FROM vals").fetchall())
+    assert got["06037:2009"] == 5.8 and got["35013:2009"] == 5.8  # the year's average (M13), API before the saved file
+    assert len(got) == len(con.execute("SELECT * FROM vals").fetchall())
+
+    monkeypatch.delenv("BLS_API_KEY")
+    d2 = tmp_path / "raw2"
+    d2.mkdir()
+    with pytest.raises(Exception, match="BLS_API_KEY"):
+        CONNECTORS["bls_laus_county"](client=httpx.Client(transport=httpx.MockTransport(handler))).download(d2, "x")

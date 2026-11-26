@@ -16,8 +16,10 @@ us_unemployment
     FRED (fredgraph.csv, keyless): each state's unemployment rate (BLS local area figures),
     monthly from 1976, kept as yearly averages.
 bls_laus_county
-    BLS local area unemployment, county yearly averages (laucntyYY.xlsx), 1990 onward. BLS often
-    turns scripts away; a file saved by hand into var\\manual\\bls_laus_county is read instead.
+    BLS local area unemployment, county yearly averages, 1990 onward. With a free BLS_API_KEY the
+    figures come from the BLS public API (about 130 questions the first time, 65 after); without
+    one the yearly files (laucntyYY.xlsx) are tried, which BLS's firewall often turns away. A file
+    saved by hand into var\\manual\\bls_laus_county is read instead either way.
 fhfa_hpi
     FHFA house price index (keyless): states quarterly from 1975 (kept as yearly averages,
     2000 = 100), counties yearly.
@@ -73,6 +75,8 @@ ACS = "https://api.census.gov/data/{y}/acs/acs5"
 BEA_ZIP = "https://apps.bea.gov/regional/zip/{name}.zip"
 FRED = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={ids}"
 BLS_CTY = "https://www.bls.gov/lau/laucnty{yy}.xlsx"
+BLS_API = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+BLS_API_SERIES, BLS_API_YEARS = 50, 20  # most series and years one question may ask for (with a key)
 FHFA_STATE = "https://www.fhfa.gov/hpi/download/quarterly_datasets/hpi_at_state.csv"
 FHFA_COUNTY = "https://www.fhfa.gov/hpi/download/annual/hpi_at_county.xlsx"
 DATAVERSE = "https://dataverse.harvard.edu/api/"
@@ -527,11 +531,42 @@ def laus_county_rows(path: Path, rows: Rows) -> int:
     return n
 
 
+def laus_api_rows(path: Path, rows: Rows) -> int:
+    """A saved BLS API answer: series LAUCN<fips>0000000003 (unemployment rate), period M13 (the year's average)."""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    n = 0
+    for s in ((doc.get("Results") or {}).get("series") or []):
+        m = re.fullmatch(r"LAUCN(\d{5})0000000003", s.get("seriesID", ""))
+        fips = fips5(m.group(1)) if m else None
+        if not fips or len(fips) != 5:
+            continue
+        for d in s.get("data") or []:
+            y, v = num(d.get("year")), num(d.get("value"))
+            if d.get("period") == "M13" and y is not None and v is not None:
+                rows.add("us_fips", fips, "usreg_unemployment_rate", int(y), v)
+                n += 1
+    return n
+
+
+def county_fips() -> list[str]:
+    """Every county's FIPS code in the catalogue (counties that have ended too, for their older years)."""
+    return sorted({c["code"] for c in catalogue.entity_codes() if c["scheme"] == "us_fips" and len(c["code"] or "") == 5})
+
+
 class BLSLAUSCounty(USConnector):
     source_id = "bls_laus_county"
     keeps_files = True  # past years do not change; the last two are asked for each time
+    stage_version = 2   # also reads saved BLS API answers (laus_api_*.json)
 
     def download(self, raw_dir: Path, release: str) -> str:
+        import os
+
+        key = os.environ.get("BLS_API_KEY", "").strip()
+        if key:
+            return self._from_api(raw_dir, key)
         last = self.last_vintage_dir(raw_dir)
         newest = date.today().year - 1
         got = 0
@@ -542,16 +577,62 @@ class BLSLAUSCounty(USConnector):
             if self.try_get(BLS_CTY.format(yy=f"{y % 100:02d}"), raw_dir / name):
                 got += 1
             elif got == 0 and y == 1990:
-                raise ConnectorError("bls_laus_county: BLS turned the download away; save the county files by hand "
-                                     "(var\\manual\\bls_laus_county)")
+                raise ConnectorError("bls_laus_county: BLS turned the download away. Add a free BLS_API_KEY "
+                                     "(Settings > Keys; sign up at https://data.bls.gov/registrationEngine/) or save "
+                                     "the county files by hand (var\\manual\\bls_laus_county)")
             time.sleep(1)
         return BLS_CTY.format(yy="YY")
 
+    def _from_api(self, raw_dir: Path, key: str) -> str:
+        """Ask the BLS API for every county's yearly average rate, 50 counties and 20 years a question.
+        Spans that ended more than two years ago are carried over from the last vintage, not asked again."""
+        last = self.last_vintage_dir(raw_dir)
+        newest = date.today().year - 1
+        fips = county_fips()
+        batches = [fips[i:i + BLS_API_SERIES] for i in range(0, len(fips), BLS_API_SERIES)]
+        asked = got = 0
+        for start in range(1990, newest + 1, BLS_API_YEARS):
+            end = min(start + BLS_API_YEARS - 1, newest)
+            for i, batch in enumerate(batches):
+                name = f"laus_api_{start}_{i:03d}.json"
+                if last and (last / name).exists() and end < newest - 1:
+                    continue
+                body = {"seriesid": [f"LAUCN{f}0000000003" for f in batch], "startyear": str(start),
+                        "endyear": str(end), "annualaverage": True, "registrationkey": key}
+                if asked:
+                    time.sleep(0.5)
+                asked += 1
+                try:
+                    r = self.client.post(BLS_API, json=body, timeout=60)
+                    doc = r.json() if r.status_code == 200 else {}
+                except (httpx.HTTPError, ValueError) as exc:
+                    log.info("bls_laus_county: the BLS API did not answer (%s)", exc)
+                    doc = {}
+                status = doc.get("status")
+                if status != "REQUEST_SUCCEEDED":
+                    said = "; ".join(str(m) for m in doc.get("message") or []) or f"HTTP {getattr(r, 'status_code', '?')}"
+                    if got == 0:
+                        raise ConnectorError(f"bls_laus_county: the BLS API turned the question away ({said[:200]}). "
+                                             "Is BLS_API_KEY right? (a key allows 500 questions a day)")
+                    log.info("bls_laus_county: stopped after %s answers (%s); the next refresh asks for the rest",
+                             got, said[:200])
+                    return BLS_API
+                (raw_dir / name).write_text(json.dumps({"status": status, "Results": doc.get("Results")}), encoding="utf-8")
+                got += 1
+        log.info("bls_laus_county: %s answers from the BLS API (%s counties)", got, len(fips))
+        return BLS_API
+
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows = Rows()
-        for p in sorted(raw_dir.iterdir()):
+        files = sorted(raw_dir.iterdir())
+        for p in files:  # API answers first: a year also in a saved file keeps the API's figure
+            if p.name.startswith("laus_api_") and p.suffix.lower() == ".json":
+                laus_api_rows(p, rows)
+        for p in files:
             if p.suffix.lower() in (".xlsx", ".xlsm", ".txt", ".csv"):
                 laus_county_rows(p, rows)
+        seen: set[tuple] = set()
+        rows.rows = [r for r in rows.rows if (r[1], r[3]) not in seen and not seen.add((r[1], r[3]))]
         if not rows:
             raise ConnectorError(f"bls_laus_county: no county figures read from {raw_dir}")
         self.listed_indicators = [unemployment_indicator(self.source_id, "laucnty")]
