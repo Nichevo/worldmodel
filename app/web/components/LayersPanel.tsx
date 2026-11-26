@@ -266,10 +266,11 @@ const BASE_MAPS: { id: "plain" | "online" | "local"; label: string; gives: strin
   { id: "online", label: "Street detail (online)", gives: "Needs the internet; OpenFreeMap tiles." },
   { id: "local", label: "Street detail (this PC)", gives: "Only as far as the map files you made (Settings > Map)." },
 ];
-const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; label: string; gives: string }[] = [
+const LOOKS: { id: "plain" | "relief" | "satellite" | "sharp" | "night" | "landcover"; label: string; gives: string }[] = [
   { id: "plain", label: "Plain", gives: "Just the country colours." },
   { id: "relief", label: "Shaded relief", gives: "Mountains, valleys and sea depths, shaded as if lit from the north-west." },
-  { id: "satellite", label: "Satellite", gives: "A cloud-free picture of the whole Earth (Sentinel-2, 2020)." },
+  { id: "satellite", label: "Satellite (10 m, 2020)", gives: "A cloud-free picture of the whole Earth (Sentinel-2, 2020)." },
+  { id: "sharp", label: "Satellite (sharp)", gives: "LINZ aerial photos in New Zealand (down to 7.5 cm; needs your free LINZ key) and Esri World Imagery elsewhere (about 0.5 m, for looking only)." },
   { id: "night", label: "Night lights", gives: "Lights seen from space at night: where people, money and power are." },
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];

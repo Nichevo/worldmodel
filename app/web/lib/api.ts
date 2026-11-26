@@ -432,7 +432,7 @@ export type Settings = {
   api_daily_limit: number; // calls a day per key
   digest_on: boolean; // the weekly digest on the Briefing
   watchlist_on: boolean; // watchlist alerts on the Briefing
-  map_look: "plain" | "relief" | "satellite" | "night" | "landcover"; // under the country colours
+  map_look: "plain" | "relief" | "satellite" | "sharp" | "night" | "landcover"; // under the country colours
   relief_style: "classic" | "grey" | "satellite";
   relief_shading: number; // 0..1
   map_colours_over: number; // 0..1, how solid the country colours are over a picture
@@ -449,6 +449,9 @@ export type Settings = {
   spot_ask_model: string; // Ask the picture: "" = the biggest model that can see pictures
   spot_scan_model: string; // Area scans: "" = the smallest model that can see pictures
   spot_min_sure: number; // Spotted by AI layer: at least this sure (0-1)
+  sharp_outside_nz: "esri" | "eox"; // Satellite (sharp) background outside New Zealand
+  sharp_save_maxzoom: number; // saved LINZ aerial photos stop at this zoom
+  timelapse_summers: boolean; // timelapse: each year's picture from the summer months
   map_true_size: boolean;
   space_fetch: boolean;
   space_values: boolean;

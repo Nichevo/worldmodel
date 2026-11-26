@@ -1121,7 +1121,13 @@ type TileArea = { id: string; set: string; t: string; name: string; bbox: number
 type TileStatus = { areas: TileArea[]; size: string; job: { state: string; step?: string; done?: number; total?: number; error?: string };
   starter_done: boolean; starter_size: string };
 type TileCheck = { tiles: number; size: string; fits: boolean; why: string | null };
-const SET_NAME: Record<string, string> = { relief: "Relief", satellite: "Satellite", night: "Night lights" };
+const SET_NAME: Record<string, string> = { relief: "Relief", satellite: "Satellite", night: "Night lights", aerial: "Aerial photos (LINZ)", satyears: "Satellite by year" };
+// Places in New Zealand offered for saving aerial photos (a whole country at zoom 15 would be far too big).
+const NZ_SAVE_PLACES: Record<string, number[]> = {
+  Auckland: [174.60, -37.05, 174.95, -36.75], Hamilton: [175.20, -37.84, 175.36, -37.71], Tauranga: [176.05, -37.76, 176.35, -37.60],
+  Wellington: [174.70, -41.35, 174.95, -41.10], Christchurch: [172.50, -43.62, 172.78, -43.42], Queenstown: [168.60, -45.06, 168.78, -44.97],
+  Dunedin: [170.42, -45.92, 170.56, -45.84],
+};
 
 // Relief, satellite and night lights: how they look, where they come from, and the copies saved here.
 function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>) => void }) {
@@ -1146,13 +1152,15 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
   };
   const yearOf = (set: string, t: string) => (set === "night" ? (t === "-" ? "2016" : t) : set === "lcyears" ? (/^\d{4}$/.test(t) ? t : "2020")
     : set === "lc10" ? (/^\d{4}$/.test(t) ? t : "2024") : "-");
-  const body = () => ({ set: area.set, t: yearOf(area.set, area.t), country: area.country, minzoom: 0, maxzoom: area.maxzoom });
+  const body = () => (area.set === "aerial"
+    ? { set: "aerial", t: "aerial", bbox: NZ_SAVE_PLACES[area.country] ?? NZ_SAVE_PLACES.Christchurch, name: NZ_SAVE_PLACES[area.country] ? area.country : "Christchurch", minzoom: 0, maxzoom: area.maxzoom }
+    : { set: area.set, t: yearOf(area.set, area.t), country: area.country, minzoom: 0, maxzoom: area.maxzoom });
   const drop = async (a: TileArea) => {
     if (!confirm(`Delete the saved ${SET_NAME[a.set] ?? a.set} for ${a.name}? The map fetches it online again when needed.`)) return;
     await fetch(`/api/v1/tiles/areas/${encodeURIComponent(a.id)}`, { method: "DELETE" });
     refresh();
   };
-  const maxz = area.set === "night" ? 8 : area.set === "lcyears" ? 9 : 14;
+  const maxz = area.set === "night" ? 8 : area.set === "lcyears" ? 9 : area.set === "aerial" ? s.sharp_save_maxzoom : 14;
   return (
     <section className="card" id="maps">
       <h2>Maps: relief, satellite and night lights</h2>
@@ -1162,11 +1170,19 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
       </p>
       <Field label="Background">
         <div className="seg" role="group" aria-label="Background">
-          {([["plain", "Plain"], ["relief", "Shaded relief"], ["satellite", "Satellite"], ["night", "Night lights"]] as const).map(([v, t]) => (
+          {([["plain", "Plain"], ["relief", "Shaded relief"], ["satellite", "Satellite (10 m)"], ["sharp", "Satellite (sharp)"], ["night", "Night lights"]] as const).map(([v, t]) => (
             <button key={v} className={s.map_look === v ? "on" : ""} aria-pressed={s.map_look === v} onClick={() => save({ map_look: v })}>{t}</button>
           ))}
         </div>
       </Field>
+      <Field label="Satellite (sharp) outside New Zealand" hint="In New Zealand the sharp background is LINZ's aerial photos (needs the free LINZ_BASEMAPS_API_KEY: Data status > Keys you can add). Elsewhere: Esri World Imagery, about 0.5 m, shown straight from Esri for looking only (its terms do not allow saving it or giving it to AI), or the 10 m Sentinel-2 picture.">
+        <div className="seg" role="group" aria-label="Sharp pictures outside New Zealand">
+          {([["esri", "Esri World Imagery"], ["eox", "Stay at 10 m"]] as const).map(([v, t]) => (
+            <button key={v} className={s.sharp_outside_nz === v ? "on" : ""} aria-pressed={s.sharp_outside_nz === v} onClick={() => save({ sharp_outside_nz: v })}>{t}</button>
+          ))}
+        </div>
+      </Field>
+      <NumberField label="Aerial photos saved to zoom" value={s.sharp_save_maxzoom} min={10} max={20} step={1} note="Saved copies of LINZ's photos (Save an area below) stop here; closer is read online. 15 is about 4 m a pixel in New Zealand; each zoom closer is four times the size (Christchurch at 15 is about 20 MB, at 18 about 1 GB, at 20 over 15 GB)." save={(v) => save({ sharp_save_maxzoom: v })} />
       <Field label="Relief style" hint="Height colours: green lowlands to brown mountains and blue seas. Grey: shading only, quiet under strong colours.">
         <div className="seg" role="group" aria-label="Relief style">
           {([["classic", "Height colours"], ["grey", "Grey"], ["satellite", "Over satellite"]] as const).map(([v, t]) => (
@@ -1203,14 +1219,17 @@ function MapPictures({ s, save }: { s: Settings; save: (patch: Partial<Settings>
 
       <h3 style={{ marginBottom: 4 }}>Save an area</h3>
       <div className="chips-row" style={{ gap: 10, alignItems: "end" }}>
-        <label className="small">Picture <select value={area.set} onChange={(e) => setArea({ ...area, set: e.target.value, maxzoom: Math.min(area.maxzoom, e.target.value === "night" ? 8 : 14) })}>
-          <option value="relief">Relief</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option>
+        <label className="small">Picture <select value={area.set} onChange={(e) => setArea({ ...area, set: e.target.value, country: e.target.value === "aerial" ? "Christchurch" : "NZL", maxzoom: Math.min(area.maxzoom, e.target.value === "night" ? 8 : 14) })}>
+          <option value="relief">Relief</option><option value="aerial">Aerial photos (LINZ, New Zealand)</option><option value="satellite">Satellite</option><option value="night">Night lights</option><option value="landcover">Land cover</option>
           <option value="lcyears">Land cover by year (ESA, 300 m)</option><option value="lc10">Land cover by year (Esri, 10 m)</option></select></label>
         {(area.set === "lcyears" || area.set === "lc10") && <label className="small">Year <select value={yearOf(area.set, area.t)} onChange={(e) => setArea({ ...area, t: e.target.value })}>
           {(area.set === "lcyears" ? Array.from({ length: 29 }, (_, i) => 2020 - i) : Array.from({ length: 9 }, (_, i) => 2025 - i)).map((y) => <option key={y} value={String(y)}>{y}</option>)}</select></label>}
         {area.set === "night" && <label className="small">Year <select value={area.t === "-" ? "2016" : area.t} onChange={(e) => setArea({ ...area, t: e.target.value })}>
           <option value="2016">2016</option><option value="2012">2012</option></select></label>}
-        <label className="small">Country (ISO code) <input value={area.country} size={5} onChange={(e) => setArea({ ...area, country: e.target.value.toUpperCase().slice(0, 3) })} /></label>
+        {area.set === "aerial"
+          ? <label className="small">Place <select value={area.country} onChange={(e) => setArea({ ...area, country: e.target.value })}>
+              {Object.keys(NZ_SAVE_PLACES).map((p) => <option key={p}>{p}</option>)}</select></label>
+          : <label className="small">Country (ISO code) <input value={area.country} size={5} onChange={(e) => setArea({ ...area, country: e.target.value.toUpperCase().slice(0, 3) })} /></label>}
         <label className="small">Down to zoom <select value={area.maxzoom} onChange={(e) => setArea({ ...area, maxzoom: Number(e.target.value) })}>
           {Array.from({ length: maxz - 3 }, (_, i) => i + 4).map((z) => <option key={z} value={z}>{z}{z === 8 ? " (towns)" : z === 11 ? " (suburbs)" : z === 14 ? " (streets)" : ""}</option>)}</select></label>
         <button onClick={() => post("check", body()).then((j) => j && setChk(j))}>Check size</button>

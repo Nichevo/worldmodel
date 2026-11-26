@@ -7,10 +7,11 @@ import { openAsk, toast, type AskPart } from "@/lib/ai";
 
 export type ChangeKind = { id: string; label: string; colour: string; hint: string };
 export type WaterClass = { code: number; label: string; colour: string; group: string; draw: string };
-export type ScanTag = { id: string; label: string; looks: string; colour: string };
+export type ScanTag = { id: string; label: string; looks: string; colour: string; ticked?: boolean; needs_before?: boolean };
 export type SpotTerms = {
   changes: ChangeKind[]; water: WaterClass[]; tags: ScanTag[]; checkable: Record<string, string>;
   sources: Record<string, { label: string; years: [number, number]; maxzoom: number }>; water_attribution: string;
+  aerial_tags: ScanTag[]; // New Zealand aerial photo scans
 };
 
 let terms: Promise<SpotTerms> | null = null;
@@ -68,18 +69,22 @@ export type Scan = {
   id: string; name: string; mode: "scan" | "check"; entity: string | null; bbox: number[] | null; tags: string[]; layers: string[];
   model: string; created: string; state: "queued" | "running" | "paused" | "done" | "stopped" | "error"; total: number; done: number;
   skipped: number; found: number; errors: number; seconds: number; error?: string; last_error?: string; note?: string; finished?: string;
+  picture?: "aerial"; layer?: string; before?: string | null; layer_title?: string; before_title?: string | null;
 };
 export type HitRate = { tag: string; label: string; found: number; yes: number; no: number; right_pct: number | null };
 export type Found = {
   id: string; tag?: string; sure: number; where?: string; note: string; lon: number; lat: number; z?: number; x?: number; y?: number;
-  country?: string | null; mark: "yes" | "no" | null;
+  country?: string | null; mark: "yes" | "no" | null; count?: number;
   layer?: string; item_id?: string; name?: string; category?: string | null; verdict?: "yes" | "no" | "unsure";
 };
 export type LayerPoint = { scan: string; id: string; kind: "tag" | "check"; tag: string; label: string; sure: number; note: string;
   lon: number; lat: number; mark: string | null; name?: string };
 
 export const scans = () => get<{ running: string | null; scans: Scan[]; hit_rates: HitRate[] }>("/spot/scans");
-export type ScanReq = { mode: "scan" | "check"; entity?: string | null; bbox?: number[] | null; tags?: string[]; layers?: string[]; model?: string; name?: string };
+export type ScanReq = { mode: "scan" | "check"; entity?: string | null; bbox?: number[] | null; tags?: string[]; layers?: string[]; model?: string; name?: string;
+  picture?: "satellite" | "aerial"; layer?: string; before?: string | null; layer_title?: string; before_title?: string | null };
+export type TownCount = { town: string; squares: number; counts: Record<string, number> };
+export const scanTowns = (id: string) => get<TownCount[]>(`/spot/scans/${id}/towns`);
 export const estimateScan = (r: ScanReq) => send<{ count: number; minutes: number; note: string }>("POST", "/spot/scans/estimate", r);
 export const createScan = (r: ScanReq) => send<Scan>("POST", "/spot/scans", r);
 export const scanAction = (id: string, action: "pause" | "resume" | "stop") => send<Scan>("POST", `/spot/scans/${id}/${action}`);

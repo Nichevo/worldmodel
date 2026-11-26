@@ -3,6 +3,8 @@
 //   relief     heights and sea depths, coloured and hill-shaded in the browser from AWS Terrain
 //              Tiles (classic colours, grey shading only, or shading over the satellite picture)
 //   satellite  Sentinel-2 cloudless by EOX
+//   sharp      LINZ aerial photos in New Zealand (through the app's server, with your free LINZ key) over
+//              Esri World Imagery elsewhere (straight from Esri, for looking only), or over the EOX picture
 //   night      night lights (NASA Black Marble 2016 or 2012, or last night's VIIRS picture)
 //   landcover  ESA WorldCover 2021 or 2020 at 10 m (trees, crops, built-up, water...), from Terrascope
 // Tiles come through the app's server, which serves the copies saved on this PC and fetches
@@ -14,7 +16,16 @@ import type * as maplibregl from "maplibre-gl";
 import type { ExpressionSpecification } from "maplibre-gl";
 import type { Settings } from "@/lib/api";
 
-export type Look = Pick<Settings, "map_look" | "relief_style" | "relief_shading" | "map_colours_over" | "night_year" | "map_3d" | "map_3d_exaggeration" | "map_tiles"> & { land_cover_year?: string };
+export type Look = Pick<Settings, "map_look" | "relief_style" | "relief_shading" | "map_colours_over" | "night_year" | "map_3d" | "map_3d_exaggeration" | "map_tiles">
+  & { land_cover_year?: string; sharp_outside_nz?: "esri" | "eox" };
+
+// Sharp pictures: Esri's are read by the browser straight from Esri and never saved or sent to AI (its terms).
+export const ESRI_NOW = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+export const ESRI_ATTRIBUTION = "Imagery: <a href=\"https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9\">Esri World Imagery</a> (Maxar, Earthstar Geographics and others)";
+export const LINZ_ATTRIBUTION = "Aerial photos: <a href=\"https://basemaps.linz.govt.nz\">Toitū Te Whenua LINZ</a> (CC BY 4.0)";
+export const NZ_BOUNDS: [number, number, number, number] = [165.8, -47.5, 178.9, -34.0];
+// LINZ aerial photos through the app's server (it holds the key): the best picture, or one survey by name.
+export const aerialTiles = (layer = "aerial") => `${typeof location !== "undefined" ? location.origin : ""}/api/v1/tiles/aerial/{z}/{x}/{y}${layer === "aerial" ? "" : `?t=${layer}`}`;
 
 const ONLINE: Record<string, string> = {
   relief: "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
@@ -117,6 +128,17 @@ export function addLook(m: maplibregl.Map, look: Look): string | null {
     raster("landcover", `${LOOK_PREFIX}landcover`);
     attributions.push(`Land cover: ESA WorldCover ${look.land_cover_year === "2020" ? "2020" : "2021"}`);
   }
+  if (look.map_look === "sharp") {
+    // Outside New Zealand: Esri (looking only) or the 10 m EOX picture; LINZ's photos on top, inside New Zealand.
+    if (look.sharp_outside_nz === "eox") raster("satellite", `${LOOK_PREFIX}satellite`);
+    else {
+      m.addSource(`${LOOK_PREFIX}esri`, { type: "raster", tiles: [ESRI_NOW], tileSize: 256, maxzoom: 19, attribution: ESRI_ATTRIBUTION });
+      m.addLayer({ id: `${LOOK_PREFIX}esri`, type: "raster", source: `${LOOK_PREFIX}esri` }, before);
+    }
+    m.addSource(`${LOOK_PREFIX}aerial`, { type: "raster", tiles: [aerialTiles()], tileSize: 256, minzoom: 5, maxzoom: 21, bounds: NZ_BOUNDS, attribution: LINZ_ATTRIBUTION });
+    m.addLayer({ id: `${LOOK_PREFIX}aerial`, type: "raster", source: `${LOOK_PREFIX}aerial` }, before);
+    attributions.push(look.sharp_outside_nz === "eox" ? "Aerial: LINZ (NZ) · Sentinel-2 cloudless by EOX" : "Aerial: LINZ (NZ) · Esri World Imagery");
+  }
   if (look.map_look === "satellite" || (look.map_look === "relief" && look.relief_style === "satellite")) {
     raster("satellite", `${LOOK_PREFIX}satellite`);
     attributions.push("Satellite: Sentinel-2 cloudless by EOX");
@@ -138,7 +160,7 @@ export function addLook(m: maplibregl.Map, look: Look): string | null {
     m.setMaxPitch(70);
     if (m.getPitch() < 20) m.easeTo({ pitch: 50 });
   } else if (m.getPitch() > 0) m.easeTo({ pitch: 0 });
-  m.setMaxZoom(Math.max(m.getMaxZoom(), look.map_look === "night" ? 8 : 12));
+  m.setMaxZoom(Math.max(m.getMaxZoom(), look.map_look === "night" ? 8 : look.map_look === "sharp" ? 19 : 12));
   refreshFill(m, { picture: true, over: look.map_colours_over });
   return attributions.join(" · ");
 }

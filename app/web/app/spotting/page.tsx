@@ -12,15 +12,26 @@ import { saveSettings, useSettings } from "@/lib/settings";
 import {
   askHere, CHANGE_LEGEND, changeLayer, createScan, deleteScan, estimateScan, type Found, foundPicture, markFound, scanAction,
   scanFound, type Scan, type ScanReq, scans as listScans, spotTerms, type SpotTerms, startSummary, type Summary, type SummaryJob,
-  summaries, type SummaryReq, summaryKey, visionModels, type VisionModels, WATER_LEGEND, waterTiles, type HitRate,
+  summaries, type SummaryReq, summaryKey, visionModels, type VisionModels, WATER_LEGEND, waterTiles, type HitRate, scanTowns, type TownCount,
 } from "@/lib/spotting";
+import ThenNow from "@/components/ThenNow";
+import TimelapseView from "@/components/TimelapseView";
+import { placeDates, type Survey } from "@/lib/thennow";
 
 // Spotting: layers the app works out itself from the satellite pictures and land cover maps,
 // and local AI looking at the pictures.
 
-type Tab = "change" | "water" | "ask" | "scans";
-const TABS: [Tab, string][] = [["change", "Land change"], ["water", "Water gained and lost"], ["ask", "Ask the picture"], ["scans", "Area scans"]];
+type Tab = "thennow" | "timelapse" | "change" | "water" | "ask" | "scans";
+const TABS: [Tab, string][] = [["thennow", "Then and now"], ["timelapse", "Timelapse"], ["change", "Land change"], ["water", "Water gained and lost"],
+  ["ask", "Ask the picture"], ["scans", "Area scans"]];
+const NZ_SCAN_PLACES: Record<string, number[]> = {
+  "Christchurch": [172.50, -43.62, 172.78, -43.42], "Rolleston and Lincoln": [172.33, -43.66, 172.50, -43.57], "Hamilton": [175.20, -37.84, 175.36, -37.71],
+  "Tauranga": [176.05, -37.76, 176.35, -37.60], "Wellington": [174.70, -41.35, 174.95, -41.10], "Queenstown": [168.60, -45.06, 168.78, -44.97],
+  "Dunedin": [170.42, -45.92, 170.56, -45.84], "Auckland": [174.60, -37.05, 174.95, -36.75],
+};
 const INTRO: Record<Tab, string> = {
+  thennow: "Two pictures of the same place from different years, wiped with a slider, side by side or flicking between them. In New Zealand every LINZ aerial survey of the spot is offered, back to the 1930s in places; everywhere, Esri's archive of versions since 2014 (for looking only) and Sentinel-2 at 10 m each year since 2016. What changed? gives both pictures to your local AI.",
+  timelapse: "One Landsat picture a year since 1984 for a box you choose, played as a film, with the water, green land and built-up or bare land measured from the same pictures each year. Made once on this PC and kept.",
   change: "Land whose cover changed between two years, read pixel by pixel from the land cover maps (Esri 10 m every year since 2017, or ESA 300 m since 1992). A change only counts if it already held the year before the last year, and specks of a pixel or two are dropped, because the yearly maps flicker. Map layer 8 shows the same.",
   water: "Water that appeared or disappeared between 1984-1999 and 2000-2021, from every Landsat picture (EC Joint Research Centre, Global Surface Water, 30 m). Blue is water gained, red is water lost, orange and yellow are lakes that became seasonal or all-year. Map layer 9 shows the same.",
   ask: "Right-click any place on any map in the app (or this one) and pick \"What is here?\". Your local AI gets the satellite picture, what the land cover map says is there, and the app's own places nearby, so it can name what it sees rather than guess.",
@@ -230,6 +241,13 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
   const { map, bbox, fly } = useMapBox();
   const [list, setList] = useState<{ running: string | null; scans: Scan[]; hit_rates: HitRate[] } | null>(null);
   const [mode, setMode] = useState<"scan" | "check">("scan");
+  const [pic, setPic] = useState<"satellite" | "aerial">("satellite");
+  const [place, setPlace] = useState("Christchurch");
+  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [layer, setLayer] = useState("aerial");
+  const [before, setBefore] = useState("");
+  const [aTags, setATags] = useState<string[]>([]);
+  const [towns, setTowns] = useState<TownCount[]>([]);
   const [area, setArea] = useState<"country" | "view">("country");
   const [country, setCountry] = useState("NZL");
   const [tags, setTags] = useState<string[]>([]);
@@ -244,6 +262,18 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
   const load = () => listScans().then(setList).catch((e) => setErr(errText(e)));
   useEffect(() => { load(); }, []);
   useEffect(() => { if (terms && !tags.length) setTags(terms.tags.map((t) => t.id)); }, [terms]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (terms && !aTags.length) setATags((terms.aerial_tags ?? []).filter((t) => t.ticked).map((t) => t.id)); }, [terms]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the LINZ surveys of the place (its centre), for "Photos" and "Compare with"
+  useEffect(() => {
+    if (pic !== "aerial") return;
+    const b = area === "view" ? bbox() : NZ_SCAN_PLACES[place];
+    if (!b) return;
+    placeDates((b[0] + b[2]) / 2, (b[1] + b[3]) / 2).then((d) => {
+      const sharp = d.linz.filter((x) => x.kind !== "satellite" && (x.gsd ?? 9) <= 0.5);
+      setSurveys(sharp);
+      setBefore((cur) => (sharp.some((x) => x.layer === cur) ? cur : sharp.find((x) => (x.year_to ?? 0) <= new Date().getFullYear() - 4)?.layer ?? ""));
+    }).catch(() => setSurveys([]));
+  }, [pic, place, area]); // eslint-disable-line react-hooks/exhaustive-deps
   const busy = list?.scans.some((s) => s.state === "running" || s.state === "queued");
   useEffect(() => {
     if (!busy) return;
@@ -252,6 +282,10 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
   }, [busy]);
   const openScan = list?.scans.find((s) => s.id === open) ?? null;
   useEffect(() => {
+    if (!open || openScan?.picture !== "aerial") { setTowns([]); return; }
+    scanTowns(open).then(setTowns).catch(() => setTowns([]));
+  }, [open, openScan?.found, openScan?.picture]);
+  useEffect(() => {
     if (!open) { setFound([]); return; }
     scanFound(open).then(setFound).catch(() => setFound([]));
   }, [open, openScan?.found]);
@@ -259,9 +293,15 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
     const f = found.find((x) => x.id === focus);
     if (f) setTimeout(() => fly(f.lon, f.lat, 12), 500);
   }, [found.length]); // eslint-disable-line react-hooks/exhaustive-deps
-  const req = (): ScanReq => ({ mode, entity: area === "country" ? country : null, bbox: area === "view" ? bbox() : null,
-    tags: mode === "scan" ? tags : [], layers: mode === "check" ? layers : [], model: model || undefined });
-  useEffect(() => { setEst(null); }, [mode, area, country, layers.join()]);
+  const aerial = mode === "scan" && pic === "aerial";
+  const titleOf = (l: string) => (l === "aerial" ? "LINZ's newest aerial photos" : surveys.find((x) => x.layer === l)?.title ?? l);
+  const req = (): ScanReq => (aerial
+    ? { mode, picture: "aerial", entity: null, bbox: area === "view" ? bbox() : NZ_SCAN_PLACES[place], tags: aTags, layer,
+        before: aTags.includes("new_house") ? before || null : null, layer_title: titleOf(layer), before_title: before ? titleOf(before) : null, model: model || undefined,
+        name: `Aerial scan of ${area === "view" ? "the area in view" : place}` }
+    : { mode, entity: area === "country" ? country : null, bbox: area === "view" ? bbox() : null,
+        tags: mode === "scan" ? tags : [], layers: mode === "check" ? layers : [], model: model || undefined });
+  useEffect(() => { setEst(null); }, [mode, area, country, layers.join(), pic, place, aTags.join(), before]);
   const estimate = () => { setErr(null); estimateScan(req()).then(setEst).catch((e) => setErr(errText(e))); };
   const start = async () => {
     setErr(null);
@@ -274,12 +314,12 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
     const r = await markFound(open, f.id, v).catch(() => null);
     if (r) setFound((all) => all.map((x) => (x.id === f.id ? r : x)));
   };
-  const tagOf = new Map((terms?.tags ?? []).map((t) => [t.id, t]));
+  const tagOf = new Map([...(terms?.tags ?? []), ...(terms?.aerial_tags ?? [])].map((t) => [t.id, t]));
   const shown = found.filter((f) => filter === "all" || (filter === "unmarked" ? !f.mark : f.mark === filter))
     .sort((a, b) => (a.id === focus ? -1 : b.id === focus ? 1 : b.sure - a.sure));
   const marks: MapMark[] = found.map((f) => ({ key: f.id, lng: f.lon, lat: f.lat, r: 5, hollow: f.mark !== "yes",
     color: f.layer ? (f.verdict === "no" ? "#c92a2a" : f.verdict === "yes" ? "#2b8a3e" : "#868e96") : tagOf.get(f.tag ?? "")?.colour ?? "#862e9c",
-    label: `<b>${f.name ?? tagOf.get(f.tag ?? "")?.label ?? f.tag}</b><br/>${Math.round(f.sure * 100)}% sure${f.note ? `<br/>${f.note.replace(/[<>&]/g, "")}` : ""}` }));
+    label: `<b>${f.name ?? tagOf.get(f.tag ?? "")?.label ?? f.tag}${f.count ? `: ${f.count}` : ""}</b><br/>${Math.round(f.sure * 100)}% sure${f.note ? `<br/>${f.note.replace(/[<>&]/g, "")}` : ""}` }));
   return (
     <>
       <div className="card">
@@ -288,12 +328,34 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
         <div className="chips-row small">
           <button className={mode === "scan" ? "on" : ""} onClick={() => setMode("scan")} title="Every square of the area, for the things you tick">Look for things</button>
           <button className={mode === "check" ? "on" : ""} onClick={() => setMode("check")} title="The map's own places in the area: does the picture show what the map says?">Check the map&apos;s places</button>
+          {mode === "scan" && <>
+            <span className="muted"> · on</span>
+            <button className={pic === "satellite" ? "on" : ""} onClick={() => setPic("satellite")} title="Sentinel-2 at 10 m, anywhere: squares of about 4-5 km">Satellite (10 m, world)</button>
+            <button className={pic === "aerial" ? "on" : ""} onClick={() => setPic("aerial")} title="LINZ aerial photos at about 0.45 m: squares of about 220 m, New Zealand only">Aerial photos (New Zealand)</button>
+          </>}
           <span className="muted"> · in</span>
-          <button className={area === "country" ? "on" : ""} onClick={() => setArea("country")}>A country</button>
+          <button className={area === "country" ? "on" : ""} onClick={() => setArea("country")}>{aerial ? "A place" : "A country"}</button>
           <button className={area === "view" ? "on" : ""} onClick={() => setArea("view")}>The area in view</button>
-          {area === "country" && <CountryChoice value={country} onChange={setCountry} />}
+          {area === "country" && !aerial && <CountryChoice value={country} onChange={setCountry} />}
+          {area === "country" && aerial && <select value={place} onChange={(e) => setPlace(e.target.value)} aria-label="Place">
+            {Object.keys(NZ_SCAN_PLACES).map((p) => <option key={p}>{p}</option>)}</select>}
         </div>
-        {mode === "scan" ? (
+        {aerial ? (
+          <>
+            <div className="chips-row small">{(terms?.aerial_tags ?? []).map((t) => (
+              <span key={t.id} className={`chip kind${aTags.includes(t.id) ? "" : " off"}`} title={`Looks like ${t.looks}`} role="button" tabIndex={0}
+                onClick={() => setATags((x) => (x.includes(t.id) ? x.filter((y) => y !== t.id) : [...x, t.id]))}><i style={{ background: t.colour }} /> {t.label}</span>))}
+            </div>
+            <div className="chips-row small">
+              <label>Photos <select value={layer} onChange={(e) => setLayer(e.target.value)}>
+                <option value="aerial">LINZ&apos;s newest photos here</option>
+                {surveys.map((x) => <option key={x.layer} value={x.layer}>{x.title}</option>)}</select></label>
+              {aTags.includes("new_house") && <label>Compare with (for new houses) <select value={before} onChange={(e) => setBefore(e.target.value)}>
+                <option value="">Pick an older survey</option>
+                {surveys.map((x) => <option key={x.layer} value={x.layer}>{x.title}</option>)}</select></label>}
+            </div>
+          </>
+        ) : mode === "scan" ? (
           <div className="chips-row small">{(terms?.tags ?? []).map((t) => (
             <span key={t.id} className={`chip kind${tags.includes(t.id) ? "" : " off"}`} title={`Looks like ${t.looks}`} role="button" tabIndex={0}
               onClick={() => setTags((x) => (x.includes(t.id) ? x.filter((y) => y !== t.id) : [...x, t.id]))}><i style={{ background: t.colour }} /> {t.label}</span>))}
@@ -313,8 +375,11 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
           <button onClick={start} disabled={!models?.scan && !model}>Start</button>
           {est && <span>{est.count.toLocaleString()} {mode === "check" ? "places" : "squares"}, about {mins(est.minutes)} at {est.count ? "1-2 s each" : ""} (less where it&apos;s mostly sea)</span>}
         </div>
-        <p className="caption">New Zealand is about 21,000 squares: a night with a small model. Bigger models are surer but two or three times slower. Only one scan runs at a time;
-          others wait their turn. Scans stop when the app stops and wait, paused, for you to resume them. Nothing runs unless you start it.</p>
+        {aerial && <p className="caption">Each square is about 220 m across at about 0.45 m a pixel, so roofs, pools and panels show. Christchurch is about 10,000 squares
+          (a few hours with a 7B model; new houses take twice as long, as the model sees the older photo beside the newer one). Finds are counted per square and totalled
+          by the nearest town. Needs the free LINZ key (Data status &gt; Keys you can add).</p>}
+        {!aerial && <p className="caption">New Zealand is about 21,000 squares: a night with a small model. Bigger models are surer but two or three times slower. Only one scan runs at a time;
+          others wait their turn. Scans stop when the app stops and wait, paused, for you to resume them. Nothing runs unless you start it.</p>}
         {err && <p className="small error">{err}</p>}
       </div>
 
@@ -353,13 +418,24 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
             onMark={(k) => { const f = found.find((x) => x.id === k); if (f) document.getElementById(`found-${f.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }} /></div>
           <div className="chips-row small">{(["all", "unmarked", "yes", "no"] as const).map((f) => (
             <button key={f} className={filter === f ? "on" : ""} onClick={() => setFilter(f)}>{f === "all" ? `All (${found.length})` : f === "unmarked" ? "Not marked" : f === "yes" ? "Marked right" : "Marked wrong"}</button>))}</div>
+          {towns.length > 0 && (() => {
+            const ids = openScan.tags;
+            return (
+              <table className="summary-table small" style={{ marginBottom: 10 }}>
+                <thead><tr><th>Nearest town</th><th className="num">Squares with finds</th>{ids.map((t) => <th key={t} className="num">{tagOf.get(t)?.label ?? t}</th>)}</tr></thead>
+                <tbody>{towns.map((r) => <tr key={r.town}><td>{r.town}</td><td className="num">{r.squares}</td>
+                  {ids.map((t) => <td key={t} className="num">{(r.counts[t] ?? 0).toLocaleString()}</td>)}</tr>)}</tbody>
+              </table>);
+          })()}
+          {towns.length > 0 && <p className="caption">Counted by your local AI from {openScan.layer_title ?? "LINZ's aerial photos"}{openScan.before_title ? `, new houses against ${openScan.before_title}` : ""}.
+            Finds you mark wrong are left out. Check a few dozen squares with ✓ and ✗ before trusting the totals; the hit rates above show how often it was right.</p>}
           {!found.length && <p className="small muted">Nothing found yet.</p>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
             {shown.slice(0, 120).map((f) => (
               <div key={f.id} id={`found-${f.id}`} className="card" style={{ padding: 8, outline: f.id === focus ? "2px solid var(--accent)" : undefined }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={foundPicture(openScan.id, f)} alt="" loading="lazy" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 4 }} />
-                <div className="small"><b>{f.layer ? f.name : tagOf.get(f.tag ?? "")?.label ?? f.tag}</b>
+                <div className="small"><b>{f.layer ? f.name : tagOf.get(f.tag ?? "")?.label ?? f.tag}{f.count ? `: ${f.count}` : ""}</b>
                   {f.layer ? <> · looks like it: <b>{f.verdict}</b></> : f.where ? <span className="muted"> · {f.where}</span> : null}
                   <span className="muted"> · {Math.round(f.sure * 100)}% sure</span></div>
                 {f.note && <div className="small muted">{f.note}</div>}
@@ -381,13 +457,15 @@ function ScansTab({ terms, models }: { terms: SpotTerms | null; models: VisionMo
 function SpottingView() {
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "change");
+  const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "thennow");
+  const [tlStart, setTlStart] = useState<{ bbox: number[]; name: string } | null>(null);
+  const at = params.get("lon") && params.get("lat") ? { lon: +params.get("lon")!, lat: +params.get("lat")!, zoom: +(params.get("z") ?? 15) } : undefined;
   const [terms, setTerms] = useState<SpotTerms | null>(null);
   const [models, setModels] = useState<VisionModels | null>(null);
   const urlTab = params.get("tab") as Tab | null;
   useEffect(() => { if (urlTab && TABS.some(([t]) => t === urlTab)) setTab(urlTab); }, [urlTab]);
   useEffect(() => { logHistory({ kind: "page", title: "Spotting", url: "/spotting", detail: "page" }); spotTerms().then(setTerms).catch(() => undefined); }, []);
-  useEffect(() => { if ((tab === "ask" || tab === "scans") && !models) visionModels().then(setModels).catch((e) => setModels({ models: [], ask: null, scan: null, error: errText(e) })); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if ((tab === "ask" || tab === "scans" || tab === "thennow") && !models) visionModels().then(setModels).catch((e) => setModels({ models: [], ask: null, scan: null, error: errText(e) })); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const go = (t: Tab) => { setTab(t); router.replace(`/spotting?tab=${t}`, { scroll: false }); };
   return (
     <div className="grid sector-page">
@@ -396,6 +474,8 @@ function SpottingView() {
           { key: "description", kind: "description", label: "What this tab shows", text: INTRO[tab] }]} /></div>
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
       <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
+      {tab === "thennow" && <ThenNow start={at} model={models?.ask} onTimelapse={(bbox, name) => { setTlStart({ bbox, name }); go("timelapse"); }} />}
+      {tab === "timelapse" && <TimelapseView start={tlStart} />}
       {tab === "change" && <ChangeTab terms={terms} />}
       {tab === "water" && <WaterTab terms={terms} />}
       {tab === "ask" && <AskTab models={models} />}

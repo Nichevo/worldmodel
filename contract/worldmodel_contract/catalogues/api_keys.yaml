@@ -345,3 +345,15 @@
   unlocks: "The Grid now card for Australia (the National Electricity Market): generation by fuel for the last two days."
   limits: Free for personal use. Asked only while the card is open, at most every five minutes.
   status: active
+
+- source: linz_basemaps
+  name: LINZ Basemaps (New Zealand aerial photos)
+  env: [LINZ_BASEMAPS_API_KEY]
+  needs_key: true
+  signup: https://www.linz.govt.nz/data/linz-data/linz-basemaps/how-use-linz-basemaps-apis
+  how: Follow LINZ's "How to use LINZ Basemaps APIs" page to get a free API key (a minute or two), then paste it
+    here. If the pictures stop later, the key may have run out; get a new one the same way.
+  unlocks: The "Satellite (sharp)" background in New Zealand (down to 7.5 cm in cities), every LINZ survey back to the
+    1930s on the Spotting page's Then and now tab, and the New Zealand aerial photo scans.
+  limits: Free; CC BY 4.0 pictures. Read only while you look, scan or save an area.
+  status: active

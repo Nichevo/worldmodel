@@ -78,6 +78,11 @@ async def lifespan(_app: FastAPI):
         spotting.recover()  # a scan left running when the app stopped waits, paused
     except Exception:  # noqa: BLE001 - shown on the Spotting page
         pass
+    try:
+        from worldmodel_api import thennow
+        thennow.timelapse_recover()  # a timelapse being made when the app stopped carries on
+    except Exception:  # noqa: BLE001 - shown on the Spotting page
+        pass
     yield
     background.close()
 

@@ -18,6 +18,9 @@
                     "check" scans look at the map's own places (power plants, airports ...) instead.
                     One scan runs at a time, in the background, and only when you start it; it can be
                     paused and picks up where it stopped. Scans live in <your folder>/spotting/scans.
+                    In New Zealand a scan can use LINZ's aerial photos instead ("aerial" scans): squares
+                    of about 220 m at about 0.45 m a pixel, counting small things (rooftop solar, pools,
+                    new houses against an older survey ...), totalled by the nearest town.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ import io
 import json
 import logging
 import math
+import os
 import re
 import threading
 import time
@@ -41,6 +45,8 @@ from worldmodel_contract import local
 from worldmodel_contract.spotting import (CHANGE_IDS, CHANGE_MIN_PIXELS, CHANGE_SOURCES, CHANGES, CHECKABLE, KINDS,
                                           LC10_COLOURS, SCAN_PICTURE_ZOOM, SCAN_TAGS, SCAN_ZOOM, WATER_CLASSES,
                                           WHERE_CELLS, change_kind)
+from worldmodel_contract.thennow import (AERIAL_PICTURE_ZOOM, AERIAL_SCAN_ZOOM, AERIAL_TAGS, AERIAL_TOWN_KM, in_nz,
+                                         layer_ok)
 from worldmodel_api import ai, tiles
 
 log = logging.getLogger(__name__)
@@ -519,11 +525,12 @@ def picture(lon: float, lat: float, zoom: int, size: int = 512, set_id: str = "s
     return buf.getvalue(), {"km": round(km, 2), "zoom": zoom, "tiles": got}
 
 
-def square_picture(z: int, x: int, y: int, fetch: Fetch | None = None) -> bytes | None:
-    """A zoom-z square's satellite picture at two zooms closer (four tiles put together, 512 x 512 JPEG)."""
+def square_picture(z: int, x: int, y: int, fetch: Fetch | None = None, set_id: str = "satellite", t: str | None = None,
+                   closer: int = SCAN_PICTURE_ZOOM - SCAN_ZOOM) -> bytes | None:
+    """A zoom-z square's picture `closer` zooms in (two: four tiles put together, 512 x 512 JPEG)."""
     w, s, e, n = tiles.lonlat_box(z, x, y)
     lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (y + 0.5) / 2 ** z))))
-    got = picture((w + e) / 2, lat, z + (SCAN_PICTURE_ZOOM - SCAN_ZOOM), 256 * 2 ** (SCAN_PICTURE_ZOOM - SCAN_ZOOM), fetch=fetch)
+    got = picture((w + e) / 2, lat, z + closer, 256 * 2 ** closer, set_id=set_id, t=t, fetch=fetch)
     return got[0] if got else None
 
 
@@ -633,10 +640,29 @@ def scan_schema(tags: list[str]) -> dict:
                        "where": {"type": "string", "enum": list(WHERE_CELLS)}, "note": {"type": "string"}}}}}}
 
 
+def aerial_schema(tags: list[str]) -> dict:
+    return {"type": "object", "required": ["counts"], "properties": {
+        "counts": {"type": "object", "required": tags, "properties": {t: {"type": "integer", "minimum": 0} for t in tags}},
+        "sure": {"type": "number"}, "note": {"type": "string"}}}
+
+
 CHECK_SCHEMA = {"type": "object", "required": ["looks_like", "sure"],
                 "properties": {"looks_like": {"type": "string", "enum": ["yes", "no", "unsure"]},
                                "sure": {"type": "number"}, "note": {"type": "string"}}}
 _TAGS = {t.id: t for t in SCAN_TAGS}
+_AERIAL = {t.id: t for t in AERIAL_TAGS}
+
+
+def aerial_prompt(tags: list[str], lon: float, lat: float, km: float, layer_title: str, before_title: str | None = None) -> str:
+    lines = "\n".join(f"- {t}: {_AERIAL[t].label}, which looks like {_AERIAL[t].looks}" for t in tags)
+    pair = (f"The picture is two aerial photos of the same square side by side: LEFT is the older one ({before_title}), RIGHT the newer "
+            f"one ({layer_title}). Count in the RIGHT photo, and for new_house count only houses that are not in the LEFT photo. ") if before_title else \
+        f"This is an aerial photo ({layer_title}). "
+    return (f"{pair}It is about {km * 1000:.0f} m across (about {km * 1000 / 512:.1f} m a pixel), north up, centred at "
+            f"{abs(lat):.4f}°{'S' if lat < 0 else 'N'} {abs(lon):.4f}°{'W' if lon < 0 else 'E'} in New Zealand.\n"
+            f"Count each of these you can clearly see:\n{lines}\n"
+            "Give 0 when there are none or you cannot tell. Do not guess numbers for things you cannot see clearly. "
+            "Also give how sure you are of the counts from 0 to 1 and a short note. Answer in JSON only.")
 
 
 def scan_prompt(tags: list[str], lon: float, lat: float, km: float, country: str | None) -> str:
@@ -703,10 +729,13 @@ def _meta(sid: str) -> dict:
     return m
 
 
+AERIAL_MOST = 20_000  # squares in one aerial scan
+
+
 def estimate(q: Q, req: dict) -> dict:
     """How many squares (or places) a scan would look at, and roughly how long it would take."""
     todo = _todo(q, req)
-    secs = len(todo) * TILE_SECONDS * (1.3 if req.get("mode") == "check" else 1)
+    secs = len(todo) * TILE_SECONDS * (1.3 if req.get("mode") == "check" else 2 if req.get("before") else 1)
     return {"count": len(todo), "minutes": round(secs / 60), "per": TILE_SECONDS,
             "note": "Squares mostly sea are skipped without asking the model, so land-light areas go faster."}
 
@@ -728,6 +757,13 @@ def _todo(q: Q, req: dict) -> list:
             return []
         inside = contains_xy(g, np.array([r["lon"] for r in found]), np.array([r["lat"] for r in found]))
         return [[r["layer_id"], r["item_id"], r["name"], r["category"], r["lon"], r["lat"]] for r, ok in zip(found, inside) if ok]
+    if req.get("picture") == "aerial":
+        w, s_, e, n = bounds
+        if not (in_nz(w, s_) and in_nz(e, n)):
+            raise ValueError("aerial photo scans are for New Zealand only (LINZ's photos)")
+        if len(list(tiles.tiles_in(tuple(bounds), AERIAL_SCAN_ZOOM))) > AERIAL_MOST * 4:
+            raise ValueError("that area is far too big for an aerial scan: zoom in to a city or a few suburbs")
+        return [[AERIAL_SCAN_ZOOM, x, y] for x, y in _land_tiles(g, bounds, AERIAL_SCAN_ZOOM)]
     return [[SCAN_ZOOM, x, y] for x, y in _land_tiles(g, bounds, SCAN_ZOOM)]
 
 
@@ -735,7 +771,19 @@ def scan_create(q: Q, req: dict) -> dict:
     mode = req.get("mode", "scan")
     if mode not in ("scan", "check"):
         raise ValueError("mode must be scan or check")
-    tags = [t for t in req.get("tags") or [t.id for t in SCAN_TAGS] if t in _TAGS]
+    aerial = mode == "scan" and req.get("picture") == "aerial"
+    if aerial:
+        tags = [t for t in req.get("tags") or [t.id for t in AERIAL_TAGS if t.ticked] if t in _AERIAL]
+        layer_name = str(req.get("layer") or "aerial")
+        before = req.get("before") or None
+        if not layer_ok(layer_name) or (before is not None and not layer_ok(str(before))):
+            raise ValueError("bad survey name")
+        if "new_house" in tags and not before:
+            raise ValueError("new houses are counted against an older survey: pick one under 'Compare with'")
+        if not os.environ.get("LINZ_BASEMAPS_API_KEY", "").strip():
+            raise ValueError("aerial photo scans need the free LINZ_BASEMAPS_API_KEY (Data status > Keys you can add)")
+    else:
+        tags = [t for t in req.get("tags") or [t.id for t in SCAN_TAGS] if t in _TAGS]
     if mode == "scan" and not tags:
         raise ValueError("pick at least one thing to look for")
     s = local.load_settings()
@@ -746,11 +794,15 @@ def scan_create(q: Q, req: dict) -> dict:
     todo = _todo(q, {**req, "mode": mode})
     if not todo:
         raise ValueError("nothing to look at in that area")
+    if aerial and len(todo) > AERIAL_MOST:
+        raise ValueError(f"that is {len(todo):,} squares of about 220 m; aerial scans take at most {AERIAL_MOST:,} (a city or a few suburbs): zoom in")
     sid = f"{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:4]}"
     meta = {"id": sid, "name": req.get("name") or f"{'Check' if mode == 'check' else 'Scan'} of {name}", "mode": mode,
             "entity": (req.get("entity") or "").upper() or None, "bbox": req.get("bbox"), "tags": tags if mode == "scan" else [],
             "layers": [l for l in req.get("layers") or [] if l in CHECKABLE] if mode == "check" else [],
             "model": model, "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            **({"picture": "aerial", "layer": layer_name, "before": before,
+                "layer_title": req.get("layer_title") or layer_name, "before_title": req.get("before_title") or before} if aerial else {}),
             "state": "queued", "total": len(todo), "done": 0, "skipped": 0, "found": 0, "errors": 0, "seconds": 0.0,
             "todo": todo}
     _write(_meta_path(sid), meta)
@@ -857,7 +909,8 @@ def run_scan(sid: str, fetch: Fetch | None = None, settings: dict | None = None,
         item = m["todo"][m["done"]]
         t0 = time.monotonic()
         try:
-            hits = _look_square(m, item, s, fetch, looker) if m["mode"] == "scan" else _look_place(m, item, s, fetch, looker)
+            hits = (_look_aerial(m, item, s, fetch, looker) if m.get("picture") == "aerial" else _look_square(m, item, s, fetch, looker)) \
+                if m["mode"] == "scan" else _look_place(m, item, s, fetch, looker)
             errors_in_row = 0
         except (httpx.HTTPError, RuntimeError, ValueError) as exc:
             m["errors"] += 1
@@ -935,6 +988,84 @@ def _look_square(m: dict, item: list, s: dict, fetch, looker) -> list[dict] | No
     return out
 
 
+def _pair_side_by_side(left: bytes, right: bytes) -> bytes:
+    from PIL import Image
+
+    a, b = Image.open(io.BytesIO(left)).convert("RGB"), Image.open(io.BytesIO(right)).convert("RGB")
+    out = Image.new("RGB", (a.width + b.width + 8, max(a.height, b.height)), (255, 255, 255))
+    out.paste(a, (0, 0))
+    out.paste(b, (a.width + 8, 0))
+    buf = io.BytesIO()
+    out.save(buf, "JPEG", quality=85)
+    return buf.getvalue()
+
+
+def _look_aerial(m: dict, item: list, s: dict, fetch, looker) -> list[dict] | None:
+    """One square of LINZ aerial photo: how many of each thing the model counts (one find per thing seen)."""
+    z, x, y = item
+    closer = AERIAL_PICTURE_ZOOM - AERIAL_SCAN_ZOOM
+    pic = square_picture(z, x, y, fetch, set_id="aerial", t=m.get("layer") or "aerial", closer=closer)
+    if pic is None:
+        raise RuntimeError("no aerial photo for this square (is the LINZ key set, and does the survey cover it?)")
+    if _sea_share(pic) > 0.97:
+        return None
+    send = pic
+    if m.get("before"):
+        old = square_picture(z, x, y, fetch, set_id="aerial", t=m["before"], closer=closer)
+        if old is None:
+            return None  # the older survey does not cover this square
+        send = _pair_side_by_side(old, pic)
+    w, s_, e, n = tiles.lonlat_box(z, x, y)
+    lon, lat = (w + e) / 2, (s_ + n) / 2
+    km = CIRC / 2 ** z * math.cos(math.radians(lat)) / 1000
+    ans = looker(m["model"], send, aerial_prompt(m["tags"], lon, lat, km, m.get("layer_title") or m.get("layer") or "aerial",
+                                                 m.get("before_title") if m.get("before") else None), aerial_schema(m["tags"]), s)
+    counts = ans.get("counts") if isinstance(ans.get("counts"), dict) else {}
+    try:
+        sure = max(0.0, min(1.0, float(ans.get("sure", 0.7))))
+    except (TypeError, ValueError):
+        sure = 0.0
+    out = []
+    for tag in m["tags"]:
+        try:
+            k = int(counts.get(tag) or 0)
+        except (TypeError, ValueError):
+            k = 0
+        if k <= 0:
+            continue
+        out.append({"id": f"{z}-{x}-{y}-{tag}", "tag": tag, "count": min(k, 5000), "sure": round(sure, 2), "where": "centre",
+                    "note": str(ans.get("note") or "")[:300], "lon": round(lon, 5), "lat": round(lat, 5),
+                    "z": z, "x": x, "y": y, "country": "NZL", "mark": None})
+    if out:
+        _keep_picture(m["id"], f"{z}-{x}-{y}", send)
+    return out
+
+
+def towns(q: Q, sid: str) -> list[dict]:
+    """An aerial scan's counts totalled by the nearest town in the app's city list (within 15 km)."""
+    items = found(sid)
+    if not items:
+        return []
+    try:
+        cities = q("""SELECT name, lat, lon, population FROM cities WHERE country_id = 'NZL' AND lat IS NOT NULL""", [])
+    except Exception:  # noqa: BLE001 - no warehouse yet
+        cities = []
+    out: dict[str, dict] = {}
+    for it in items:
+        if it.get("mark") == "no":
+            continue
+        best, dist = None, AERIAL_TOWN_KM
+        for c in cities:
+            d = math.hypot((c["lat"] - it["lat"]) * 111.32, (c["lon"] - it["lon"]) * 111.32 * math.cos(math.radians(it["lat"])))
+            if d < dist:
+                best, dist = c["name"], d
+        row = out.setdefault(best or "Elsewhere", {"town": best or "Elsewhere", "squares": set(), "counts": {}})
+        row["squares"].add((it.get("x"), it.get("y")))
+        row["counts"][it["tag"]] = row["counts"].get(it["tag"], 0) + int(it.get("count") or 1)
+    rows = [{"town": r["town"], "squares": len(r["squares"]), "counts": r["counts"]} for r in out.values()]
+    return sorted(rows, key=lambda r: -sum(r["counts"].values()))
+
+
 def _look_place(m: dict, item: list, s: dict, fetch, looker) -> list[dict] | None:
     layer, item_id, name, category, lon, lat = item
     pic = picture(lon, lat, 15, fetch=fetch)
@@ -990,7 +1121,7 @@ def mark(sid: str, item_id: str, value: str | None) -> dict:
 
 def hit_rates() -> list[dict]:
     """For each thing scans look for: how often the model reported it, and how often your marks said it was right."""
-    rows = {t.id: {"tag": t.id, "label": t.label, "found": 0, "yes": 0, "no": 0} for t in SCAN_TAGS}
+    rows = {t.id: {"tag": t.id, "label": t.label, "found": 0, "yes": 0, "no": 0} for t in (*SCAN_TAGS, *AERIAL_TAGS)}
     checks: dict[str, dict] = {}
     for m in scans():
         for it in _read(_found_path(m["id"]), []):
@@ -1021,7 +1152,11 @@ def layer(min_sure: float | None = None) -> list[dict]:
             if it.get("mark") == "no":
                 continue
             if m["mode"] == "scan" and (it.get("sure", 0) >= ms or it.get("mark") == "yes"):
-                out.append({"scan": m["id"], "id": it["id"], "kind": "tag", "tag": it["tag"], "label": _TAGS[it["tag"]].label if it["tag"] in _TAGS else it["tag"],
+                tag = _TAGS.get(it["tag"]) or _AERIAL.get(it["tag"])
+                label = tag.label if tag else it["tag"]
+                if it.get("count"):
+                    label = f"{label}: {it['count']}"
+                out.append({"scan": m["id"], "id": it["id"], "kind": "tag", "tag": it["tag"], "label": label,
                             "sure": it.get("sure"), "note": it.get("note"), "lon": it["lon"], "lat": it["lat"], "mark": it.get("mark")})
             elif m["mode"] == "check" and it.get("verdict") == "no" and it.get("sure", 0) >= ms:
                 out.append({"scan": m["id"], "id": it["id"], "kind": "check", "tag": "check_no", "label": f"Doesn't look like {it.get('layer', '').replace('_', ' ')}",
