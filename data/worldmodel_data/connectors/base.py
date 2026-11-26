@@ -23,6 +23,14 @@ log = logging.getLogger(__name__)
 # Waits, in seconds, before each new try after HTTP 429 (too many requests) or 503.
 RETRY_WAITS = (15, 45, 90)
 USER_AGENT = "worldmodel-data/0.1 (personal research tool; https://github.com/Nichevo/worldmodel)"
+# For the few sites whose firewall stalls or refuses anything that does not look like a
+# browser (a page or two read rarely, never in bulk): a browser's headers, still naming us.
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/131.0.0.0 Safari/537.36 worldmodel-data/0.1",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-AU,en;q=0.9",
+}
 
 
 class ConnectorError(RuntimeError):
@@ -425,13 +433,15 @@ class Connector(ABC):
             shutil.copy2(f, dest / f.name)
         return f"file:{from_path.as_posix()}"
 
-    def get(self, url: str, dest: Path, headers: dict[str, str] | None = None, cached: bool = True) -> None:
+    def get(self, url: str, dest: Path, headers: dict[str, str] | None = None, cached: bool = True,
+            timeout: float | None = None, retry_waits: tuple[int, ...] = RETRY_WAITS) -> None:
         """Download url to dest, unless the server says our stored copy is still current.
         A download cut off part way is resumed where it stopped (HTTP Range); a site that
         does not send its intermediate certificate gets it fetched from the address its
         own certificate names (AIA), then the download is tried again. `headers` are sent
         as well (an API key); cached=False for a URL that carries a key, so it is neither
-        logged nor kept in http_cache.json."""
+        logged nor kept in http_cache.json. `timeout` (seconds) replaces the usual two minutes
+        and `retry_waits` the waits after HTTP 429/503, for a source with a fallback of its own."""
         cache = self._cache if cached else None
         extra = dict(headers or {})
         headers = {**(cache.conditional_headers(url) if cache else {}), **extra}
@@ -441,9 +451,10 @@ class Connector(ABC):
         attempt = 0
         while True:
             try:
-                with self.client.stream("GET", url, headers=headers) as r:
-                    if r.status_code in (429, 503) and attempt < len(RETRY_WAITS):
-                        wait = _retry_after(r.headers.get("retry-after"), RETRY_WAITS[attempt])
+                with self.client.stream("GET", url, headers=headers,
+                                        **({"timeout": timeout} if timeout else {})) as r:
+                    if r.status_code in (429, 503) and attempt < len(retry_waits):
+                        wait = _retry_after(r.headers.get("retry-after"), retry_waits[attempt])
                         log.info("HTTP %s (server busy or asking us to slow down); trying again in %ss",
                                  r.status_code, wait)
                         attempt += 1

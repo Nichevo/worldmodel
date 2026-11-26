@@ -44,7 +44,7 @@ from urllib.parse import urlencode, urljoin
 
 import duckdb
 
-from worldmodel_data.connectors.base import Connector, ConnectorError
+from worldmodel_data.connectors.base import BROWSER_HEADERS, Connector, ConnectorError
 from worldmodel_data.connectors.events_common import EMPTY_OBSERVATIONS
 from worldmodel_data.connectors.tabular import num, xlsx_rows
 from worldmodel_data.connectors.transport import EU_GEO, iso3_of, jsonstat_rows
@@ -501,6 +501,7 @@ class CensusPortTrade(PortGoods):
 
 # ----------------------------------------------------------------------------- Australia BITRE
 BITRE_MARITIME = "https://www.bitre.gov.au/maritime"
+BITRE_ZIP = "https://www.bitre.gov.au/sites/default/files/documents/asf-{fy}-chapter-1.zip"
 
 
 def bitre_top_ports(rows: list[list], what: str) -> list[tuple]:
@@ -542,30 +543,103 @@ def bitre_top_ports(rows: list[list], what: str) -> list[tuple]:
 
 
 class BITRESeaFreight(PortGoods):
+    """The chapter 1 tables of BITRE's yearly Australian sea freight. The zip is asked for by its
+    usual name first (asf-<year>-chapter-1.zip, newest year first), so the slow maritime pages
+    are read only when no such file is found. A saved chapter 1 zip (or Tables 1.3 and 1.4) in
+    var\\manual\\bitre_sea_freight is read as well."""
     source_id = "bitre_sea_freight"
     keeps_files = False
     fetch_every_days = 60
 
+    def _get(self, url: str, dest: Path) -> None:
+        # bitre.gov.au can leave programs waiting for minutes; a browser's headers and a short
+        # wait, then the next way in.
+        self.get(url, dest, headers=BROWSER_HEADERS, timeout=45, retry_waits=(15,))
+
     def download(self, raw_dir: Path, release: str) -> str:
+        zp = raw_dir / "_chapter1.zip"
+        url = self._direct_zip(zp) or self._linked_zip(raw_dir, zp)
+        try:
+            rows = bitre_rows(zp, raw_dir)
+        finally:
+            zp.unlink(missing_ok=True)
+        write_rows(raw_dir / "port_goods_au.csv.gz", rows)
+        return url
+
+    def _direct_zip(self, zp: Path) -> str | None:
+        today = date.today()
+        last_fy = today.year if today.month >= 7 else today.year - 1  # the financial year ended 30 June
+        for end in range(last_fy, last_fy - 4, -1):
+            url = BITRE_ZIP.format(fy=f"{end - 1}-{end % 100:02d}")
+            try:
+                self._get(url, zp)
+                if zipfile.is_zipfile(zp):
+                    return url
+            except Exception as exc:
+                log.info("bitre_sea_freight: %s not fetched (%s)", url.rsplit("/", 1)[-1], exc)
+                if not re.search(r"HTTP 40[34]|HTTP 410", str(exc)):
+                    return None  # timed out or refused: no point guessing more names
+            zp.unlink(missing_ok=True)
+        return None
+
+    def _linked_zip(self, raw_dir: Path, zp: Path) -> str:
         page = raw_dir / "_maritime.html"
-        self.get(BITRE_MARITIME, page, cached=False)
-        m = re.search(r'href="([^"]*australian-sea-freight-[^"]*)"', page.read_text(encoding="utf-8", errors="replace"))
+        try:
+            self._get(BITRE_MARITIME, page)
+        except Exception as exc:
+            page.unlink(missing_ok=True)
+            raise ConnectorError(f"bitre_sea_freight: bitre.gov.au is not answering ({exc}). The last copy is kept; "
+                                 "the next refresh tries again, or save the 'Chapter 1' zip from the newest Australian "
+                                 f"sea freight page ({BITRE_MARITIME}) into var\\manual\\bitre_sea_freight") from exc
+        m = re.search(r'href="([^"#]*/resource/[^"#]*australian-sea-freight-[^"#]*)"',
+                      page.read_text(encoding="utf-8", errors="replace"))
         page.unlink(missing_ok=True)
         if not m:
             raise ConnectorError("bitre_sea_freight: no Australian sea freight link on the maritime page")
         res = urljoin(BITRE_MARITIME, m[1])
         page = raw_dir / "_asf.html"
-        self.get(res, page, cached=False)
+        self._get(res, page)
         z = re.search(r'href="([^"]*chapter-1\.zip)"', page.read_text(encoding="utf-8", errors="replace"))
         page.unlink(missing_ok=True)
         if not z:
             raise ConnectorError(f"bitre_sea_freight: no chapter 1 tables on {res}")
-        zp = raw_dir / "_chapter1.zip"
-        self.get(urljoin(res, z[1]), zp)
-        rows = bitre_rows(zp, raw_dir)
-        zp.unlink(missing_ok=True)
-        write_rows(raw_dir / "port_goods_au.csv.gz", rows)
+        self._get(urljoin(res, z[1]), zp)
         return res
+
+    def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
+        if not any(raw_dir.glob("port_goods_*.csv.gz")):  # files saved by hand: read them as they are
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                rows = bitre_saved_rows(raw_dir, Path(tmp))
+                out = Path(tmp) / "port_goods_au.csv.gz"
+                write_rows(out, rows)
+                n = load_rows(con, [out])
+            log.info("%s: %s rows from saved files", self.source_id, n)
+            self.history_queries = {"port_goods": "SELECT * FROM pg"}
+            return EMPTY_OBSERVATIONS
+        return super().stage(con, raw_dir, release, vintage)
+
+
+def bitre_saved_rows(raw_dir: Path, tmp_dir: Path) -> list[tuple]:
+    """Rows from hand-saved files: chapter 1 zips, or Tables 1.3 and 1.4 as Excel files."""
+    out = []
+    for p in sorted(raw_dir.iterdir()):
+        if p.suffix.lower() == ".zip" and zipfile.is_zipfile(p):
+            out += bitre_rows(p, tmp_dir)
+        elif p.suffix.lower() in (".xlsx", ".xlsm"):
+            what = bitre_table_kind(p.name)
+            if what:
+                out += bitre_top_ports(xlsx_rows(p), what)
+    if not out:
+        raise ConnectorError(f"bitre_sea_freight: no Tables 1.3 or 1.4 in {raw_dir}")
+    return merge_value_weight(out)
+
+
+def bitre_table_kind(name: str) -> str | None:
+    """'value' for Table 1.3, 'weight' for Table 1.4 (however the file was named on saving)."""
+    m = re.search(r"table[ _-]*1[._-]([34])\b", name.lower())
+    return {"3": "value", "4": "weight"}[m[1]] if m else None
 
 
 def bitre_rows(zip_path: Path, tmp_dir: Path) -> list[tuple]:
@@ -573,7 +647,7 @@ def bitre_rows(zip_path: Path, tmp_dir: Path) -> list[tuple]:
     with zipfile.ZipFile(zip_path) as z:
         for info in z.infolist():
             base = Path(info.filename).name.lower()
-            what = "value" if base == "table 1.3.xlsx" else "weight" if base == "table 1.4.xlsx" else None
+            what = bitre_table_kind(base) if base.endswith(".xlsx") else None
             if not what:
                 continue
             p = tmp_dir / f"_{base.replace(' ', '_')}"
@@ -582,7 +656,11 @@ def bitre_rows(zip_path: Path, tmp_dir: Path) -> list[tuple]:
             p.unlink(missing_ok=True)
     if not out:
         raise ConnectorError("bitre_sea_freight: no top ports in Tables 1.3 and 1.4")
-    # Value and weight rows for the same port and year become one row.
+    return merge_value_weight(out)
+
+
+def merge_value_weight(out: list[tuple]) -> list[tuple]:
+    """Value and weight rows for the same port and year become one row."""
     both: dict[tuple, list] = {}
     for r in out:
         k = r[:9]

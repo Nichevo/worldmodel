@@ -162,3 +162,81 @@ def test_write_rows_round_trip(tmp_path):
     con = duckdb.connect()
     from worldmodel_data.connectors.port_goods import load_rows
     assert load_rows(con, [p]) == 1
+
+
+def _bitre_zip(path: Path) -> Path:
+    import openpyxl
+
+    with zipfile.ZipFile(path, "w") as z:
+        for name, unit, val in (("Table 1.3.xlsx", "( $ billion )", 80.5), ("Table 1.4.xlsx", "( million tonnes )", 563.8)):
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            for r in (["Financial year", "Port Hedland", "All ports a"], ["Exports", unit, None], ["2023–24", val, 1.0]):
+                ws.append(r)
+            tmp = path.parent / name
+            wb.save(tmp)
+            z.write(tmp, f"asf-2023-24-chapter-1/{name}")
+    return path
+
+
+def test_bitre_direct_zip_skips_pages(tmp_path):
+    """The chapter 1 zip is asked for by name, newest year first; the slow maritime pages are not read."""
+    import httpx
+
+    body = _bitre_zip(tmp_path / "src.zip").read_bytes()
+    asked = []
+
+    def handler(req):
+        asked.append(str(req.url))
+        if req.url.path.endswith("asf-2023-24-chapter-1.zip"):
+            return httpx.Response(200, content=body)
+        if "maritime" in req.url.path:
+            raise AssertionError("maritime page should not be read")
+        return httpx.Response(404, text="not found")
+
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    conn = CONNECTORS["bitre_sea_freight"](client=httpx.Client(transport=httpx.MockTransport(handler)))
+    conn.download(raw, "x")
+    assert asked and all("chapter-1.zip" in u for u in asked) and asked[-1].endswith("asf-2023-24-chapter-1.zip")
+    con = duckdb.connect()
+    conn.stage(con, raw, "x", "v")
+    row = con.execute("SELECT tonnes, value FROM pg WHERE port = 'Port Hedland'").fetchone()
+    assert row == (pytest.approx(563.8e6), pytest.approx(80.5e9))
+
+
+def test_bitre_page_link_skips_anchor(tmp_path):
+    """When no zip is found by name, the maritime page's resource link is followed, not its #subtopic anchor."""
+    import httpx
+
+    body = _bitre_zip(tmp_path / "src.zip").read_bytes()
+
+    def handler(req):
+        p = req.url.path
+        if p == "/maritime":
+            return httpx.Response(200, text='<a href="#subtopic-australian-sea-freight-252">x</a>'
+                                            '<a href="/resource/maritime/australian-sea-freight-2023-24">y</a>')
+        if p == "/resource/maritime/australian-sea-freight-2023-24":
+            return httpx.Response(200, text='<a href="https://www.bitre.gov.au/sites/default/files/documents/'
+                                            'asf-2023-24-final-chapter-1.zip">c1</a>')
+        if p.endswith("asf-2023-24-final-chapter-1.zip"):
+            return httpx.Response(200, content=body)
+        return httpx.Response(404)
+
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    conn = CONNECTORS["bitre_sea_freight"](client=httpx.Client(transport=httpx.MockTransport(handler)))
+    assert conn.download(raw, "x").endswith("australian-sea-freight-2023-24")
+    assert (raw / "port_goods_au.csv.gz").exists()
+
+
+def test_bitre_saved_by_hand(tmp_path):
+    """A chapter 1 zip saved into the manual folder is read as it comes."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    _bitre_zip(raw / "asf-2023-24-chapter-1.zip")
+    for f in tmp_path.glob("Table*.xlsx"):
+        f.unlink()
+    con = duckdb.connect()
+    CONNECTORS["bitre_sea_freight"]().stage(con, raw, "x", "v")
+    assert con.execute("SELECT count(*) FROM pg WHERE port = 'Port Hedland'").fetchone()[0] == 1
