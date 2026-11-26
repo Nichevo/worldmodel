@@ -44,7 +44,7 @@ export const SHIP_GROUPS: { id: string; label: string; color: string }[] = [
   { id: "fast", label: "High-speed craft", color: "#0c8599" },
   { id: "official", label: "Navy, coastguard, rescue", color: "#212529" },
   { id: "other", label: "Other", color: "#868e96" },
-  { id: "unknown", label: "Not said yet", color: "#adb5bd" },
+  { id: "unknown", label: "Not said yet", color: "#6b7785" },
 ];
 export const PLANE_GROUPS: { id: string; label: string; color: string; icon: string }[] = [
   { id: "airliner", label: "Airliners and big jets", color: "#1864ab", icon: "wm-plane" },

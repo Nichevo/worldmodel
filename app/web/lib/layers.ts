@@ -361,22 +361,22 @@ export const LAYER_STYLE: Record<string, Style> = {
     legend: "Plane in the air now (OpenSky), shaped and coloured by type", swatch: () => "#1864ab", dot: true, fetch: "live", every: 60, click: "journey",
     symbol: () => ({
       "icon-image": ["match", ["get", "group"], ...PLANE_GROUPS.filter((g) => g.icon !== "wm-plane").flatMap((g) => [g.id, g.icon]), "wm-plane"] as unknown as ExpressionSpecification,
-      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.32, 5, 0.5, 9, 0.75] as unknown as ExpressionSpecification,
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.5, 5, 0.65, 9, 0.85, 12, 1] as unknown as ExpressionSpecification,
       "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
       "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
     }),
-    paint: () => ({ "icon-color": groupColor(PLANE_GROUPS, "#1864ab"), "icon-halo-color": cssVar("--surface"), "icon-halo-width": 0.6 }) as never,
+    paint: () => ({ "icon-color": groupColor(PLANE_GROUPS, "#1864ab"), "icon-halo-color": cssVar("--surface"), "icon-halo-width": 1 }) as never,
   },
   live_ships: {
     legend: "Ship now (aisstream.io), coloured by kind", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "journey",
     symbol: () => ({
       "icon-image": "wm-ship",
-      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.26, 5, 0.42, 9, 0.7, 12, 0.9] as unknown as ExpressionSpecification,
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.45, 5, 0.6, 9, 0.8, 12, 1] as unknown as ExpressionSpecification,
       "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
       "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
     }),
-    paint: () => ({ "icon-color": groupColor(SHIP_GROUPS, "#adb5bd"), "icon-halo-color": ["case", ["boolean", ["get", "sanctioned"], false], "#c92a2a", cssVar("--surface")],
-      "icon-halo-width": ["case", ["boolean", ["get", "sanctioned"], false], 2, 0.6] }) as never,
+    paint: () => ({ "icon-color": groupColor(SHIP_GROUPS, "#6b7785"), "icon-halo-color": ["case", ["boolean", ["get", "sanctioned"], false], "#c92a2a", cssVar("--surface")],
+      "icon-halo-width": ["case", ["boolean", ["get", "sanctioned"], false], 2, 1] }) as never,
   },
   // ---- detail from the OSINT communities
   conflict_events: {
