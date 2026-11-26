@@ -38,3 +38,22 @@ def test_sea_path_without_searoute_or_path(monkeypatch):
     seapath._route.cache_clear()
     assert seapath.sea_path(0, 0, 1, 1) is None
     seapath._route.cache_clear()
+
+
+def test_sea_path_soon_never_waits(monkeypatch):
+    import time as _t
+
+    def fake(o, d, **kw):
+        return {"geometry": {"coordinates": [o, d]}, "properties": {"length": 99.0, "traversed_passages": []}}
+
+    monkeypatch.setitem(sys.modules, "searoute", types.SimpleNamespace(searoute=fake))
+    seapath._route.cache_clear()
+    seapath._known.clear()
+    assert seapath.sea_path_soon(170.1, -40.1, 174.78, -36.84) is None  # queued
+    for _ in range(50):
+        if seapath.sea_path_soon(170.1, -40.1, 174.78, -36.84):
+            break
+        _t.sleep(0.02)
+    assert seapath.sea_path_soon(170.1, -40.1, 174.78, -36.84)["nm"] == 99
+    seapath._known.clear()
+    seapath._route.cache_clear()

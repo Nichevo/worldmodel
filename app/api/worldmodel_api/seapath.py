@@ -6,6 +6,7 @@ great-circle line. The Northwest Passage is left out (as searoute does by defaul
 from __future__ import annotations
 
 import logging
+import queue
 import threading
 from functools import lru_cache
 
@@ -50,3 +51,35 @@ def sea_path(lon1: float, lat1: float, lon2: float, lat2: float, exact: bool = T
     if not r:
         return None
     return {"coords": [list(c) for c in r[0]], "nm": round(r[1]), "passages": list(r[2])}
+
+
+# Distances for many ships at once (tables): never wait on a route; the ones not yet worked out are
+# queued for a background thread and the caller uses its straight-line guess meanwhile.
+_known: dict[tuple, dict | None] = {}
+_todo: queue.Queue = queue.Queue(maxsize=5000)
+_worker: threading.Thread | None = None
+
+
+def _work() -> None:
+    while True:
+        k = _todo.get()
+        if k not in _known:
+            _known[k] = sea_path(*k, exact=False)
+            if len(_known) > 20000:
+                _known.clear()
+
+
+def sea_path_soon(lon1: float, lat1: float, lon2: float, lat2: float) -> dict | None:
+    """sea_path rounded as for distances, if already worked out; else None, and it is worked out soon."""
+    global _worker
+    k = (round(lon1 * 4) / 4, round(lat1 * 4) / 4, round(lon2, 2), round(lat2, 2))
+    if k in _known:
+        return _known[k]
+    if _worker is None or not _worker.is_alive():
+        _worker = threading.Thread(target=_work, name="seapath", daemon=True)
+        _worker.start()
+    try:
+        _todo.put_nowait(k)
+    except queue.Full:
+        pass
+    return None

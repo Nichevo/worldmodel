@@ -735,8 +735,8 @@ class Schedules:
             dest_port = next((p for p in PORT_LISTS.values() if p["locode"] == book["locode"]), None)
         estimate = None
         if dest_port and lat is not None and dest_port.get("lat") is not None and isinstance(sog, (int, float)) and sog >= 3:
-            from worldmodel_api.seapath import sea_path
-            sea = sea_path(lon, lat, dest_port["lon"], dest_port["lat"], exact=False)
+            from worldmodel_api.seapath import sea_path_soon
+            sea = sea_path_soon(lon, lat, dest_port["lon"], dest_port["lat"])
             nm = sea["nm"] if sea and sea["nm"] else sea_nm(lon, lat, dest_port["lon"], dest_port["lat"])
             estimate = {"at": int(now + nm / sog * 3600), "nm": round(nm), "speed_kn": sog, "port": dest_port.get("name")}
         carrier = self.carrier.get(str(detail.get("imo"))) if detail.get("imo") else None
