@@ -296,12 +296,21 @@ class Connector(ABC):
             fetch_version=self.fetch_version,
         )
         self._stage_vintage(store, manifest)
-        log.info("%s: stored vintage %s (%s rows)", self.source_id, vintage, manifest.row_count)
+        log.info("%s: stored vintage %s (%s)", self.source_id, vintage, self._counts(manifest))
         if self.keep_vintages:
             gone = store.prune(self.source_id, self.keep_vintages)
             if gone:
                 log.info("%s: removed %d older vintage(s); the newest carries their history", self.source_id, gone)
         return manifest, True
+
+    @staticmethod
+    def _counts(manifest) -> str:
+        """What a vintage holds, for the log: figures, plus history rows (crowd questions, forecasts)
+        for sources that keep none, so "0 rows" does not read as a failure."""
+        parts = [f"{manifest.row_count:,} rows"]
+        if getattr(manifest, "history_count", 0):
+            parts.append(f"{manifest.history_count:,} history rows")
+        return ", ".join(parts)
 
     def restage(self, store: VintageStore, manifest: Manifest) -> Manifest:
         """Stage a stored vintage again from its raw files, after a fix to stage()."""
@@ -309,7 +318,7 @@ class Connector(ABC):
         if not raw_dir.is_dir():
             raise ConnectorError(f"{self.source_id}: raw files for vintage {manifest.vintage} are gone ({raw_dir})")
         self._stage_vintage(store, manifest)
-        log.info("%s: staged vintage %s again (%s rows)", self.source_id, manifest.vintage, manifest.row_count)
+        log.info("%s: staged vintage %s again (%s)", self.source_id, manifest.vintage, self._counts(manifest))
         return manifest
 
     def _stage_vintage(self, store: VintageStore, manifest: Manifest) -> None:

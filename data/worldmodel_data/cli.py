@@ -67,7 +67,8 @@ def fetch(
     manifest, is_new = CONNECTORS[source]().ingest(VintageStore(paths()), from_path, release)
     word = "stored new vintage" if is_new else "unchanged, already have vintage"
     counts = [f"{manifest.row_count:,} rows"] + [f"{n:,} {what}" for n, what in
-                                                 ((manifest.text_count, "texts"), (manifest.event_count, "events")) if n]
+                                                 ((manifest.text_count, "texts"), (manifest.event_count, "events"),
+                                                  (manifest.history_count, "history rows")) if n]
     typer.echo(f"{source}: {word} {manifest.vintage} ({', '.join(counts)})")
 
 
