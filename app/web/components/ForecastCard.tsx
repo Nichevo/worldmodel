@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { compass, hourDate, placeForecast, r0, r1, type PlaceForecast } from "@/lib/weather";
+import {
+  aqiColour, aqiWords, compass, hourDate, placeAir, placeForecast, placeModels, r0, r1, windyLink,
+  type AirNow, type ModelsAgree, type PlaceForecast, type RainSoon,
+} from "@/lib/weather";
 
 // A place's weather now, the days ahead and an hourly chart (temperature line, rain bars), from
 // Open-Meteo or MET Norway (Settings > Climate > Weather). Used by the map's click-for-forecast
@@ -39,6 +42,7 @@ export default function ForecastCard({ lat, lon, title, hours = 72, onClose }: {
           </span>
         </div>
       )}
+      {f?.rain_soon && <RainSoonLine r={f.rain_soon} f={f} />}
       {f?.daily && f.daily.length > 0 && (
         <div className="wx-days" role="list">
           {f.daily.map((d) => (
@@ -52,10 +56,13 @@ export default function ForecastCard({ lat, lon, title, hours = 72, onClose }: {
         </div>
       )}
       {f?.hourly && <HourChart f={f} hours={hours} />}
+      <ModelsLine lat={lat} lon={lon} />
+      <AirLine lat={lat} lon={lon} />
       {f?.source_name && (
         <span className="caption">
           {f.source_name}{f.source === "open_meteo" && f.timezone ? `, times in ${f.timezone}` : ", times in your time zone"}.{" "}
           Rain chance is the day&apos;s highest hourly chance. <a href={f.link} target="_blank" rel="noreferrer">Source</a>
+          {" · "}<a href={windyLink(lat, lon, 9)} target="_blank" rel="noreferrer">Open in Windy</a>
         </span>
       )}
     </div>
@@ -107,5 +114,73 @@ function HourChart({ f, hours }: { f: PlaceForecast; hours: number }) {
         return <text key={`v${k}`} x={Math.min(W - 18, Math.max(2, x(idx) - 6))} y={y(temps[k]) - 3} fontSize="9" fill="var(--ink)">{Math.round(temps[k])}°</text>;
       })}
     </svg>
+  );
+}
+
+// "Rain from 2:15 pm" from the next 8 hours in quarter-hours (Open-Meteo).
+function RainSoonLine({ r, f }: { r: RainSoon; f: PlaceForecast }) {
+  const at = (t: string) => hourDate(f, t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", ...(f.timezone ? { timeZone: f.timezone } : {}) });
+  const text = r.now ? (r.ends ? `Raining now, easing about ${at(r.ends)}` : `Raining now, for the next ${r.hours} hours or more`)
+    : r.starts ? `Rain from about ${at(r.starts)}${r.ends ? ` to ${at(r.ends)}` : ""}${r.mm ? ` (${r1(r.mm)} mm)` : ""}`
+      : `No rain in the next ${r.hours} hours`;
+  return <span className="small"><b>{text}</b> <span className="muted">(15-minute forecast)</span></span>;
+}
+
+// Today's and tomorrow's high and rain from six models side by side, and whether they agree.
+function ModelsLine({ lat, lon }: { lat: number; lon: number }) {
+  const [m, setM] = useState<ModelsAgree | null>(null);
+  useEffect(() => {
+    let live = true;
+    setM(null);
+    placeModels(lat, lon).then((d) => live && setM(d)).catch(() => live && setM(null));
+    return () => { live = false; };
+  }, [lat, lon]);
+  if (!m?.days?.length) return null;
+  const label = (i: number) => (i === 0 ? "Today" : "Tomorrow");
+  return (
+    <details className="wx-models small">
+      <summary>
+        {m.days.map((d, i) => (
+          <span key={d.date}>{i > 0 ? " · " : ""}{label(i)}: {d.n} models, high {r0(d.high_lo)} to {r0(d.high_hi)}°
+            {d.rain_hi !== null ? `, rain ${r1(d.rain_lo)} to ${r1(d.rain_hi)} mm` : ""}{" "}
+            {d.agree ? <span className="muted">(agree)</span> : <b className="wx-disagree">(disagree: {d.why})</b>}</span>
+        ))}
+      </summary>
+      <table>
+        <thead><tr><th>Model</th>{m.days.map((d, i) => <th key={d.date} colSpan={2}>{label(i)}</th>)}</tr></thead>
+        <tbody>
+          {m.days[0].models.map((x, j) => (
+            <tr key={x.model}>
+              <td>{x.name}</td>
+              {m.days!.map((d) => [<td key={`${d.date}h`}>{r1(d.models[j]?.high)}°</td>, <td key={`${d.date}r`}>{r1(d.models[j]?.rain)} mm</td>])}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
+// The air now and the worst hour of the next days (Open-Meteo, CAMS).
+function AirLine({ lat, lon }: { lat: number; lon: number }) {
+  const [a, setA] = useState<AirNow | null>(null);
+  useEffect(() => {
+    let live = true;
+    setA(null);
+    placeAir(lat, lon).then((d) => live && setA(d)).catch(() => live && setA(null));
+    return () => { live = false; };
+  }, [lat, lon]);
+  const n = a?.now;
+  if (!n || n.us_aqi === null) return null;
+  const worst = (a.days ?? []).slice(1).reduce<{ date: string; us_aqi: number } | null>((b, d) => (!b || d.us_aqi > b.us_aqi ? d : b), null);
+  return (
+    <span className="small wx-air">
+      Air now <span className="wx-aqi" style={{ background: aqiColour(n.us_aqi) }} title="US air quality index">{r0(n.us_aqi)}</span> {aqiWords(n.us_aqi)}
+      <span className="muted">
+        {n.pm2_5 !== null ? ` · PM2.5 ${r1(n.pm2_5)} µg/m³` : ""}{n.dust ? ` · dust ${r0(n.dust)}` : ""}{n.ozone !== null ? ` · ozone ${r0(n.ozone)}` : ""}
+        {n.uv_index !== null ? ` · UV ${r1(n.uv_index)}` : ""}
+        {worst && worst.us_aqi > 100 ? ` · worst ahead ${r0(worst.us_aqi)} on ${new Date(`${worst.date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "short", timeZone: "UTC" })}` : ""}
+      </span>
+    </span>
   );
 }

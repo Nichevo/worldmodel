@@ -216,6 +216,7 @@ with identical content is skipped; a revised release becomes a new vintage
 | BIS policy rates and exchange rates | Central bank policy rates (yearly average and December), and each currency's US dollar rate | BIS statistics API (`WS_CBPOL`, `WS_XRU`) |
 | US Census Bureau voting tables | Who voted and who registered at every November election since 1964: by age group, by sex (also within age groups), and for White non-Hispanic, Black, Asian and Hispanic Americans; citizens and all residents | Table A-1 (`hst_vote01.xlsx`), checked every three months. If the Census site refuses it, download it from the voting historical time series page and run `.\load.bat us_census_voting <file>` |
 | Weather maps | NOAA GFS forecast (temperature, rain, cloud, wind, pressure), RainViewer rain radar, NASA GIBS Himawari and GOES infrared; a place's forecast from Open-Meteo or MET Norway | Read while a weather layer is on: GFS every 6 hours, radar every 5 minutes, satellite every 10 minutes |
+| Weather extras | ECMWF IFS open data (optional model), NOAA GFS-Wave (waves and swell), Open-Meteo air quality (CAMS) and six-model comparison | ECMWF twice a day and waves every 6 hours while a layer needs them; air every 3 hours; models per clicked place, kept 3 hours |
 | Map layers | Tectonic plate boundaries (Bird 2003), active faults (GEM), volcanoes (Smithsonian GVP) and earthquakes of magnitude 6 and over since 1900 (USGS) | GeoJSON from GitHub, the Smithsonian's map service and the USGS event service; earthquakes weekly |
 | Wikipedia | The introduction of each country's article, its main picture, flag and locator map, with credits | Never in a refresh. Fetched by the app through Wikipedia's official API when a country page is opened (and, if switched on in Settings, a few an hour in the background), within the daily limit in Settings, and kept for a month. Pictures stop at the pictures limit |
 
@@ -530,14 +531,31 @@ several legs shows its total and a rough flight time at 850 km/h.
   every 6 hours into `var\weather\gfs` (about 75 MB a run at 0.5°; 1° or 0.25° in Settings),
   keeps one run and draws the tiles itself. GRIB files are read with the `eccodes` package
   (installed by update.bat).
+  Settings can switch the forecast maps to ECMWF's IFS open data instead (0.25°, CC BY 4.0,
+  runs at 00 and 12 UTC, about 170 MB a run in `var\weather\ecmwf`): only the six fields are read
+  from each step's file by byte range, and rain is the change in total precipitation between steps.
+- *Wind lines, moving* are specks carried by the same forecast wind (a 1° grid, drawn in the
+  browser); a still picture when the system asks for reduced motion.
+- *Waves* and *Swell* (the main swell) are NOAA's GFS-Wave (WAVEWATCH III) at 0.25°, every
+  6 hours, downloaded only while one of them is on (about 120 MB a run in `var\weather\waves`);
+  arrows show the way they travel; the pointer line gives height, period and direction.
+- *Air quality in big cities (now)*: the US air quality index this hour in cities of a million
+  people or more, with PM2.5, PM10, dust, ozone and NO2 on the popup (Open-Meteo's CAMS
+  forecast, every 3 hours).
 - *Rain radar (now)* is RainViewer's latest radar picture (where there are radars, New Zealand's
   included); *Clouds from satellite (now)* is the latest Himawari and GOES infrared from NASA
   GIBS, with clear ground made see-through (no picture over Europe, Africa and the Middle East).
 - With a weather layer on, a click on the map opens that place's forecast (weather now, the
   days ahead and the next three days by the hour) from Open-Meteo or MET Norway; shift-click
-  still picks the country. City pages have the same *Forecast* card.
+  still picks the country. City pages have the same *Forecast* card. The card also says when rain
+  starts or stops in the next 8 hours (Open-Meteo's 15-minute forecast), compares today's and
+  tomorrow's high and rain from six models (ECMWF, GFS, ICON, UK Met Office, GEM, JMA) and flags
+  when they disagree (highs 4° or more apart, or some dry while others have 3 mm or more), gives
+  the air now, and links to the same place on windy.com. MET Norway's rain is moved to the hour
+  it ends, as Open-Meteo gives it.
 - API: `/api/v1/weather/status`, `/weather/tiles/{field}/{run}/{step}/{z}/{x}/{y}.png`,
-  `/weather/at`, `/weather/clouds/{z}/{x}/{y}.png`, `/weather/point`.
+  `/weather/at` (`wave_step` adds the waves), `/weather/clouds/{z}/{x}/{y}.png`, `/weather/point`,
+  `/weather/wind/{run}/{step}` (the wind lines' grid), `/weather/air`, `/weather/models`.
 
 **How it ranks among…** (a card on each country page, World section): for each measure the
 best country in the group, this country with its rank ("#2 of 6", the cell green near the

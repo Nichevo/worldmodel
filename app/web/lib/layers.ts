@@ -7,6 +7,7 @@ import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { shipsAtQuery } from "@/lib/ships";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
+import { aqiWords } from "@/lib/weather";
 import { EVENT_KIND, fightingQuery, lookCloser, portWeeksQuery, SOURCE_NAME } from "@/lib/osint";
 
 export type MapLayerInfo = {
@@ -198,6 +199,12 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "circle-color": cssVar("--surface"), "circle-radius": zoomWidth(5, 9),
       "circle-stroke-color": ["interpolate", ["linear"], ["coalesce", ["get", "peak"], 35], 35, "#f783ac", 40, "#c2255c", 45, "#6f0d33"],
       "circle-stroke-width": 3 }),
+  },
+  air_now: {
+    legend: "Air this hour in big cities, US AQI: green good, yellow moderate, orange unhealthy for some, red unhealthy, purple very unhealthy",
+    swatch: () => "#f59f00", dot: true,
+    paint: () => ({ "circle-radius": zoomWidth(4, 8), "circle-opacity": 0.9, "circle-stroke-color": "#343a40", "circle-stroke-width": 0.6,
+      "circle-color": ["step", ["coalesce", ["get", "us_aqi"], 0], "#40c057", 51, "#fcc419", 101, "#fd7e14", 151, "#e03131", 201, "#862e9c", 301, "#5c0f2e"] }),
   },
   coral_alerts: {
     legend: "Reef region under bleaching heat stress (NOAA Coral Reef Watch: watch, warning, alert 1, alert 2)", swatch: () => "#f08c00", fill: true,
@@ -541,6 +548,10 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "fires_now" || layer === "fires_week") return `<b>${num(p.n)} fire${p.n === 1 ? "" : "s"}</b> seen here${p.date ? ` (latest ${esc(p.date)})` : ""}`
     + (typeof p.frp === "number" ? `<br/>Fire power ${num(p.frp)} MW` : "");
   if (layer === "heat_now") return `<b>${esc(p.name)}</b><br/>Forecast high ${esc(p.peak)} °C on ${esc(p.day)}<br/>${esc(p.days)} of the next 5 days at 35 °C or more`;
+  if (layer === "air_now") return `<b>${esc(p.name)}</b><br/>US air quality index ${esc(p.us_aqi)} (${esc(aqiWords(Number(p.us_aqi)))})`
+    + `${typeof p.pm2_5 === "number" ? `<br/>PM2.5 ${p.pm2_5} µg/m³` : ""}${typeof p.pm10 === "number" ? ` · PM10 ${p.pm10}` : ""}`
+    + `${typeof p.dust === "number" && p.dust > 0 ? ` · dust ${p.dust}` : ""}${typeof p.ozone === "number" ? `<br/>Ozone ${p.ozone} µg/m³` : ""}`
+    + `${typeof p.nitrogen_dioxide === "number" ? ` · NO₂ ${p.nitrogen_dioxide}` : ""}<br/><span class="muted">Open-Meteo (CAMS forecast) for ${esc(p.time)} UTC</span>`;
   if (layer === "coral_alerts") return `<b>${esc(p.name)}</b><br/>Coral bleaching: ${esc(p.label)} (highest in the last 7 days)`;
   if (layer === "nz_wastewater") return `<b>${esc(p.name)}</b>${p.region ? `, ${esc(p.region)}` : ""}<br/>${num(p.value)} virus copies per person per day, week to ${esc(p.week)}`
     + `${typeof p.change === "number" ? `<br/>${p.change > 0 ? "+" : ""}${p.change}% on the month before` : ""}${typeof p.population === "number" ? `<br/>Serves ${num(p.population)} people` : ""}`

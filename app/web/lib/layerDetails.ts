@@ -58,7 +58,7 @@ export const DETAIL_LAYERS = new Set([
   "hospitals", "military_bases", "ports", "ports_all", "airports", "power_plants", "lng_terminals", "universities", "companies",
   "major_cities", "transit_stations", "heritage_sites", "visited_sites", "volcanoes", "earthquakes", "tide_gauges",
   "antarctic_stations", "cable_landings", "chokepoints", "cables", "gas_pipelines", "oil_pipelines", "street_trees",
-  "fires_now", "fires_week", "heat_now", "city_stress", "conflict_events",
+  "fires_now", "fires_week", "heat_now", "air_now", "city_stress", "conflict_events",
 ]);
 export const detailsHref = (id: string, country?: string) => `/layers/${id}${country ? `?country=${encodeURIComponent(country)}` : ""}`;
 

@@ -17,7 +17,7 @@ import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { showCameraWall, useCameraWall } from "@/lib/cameraWall";
-import { forecastFields, hasWeather, useRadar, useWeatherStatus, useWeatherStep, weatherRasters } from "@/lib/weather";
+import { forecastFields, hasWaves, hasWeather, useRadar, useWeatherStatus, useWeatherStep, weatherRasters } from "@/lib/weather";
 import { GROUP_LABEL, KIND_GROUP, kindColor, yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn, useYearEvents, yearMarks } from "@/lib/longYear";
 import {
@@ -73,7 +73,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const [centres, setCentres] = useState<Record<string, [number, number]> | null>(null);
   const [counts, setCounts] = useState<LayerCounts>({});
   const pastYear = useMapYear();
-  const wx = useWeatherStatus(hasWeather(letters)).status;
+  const wx = useWeatherStatus(hasWeather(letters), hasWaves(letters)).status;
   const wxStep = useWeatherStep();
   const rad = useRadar(on("@")).radar;
   const world = useWorldIn(on("y"), pastYear);
@@ -238,8 +238,10 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     }
     // Weather on top: forecast fields for the hour on the weather bar, satellite clouds, rain radar.
     rasters.push(...weatherRasters(letters, wx, wxStep, rad));
-    if (wx?.run && forecastFields(letters).length) all.wx_temp = all.wx_rain = all.wx_cloud = all.wx_wind = all.wx_pressure = wx.steps.length < wx.all_steps.length
-      ? `${wx.steps.length} of ${wx.all_steps.length} forecast hours in` : `next ${wx.days} days, every ${wx.step_hours} hours`;
+    if (wx?.run && (forecastFields(letters).length || letters.includes("^"))) all.wx_temp = all.wx_rain = all.wx_cloud = all.wx_wind = all.wx_pressure = all.wx_windlines = wx.steps.length < wx.all_steps.length
+      ? `${wx.steps.length} of ${wx.all_steps.length} forecast hours in` : `next ${wx.days} days, ${wx.model_name}`;
+    if (wx?.waves.run && hasWaves(letters)) all.wx_waves = all.wx_swell = wx.waves.steps.length < wx.waves.all_steps.length
+      ? `${wx.waves.steps.length} of ${wx.waves.all_steps.length} wave steps in` : `next ${wx.days} days, every 6 hours`;
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
   }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden, st.map_cameras_hidden]); // eslint-disable-line react-hooks/exhaustive-deps
 }
@@ -270,7 +272,7 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; lab
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
 // Read from the internet while on (marked "live" in the list).
-const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
+const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_windlines", "wx_waves", "wx_swell", "air_now", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
@@ -279,6 +281,7 @@ const MADE_SWATCH: Record<string, () => string> = {
   land_change: () => "#c92a2a", water_change: () => "#1c7ed6", ai_spotted: () => "#862e9c",
   wx_temp: () => "#f08246", wx_rain: () => "#2878e6", wx_cloud: () => "#b4bcc6", wx_wind: () => "#3c8cc8",
   wx_pressure: () => "#283040", wx_radar: () => "#1fa34a", wx_satellite: () => "#d0d8e0",
+  wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose }: {
@@ -318,8 +321,11 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
   const status = (m: LayerDef): { ok: boolean; why: string; source: string } => {
     if (m.made && m.id.startsWith("wx_")) {
       if (!s.weather_maps) return { ok: false, why: "Switched off in Settings > Climate", source: "" };
+      if ((m.id === "wx_waves" || m.id === "wx_swell") && !s.weather_waves) return { ok: false, why: "Waves are switched off in Settings > Climate", source: "" };
       return { ok: true, why: "", source: m.id === "wx_radar" ? "RainViewer, read from the internet every 5 minutes"
         : m.id === "wx_satellite" ? "NASA GIBS (Himawari, GOES), read from the internet every 10 minutes"
+        : m.id === "wx_waves" || m.id === "wx_swell" ? "NOAA GFS-Wave, downloaded to this PC every 6 hours while a wave layer is on"
+        : s.weather_model === "ecmwf" ? "ECMWF IFS open data, downloaded to this PC twice a day while a forecast layer is on"
         : "NOAA GFS, downloaded to this PC every 6 hours while a forecast layer is on" };
     }
     if (m.made) {
@@ -338,6 +344,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     }
     if (m.id === "power_links") return { ok: true, why: "", source: "Eurostat electricity trade by partner, the latest year (a refresh loads it)" };
     if (m.id === "city_stress") return { ok: true, why: "", source: "Our score from Numbeo, TomTom and WHO figures (Cities > City stress)" };
+    if (m.id === "air_now") return s.weather_maps && s.weather_air ? { ok: true, why: "", source: "Open-Meteo air quality (CAMS), every 3 hours" }
+      : { ok: false, why: "Switched off in Settings > Climate", source: "" };
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
     if (["fires_now", "fires_week", "heat_now", "coral_alerts"].includes(m.id)) return s.hazards_live
       ? { ok: true, why: "", source: m.id === "heat_now" ? "Open-Meteo forecasts, every 6 hours" : m.id === "coral_alerts" ? "NOAA Coral Reef Watch, daily" : "NASA FIRMS, every 3 hours" }

@@ -75,10 +75,11 @@ def layer_details_items(layer_id: str, country: str | None = Query(None, descrip
 
 
 @api.get("/weather/status")
-def weather_status():
+def weather_status(waves: bool = False):
     """The forecast run the weather layers draw (its steps, colours and keys), and a look for a newer
-    run in the background when one is due (Settings > Climate > Weather)."""
-    return weather.status(userdata.settings())
+    run in the background when one is due (Settings > Climate > Weather). waves=true: a wave layer is
+    on, so the wave model is looked for too."""
+    return weather.status(userdata.settings(), waves=waves)
 
 
 @api.get("/weather/tiles/{field}/{run}/{step}/{z}/{x}/{y}.png")
@@ -96,12 +97,45 @@ def weather_tile(field: str, run: str, step: int, z: int, x: int, y: int):
 
 
 @api.get("/weather/at")
-def weather_at(lat: float, lon: float, step: int = 0):
-    """Every forecast field's value at a point for one step (the line under the map pointer)."""
+def weather_at(lat: float, lon: float, step: int = 0, wave_step: int | None = None):
+    """Every forecast field's value at a point for one step (the line under the map pointer); wave_step
+    adds the wave model's values."""
     try:
-        return weather.at(userdata.settings(), lat, lon, step)
+        return weather.at(userdata.settings(), lat, lon, step, wave_step)
     except ImportError:
         return {"step": step, "values": {}, "note": "The eccodes package is missing: run update.bat to install it."}
+
+
+@api.get("/weather/wind/{run}/{step}")
+def weather_wind(run: str, step: int):
+    """The forecast wind on a 1° grid for the map's moving wind lines (u and v, base64 int16 tenths of m/s)."""
+    if not run.isdigit() or len(run) != 10:
+        raise HTTPException(404, "no such run")
+    try:
+        got = weather.wind_grid(userdata.settings(), run, step)
+    except ImportError:
+        raise HTTPException(503, "The eccodes package is missing: run update.bat to install it.") from None
+    if got is None:
+        raise HTTPException(404, "no such forecast step on this PC (a newer run may have replaced it)")
+    return Response(json.dumps(got, separators=(",", ":")), media_type="application/json", headers={"Cache-Control": "max-age=21600"})
+
+
+@api.get("/weather/air")
+def weather_air(lat: float, lon: float):
+    """A place's air quality now and the worst hour of the next days (Open-Meteo, CAMS)."""
+    s = userdata.settings()
+    if not s.get("weather_maps", True):
+        return {"error": "Weather is switched off in Settings > Climate."}
+    return weather.air_point(s, lat, lon)
+
+
+@api.get("/weather/models")
+def weather_models(lat: float, lon: float):
+    """Today's and tomorrow's high and rain from six models side by side, and whether they agree."""
+    s = userdata.settings()
+    if not s.get("weather_maps", True):
+        return {"error": "Weather is switched off in Settings > Climate."}
+    return weather.models_point(s, lat, lon)
 
 
 @api.get("/weather/clouds/{z}/{x}/{y}.png")
@@ -124,6 +158,11 @@ def weather_point(lat: float, lon: float):
 @api.get("/layers/{layer_id}")
 def layer(layer_id: str, request: Request):
     """One overlay's features, as GeoJSON. storms_active is read live from NOAA (kept an hour)."""
+    if layer_id == "air_now":
+        s = userdata.settings()
+        data = hazards.air(_hazard_cities(), bool(s.get("weather_maps", True) and s.get("weather_air", True)))
+        return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
+                        headers={"Cache-Control": "max-age=900"})
     if layer_id in ("fires_now", "fires_week", "heat_now", "coral_alerts"):
         on = bool(userdata.settings().get("hazards_live", True))
         data = (hazards.fires("7d" if layer_id == "fires_week" else "24h", on) if layer_id.startswith("fires")

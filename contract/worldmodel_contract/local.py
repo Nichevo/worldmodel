@@ -124,6 +124,9 @@ SETTINGS: dict[str, object] = {
     "weather_detail": "0p50",        # forecast map grid: "1p00" (about 17 MB for 7 days), "0p50" (about 75 MB), "0p25" (about 300 MB)
     "weather_days": 7,               # forecast days downloaded for the maps (3-hourly steps)
     "weather_point": "open_meteo",   # click-for-forecast and city Forecast cards: "open_meteo" or "met_norway" (yr.no)
+    "weather_model": "gfs",          # forecast maps from "gfs" (NOAA) or "ecmwf" (ECMWF IFS open data, about 170 MB a run)
+    "weather_waves": True,           # Waves and Swell map layers download NOAA's wave model while one is on (about 120 MB a run)
+    "weather_air": True,             # Air quality layer and the forecast card's air line read Open-Meteo (CAMS)
     # Nature and pollution (connectors/nature.py)
     "nature_zones_fetch": True,          # refresh reads the Köppen-Geiger climate zones once (a 1 GB zip, about 20 MB kept)
     "nature_climate_extras_fetch": True,  # Berkeley Earth temperatures, PSMSL tide gauges, ND-GAIN adaptation index
@@ -321,7 +324,8 @@ SETTINGS: dict[str, object] = {
     "digest_on": True,               # make each week's digest on the first visit after Monday, and keep it
 }
 CHOICES = {"click_mode": ("popup", "select"), "ships_area": ("pacific", "world"), "weather_detail": ("1p00", "0p50", "0p25"),
-           "weather_point": ("open_meteo", "met_norway"), "party_office": ("government", "state"),
+           "weather_point": ("open_meteo", "met_norway"),
+           "weather_model": ("gfs", "ecmwf"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
            "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
@@ -414,7 +418,7 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
-LAYER_MARKS = "_*-!$();@:"  # layer "letters" past the 62 letters and digits (never "." or "~")
+LAYER_MARKS = "_*-!$();@:^=[]"  # layer "letters" past the 62 letters and digits (never "." or "~")
 
 
 def _letters(v) -> str:
