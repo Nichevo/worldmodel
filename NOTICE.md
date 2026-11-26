@@ -30,3 +30,7 @@ terms are marked so they can be swapped if that ever changes
 | Hospitals from Overture | Overture Maps Foundation, places theme | CDLA Permissive 2.0 (some places ODbL) |
 | Official hospital lists | Brazil Ministry of Health, CNES; Maina J. et al. (2019), "A spatial database of health facilities managed by the public health sector in sub-Saharan Africa", Scientific Data 6:134 | Brazil open government data; CC BY 4.0 |
 | Hospital counts | WHO Global Health Observatory (total density of hospitals per 100,000 people); national statistics as named in `contract/worldmodel_contract/health.py` | CC BY-NC-SA 3.0 IGO (WHO) |
+| Aircraft type names and map shapes, and which country (and military block) each transponder address belongs to (`app/api/worldmodel_api/aircraft_types.py`) | Virtual Radar Server standing data (github.com/vradarserver/standing-data), model-type and code-blocks | CC0 1.0 |
+| Aircraft registrations and types (downloaded on your computer, not in the repository) | The aircraft database tar1090 uses (github.com/wiedehopf/tar1090-db), from Mictronics' aircraft database (mictronics.de) | Free to use, with attribution |
+| Airline names by callsign (`app/api/worldmodel_api/airlines.py`) | OpenFlights airline list (openflights.org/data) | ODbL 1.0 |
+| Airline logos (fetched on your computer, not in the repository) | github.com/Jxck-S/airline-logos; the logos belong to the airlines and are shown only to identify them | Trademarks of their owners |
