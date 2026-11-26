@@ -280,7 +280,7 @@ export default function WorldMap({
   const look = {
     map_look: pictures ? settings.map_look : "plain", relief_style: settings.relief_style, relief_shading: settings.relief_shading,
     map_colours_over: settings.map_colours_over, night_year: settings.night_year, land_cover_year: settings.land_cover_year, map_3d: pictures && settings.map_3d,
-    map_3d_exaggeration: settings.map_3d_exaggeration, map_tiles: settings.map_tiles,
+    map_3d_exaggeration: settings.map_3d_exaggeration, map_tiles: settings.map_tiles, sharp_outside_nz: settings.sharp_outside_nz,
   } as const;
   const lookKey = JSON.stringify(look);
   // The world as a globe (the Globe button on the map; Settings > Maps), on the full-size maps only.
@@ -392,18 +392,27 @@ export default function WorldMap({
     });
     // Right-click a place: "What is here?" asks your local AI about its satellite picture (Ask the picture).
     let askPop: maplibregl.Popup | null = null;
+    // "Then and now here" opens the Spotting page's before and after pictures of the place.
     m.on("contextmenu", (e) => {
-      if (measure.on || !aiOn.current) return;
+      if (measure.on) return;
       e.preventDefault();
       askPop?.remove();
       const box = document.createElement("div");
-      const btn = document.createElement("button");
-      btn.className = "link small";
-      btn.textContent = "What is here? Ask AI about the satellite picture";
       const zoom = Math.max(10, Math.min(15, Math.round(m.getZoom() + 2)));
       const at = e.lngLat.wrap();
-      btn.onclick = () => { askPop?.remove(); void askHere(at.lng, at.lat, zoom); };
-      box.appendChild(btn);
+      if (aiOn.current) {
+        const btn = document.createElement("button");
+        btn.className = "link small";
+        btn.textContent = "What is here? Ask AI about the satellite picture";
+        btn.onclick = () => { askPop?.remove(); void askHere(at.lng, at.lat, zoom); };
+        box.appendChild(btn);
+        box.appendChild(document.createElement("br"));
+      }
+      const then = document.createElement("a");
+      then.className = "small";
+      then.href = `/spotting?tab=thennow&lon=${at.lng.toFixed(5)}&lat=${at.lat.toFixed(5)}&z=${Math.max(12, Math.min(17, Math.round(m.getZoom() + 2)))}`;
+      then.textContent = "Then and now: older pictures of this place";
+      box.appendChild(then);
       askPop = new maplibregl.Popup({ closeButton: true, offset: 6 }).setLngLat(e.lngLat).setDOMContent(box).addTo(m);
     });
     m.on("click", (e) => {

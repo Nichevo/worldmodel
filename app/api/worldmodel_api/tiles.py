@@ -15,6 +15,10 @@ with copies saved on this PC so the maps draw quickly and work offline where sav
                drawn by Esri's ArcGIS image service.
     water      EC JRC Global Surface Water "transitions" (1984-1999 against 2000-2021, 30 m), the JRC's own
                tiles; the Spotting page and map layer 9 recolour them (spotting.py).
+    aerial     LINZ aerial photos of New Zealand (CC BY 4.0) from LINZ Basemaps, with your free key: the best
+               picture everywhere ("aerial"), or one survey by its name (?t=christchurch-2023-0.075m) for
+               Then and now. Outside the photos the tiles are see-through.
+    satyears   Sentinel-2 cloudless by EOX for one year (2016, 2018-2024), for Then and now.
 
 Tiles are kept as files under <data folder>/basemap/tiles/<set>/<time>/<z>/<x>/<y>.<ext>, so
 they count toward the map files limit. A saved area is a box and a zoom range; areas.json
@@ -29,6 +33,7 @@ import io
 import json
 import logging
 import math
+import os
 import shutil
 import threading
 import time
@@ -40,6 +45,8 @@ import httpx
 
 from worldmodel_contract import local
 from worldmodel_contract.spotting import WATER_ATTRIBUTION, WATER_MAXZOOM, WATER_TILES
+from worldmodel_contract.thennow import (EOX_ATTRIBUTION, EOX_TILES, EOX_YEARS, LINZ_ATTRIBUTION, LINZ_KEY_ENV,
+                                         LINZ_MAXZOOM, LINZ_TILES, layer_ok)
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +77,12 @@ SETS: dict[str, dict] = {
              "attribution": "Land cover: Esri Land Cover 10 m (Impact Observatory, Microsoft, Esri), CC BY 4.0"},
     "water": {"url": WATER_TILES, "ext": "png", "maxzoom": WATER_MAXZOOM, "kb": 6, "label": "Water gained and lost (JRC)",
               "attribution": WATER_ATTRIBUTION},
+    # Saved copies stop at Settings > Maps > "Sharp pictures saved to zoom" (a city at full detail is tens of GB).
+    "aerial": {"url": "linz", "ext": "webp", "maxzoom": LINZ_MAXZOOM, "kb": 25, "label": "Aerial photos (LINZ, New Zealand)",
+               "attribution": LINZ_ATTRIBUTION, "save_setting": "sharp_save_maxzoom"},
+    "satyears": {"url": EOX_TILES, "ext": "jpg", "maxzoom": 15, "kb": 30, "label": "Satellite by year (EOX)",
+                 "times": {y: (layer, y) for y, layer in sorted(EOX_YEARS.items(), reverse=True)},
+                 "attribution": EOX_ATTRIBUTION},
 }
 # ESA CCI on Microsoft Planetary Computer: one item per year and 45-degree square (S90W180 ... N45E135).
 PC_TILE = ("https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x"
@@ -168,6 +181,8 @@ def count(bbox, minzoom: int, maxzoom: int) -> int:
 def _time(set_id: str, t: str | None) -> tuple[str, str]:
     """(folder name, url time) for a set: relief and satellite have one picture, night lights several."""
     st = SETS[set_id]
+    if st["url"] == "linz":
+        return (t if t and layer_ok(t) else "aerial"), ""
     if "times" not in st:
         return "-", ""
     key = t if t in st["times"] else next(iter(st["times"]))
@@ -234,6 +249,13 @@ def fetch_upstream(set_id: str, z: int, x: int, y: int, t: str | None = None) ->
         buf = io.BytesIO()
         out.save(buf, "PNG", optimize=True)
         return 200, buf.getvalue(), "image/png"
+    if st["url"] == "linz":
+        key = os.environ.get(LINZ_KEY_ENV, "").strip()
+        if not key:
+            return 401, b"", "text/plain"
+        folder, _ = _time(set_id, t)
+        r = _http().get(LINZ_TILES.format(layer=folder, z=z, x=x, y=y, key=key))
+        return r.status_code, r.content, r.headers.get("content-type", "")
     if st["url"] == "esri":
         key = t if t in st["times"] else next(iter(st["times"]))
         t0 = int(datetime(int(key), 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
@@ -263,7 +285,7 @@ def tile(set_id: str, z: int, x: int, y: int, t: str | None = None, online: bool
     """A tile's bytes and media type: the saved copy if there is one, else online (not saved)."""
     if set_id not in SETS or z < 0 or z > SETS[set_id]["maxzoom"] or not (0 <= x < 2 ** z and 0 <= y < 2 ** z):
         return None
-    media = "image/jpeg" if SETS[set_id]["ext"] == "jpg" else "image/png"
+    media = {"jpg": "image/jpeg", "webp": "image/webp"}.get(SETS[set_id]["ext"], "image/png")
     folder, _ = _time(set_id, t)
     p = path_of(set_id, folder, z, x, y)
     if p.is_file():
@@ -278,7 +300,9 @@ def tile(set_id: str, z: int, x: int, y: int, t: str | None = None, online: bool
     kind = kind or media
     # Map services can answer 200 with an XML or HTML error page: only pass on pictures.
     if status != 200 or not content or not kind.startswith("image/"):
-        if status != 404:
+        if status == 401 and SETS[set_id]["url"] == "linz":
+            _warn_once(set_id, f"LINZ aerial photos need a free key: add {LINZ_KEY_ENV} in Data status > Keys you can add")
+        elif status not in (404, 204):
             _warn_once(set_id, f"{SETS[set_id]['label']} map service answered {status} {kind.split(';')[0]}")
         return None
     return content, kind
@@ -334,6 +358,8 @@ def check(area: dict) -> dict:
     if not st:
         raise ValueError("unknown picture set")
     maxzoom = min(int(area["maxzoom"]), st["maxzoom"])
+    if st.get("save_setting"):
+        maxzoom = min(maxzoom, int(local.load_settings().get(st["save_setting"], maxzoom)))
     minzoom = max(0, min(int(area.get("minzoom", 0)), maxzoom))
     n = count(tuple(area["bbox"]), minzoom, maxzoom)
     need = n * st["kb"] * 1000
@@ -354,6 +380,8 @@ def check(area: dict) -> dict:
 
 def save(area: dict) -> dict:
     """Start saving an area in the background (one job at a time; more wait their turn)."""
+    if SETS.get(area.get("set", ""), {}).get("url") == "linz" and not os.environ.get(LINZ_KEY_ENV, "").strip():
+        raise ValueError(f"LINZ aerial photos need a free key first: add {LINZ_KEY_ENV} in Data status > Keys you can add")
     c = check(area)
     if not c["fits"]:
         raise ValueError(c["why"])

@@ -206,6 +206,10 @@ SETTINGS: dict[str, object] = {
     "spot_ask_model": "",                # Ask the picture: a model that can see pictures; "" = your biggest one
     "spot_scan_model": "",               # Area scans: "" = your smallest (fastest) model that can see pictures
     "spot_min_sure": 0.6,                # Spotted by AI layer: show what the model was at least this sure of (0 to 1)
+    # Then and now (Spotting page): sharper pictures and pictures from the past (contract thennow.py)
+    "sharp_outside_nz": "esri",          # "Satellite (sharp)" background outside New Zealand: "esri" (Esri World Imagery, for looking only) or "eox" (stay at 10 m)
+    "sharp_save_maxzoom": 15,            # saved copies of LINZ aerial photos stop at this zoom (15 is about 5 m; closer is read online)
+    "timelapse_summers": True,           # timelapse: pick each year's picture from the summer months (fewer clouds and snow, greener land)
     # Predictions and crowd forecasts (connectors/crowd.py; your log in predictions.json)
     "crowd_polymarket": True,            # read Polymarket's questions and prices at each refresh (no account)
     "crowd_metaculus": True,             # read Metaculus questions and the community forecast (needs METACULUS_TOKEN in .env)
@@ -219,7 +223,7 @@ SETTINGS: dict[str, object] = {
     "predictions_on_charts": True,       # your predictions as dots on the charts of the indicator they are about
     "watchlist_on": True,                # check the watchlist after each refresh and show its alerts on the Briefing
     # Maps (Settings > Maps)
-    "map_look": "plain",                 # under the country colours: "plain", "relief" (shaded heights and sea depths), "satellite", "night" (night lights) or "landcover" (ESA WorldCover)
+    "map_look": "plain",                 # under the country colours: "plain", "relief" (shaded heights and sea depths), "satellite", "sharp" (LINZ aerial photos in NZ, Esri elsewhere), "night" (night lights) or "landcover" (ESA WorldCover)
     "relief_style": "classic",           # "classic" (height colours + shading), "grey" (shading only) or "satellite" (shading over the satellite picture)
     "relief_shading": 0.6,               # how strong the hill shading is (0 to 1)
     "map_colours_over": 0.55,            # how solid the country colours are over relief, satellite or night lights (0 to 1)
@@ -335,7 +339,7 @@ CHOICES = {"click_mode": ("popup", "select"), "ships_area": ("pacific", "world")
            "weather_model": ("gfs", "ecmwf"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
-           "map_look": ("plain", "relief", "satellite", "night", "landcover"), "relief_style": ("classic", "grey", "satellite"),
+           "map_look": ("plain", "relief", "satellite", "sharp", "night", "landcover"), "sharp_outside_nz": ("esri", "eox"), "relief_style": ("classic", "grey", "satellite"),
            "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "land_cover_years_keep": ("every5", "every", "none"), "spot_change_source": ("lc10", "lcyears"), "spot_water_show": ("changes", "all"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),
            "quality_type": ("", "level", "per_person", "rate", "index", "money", "count", "projection"),
@@ -363,7 +367,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "sh
           "history_map_window": (1, 500), "history_map_labels": (0, 50), "history_map_rulers_most": (1, 30),
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "transport_min_deaths": (0, 100_000), "relief_shading": (0, 1), "map_colours_over": (0, 1),
-          "map_3d_exaggeration": (1, 5), "spot_change_from": (1992, 2025), "spot_change_to": (1993, 2025), "spot_min_sure": (0, 1),
+          "map_3d_exaggeration": (1, 5), "spot_change_from": (1992, 2025), "spot_change_to": (1993, 2025), "spot_min_sure": (0, 1), "sharp_save_maxzoom": (10, 20),
           "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "map_quake_min": (0, 10), "hospitals_overture_confidence": (0, 1), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60),

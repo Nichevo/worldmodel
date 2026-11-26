@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import Body, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 
-from worldmodel_api import spotting
+from worldmodel_api import spotting, thennow
 from worldmodel_api.core import api, rows
 from worldmodel_api.routes.events import _BLANK_PNG
 
@@ -23,9 +23,10 @@ def _spot_png(data: bytes | None) -> Response:
 def spot_terms():
     """What the Spotting layers draw: kinds of land change, water classes, things scans look for, places checks can check."""
     from worldmodel_contract import spotting as sp
+    from worldmodel_contract import thennow as tn
     return {"changes": [vars(c) for c in sp.CHANGES], "water": [vars(w) for w in sp.WATER_CLASSES],
             "tags": [vars(t) for t in sp.SCAN_TAGS], "checkable": sp.CHECKABLE, "sources": sp.CHANGE_SOURCES,
-            "water_attribution": sp.WATER_ATTRIBUTION}
+            "water_attribution": sp.WATER_ATTRIBUTION, "aerial_tags": [vars(t) for t in tn.AERIAL_TAGS]}
 
 
 @api.get("/spot/change/{src}/{z}/{x}/{y}")
@@ -150,3 +151,92 @@ def spot_scan_picture(scan_id: str, key: str):
 def spot_layer(min_sure: float | None = None):
     """Map layer 0, Spotted by AI: what scans reported, and places a check said do not look right."""
     return spotting.layer(min_sure)
+
+
+@api.get("/spot/scans/{scan_id}/towns")
+def spot_scan_towns(scan_id: str):
+    """An aerial scan's counts totalled by the nearest town."""
+    try:
+        return spotting.towns(rows, scan_id)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+# ----------------------------------------------------------------------------- then and now
+@api.get("/thennow/dates")
+def thennow_dates(lon: float, lat: float):
+    """The pictures of a place there are: LINZ surveys covering it (New Zealand), EOX years, places to try."""
+    return thennow.dates(lon, lat)
+
+
+@api.get("/thennow/wayback")
+def thennow_wayback(lon: float, lat: float):
+    """Esri's versions whose picture of this place changed (dates only; the browser shows the pictures)."""
+    try:
+        return {"versions": thennow.wayback_changes(lon, lat), "error": None}
+    except Exception as exc:  # noqa: BLE001 - shown beside the date list
+        return {"versions": [], "error": f"Esri's Wayback list could not be read ({type(exc).__name__})"}
+
+
+def _pair(lon: float, lat: float, zoom: int, a: str, b: str) -> dict:
+    try:
+        return thennow.pair(lon, lat, max(8, min(zoom, 20)), a, b)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+
+
+@api.get("/thennow/pair")
+def thennow_pair(lon: float, lat: float, a: str, b: str, zoom: int = 16):
+    """A place's before and after pictures side by side, for What changed? (Ask AI), with where it is and what is near."""
+    got = _pair(lon, lat, zoom, a, b)
+    got.pop("jpeg", None)
+    got["nearby"] = spotting.nearby(rows, lon, lat, max(0.5, got.get("km", 1)))
+    c = spotting.country_at(lon, lat)
+    got["country"] = {"id": c[0], "name": c[1]} if c else None
+    return got
+
+
+@api.get("/thennow/pair.jpg")
+def thennow_pair_jpg(lon: float, lat: float, a: str, b: str, zoom: int = 16):
+    """The same two pictures as one JPEG to save."""
+    got = _pair(lon, lat, zoom, a, b)
+    return Response(got["jpeg"], media_type="image/jpeg",
+                    headers={"Content-Disposition": f'attachment; filename="then-and-now-{lat:.4f}-{lon:.4f}.jpg"'})
+
+
+@api.get("/thennow/timelapse")
+def thennow_timelapses():
+    """Timelapses made so far, and the one being made now."""
+    return thennow.tl_status()
+
+
+@api.post("/thennow/timelapse")
+def thennow_timelapse_create(body: dict = Body(...)):
+    """Make a Landsat timelapse of a box ({"bbox": [w, s, e, n], "name", "summers"}), in the background."""
+    try:
+        return thennow.timelapse_create(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.delete("/thennow/timelapse/{tid}")
+def thennow_timelapse_delete(tid: str):
+    try:
+        if not thennow.timelapse_delete(tid):
+            raise HTTPException(404, "no such timelapse")
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    return {"ok": True}
+
+
+@api.get("/thennow/timelapse/{tid}/{year}.jpg")
+def thennow_frame(tid: str, year: int):
+    try:
+        p = thennow.frame_path(tid, year)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    if not p:
+        raise HTTPException(404, "no picture for that year")
+    return FileResponse(p, media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
