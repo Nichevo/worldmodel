@@ -331,6 +331,9 @@ export type Settings = {
   ships_keep_days: number; // days of saved ships kept
   planes_collect: boolean; // save the planes OpenSky sends the map (var/live/planes)
   planes_world: boolean; // background whole-world plane requests
+  planes_types: boolean; // aircraft database: type, registration, flag
+  planes_logos: boolean; // airline logos beside airliners
+  planes_badges: boolean; // flags and logos beside planes on the map when zoomed in
   planes_keep_days: number; // days of saved planes kept
   ship_owners_gfw: boolean; // ship details ask Global Fishing Watch for owners (GFW_API_TOKEN)
   ship_owners_wikidata: boolean; // ... and Wikidata by IMO

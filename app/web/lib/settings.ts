@@ -139,6 +139,9 @@ export const DEFAULT_SETTINGS: Settings = {
   ships_keep_days: 30,
   planes_collect: true,
   planes_world: true,
+  planes_types: true,
+  planes_logos: true,
+  planes_badges: true,
   planes_keep_days: 30,
   ship_owners_gfw: true,
   ship_owners_wikidata: true,
@@ -276,6 +279,9 @@ function subscribe(l: () => void) {
   loading ??= api.settings().then((r) => set({ ...DEFAULT_SETTINGS, ...r.settings })).catch(() => { loading = null; });
   return () => { listeners.delete(l); };
 }
+
+// The settings as last loaded (for code outside React, such as map layer set-up).
+export const readSettings = (): Settings => current;
 
 export function useSettings(): Settings {
   return useSyncExternalStore(subscribe, () => current, () => DEFAULT_SETTINGS);

@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 
 SAVE_EVERY = 4 * 60   # seconds between saved positions of one plane (OpenSky is asked every 1 to 3 minutes)
 LOOK_BACK = 10 * 60   # how far before a time to look for a plane's last position
+FLIGHT_GAP = 3 * 3600  # a gap longer than this always starts a new flight
+LANDED_GAP = 20 * 60   # ... and a gap longer than this does when the plane was low before and after (landed, took off)
+LOW_M = 2000           # metres: low enough to be landing or taking off
 COLUMNS = ("ts BIGINT, icao VARCHAR, lat DOUBLE, lon DOUBLE, alt DOUBLE, speed DOUBLE, heading DOUBLE, "
            "callsign VARCHAR, grp VARCHAR, country VARCHAR")
 
@@ -121,6 +124,40 @@ class PlaneStore:
         """One plane's saved positions between two times, oldest first: (ts, lon, lat)."""
         return [(int(r[0]), r[1], r[2]) for r in self._query(
             start, end, "SELECT ts, lon, lat FROM p WHERE icao = ? AND ts BETWEEN ? AND ? ORDER BY ts", [icao, start, end])]
+
+    def flights(self, start: float, end: float, icao: str | None = None, callsign: str | None = None) -> list[dict]:
+        """Saved positions of one aircraft (or every aircraft that flew a callsign) cut into flights,
+        newest first. A new flight starts when the callsign changes, after a gap of more than
+        FLIGHT_GAP, or after a gap of more than LANDED_GAP with the plane low on both sides (it
+        landed and took off again: positions are only kept while in the air)."""
+        if not (icao or callsign):
+            return []
+        where, params = ("icao = ?", [icao.lower()]) if icao else ("callsign = ?", [callsign.strip().upper()])
+        rows = self._query(start, end, f"SELECT icao, ts, lon, lat, alt, callsign FROM p WHERE {where} AND ts BETWEEN ? AND ? ORDER BY icao, ts",
+                           params + [start, end])
+        out: list[dict] = []
+        cur: dict | None = None
+        for hex_, ts, lon, lat, alt, cs in rows:
+            cs = (cs or "").strip() or None
+            if cur and cur["icao"] == hex_:
+                gap = ts - cur["end"]
+                low = alt is not None and alt < LOW_M and cur["_alt"] is not None and cur["_alt"] < LOW_M
+                same = (cs == cur["callsign"] or not cs or not cur["callsign"]) and gap <= FLIGHT_GAP and not (gap > LANDED_GAP and low)
+            else:
+                same = False
+            if not same:
+                cur = {"icao": hex_, "callsign": cs, "start": int(ts), "end": int(ts), "first": [lon, lat], "last": [lon, lat],
+                       "points": 0, "top_m": None, "_alt": alt}
+                out.append(cur)
+            cur["callsign"] = cur["callsign"] or cs
+            cur["end"], cur["last"], cur["_alt"] = int(ts), [lon, lat], alt
+            cur["points"] += 1
+            if alt is not None and (cur["top_m"] is None or alt > cur["top_m"]):
+                cur["top_m"] = round(alt)
+        for f in out:
+            f.pop("_alt", None)
+            f["minutes"] = round((f["end"] - f["start"]) / 60)
+        return sorted(out, key=lambda f: f["start"], reverse=True)
 
     def status(self) -> dict:
         files = [f for f in sorted(self.folder.glob("*")) if f.suffix in (".csv", ".parquet")] if self.folder.exists() else []

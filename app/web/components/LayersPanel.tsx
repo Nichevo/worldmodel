@@ -651,11 +651,26 @@ function KindChips({ groups, setting }: { groups: { id: string; label: string; c
   );
 }
 
+// Flags beside planes and logos beside airliners once zoomed in (also in Settings > Transport).
+function PlaneBadgeToggles() {
+  const s = useSettings();
+  return (
+    <div className="row small" style={{ gap: 12 }}>
+      <label title="Each plane's flag (the country that issued its transponder address) beside it when zoomed in">
+        <input type="checkbox" checked={s.planes_badges !== false} onChange={(e) => saveSettings({ planes_badges: e.target.checked }).catch(() => undefined)} /> Flags</label>
+      <label title="The airline's logo beside airliners when zoomed in, and in the Planes table and card">
+        <input type="checkbox" checked={s.planes_logos !== false} onChange={(e) => saveSettings({ planes_logos: e.target.checked }).catch(() => undefined)} /> Airline logos</label>
+      <span className="caption">shown when zoomed in</span>
+    </div>
+  );
+}
+
 function Kinds({ title, groups, href }: { title: string; groups: { id: string; label: string; color: string }[]; href: string }) {
   return (
     <div className="lp-section">
       <div className="lp-label">{title} <Link className="small" href={href}>Table</Link></div>
       <KindChips groups={groups} setting="map_planes_hidden" />
+      <PlaneBadgeToggles />
       <p className="caption">Shapes point where each is heading. Click one for where it came from and where it is going.</p>
     </div>
   );

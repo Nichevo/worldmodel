@@ -7,6 +7,22 @@ import { get } from "@/lib/api";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { journeyText, planeJourney, shipJourney, useShipStatus, type Journey } from "@/lib/ships";
 import { mapLayersHref } from "@/lib/workspace";
+import { useSettings } from "@/lib/settings";
+
+// A plane's flag (from the country that issued its transponder address) and its airline's logo.
+function PlaneFlag({ code, title }: { code?: string | null; title?: string | null }) {
+  const [bad, setBad] = useState(false);
+  if (!code || bad) return null;
+  return <img className="flag" src={`/flags/${code.toLowerCase()}.svg`} width={16} height={12} alt="" title={title ?? code} onError={() => setBad(true)}
+    style={{ marginRight: 4, verticalAlign: "-1px" }} />;
+}
+function AirlineLogo({ code, size = 18 }: { code?: string | null; size?: number }) {
+  const { planes_logos: on } = useSettings();
+  const [bad, setBad] = useState(false);
+  if (!code || bad || on === false) return null;
+  return <img src={`/api/v1/live/planes/logo/${code}`} width={size} height={size} alt="" loading="lazy" onError={() => setBad(true)}
+    style={{ marginRight: 4, verticalAlign: "middle", objectFit: "contain" }} />;
+}
 
 // Ships and planes: every ship the collector has seen (saved details from aisstream.io) and the
 // planes from the last OpenSky request, as tables; a row opens all its details, with where it
@@ -26,6 +42,7 @@ type Plane = {
   id: string; callsign: string | null; country: string | null; altitude_m: number | null; speed_kmh: number | null; heading: number | null;
   climb_ms: number | null; squawk: string | null; seen: number | null; category: number | null; category_name: string | null; group: string;
   lat: number; lon: number; airline?: string | null; airline_code?: string | null;
+  type?: string | null; model?: string | null; reg?: string | null; flag?: string | null; military?: boolean;
   from?: Airport | null; to?: Airport | null; route_plausible?: boolean;
 };
 
@@ -38,7 +55,15 @@ const dot = (groups: { id: string; color: string }[], g: string) => (
 function LivePage() {
   const sp = useSearchParams();
   const router = useRouter();
-  const tab = sp.get("tab") === "planes" ? "planes" : "ships";
+  const tabs = ["ships", "ship-counts", "planes", "plane-counts"] as const;
+  const tab = tabs.find((t) => t === sp.get("tab")) ?? "ships";
+  const init = (k: string) => sp.get(k) ?? "";
+  // A counts row opens the list with that filter (the list keeps it until changed).
+  const drill = (t: "ships" | "planes", f: Record<string, string>) => {
+    const q = new URLSearchParams({ tab: t, ...f });
+    router.push(`/live?${q.toString()}`, { scroll: false });
+  };
+  const key = ["group", "q", "to", "came", "airline", "from"].map(init).join("|");
   const open = sp.get("id");
   const setParams = (p: Record<string, string | null>) => {
     const q = new URLSearchParams(sp.toString());
@@ -49,22 +74,161 @@ function LivePage() {
     <div className="grid">
       <div className="title-row"><h1>Ships and planes</h1></div>
       <div className="tabs" role="tablist">
-        <button aria-pressed={tab === "ships"} onClick={() => setParams({ tab: "ships", id: null })}>Ships</button>
-        <button aria-pressed={tab === "planes"} onClick={() => setParams({ tab: "planes", id: null })}>Planes</button>
+        <button aria-pressed={tab === "ships"} onClick={() => router.replace("/live?tab=ships", { scroll: false })}>Ships</button>
+        <button aria-pressed={tab === "ship-counts"} onClick={() => router.replace("/live?tab=ship-counts", { scroll: false })}>Ship counts</button>
+        <button aria-pressed={tab === "planes"} onClick={() => router.replace("/live?tab=planes", { scroll: false })}>Planes</button>
+        <button aria-pressed={tab === "plane-counts"} onClick={() => router.replace("/live?tab=plane-counts", { scroll: false })}>Plane counts</button>
       </div>
-      {tab === "ships"
-        ? <Ships open={open} setOpen={(id) => setParams({ id })} />
-        : <Planes open={open} setOpen={(id) => setParams({ id })} />}
+      {tab === "ships" && <><Ships key={key} init={init} open={open} setOpen={(id) => setParams({ id })} /><Sweeps /></>}
+      {tab === "planes" && <Planes key={key} init={init} open={open} setOpen={(id) => setParams({ id })} />}
+      {tab === "ship-counts" && <Counts what="ships" drill={drill} />}
+      {tab === "plane-counts" && <Counts what="planes" drill={drill} />}
     </div>
   );
 }
 
-function Ships({ open, setOpen }: { open: string | null; setOpen: (id: string | null) => void }) {
-  const [q, setQ] = useState("");
-  const [group, setGroup] = useState("");
+type CountRow = { key: string; label: string; count: number; share: number };
+type CountPart = { id: string; title: string; rows: CountRow[]; distinct: number; counted: number };
+type CountsData = { total: number; hours: number; parts: CountPart[]; moving?: number; heard_last_hour?: number; first_seen_last_day?: number;
+  airline?: number; military?: number };
+
+// Counts of ships or planes by kind, flag, airline, where from and to; a row opens the list filtered to it.
+function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" | "planes", f: Record<string, string>) => void }) {
+  const [hours, setHours] = useState(24);
+  const [d, setD] = useState<CountsData | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setErr(null);
+    const load = () => get<CountsData>(`/live/${what}/stats`, { hours }).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e)));
+    load();
+    const t = setInterval(load, 120_000);
+    return () => { live = false; clearInterval(t); };
+  }, [what, hours]);
+  const groups = what === "ships" ? SHIP_GROUPS : PLANE_GROUPS;
+  const label = (part: CountPart, r: CountRow) => (part.id === "group" ? groups.find((g) => g.id === r.key)?.label ?? r.key : r.label);
+  const place = (k: string) => k.split(",")[0].trim();
+  const filterFor = (part: CountPart, r: CountRow): Record<string, string> | null => {
+    if (r.key === "?" || r.label.startsWith("No airline") || r.key.startsWith("Not ")) return part.id === "airline" ? { airline: "-" } : null;
+    if (what === "ships") {
+      return ({ group: { group: r.key }, flag: { q: r.label }, came_from: { came: place(r.key) }, came_country: { came: r.key },
+        going_to: { to: place(r.key) }, going_country: { to: r.key } } as Record<string, Record<string, string>>)[part.id] ?? null;
+    }
+    if (part.id === "route") {
+      const [a, b] = r.key.split(" to ");
+      return { from: place(a), to: place(b ?? "") };
+    }
+    return ({ group: { group: r.key }, airline: { airline: r.key }, flag: { q: r.label }, from: { from: place(r.key) }, to: { to: place(r.key) },
+      model: { q: r.key } } as Record<string, Record<string, string>>)[part.id] ?? null;
+  };
+  const windows = what === "ships"
+    ? [[1, "Heard in the last hour"], [24, "Last day"], [168, "Last 7 days"], [0, "Every ship kept"]]
+    : [[1, "Heard in the last hour"], [6, "Last 6 hours"], [24, "Last day"], [168, "Last 7 days"]];
+  return (
+    <section className="card">
+      <div className="table-tools small">
+        <label>Count <select value={hours} onChange={(e) => setHours(+e.target.value)}>
+          {windows.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select></label>
+        {d && <span className="muted">
+          {what === "ships"
+            ? `${n(d.total)} ships; ${n(d.moving ?? 0)} moving, ${n(d.heard_last_hour ?? 0)} heard in the last hour, ${n(d.first_seen_last_day ?? 0)} first seen in the last day`
+            : `${n(d.total)} planes; ${n(d.airline ?? 0)} on airline flights, ${n(d.military ?? 0)} military`}
+        </span>}
+      </div>
+      {err && <p className="small" style={{ color: "#c92a2a" }}>{err}</p>}
+      {!d ? <p className="small muted">Counting…</p> : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+          {d.parts.map((part) => {
+            const top = Math.max(1, ...part.rows.map((r) => r.count));
+            return (
+              <div key={part.id}>
+                <h3 className="small" style={{ margin: "4px 0" }}>{part.title}</h3>
+                {!part.rows.length ? <p className="small muted">Nothing known yet.</p> : (
+                  <table className="small" style={{ width: "100%" }}>
+                    <tbody>{part.rows.map((r) => {
+                      const f = filterFor(part, r);
+                      const text = label(part, r);
+                      return (
+                        <tr key={r.key} onClick={f ? () => drill(what, f) : undefined} style={{ cursor: f ? "pointer" : undefined }}
+                          title={f ? `Show these ${what} in the list` : undefined}>
+                          <td style={{ maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {part.id === "group" && dot(groups, r.key)}
+                            {part.id === "flag" && r.key.length === 2 && <PlaneFlag code={r.key} title={r.label} />}
+                            {what === "planes" && part.id === "airline" && <AirlineLogo code={airlineCode(d, r.key)} size={14} />}
+                            {text}</td>
+                          <td style={{ width: 90 }}><div style={{ height: 8, width: `${(r.count / top) * 100}%`, background: "var(--series-1, #1864ab)", borderRadius: 2 }} /></td>
+                          <td style={{ textAlign: "right" }}>{n(r.count)}</td>
+                          <td className="muted" style={{ textAlign: "right" }}>{(r.share * 100).toFixed(r.share < 0.01 ? 1 : 0)}%</td>
+                        </tr>);
+                    })}</tbody>
+                  </table>)}
+                {part.distinct > part.rows.length && <p className="caption">Top {part.rows.length} of {n(part.distinct)}.</p>}
+              </div>);
+          })}
+        </div>)}
+      <p className="caption">Counted from the same ships and planes as the lists (saved while collecting is on, Settings &gt; Transport). Click a row to list them.</p>
+    </section>
+  );
+}
+const airlineCode = (d: CountsData, name: string) => (d as CountsData & { airline_codes?: Record<string, string> }).airline_codes?.[name] ?? null;
+
+type SweepLog = {
+  rows: { start: number; end: number; what: string; outcome: string; minutes: number; reports: number; new_ships: number | null; why: string | null }[];
+  days: number; totals: { sweeps: number; finished: number; cut_short: number; reports: number; new_ships: number; drops: number };
+};
+
+// Each whole-world snapshot and each dropped aisstream connection (var\live\ships\sweeps.csv).
+function Sweeps() {
+  const [days, setDays] = useState(7);
+  const [d, setD] = useState<SweepLog | null>(null);
+  useEffect(() => {
+    let live = true;
+    const load = () => get<SweepLog>("/live/ships/sweeps", { days }).then((x) => live && setD(x)).catch(() => {});
+    load();
+    const t = setInterval(load, 120_000);
+    return () => { live = false; clearInterval(t); };
+  }, [days]);
+  if (!d) return null;
+  const t = d.totals;
+  return (
+    <section className="card">
+      <details>
+        <summary><b>World sweeps and dropped connections</b> <span className="small muted">
+          last {days} days: {n(t.sweeps)} sweeps ({n(t.finished)} finished, {n(t.cut_short)} cut short), {n(t.reports)} reports,
+          {" "}{n(t.new_ships)} ships not seen before; {n(t.drops)} dropped connections</span></summary>
+        <div className="table-tools small">
+          <label>Show <select value={days} onChange={(e) => setDays(+e.target.value)}>
+            <option value={1}>Last day</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option>
+          </select></label>
+        </div>
+        {d.rows.length ? (
+          <div style={{ overflowX: "auto" }}>
+            <table className="small">
+              <thead><tr><th>Started</th><th>What</th><th>Outcome</th><th>Minutes</th><th>Reports</th><th>New ships</th><th>Why</th></tr></thead>
+              <tbody>{d.rows.map((r) => (
+                <tr key={`${r.what}${r.start}${r.end}`}>
+                  <td>{new Date(r.start * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                  <td>{r.what === "sweep" ? "Whole-world sweep" : "Connection"}</td>
+                  <td style={{ color: r.outcome === "finished" ? undefined : "#c92a2a" }}>{r.outcome}</td>
+                  <td>{r.minutes}</td><td>{n(r.reports)}</td><td>{r.new_ships == null ? "" : n(r.new_ships)}</td>
+                  <td className="muted">{r.why ?? ""}</td>
+                </tr>))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="small muted">Nothing logged yet. Sweeps run with &quot;Save ships&quot; on and the South Pacific area (Settings &gt; Transport).</p>}
+      </details>
+    </section>
+  );
+}
+
+function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
+  const [q, setQ] = useState(init("q"));
+  const [group, setGroup] = useState(init("group"));
   const [hours, setHours] = useState(0);
-  const [to, setTo] = useState("");
-  const [came, setCame] = useState("");
+  const [to, setTo] = useState(init("to"));
+  const [came, setCame] = useState(init("came"));
   const [sort, setSort] = useState("last_seen");
   const [limit, setLimit] = useState(200);
   const [d, setD] = useState<{ rows: Ship[]; total: number; groups: Record<string, number>; collecting: boolean } | null>(null);
@@ -250,13 +414,13 @@ function OwnerPart({ id }: { id: string }) {
   );
 }
 
-function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string | null) => void }) {
+function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
   const [d, setD] = useState<{ planes: Plane[]; at: number | null; note: string } | null>(null);
-  const [q, setQ] = useState("");
-  const [group, setGroup] = useState("");
-  const [line, setLine] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [q, setQ] = useState(init("q"));
+  const [group, setGroup] = useState(init("group"));
+  const [line, setLine] = useState(init("airline"));
+  const [from, setFrom] = useState(init("from"));
+  const [to, setTo] = useState(init("to"));
   const [mins, setMins] = useState(0);
   const [sort, setSort] = useState<keyof Plane>("altitude_m");
   useEffect(() => {
@@ -269,7 +433,7 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
   const rows = useMemo(() => {
     const ql = q.trim().toLowerCase();
     return (d?.planes ?? []).filter((p) => (!group || p.group === group) && (!line || (line === "-" ? !p.airline : p.airline === line))
-      && (!ql || [p.callsign, p.id, p.country, p.airline].some((x) => String(x ?? "").toLowerCase().includes(ql)))
+      && (!ql || [p.callsign, p.id, p.country, p.airline, p.reg, p.type, p.model].some((x) => String(x ?? "").toLowerCase().includes(ql)))
       && (!from.trim() || airportText(p.from).includes(from.trim().toLowerCase()))
       && (!to.trim() || airportText(p.to).includes(to.trim().toLowerCase()))
       && (!mins || (p.seen ?? 0) >= Date.now() / 1000 - mins * 60))
@@ -290,7 +454,7 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
     <section className="card">
       <p className="caption">{d?.note ?? "Loading…"} {d?.at ? `Read ${when(d.at)}.` : ""} Turn on Planes now on <Link href={mapLayersHref("F")}>the map</Link> and move it to where you want planes listed.</p>
       <div className="table-tools small">
-        <label>Find <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Callsign, hex code, country, airline" /></label>
+        <label>Find <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Callsign, registration, model, airline" /></label>
         <label>Type <select value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="">All</option>{PLANE_GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
         </select></label>
@@ -307,17 +471,19 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="small">
-          <thead><tr>{head("callsign", "Callsign")}{head("airline", "Airline")}<th>From</th><th>To</th>{head("category_name", "Type")}{head("country", "Registered in")}{head("altitude_m", "Height")}
+          <thead><tr>{head("callsign", "Callsign")}{head("airline", "Airline")}<th>From</th><th>To</th>{head("model", "Aircraft")}{head("reg", "Registration")}{head("country", "Registered in")}{head("altitude_m", "Height")}
             {head("speed_kmh", "Speed")}{head("climb_ms", "Climbing")}{head("squawk", "Squawk")}{head("seen", "Last heard")}</tr></thead>
           <tbody>
             {rows.slice(0, 1000).map((p) => (
               <tr key={p.id} onClick={() => setOpen(p.id)} style={{ cursor: "pointer" }} className={open === p.id ? "selected" : undefined}>
                 <td>{dot(PLANE_GROUPS, p.group)}{p.callsign ?? <span className="muted">{p.id}</span>}</td>
-                <td>{p.airline ?? ""}</td>
+                <td><AirlineLogo code={p.airline ? p.airline_code : null} />{p.airline ?? ""}</td>
                 <td title={p.from?.name ?? undefined}>{airport(p.from)}</td>
                 <td title={p.to?.name ?? undefined}>{airport(p.to)}{p.route_plausible === false ? <span className="muted"> ?</span> : null}</td>
-                <td>{p.category_name ?? <span className="muted">not sent</span>}</td>
-                <td>{p.country ?? ""}</td>
+                <td title={[p.type, p.category_name].filter(Boolean).join(", ") || undefined}>{p.model ?? p.category_name ?? <span className="muted">not known</span>}
+                  {p.military ? <span className="muted"> (military)</span> : null}</td>
+                <td>{p.reg ?? ""}</td>
+                <td><PlaneFlag code={p.flag} title={p.country} />{p.country ?? ""}</td>
                 <td>{p.altitude_m != null ? `${n(p.altitude_m)} m` : ""}</td>
                 <td>{p.speed_kmh != null ? `${n(p.speed_kmh)} km/h` : ""}</td>
                 <td>{p.climb_ms != null ? `${p.climb_ms > 0 ? "+" : ""}${p.climb_ms} m/s` : ""}</td>
@@ -333,6 +499,53 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
   );
 }
 
+type Flight = { icao: string; callsign: string | null; start: number; end: number; minutes: number; points: number; top_m: number | null;
+  from: Airport | null; to: Airport | null; airline: string | null };
+
+// The flights saved here for this aircraft, or for every aircraft that flew this callsign.
+function FlightsPart({ icao, callsign }: { icao: string; callsign: string | null }) {
+  const [by, setBy] = useState<"plane" | "callsign">("plane");
+  const [days, setDays] = useState(30);
+  const [d, setD] = useState<{ flights: Flight[]; note: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    setD(null);
+    get<{ flights: Flight[]; note: string }>("/live/planes/flights", by === "plane" ? { icao, days } : { callsign: callsign ?? "", days })
+      .then((x) => live && setD(x)).catch(() => live && setD({ flights: [], note: "Could not read the saved flights." }));
+    return () => { live = false; };
+  }, [icao, callsign, by, days]);
+  const day = (t: number) => new Date(t * 1000).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const hm = (t: number) => new Date(t * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return (
+    <>
+      <div className="row small" style={{ gap: 8, alignItems: "baseline" }}>
+        <h3 className="small" style={{ margin: "8px 0 2px" }}>Flights saved here</h3>
+        <select value={by} onChange={(e) => setBy(e.target.value as typeof by)} aria-label="Flights of">
+          <option value="plane">this aircraft</option>{callsign && <option value="callsign">callsign {callsign}, any aircraft</option>}
+        </select>
+        <select value={days} onChange={(e) => setDays(+e.target.value)} aria-label="Over">
+          <option value={3}>last 3 days</option><option value={30}>last 30 days</option><option value={400}>all kept</option>
+        </select>
+      </div>
+      {!d ? <p className="small muted">Reading…</p> : !d.flights.length ? <p className="small muted">None saved yet.</p> : (
+        <div style={{ maxHeight: 220, overflowY: "auto" }}>
+          <table className="small">
+            <thead><tr><th>Took off (first heard)</th><th>Callsign</th>{by === "callsign" && <th>Aircraft</th>}<th>From</th><th>To</th><th>Last heard</th><th>Highest</th></tr></thead>
+            <tbody>{d.flights.map((f) => (
+              <tr key={`${f.icao}${f.start}`}>
+                <td>{day(f.start)}</td><td>{f.callsign ?? ""}</td>{by === "callsign" && <td>{f.icao}</td>}
+                <td title={f.from?.name ?? undefined}>{airport(f.from)}</td><td title={f.to?.name ?? undefined}>{airport(f.to)}</td>
+                <td>{hm(f.end)} <span className="muted">({Math.floor(f.minutes / 60)} h {f.minutes % 60} min)</span></td>
+                <td>{f.top_m != null ? `${n(f.top_m)} m` : ""}</td>
+              </tr>))}
+            </tbody>
+          </table>
+        </div>)}
+      {d && d.flights.length > 0 && <p className="caption">{n(d.flights.length)} flights. {d.note}</p>}
+    </>
+  );
+}
+
 function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose: () => void }) {
   const [j, setJ] = useState<Journey | null>(null);
   useEffect(() => {
@@ -342,8 +555,11 @@ function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose:
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   const a = j?.aircraft;
   const rows: [string, React.ReactNode][] = [
-    ["Hex code (ICAO 24-bit)", id], ["Callsign", plane?.callsign ?? ""], ["Registered in", plane?.country ?? ""],
-    ["Registration", a?.registration ?? ""], ["Aircraft", [a?.description, a?.type].filter(Boolean).join(" ")], ["Operator", a?.operator ?? ""],
+    ["Hex code (ICAO 24-bit)", id], ["Callsign", plane?.callsign ?? ""],
+    ["Airline", plane?.airline ? <><AirlineLogo code={plane.airline_code} size={28} />{plane.airline}</> : ""],
+    ["Registered in", plane?.country ? <><PlaneFlag code={plane.flag} />{plane.country}</> : ""],
+    ["Registration", a?.registration ?? plane?.reg ?? ""],
+    ["Aircraft", [a?.description ?? plane?.model, a?.type ?? plane?.type].filter(Boolean).join(" ") + (plane?.military || a?.military ? " (military)" : "")], ["Operator", a?.operator ?? ""],
     ["Built", a?.year ?? ""], ["Type (ADS-B)", plane?.category_name ?? ""],
     ["Height", plane?.altitude_m != null ? `${n(plane.altitude_m)} m` : ""], ["Speed", plane?.speed_kmh != null ? `${n(plane.speed_kmh)} km/h, heading ${n(plane.heading)}°` : ""],
     ["Climbing", plane?.climb_ms != null ? `${plane.climb_ms} m/s` : ""], ["Squawk", plane?.squawk ?? a?.squawk ?? ""],
@@ -354,6 +570,7 @@ function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose:
       <div className="find-big card" role="dialog" aria-modal="true" aria-label={plane?.callsign ?? id} style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
         <div className="row"><h2 style={{ margin: 0 }}>{plane?.callsign ?? id}</h2><span className="spacer" /><button className="link" onClick={onClose} aria-label="Close">×</button></div>
         <table className="small"><tbody>{rows.filter(([, v]) => v !== "" && v != null).map(([k, v]) => <tr key={k}><th style={{ textAlign: "left", paddingRight: 12 }}>{k}</th><td>{v}</td></tr>)}</tbody></table>
+        <FlightsPart icao={id} callsign={plane?.callsign ?? null} />
         <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>
         {j ? journeyText(j, true).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>) : <p className="small muted">Asking OpenSky and adsb.lol…</p>}
         <p className="small"><Link href={mapLayersHref("F")}>Planes on the map</Link> (click the plane there to draw its path)

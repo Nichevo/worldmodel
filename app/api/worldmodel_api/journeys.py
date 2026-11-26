@@ -23,7 +23,8 @@ Q = Callable[[str, list], list[dict]]
 OPENSKY_TRACK = "https://opensky-network.org/api/tracks/all"
 ADSB_ROUTES = "https://api.adsb.lol/api/0/routeset"
 ADSB_HEX = "https://api.adsb.lol/v2/hex/{}"
-ROUTE_KEEP = 3 * 86400  # a callsign flies the same route for days
+ROUTE_KEEP = 3 * 86400  # a callsign flies the same route for days: looked up again after this
+ROUTE_HISTORY = 60 * 86400  # ... but kept this long on disk, for the routes of past flights
 TRACK_KEEP = 30 * 60      # a plane's path is asked of OpenSky at most once in this time
 AIRCRAFT_KEEP = 90 * 86400  # registration and type change rarely
 _lock = threading.Lock()
@@ -204,7 +205,7 @@ def plane_journey(q: Q, auth: Callable[[httpx.Client], dict], icao24: str, calls
         else:
             out["route"], ok = _route(callsign, lat, lon)
             if ok:
-                _keep(store, _routes, "route", cs, out["route"], ROUTE_KEEP)
+                _keep(store, _routes, "route", cs, out["route"], ROUTE_HISTORY if store is not None else ROUTE_KEEP)
     hit = _kept(store, _aircraft_kept, "aircraft", icao24, AIRCRAFT_KEEP)
     if hit:
         out["aircraft"] = hit[0]
