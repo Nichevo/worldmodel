@@ -11,6 +11,7 @@ never deleted.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -25,7 +26,7 @@ FALLBACK = {"world_policy", "rbnz", "mbie_energy", "us_census_voting", "idea_tur
             "cow_religion", "cldr_languages", "glottolog",
             "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp", "cckp_normals", "who_aqdb", "marine_regions",
             "ucdp_ged", "acled", "oryx", "opensanctions", "gfp", "bls_laus_county", "chr_health", "fhfa_hpi",
-            "bitre_sea_freight", "world_port_index"}
+            "bitre_sea_freight", "world_port_index", "gfw_treecover"}
 ABOUT = "_where to get it.txt"
 OLD = "old"
 _SKIP_SUFFIXES = (".tmp", ".crdownload", ".part", ".partial")
@@ -109,6 +110,32 @@ def write_info(p: Paths, connectors: dict) -> None:
         (root(p) / "_sources.json").write_text(json.dumps(info, indent=1, sort_keys=True), encoding="utf-8")
     except OSError:
         pass
+
+
+# Files that are plainly for another source, by name: moved to 'old' before the folder is read,
+# so one misplaced file does not fail the source at every refresh.
+NOT_THIS_SOURCE = {
+    "un_wup": (re.compile(r"WPP\d{4}", re.IGNORECASE), "a World Population Prospects file (country totals)"),
+}
+
+
+def set_aside(p: Paths, source_id: str) -> list[str]:
+    """Move files that belong to another source out of the way, into the folder's 'old'
+    subfolder. Returns a line for each file moved."""
+    rule = NOT_THIS_SOURCE.get(source_id)
+    if not rule:
+        return []
+    d = folder(p, source_id)
+    said = []
+    for f in files(d):
+        if rule[0].search(f.name):
+            try:
+                (d / OLD).mkdir(exist_ok=True)
+                shutil.move(str(f), str(d / OLD / f.name))
+            except OSError:
+                continue
+            said.append(f"{source_id}: moved {f.name} to {d / OLD} ({rule[1]}, not this source's file)")
+    return said
 
 
 def keep_copy(p: Paths, source_id: str, file: Path, keeps_files: bool) -> Path:

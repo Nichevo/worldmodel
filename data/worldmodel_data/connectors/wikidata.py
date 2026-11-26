@@ -43,6 +43,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import quote, unquote
@@ -86,9 +87,14 @@ SELECT ?item ?iso3 ?links ?article ?p ?value ?valueLabel WHERE {
 """
 
 
-def query() -> str:
-    props = " ".join(f"wd:{p}" for p, _ in (*FACTS, *IMAGES))
-    return QUERY % props
+def query(props: list[str] | None = None) -> str:
+    props = props if props is not None else [p for p, _ in (*FACTS, *IMAGES)]
+    return QUERY % " ".join(f"wd:{p}" for p in props)
+
+
+# All 22 properties in one query began to time out (HTTP 504) in late 2026; they are asked
+# for a few at a time, and a group that still times out one property at a time.
+FACT_GROUP = 6
 
 
 ELECTION_TYPES = ("presidential election", "general election", "legislative election", "parliamentary election",
@@ -273,9 +279,42 @@ class Wikidata(Connector):
     def release_from_files(self, files: list[Path]) -> str | None:
         return None
 
+    def _ask(self, props: list[str], part: Path) -> list[dict]:
+        self.get(f"{ENDPOINT}?format=json&query={quote(query(props))}", part, cached=False)
+        try:
+            return json.loads(part.read_text(encoding="utf-8"))["results"]["bindings"]
+        except (json.JSONDecodeError, KeyError) as exc:
+            raise ConnectorError(f"wikidata: the answer for {', '.join(props)} is not a query result ({exc})") from None
+        finally:
+            part.unlink(missing_ok=True)
+
+    def _facts(self, raw_dir: Path) -> None:
+        props = [p for p, _ in (*FACTS, *IMAGES)]
+        part = raw_dir / f"{FILE}.part"
+        bindings, missed, last = [], [], None
+        for i in range(0, len(props), FACT_GROUP):
+            group = props[i:i + FACT_GROUP]
+            try:
+                bindings += self._ask(group, part)
+                continue
+            except (ConnectorError, httpx.HTTPError) as exc:
+                log.info("wikidata: %s together failed (%s); asking one at a time", ", ".join(group), exc)
+            for prop in group:
+                time.sleep(2)
+                try:
+                    bindings += self._ask([prop], part)
+                except (ConnectorError, httpx.HTTPError) as exc:
+                    missed.append(prop)
+                    last = exc
+        if not bindings:
+            raise ConnectorError(f"wikidata: the query service did not answer for any country fact ({last}); "
+                                 "the next refresh tries again")
+        if missed:
+            log.warning("wikidata: %s left out this time (%s)", ", ".join(missed), last)
+        (raw_dir / FILE).write_text(json.dumps({"results": {"bindings": bindings}}), encoding="utf-8")
+
     def download(self, raw_dir: Path, release: str) -> str:
-        url = f"{ENDPOINT}?format=json&query={quote(query())}"
-        self.get(url, raw_dir / FILE)
+        self._facts(raw_dir)
         for name, q in EVENT_QUERIES.items():
             try:
                 self.get(f"{ENDPOINT}?format=json&query={quote(q)}", raw_dir / f"wikidata_{name}.json")

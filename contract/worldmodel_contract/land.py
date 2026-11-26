@@ -160,9 +160,11 @@ WHERE_LAND_GOES = {
 # open data APIs; "manual" is read only from a saved file. city/country find the population
 # for trees per person (GeoNames city, else the figure here). note: what the list holds.
 COUNCILS: dict[str, dict] = {
-    "auckland": {"name": "Auckland", "country": "NZL", "city": "Auckland", "how": "hub",
-                 "url": "https://data-aucklandcouncil.opendata.arcgis.com/api/search/v1/collections/dataset/items?q=trees&limit=30",
-                 "note": "Street and park trees"},
+    # Auckland Council's open data has only notable trees (checked Nov 2026), so its list is
+    # read only from a file saved by hand (auckland_trees.csv), for example from a council request.
+    "auckland": {"name": "Auckland", "country": "NZL", "city": "Auckland", "how": "manual",
+                 "url": "https://data-aucklandcouncil.opendata.arcgis.com/search?q=trees",
+                 "note": "Street and park trees (saved by hand: auckland_trees.csv)"},
     "wellington": {"name": "Wellington", "country": "NZL", "city": "Wellington", "how": "layer",
                    "url": "https://gis.wcc.govt.nz/arcgis/rest/services/Parks/Parks/MapServer/53",
                    "note": "Trees the Parks, Sport and Recreation unit looks after"},

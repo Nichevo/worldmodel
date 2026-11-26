@@ -298,8 +298,12 @@ GHSL_URLS = [
     _GHSL + "GHS_STAT_UCDB2015MT_GLOBE_R2019A/V1-2/GHS_STAT_UCDB2015MT_GLOBE_R2019A_V1_2.zip",
     _GHSL + "GHS_STAT_UCDB2015MT_GLOBE_R2019A/V1-2/GHS_STAT_UCDB2015MT_GLOBE_R2019A.zip",
 ]
-POP_COL = re.compile(r"(?:^|_)POP(?:_TOT)?_(\d{4})$|^P(\d{2})$", re.IGNORECASE)
-BUILT_COL = re.compile(r"(?:^|_)BU[SA]?(?:_TOT)?_(\d{4})$|^B(\d{2})$", re.IGNORECASE)
+# Only the plain totals (GH_POP_TOT_1975, POP_2015, P75): the R2024A themes also hold POP/BUS columns
+# for people exposed to hazards (EX_010_POP_1975) that must not be read as the city's population.
+POP_COL = re.compile(r"^(?:G[HC]_)?POP(?:_TOT)?_(\d{4})$|^P(\d{2})$", re.IGNORECASE)
+BUILT_COL = re.compile(r"^(?:G[HC]_)?BU[SA]?(?:_TOT)?_(\d{4})$|^B(\d{2})$", re.IGNORECASE)
+# Of the R2024A themes only these hold what the app reads (the others have hundreds of columns each).
+GHSL_SKIP_THEMES = re.compile(r"_THEME_(?!GENERAL|GHSL_)|centroid", re.IGNORECASE)  # centroids: points in metres
 
 
 def _year2(s: str) -> int:
@@ -316,21 +320,30 @@ def ghsl_centres(path: Path) -> list[dict]:
     layers = gpkg_layers(path)
     centres: dict[str, dict] = {}
     for table, info in layers.items():
+        if GHSL_SKIP_THEMES.search(table):
+            continue
         cols = info["columns"]
-        idc = next((c for c in cols if re.match(r"^ID_UC", c, re.IGNORECASE)), None)
+        # The 2026 V1-1 file starts every column name with a byte-order mark ("\ufeffID_UC_G0").
+        bare = {c: c.lstrip("\ufeff").strip() for c in cols}
+
+        def col(pattern: str, full: bool = False) -> str | None:
+            f = re.fullmatch if full else re.search
+            return next((c for c in cols if f(pattern, bare[c], re.IGNORECASE)), None)
+
+        idc = col(r"^ID_UC")
         if not idc:
             continue
-        name_c = next((c for c in cols if re.search(r"UCN_MAI|UC_NM_MN", c, re.IGNORECASE)), None)
-        iso_c = next((c for c in cols if re.search(r"CNT_ISO|CTR_MN_ISO", c, re.IGNORECASE)), None)
-        cname_c = next((c for c in cols if re.search(r"CNT_GAD|CTR_MN_NM|CNT_NAM", c, re.IGNORECASE)), None)
-        lat_c = next((c for c in cols if re.search(r"GCPNT_LAT", c, re.IGNORECASE)), None)
-        lon_c = next((c for c in cols if re.search(r"GCPNT_LON", c, re.IGNORECASE)), None)
-        area_c = next((c for c in cols if re.fullmatch(r"(?:GC_UCA_KM2_\d{4}|AREA|UC_AREA_KM2)", c, re.IGNORECASE)), None)
-        pops = {c: _year2(m[1] or m[2]) for c in cols if (m := POP_COL.search(c))}
-        built = {c: _year2(m[1] or m[2]) for c in cols if (m := BUILT_COL.search(c))}
+        name_c = col(r"UCN_MAI|UC_NM_MN")
+        iso_c = col(r"CNT_ISO|CTR_MN_ISO")
+        cname_c = col(r"CNT_GAD|CTR_MN_NM|CNT_NAM")
+        lat_c = col(r"GCPNT_LAT")
+        lon_c = col(r"GCPNT_LON")
+        area_c = col(r"(?:GC_UCA_KM2_\d{4}|AREA|UC_AREA_KM2)", full=True)
+        pops = {c: _year2(m[1] or m[2]) for c in cols if (m := POP_COL.search(bare[c]))}
+        built = {c: _year2(m[1] or m[2]) for c in cols if (m := BUILT_COL.search(bare[c]))}
         want = [idc] + [c for c in (name_c, iso_c, cname_c, lat_c, lon_c, area_c, info["geom"]) if c] + list(pops) + list(built)
         for r in gpkg_rows(path, table, want):
-            row = dict(zip(want, r))
+            row = {k: v.lstrip("\ufeff").strip() if isinstance(v, str) else v for k, v in zip(want, r)}
             cid = str(row[idc]).split(".")[0]
             c = centres.setdefault(cid, {"id": cid, "pop": {}, "built": {}})
             if name_c and row.get(name_c):
@@ -469,6 +482,9 @@ class GHSLUrbanCentres(Connector):
 
 
 # ----------------------------------------------------------------------------- Global Forest Watch
+# Since 2026 (Global Forest Watch became Global Nature Watch) the file is in a folder per year of
+# data: .../download/2025/global.xlsx. The newest years are tried first, then the old names.
+GFW_YEARLY = "https://gfw2-data.s3.amazonaws.com/country-pages/country_stats/download/{year}/global.xlsx"
 GFW_URLS = [
     "https://gfw2-data.s3.amazonaws.com/country-pages/country_stats/download/global_country_stats.xlsx",
     "https://gfw2-data.s3.amazonaws.com/country-pages/country_stats/download/global_country_stats.zip",
@@ -519,14 +535,17 @@ class GFWTreeCover(Connector):
 
     def download(self, raw_dir: Path, release: str) -> str:
         last = None
-        for url in GFW_URLS:
+        this_year = date.today().year
+        for url in [GFW_YEARLY.format(year=y) for y in range(this_year, this_year - 4, -1)] + GFW_URLS:
+            name = url.rsplit("/", 1)[-1]
             try:
-                self.get(url, raw_dir / url.rsplit("/", 1)[-1])
+                self.get(url, raw_dir / ("global_country_stats.xlsx" if name == "global.xlsx" else name))
                 return url
             except ConnectorError as exc:
                 last = exc
         raise ConnectorError(f"gfw_treecover: the country statistics file could not be downloaded ({last}); "
-                             "save it by hand from the Global Forest Watch dashboard (see Data status)")
+                             "save it by hand from https://www.globalforestwatch.org/dashboards/global/ ('Download global statistics by "
+                             "country') into var\\manual\\gfw_treecover")
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         from worldmodel_data.connectors.tabular import xlsx_sheet_names

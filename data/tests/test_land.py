@@ -147,7 +147,11 @@ def test_council_trees_download(tmp_path, monkeypatch):
     from worldmodel_data.connectors import land as land_mod
 
     monkeypatch.setattr(land_mod, "_settings", lambda: {"council_trees_overseas": True})
-    monkeypatch.setattr(land_mod, "COUNCILS", {k: contract_land.COUNCILS[k] for k in ("auckland", "wellington", "christchurch", "newyork", "melbourne", "london")})
+    councils = {k: contract_land.COUNCILS[k] for k in ("auckland", "wellington", "christchurch", "newyork", "melbourne", "london")}
+    # Auckland is saved by hand now (its open data has only notable trees); here it stands in for a "hub" council.
+    councils["auckland"] = {**councils["auckland"], "how": "hub",
+                            "url": "https://data-aucklandcouncil.opendata.arcgis.com/api/search/v1/collections/dataset/items?q=trees"}
+    monkeypatch.setattr(land_mod, "COUNCILS", councils)
     seen = []
 
     def handler(request: httpx.Request):
@@ -185,3 +189,50 @@ def test_council_trees_download(tmp_path, monkeypatch):
     assert not any("Notable" in u for u in seen)
     assert len(land_mod.tree_records(tmp_path / "wellington_000.json")) == 1
     assert not any("london" in u for u in seen)  # saved by hand only
+
+
+def test_ghsl_reads_2026_file_with_byte_order_marks(tmp_path):
+    """The V1-1 file of late 2026 starts every column name and text value with a byte-order
+    mark, and its exposure theme has POP/BUS columns that are not the city's totals."""
+    import shutil
+    import sqlite3
+
+    from worldmodel_data.connectors.land import ghsl_centres
+
+    p = tmp_path / "ucdb.gpkg"
+    shutil.copy(FIXTURES / "ghsl_ucdb" / "GHS_UCDB_GLOBE_R2024A_V1_1.gpkg", p)
+    con = sqlite3.connect(p)
+    for (t,) in con.execute("SELECT table_name FROM gpkg_contents").fetchall():
+        for (c,) in [(r[1],) for r in con.execute(f'PRAGMA table_info("{t}")').fetchall()]:
+            if c not in ("fid", "geom"):
+                con.execute(f'ALTER TABLE "{t}" RENAME COLUMN "{c}" TO "﻿{c}"')
+        for c in ("GC_UCN_MAI_2025", "GC_CNT_GAD_2025", "GC_CNT_ISO_2025"):
+            if c in [r[1].lstrip("﻿") for r in con.execute(f'PRAGMA table_info("{t}")')]:
+                con.execute(f'UPDATE "{t}" SET "﻿{c}" = char(65279) || "﻿{c}"')
+    con.execute('CREATE TABLE "GHS_UCDB_THEME_EXPOSURE_GLOBE_R2024A" (fid INTEGER, "﻿ID_UC_G0" REAL, "﻿EX_010_POP_1975" REAL)')
+    con.execute('INSERT INTO "GHS_UCDB_THEME_EXPOSURE_GLOBE_R2024A" VALUES (1, 1, 5)')
+    con.execute("INSERT INTO gpkg_contents (table_name, data_type, identifier) VALUES "
+                "('GHS_UCDB_THEME_EXPOSURE_GLOBE_R2024A', 'attributes', 'x')")
+    con.commit()
+    con.close()
+    auckland = next(c for c in ghsl_centres(p) if c["id"] == "1")
+    assert auckland["name"] == "Auckland" and auckland["pop"][1975] == 700000
+
+
+def test_gfw_download_tries_the_yearly_folder_first(tmp_path, monkeypatch):
+    """The old file address answers 404; since 2026 the file is at .../download/<year>/global.xlsx."""
+    from worldmodel_data.connectors.base import ConnectorError
+    from worldmodel_data.connectors.land import GFWTreeCover
+
+    c = GFWTreeCover()
+    asked = []
+
+    def get(url, dest, **kw):
+        asked.append(url)
+        if len(asked) < 2:  # this year's folder is not there yet
+            raise ConnectorError(f"GET {url} returned HTTP 404")
+        dest.write_bytes(b"x")
+
+    monkeypatch.setattr(c, "get", get)
+    assert c.download(tmp_path, "2026").endswith("/global.xlsx") and "/download/20" in asked[1]
+    assert (tmp_path / "global_country_stats.xlsx").exists() and "/download/" in asked[0]

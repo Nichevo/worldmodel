@@ -404,3 +404,18 @@ def test_verify_collects_an_archives_pdfs_a_few_at_a_time(tmp_path):
     assert opened[0] == "https://www.crisisgroup.org/sites/default/files/cw-2025-02-mena.pdf"
     assert not list(downloads.iterdir())
     assert verify.pdf_archive(t, folder, 5, lambda s: None, opener=opener, watch=[downloads], pause=0, poll=0.01) == []
+
+
+def test_a_file_for_another_source_is_moved_to_old(home):
+    """A World Population Prospects file saved in the UN cities folder failed un_wup at every
+    refresh; it is now moved to 'old' and the source carries on."""
+    root, _ = home
+    d = manual.folder(paths(), "un_wup")
+    d.mkdir(parents=True)
+    (d / "WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_FULL.xlsx").write_bytes(b"x")
+    (d / "WUP2025-F21-DEGURBA-Cities_Pop.xlsx").write_bytes(b"x")
+    said = manual.set_aside(paths(), "un_wup")
+    assert len(said) == 1 and "WPP2024" in said[0]
+    assert [f.name for f in manual.files(d)] == ["WUP2025-F21-DEGURBA-Cities_Pop.xlsx"]
+    assert (d / manual.OLD / "WPP2024_GEN_F01_DEMOGRAPHIC_INDICATORS_FULL.xlsx").exists()
+    assert manual.set_aside(paths(), "rbnz") == []

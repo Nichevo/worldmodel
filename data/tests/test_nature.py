@@ -126,3 +126,18 @@ def test_curated_nature_events(built):
     smoke = con.execute("SELECT entity_id FROM events WHERE title LIKE 'Australian bushfire smoke%' ORDER BY 1").fetchall()
     assert smoke == [("AUS",), ("NZL",)]
     assert all(p["code"].isupper() for p in catalogue.nature()["pests"])
+
+
+def test_wahis_event_list_export(tmp_path):
+    """WAHIS's 2026 'Event list' export: semicolons, countryTerritory and eventStartDate."""
+    import duckdb
+
+    from worldmodel_data.connectors.nature import WAHISOutbreaks
+
+    (tmp_path / "Event-list-26_11_2026.csv").write_text(
+        '﻿badge;countryTerritory;eventId;reportId;disease;subType;eventStartDate;reason\n'
+        '"A";"New Zealand";1;2;"Mycoplasma bovis ";"";"3/03/2025";"First occurrence"\n'
+        '"";"New Zealand";3;4;"Mycoplasma bovis ";"";"9/10/2025";"Recurrence"\n', encoding="utf-8")
+    con = duckdb.connect()
+    WAHISOutbreaks().stage(con, tmp_path, "2026-11", "2026-11")  # raised "no Country column found"
+    assert wahis_rows([["countryTerritory", "disease", "eventStartDate"], ["New Zealand", "X", "3/03/2025"]]) == [("NZL", 2025, "X", 1.0)]

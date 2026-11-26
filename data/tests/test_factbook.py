@@ -107,3 +107,35 @@ def test_wikidata_facts_box(tmp_path):
     nld = con.execute("SELECT content FROM texts WHERE entity_id = 'NLD' AND field_key = 'P36'").fetchone()[0]
     assert nld == "Amsterdam"
     assert con.execute("SELECT content FROM texts WHERE entity_id = 'SUN' AND field_key = 'P571'").fetchone()[0] == "1922-12-30"
+
+
+def test_wikidata_facts_asked_in_groups(tmp_path, monkeypatch):
+    """The one query for every fact timed out (HTTP 504); facts are asked a few properties at a
+    time, a group that fails one property at a time, and a property that still fails is left out."""
+    import json as _json
+
+    from worldmodel_data.connectors import wikidata
+    from worldmodel_data.connectors.base import ConnectorError
+
+    monkeypatch.setattr(wikidata.time, "sleep", lambda s: None)
+    c = wikidata.Wikidata()
+    asked = []
+
+    def get(url, dest, **kw):
+        from urllib.parse import unquote
+
+        props = unquote(url).split("VALUES ?p {")[1].split("}")[0].split()
+        asked.append(props)
+        if len(props) > 1 and "wd:P36" in props or props == ["wd:P36"]:
+            raise ConnectorError("GET ... returned HTTP 504")
+        dest.write_text(_json.dumps({"results": {"bindings": [
+            {"item": {"value": "http://www.wikidata.org/entity/Q664"}, "iso3": {"value": "NZL"},
+             "p": {"value": "http://www.wikidata.org/entity/" + p[3:]}, "value": {"value": "x", "type": "literal"}}
+            for p in props]}}), encoding="utf-8")
+
+    monkeypatch.setattr(c, "get", get)
+    c._facts(tmp_path)
+    got = _json.loads((tmp_path / wikidata.FILE).read_text())["results"]["bindings"]
+    props = {b["p"]["value"].rsplit("/", 1)[-1] for b in got}
+    assert "P36" not in props and "P1448" in props and "P18" in props
+    assert max(len(a) for a in asked) == wikidata.FACT_GROUP

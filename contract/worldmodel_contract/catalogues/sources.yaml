@@ -817,7 +817,7 @@
   name: IMF Monitoring of Fund Arrangements (MONA)
   short_name: IMF programmes
   publisher: International Monetary Fund
-  url: https://www.imf.org/external/np/pdr/mona/index.aspx
+  url: https://www.imf.org/mona/arrangements
   licence: IMF copyright and usage terms (free use with attribution)
   licence_url: https://www.imf.org/external/terms.htm
   commercial_use: true
@@ -829,8 +829,8 @@
   manual:
     by_hand: false
     files: ["*mona*"]
-    get: https://www.imf.org/external/np/pdr/mona/index.aspx
-    what: "When the refresh is refused, open 'Download the MONA database' and save the arrangements Excel file."
+    get: https://www.imf.org/mona/arrangements
+    what: "When the refresh is refused, click 'Description' under MONA Full dataset and save Description.xlsx here."
 
 - id: wto_disputes
   name: WTO dispute settlement cases
@@ -981,20 +981,20 @@
   name: UNODC crime and criminal justice statistics
   short_name: Crime and prisons (UNODC)
   publisher: United Nations Office on Drugs and Crime
-  url: https://dataunodc.un.org/
+  url: https://data.unodc.org/
   licence: Free to use with attribution (UNODC terms)
   licence_url: https://www.unodc.org/unodc/en/terms-of-use.html
   commercial_use: true
   cadence: Yearly; read every 90 days
-  attribution: "UNODC, crime and criminal justice statistics (dataunodc.un.org)."
+  attribution: "UNODC, crime and criminal justice statistics (data.unodc.org)."
   status: active
   default_rank: 2
   standing: 5
   manual:
     by_hand: false
     files: ["data_cts_*", "*unodc*"]
-    get: https://dataunodc.un.org/
-    what: "When the refresh is refused, download the Excel files under Crime and criminal justice (intentional homicide, violent and sexual crime, corruption and economic crime, prisons) and save them here."
+    get: https://data.unodc.org/datareport/hom-victim
+    what: "When the refresh is refused, download the Excel file from each data report (Intentional Homicide, Violent & Sexual Crime, Corruption, Prisons & Prisoners, Access & Functioning of Justice) and save them here."
 
 - id: rules_curated
   name: Hand-checked law changes
@@ -2497,9 +2497,9 @@
   definition: standard
   manual:
     by_hand: false
-    files: ["global_country_stats*", "*treecover*"]
+    files: ["global_country_stats*", "*treecover*", "global.xlsx"]
     get: https://www.globalforestwatch.org/dashboards/global/
-    what: "If the download fails: on the global dashboard, Download data (the download arrow at the top), then save the country statistics spreadsheet (global_country_stats.xlsx, or its zip) as it comes."
+    what: "If the download fails: on the global dashboard, Download data (the download arrow at the top), then save the country statistics spreadsheet ('Download global statistics by country', global.xlsx) as it comes."
 
 - id: council_trees
   name: Council street and park tree lists (NZ councils, Sydney, Melbourne, New York)

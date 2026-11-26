@@ -230,3 +230,24 @@ def test_sanctions_release_5_lists_several_countries_in_one_cell():
     assert not unmatched
     imposed = {(r[1], r[3].year if hasattr(r[3], "year") else r[3]) for r in values.rows if r[2] == "sanctions_imposed"}
     assert {("eu", 2010), ("AUS", 2010), ("NZL", 2010), ("un", 2020), ("cocom", 1960)} <= imposed
+
+
+def test_imf_mona_from_the_2026_data_address(tmp_path):
+    """The MONA pages now build their files in the browser from a JSON address."""
+    import json as _json
+
+    import duckdb
+
+    from worldmodel_data.connectors.world_bodies import IMFMona, iso_date
+
+    rec = {"Arrangement Number": 570, "Country Name": "AFGHANISTAN,ISLAMIC REPUBLIC OF", "Country Code": "512",
+           "Arrangement Type": "PRGF", "Approval Date": "26-Jun-06", "Approval Year": 2006,
+           "Initial End date": "25-Jun-09", "Revised End Date": None, "Totalaccess": 81}
+    later = {**rec, "Revised End Date": "20-Nov-10"}
+    (tmp_path / "mona_description.json").write_text(_json.dumps({"data": [rec, later]}), encoding="utf-8")
+    con = duckdb.connect()
+    c = IMFMona()
+    c.stage(con, tmp_path, "2026-11", "2026-11")
+    assert iso_date("7-Mar-07").isoformat() == "2007-03-07"
+    row = con.execute(f"SELECT source_code, start_date, end_date FROM ({c.events_query}) WHERE event_key = 'imf:570'").fetchone()
+    assert row is not None and row[0] == "AFG" and str(row[1]) == "2006-06-26" and str(row[2]) == "2010-11-20"

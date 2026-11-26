@@ -51,9 +51,11 @@ import json
 import logging
 import re
 import time
+import zipfile
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import urljoin
 
 import duckdb
 
@@ -342,7 +344,11 @@ def change_events(ent: str, rule: str, name: str, unit: str, by_year: dict[int, 
 
 
 # ---------------------------------------------------------------- UNODC crime and prisons
-UNODC = "https://dataunodc.un.org/sites/dataunodc.un.org/files/"
+UNODC = "https://dataunodc.un.org/sites/dataunodc.un.org/files/"  # the old portal; now answers with a web page
+# In 2026 the portal moved to data.unodc.org and the files to dated folders
+# (/sites/dataportal.unodc.org/files/2026-07/data_cts_....xlsx), linked from each report page.
+UNODC_PORTAL = "https://data.unodc.org"
+UNODC_PAGES = ("hom-victim", "violent-offences", "econ-corruption", "prison-held", "cjs-arrested")
 UNODC_FILES = ("data_cts_intentional_homicide.xlsx", "data_cts_violent_and_sexual_crime.xlsx",
                "data_cts_corruption_and_economic_crime.xlsx", "data_cts_access_and_functioning_of_justice.xlsx",
                "data_cts_prisons_and_prisoners.xlsx")
@@ -368,17 +374,42 @@ class UNODCCrime(Connector):
     def release_from_files(self, files: list[Path]) -> str | None:
         return None
 
+    fetch_version = 2  # 2: files linked from data.unodc.org's report pages
+
+    def _links(self) -> dict[str, str]:
+        """Each file's current address, read from the portal's report pages."""
+        found: dict[str, str] = {}
+        for page in UNODC_PAGES:
+            try:
+                r = self.client.get(f"{UNODC_PORTAL}/datareport/{page}", timeout=60)
+            except Exception as exc:  # noqa: BLE001 - the old addresses are tried after
+                log.info("unodc_crime: report page %s not read (%s)", page, exc)
+                continue
+            if r.status_code != 200:
+                continue
+            for href in re.findall(r'"([^"]*/files/[^"]*?(data_cts_[a-z_]+\.xlsx))"', r.text):
+                found.setdefault(href[1], urljoin(UNODC_PORTAL + "/", href[0]))
+        return found
+
     def download(self, raw_dir: Path, release: str) -> str:
+        links = self._links()
         got = []
         for name in UNODC_FILES:
-            try:
-                self.get(UNODC + name, raw_dir / name)
-                got.append(name)
-            except ConnectorError as exc:
-                log.info("unodc_crime: %s skipped (%s)", name, exc)
+            for url in dict.fromkeys(u for u in (links.get(name), UNODC + name) if u):
+                try:
+                    self.get(url, raw_dir / name)
+                except ConnectorError as exc:
+                    log.info("unodc_crime: %s not fetched (%s)", url, exc)
+                    continue
+                if zipfile.is_zipfile(raw_dir / name):
+                    got.append(name)
+                    break
+                log.info("unodc_crime: %s answered with a web page, not the file", url)
+                (raw_dir / name).unlink(missing_ok=True)
         if not got:
-            raise ConnectorError("unodc_crime: none of the UNODC files could be downloaded")
-        return f"{UNODC} ({', '.join(got)})"
+            raise ConnectorError(f"unodc_crime: none of the UNODC files could be downloaded (looked on {UNODC_PORTAL}"
+                                 "/datareport/hom-victim and the other report pages)")
+        return f"{UNODC_PORTAL} ({', '.join(got)})"
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv"))

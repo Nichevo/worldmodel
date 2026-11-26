@@ -50,6 +50,7 @@ import calendar
 import csv
 import html
 import io
+import json
 import logging
 import re
 from collections import defaultdict
@@ -118,6 +119,12 @@ def iso_date(v) -> date | None:
         return v
     if isinstance(v, (int, float)) and 1900 < v < 2200:
         return date(int(v), 1, 1)
+    m = re.fullmatch(r"\s*(\d{1,2})-([A-Za-z]{3})-(\d{2})\s*", str(v or ""))  # MONA's "26-Jun-06"
+    if m:
+        try:
+            return datetime.strptime(f"{m[1]}-{m[2].title()}-{m[3]}", "%d-%b-%y").date()
+        except ValueError:
+            pass
     d, _ = parse_day(str(v) if v is not None else "")
     return d
 
@@ -633,7 +640,10 @@ def sanction_rows(table: list[list], this_year: int) -> tuple[list[tuple], Rows,
 
 
 # ---------------------------------------------------------------- IMF programmes
-MONA_PAGE = "https://www.imf.org/external/np/pdr/mona/index.aspx"
+MONA_PAGE = "https://www.imf.org/mona/arrangements"
+# Since 2026 the MONA pages build each file in the browser from this address, which answers
+# {"data": [{"Arrangement Number": 570, "Country Name": ..., ...}, ...]} (one row per review).
+MONA_API = "https://www.imf.org/api/mona/downloadReportProxy?reportName=Description.xlsx"
 MONA_FIELDS = {
     "number": ("arrangementnumber", "arrangementno", "arrangementid"),
     "country": ("countryname", "country"),
@@ -661,40 +671,51 @@ class IMFMona(Connector):
     def release_from_files(self, files: list[Path]) -> str | None:
         return None
 
+    fetch_version = 2  # 2: the MONA data address behind the 2026 pages
+
     def download(self, raw_dir: Path, release: str) -> str:
-        r = self.client.get(MONA_PAGE)
-        if r.status_code != 200:
-            raise ConnectorError(f"imf_mona: the MONA page answered HTTP {r.status_code}")
-        links = [l for l in re.findall(r'href="([^"]+\.xlsx?)"', r.text, re.I) if "arrange" in l.lower() or "mona" in l.lower()]
-        if not links:
-            raise ConnectorError("imf_mona: no arrangements file linked from the MONA page")
-        got = []
-        for link in links[:3]:
-            url = link if link.startswith("http") else httpx_join(MONA_PAGE, link)
-            name = re.sub(r"[^A-Za-z0-9._-]+", "_", url.rsplit("/", 1)[-1])
-            try:
-                self.get(url, raw_dir / name)
-                got.append(url)
-            except ConnectorError as exc:
-                log.warning("imf_mona: %s skipped (%s)", url, exc)
-        if not got:
-            raise ConnectorError("imf_mona: none of the linked files could be downloaded")
-        return " ".join(got)
+        dest = raw_dir / "mona_description.json"
+        self.get(MONA_API, dest, cached=False)
+        head = dest.read_bytes()[:4]
+        if head.startswith(b"PK"):  # a real workbook, should the address start sending one
+            dest.rename(raw_dir / "mona_description.xlsx")
+        elif not head.lstrip().startswith(b"{"):
+            dest.unlink(missing_ok=True)
+            raise ConnectorError(f"imf_mona: {MONA_API} did not answer with the arrangements data; save 'Description' "
+                                 f"from {MONA_PAGE} into var\\manual\\imf_mona")
+        return MONA_API
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
-        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv"))
+        files = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv", ".json"))
         if not files:
             raise ConnectorError(f"imf_mona: no .xlsx or .csv file in {raw_dir} (save an .xls file as .xlsx first)")
         events, unmatched = [], set()
         for f in files:
-            table = (list(csv.reader(io.StringIO(f.read_text(encoding="utf-8-sig", errors="replace"))))
-                     if f.suffix.lower() == ".csv" else xlsx_rows(f))
+            if f.suffix.lower() == ".json":
+                table = mona_json_table(f)
+            elif f.suffix.lower() == ".csv":
+                table = list(csv.reader(io.StringIO(f.read_text(encoding="utf-8-sig", errors="replace"))))
+            else:
+                table = xlsx_rows(f)
             events += programme_events(table, unmatched)
         if not events:
             raise ConnectorError("imf_mona: no programmes read; the file's columns may have changed")
         uniq = {e[1]: e for e in events}
         self.events_query = stage_events(con, self.source_id, vintage, list(uniq.values()), unmatched)
         return EMPTY_OBSERVATIONS
+
+
+def mona_json_table(path: Path) -> list[list]:
+    """The MONA data address's answer as a table: a heading row, then one row per record."""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as exc:
+        raise ConnectorError(f"imf_mona: {path.name} is not the MONA data ({exc})") from None
+    recs = doc.get("data") if isinstance(doc, dict) else doc
+    if not isinstance(recs, list) or not recs:
+        return []
+    keys = list(dict.fromkeys(k for r in recs[:50] if isinstance(r, dict) for k in r))
+    return [keys] + [[r.get(k) for k in keys] for r in recs if isinstance(r, dict)]
 
 
 def httpx_join(base: str, link: str) -> str:
@@ -727,7 +748,9 @@ def programme_events(table: list[list], unmatched: set[str]) -> list[tuple]:
         found[number] = {"name": name, "kind": kind, "approved": approved, "end": end, "access": access}
     out = []
     for number, p in found.items():
-        ent = country(p["name"], p["approved"], unmatched)
+        # MONA writes "AFGHANISTAN,ISLAMIC REPUBLIC OF": the part before the comma is the plain name.
+        ent = catalogue.country_by_name(p["name"], p["approved"]) or \
+            country(p["name"].split(",")[0].strip(), p["approved"], unmatched)
         if not ent:
             continue
         label = IMF_TYPES.get(p["kind"], p["kind"] or "lending")
