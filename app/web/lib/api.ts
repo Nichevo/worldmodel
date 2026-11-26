@@ -366,6 +366,7 @@ export type Settings = {
   ships_area: "pacific" | "world"; // where ships are collected
   ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
   ships_keep_days: number; // days of saved ships kept
+  ship_size_by_length: boolean; // map: ship shapes sized by the ship's length
   ship_schedules: boolean; // cargo ships: ETA history, port calls, on time or late
   port_lists_fetch: boolean; // read the ports' arrival lists hourly (NZ and Australia)
   carrier_schedules: boolean; // ask Maersk, Hapag-Lloyd and CMA CGM schedules (with their keys)

@@ -756,7 +756,7 @@ class Ships:
             now = time.time()
             for k in [k for k, v in self.ships.items() if now - v["seen"] > SHIP_KEEP]:
                 del self.ships[k]
-            feats = [_ship_feature(v) for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)][:MAX_SHIPS]
+            feats = [_ship_feature(v, self.store.details) for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)][:MAX_SHIPS]
             if self.connected and self.messages:
                 note = f"{self.messages:,} reports read since connecting."
             elif self.connected:
@@ -781,7 +781,7 @@ class Ships:
             found = self.store.at(when, bx, self.area()[1] if every else None, every + WORLD_LISTEN if every else 0)
         except Exception as exc:  # noqa: BLE001 - shown on the map
             return {"type": "FeatureCollection", "features": [], "count": 0, "error": f"Could not read saved ships ({exc.__class__.__name__})."}
-        feats = [_ship_feature(v) for v in found][:MAX_SHIPS]
+        feats = [_ship_feature(v, self.store.details) for v in found][:MAX_SHIPS]
         when_txt = time.strftime("%d %b %Y %H:%M", time.localtime(when))
         return {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "aisstream.io (saved)",
                 "note": f"Ships as saved at {when_txt}" + ("" if feats else ": none saved for this area and time"), "at": int(when)}
@@ -1103,6 +1103,8 @@ class Ships:
                     self.store.kinds[mmsi] = static["kind"]
                 if static.get("name"):
                     s["name"] = static["name"]
+                if static.get("length_m"):
+                    s["length_m"] = static["length_m"]
                 saving = True
             else:
                 saving = False
@@ -1219,8 +1221,12 @@ def ship_group(code) -> str:
     return "other"
 
 
-def _ship_feature(v: dict) -> dict:
-    props = {k: v[k] for k in ("id", "name", "imo", "speed_kn", "heading", "seen", "kind") if v.get(k) is not None}
+def _ship_feature(v: dict, details: dict | None = None) -> dict:
+    props = {k: v[k] for k in ("id", "name", "imo", "speed_kn", "heading", "seen", "kind", "length_m") if v.get(k) is not None}
+    if "length_m" not in props and details is not None:  # its length from what it said before (saved details)
+        length = (details.get(v.get("id")) or {}).get("length_m")
+        if isinstance(length, (int, float)) and length > 0:
+            props["length_m"] = length
     props["group"] = ship_group(v.get("kind"))
     if not isinstance(props.get("heading"), (int, float)) or not 0 <= props["heading"] < 360:
         props["heading"] = 0
