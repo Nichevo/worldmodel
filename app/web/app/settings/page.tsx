@@ -421,6 +421,8 @@ export default function SettingsPage() {
           on={s.cables_fetch} set={(v) => save({ cables_fetch: v })} />
         <Toggle label="Sea borders: economic zones and flight regions" hint="Marine Regions' maritime boundary lines and zone list (about 50 MB, twice a year) and VATSIM's flight information region outlines (3 MB, every three months). Off: no economic zones or flight regions layers and no sea area figures; what is stored stays."
           on={s.sea_borders_fetch} set={(v) => save({ sea_borders_fetch: v })} />
+        <Toggle label="Time zones" hint="Every time zone's outline, out at sea too (timezone-boundary-builder, about 50 MB twice a year, about 5 MB kept). Local times and daylight saving are worked out on your computer, so they are always current. Off before the first read: no Time zones map layer."
+          on={s.timezones_fetch} set={(v) => save({ timezones_fetch: v })} />
         <Toggle label="Power plants and power lines" hint="WRI's Global Power Plant Database (10 MB, twice a year) and gridfinder's power lines (700 MB downloaded once, about 150 MB kept). Off before the first read: no power plants or power lines layers."
           on={s.power_fetch} set={(v) => save({ power_fetch: v })} />
         <Toggle label="Energy flows and power links" hint="UN energy statistics for every country since 1990 (about 100 MB, every three months), drawn as each country's and group's energy flow chart, and Eurostat's yearly electricity trade between European countries for the Power links map layer. Off: no new figures; what is stored stays."

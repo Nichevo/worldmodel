@@ -525,6 +525,18 @@ several legs shows its total and a rough flight time at 850 km/h.
   together when zoomed out, and each region is outlined and named closer in. It is drawn for
   flight simulators: not for navigation.
 
+**Time zones and night** (Map layers `{` and `}`):
+- *Time zones*: every IANA time zone's outline, out at sea too, from Evan Siroky's
+  timezone-boundary-builder (ODbL, built from OpenStreetMap), fetched twice a year (about
+  50 MB; switch: Settings > Time zones). Each zone is coloured by how far ahead of or behind
+  UTC it is now and labelled with the hours ("DST" under it while on daylight saving).
+  Hover a zone for its local time, its offset and when its clocks next change. Offsets come
+  from your browser's own time zone rules, so they are right on the day you look. If the
+  download fails, save `timezones-with-oceans-now.geojson.zip` from the project's releases
+  page into `var\manual\tz_boundaries`.
+- *Day and night now*: where the Sun is down, darker through twilight to full night, worked
+  out in the browser from the Sun's position and moved every minute (no download).
+
 **Weather** (Map layers, group *Weather now and forecasts*; Settings > Climate > Weather):
 - *Temperature, Rain and snow, Cloud cover, Wind* (shading and arrows) and *Pressure lines*
   are NOAA's GFS forecast, now to a week ahead in 3-hour steps. A weather bar on the map picks

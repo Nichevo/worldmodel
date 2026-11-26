@@ -358,6 +358,7 @@ export type Settings = {
   us_fetch: boolean; // US states and counties
   cables_fetch: boolean; // TeleGeography undersea cables
   sea_borders_fetch: boolean; // Marine Regions economic zones and VATSIM flight regions
+  timezones_fetch: boolean; // timezone-boundary-builder time zone outlines
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
   live_planes: boolean; // the map's Planes now layer
   live_ships: boolean; // the map's Ships now layer

@@ -9,6 +9,7 @@ import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 import { aqiWords, MODEL_COLOURS } from "@/lib/weather";
 import { EVENT_KIND, fightingQuery, lookCloser, portWeeksQuery, SOURCE_NAME } from "@/lib/osint";
+import { nightNow, withOffsets, zoneText } from "@/lib/timezones";
 
 export type MapLayerInfo = {
   layer_id: string; name: string; description: string; kind: "line" | "point"; feature_count: number;
@@ -35,7 +36,8 @@ export function layerData(id: string): Promise<GeoJSON.FeatureCollection> {
 // again while on (planes and ships). fill: drawn as areas (basins).
 type Style = {
   paint: () => LineLayerSpecification["paint"] | CircleLayerSpecification["paint"] | FillLayerSpecification["paint"];
-  legend: string; swatch: () => string; dot?: boolean; fill?: boolean; fetch?: "window" | "live"; every?: number;
+  legend: string; swatch: () => string; dot?: boolean; fill?: boolean; fetch?: "window" | "live";
+  every?: number; // seconds between asks while on (live layers; a window layer too when set: night, time zones)
   // what a click on one shows: its card (geo features), the countries on a chokepoint's shores, or a card made
   // from the feature itself with "Look closer" links (located events, military planes)
   click?: "feature" | "chokepoint" | "here" | "camera" | "journey"; // camera: the picture or video, in the card; journey: where a ship or plane came from and is going
@@ -312,6 +314,20 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "line-color": ["case", ["boolean", ["get", "outer"], false], "#5f8fc4", "#2c4f7c"],
       "line-width": zoomWidth(0.8, 1.8), "line-opacity": 0.9 }),
   },
+  timezones: {
+    legend: "Time zone, coloured by its offset from UTC now (blue behind, red ahead; labels say hours, DST: daylight saving)", swatch: () => "#f46d43", fill: true, fetch: "window", every: 600,
+    paint: () => ({
+      "fill-color": ["interpolate", ["linear"], ["coalesce", ["get", "offset"], 0],
+        -12, "#5e4fa2", -8, "#3288bd", -4, "#66c2a5", 0, "#e6f598", 4, "#fdae61", 8, "#f46d43", 12, "#d53e4f", 14, "#9e0142"],
+      // alternate hours a little stronger, so neighbouring zones stand apart
+      "fill-opacity": ["case", ["==", ["%", ["floor", ["coalesce", ["get", "offset"], 0]], 2], 0], 0.38, 0.25],
+      "fill-outline-color": cssVar("--ink-2"),
+    }),
+  },
+  night: {
+    legend: "Night now (darker: twilight over, then full night)", swatch: () => "#0b1d3a", fill: true, fetch: "window", once: true, every: 60,
+    paint: () => ({ "fill-color": "#0b1d3a", "fill-opacity": 0.11, "fill-antialias": false }),
+  },
   airspace: {
     legend: "Flight information region (whose air traffic control covers it; each region as you zoom in)", swatch: () => "#6a4fc2", fill: true, fetch: "window",
     paint: () => ({ "fill-color": "#6a4fc2", "fill-opacity": ["case", ["==", ["get", "rank"], 1], 0.05, 0.02], "fill-outline-color": "#6a4fc2" }),
@@ -487,7 +503,10 @@ export function windowData(id: string, b: { west: number; south: number; east: n
     : id === "front_line" ? "/osint/front/russia_ukraine"
     : id === "port_pressure" ? `/transport/pressure/map?${portWeeksQuery()}`
     : `/geo/${encodeURIComponent(id)}?${q}&zoom=${zoom.toFixed(1)}`;
-  return get<GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean }>(path);
+  type Got = GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean };
+  if (id === "night") return Promise.resolve(nightNow() as Got); // worked out here from the time
+  const got = get<Got>(path);
+  return id === "timezones" ? got.then((fc) => withOffsets(fc) as Got) : got;
 }
 
 const num = (v: unknown, d = 0) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : "");
@@ -582,6 +601,7 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + `${p.year ? ` · built ${esc(p.year)}` : ""}${p.owner ? `<br/>${esc(p.owner)}` : ""}`;
   if (layer === "power_links") return `<b>${esc(p.from_name)} → ${esc(p.to_name)}</b>, ${esc(p.year)}<br/>${num(p.sent)} GWh sent, `
     + `${num(p.back)} GWh back<br/>Net ${num(p.net)} GWh to ${esc(p.to_name)}`;
+  if (layer === "timezones") return zoneText(String(p.tz ?? p.name ?? ""), esc);
   if (layer === "railways") return `<b>Railway</b>${p.rank === 1 ? " (main line)" : ""}`;
   if (layer === "power_lines") return `<b>Power line</b>${p.rank === 1 ? " (mapped)" : " (predicted)"}${p.kv ? `<br/>${esc(p.kv)} kV` : ""}`;
   if (layer === "storms_active") {

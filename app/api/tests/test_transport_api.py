@@ -35,6 +35,9 @@ def client(tmp_path, monkeypatch):
          {"type": "MultiPolygon", "coordinates": [[[[138.5, -37], [138.5, -26], [150, -26], [150, -37], [138.5, -37]]]]}),
         ("cables", "southern-cross-next", "Southern Cross NEXT", 1, {"rfs": 2022, "owners": "Spark"}, "AUS,FJI,NZL,USA",
          151.2, -33.9, 178.4, -18.1, {"type": "LineString", "coordinates": [[151.2, -33.9], [178.4, -18.1]]}),
+        ("timezones", "Pacific/Auckland", "Pacific/Auckland", 1, {"tz": "Pacific/Auckland", "sea": False}, "", 166.0, -48.0, 179.0, -34.0,
+         {"type": "Polygon", "coordinates": [[[166, -48]] + [[166 + i * 13 / 200, -48 + (i % 2) / 1000] for i in range(1, 200)]
+                                             + [[179, -48], [179, -34], [166, -34], [166, -48]]]}),
     ]
     con.executemany("INSERT INTO geo_features VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'x', 'v1')",
                     [(*g[:4], json.dumps(g[4]), *g[5:10], json.dumps(g[10])) for g in geo])
@@ -72,6 +75,17 @@ def test_geo_by_window_and_zoom(client):
     gas = client.get("/api/v1/geo/gas_pipelines").json()  # never loaded: says how to get it
     assert gas["features"] == [] and gas["loaded"] is False and "gem_infrastructure" in gas["note"]
     assert client.get("/api/v1/geo/nonsense").status_code == 404
+
+
+def test_time_zones_whole_and_simplified(client):
+    far = client.get("/api/v1/geo/timezones", params={"west": 100, "south": -60, "east": 200, "north": 10, "zoom": 2.4}).json()
+    nz = far["features"][0]
+    assert nz["properties"]["tz"] == "Pacific/Auckland" and nz["properties"]["sea"] is False
+    assert nz["geometry"]["type"] == "Polygon" and len(nz["geometry"]["coordinates"][0]) < 10  # the wiggly edge smoothed
+    again = client.get("/api/v1/geo/timezones", params={"west": 120, "south": -60, "east": 200, "north": 10, "zoom": 2.9}).json()
+    assert again["features"][0]["geometry"] == nz["geometry"]  # same zoom step: the kept shape
+    near = client.get("/api/v1/geo/timezones", params={"west": 170, "south": -45, "east": 180, "north": -30, "zoom": 7}).json()
+    assert len(near["features"][0]["geometry"]["coordinates"][0]) == 204
 
 
 def test_basin_card_and_depends(client):

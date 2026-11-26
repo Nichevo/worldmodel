@@ -146,6 +146,7 @@ SETTINGS: dict[str, object] = {
     "us_fetch": True,                    # US states and counties: Census, BEA, FRED, BLS, FHFA, MIT, County Health Rankings, EIA
     "cables_fetch": True,                # TeleGeography undersea cables (each cable's details read a few at a time)
     "sea_borders_fetch": True,           # Marine Regions economic zone lines (twice a year) and VATSIM flight region outlines (every three months)
+    "timezones_fetch": True,             # time zone outlines (timezone-boundary-builder, about 50 MB twice a year)
     "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
     "energy_flows_fetch": True,          # UN energy statistics for every country (about 100 MB, every three months) and Eurostat power trade
     "grid_now": True,                    # Grid now cards (NZ, Australia, Great Britain, US): read live only while a card is open
