@@ -334,6 +334,10 @@ export type Settings = {
   ships_area: "pacific" | "world"; // where ships are collected
   ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
   ships_keep_days: number; // days of saved ships kept
+  ship_schedules: boolean; // cargo ships: ETA history, port calls, on time or late
+  port_lists_fetch: boolean; // read the Auckland and Tauranga arrival lists hourly
+  carrier_schedules: boolean; // ask Maersk, Hapag-Lloyd and CMA CGM schedules (with their keys)
+  schedules_keep_days: number; // days of schedules kept
   planes_collect: boolean; // save the planes OpenSky sends the map (var/live/planes)
   planes_world: boolean; // background whole-world plane requests
   planes_types: boolean; // aircraft database: type, registration, flag

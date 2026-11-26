@@ -428,6 +428,15 @@ export default function SettingsPage() {
         <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
           note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
           save={(v) => save({ ships_keep_days: v })} />
+        <Toggle label="Cargo ship schedules" hint="For cargo and container ships: keep every ETA and destination they send and every port call seen, learn each ship's route, and say whether it is on time (Ships table, a ship's Schedule part, Live › Schedules). Needs ships collected. Off: nothing new is kept and the On time? column stays empty."
+          on={s.ship_schedules} set={(v) => save({ ship_schedules: v })} />
+        <Toggle label="Port arrival lists" hint="Read the Port of Auckland and Port of Tauranga arrival lists (public pages) every hour and keep each booking and every change to it. Off: on-time is measured against the line's schedule or the ship's own ETA only."
+          on={s.port_lists_fetch} set={(v) => save({ port_lists_fetch: v })} />
+        <Toggle label="Shipping lines' schedules" hint="Ask Maersk, Hapag-Lloyd and CMA CGM (with their free keys in Settings › Keys: MAERSK_CONSUMER_KEY, HLAG_CLIENT_ID + HLAG_CLIENT_SECRET, CMACGM_API_KEY) for the planned port calls of their ships seen in the last two days, at most 30 an hour. Off: they aren't asked."
+          on={s.carrier_schedules} set={(v) => save({ carrier_schedules: v })} />
+        <NumberField label="Keep schedules for" unit="days" value={s.schedules_keep_days} min={7} max={800} step={1}
+          note="ETA history, port calls (the learned routes need a few months) and port bookings older than this are dropped."
+          save={(v) => save({ schedules_keep_days: v })} />
         <Toggle label="Save planes" hint="Every plane OpenSky sends the map is saved (a position every 4 minutes each, in var\live\planes), so the time slider, plane paths and the Planes table keep planes that have landed or left the view; what was looked up about a plane (route, aircraft, path) is kept too and not asked again. Planes are only fetched while the Planes layer is open, so it grows only then: a whole-world view open all day is roughly 150 MB that day, about 30 MB once compacted overnight. Off: only the last answer is shown."
           on={s.planes_collect} set={(v) => save({ planes_collect: v })} />
         <Toggle label="Planes from the whole world" hint="While the app runs, ask OpenSky for every plane in the world every 30 minutes (every 5 with a free OpenSky API client in Settings > Keys) and save them, so planes build up from everywhere even with the map closed. Each whole-world request uses 4 of OpenSky's daily credits (about 400 anonymous, 4,000 with a client). Off: only the map's view is fetched, while the Planes layer is on."

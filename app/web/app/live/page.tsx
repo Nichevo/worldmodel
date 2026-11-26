@@ -8,6 +8,7 @@ import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { journeyText, planeJourney, shipJourney, useShipStatus, type Journey } from "@/lib/ships";
 import { mapLayersHref } from "@/lib/workspace";
 import { useSettings } from "@/lib/settings";
+import { ON_TIME_STATES, OnTimePill, SchedulePart, SchedulesBoard, type OnTime } from "@/components/ShipSchedule";
 
 // A plane's flag (from the country that issued its transponder address) and its airline's logo.
 function PlaneFlag({ code, title }: { code?: string | null; title?: string | null }) {
@@ -34,6 +35,7 @@ type Ship = {
   lat: number | null; lon: number | null; first_seen: number | null; last_seen: number | null; sanctioned?: boolean;
   links?: { label: string; href: string }[]; to_port?: { name: string | null; country: string | null; locode: string | null } | null;
   last_port?: { name: string | null; country: string | null; locode: string | null } | null; last_port_at?: number | null; from_typed?: string | null;
+  on_time?: OnTime | null; late_h?: number | null; eta_moved_h?: number | null; estimate_at?: number | null;
 };
 type Airport = { name: string | null; iata: string | null; icao: string | null; city: string | null; country: string | null };
 const airport = (a?: Airport | null) => (a ? `${a.city || a.name || ""}${a.iata ? ` (${a.iata})` : ""}` : "");
@@ -55,7 +57,7 @@ const dot = (groups: { id: string; color: string }[], g: string) => (
 function LivePage() {
   const sp = useSearchParams();
   const router = useRouter();
-  const tabs = ["ships", "ship-counts", "planes", "plane-counts"] as const;
+  const tabs = ["ships", "ship-counts", "schedules", "planes", "plane-counts"] as const;
   const tab = tabs.find((t) => t === sp.get("tab")) ?? "ships";
   const init = (k: string) => sp.get(k) ?? "";
   // A counts row opens the list with that filter (the list keeps it until changed).
@@ -63,7 +65,7 @@ function LivePage() {
     const q = new URLSearchParams({ tab: t, ...f });
     router.push(`/live?${q.toString()}`, { scroll: false });
   };
-  const key = ["group", "q", "to", "came", "airline", "from"].map(init).join("|");
+  const key = ["group", "q", "to", "came", "airline", "from", "ontime"].map(init).join("|");
   const open = sp.get("id");
   const setParams = (p: Record<string, string | null>) => {
     const q = new URLSearchParams(sp.toString());
@@ -76,12 +78,14 @@ function LivePage() {
       <div className="tabs" role="tablist">
         <button aria-pressed={tab === "ships"} onClick={() => router.replace("/live?tab=ships", { scroll: false })}>Ships</button>
         <button aria-pressed={tab === "ship-counts"} onClick={() => router.replace("/live?tab=ship-counts", { scroll: false })}>Ship counts</button>
+        <button aria-pressed={tab === "schedules"} onClick={() => router.replace("/live?tab=schedules", { scroll: false })}>Schedules</button>
         <button aria-pressed={tab === "planes"} onClick={() => router.replace("/live?tab=planes", { scroll: false })}>Planes</button>
         <button aria-pressed={tab === "plane-counts"} onClick={() => router.replace("/live?tab=plane-counts", { scroll: false })}>Plane counts</button>
       </div>
       {tab === "ships" && <><Ships key={key} init={init} open={open} setOpen={(id) => setParams({ id })} /><Sweeps /></>}
       {tab === "planes" && <Planes key={key} init={init} open={open} setOpen={(id) => setParams({ id })} />}
       {tab === "ship-counts" && <Counts what="ships" drill={drill} />}
+      {tab === "schedules" && <><SchedulesBoard openShip={(id) => setParams({ id })} />{open && <ShipCard id={open} onClose={() => setParams({ id: null })} />}</>}
       {tab === "plane-counts" && <Counts what="planes" drill={drill} />}
     </div>
   );
@@ -277,6 +281,7 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
   const [hours, setHours] = useState(0);
   const [to, setTo] = useState(init("to"));
   const [came, setCame] = useState(init("came"));
+  const [ontime, setOntime] = useState(init("ontime"));
   const [sort, setSort] = useState("last_seen");
   const [limit, setLimit] = useState(200);
   const [d, setD] = useState<{ rows: Ship[]; total: number; groups: Record<string, number>; collecting: boolean } | null>(null);
@@ -284,10 +289,10 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
   const st = useShipStatus(true);
   useEffect(() => {
     let live = true;
-    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came });
+    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came, ontime });
     const t = setTimeout(() => get<typeof d>(`/live/ships/table?${qs}`).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e))), 250);
     return () => { live = false; clearTimeout(t); };
-  }, [q, group, sort, limit, hours, to, came]);
+  }, [q, group, sort, limit, hours, to, came, ontime]);
   if (err) return <p className="error">{err}</p>;
   const head = (key: string, label: string) => (
     <th><button className="link small" onClick={() => setSort(sort === key ? `-${key}` : key)}>{label}{sort.replace("-", "") === key ? (sort.startsWith("-") ? " ▲" : " ▼") : ""}</button></th>
@@ -308,6 +313,10 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
         </select></label>
         <label>Came from <input value={came} onChange={(e) => setCame(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
         <label>Going to <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
+        <label title="Cargo and container ships: against the line's schedule, the port's booking or the ship's own first ETA">On time? <select value={ontime} onChange={(e) => setOntime(e.target.value)}>
+          <option value="">All</option><option value="any">Cargo ships with a measure</option>
+          {ON_TIME_STATES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select></label>
         <label>Seen <select value={hours} onChange={(e) => setHours(+e.target.value)}>
           <option value={0}>Any time</option><option value={0.25}>In the last 15 minutes</option><option value={1}>In the last hour</option><option value={24}>In the last day</option><option value={168}>In the last week</option>
         </select></label>
@@ -317,7 +326,7 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
         <table className="small">
           <thead><tr>{head("name", "Name")}{head("type", "Kind")}{head("flag", "Flag")}{head("length_m", "Length")}{head("speed_kn", "Speed")}
             <th title="The last port the ship was seen stopped at (while collecting), or the FROM of a destination typed as FROM>TO">Came from</th>
-            {head("destination", "Going to")}<th>Doing</th>{head("last_seen", "Last seen")}</tr></thead>
+            {head("destination", "Going to")}<th title="Cargo ships: within a day of the line's schedule, the port's booking or the ship's own first ETA">On time?</th><th>Doing</th>{head("last_seen", "Last seen")}</tr></thead>
           <tbody>
             {(d?.rows ?? []).map((r) => (
               <tr key={r.id} onClick={() => setOpen(String(r.id))} style={{ cursor: "pointer" }} className={open === String(r.id) ? "selected" : undefined}>
@@ -329,6 +338,7 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
                 <td>{r.last_port ? <>{[r.last_port.name, r.last_port.country].filter(Boolean).join(", ")}<span className="muted"> {when(r.last_port_at)}</span></>
                   : r.from_typed ?? ""}</td>
                 <td>{r.destination ?? ""}{r.to_port ? <span className="muted"> ({[r.to_port.name, r.to_port.country].filter(Boolean).join(", ")})</span> : null}</td>
+                <td><OnTimePill state={r.on_time} late={r.late_h} /></td>
                 <td>{r.status ?? ""}</td>
                 <td>{when(r.last_seen)}</td>
               </tr>
@@ -372,6 +382,7 @@ function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
             <table className="small"><tbody>{rows.filter(([, v]) => v !== "" && v != null).map(([k, v]) => <tr key={k}><th style={{ textAlign: "left", paddingRight: 12 }}>{k}</th><td>{v}</td></tr>)}</tbody></table>
             <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>
             {j ? journeyText(j, false).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>) : <p className="small muted">Loading…</p>}
+            {s.group === "cargo" && <SchedulePart id={id} />}
             <OwnerPart id={id} />
             <p className="small"><Link href={mapLayersHref("S")}>Ships on the map</Link> (click the ship there to draw its path)
               {(s.links ?? []).map((l) => <span key={l.href}> · <a href={l.href} target="_blank" rel="noreferrer">{l.label}</a></span>)}</p>
