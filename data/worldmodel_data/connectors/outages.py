@@ -105,45 +105,68 @@ class IODA(Connector):
     def release_from_files(self, files: list[Path]) -> str | None:
         return None
 
+    # IODA's server often times out (HTTP 504) or fails (500) on a whole month of every country's
+    # outages, and in a bad spell on half months too. A window that fails is asked again in two
+    # halves, down to MIN_DAYS, and a window that small gets one more try after RETRY_PAUSE. A
+    # month is saved only when all of it was read; one left out is asked again next refresh.
+    # Months go newest first, and after GIVE_UP_AFTER months in a row fail outright the rest wait
+    # for the next refresh, so a day when IODA is down costs a few dozen requests, not hundreds.
+    MIN_DAYS = 2
+    RETRY_PAUSE = 10.0
+    GIVE_UP_AFTER = 2
+
+    def _ask(self, a: date, b: date, part: Path) -> list:
+        time.sleep(self.pause_seconds)
+        self.get(f"{IODA_URL}?entityType=country&from={_ts(a)}&until={_ts(b)}&limit=5000", part, cached=False)
+        d = json.loads(part.read_text(encoding="utf-8"))
+        part.unlink()
+        return (d.get("data") or []) if isinstance(d, dict) else d
+
+    def _window(self, a: date, b: date, part: Path) -> list:
+        """IODA's outages from a to b, splitting the window while IODA fails on it."""
+        try:
+            return self._ask(a, b, part)
+        except (ConnectorError, ValueError):
+            if (b - a).days <= self.MIN_DAYS:
+                time.sleep(self.RETRY_PAUSE)
+                return self._ask(a, b, part)  # raises if IODA still fails
+        mid = a + timedelta(days=(b - a).days // 2)
+        return self._window(a, mid, part) + self._window(mid, b, part)
+
     def download(self, raw_dir: Path, release: str) -> str:
         today = date.today()
         last = self.last_vintage_dir(raw_dir)
         have = {p.name for p in last.iterdir()} if last else set()
         recent = date(today.year, today.month, 1) - timedelta(days=40)
-        n, failed, last_err = 0, [], None
-        for m in _months(int(_settings().get("ioda_from_year", 2022)), today):
+        n, read, failed, in_a_row, last_err = 0, 0, [], 0, None
+        months = [m for m in _months(int(_settings().get("ioda_from_year", 2022)), today)
+                  if not (f"ioda_{m:%Y-%m}.json" in have and m < recent)]
+        for i, m in enumerate(reversed(months)):  # newest first
+            if in_a_row >= self.GIVE_UP_AFTER:
+                left = [f"{x:%Y-%m}" for x in list(reversed(months))[i:]]
+                failed += left
+                log.warning("ioda: IODA is not answering; %d older month(s) wait for the next refresh", len(left))
+                break
             name = f"ioda_{m:%Y-%m}.json"
-            if name in have and m < recent:
-                continue
-            end = date(m.year + (m.month == 12), m.month % 12 + 1, 1)
-            if n:
-                time.sleep(self.pause_seconds)
+            end = min(date(m.year + (m.month == 12), m.month % 12 + 1, 1), today + timedelta(days=1))
+            part = raw_dir / f"{name}.part"
             n += 1
             try:
-                self.get(f"{IODA_URL}?entityType=country&from={_ts(m)}&until={_ts(end)}&limit=5000", raw_dir / name, cached=False)
-                continue
-            except ConnectorError as exc:  # IODA answers 500 for some months: try them in halves
-                last_err = exc
-            try:
-                halves = []
-                mid = m + timedelta(days=15)
-                for a, b in ((m, mid), (mid, end)):
-                    time.sleep(self.pause_seconds)
-                    part = raw_dir / f"{name}.part"
-                    self.get(f"{IODA_URL}?entityType=country&from={_ts(a)}&until={_ts(b)}&limit=5000", part, cached=False)
-                    d = json.loads(part.read_text(encoding="utf-8"))
-                    halves += d.get("data") or [] if isinstance(d, dict) else d
-                    part.unlink()
-                (raw_dir / name).write_text(json.dumps({"data": halves}), encoding="utf-8")
+                got = self._window(m, end, part)
             except (ConnectorError, ValueError) as exc:  # left out this time; asked again at the next refresh
                 last_err = exc
+                in_a_row += 1
                 failed.append(f"{m:%Y-%m}")
-                (raw_dir / f"{name}.part").unlink(missing_ok=True)
+                part.unlink(missing_ok=True)
                 log.warning("ioda: %s skipped (%s)", f"{m:%Y-%m}", exc)
-        if n and len(failed) == n:
-            raise ConnectorError(f"ioda: no month could be read ({last_err})")
+                continue
+            (raw_dir / name).write_text(json.dumps({"data": got}), encoding="utf-8")
+            read += 1
+            in_a_row = 0
+        if n and not read:
+            raise ConnectorError(f"ioda: no month could be read; IODA's server is failing ({last_err})")
         if failed:
-            log.warning("ioda: %d month(s) not read this time: %s", len(failed), ", ".join(failed))
+            log.warning("ioda: %d month(s) not read this time: %s", len(failed), ", ".join(sorted(failed)))
         return IODA_URL
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
