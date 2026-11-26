@@ -135,3 +135,17 @@ def test_ships_table_gets_on_time(tmp_path, monkeypatch):
     board = c.get("/api/v1/live/schedules").json()
     assert board["rows"][0]["name"] == "CAPE SERRAT" and board["rows"][0]["id"] == 111 and board["rows"][0]["port"] == "Tauranga"
     assert c.get("/api/v1/live/schedules/reliability").json()["lines"] == []
+
+
+def test_australian_port_lists_parse():
+    syd = schedules.parse_nsw((FIX / "nsw_botany.html").read_text(), NOW)
+    assert [r["name"] for r in syd] == ["Morning Ibis", "OOCL Chicago"]  # in port with no arrival row, and shifts: left out
+    chi = syd[1]
+    assert chi["arrival"] == datetime(2026, 11, 27, 13, 1, tzinfo=timezone.utc).timestamp()  # 00:01 AEDT on the 28th
+    assert chi["prev"] == "Fremantle" and chi["next"] == "Auckland" and chi["state"] == "expected" and chi["imo"] is None
+    vic = {r["name"]: r for r in schedules.parse_vic((FIX / "vic.html").read_text())}
+    assert set(vic) == {"MSC New Haven VIII", "Maea", "Adria Ace", "Green Wave", "Star Japan"}  # pilot codes dropped
+    assert vic["Green Wave"]["state"] == "in_port" and vic["Green Wave"]["next"] == "Auckland"
+    assert vic["Adria Ace"]["state"] == "departed" and vic["MSC New Haven VIII"]["prev"] == "Sydney"
+    assert vic["Star Japan"]["departs"] == datetime(2026, 12, 4, 8, 0, tzinfo=timezone.utc).timestamp()
+    assert set(schedules.PARSERS) == set(schedules.PORT_LISTS)

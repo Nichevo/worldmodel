@@ -2,7 +2,7 @@
 
 // Are cargo ships on schedule (the API's schedules.py): a pill for the ships table, the Schedule
 // part of a ship's card (how late, three ways; the ETA over time; port calls; learned route) and
-// the Live page's Schedules tab (the Auckland and Tauranga arrival lists as a board, and on-time
+// the Live page's Schedules tab (the ports' arrival lists as a board, and on-time
 // shares by line and port).
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -156,7 +156,7 @@ export function SchedulesBoard({ openShip }: { openShip: (id: string) => void })
   if (err) return <p className="error">{err}</p>;
   return (
     <section className="card">
-      <p className="caption">Cargo and container ships booked into Auckland and Tauranga, from the ports&apos; own arrival lists (read every hour, every change kept),
+      <p className="caption">Cargo and container ships booked into Auckland, Tauranga, the NSW ports and Melbourne, from the ports&apos; own arrival lists (read every hour, every change kept),
         beside what each ship says (its ETA) and our estimate from its position and speed. On time means within a day of the first booking, as the shipping industry counts it.
         Open a ship for its ETA over time and its route.</p>
       <div className="table-tools small">
