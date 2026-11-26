@@ -171,6 +171,18 @@ export default function SettingsPage() {
           save={(v) => save({ api_daily_limit: v })} />
       </section>
 
+      <section className="card" id="find-data">
+        <h2>Find data</h2>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Search Dateno&apos;s index of open datasets (government, statistics and research portals worldwide) for topics the app
+          does not hold yet. Needs a free key, DATENO_API_KEY (<Link href="/data">Data status</Link> &gt; Keys you can add). Each
+          search is kept a day; files you download go to the <code>found</code> folder in the data folder.
+        </p>
+        <Toggle label="Find data"
+          hint="On: Find data in the Data menu and 'Find data on this' links where a chart or search finds nothing. Off: the page, its links and the wish list on To do are hidden; nothing is asked of Dateno."
+          on={s.find_data} set={(v) => save({ find_data: v })} />
+      </section>
+
       <section className="card" id="console">
         <h2>Data console</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>

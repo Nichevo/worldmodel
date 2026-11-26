@@ -312,6 +312,7 @@ SETTINGS: dict[str, object] = {
     "backup_big_mb": 200,            # files bigger than this (big downloads the site can give again) are left out; 0 keeps all
     # The public API (/api/public/v1) for scripts, the Python client, Excel and AI assistants (Settings > API access)
     "web_dev_mode": False,           # off: start.bat serves a built (faster) web app, built by update.bat; on: the development server
+    "find_data": True,               # Find data page: search Dateno's index of open datasets (needs DATENO_API_KEY); off hides the page and its links
     "data_console": False,           # off: no Data console page; on: read-only questions in SQL to the warehouse, from this PC only
     "api_public_on": False,          # off: nothing outside the app itself can read the data through the public API
     "api_daily_limit": 2000,         # calls a day for each key (calls from this PC need no key and are not limited)

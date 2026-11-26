@@ -13,7 +13,7 @@ import { InboxCard, JobPanel, KeyInput, useJob } from "@/components/Upkeep";
 
 const KIND_TEXT: Record<TodoItem["kind"], string> = {
   inbox: "Choose a source", load: "Ready to load", download: "Save a file", failing: "Failing", check: "A check failed",
-  key: "Add a key", form: "Fill in a form",
+  key: "Add a key", form: "Fill in a form", wish: "Wanted as a source",
 };
 
 export default function TodoPage() {
@@ -39,7 +39,8 @@ export default function TodoPage() {
         <h1>To do</h1>
         <p className="ink-2" style={{ marginTop: 0 }}>
           What the data needs from you, most useful first. Things the app is handling by itself (retrying a site, waiting until a
-          source is due) are left out. <Link href="/data">Data status</Link> has every source&apos;s details.
+          source is due) are left out. <Link href="/data">Data status</Link> has every source&apos;s details. Datasets you marked
+          &quot;Want this as a source&quot; on <Link href="/find">Find data</Link> are listed last and not counted on the menu.
         </p>
       </div>
       <div className="chips-row">
@@ -95,7 +96,10 @@ function Item({ it, busy, start, mark, switchOff, reload }: {
       {it.uses > 0 && <p className="small muted" style={{ margin: "4px 0" }}>Feeds {it.uses} indicator{it.uses === 1 ? "" : "s"}: {it.uses_names.join(", ")}{it.uses > it.uses_names.length ? "…" : ""}</p>}
       <div className="chips-row small">
         {it.kind === "inbox" && <Assign it={it} reload={reload} />}
-        {it.link && it.kind !== "form" && <a href={it.link} target="_blank" rel="noreferrer">{it.kind === "key" ? "Sign up" : "Open the download page"}</a>}
+        {it.link && it.kind !== "form" && <a href={it.link} target="_blank" rel="noreferrer">{it.kind === "key" ? "Sign up" : it.kind === "wish" ? "Open the dataset" : "Open the download page"}</a>}
+        {it.kind === "wish" && <Link href="/find">Find data</Link>}
+        {it.kind === "wish" && it.wish_id && <button className="link small" onClick={() => api.findUnwish(it.wish_id!).then(reload)}
+          title="Take it off the wish list">Not wanted now</button>}
         {it.kind === "form" && <Link href="/settings">Open Settings</Link>}
         {it.button === "get" && <button className="small" disabled={busy} onClick={() => start("get", [it.source_id!])}
           title="Opens the page and watches Downloads and the inbox; the file is filed and loaded when it lands">Get it</button>}

@@ -1,5 +1,6 @@
 "use client";
 
+import FindDataLink from "@/components/FindDataLink";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GRADE_TEXT, TYPE_TEXT, type Indicator, type MeasureType, type QualityShow } from "@/lib/api";
 import { isStarred, passes, setStar, SHOW_TEXT, useStars } from "@/lib/quality";
@@ -181,7 +182,7 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
               ...tops.filter((i) => i.domain === d).flatMap((i) => [row(i),
                 ...(folded[i.indicator_id] ? [] : (kids.get(i.indicator_id) ?? []).map((c) => row(c, true)))]),
             ])}
-            {!found.length && <li className="muted small isel-empty">{words.length ? "No indicator has those words." : "Nothing at this level: try Show: Everything, or star some."}</li>}
+            {!found.length && <li className="muted small isel-empty">{words.length ? <>No indicator has those words. <FindDataLink topic={words.join(" ")} label="Search open data for them" /></> : "Nothing at this level: try Show: Everything, or star some."}</li>}
           </ul>
           {strips && (
             <div className="isel-foot" aria-live="polite">

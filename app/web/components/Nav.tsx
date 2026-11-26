@@ -67,6 +67,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
   ] },
   { label: "Data", hint: "Sources, what is loaded, and settings", links: [
     { href: "/todo", label: "To do", hint: "Files to save, sources failing, keys and forms: what the data needs from you" },
+    { href: "/find", label: "Find data", hint: "Search open data portals worldwide (Dateno) for topics the app does not hold yet" },
     { href: "/sources", label: "Sources" },
     { href: "/glossary", label: "Glossary", hint: "The terms the charts use" },
     { href: "/data", label: "Data status" },
@@ -117,7 +118,7 @@ export default function Nav() {
             </button>
             {open === g.label && (
               <div className="nav-menu" role="menu">
-                {g.links.filter((l) => (l.href !== "/shapes" || s.map_true_size) && (l.href !== "/console" || s.data_console)).map((l) => (
+                {g.links.filter((l) => (l.href !== "/shapes" || s.map_true_size) && (l.href !== "/console" || s.data_console) && (l.href !== "/find" || s.find_data)).map((l) => (
                   <Link key={l.href} href={l.href} role="menuitem" className={isOn(path, l.href) ? "active" : ""} title={l.hint}>
                     {l.label}{l.href === "/todo" && todo > 0 && <span className="badge">{todo}</span>}
                   </Link>

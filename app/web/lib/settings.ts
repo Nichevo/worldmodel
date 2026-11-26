@@ -197,6 +197,7 @@ export const DEFAULT_SETTINGS: Settings = {
   views_fetch: true,
   predictions_on_charts: true,
   web_dev_mode: false,
+  find_data: true,
   data_console: false,
   api_public_on: false,
   api_daily_limit: 2000,

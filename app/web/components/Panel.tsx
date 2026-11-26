@@ -1,5 +1,6 @@
 "use client";
 
+import FindDataLink from "@/components/FindDataLink";
 import type { ECharts, EChartsOption } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CountryBands from "@/components/CountryBands";
@@ -951,7 +952,7 @@ function ChartView({ panel, indicator, indicators, year, names, selection, dispa
         </label>
         {units.length > 1 && <span className="small muted">Right axis: {units[1]}</span>}
       </div>
-      {rows && !hasRows && <p className="muted">No data for this indicator yet.</p>}
+      {rows && !hasRows && <p className="muted">No data for this indicator yet. <FindDataLink topic={indicator.name} country={entities.length === 1 ? entities[0].id : null} /></p>}
       {rows && hasRows && <div className="chart-fill"><EChart option={option} height="100%" label={`${indicator.name} chart`} onReady={onReady} /></div>}
       <p className="caption">
         {sourceLine(indicator)}. {selection.length ? "Selected countries." : "World shown; select countries on a map or table to compare."}

@@ -394,6 +394,7 @@ export type Settings = {
   views_fetch: boolean; // ViEWS conflict forecasts
   predictions_on_charts: boolean; // your predictions as dots on charts
   web_dev_mode: boolean; // start.bat runs the development server instead of the built app
+  find_data: boolean; // the Find data page and its links (Dateno search, needs DATENO_API_KEY)
   data_console: boolean; // read-only SQL questions to the warehouse, from this PC only
   api_public_on: boolean; // the public API for scripts, Python, Excel and AI assistants
   api_daily_limit: number; // calls a day per key
@@ -872,12 +873,32 @@ export type NumbeoPrices = {
 
 // Looking after the sources: the To do list, the inbox, jobs started from the app, every source's health.
 export type TodoItem = {
-  key: string; kind: "inbox" | "load" | "download" | "failing" | "check" | "key" | "form"; title: string; why: string;
+  key: string; kind: "inbox" | "load" | "download" | "failing" | "check" | "key" | "form" | "wish"; title: string; why: string;
   source_id: string | null; link: string | null; command: string | null; button: "assign" | "load" | "get" | "refresh" | "key" | null;
   what: string | null; folder: string | null; uses: number; uses_names: string[]; order: number;
-  name?: string; candidates?: string[]; env?: string[]; times?: number; todo_text?: string;
+  name?: string; candidates?: string[]; env?: string[]; times?: number; todo_text?: string; wish_id?: string;
   mark?: { done?: string; snooze_until?: string; at?: string };
 };
+// Find data (Dateno's index of open datasets).
+export type FoundFile = { n: number; name: string; format: string | null; url: string; size: number | null };
+export type FoundDataset = {
+  id: string; title: string; text: string; url: string | null; publisher: string | null; portal: string | null;
+  portal_url: string | null; portal_kind: string | null; countries: { id: string; name: string }[]; formats: string[];
+  topics: string[]; tags: string[]; licence: string | null; licence_url: string | null; created: string | null;
+  changed: string | null; files: FoundFile[]; more_files: number;
+};
+export type FindQuota = { day_left: number | null; day_limit: number | null; month_left: number | null; month_limit: number | null; day_resets_in: number | null; at: string };
+export type FindFacet = { key: string; name: string; values: { value: string; count: number }[] };
+export type FindResult = {
+  q: string; filters: string[]; offset: number; limit: number; total: number; total_more: boolean; items: FoundDataset[];
+  facets: FindFacet[]; from_cache: boolean; quota: FindQuota | null;
+};
+export type DataWish = { id: string; title: string; url: string | null; publisher: string | null; portal: string | null; countries: string[]; formats: string[]; licence: string | null; note: string; added: string };
+export type FindStatus = {
+  on: boolean; key_set: boolean; env: string; quota: FindQuota | null; found_folder: string; max_download_mb: number;
+  found: { name: string; path: string; folder: string; bytes: number; at: string }[]; wishes: DataWish[];
+};
+
 export type TodoList = { items: TodoItem[]; count: number; hidden: TodoItem[] };
 export type InboxState = {
   inbox: string; downloads: string | null; downloads_on: boolean; downloads_days: number;
@@ -1477,6 +1498,17 @@ export const api = {
   keys: () => get<ApiKey[]>("/keys"),
   setKey: (env: string, value: string) => send<{ env: string; set: boolean; file: string }>("PUT", `/keys/${env}`, { value }),
   todo: () => get<TodoList>("/todo"),
+  findStatus: () => get<FindStatus>("/find/status"),
+  findSearch: (q: string, country: string | null, filters: string[], offset = 0, sort: "relevance" | "quality" = "relevance") => {
+    const qs = new URLSearchParams({ q, offset: String(offset), sort });
+    if (country) qs.set("country", country);
+    for (const f of filters) qs.append("f", f);
+    return get<FindResult>(`/find/search?${qs}`);
+  },
+  findSimilar: (id: string) => get<{ items: FoundDataset[] }>(`/find/similar/${encodeURIComponent(id)}`),
+  findDownload: (id: string, n: number) => send<{ path: string; folder: string; bytes: number; name: string }>("POST", "/find/download", { id, n }),
+  findWish: (dataset: FoundDataset, note = "") => send<{ items: DataWish[] }>("POST", "/find/wishes", { dataset, note }),
+  findUnwish: (id: string) => send<{ items: DataWish[] }>("DELETE", `/find/wishes/${encodeURIComponent(id)}`),
   todoMark: (key: string, action: "done" | "snooze" | "clear", days?: number) =>
     send<TodoList>("PUT", `/todo/${encodeURIComponent(key)}`, { action, days }),
   inbox: () => get<InboxState>("/inbox"),

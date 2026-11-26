@@ -16,7 +16,7 @@ type Row = { part: string; what: string; status: Status; detail: string };
 
 // Every page without an id in its address (the smoke test in scripts/smoke.mjs opens the same).
 const PAGES = ["/", "/ai", "/alike", "/api-access", "/briefing", "/cities", "/climate", "/compare", "/console", "/crises",
-  "/crisiswatch", "/crowd", "/data", "/discover", "/disease", "/episodes", "/events", "/forecasts", "/glossary", "/highlights",
+  "/crisiswatch", "/crowd", "/data", "/discover", "/disease", "/episodes", "/events", "/forecasts", "/find", "/glossary", "/highlights",
   "/history", "/indicators", "/land", "/languages", "/laws", "/layers", "/learn", "/live", "/long", "/military", "/outlook",
   "/pollution", "/predictions", "/prices", "/regions", "/relationships", "/religion", "/sanctions", "/sectors", "/settings",
   "/shapes", "/sources", "/space", "/spotting", "/storage", "/stories", "/todo", "/topics", "/tourism", "/transport", "/wars",

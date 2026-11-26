@@ -266,6 +266,19 @@
     while the layer is on, twice per area, and keeps the answer nine minutes.
   status: active
 
+- source: dateno
+  name: Dateno dataset search (open data portals worldwide)
+  env: [DATENO_API_KEY]
+  needs_key: true
+  signup: https://dateno.io/
+  how: Sign up (free, or sign in with Google or GitHub), then on the main page click the blurred key in the "Your API key"
+    block to copy it.
+  unlocks: The Find data page (Data menu) and the "Find data on this" links, which search tens of millions of datasets
+    from government, statistics and research portals for topics the app does not hold yet.
+  limits: Free tier never expires; Dateno does not publish its numbers but sends the searches left today and this month
+    with every reply (shown on the Find data page). Each search is kept a day, so asking again costs nothing.
+  status: active
+
 - source: live_cameras_nsw
   name: Transport for NSW Open Data (Live Traffic NSW cameras)
   env: [TFNSW_API_KEY]

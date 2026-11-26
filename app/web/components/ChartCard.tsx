@@ -1,5 +1,6 @@
 "use client";
 
+import FindDataLink from "@/components/FindDataLink";
 import Help from "@/components/Help";
 import type { ECharts } from "echarts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -145,7 +146,7 @@ export default function ChartCard({ indicator, entities, kind = "line", start, e
       {headline && <p className="finding">{headline}</p>}
       {saveError && <p className="error small">{saveError}</p>}
       {error && <p className="error">{error}</p>}
-      {rows && rows.length === 0 && <p className="muted">No data for this indicator yet.</p>}
+      {rows && rows.length === 0 && <p className="muted">No data for this indicator yet. <FindDataLink topic={indicator.name} country={entities.length === 1 ? entities[0].id : null} /></p>}
       {rows && rows.length > 0 && <EChart option={option} height={height} label={`${indicator.name} chart`} onReady={onReady} />}
       {predicting && <PredictDialog title={`Predict: ${indicator.name}`} onClose={() => setPredicting(false)}
         onSaved={() => { forgetChartPredictions(); setPredTick((t) => t + 1); }}
