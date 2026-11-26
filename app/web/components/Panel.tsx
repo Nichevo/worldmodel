@@ -2,7 +2,9 @@
 
 import type { ECharts, EChartsOption } from "echarts";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import CountryBands from "@/components/CountryBands";
 import EChart from "@/components/EChart";
+import ShareCircle from "@/components/ShareCircle";
 import Flag from "@/components/Flag";
 import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
@@ -11,7 +13,7 @@ import WeatherOverlay from "@/components/WeatherOverlay";
 import { hasWeather } from "@/lib/weather";
 import type * as maplibregl from "maplibre-gl";
 import WorldMap, { type Overlay, type Scale, type Spark } from "@/components/WorldMap";
-import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type SeriesRow } from "@/lib/api";
+import { api, type Entity, type Indicator, type MapRange, type Pyramid as PyramidData, type Ranking, type SeriesRow } from "@/lib/api";
 import type { CameraBus } from "@/lib/camera";
 import { eventMarks, linkBands, useChartEvents, withEventTooltip } from "@/lib/events";
 import { flagUrl, useFlagCodes } from "@/lib/flags";
@@ -67,7 +69,11 @@ type Props = {
   onWin: (win: string) => void;
 };
 
-const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks" };
+const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks", bands: "Bands", shares: "Shares" };
+const VIEW_HINT: Partial<Record<View, string>> = {
+  bands: "Every country as a tile, stacked in columns by value band",
+  shares: "Each country's share of the world total, as a circle cut into continents (figures that add up only)",
+};
 
 // The panel's year, held inside the indicator's range; unset means the last estimate.
 export function effectiveYear(panel: PanelState, ind: Indicator | undefined): number | null {
@@ -115,7 +121,7 @@ export default function Panel({
       <header className="panel-head">
         <div className="seg" role="group" aria-label="View">
           {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
-            <button key={v} className={v === panel.view ? "on" : ""} aria-pressed={v === panel.view} onClick={() => set({ view: v })}>
+            <button key={v} className={v === panel.view ? "on" : ""} aria-pressed={v === panel.view} onClick={() => set({ view: v })} title={VIEW_HINT[v]}>
               {VIEW_LABEL[v]}
             </button>
           ))}
@@ -197,6 +203,9 @@ export default function Panel({
           <RanksView panel={panel} indicator={indicator} names={names} selection={selection} dispatch={dispatch}
             hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
         )}
+        {indicator && (panel.view === "bands" || panel.view === "shares") && year !== null && (
+          <PictureView view={panel.view} indicator={indicator} year={year} selection={selection} clicks={clicks} exporter={exporter} />
+        )}
         {indicator && panel.view === "pyramid" && year !== null && (
           <PyramidView panel={panel} year={year} names={names} selection={selection} dispatch={dispatch} exporter={exporter} />
         )}
@@ -206,6 +215,26 @@ export default function Panel({
       </div>
     </section>
   );
+}
+
+// Value bands or share of the world: every country's figure in the panel's year.
+function PictureView({ view, indicator, year, selection, clicks, exporter }: {
+  view: "bands" | "shares"; indicator: Indicator; year: number; selection: string[]; clicks: Clicks; exporter: React.RefObject<Exporter>;
+}) {
+  const [ranking, setRanking] = useState<Ranking | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const handlers = useClickHandlers(clicks);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    api.ranking(indicator.indicator_id, year).then((r) => live && setRanking(r)).catch((e) => live && setError(String(e.message || e)));
+    return () => { live = false; };
+  }, [indicator.indicator_id, year]);
+  if (error) return <p className="error">{error}</p>;
+  const pick = (id: string, e: React.MouseEvent) => handlers.click(id, e);
+  return view === "bands"
+    ? <CountryBands indicator={indicator} ranking={ranking} onPick={pick} selection={selection} exporter={exporter} fill />
+    : <ShareCircle indicator={indicator} ranking={ranking} onPick={pick} exporter={exporter} fill />;
 }
 
 // This calendar year, held inside the indicator's range.

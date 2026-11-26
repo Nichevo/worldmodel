@@ -670,7 +670,7 @@ export type Forecaster = {
 };
 
 export type Topic = { id: string; name: string; intro: string; map: string; indicators: string[]; missing: string[] };
-export type RankingRow = { entity_id: string; name: string; value: number; status: string; source_id: string;
+export type RankingRow = { entity_id: string; name: string; value: number; status: string; source_id: string; continent?: string | null;
   ten_years_before: number | null; rank: number };
 export type Ranking = { indicator: string; year: number | null; rows: RankingRow[]; world: RankingRow | null };
 

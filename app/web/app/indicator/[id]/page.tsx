@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import AskButton from "@/components/AskButton";
 import ChartCard from "@/components/ChartCard";
+import CountryBands from "@/components/CountryBands";
+import ShareCircle, { addsUp } from "@/components/ShareCircle";
 import IndicatorMap from "@/components/IndicatorMap";
 import { QualityCard } from "@/components/Quality";
 import { api, type Indicator, type IndicatorQuality, type Ranking, type Topic } from "@/lib/api";
@@ -24,6 +26,8 @@ export default function IndicatorPage() {
   const [q, setQ] = useState("");
   const [year, setYear] = useState<number | null>(null);
   const [quality, setQuality] = useState<IndicatorQuality | undefined>(undefined);
+  const [pic, setPic] = useState<"bands" | "shares">("bands");
+  const router = useRouter();
 
   useEffect(() => {
     setInd(null); setError(null); setYear(null);
@@ -51,6 +55,7 @@ export default function IndicatorPage() {
 
   if (error) return <p className="error">{error}</p>;
   if (!ind) return <p className="muted">Loading…</p>;
+  const showPic = pic === "shares" && !addsUp(ind) ? "bands" : pic;
   const fmt = (v: number | null) => (v === null ? "–" : formatValue(v, ind.unit, ind.decimals));
   const years = ind.first_year && ind.last_estimate_year ? Array.from({ length: ind.last_estimate_year - ind.first_year + 1 }, (_, i) => ind.last_estimate_year! - i) : [];
   return (
@@ -95,6 +100,28 @@ export default function IndicatorPage() {
         </section>
         <ChartCard indicator={ind} entities={[WORLD, ...KEY_COUNTRIES]} height={360} />
       </div>
+      <section className="card">
+        <div className="card-head">
+          <h3>{showPic === "bands" ? "Every country by value band" : "Share of the world"}{ranking?.year ? `, ${ranking.year}` : ""}</h3>
+          <span className="card-actions">
+            <div className="seg small" role="group" aria-label="Picture">
+              <button className={showPic === "bands" ? "on" : ""} onClick={() => setPic("bands")}
+                title="Every country as a tile, stacked in columns by value band">Bands</button>
+              <button className={showPic === "shares" ? "on" : ""} onClick={() => setPic("shares")} disabled={!addsUp(ind)}
+                title={addsUp(ind) ? "Each country's share of the total, as a circle cut into continents" : "Only for figures that add up across countries, such as population or farmland"}>
+                Share of world</button>
+            </div>
+            {years.length > 0 && (
+              <select className="small" value={ranking?.year ?? ""} onChange={(e) => setYear(+e.target.value)} aria-label="Year">
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
+          </span>
+        </div>
+        {showPic === "bands"
+          ? <CountryBands indicator={ind} ranking={ranking} onPick={(eid) => router.push(`/entity/${eid}`)} />
+          : <ShareCircle indicator={ind} ranking={ranking} onPick={(eid) => router.push(`/entity/${eid}`)} />}
+      </section>
       <div className="grid two">
         <section className="card">
           <div className="card-head">
