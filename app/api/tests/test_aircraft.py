@@ -197,3 +197,13 @@ def test_routes_from_adsbdb(monkeypatch):
     # an empty answer on the first ask is an error the plane card can show
     route, ok = journeys._route("EMPTY", None, None)
     assert route is None and not ok and "HTTP 201" in journeys.ROUTE_ERRORS[-1]
+
+
+def test_plane_country_filters():
+    from worldmodel_api import livestats
+
+    rows = [{"callsign": "ANZ101", "from": {"city": "Auckland", "iata": "AKL", "country": "NZ"}, "to": {"city": "Sydney", "country": "AU"}},
+            {"callsign": "QFA44", "from": {"city": "Sydney", "country": "AU"}, "to": {"city": "Wellington", "country": "NZ"}}]
+    assert livestats.country_name("NZ") == "New Zealand" and livestats.airport_country(rows[0]["to"]) == "Australia"
+    assert [p["callsign"] for p in livestats.filter_planes(rows, from_country="new zealand")] == ["ANZ101"]
+    assert [p["callsign"] for p in livestats.filter_planes(rows, to="new zealand")] == ["QFA44"]  # typed country names match too

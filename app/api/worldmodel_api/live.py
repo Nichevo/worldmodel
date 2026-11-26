@@ -31,7 +31,8 @@ log = logging.getLogger(__name__)
 OPENSKY = "https://opensky-network.org/api/states/all"
 OPENSKY_TOKEN = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 AISSTREAM = "wss://stream.aisstream.io/v0/stream"
-ROUTES_PER_ROUND = 100  # routes asked of adsbdb per background round (one request each, 0.3 s apart)
+ROUTES_PER_ROUND = 100  # routes asked of adsbdb per part (one request each, 0.3 s apart; the table refreshes after each)
+ROUTES_PER_RUN = 2000   # ... and per background run, about 12 minutes
 PLANE_EVERY = 60.0     # seconds between OpenSky requests with an API client (and adsb.lol's)
 PLANE_WORLD_EVERY = 5 * 60.0        # background whole-world requests with an OpenSky API client
 PLANE_WORLD_EVERY_ANON = 30 * 60.0  # ... and without one (48 a day, about half the anonymous credits)
@@ -437,27 +438,34 @@ class Planes:
         if not want:
             return
 
-        def run(batch):
+        def run(todo):
             from worldmodel_api import journeys
 
-            try:
-                got = journeys.routes(batch)
-            except Exception as exc:  # noqa: BLE001 - tried again later
-                log.warning("adsbdb routes: %s", exc)
-                self.route_note = f"Routes: adsbdb did not answer at {time.strftime('%H:%M')} ({exc.__class__.__name__}: {str(exc)[:160]}); trying again in 10 minutes."
-                self.route_pause = time.time() + 600
-                return
-            self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
-            with self._tables_lock:  # the tables kept show the new routes at their next ask
-                self._tables = {}
-            found = sum(1 for cs, _, _ in batch if got.get(cs))
-            self.route_note = (f"Routes: asked adsbdb for {len(got):,} flights at {time.strftime('%H:%M')}, {found:,} found"
-                               + (f"; {len(batch) - len(got):,} left for later." if len(got) < len(batch) else "."))
-            for cs, _, _ in batch:
-                if cs in got and got[cs] is None:
-                    self.route_failed[cs] = time.time()
+            asked = found = 0
+            for k in range(0, len(todo), ROUTES_PER_ROUND):  # a part at a time, each shown in the table as it comes
+                batch = todo[k:k + ROUTES_PER_ROUND]
+                try:
+                    got = journeys.routes(batch)
+                except Exception as exc:  # noqa: BLE001 - tried again later
+                    log.warning("adsbdb routes: %s", exc)
+                    self.route_note = f"Routes: adsbdb did not answer at {time.strftime('%H:%M')} ({exc.__class__.__name__}: {str(exc)[:160]}); trying again in 10 minutes."
+                    self.route_pause = time.time() + 600
+                    return
+                self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
+                with self._tables_lock:  # the tables kept show the new routes at their next ask
+                    self._tables = {}
+                asked += len(got)
+                found += sum(1 for cs, _, _ in batch if got.get(cs))
+                left = len(todo) - k - len(got)
+                self.route_note = (f"Routes: asked adsbdb for {asked:,} flights by {time.strftime('%H:%M')}, {found:,} found"
+                                   + (f"; {left:,} still to ask." if left > 0 else "."))
+                for cs, _, _ in batch:
+                    if cs in got and got[cs] is None:
+                        self.route_failed[cs] = time.time()
+                if len(got) < len(batch):  # adsbdb asked us to slow down: the rest next time
+                    return
 
-        self.route_thread = threading.Thread(target=run, args=(want[:ROUTES_PER_ROUND],), daemon=True, name="plane-routes")
+        self.route_thread = threading.Thread(target=run, args=(want[:ROUTES_PER_RUN],), daemon=True, name="plane-routes")
         self.route_thread.start()
 
 
@@ -850,7 +858,7 @@ class Ships:
 
     def table(self, q: str = "", group: str = "", flag_code: str = "", sort: str = "last_seen", limit: int = 200,
               offset: int = 0, hours: float = 0, to: str = "", ports: dict | None = None, came: str = "",
-              schedule_fn=None, ontime: str = "") -> dict:
+              schedule_fn=None, ontime: str = "", from_country: str = "", to_country: str = "") -> dict:
         """Every ship seen (saved details while collecting, else those in memory), filtered and sorted.
         With a port index each row gets the port its destination names; `to` keeps ships whose
         destination, port or port country contains it."""
@@ -863,10 +871,30 @@ class Ships:
             for r in rows:
                 pt = match_port(r.get("destination"), ports)
                 r["to_port"] = {k: pt.get(k) for k in ("name", "country", "locode")} if pt else None
+                pf = match_port(r.get("from_typed"), ports) if r.get("from_typed") and not r.get("last_port") else None
+                r["from_port"] = {k: pf.get(k) for k in ("name", "country", "locode")} if pf else None
+        # the countries ships came from and are going to, for the filters' lists (counted before those filters)
+        def came_country(r):
+            return (r.get("last_port") or {}).get("country") or (r.get("from_port") or {}).get("country")
+
+        def to_country_of(r):
+            return (r.get("to_port") or {}).get("country")
+
+        from_counts: dict[str, int] = {}
+        to_counts: dict[str, int] = {}
+        for r in rows:
+            if came_country(r):
+                from_counts[came_country(r)] = from_counts.get(came_country(r), 0) + 1
+            if to_country_of(r):
+                to_counts[to_country_of(r)] = to_counts.get(to_country_of(r), 0) + 1
+        if from_country:
+            rows = [r for r in rows if (came_country(r) or "").lower() == from_country.lower()]
+        if to_country:
+            rows = [r for r in rows if (to_country_of(r) or "").lower() == to_country.lower()]
         if came:
             cl = came.lower()
             rows = [r for r in rows if cl in " ".join(str(x or "") for x in (
-                r.get("from_typed"), *((r.get("last_port") or {}).values()))).lower()]
+                r.get("from_typed"), *((r.get("last_port") or {}).values()), *((r.get("from_port") or {}).values()))).lower()]
         if to:
             tl = to.lower()
             rows = [r for r in rows if tl in " ".join(str(x or "") for x in (
@@ -898,7 +926,9 @@ class Ships:
             key = "last_seen"
         num = key in ("last_seen", "first_seen", "length_m", "speed_kn")
         rows.sort(key=lambda r: (r.get(key) is None, (-(r.get(key) or 0)) if num and desc else str(r.get(key) or "").lower() if not num else (r.get(key) or 0)))
-        return {"rows": rows[offset:offset + limit], "total": len(rows), "groups": groups, "collecting": self.collecting()}
+        return {"rows": rows[offset:offset + limit], "total": len(rows), "groups": groups, "collecting": self.collecting(),
+                "countries": {"from": sorted(from_counts.items(), key=lambda kv: (-kv[1], kv[0])),
+                              "to": sorted(to_counts.items(), key=lambda kv: (-kv[1], kv[0]))}}
 
     def detail(self, mmsi: int) -> dict | None:
         with self.lock:

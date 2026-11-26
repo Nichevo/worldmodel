@@ -36,10 +36,27 @@ type Ship = {
   lat: number | null; lon: number | null; first_seen: number | null; last_seen: number | null; sanctioned?: boolean;
   links?: { label: string; href: string }[]; to_port?: { name: string | null; country: string | null; locode: string | null } | null;
   last_port?: { name: string | null; country: string | null; locode: string | null } | null; last_port_at?: number | null; from_typed?: string | null;
+  from_port?: { name: string | null; country: string | null; locode: string | null } | null;
   on_time?: OnTime | null; late_h?: number | null; eta_moved_h?: number | null; estimate_at?: number | null;
 };
 type Airport = { name: string | null; iata: string | null; icao: string | null; city: string | null; country: string | null };
 const airport = (a?: Airport | null) => (a ? `${a.city || a.name || ""}${a.iata ? ` (${a.iata})` : ""}` : "");
+// A matched port as "Name, Country" (the same way for every ship, whatever its crew typed).
+function PortName({ p }: { p: { name: string | null; country: string | null; locode: string | null } }) {
+  const name = p.name ? p.name.replace(/\b([A-Z])([A-Z]+)\b/g, (_, a: string, b: string) => a + b.toLowerCase()) : p.locode ?? "";
+  return <>{name}{p.country ? <span className="muted">, {p.country}</span> : null}</>;
+}
+
+// A country drop-down for the From / To filters: the countries in the table, most first.
+function CountryPick({ value, set, list, title }: { value: string; set: (v: string) => void; list?: [string, number][]; title: string }) {
+  return (
+    <label title={title}>Country <select value={value} onChange={(e) => set(e.target.value)} style={{ maxWidth: 170 }}>
+      <option value="">Any</option>
+      {value && !(list ?? []).some(([c]) => c === value) && <option value={value}>{value}</option>}
+      {(list ?? []).map(([c, k]) => <option key={c} value={c}>{c} ({n(k)})</option>)}
+    </select></label>
+  );
+}
 const airportText = (a?: Airport | null) => (a ? [a.name, a.iata, a.icao, a.city, a.country].filter(Boolean).join(" ").toLowerCase() : "");
 type Plane = {
   id: string; callsign: string | null; country: string | null; altitude_m: number | null; speed_kmh: number | null; heading: number | null;
@@ -282,18 +299,21 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
   const [hours, setHours] = useState(0);
   const [to, setTo] = useState(init("to"));
   const [came, setCame] = useState(init("came"));
+  const [fromC, setFromC] = useState(init("from_country"));
+  const [toC, setToC] = useState(init("to_country"));
   const [ontime, setOntime] = useState(init("ontime"));
   const [sort, setSort] = useState("last_seen");
   const [limit, setLimit] = useState(200);
-  const [d, setD] = useState<{ rows: Ship[]; total: number; groups: Record<string, number>; collecting: boolean } | null>(null);
+  const [d, setD] = useState<{ rows: Ship[]; total: number; groups: Record<string, number>; collecting: boolean;
+    countries?: { from: [string, number][]; to: [string, number][] } } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const st = useShipStatus(true);
   useEffect(() => {
     let live = true;
-    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came, ontime });
+    const qs = new URLSearchParams({ q, group, sort, limit: String(limit), hours: String(hours), to, came, ontime, from_country: fromC, to_country: toC });
     const t = setTimeout(() => get<typeof d>(`/live/ships/table?${qs}`).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e))), 250);
     return () => { live = false; clearTimeout(t); };
-  }, [q, group, sort, limit, hours, to, came, ontime]);
+  }, [q, group, sort, limit, hours, to, came, ontime, fromC, toC]);
   if (err) return <p className="error">{err}</p>;
   const head = (key: string, label: string) => (
     <th><button className="link small" onClick={() => setSort(sort === key ? `-${key}` : key)}>{label}{sort.replace("-", "") === key ? (sort.startsWith("-") ? " ▲" : " ▼") : ""}</button></th>
@@ -312,8 +332,10 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
           <option value="">All ({n(d ? Object.values(d.groups).reduce((a, b) => a + b, 0) : 0)})</option>
           {SHIP_GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}{d?.groups[g.id] ? ` (${n(d.groups[g.id])})` : ""}</option>)}
         </select></label>
-        <label>Came from <input value={came} onChange={(e) => setCame(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
-        <label>Going to <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Port, code or country" style={{ width: 160 }} /></label>
+        <label>Came from <input value={came} onChange={(e) => setCame(e.target.value)} placeholder="Port or code" style={{ width: 120 }} /></label>
+        <CountryPick value={fromC} set={setFromC} list={d?.countries?.from} title="The country of the port it came from" />
+        <label>Going to <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Port or code" style={{ width: 120 }} /></label>
+        <CountryPick value={toC} set={setToC} list={d?.countries?.to} title="The country of the port its destination names" />
         <label title="Cargo and container ships: against the line's schedule, the port's booking or the ship's own first ETA">On time? <select value={ontime} onChange={(e) => setOntime(e.target.value)}>
           <option value="">All</option><option value="any">Cargo ships with a measure</option>
           {ON_TIME_STATES.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -336,9 +358,11 @@ function Ships({ open, setOpen, init }: { open: string | null; setOpen: (id: str
                 <td>{r.flag ?? ""}</td>
                 <td>{r.length_m ? `${r.length_m} m` : ""}</td>
                 <td>{typeof r.speed_kn === "number" ? `${r.speed_kn} kn` : ""}</td>
-                <td>{r.last_port ? <>{[r.last_port.name, r.last_port.country].filter(Boolean).join(", ")}<span className="muted"> {when(r.last_port_at)}</span></>
-                  : r.from_typed ?? ""}</td>
-                <td>{r.destination ?? ""}{r.to_port ? <span className="muted"> ({[r.to_port.name, r.to_port.country].filter(Boolean).join(", ")})</span> : null}</td>
+                <td>{r.last_port ? <><PortName p={r.last_port} /><span className="muted"> {when(r.last_port_at)}</span></>
+                  : r.from_port ? <span title={`Typed: ${r.from_typed}`}><PortName p={r.from_port} /></span>
+                  : r.from_typed ? <span className="muted" title="As the crew typed it; not matched to a port">{r.from_typed}</span> : ""}</td>
+                <td>{r.to_port ? <span title={r.destination ? `Typed: ${r.destination}` : undefined}><PortName p={r.to_port} /></span>
+                  : r.destination ? <span className="muted" title="As the crew typed it; not matched to a port">{r.destination}</span> : ""}</td>
                 <td><OnTimePill state={r.on_time} late={r.late_h} /></td>
                 <td>{r.status ?? ""}</td>
                 <td>{when(r.last_seen)}</td>
@@ -481,13 +505,16 @@ function OwnerPart({ id }: { id: string }) {
 const PLANES_PAGE = 500;
 
 function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
-  type Answer = { planes: Plane[]; at: number | null; note: string; route_note?: string | null; total?: number; all?: number; airlines?: [string, number][] };
+  type Answer = { planes: Plane[]; at: number | null; note: string; route_note?: string | null; total?: number; all?: number; airlines?: [string, number][];
+    countries?: { from: [string, number][]; to: [string, number][] } };
   const [d, setD] = useState<Answer | null>(null);
   const [q, setQ] = useState(init("q"));
   const [group, setGroup] = useState(init("group"));
   const [line, setLine] = useState(init("airline"));
   const [from, setFrom] = useState(init("from"));
   const [to, setTo] = useState(init("to"));
+  const [fromC, setFromC] = useState(init("from_country"));
+  const [toC, setToC] = useState(init("to_country"));
   const [mins, setMins] = useState(0);
   const [sort, setSort] = useState<keyof Plane>("altitude_m");
   const [more, setMore] = useState(1);
@@ -497,17 +524,17 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
     const t = setTimeout(() => setTyped({ q, from, to }), 350);
     return () => clearTimeout(t);
   }, [q, from, to]);
-  useEffect(() => setMore(1), [typed, group, line, mins, sort]);
+  useEffect(() => setMore(1), [typed, group, line, mins, sort, fromC, toC]);
   useEffect(() => {
     let live = true;
     const load = () => get<Answer>("/live/planes/table", { hours: 24, q: typed.q.trim(), group, airline: line, from: typed.from.trim(), to: typed.to.trim(),
-      mins: mins || undefined, sort: String(sort), limit: PLANES_PAGE * more }).then((x) => live && setD(x)).catch(() => {});
+      from_country: fromC || undefined, to_country: toC || undefined, mins: mins || undefined, sort: String(sort), limit: PLANES_PAGE * more }).then((x) => live && setD(x)).catch(() => {});
     load();
     const t = setInterval(() => { if (!document.hidden) load(); }, 60_000);
     const back = () => { if (!document.hidden) load(); };
     document.addEventListener("visibilitychange", back);
     return () => { live = false; clearInterval(t); document.removeEventListener("visibilitychange", back); };
-  }, [typed, group, line, mins, sort, more]);
+  }, [typed, group, line, mins, sort, more, fromC, toC]);
   const rows = d?.planes ?? [];
   const airlines = d?.airlines ?? [];
   const picked = rows.find((p) => p.id === open);
@@ -524,8 +551,10 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
           <option value="">All</option><option value="-">No airline (private, military, other)</option>
           {airlines.map(([a, k]) => <option key={a} value={a}>{a} ({n(k)})</option>)}
         </select></label>
-        <label>From <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Airport, code, city, country" style={{ width: 150 }} /></label>
-        <label>To <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Airport, code, city, country" style={{ width: 150 }} /></label>
+        <label>From <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Airport, code or city" style={{ width: 130 }} /></label>
+        <CountryPick value={fromC} set={setFromC} list={d?.countries?.from} title="The country of the airport it took off from" />
+        <label>To <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Airport, code or city" style={{ width: 130 }} /></label>
+        <CountryPick value={toC} set={setToC} list={d?.countries?.to} title="The country of the airport it is flying to" />
         <label>Seen <select value={mins} onChange={(e) => setMins(+e.target.value)}>
           <option value={0}>In the last day</option><option value={10}>In the last 10 minutes</option><option value={60}>In the last hour</option><option value={360}>In the last 6 hours</option>
         </select></label>
@@ -540,8 +569,8 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
               <tr key={p.id} onClick={() => setOpen(p.id)} style={{ cursor: "pointer" }} className={open === p.id ? "selected" : undefined}>
                 <td>{dot(PLANE_GROUPS, p.group)}{p.callsign ?? <span className="muted">{p.id}</span>}</td>
                 <td><AirlineLogo code={p.airline ? p.airline_code : null} />{p.airline ?? ""}</td>
-                <td title={p.from?.name ?? undefined}>{airport(p.from)}</td>
-                <td title={p.to?.name ?? undefined}>{airport(p.to)}{p.route_plausible === false ? <span className="muted"> ?</span> : null}</td>
+                <td title={p.from?.name ?? undefined}>{airport(p.from)}{p.from?.country ? <span className="muted"> {p.from.country}</span> : null}</td>
+                <td title={p.to?.name ?? undefined}>{airport(p.to)}{p.to?.country ? <span className="muted"> {p.to.country}</span> : null}{p.route_plausible === false ? <span className="muted"> ?</span> : null}</td>
                 <td title={[p.type, p.category_name].filter(Boolean).join(", ") || undefined}>{p.model ?? p.category_name ?? <span className="muted">not known</span>}
                   {p.military ? <span className="muted"> (military)</span> : null}</td>
                 <td>{p.reg ?? ""}</td>
