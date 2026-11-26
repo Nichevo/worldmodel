@@ -3016,7 +3016,7 @@
     by_hand: false
     files: ["laucnty*"]
     get: https://www.bls.gov/lau/tables.htm
-    what: "If BLS turns the refresh away, open 'Labor force data by county, annual averages' for each year wanted and save the XLSX files (laucnty23.xlsx and so on) here."
+    what: "If BLS turns the refresh away (and no BLS_API_KEY is set), open 'Labor force data by county, annual averages' for each year wanted and save the XLSX files (laucnty23.xlsx and so on) here."
 
 - id: fhfa_hpi
   name: FHFA house price index, states and counties

@@ -957,6 +957,10 @@ function LookingAfter({ s, save }: { s: Settings; save: (p: Partial<Settings>) =
       <NumberField label="Days back to look in Downloads" unit="days" value={s.inbox_downloads_days} min={1} max={365} step={1} save={(v) => save({ inbox_downloads_days: v })} />
       <TextField label="Downloads folder" value={s.inbox_downloads_folder} placeholder="Your own Downloads folder" note="Leave blank unless your browser saves somewhere else."
         save={(v) => save({ inbox_downloads_folder: v })} />
+      <h3>Rebuilding</h3>
+      <Toggle label="Reuse what has not changed"
+        hint="A refresh that brought in nothing new leaves the warehouse as it is instead of building it again, and a build reuses the slow steps whose inputs are the same as last time (the hospital merge, each map layer's dots by country, port pressure). Off: every refresh rebuilds everything from scratch, which takes longer but nothing else changes. Run worldmodel-data build --force to rebuild once."
+        on={s.build_reuse} set={(v) => save({ build_reuse: v })} />
       <h3>Scheduled refresh</h3>
       <Toggle label="Refresh by itself"
         hint={u?.schedule.available === false ? "Only on Windows: a Windows scheduled task runs refresh.bat." :

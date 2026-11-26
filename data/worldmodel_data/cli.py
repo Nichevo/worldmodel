@@ -128,15 +128,17 @@ def load(
     if not loaded and not failed:
         typer.echo(f"No files found in {manual.root(p)}. Save each file in its source's folder there.")
     if build_after is True and loaded:
-        build(allow_shrink=False)
+        build(allow_shrink=False, force=False)
     if failed:
         raise typer.Exit(1)
 
 
 @app.command()
-def build(allow_shrink: bool = typer.Option(False, help="Do not fail when a series loses rows.")):
-    """Build a new warehouse, run the validation gates and swap it in if they pass."""
-    _build_and_log(allow_shrink, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []})
+def build(allow_shrink: bool = typer.Option(False, help="Do not fail when a series loses rows."),
+          force: bool = typer.Option(False, "--force", help="Build even when nothing has changed since the live build.")):
+    """Build a new warehouse, run the validation gates and swap it in if they pass. Skipped when
+    the live warehouse was built from exactly the same data and code (unless --force)."""
+    _build_and_log(allow_shrink, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []}, force=force)
 
 
 def _close_crash(fh, crash: Path) -> None:
@@ -151,10 +153,20 @@ def _close_crash(fh, crash: Path) -> None:
         pass
 
 
-def _build_and_log(allow_shrink: bool, record: dict) -> None:
-    """Build, then append the refresh log record: checks, rows changed per source, disk use."""
+def _build_and_log(allow_shrink: bool, record: dict, force: bool = True) -> None:
+    """Build, then append the refresh log record: checks, rows changed per source, disk use.
+    Unless forced, and with "Reuse unchanged build steps" on in Settings, no build is made when
+    the live one was built from exactly the same downloads and code: it would be the same."""
     p = paths()
     previous = p.current_build()
+    reuse = bool(local.load_settings(p.home).get("build_reuse", True))
+    same = None if force or not reuse else build_mod.unchanged_since(p)
+    if same:
+        typer.echo(f"Nothing new since build {same}: the warehouse is left as it is (no rebuild needed).")
+        _log(p, {**record, "status": "ok", "build_id": same, "build_skipped": True,
+                 "note": "nothing new since the live build; not rebuilt"})
+        _catch_up(p, previous)
+        return
     # If the build stops without a report (a crash inside a library, or an error no check catches),
     # say where it stopped in a file beside the reports, so it can be read after the window closes.
     p.reports.mkdir(parents=True, exist_ok=True)
@@ -165,7 +177,7 @@ def _build_and_log(allow_shrink: bool, record: dict) -> None:
 
     faulthandler.enable(fh, all_threads=False)
     try:
-        result = build_mod.build(p, allow_shrink=allow_shrink)
+        result = build_mod.build(p, allow_shrink=allow_shrink, reuse=reuse)
     except build_mod.BuildFailed as exc:
         _close_crash(fh, crash)
         typer.echo(f"BUILD FAILED: {exc}", err=True)
@@ -291,7 +303,7 @@ def _echo_problems(p) -> None:
 
 def _log(p, record: dict) -> None:
     record["finished_at"] = now_utc().isoformat()
-    record["disk"] = local.disk_usage(p.home)
+    record["disk"] = local.disk_usage(p.home, max_age=120)
     try:
         monitor.append(p, record)
     except OSError as exc:  # the log is a nice-to-have; never fail a refresh over it
@@ -316,7 +328,7 @@ def refresh(allow_shrink: bool = typer.Option(False),
         record["only"] = picked
     manual.prepare(p, CONNECTORS)
     _file_inbox(p)
-    full = local.storage(p.home)["limits"][0]["level"] == "full"
+    full = local.storage(p.home, freeable=False)["limits"][0]["level"] == "full"
     if full:
         typer.echo("The data folder is at its size limit: sources with large downloads are skipped this time. "
                    "Free up space on the Data status page or raise the limit in Settings.")
@@ -444,9 +456,12 @@ def refresh(allow_shrink: bool = typer.Option(False),
         ways.save()
     except OSError as exc:
         typer.echo(f"could not save how each source is fetched: {exc}", err=True)
+    tally = {k: sum(e.get("status") == k for e in record["sources"]) for k in ("new", "unchanged", "skipped", "error")}
+    typer.echo(f"Sources: {tally['new']} brought something new, {tally['unchanged']} unchanged, "
+               f"{tally['skipped']} not due or left alone, {tally['error']} failed.")
     progress.start("(building the warehouse)")
     try:
-        _build_and_log(allow_shrink, record)
+        _build_and_log(allow_shrink, record, force=False)
     finally:
         progress.finish()
     if failed:
@@ -527,20 +542,7 @@ def upgrade():
         con.close()
     if is_compatible(found, SCHEMA_VERSION) and not restaged:
         typer.echo(f"Warehouse format {found} is current; nothing to rebuild.")
-        from worldmodel_contract import relations as rel
-
-        last = rel.latest(paths().home, current.stem)
-        from worldmodel_contract import quality
-
-        if quality.load(paths().home, current.stem) is None:  # first update with grades: work them out once now
-            typer.echo("Grading every indicator (A to D; see Data status > Quality)...")
-            _quality_after(paths(), current, current.stem)
-        if last is None or not rel.was_checked(paths().home, current.stem):  # not yet scanned on this build
-            _scan_after(paths(), current, current.stem)
-        from worldmodel_contract import discover
-
-        if discover.load_saved(paths().home, current.stem, exact=True) is None:
-            _discover_after(paths(), current, current.stem)  # first update with Discover: fill the page once now
+        _catch_up(paths(), current)
         return
     if restaged:
         typer.echo("Rebuilding the warehouse from the data already downloaded...")
@@ -548,6 +550,23 @@ def upgrade():
         typer.echo(f"Warehouse format {found} is older than this code's {SCHEMA_VERSION}; "
                    "rebuilding it from the data already downloaded...")
     _build_and_log(False, {"kind": "build", "started_at": now_utc().isoformat(), "sources": []})
+
+
+def _catch_up(p, current: Path | None) -> None:
+    """On a build that is kept (no rebuild): grade it, scan it and look for finds where that has
+    not been done yet (a scan cut short by its time limit carries on)."""
+    if current is None:
+        return
+    from worldmodel_contract import discover, quality
+    from worldmodel_contract import relations as rel
+
+    if quality.load(p.home, current.stem) is None:
+        typer.echo("Grading every indicator (A to D; see Data status > Quality)...")
+        _quality_after(p, current, current.stem)
+    if rel.latest(p.home, current.stem) is None or not rel.was_checked(p.home, current.stem):
+        _scan_after(p, current, current.stem)
+    if discover.load_saved(p.home, current.stem, exact=True) is None:
+        _discover_after(p, current, current.stem)
 
 
 def _restage_stale(store: VintageStore) -> list[str]:
@@ -830,7 +849,7 @@ def inbox_cmd(build_after: bool = typer.Option(True, "--build/--no-build", help=
         except typer.Exit as exc:
             failed = failed or bool(exc.exit_code)
     if build_after:
-        build(allow_shrink=False)
+        build(allow_shrink=False, force=False)
     if failed:
         raise typer.Exit(1)
 
@@ -879,7 +898,7 @@ def get(names: Optional[list[str]] = typer.Argument(None, help="Sources to open 
     if left:
         typer.echo(f"Not arrived: {', '.join(sorted(left))}. Save them later; the next refresh files them.")
     if loaded:
-        build(allow_shrink=False)
+        build(allow_shrink=False, force=False)
 
 
 def _due_downloads(p) -> list[str]:

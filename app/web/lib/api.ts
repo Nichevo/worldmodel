@@ -371,6 +371,7 @@ export type Settings = {
   inbox_downloads_days: number;
   inbox_downloads_folder: string; // blank: your own Downloads folder
   sources_off: string; // comma-separated sources switched off: never fetched, never on the To do list
+  build_reuse: boolean; // skip a rebuild when nothing new came in; reuse unchanged build steps
   schedule_on: boolean;
   schedule_often: "weekly" | "daily";
   schedule_day: string;

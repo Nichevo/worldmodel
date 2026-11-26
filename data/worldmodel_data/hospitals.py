@@ -19,6 +19,7 @@ from collections import defaultdict
 import duckdb
 
 from worldmodel_contract import health as spec
+from worldmodel_data.stepcache import OFF, StepCache, key, rows_hash
 
 log = logging.getLogger(__name__)
 
@@ -149,12 +150,23 @@ def merge(layers: dict[str, list[dict]]) -> list[dict]:
     return out
 
 
-def prepare(con: duckdb.DuckDBPyConnection) -> int:
-    """Replace the hospitals layers in src.raw_layers with the one merged layer. Returns its dots."""
+STEP = "hospitals"
+
+
+def prepare(con: duckdb.DuckDBPyConnection, cache: StepCache = OFF) -> int:
+    """Replace the hospitals layers in src.raw_layers with the one merged layer. Returns its dots.
+    When the lists are the same as at the last build, the merged layer saved then is used."""
     ids = [s["layer"] for s in spec.SOURCES.values()]
-    rows = con.execute(f"""SELECT layer_id, geojson, source_id, vintage, name, description FROM src.raw_layers
-                           WHERE layer_id IN ({', '.join('?' * len(ids))})
-                           QUALIFY row_number() OVER (PARTITION BY layer_id ORDER BY vintage DESC) = 1""", ids).fetchall()
+    marks = ', '.join('?' * len(ids))
+    latest = f"""SELECT layer_id, geojson, source_id, vintage, name, description FROM src.raw_layers
+                 WHERE layer_id IN ({marks})
+                 QUALIFY row_number() OVER (PARTITION BY layer_id ORDER BY vintage DESC) = 1"""
+    ck = key(STEP, rows_hash(con, latest, ids))
+    if cache.load(con, STEP, ck, {"layer": "src.raw_layers"}, first=[(f"DELETE FROM src.raw_layers WHERE layer_id IN ({marks})", ids)]):
+        n = con.execute("SELECT coalesce(max(feature_count), 0) FROM src.raw_layers WHERE layer_id = 'hospitals'").fetchone()[0]
+        log.info("hospitals: lists unchanged since the last build; reused the %s merged dots", n)
+        return n
+    rows = con.execute(latest, ids).fetchall()
     if not rows:
         return 0
     layers, base = {}, None
@@ -180,4 +192,6 @@ def prepare(con: duckdb.DuckDBPyConnection) -> int:
     con.execute(f"INSERT INTO src.raw_layers ({', '.join(c for c in cols if c in vals)}) VALUES ({', '.join('?' * len([c for c in cols if c in vals]))})",
                 [vals[c] for c in cols if c in vals])
     log.info("hospitals: %s dots from %s", len(feats), ", ".join(f"{spec.SOURCES[k]['short']} {len(v)}" for k, v in layers.items() if k))
+    cache.note_worked(STEP)
+    cache.save(con, STEP, ck, {"layer": "SELECT * FROM src.raw_layers WHERE layer_id = 'hospitals'"})
     return len(feats)

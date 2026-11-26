@@ -164,7 +164,7 @@ def test_build_logs_changes_disk_and_storage(home, monkeypatch):
     first = runner.invoke(app, ["build"])
     assert first.exit_code == 0, first.output
     assert "Whole data folder:" in first.output
-    second = runner.invoke(app, ["build"])
+    second = runner.invoke(app, ["build", "--force"])
     assert second.exit_code == 0, second.output
     log = [json.loads(line) for line in local.refresh_log_path(home.home).read_text().splitlines()]
     assert [r["kind"] for r in log] == ["build", "build"]
@@ -175,6 +175,20 @@ def test_build_logs_changes_disk_and_storage(home, monkeypatch):
     assert log[1]["disk"]["builds"] > 0 and log[1]["checks"]["fail"] == 0
     assert "## Storage" in (home.reports / f"{log[1]['build_id']}.md").read_text()
     assert [r["build_id"] for r in local.read_refresh_log(home.home)] == [r["build_id"] for r in log]
+
+    # Nothing new since then: the build is skipped and the live one kept.
+    live = home.current_build()
+    third = runner.invoke(app, ["build"])
+    assert third.exit_code == 0, third.output
+    assert "Nothing new since build" in third.output
+    assert home.current_build() == live
+    last = json.loads(local.refresh_log_path(home.home).read_text().splitlines()[-1])
+    assert last["build_skipped"] and last["build_id"] == live.stem and last["status"] == "ok"
+    # Switched off in Settings: it builds again.
+    (home.home / "user").mkdir(exist_ok=True)
+    (home.home / "user" / "settings.json").write_text(json.dumps({"build_reuse": False}))
+    fourth = runner.invoke(app, ["build"])
+    assert fourth.exit_code == 0 and "Nothing new" not in fourth.output and home.current_build() != live
 
 
 def test_free_space_keeps_the_newest_downloads(home):
