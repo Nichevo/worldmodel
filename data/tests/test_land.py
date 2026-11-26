@@ -185,3 +185,31 @@ def test_council_trees_download(tmp_path, monkeypatch):
     assert not any("Notable" in u for u in seen)
     assert len(land_mod.tree_records(tmp_path / "wellington_000.json")) == 1
     assert not any("london" in u for u in seen)  # saved by hand only
+
+
+def test_ghsl_reads_2026_file_with_byte_order_marks(tmp_path):
+    """The V1-1 file of late 2026 starts every column name and text value with a byte-order
+    mark, and its exposure theme has POP/BUS columns that are not the city's totals."""
+    import shutil
+    import sqlite3
+
+    from worldmodel_data.connectors.land import ghsl_centres
+
+    p = tmp_path / "ucdb.gpkg"
+    shutil.copy(FIXTURES / "ghsl_ucdb" / "GHS_UCDB_GLOBE_R2024A_V1_1.gpkg", p)
+    con = sqlite3.connect(p)
+    for (t,) in con.execute("SELECT table_name FROM gpkg_contents").fetchall():
+        for (c,) in [(r[1],) for r in con.execute(f'PRAGMA table_info("{t}")').fetchall()]:
+            if c not in ("fid", "geom"):
+                con.execute(f'ALTER TABLE "{t}" RENAME COLUMN "{c}" TO "﻿{c}"')
+        for c in ("GC_UCN_MAI_2025", "GC_CNT_GAD_2025", "GC_CNT_ISO_2025"):
+            if c in [r[1].lstrip("﻿") for r in con.execute(f'PRAGMA table_info("{t}")')]:
+                con.execute(f'UPDATE "{t}" SET "﻿{c}" = char(65279) || "﻿{c}"')
+    con.execute('CREATE TABLE "GHS_UCDB_THEME_EXPOSURE_GLOBE_R2024A" (fid INTEGER, "﻿ID_UC_G0" REAL, "﻿EX_010_POP_1975" REAL)')
+    con.execute('INSERT INTO "GHS_UCDB_THEME_EXPOSURE_GLOBE_R2024A" VALUES (1, 1, 5)')
+    con.execute("INSERT INTO gpkg_contents (table_name, data_type, identifier) VALUES "
+                "('GHS_UCDB_THEME_EXPOSURE_GLOBE_R2024A', 'attributes', 'x')")
+    con.commit()
+    con.close()
+    auckland = next(c for c in ghsl_centres(p) if c["id"] == "1")
+    assert auckland["name"] == "Auckland" and auckland["pop"][1975] == 700000
