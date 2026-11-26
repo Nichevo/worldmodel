@@ -8,6 +8,9 @@ call "%CONDA_BAT%" activate worldmodel || (echo Run setup.bat first. & exit /b 1
 call :free 3030 || exit /b 1
 call :free 8000 || exit /b 1
 start "worldmodel API" cmd /k worldmodel-api
+rem Windows' own timeout.exe and curl.exe by full path: a conda env or Git can put Unix ones first on PATH.
+set "WAIT=%SystemRoot%\System32\timeout.exe"
+set "CURL=%SystemRoot%\System32\curl.exe"
 rem The built web app (fast) unless Settings > How the web app runs > Development mode is on;
 rem built first when the code changed since the last build, and development mode if that fails.
 set "WEB=dev"
@@ -15,16 +18,24 @@ for /f %%m in ('call "%~dp0scripts\web-build.bat" --check') do set "WEB=%%m"
 if "%WEB%"=="build" (
   call "%~dp0scripts\web-build.bat" && set "WEB=prod" || set "WEB=dev"
 )
+rem The web app passes every /api call on to the API, so it starts once the API answers
+rem (the API can take a while to start after a reboot); otherwise its first pages fail.
+echo Waiting for the API to start...
+for /l %%n in (1,1,120) do (
+  "%CURL%" -s -o nul http://127.0.0.1:8000/health 2>nul && goto apiready
+  "%WAIT%" /t 1 /nobreak >nul
+)
+echo The API has not answered after two minutes. Look in the "worldmodel API" window for an error;
+echo the web app starts anyway and its pages work once the API is up.
+:apiready
 if "%WEB%"=="prod" (
   start "worldmodel web" /d "%~dp0app\web" cmd /k npm run start
 ) else (
   start "worldmodel web" /d "%~dp0app\web" cmd /k npm run dev
 )
-rem Windows' own timeout.exe by full path: a conda env or Git can put a Unix "timeout" first on PATH.
-set "WAIT=%SystemRoot%\System32\timeout.exe"
-echo Waiting for the app to start...
+echo Waiting for the web app to start...
 for /l %%n in (1,1,90) do (
-  "%SystemRoot%\System32\curl.exe" -s -o nul http://localhost:3030 2>nul && goto ready
+  "%CURL%" -s -o nul http://localhost:3030 2>nul && goto ready
   "%WAIT%" /t 1 /nobreak >nul
 )
 echo The web app has not answered yet; it may still be starting. Check the "worldmodel web" window.

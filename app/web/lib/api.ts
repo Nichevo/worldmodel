@@ -199,8 +199,33 @@ export function get<T>(path: string, params: Record<string, string | number | un
   return p;
 }
 
+// Until the API has answered once, a refused connection (the web app's proxy turns it into a
+// plain-text 500) or a network error is taken as the API still starting and asked again
+// quietly for up to about 20 seconds; after that, errors show at once as before.
+let apiSeen = false;
+const STARTING_WAITS = [500, 1000, 2000, 3000, 4000, 5000, 5000];
+
+function fromApi(res: Response): boolean {
+  return (res.headers.get("content-type") ?? "").includes("json");
+}
+
+async function fetchOnce(url: string): Promise<Response> {
+  for (let i = 0; ; i++) {
+    try {
+      const res = await fetch(url);
+      if (apiSeen || fromApi(res) || res.ok || res.status < 500 || i >= STARTING_WAITS.length) {
+        if (fromApi(res)) apiSeen = true;
+        return res;
+      }
+    } catch (e) {
+      if (apiSeen || i >= STARTING_WAITS.length) throw e;
+    }
+    await new Promise((r) => setTimeout(r, STARTING_WAITS[i]));
+  }
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const res = await fetchOnce(url);
   if (!res.ok) {
     let detail = res.statusText;
     try {
