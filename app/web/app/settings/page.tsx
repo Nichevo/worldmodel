@@ -402,8 +402,21 @@ export default function SettingsPage() {
           save={(v) => save({ transport_min_deaths: v })} />
         <Toggle label="Planes now (map layer)" hint="While the map's Planes now layer is on, the server asks OpenSky Network for the planes in the area in view, at most once a minute (400 requests a day without an account, more with an API client in .env). Off: the layer stays empty."
           on={s.live_planes} set={(v) => save({ live_planes: v })} />
-        <Toggle label="Ships now (map layer)" hint="While the map's Ships now layer is on, the server listens to aisstream.io for ships in the area in view (needs a free AISSTREAM_API_KEY in .env); it stops five minutes after the layer is turned off. Off: the layer stays empty."
+        <Toggle label="Ships now (map layer)" hint="Ships from aisstream.io (needs a free AISSTREAM_API_KEY in Settings > Keys). Off: the layer stays empty and nothing is collected."
           on={s.live_ships} set={(v) => save({ live_ships: v })} />
+        <Toggle label="Collect ships in the background" hint="While the app runs, keep one aisstream.io connection open for the area below and save every ship's position (moving ships every 10 minutes, still ones hourly) and details in var\live\ships, so the map shows ships at once, has a time slider and draws a ship's path, and the Ships and planes page lists them. Off: ships are only listened to for the area in view while the layer is on, and nothing is saved."
+          on={s.ships_collect} set={(v) => save({ ships_collect: v })} />
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Collect ships for{" "}
+          <select value={s.ships_area} onChange={(e) => save({ ships_area: e.target.value as typeof s.ships_area })} aria-label="Where ships are collected">
+            <option value="pacific">New Zealand, Australia and the South Pacific (about 1 to 3 MB a day)</option>
+            <option value="world">The whole world, all the time (much more: 50 MB or more a day, and aisstream may drop the connection)</option>
+          </select></label>
+        <NumberField label="Whole-world snapshot every" unit="hours" value={s.ships_world_every_hours} min={0} max={168} step={1}
+          note="With the South Pacific area: also listen to the whole world for 10 minutes this often, so the map and the time slider have ships everywhere (as at the last snapshot). 0: none."
+          save={(v) => save({ ships_world_every_hours: v })} />
+        <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
+          note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
+          save={(v) => save({ ships_keep_days: v })} />
         <Toggle label="Cameras (map layer)" hint="While the map's Cameras layer is on, the server reads the public camera lists of the road agencies whose area is in view (NZ Transport Agency, QLDTraffic, Live Traffic NSW with a free TFNSW_API_KEY, TfL, Caltrans, Fintraffic), kept six hours, and with a free WINDY_WEBCAMS_API_KEY asks Windy for webcams in the area in view (beaches, surf, harbours, cities). Pictures load straight from each owner when you click a camera; nothing is saved. Off: the layer stays empty."
           on={s.live_cameras} set={(v) => save({ live_cameras: v })} />
         <Toggle label="Military planes now (map layer)" hint="While the map's Military planes now layer is on, the server asks adsb.lol (volunteer receivers, no key) for military planes, at most once a minute, and keeps those in the area in view. Many military flights do not broadcast, so it is never the whole picture. Off: the layer stays empty."

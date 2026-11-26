@@ -19,6 +19,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/events", label: "Events", hint: "Elections, coups, disasters and other dated events" },
     { href: "/crisiswatch", label: "CrisisWatch", hint: "Crisis Group's monthly ratings, on a map, with what was recorded each month" },
     { href: "/wars", label: "War trackers", hint: "Equipment lost (seen and claimed), the front line day by day and aid given" },
+    { href: "/live", label: "Ships and planes", hint: "Every ship seen and the planes in view, as tables: kind, flag, size, where from and where to" },
     { href: "/sanctions", label: "Sanctions now", hint: "Who sanctions whom today, by target country and list (OpenSanctions); search a name" },
   ] },
   { label: "Explore", hint: "Maps, comparisons and topic pages", links: [

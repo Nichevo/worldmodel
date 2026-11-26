@@ -2,7 +2,9 @@
 // plate boundaries and faults as lines, volcanoes and earthquakes as dots, each
 // with a line of text on hover. Fetched once per page and shared by every map.
 
-import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LineLayerSpecification } from "maplibre-gl";
+import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LineLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
+import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
+import { shipsAtQuery } from "@/lib/ships";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
 import { EVENT_KIND, fightingQuery, lookCloser, portWeeksQuery, SOURCE_NAME } from "@/lib/osint";
@@ -35,9 +37,11 @@ type Style = {
   legend: string; swatch: () => string; dot?: boolean; fill?: boolean; fetch?: "window" | "live"; every?: number;
   // what a click on one shows: its card (geo features), the countries on a chokepoint's shores, or a card made
   // from the feature itself with "Look closer" links (located events, military planes)
-  click?: "feature" | "chokepoint" | "here" | "camera"; // camera: the picture or video, in the card
+  click?: "feature" | "chokepoint" | "here" | "camera" | "journey"; // camera: the picture or video, in the card; journey: where a ship or plane came from and is going
   timed?: boolean; // asked again when the map's time window changes (the fighting layer)
   once?: boolean; // a "window" layer read once, whatever the view (the front line: one shape)
+  // drawn as small shapes (lib/mapIcons.ts) turned to the heading, not dots: the symbol layer's layout
+  symbol?: () => SymbolLayerSpecification["layout"];
 };
 // The Cameras layer's kinds and colours (lib/cameras.ts has the rest).
 export const CAMERA_KIND: Record<string, { label: string; color: string }> = {
@@ -354,25 +358,25 @@ export const LAYER_STYLE: Record<string, Style> = {
     }),
   },
   live_planes: {
-    legend: "Plane in the air now (OpenSky)", swatch: () => cssVar("--series-7"), dot: true, fetch: "live", every: 60,
-    paint: () => ({ "circle-color": cssVar("--series-7"), "circle-radius": zoomWidth(1.4, 3.5), "circle-opacity": 0.85 }),
+    legend: "Plane in the air now (OpenSky), shaped and coloured by type", swatch: () => "#1864ab", dot: true, fetch: "live", every: 60, click: "journey",
+    symbol: () => ({
+      "icon-image": ["match", ["get", "group"], ...PLANE_GROUPS.filter((g) => g.icon !== "wm-plane").flatMap((g) => [g.id, g.icon]), "wm-plane"] as unknown as ExpressionSpecification,
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.32, 5, 0.5, 9, 0.75] as unknown as ExpressionSpecification,
+      "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
+      "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
+    }),
+    paint: () => ({ "icon-color": groupColor(PLANE_GROUPS, "#1864ab"), "icon-halo-color": cssVar("--surface"), "icon-halo-width": 0.6 }) as never,
   },
   live_ships: {
-    legend: "Ship now (aisstream.io)", swatch: () => cssVar("--series-1"), dot: true, fetch: "live", every: 30,
-    paint: () => ({ "circle-color": cssVar("--series-1"), "circle-radius": zoomWidth(1.4, 3.5), "circle-opacity": 0.85,
-      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.4 }),
-  },
-  live_cameras: {
-    legend: "Public camera: road (blue), road weather (purple), beach and coast (orange), city and scenery (green); hollow when offline",
-    swatch: () => CAMERA_KIND.traffic.color, dot: true, fetch: "live", every: 300, click: "camera",
-    paint: () => ({
-      "circle-color": ["match", ["get", "kind"], ...Object.entries(CAMERA_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification,
-      "circle-opacity": ["case", ["boolean", ["get", "offline"], false], 0, 0.9],
-      "circle-radius": zoomWidth(2.2, 5),
-      "circle-stroke-color": ["case", ["boolean", ["get", "offline"], false],
-        ["match", ["get", "kind"], ...Object.entries(CAMERA_KIND).flatMap(([k, v]) => [k, v.color]), "#868e96"] as unknown as ExpressionSpecification, cssVar("--surface")],
-      "circle-stroke-width": ["case", ["boolean", ["get", "offline"], false], 1.2, 0.6],
+    legend: "Ship now (aisstream.io), coloured by kind", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "journey",
+    symbol: () => ({
+      "icon-image": "wm-ship",
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.26, 5, 0.42, 9, 0.7, 12, 0.9] as unknown as ExpressionSpecification,
+      "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
+      "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
     }),
+    paint: () => ({ "icon-color": groupColor(SHIP_GROUPS, "#adb5bd"), "icon-halo-color": ["case", ["boolean", ["get", "sanctioned"], false], "#c92a2a", cssVar("--surface")],
+      "icon-halo-width": ["case", ["boolean", ["get", "sanctioned"], false], 2, 0.6] }) as never,
   },
   // ---- detail from the OSINT communities
   conflict_events: {
@@ -391,8 +395,12 @@ export const LAYER_STYLE: Record<string, Style> = {
   },
   live_military: {
     legend: "Military plane now (adsb.lol; only those that broadcast)", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 60, click: "here",
-    paint: () => ({ "circle-color": "#2b8a3e", "circle-radius": zoomWidth(2.4, 5), "circle-opacity": 0.9,
-      "circle-stroke-color": cssVar("--ink"), "circle-stroke-width": 0.8 }),
+    symbol: () => ({
+      "icon-image": "wm-plane", "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.36, 5, 0.55, 9, 0.8] as unknown as ExpressionSpecification,
+      "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
+      "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
+    }),
+    paint: () => ({ "icon-color": "#2b8a3e", "icon-halo-color": cssVar("--ink"), "icon-halo-width": 0.8 }) as never,
   },
   companies: {
     legend: "Big company head office", swatch: () => cssVar("--series-6"), dot: true,
@@ -407,7 +415,7 @@ export const LAYER_STYLE: Record<string, Style> = {
 export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number) {
   const r = (v: number) => Math.round(v * 100) / 100;
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
-  const path = id === "live_planes" ? `/live/planes?${q}` : id === "live_ships" ? `/live/ships?${q}`
+  const path = id === "live_planes" ? `/live/planes?${q}` : id === "live_ships" ? `/live/ships?${q}${shipsAtQuery()}`
     : id === "live_military" ? `/live/military-planes?${q}`
     : id === "live_cameras" ? `/live/cameras?${q}`
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
@@ -450,9 +458,10 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
   if (layer === "heritage_sites") return `<b>${esc(p.name)}</b><br/>World Heritage (${esc(p.type)}), ${esc(p.year)}${p.danger ? "<br/><b>In danger</b>" : ""}`;
   if (layer === "visited_sites") return `<b>${esc(p.name)}</b><br/>${num(p.visitors)} visitors${p.year ? ` (${esc(p.year)})` : ""}`;
   if (layer === "live_planes") return `<b>${esc(p.callsign ?? p.id)}</b> (${esc(p.country)})${typeof p.altitude_m === "number" ? `<br/>${num(p.altitude_m)} m` : ""}`
-    + (typeof p.speed_kmh === "number" ? ` · ${p.speed_kmh} km/h` : "");
-  if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}`
-    + (p.sanctioned ? "<br/><b style=\"color:#c92a2a\">On a sanctions list</b> (OpenSanctions)" : "");
+    + `${typeof p.speed_kmh === "number" ? ` · ${num(p.speed_kmh)} km/h` : ""}${p.group && p.group !== "unknown" ? `<br/>${esc(PLANE_GROUPS.find((g) => g.id === p.group)?.label)}` : ""}`
+    + "<br/><span class=\"muted\">Click for where from and to</span>";
+  if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${p.group ? ` (${esc(SHIP_GROUPS.find((g) => g.id === p.group)?.label.toLowerCase())})` : ""}`
+    + `${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}${p.sanctioned ? "<br/><b style=\"color:#c92a2a\">On a sanctions list</b> (OpenSanctions)" : ""}<br/><span class="muted">Click for where from and to</span>`;
   if (layer === "live_cameras") return `<b>${esc(p.name)}</b>${p.direction ? ` (${esc(p.direction)})` : ""}`
     + `<br/>${esc(CAMERA_KIND[String(p.kind)]?.label ?? "Camera")}${p.offline ? " · offline" : ""}${p.about ? `<br/>${esc(String(p.about).slice(0, 90))}` : ""}`
     + "<br/><span class=\"muted\">Click for the latest picture</span>";
