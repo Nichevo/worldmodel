@@ -22,7 +22,9 @@ const PAGES = ["/", "/ai", "/alike", "/api-access", "/briefing", "/cities", "/cl
   "/shapes", "/sources", "/space", "/spotting", "/storage", "/stories", "/todo", "/topics", "/tourism", "/transport", "/wars",
   "/zones", "/entity/NZL"];
 // API calls left out: downloads, streams, tiles and anything that starts work.
-const SKIP_API = /stream|events$|export|download|tiles|backup|\.md$|\.csv$/;
+// Left out: streams and downloads, and calls that wait on an outside site (land cover changes
+// ask the Planetary Computer, which can take over 30 s and says nothing about this app).
+const SKIP_API = /stream|events$|export|download|tiles|backup|cover-change|\.md$|\.csv$/;
 const SLOW_MS = 5000;
 
 /** Every overlay's MapLibre layer, checked against the style rules (an invalid one would not draw). */

@@ -155,7 +155,7 @@ def test_live_planes(client, monkeypatch):
     assert len(calls) == 2  # inside the last box, within the minute: no new request
 
 
-def test_live_planes_keep_last_after_limit(monkeypatch):
+def test_live_planes_keep_last_after_limit(monkeypatch, tmp_path):
     class Resp:
         status_code = 429
         headers = {"X-Rate-Limit-Retry-After-Seconds": "7200"}
@@ -176,7 +176,10 @@ def test_live_planes_keep_last_after_limit(monkeypatch):
 
     calls = []
     monkeypatch.setattr(live.httpx, "Client", Client)
-    planes = live.Planes()
+    from worldmodel_api.planestore import PlaneStore
+
+    # A store of its own: the default one (in the data folder) can hold planes other tests saved.
+    planes = live.Planes(store=PlaneStore(tmp_path / "planes"), settings=lambda: {})
     planes.last = {"type": "FeatureCollection", "at": 0, "features": [
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [174.8, -37.0]}, "properties": {"id": "abc"}}]}
     got = planes.get(170, -45, 180, -30)
