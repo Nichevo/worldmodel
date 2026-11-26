@@ -1657,3 +1657,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .bands-pic .band-tile rect { transition: fill 0.12s; }
 .share-pic path { transition: fill 0.12s; }
 .banner button.link { border: 0; background: none; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+
+/* Forecast accuracy (Climate > Weather and zones) */
+.skill-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: baseline; margin-right: 2px; border: 1px solid rgba(0,0,0,.25); }
+.skill-regions { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 18px; margin-bottom: 12px; }
+.skill-region { display: flex; flex-direction: column; gap: 3px; }
+.skill-bar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; background: var(--grid); }
+.skill-bar-empty { background: var(--grid); }
+table.skill-models { margin: 0; }
+.wx-best { display: block; }

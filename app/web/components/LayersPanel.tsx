@@ -272,7 +272,7 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "night" | "landcover"; lab
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
 // Read from the internet while on (marked "live" in the list).
-const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_windlines", "wx_waves", "wx_swell", "air_now", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
+const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_windlines", "wx_waves", "wx_swell", "air_now", "forecast_skill", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
@@ -345,6 +345,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.id === "power_links") return { ok: true, why: "", source: "Eurostat electricity trade by partner, the latest year (a refresh loads it)" };
     if (m.id === "city_stress") return { ok: true, why: "", source: "Our score from Numbeo, TomTom and WHO figures (Cities > City stress)" };
     if (m.id === "air_now") return s.weather_maps && s.weather_air ? { ok: true, why: "", source: "Open-Meteo air quality (CAMS), every 3 hours" }
+      : { ok: false, why: "Switched off in Settings > Climate", source: "" };
+    if (m.id === "forecast_skill") return s.weather_maps && s.weather_skill ? { ok: true, why: "", source: "Our scoring of 8 Open-Meteo models against airport reports (METAR), every 6 hours" }
       : { ok: false, why: "Switched off in Settings > Climate", source: "" };
     if (m.id === "storms_active") return { ok: true, why: "", source: "NOAA IBTrACS, read when turned on (at most hourly)" };
     if (["fires_now", "fires_week", "heat_now", "coral_alerts"].includes(m.id)) return s.hazards_live

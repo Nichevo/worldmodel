@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import HTTPException, Query, Request
 from fastapi.responses import Response
 
-from worldmodel_api import climate, core, grid, hazards, ports, userdata, weather
+from worldmodel_api import climate, core, forecast_skill, grid, hazards, ports, userdata, weather
 from worldmodel_api import layer_details as layer_info
 from worldmodel_api.core import _has_cities, api, rows
 from worldmodel_api.routes.cities import _city_score
@@ -138,6 +138,25 @@ def weather_models(lat: float, lon: float):
     return weather.models_point(s, lat, lon)
 
 
+@api.get("/weather/skill")
+def weather_skill(lead: Literal["day1", "day2"] = "day1"):
+    """Forecast accuracy: every scored city's models ranked (temperature and wind error, rain score)
+    over the last 60 days, its best model, and how often each model is best in each region."""
+    return forecast_skill.table(lead)
+
+
+@api.get("/weather/skill/near")
+def weather_skill_near(lat: float, lon: float, lead: Literal["day1", "day2"] = "day1"):
+    """The nearest scored city (within 600 km) and the model that has been most right there."""
+    return forecast_skill.near(lat, lon, lead)
+
+
+@api.get("/weather/skill/status")
+def weather_skill_status():
+    """When forecasts were last recorded for scoring, and for how many days."""
+    return {**forecast_skill.status(), "on": bool(userdata.settings().get("weather_skill", True))}
+
+
 @api.get("/weather/clouds/{z}/{x}/{y}.png")
 def weather_clouds(z: int, x: int, y: int):
     """The latest satellite infrared (Himawari, GOES East and West) as see-through clouds."""
@@ -162,6 +181,9 @@ def layer(layer_id: str, request: Request):
         s = userdata.settings()
         data = hazards.air(_hazard_cities(), bool(s.get("weather_maps", True) and s.get("weather_air", True)))
         return Response(json.dumps(data, separators=(",", ":")), media_type="application/geo+json",
+                        headers={"Cache-Control": "max-age=900"})
+    if layer_id == "forecast_skill":
+        return Response(forecast_skill.dumps(forecast_skill.layer()), media_type="application/geo+json",
                         headers={"Cache-Control": "max-age=900"})
     if layer_id in ("fires_now", "fires_week", "heat_now", "coral_alerts"):
         on = bool(userdata.settings().get("hazards_live", True))

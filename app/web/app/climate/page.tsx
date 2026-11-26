@@ -11,6 +11,7 @@ import ClimateCard from "@/components/ClimateCard";
 import NatureTab from "@/components/NatureTab";
 import ZonesTab from "@/components/ZonesTab";
 import WeatherCard from "@/components/WeatherCard";
+import ForecastSkill from "@/components/ForecastSkill";
 import SeaIceCard from "@/components/SeaIceCard";
 import { ClimateOverviewTab, ClimateStrip, KeyCountries } from "@/components/ClimateTop";
 import { api, type ClimateEnso, type ClimateHeadlines, type ClimateLive, type ClimateOverview, type ClimatePolicy, type ClimateStorms } from "@/lib/api";
@@ -23,12 +24,12 @@ import { useSettings } from "@/lib/settings";
 
 // The climate across the world: vital signs, an emissions map, storms, El Niño and policy.
 
-type Tab = "overview" | "world" | "map" | "weather" | "ice" | "oceans" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
+type Tab = "overview" | "world" | "map" | "weather" | "skill" | "ice" | "oceans" | "zones" | "storms" | "enso" | "nature" | "policy" | "country";
 // Eight groups of views; a group with more than one view shows them as a second row of buttons.
 const GROUPS: { id: string; label: string; views: [Tab, string][] }[] = [
   { id: "overview", label: "Overview", views: [["overview", "Overview"]] },
   { id: "warming", label: "Warming", views: [["world", "Vital signs"], ["map", "Map and rankings"]] },
-  { id: "weather", label: "Weather and zones", views: [["weather", "Weather by month"], ["zones", "Climate zones"]] },
+  { id: "weather", label: "Weather and zones", views: [["weather", "Weather by month"], ["skill", "Forecast accuracy"], ["zones", "Climate zones"]] },
   { id: "ice", label: "Ice and oceans", views: [["ice", "Sea ice"], ["oceans", "Sea level, ocean heat, ice sheets"]] },
   { id: "storms", label: "Storms and El Niño", views: [["storms", "Storms and alerts"], ["enso", "El Niño"]] },
   { id: "nature", label: "Nature", views: [["nature", "Nature"]] },
@@ -369,6 +370,7 @@ function ClimatePage() {
         : tab === "world" ? <World o={o} /> : tab === "map" ? <MapTab o={o} /> : tab === "storms" ? <Storms /> : tab === "enso" ? <Enso />
         : tab === "policy" ? <>{h?.compare.length ? <KeyCountries h={h} /> : null}<Policy /></>
         : tab === "weather" ? <WeatherTab />
+        : tab === "skill" ? <ForecastSkill />
         : tab === "ice" ? <IceLows o={o} /> : tab === "oceans" ? <Oceans o={o} />
         : tab === "zones" ? <ZonesTab country={country} onCountry={pick} /> : tab === "nature" ? <NatureTab country={country} onCountry={pick} /> : (
         <>

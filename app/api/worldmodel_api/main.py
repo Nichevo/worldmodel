@@ -68,6 +68,12 @@ async def lifespan(_app: FastAPI):
     starter = threading.Timer(30, _tiles_starter)  # the starter map copies, once, after the app is up
     starter.daemon = True
     starter.start()
+    try:  # forecast accuracy: models' forecasts recorded every 6 hours (Settings > Climate > Weather)
+        from worldmodel_api import forecast_skill, userdata
+
+        forecast_skill.start(userdata.settings)
+    except Exception:  # noqa: BLE001 - shown on the Forecast accuracy page
+        pass
     try:
         spotting.recover()  # a scan left running when the app stopped waits, paused
     except Exception:  # noqa: BLE001 - shown on the Spotting page

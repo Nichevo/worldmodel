@@ -7,7 +7,7 @@ import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { shipsAtQuery } from "@/lib/ships";
 import { get } from "@/lib/api";
 import { cssVar } from "@/lib/colors";
-import { aqiWords } from "@/lib/weather";
+import { aqiWords, MODEL_COLOURS } from "@/lib/weather";
 import { EVENT_KIND, fightingQuery, lookCloser, portWeeksQuery, SOURCE_NAME } from "@/lib/osint";
 
 export type MapLayerInfo = {
@@ -205,6 +205,13 @@ export const LAYER_STYLE: Record<string, Style> = {
     swatch: () => "#f59f00", dot: true,
     paint: () => ({ "circle-radius": zoomWidth(4, 8), "circle-opacity": 0.9, "circle-stroke-color": "#343a40", "circle-stroke-width": 0.6,
       "circle-color": ["step", ["coalesce", ["get", "us_aqi"], 0], "#40c057", 51, "#fcc419", 101, "#fd7e14", 151, "#e03131", 201, "#862e9c", 301, "#5c0f2e"] }),
+  },
+  forecast_skill: {
+    legend: "Best forecast model lately in each city: blue ECMWF, red GFS, green ICON, purple UK Met Office, orange GEM, pink JMA, teal Météo-France, grey Open-Meteo best match; hollow: not enough checks yet",
+    swatch: () => "#1c7ed6", dot: true,
+    paint: () => ({ "circle-radius": zoomWidth(5, 9), "circle-stroke-color": "#343a40", "circle-stroke-width": 0.8,
+      "circle-opacity": ["case", ["==", ["get", "best"], ""], 0, 0.95],
+      "circle-color": ["match", ["get", "best"], ...Object.entries(MODEL_COLOURS).flat(), "#ced4da"] as unknown as ExpressionSpecification }),
   },
   coral_alerts: {
     legend: "Reef region under bleaching heat stress (NOAA Coral Reef Watch: watch, warning, alert 1, alert 2)", swatch: () => "#f08c00", fill: true,
@@ -552,6 +559,12 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + `${typeof p.pm2_5 === "number" ? `<br/>PM2.5 ${p.pm2_5} µg/m³` : ""}${typeof p.pm10 === "number" ? ` · PM10 ${p.pm10}` : ""}`
     + `${typeof p.dust === "number" && p.dust > 0 ? ` · dust ${p.dust}` : ""}${typeof p.ozone === "number" ? `<br/>Ozone ${p.ozone} µg/m³` : ""}`
     + `${typeof p.nitrogen_dioxide === "number" ? ` · NO₂ ${p.nitrogen_dioxide}` : ""}<br/><span class="muted">Open-Meteo (CAMS forecast) for ${esc(p.time)} UTC</span>`;
+  if (layer === "forecast_skill") return `<b>${esc(p.name)}</b>${p.airport ? ` <span class="muted">(${esc(p.airport)})</span>` : ""}<br/>`
+    + (p.best ? `Most right lately: <b>${esc(p.best_name)}</b>${typeof p.temp === "number" ? `, about ${p.temp.toFixed(1)}° off` : ""}`
+      + `${p.runner_up ? `<br/>Next best: ${esc(p.runner_up)}` : ""}<br/><span class="muted">${num(p.n)} forecasts checked over ${esc(p.days)} days`
+      + `${typeof p.airport_share === "number" ? `, ${Math.round(p.airport_share * 100)}% against airport reports` : ""}</span>`
+      : `Not enough forecasts checked yet (${esc(p.days)} days in)`)
+    + `<br/><a href="/climate?tab=skill">Forecast accuracy</a>`;
   if (layer === "coral_alerts") return `<b>${esc(p.name)}</b><br/>Coral bleaching: ${esc(p.label)} (highest in the last 7 days)`;
   if (layer === "nz_wastewater") return `<b>${esc(p.name)}</b>${p.region ? `, ${esc(p.region)}` : ""}<br/>${num(p.value)} virus copies per person per day, week to ${esc(p.week)}`
     + `${typeof p.change === "number" ? `<br/>${p.change > 0 ? "+" : ""}${p.change}% on the month before` : ""}${typeof p.population === "number" ? `<br/>Serves ${num(p.population)} people` : ""}`

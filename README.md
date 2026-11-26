@@ -553,9 +553,23 @@ several legs shows its total and a rough flight time at 850 km/h.
   when they disagree (highs 4° or more apart, or some dry while others have 3 mm or more), gives
   the air now, and links to the same place on windy.com. MET Norway's rain is moved to the hour
   it ends, as Open-Meteo gives it.
+- *Forecast accuracy* (Climate > Weather and zones, and the map layer *Best forecast model*):
+  every 6 hours while the app runs, the next 48 hours from eight models (Open-Meteo best match,
+  ECMWF, GFS, ICON, UK Met Office, GEM, JMA, Météo-France) are stored for 77 key cities (list in
+  `contract/worldmodel_contract/forecast_skill.py`, New Zealand first). Twelve hours after each
+  forecast hour it is checked against the city airport's own weather reports (METAR from
+  aviationweather.gov), or Open-Meteo's analysis of the past hours where the airport has no
+  report: temperature and wind error, and a balanced Brier score for rain (wet and dry hours
+  count the same). Each city's models are ranked on the three over the last 60 days, for the
+  next 24 hours and for 24 to 48 hours ahead; the page shows the best model by region and city
+  by city, and the forecast card names the model most right lately in the nearest scored city
+  (within 600 km) and lists it first. It starts empty and settles after about three weeks. Only
+  the daily sums are kept (`var\weather\scores\skill.sqlite`, about 15 MB). Settings > Climate >
+  Weather > *Score the forecast models* switches it off.
 - API: `/api/v1/weather/status`, `/weather/tiles/{field}/{run}/{step}/{z}/{x}/{y}.png`,
   `/weather/at` (`wave_step` adds the waves), `/weather/clouds/{z}/{x}/{y}.png`, `/weather/point`,
-  `/weather/wind/{run}/{step}` (the wind lines' grid), `/weather/air`, `/weather/models`.
+  `/weather/wind/{run}/{step}` (the wind lines' grid), `/weather/air`, `/weather/models`,
+  `/weather/skill?lead=day1|day2`, `/weather/skill/near`, `/weather/skill/status`.
 
 **How it ranks among…** (a card on each country page, World section): for each measure the
 best country in the group, this country with its rank ("#2 of 6", the cell green near the
