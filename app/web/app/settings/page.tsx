@@ -442,7 +442,7 @@ export default function SettingsPage() {
           save={(v) => save({ ships_keep_days: v })} />
         <Toggle label="Cargo ship schedules" hint="For cargo and container ships: keep every ETA and destination they send and every port call seen, learn each ship's route, and say whether it is on time (Ships table, a ship's Schedule part, Live › Schedules). Needs ships collected. Off: nothing new is kept and the On time? column stays empty."
           on={s.ship_schedules} set={(v) => save({ ship_schedules: v })} />
-        <Toggle label="Port arrival lists" hint="Read the ports' public arrival lists every hour (Auckland, Tauranga, Port Botany, Sydney Harbour, Newcastle, Port Kembla and Melbourne) and keep each booking and every change to it. Off: on-time is measured against the line's schedule or the ship's own ETA only."
+        <Toggle label="Port arrival lists" hint="Read the ports' public arrival lists every hour (Auckland, Tauranga, Port Botany, Sydney Harbour, Newcastle, Port Kembla, Melbourne, and Singapore with its free key SG_OCEANSX_API_KEY) and keep each booking and every change to it. Off: on-time is measured against the line's schedule or the ship's own ETA only."
           on={s.port_lists_fetch} set={(v) => save({ port_lists_fetch: v })} />
         <Toggle label="Shipping lines' schedules" hint="Ask Maersk, Hapag-Lloyd and CMA CGM (with their free keys in Settings › Keys: MAERSK_CONSUMER_KEY, HLAG_CLIENT_ID + HLAG_CLIENT_SECRET, CMACGM_API_KEY) for the planned port calls of their ships seen in the last two days, at most 30 an hour. Off: they aren't asked."
           on={s.carrier_schedules} set={(v) => save({ carrier_schedules: v })} />

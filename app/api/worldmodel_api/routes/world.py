@@ -614,7 +614,7 @@ def live_ship_schedule(mmsi: int):
 
 @api.get("/live/schedules")
 def live_schedules(port: str = "", days: float = Query(7, gt=0, le=60)):
-    """The ports' arrival lists (Auckland, Tauranga, NSW ports, Melbourne) as a board: each ship's booked arrival, how often
+    """The ports' arrival lists (Auckland, Tauranga, NSW ports, Melbourne, Singapore) as a board: each ship's booked arrival, how often
     the booking moved, its own ETA, our estimate and whether it is on time. `port` keeps one port."""
     from worldmodel_api import journeys, live
     from worldmodel_api.schedules import PORT_LISTS, line_of

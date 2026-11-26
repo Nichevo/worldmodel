@@ -3,7 +3,8 @@
 - the ETA and destination each ship sends, kept every time they change (the ETA over time);
 - the port calls we see (a ship stopped within 15 km of a port, then moving again), from which a
   ship's usual route (its loop of ports) is learned;
-- the bookings in the ports' own arrival lists (Auckland, Tauranga, Port Botany, Sydney, Newcastle, Port Kembla and Melbourne, read hourly), every change kept;
+- the bookings in the ports' own arrival lists (Auckland, Tauranga, Port Botany, Sydney, Newcastle, Port Kembla and Melbourne, read hourly; Singapore
+  with a free MPA key), every change kept;
 - the lines' published schedules (Maersk, Hapag-Lloyd, CMA CGM: the DCSA Commercial Schedules
   standard), when a free key is set.
 
@@ -34,6 +35,7 @@ log = logging.getLogger(__name__)
 NZ = ZoneInfo("Pacific/Auckland")
 SYDNEY = ZoneInfo("Australia/Sydney")
 MELBOURNE = ZoneInfo("Australia/Melbourne")
+SINGAPORE = ZoneInfo("Asia/Singapore")
 DAY = 86400.0
 ON_TIME_H = 24.0      # within a day either way is on time
 SLIP_H = 12.0         # an ETA or booking pushed back this much is slipping
@@ -63,7 +65,18 @@ PORT_LISTS = {
     # Ports Victoria: Port Phillip (Melbourne and Geelong) on one page
     "melbourne": {"name": "Melbourne", "country": "Australia", "locode": "AUMEL", "lat": -37.840, "lon": 144.925,
                   "url": "https://ports.vic.gov.au/marine-operations/ship-movements/"},
+    # Singapore: MPA's OCEANS-X APIs, with a free key (SG_OCEANSX_API_KEY); asked, not read as a page
+    "singapore": {"name": "Singapore", "country": "Singapore", "locode": "SGSIN", "lat": 1.264, "lon": 103.840,
+                  "env": "SG_OCEANSX_API_KEY", "url": None},
 }
+
+# MPA's vessel movement APIs. Each address can be changed in .env (SG_DUE_TO_ARRIVE_URL,
+# SG_ARRIVALS_URL, SG_DUE_TO_DEPART_URL) to the one shown on the API's page in OCEANS-X; {date} is
+# filled with yyyy-MM-dd. Four asks an hour against a quota of 10 a minute.
+SG_BASE = "https://oceans-x.mpa.gov.sg/api/v1/vessel"
+SG_ASKS = [("SG_DUE_TO_ARRIVE_URL", SG_BASE + "/duetoarrive/1.0.0/date/{date}", "expected", (0, 1)),
+           ("SG_ARRIVALS_URL", SG_BASE + "/arrivals/1.0.0/date/{date}", "in_port", (0,)),
+           ("SG_DUE_TO_DEPART_URL", SG_BASE + "/duetodepart/1.0.0/date/{date}", "leaving", (0,))]
 
 # Which line runs a ship, by its name, for asking that line's schedule and for the reliability table.
 LINES = [("MAERSK", "Maersk", "maersk"), ("SEALAND", "Maersk", "maersk"), ("CMA CGM", "CMA CGM", "cmacgm"),
@@ -267,6 +280,79 @@ def parse_vic(html: str) -> list[dict]:
     return [s for s in ships.values() if s["arrival"]]
 
 
+def _sg_time(v) -> float | None:
+    """A Singapore time: ISO text with or without a zone (none means Singapore time), or epoch ms."""
+    if isinstance(v, (int, float)):
+        return v / 1000 if v > 1e11 else float(v)
+    if not isinstance(v, str) or not v.strip():
+        return None
+    try:
+        t = datetime.fromisoformat(v.strip().replace("Z", "+00:00").replace(" ", "T", 1))
+    except ValueError:
+        return None
+    return (t if t.tzinfo else t.replace(tzinfo=SINGAPORE)).timestamp()
+
+
+def _find(d: dict, *words: str):
+    """The first value whose key holds all of the words, ignoring case (the APIs' field names vary:
+    duetoArriveTime, dueToArriveTime, arrivedTime ...)."""
+    for k, v in d.items():
+        low = k.lower()
+        if all(w in low for w in words) and v not in (None, ""):
+            return v
+    return None
+
+
+def parse_sg(body, state: str) -> list[dict]:
+    """One answer of MPA's due to arrive, arrivals or due to depart API: a list of records each with
+    vesselParticulars (vesselName, imoNumber, callSign, flag), a time and where from or to."""
+    recs = body
+    if isinstance(body, dict):
+        recs = next((v for v in body.values() if isinstance(v, list)), [])
+    out = []
+    for r in recs if isinstance(recs, list) else []:
+        if not isinstance(r, dict):
+            continue
+        vp = r.get("vesselParticulars") or r.get("vessel") or {}
+        if isinstance(vp, list):
+            vp = vp[0] if vp else {}
+        name = (vp.get("vesselName") or r.get("vesselName") or "").strip()
+        if not name:
+            continue
+        t = _sg_time(_find(r, "time"))
+        row = {"name": name, "imo": _imo(vp.get("imoNumber") or r.get("imoNumber")), "voyage": None, "arrival": None,
+               "departs": None, "cargo": None, "prev": None, "next": None, "state": state}
+        # locationTo on arrivals is a berth or anchorage in Singapore, not the next port: not kept
+        place = _find(r, "last", "port") or _find(r, "location", "from")
+        if state == "leaving":
+            dest = _find(r, "next", "port") or _find(r, "location", "to")
+            row.update(departs=t, next=dest or None, state="in_port")
+        else:
+            row.update(arrival=t, prev=place or None)
+        out.append(row)
+    return out
+
+
+def merge_sg(parts: list[list[dict]]) -> list[dict]:
+    """Due to arrive, arrived and due to depart joined into one booking per ship; a departure with
+    no arrival in the lists is kept only when the ship's arrival is already booked (record_bookings
+    then keeps the earlier arrival)."""
+    ships: dict[str, dict] = {}
+    for rows in parts:
+        for r in rows:
+            k = str(r["imo"] or _key(r["name"]))
+            if k not in ships:
+                ships[k] = dict(r)
+                continue
+            s = ships[k]
+            for k in ("arrival", "departs", "prev", "next"):
+                if r[k] and not (k == "arrival" and s["state"] == "in_port" and s["arrival"]):
+                    s[k] = r[k]
+            if r["state"] == "in_port":
+                s["state"] = "in_port"
+    return [s for s in ships.values() if s["arrival"]]
+
+
 PARSERS = {"auckland": parse_poal, "tauranga": parse_tauranga, "botany": parse_nsw, "sydney": parse_nsw,
            "newcastle": parse_nsw, "kembla": parse_nsw, "melbourne": parse_vic}
 
@@ -449,17 +535,43 @@ class Schedules:
 
     def fetch_ports(self, client: httpx.Client) -> None:
         for where, port in PORT_LISTS.items():
+            if port.get("env") and not os.environ.get(port["env"]):
+                self.notes[where] = f"{port['name']}: needs a free key ({port['env']} in Settings > Keys)."
+                continue
             try:
-                r = client.get(port["url"])
-                r.raise_for_status()
-                rows = PARSERS[where](r.text)
+                if where == "singapore":
+                    rows = self.ask_singapore(client)
+                else:
+                    r = client.get(port["url"])
+                    r.raise_for_status()
+                    rows = PARSERS[where](r.text)
                 n = self.record_bookings(where, rows)
                 self.notes[where] = f"{port['name']}: {n} ships in the list at {time.strftime('%H:%M')}."
                 if not rows:
                     self.notes[where] = f"{port['name']}: the list came back empty at {time.strftime('%H:%M')} (has the page changed?)."
             except (httpx.HTTPError, ValueError) as exc:
-                self.notes[where] = f"{port['name']}: could not read the list at {time.strftime('%H:%M')} ({exc.__class__.__name__})."
+                why = str(exc) if type(exc) is ValueError and str(exc).startswith("the key") else exc.__class__.__name__
+                self.notes[where] = f"{port['name']}: could not read the list at {time.strftime('%H:%M')} ({why})."
                 log.warning("port list %s: %s", where, exc)
+
+    @staticmethod
+    def ask_singapore(client: httpx.Client, now: float | None = None) -> list[dict]:
+        """MPA's due to arrive (today and tomorrow), arrivals and due to depart (today), in Singapore dates."""
+        now = now or time.time()
+        head = {"apikey": os.environ["SG_OCEANSX_API_KEY"], "Accept": "application/json"}
+        parts = []
+        for env, default, state, days in SG_ASKS:
+            for d in days:
+                date = datetime.fromtimestamp(now + d * DAY, SINGAPORE).strftime("%Y-%m-%d")
+                r = client.get((os.environ.get(env) or default).replace("{date}", date), headers=head)
+                if r.status_code in (401, 403):
+                    raise ValueError(f"the key was refused (HTTP {r.status_code}); check SG_OCEANSX_API_KEY and that the app is subscribed")
+                if r.status_code == 404:
+                    continue  # nothing for that day, or the address moved (see SG_*_URL)
+                r.raise_for_status()
+                parts.append(parse_sg(r.json(), state))
+                time.sleep(1)
+        return merge_sg(parts)
 
     # ------------------------------------------------------------------ carriers
     @staticmethod
