@@ -129,6 +129,11 @@ def test_map_layers(con):
     assert quakes[7.8]["date"] == "2016-11-13" and quakes[7.8]["depth"] == 15 and quakes[7.8]["tsunami"] == 1
     assert quakes[9.5]["date"] == "1960-05-22"  # before 1970: no fromtimestamp (fails on Windows)
     assert layers["earthquakes"][1] == "point" and layers["earthquakes"][4] == "usgs_earthquakes"
+    # Smaller quakes: USGS 4.5 to 6 outside New Zealand's area, GeoNet's 3 to 6 inside it.
+    small = {f["properties"]["id"]: f["properties"] for f in json.loads(layers["earthquakes"][3])["features"] if f["properties"]["mag"] < 6}
+    assert set(small) == {"us_jp45", "2024p100001", "2024p100002"}
+    assert small["2024p100001"]["date"] == "2024-06-02" and small["2024p100001"]["src"] == "GeoNet"
+    assert small["2024p100001"]["url"] == "https://www.geonet.org.nz/earthquake/2024p100001"
 
 
 def test_policy_and_exchange_rates(con):

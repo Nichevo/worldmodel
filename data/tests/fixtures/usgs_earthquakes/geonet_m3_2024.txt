@@ -1,0 +1,4 @@
+#EventID | Time | Latitude | Longitude | Depth/km | Author | Catalog | Contributor | ContributorID | MagType | Magnitude | MagAuthor | EventLocationName | EventType
+2024p100001|2024-06-02T10:00:00|-41.3|174.8|12.0|GNS|GNS|GNS|2024p100001|MLv|3.4|GNS|10 km south of Wellington|earthquake
+2024p100002|2024-06-03T10:00:00|-30.0|-177.5|35.0|GNS|GNS|GNS|2024p100002|MLv|4.9|GNS|Kermadec Islands region|earthquake
+2024p100003|2024-06-04T10:00:00|-17.0|178.0|300.0|GNS|GNS|GNS|2024p100003|Mw|4.6|GNS|Fiji region|earthquake

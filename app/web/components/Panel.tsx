@@ -185,7 +185,8 @@ export default function Panel({
             hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}
             clicks={clicks} popups={popups} sparkline={sparkline} exporter={exporter} win={effWin}
             layersPanel={layersOpen ? (counts) => (
-              <LayersPanel panel={panel} dispatch={dispatch} win={win} onWin={onWin} counts={counts} year={year} onClose={() => setLayersOpen(false)} />
+              <LayersPanel panel={panel} dispatch={dispatch} win={win} onWin={onWin} counts={counts} year={year} onClose={() => setLayersOpen(false)}
+                selection={selection} names={names} />
             ) : null} />
         )}
         {indicator && panel.view === "table" && year !== null && (

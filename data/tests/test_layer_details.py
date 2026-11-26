@@ -15,7 +15,7 @@ from worldmodel_data.vintage_store import VintageStore
 from worldmodel_contract import layer_details as spec
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SOURCES = ("un_wpp", "geonames", "bis", "wikidata_places")
+SOURCES = ("un_wpp", "geonames", "bis", "wikidata_places", "usgs_earthquakes")
 
 # Two boxes for countries: New Zealand around Auckland, Australia around Canberra.
 COUNTRIES = {"type": "FeatureCollection", "features": [
@@ -57,6 +57,17 @@ def test_count_and_per_million_are_indicators(built):
     assert got["map_hospitals_per_m"] > 0  # with the population of the nearest year
     ind = con.execute("SELECT name, agg_method FROM indicators WHERE indicator_id = 'map_hospitals_count'").fetchone()
     assert ind == ("Hospitals on the map", "sum")
+
+
+def test_earthquakes_count_magnitude_6_or_more_each_year(built):
+    _, con = built
+    # Kaikoura 7.8 (2016) and Wellington's 3.4 (2024, GeoNet) are both NZ items; only the 6+ one counts, in its own year.
+    mags = sorted(r[0] for r in con.execute("SELECT size FROM layer_items WHERE layer_id = 'earthquakes' AND entity_id = 'NZL'").fetchall())
+    assert 3.4 in mags and 7.8 in mags
+    got = dict(con.execute("""SELECT year(period_start), value FROM series WHERE entity_id = 'NZL'
+                              AND indicator_id = 'map_earthquakes_count'""").fetchall())
+    assert got.get(2016) == 1 and 2024 not in got
+    assert not con.execute("SELECT count(*) FROM indicators WHERE indicator_id = 'map_earthquakes_per_m'").fetchone()[0]
 
 
 def test_items_without_a_country_are_placed_from_where_they_sit(tmp_path):

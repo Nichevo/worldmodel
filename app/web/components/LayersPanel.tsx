@@ -8,7 +8,7 @@ import { api, type CrisisWatchMonth, type MapEvents } from "@/lib/api";
 import { zoneTiles } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
-import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
+import { DETAIL_LAYERS, detailsHref, layerApi, type LayerItem } from "@/lib/layerDetails";
 import { CAMERA_KIND, CAMERA_SOURCE, cameraFilter, LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
@@ -21,7 +21,7 @@ import { forecastFields, hasWaves, hasWeather, useRadar, useWeatherStatus, useWe
 import { GROUP_LABEL, KIND_GROUP, kindColor, yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn, useYearEvents, yearMarks } from "@/lib/longYear";
 import {
-  LAYER_GROUPS, MAP_LAYERS, QUICK_SETS, WINDOWS, windowDates, type Action, type LayerDef, type Panel as PanelState,
+  LAYER_GROUPS, MAP_LAYERS, QUICK_SETS, WINDOWS, wholeYear, windowDates, type Action, type LayerDef, type Panel as PanelState,
 } from "@/lib/workspace";
 
 // ----------------------------------------------------------------------------- what the app's own layers draw
@@ -59,6 +59,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
   const st = useSettings();
   const { map_hospital_beds: minBeds, map_hospitals_unsized: unsized, map_hospitals_all: allHospitals } = st;
   const { lists: hospLists, kinds: hospKinds } = hospitalPicks(st);
+  const quakeMin = st.map_quake_min ?? 4.5;
   const [spotted, setSpotted] = useState<LayerPoint[] | null>(null);
   useEffect(() => {
     if (!on("0")) return;
@@ -107,13 +108,13 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       for (const g of got) {
         if (!g) continue;
         const [id, fc] = g;
-        const n = fc.features.filter((f) => inWindow(id, f.properties ?? {}, start, end)).length;
+        const n = fc.features.filter((f) => inWindow(id, f.properties ?? {}, start, end, quakeMin)).length;
         out[id] = `${n} in window`;
       }
       setCounts(out);
     });
     return () => { live = false; };
-  }, [letters, start, end]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [letters, start, end, quakeMin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return useMemo(() => {
     const outlines: MapOutline[] = on("w") && cw?.month
@@ -155,7 +156,8 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       }
     }
     const filters: Record<string, unknown[] | null> = {
-      earthquakes: ["all", [">=", ["to-string", ["get", "date"]], start], ["<=", ["to-string", ["get", "date"]], `${end}~`]],
+      earthquakes: ["all", [">=", ["to-string", ["get", "date"]], start], ["<=", ["to-string", ["get", "date"]], `${end}~`],
+        [">=", ["coalesce", ["get", "mag"], 0], quakeMin]],
       storm_tracks: ["all", [">=", ["get", "year"], +start.slice(0, 4)], ["<=", ["get", "year"], +end.slice(0, 4)]],
       // Every hospital from every list, or (Settings > Places) those above a size and, if asked, those with no bed count.
       // Only the lists and likely kinds ticked in the Layers panel (dots from before the lists were split pass the list test).
@@ -243,7 +245,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     if (wx?.waves.run && hasWaves(letters)) all.wx_waves = all.wx_swell = wx.waves.steps.length < wx.waves.all_steps.length
       ? `${wx.waves.steps.length} of ${wx.waves.all_steps.length} wave steps in` : `next ${wx.days} days, every 6 hours`;
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden, st.map_cameras_hidden]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden, st.map_cameras_hidden, quakeMin]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const TAG_COLOUR: Record<string, string> = {
@@ -252,8 +254,8 @@ const TAG_COLOUR: Record<string, string> = {
 };
 const tagColour = (t: string) => TAG_COLOUR[t] ?? "#862e9c";
 
-function inWindow(id: string, p: Record<string, unknown>, start: string, end: string): boolean {
-  if (id === "earthquakes") { const d = String(p.date ?? ""); return d >= start && d <= `${end}~`; }
+function inWindow(id: string, p: Record<string, unknown>, start: string, end: string, quakeMin = 0): boolean {
+  if (id === "earthquakes") { const d = String(p.date ?? ""); return d >= start && d <= `${end}~` && Number(p.mag ?? 0) >= quakeMin; }
   if (id === "storm_tracks") { const y = Number(p.year); return y >= +start.slice(0, 4) && y <= +end.slice(0, 4); }
   return true;
 }
@@ -284,9 +286,9 @@ const MADE_SWATCH: Record<string, () => string> = {
   wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
 };
 
-export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose }: {
+export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose, selection = [], names = new Map() }: {
   panel: PanelState; dispatch: (a: Action) => void; win: string; onWin: (w: string) => void; counts: LayerCounts;
-  year: number | null; onClose: () => void;
+  year: number | null; onClose: () => void; selection?: string[]; names?: Map<string, string>;
 }) {
   const s = useSettings();
   const [have, setHave] = useState<Map<string, MapLayerInfo> | null>(null);
@@ -518,10 +520,23 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         <div className="seg" role="group" aria-label="Time window">
           {WINDOWS.map((w) => (
             <button key={w.id} className={(win || s.map_window) === w.id ? "on" : ""} aria-pressed={(win || s.map_window) === w.id}
-              onClick={() => onWin(w.id === s.map_window ? "" : w.id)} disabled={w.id === "year" && !year}
-              title={w.id === "year" ? "The year the country colours show" : undefined}>{w.label}</button>
+              onClick={() => onWin(w.id === s.map_window ? "" : w.id)}
+              title={w.id === "year" ? (year ? `${year}, the year the country colours show` : "Last year (the map shows no country colours, so no colour year)") : undefined}>
+              {w.id === "year" && !year ? "Last year" : w.label}</button>
           ))}
         </div>
+        {wholeYear(from, to) !== null && (() => {
+          const y = wholeYear(from, to)!;
+          const now = new Date().getUTCFullYear();
+          const goTo = (n: number) => onWin(`${n}-01-01~${n}-12-31`);
+          return (
+            <div className="row small lp-dates" role="group" aria-label="Year">
+              <button className="small" onClick={() => goTo(y - 1)} aria-label="The year before">‹ {y - 1}</button>
+              <b>{y}</b>
+              <button className="small" onClick={() => goTo(y + 1)} disabled={y >= now} aria-label="The year after">{y + 1} ›</button>
+            </div>
+          );
+        })()}
         <div className="row small lp-dates">
           <label>From <input type="date" value={from} max={to} onChange={(e) => e.target.value && onWin(`${e.target.value}~${to}`)} /></label>
           <label>to <input type="date" value={to} min={from} onChange={(e) => e.target.value && onWin(`${from}~${e.target.value}`)} /></label>
@@ -535,6 +550,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
           {(panel.layers.includes("S") || panel.layers.includes("F")) && <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />}
           {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
           {panel.layers.includes("h") && <HospitalPick />}
+          {panel.layers.includes("q") && <QuakePick selection={selection} names={names} from={from} to={to} />}
           {panel.layers.includes("-") && <CameraKinds />}
 
           <div className="lp-section">
@@ -632,6 +648,63 @@ function HospitalPick() {
     </div>
   );
 }
+
+// Earthquakes: the smallest magnitude shown on every map (saved in Settings), and for each selected
+// country its quakes in the time window, biggest or newest first, with the full list on the layer's page.
+const QUAKE_MINS = [3, 4.5, 5, 6, 7];
+function QuakePick({ selection, names, from, to }: { selection: string[]; names: Map<string, string>; from: string; to: string }) {
+  const min = useSettings().map_quake_min ?? 4.5;
+  const [sort, setSort] = useState<"size" | "date">("size");
+  const [who, setWho] = useState("");
+  const country = selection.includes(who) ? who : selection[0] ?? "";
+  const [got, setGot] = useState<{ rows: LayerItem[]; total: number } | null>(null);
+  useEffect(() => {
+    if (!country) { setGot(null); return; }
+    let live = true;
+    setGot(null);
+    layerApi.items("earthquakes", { country, sort, limit: 15, min_size: min, date_from: from, date_to: to })
+      .then((r) => live && setGot(r)).catch(() => live && setGot({ rows: [], total: 0 }));
+    return () => { live = false; };
+  }, [country, sort, min, from, to]);
+  const name = names.get(country) ?? country;
+  const full = `/layers/earthquakes?tab=items&country=${encodeURIComponent(country)}&sort=${sort}&min=${min}&from=${from}&to=${to}`;
+  return (
+    <div className="lp-section">
+      <div className="lp-label">Earthquakes: smallest shown</div>
+      <div className="seg" role="group" aria-label="Smallest magnitude shown">
+        {QUAKE_MINS.map((m) => <button key={m} className={min === m ? "on" : ""} aria-pressed={min === m}
+          onClick={() => saveSettings({ map_quake_min: m }).catch(() => undefined)}>{m}+</button>)}
+      </div>
+      <p className="caption">Below 6 only since 2016; below 4.5 only around New Zealand (GeoNet).</p>
+      {!country ? <p className="caption">Pick a country (shift-click it on the map or use the box above) to list its earthquakes.</p> : (
+        <>
+          <div className="lp-label" style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+            {selection.length > 1
+              ? <select value={country} onChange={(e) => setWho(e.target.value)} aria-label="Country">
+                  {selection.map((c) => <option key={c} value={c}>{names.get(c) ?? c}</option>)}</select>
+              : <span>{name}</span>}
+            <span className="muted">{got ? `${got.total.toLocaleString()} of ${min}+ in the window` : "…"}</span>
+          </div>
+          <div className="seg" role="group" aria-label="Order">
+            <button className={sort === "size" ? "on" : ""} aria-pressed={sort === "size"} onClick={() => setSort("size")}>Biggest first</button>
+            <button className={sort === "date" ? "on" : ""} aria-pressed={sort === "date"} onClick={() => setSort("date")}>Newest first</button>
+          </div>
+          {got && got.rows.length > 0 && (
+            <table className="small lp-quakes"><tbody>{got.rows.map((r) => (
+              <tr key={r.item_id}>
+                <td style={{ textAlign: "right" }}><b>{r.size?.toFixed(1)}</b></td>
+                <td style={{ whiteSpace: "nowrap" }}>{String(r.fields.date ?? "")}</td>
+                <td>{r.url ? <a href={r.url} target="_blank" rel="noreferrer">{placeOf(r.name)}</a> : placeOf(r.name)}</td>
+              </tr>))}</tbody></table>
+          )}
+          {got && got.total === 0 && <p className="caption">None of {min}+ in {name} from {from} to {to}.</p>}
+          <Link className="small" href={full}>Full list for {name}{got && got.total > got.rows.length ? ` (all ${got.total.toLocaleString()})` : ""}</Link>
+        </>
+      )}
+    </div>
+  );
+}
+const placeOf = (title: string) => title.replace(/^M\s*[\d.]+\s*-\s*/, "");
 
 function hiddenFilter(hidden?: string): unknown[] | null {
   const off = (hidden ?? "").split(",").filter(Boolean);

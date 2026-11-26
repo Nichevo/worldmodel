@@ -300,20 +300,32 @@ function Coverage({ id, many, onPick }: { id: string; many: string; onPick: (k: 
 const coverColour = (c: number | null | undefined) =>
   c === null || c === undefined ? undefined : c >= 0.75 ? "var(--good, #2f9e44)" : c >= 0.4 ? "var(--warn, #e8a200)" : "var(--bad, #c92a2a)";
 
+type ItemSort = "size" | "name" | "date";
 function Items({ layer, country, name, onBack }: { layer: LayerInfo; country?: string; name?: string; onBack?: () => void }) {
+  // ?sort=, ?min=, ?from= and ?to= (from the map's earthquake list) start the list where the map was.
+  const params = useSearchParams();
+  const dated = layer.fields.some((f) => f.key === "date");
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<"size" | "name">(layer.size ? "size" : "name");
+  const [sort, setSort] = useState<ItemSort>(() => {
+    const s = params.get("sort");
+    return s === "name" || (s === "date" && dated) || (s === "size" && layer.size) ? s : layer.size ? "size" : "name";
+  });
+  const [min, setMin] = useState(params.get("min") ?? "");
+  const [from, setFrom] = useState(dated ? params.get("from") ?? "" : "");
+  const [to, setTo] = useState(dated ? params.get("to") ?? "" : "");
   const [rows, setRows] = useState<LayerItem[] | null>(null);
   const [total, setTotal] = useState(0);
   const [limit, setLimit] = useState(200);
+  const ask = (n: number) => ({ country, q: q.trim() || undefined, sort, limit: n, min_size: min !== "" && Number.isFinite(+min) ? +min : undefined,
+    date_from: from || undefined, date_to: to || undefined });
   useEffect(() => {
     let live = true;
-    const t = setTimeout(() => layerApi.items(layer.id, { country, q: q.trim() || undefined, sort, limit })
-      .then((r) => { if (live) { setRows(r.rows); setTotal(r.total); } }).catch(() => live && setRows([])), q ? 250 : 0);
+    const t = setTimeout(() => layerApi.items(layer.id, ask(limit))
+      .then((r) => { if (live) { setRows(r.rows); setTotal(r.total); } }).catch(() => live && setRows([])), q || min ? 250 : 0);
     return () => { live = false; clearTimeout(t); };
-  }, [layer.id, country, q, sort, limit]);
+  }, [layer.id, country, q, sort, limit, min, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
   const S = layer.size;
-  const csv = () => layerApi.items(layer.id, { country, q: q.trim() || undefined, sort, limit: 5000 }).then((r) => saveText(csvText(
+  const csv = () => layerApi.items(layer.id, ask(5000)).then((r) => saveText(csvText(
     ["Name", "Country", ...(S ? [`${S.label} (${S.unit})`] : []), ...(layer.category ? [layer.category] : []), ...layer.fields.map((f) => f.label),
       "Latitude", "Longitude", "Link"],
     r.rows.map((x) => [x.name, x.group ?? x.country_names.join("; "), ...(S ? [x.size] : []), ...(layer.category ? [x.category] : []),
@@ -327,8 +339,14 @@ function Items({ layer, country, name, onBack }: { layer: LayerInfo; country?: s
       </div>
       <div className="chips-row small">
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Find ${an(layer.one)}`} aria-label={`Find ${an(layer.one)}`} />
-        {S && <div className="seg">{(["size", "name"] as const).map((s) => <button key={s} className={sort === s ? "on" : ""} aria-pressed={sort === s}
-          onClick={() => setSort(s)}>{s === "size" ? `Biggest ${S.label.toLowerCase()} first` : "By name"}</button>)}</div>}
+        {(S || dated) && <div className="seg">{(["size", "date", "name"] as const).filter((s) => (s !== "size" || S) && (s !== "date" || dated))
+          .map((s) => <button key={s} className={sort === s ? "on" : ""} aria-pressed={sort === s}
+          onClick={() => setSort(s)}>{s === "size" ? `Biggest ${S!.label.toLowerCase()} first` : s === "date" ? "Newest first" : "By name"}</button>)}</div>}
+        {S && <label className="small">{S.label} at least <input type="number" value={min} step={S.decimals ? 0.1 : 1} style={{ width: 70 }}
+          onChange={(e) => setMin(e.target.value)} aria-label={`Smallest ${S.label.toLowerCase()}`} /></label>}
+        {dated && <label className="small">From <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>}
+        {dated && <label className="small">to <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>}
+        {dated && (from || to) && <button className="link small" onClick={() => { setFrom(""); setTo(""); }}>All dates</button>}
         <button className="link small" onClick={csv}>Download CSV</button>
       </div>
       {!rows ? <p className="muted small">Loading…</p> : !rows.length ? <p className="muted small">None.</p> : (

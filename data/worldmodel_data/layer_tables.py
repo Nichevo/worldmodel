@@ -242,14 +242,21 @@ def _indicators(con: duckdb.DuckDBPyConnection, found: set[str], today: date) ->
         ids = spec.indicator_ids(d)
         if not ids:  # a layer with no figures of its own (chokepoints): details page only
             continue
+        if d.yearly:  # dated events (earthquakes): a count for each year, of those at least yearly_min in size
+            for ent, yr, n_items in con.execute(
+                    "SELECT entity_id, year(try_cast(json_extract_string(props, ?) AS DATE)) AS y, count(DISTINCT item_id) "
+                    "FROM src.raw_layer_items WHERE layer_id = ? AND entity_id IS NOT NULL AND size >= ? "
+                    "GROUP BY 1, 2 HAVING y IS NOT NULL", [f"$.{d.yearly}", layer_id, d.yearly_min or 0]).fetchall():
+                obs.append((ids["count"], ent, n_items, f"{yr:04d}-01-01"))
+            continue
         for ent, n_items, total in con.execute(
                 "SELECT entity_id, count(DISTINCT item_id), sum(size) FROM src.raw_layer_items "
                 "WHERE layer_id = ? AND entity_id IS NOT NULL GROUP BY 1", [layer_id]).fetchall():
-            obs.append((ids["count"], ent, n_items))
+            obs.append((ids["count"], ent, n_items, year))
             if pop.get(ent):
-                obs.append((ids["per_m"], ent, n_items / pop[ent] * 1e6))
+                obs.append((ids["per_m"], ent, n_items / pop[ent] * 1e6, year))
             if "size" in ids and total is not None:
-                obs.append((ids["size"], ent, total))
+                obs.append((ids["size"], ent, total, year))
     names = [c[0] for c in con.execute("SELECT * FROM src.raw_observations LIMIT 0").description]
     vals = {"source_id": spec.SOURCE_ID, "vintage": vintage, "scheme": "iso3", "period_start": year, "freq": "A",
             "breakdown": "", "variant": "central", "status": "E"}
@@ -257,7 +264,8 @@ def _indicators(con: duckdb.DuckDBPyConnection, found: set[str], today: date) ->
     if not obs:
         return
     insert_many(con, "src.raw_observations", order,
-                [[{"indicator_id": i, "source_code": e, "value": float(v)}.get(c, vals.get(c)) for c in order] for i, e, v in obs])
+                [[{"indicator_id": i, "source_code": e, "value": float(v), "period_start": p}.get(c, vals.get(c)) for c in order]
+                 for i, e, v, p in obs])
 
 
 def _population(con: duckdb.DuckDBPyConnection, year: int) -> dict[str, float]:

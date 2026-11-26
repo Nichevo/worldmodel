@@ -269,7 +269,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "n", id: "news", label: "Reported in the news", group: "conflict", timed: true, made: true, hint: "News naming one of your watch words, placed on a city it names or its country; hollow until a dataset confirms it" },
   { letter: "3", id: "conflict_events", label: "Fighting and unrest", group: "conflict", timed: true, hint: "Every located battle, bombing, killing of civilians, protest and riot in the time window (UCDP and ACLED); click one for Look closer links. Follows the time window below" },
   { letter: "4", id: "front_line", label: "Front line (Ukraine)", group: "conflict", hint: "Land held by Russia in Ukraine on the latest day (DeepStateMap); War trackers has every day with a slider" },
-  { letter: "q", id: "earthquakes", label: "Earthquakes (magnitude 6+)", group: "quakes", timed: true },
+  { letter: "q", id: "earthquakes", label: "Earthquakes", group: "quakes", timed: true, hint: "USGS: magnitude 6 or more since 1900, 4.5 or more since 2016; GeoNet around New Zealand: 3 or more since 2016. Pick the smallest magnitude shown below the list" },
   { letter: "s", id: "storm_tracks", label: "Storm tracks (history)", group: "quakes", timed: true, hint: "Every tropical storm in the time window, from the monthly NOAA file" },
   { letter: "z", id: "storms_active", label: "Storms active now", group: "now", hint: "Tropical storms going on now (NOAA IBTrACS, read when turned on, at most hourly)" },
   { letter: "i", id: "fires_now", label: "Wildfires now (24 hours)", group: "now", hint: "Every fire seen from space in the last 24 hours (NASA FIRMS, VIIRS), gathered into small squares; read when turned on, every 3 hours" },
@@ -359,17 +359,22 @@ export const QUICK_SETS: { name: string; letters: string; hint: string }[] = [
 ];
 
 // The map's time window for timed layers: "7d", "30d", "90d", "1y", "year" (the year the
-// country colours show) or "2026-01-01~2026-03-31". "" means the Settings default.
+// country colours show, or last year on a map without colours) or "2026-01-01~2026-03-31".
+// "" means the Settings default.
 export const WINDOWS: { id: string; label: string }[] = [
   { id: "7d", label: "7 days" }, { id: "30d", label: "30 days" }, { id: "90d", label: "90 days" }, { id: "1y", label: "This year" },
   { id: "year", label: "Colour year" },
 ];
+// The calendar year a window covers exactly (2025-01-01~2025-12-31), for the year arrows.
+export function wholeYear(from: string, to: string): number | null {
+  return from.slice(5) === "01-01" && to.slice(5) === "12-31" && from.slice(0, 4) === to.slice(0, 4) ? +from.slice(0, 4) : null;
+}
 const WIN_RE = /^(7d|30d|90d|1y|year|\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2})$/;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 export function windowDates(win: string, year: number | null, today = new Date()): [string, string] {
   const m = win.match(/^(\d{4}-\d{2}-\d{2})~(\d{4}-\d{2}-\d{2})$/);
   if (m) return m[1] <= m[2] ? [m[1], m[2]] : [m[2], m[1]];
-  if (win === "year" && year) return [`${year}-01-01`, `${year}-12-31`];
+  if (win === "year") { const y = year ?? today.getUTCFullYear() - 1; return [`${y}-01-01`, `${y}-12-31`]; }
   if (win === "1y") return [`${today.getUTCFullYear()}-01-01`, iso(today)];
   const days = win === "7d" ? 7 : win === "90d" ? 90 : 30;
   return [iso(new Date(today.getTime() - days * 86_400_000)), iso(today)];
