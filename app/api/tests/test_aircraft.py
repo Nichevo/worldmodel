@@ -107,3 +107,26 @@ def test_flights_split_at_landings_and_callsign_changes(tmp_path):
     assert got[2]["minutes"] == 170 and got[2]["top_m"] == 9000 and got[0]["airline"] == "Air New Zealand"
     by_cs = planes.flights(None, "anz102", days=3)["flights"]
     assert len(by_cs) == 2 and all(f["icao"] == "c81d90" for f in by_cs)
+
+
+def test_live_counts():
+    from worldmodel_api import livestats
+
+    ships = [{"group": "cargo", "type": "Cargo", "flag_code": "NZ", "flag": "New Zealand", "last_port": {"name": "Auckland", "country": "NZ"},
+              "to_port": {"name": "Sydney", "country": "AU"}, "length_m": 180, "speed_kn": 12, "last_seen": time.time(), "first_seen": time.time()},
+             {"group": "fishing", "type": "Fishing", "flag_code": None, "destination": "nelson", "length_m": None, "speed_kn": 0}]
+    s = livestats.ships(ships, {"cargo": "Cargo"})
+    parts = {p["id"]: p for p in s["parts"]}
+    assert s["total"] == 2 and s["moving"] == 1 and s["first_seen_last_day"] == 1
+    assert parts["group"]["rows"][0]["label"] in ("Cargo", "fishing") and parts["flag"]["distinct"] == 2
+    assert parts["came_from"]["rows"] == [{"key": "Auckland, NZ", "label": "Auckland, NZ", "count": 1, "share": 1.0}]
+    assert {r["key"] for r in parts["going_to"]["rows"]} == {"Sydney, AU", "NELSON"}
+    assert {r["key"] for r in parts["length"]["rows"]} == {"100 to 200 m", "Not said"}
+    planes = [{"group": "airliner", "airline": "Air New Zealand", "flag": "NZ", "country": "New Zealand", "model": "Airbus A-320",
+               "from": {"city": "Auckland", "country": "NZ"}, "to": {"city": "Sydney", "country": "AU"}, "altitude_m": 10500},
+              {"group": "light", "flag": None, "altitude_m": None, "military": True}]
+    p = livestats.planes(planes, {})
+    parts = {x["id"]: x for x in p["parts"]}
+    assert p["total"] == 2 and p["military"] == 1 and p["airline"] == 1
+    assert parts["route"]["rows"][0]["key"] == "Auckland, NZ to Sydney, AU"
+    assert parts["height"]["rows"][0]["count"] == 1 and parts["flag"]["rows"][0]["label"] in ("New Zealand", "Not known")

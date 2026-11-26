@@ -4031,6 +4031,23 @@ def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "
     return out
 
 
+@api.get("/live/ships/stats")
+def live_ships_stats(hours: float = Query(24, ge=0, le=24 * 400)):
+    """Counts of the ships heard in the last `hours` (0: every ship kept): by kind, flag, where from, where to and more."""
+    from worldmodel_api import journeys, live, livestats
+
+    found = live.SHIPS.table(limit=10**9, hours=hours, ports=journeys.ports(rows))["rows"]
+    return {**livestats.ships(found, {}), "hours": hours}
+
+
+@api.get("/live/planes/stats")
+def live_planes_stats(hours: float = Query(24, ge=0.1, le=24 * 7)):
+    """Counts of the planes heard in the last `hours`: by kind, airline, country, from, to, route, aircraft and height."""
+    from worldmodel_api import live, livestats
+
+    return {**livestats.planes(live.PLANES.table(hours)["planes"], {}), "hours": hours}
+
+
 @api.get("/live/ships/detail/{mmsi}")
 def live_ship_detail(mmsi: int):
     """One ship's details (the ships table's pop-up)."""
