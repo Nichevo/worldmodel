@@ -4296,9 +4296,27 @@ def indicator_ranking(indicator_id: str, year: int | None = None):
         ORDER BY s.value DESC""", [y, indicator_id, y, indicator_id])
     world = next((r for r in data if r["entity_id"] == "world"), None)
     ranked = [r for r in data if r["entity_id"] != "world"]
+    where = _ranking_continents()
     for i, r in enumerate(ranked):
         r["rank"] = i + 1
+        r["continent"] = where.get(r["entity_id"])
     return {"indicator": indicator_id, "year": y, "rows": ranked, "world": world}
+
+
+def _ranking_continents() -> dict[str, str]:
+    """Each country's continent for the value-band and share-of-world pictures, with the
+    Americas split into North America (with Central America and the Caribbean) and South America."""
+    out: dict[str, str] = {}
+    for r in rows("""SELECT m.member_id, g.entity_id AS gid, g.short_name AS name FROM memberships m
+            JOIN entities g ON g.entity_id = m.group_id
+            WHERE m.valid_to IS NULL AND (g.type = 'continent' OR g.entity_id = 'south-america')"""):
+        if r["gid"] == "south-america":
+            out[r["member_id"]] = "South America"
+        elif r["gid"] == "americas":
+            out.setdefault(r["member_id"], "North America")
+        else:
+            out.setdefault(r["member_id"], r["name"])
+    return out
 
 
 # ----------------------------------------------------------------------------- electricity mix map

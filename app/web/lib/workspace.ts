@@ -6,7 +6,7 @@
 // bookmarked. Countries can also be pinned as popups (up to eight, on their
 // panel) and sent to the side panel's pinboard; both are saved with the layout.
 
-export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks";
+export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks" | "bands" | "shares";
 export type Layout = "1" | "2h" | "2v" | "3" | "3h" | "4" | "5" | "6";
 export type Group = "A" | "B";
 // The indicator id for "None" on a map: no colours, only the layers.
@@ -80,7 +80,7 @@ export const CHANGE_COL = "chg10";
 
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true, range: false };
 
-const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks"];
+const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks", "bands", "shares"];
 export const MAX_PANELS = 6;
 export const MAX_SELECTION = 8; // one categorical colour each
 export const MAX_PINS = 8;
@@ -697,6 +697,11 @@ export const STARTERS: { name: string; query: string }[] = [
       { view: "ranks", indicator: "gdp_usd", rk: "1980:10,g:g20,,0" },
       { view: "ranks", indicator: "gdp_ppp_per_capita", rk: "1990:5,a,,15" },
     ], ["NZL", "AUS", "CHN", "IND"]) },
+  { name: "Growth bands and the world's people (pictures)",
+    query: starter("2h", [
+      { view: "bands", indicator: "gdp_growth" },
+      { view: "shares", indicator: "pop_total" },
+    ], ["NZL"]) },
 ];
 
 // A link to the map with some layers on (and a time window for the timed ones), for other pages.

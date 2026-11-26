@@ -361,3 +361,7 @@ def test_topics_and_ranking(client):
     r = client.get("/api/v1/indicators/tfr/ranking", params={"year": 2020}).json()
     assert r["year"] == 2020 and r["rows"][0]["rank"] == 1 and r["rows"][0]["value"] >= r["rows"][-1]["value"]
     assert r["world"]["entity_id"] == "world"
+    # each country's continent, for the value-band and share-of-world pictures (Americas split in two)
+    where = {x["entity_id"]: x["continent"] for x in r["rows"]}
+    assert where.get("NZL") == "Oceania" and where.get("USA") == "North America"
+    assert where.get("BRA", "South America") == "South America"

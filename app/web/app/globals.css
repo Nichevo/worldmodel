@@ -1621,3 +1621,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .wx-rain { color: #2878e6; font-size: 11px; }
 .wx-chart { width: 100%; height: auto; display: block; }
 @media (max-width: 640px) { .wx-card { right: 10px; width: calc(100% - 20px); } }
+
+/* Value bands and share-of-world pictures (CountryBands, ShareCircle) */
+.pic-wrap { display: flex; flex-direction: column; gap: 6px; }
+.pic-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pic-scroll { overflow: auto; }
+.pic-scroll svg { display: block; font-family: inherit; }
+.bands-pic .band-tile rect { transition: fill 0.12s; }
+.share-pic path { transition: fill 0.12s; }
