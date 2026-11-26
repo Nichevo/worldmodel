@@ -154,6 +154,8 @@ function hashKey(t: string): string {
   return h.toString(36);
 }
 
+const LIVE_NAME: Record<string, string> = { live_ships: "Ships", live_planes: "Planes", live_military: "Military planes" };
+
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
@@ -169,6 +171,14 @@ export default function WorldMap({
   // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
   const [info, setInfo] = useState<FeatureInfo | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Live layers' status for the badge on the map: asking now, how many came back and when, or the error.
+  const [liveState, setLiveState] = useState<Record<string, { loading: boolean; at?: number; count?: number; error?: string; every: number }>>({});
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!Object.keys(liveState).length) return;
+    const t = setInterval(() => setTick((n) => n + 1), 5000);
+    return () => clearInterval(t);
+  }, [Object.keys(liveState).length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
   // Why the map detail isn't the one picked in Settings (online tiles not answering), and a way to try again.
   const [detailNote, setDetailNote] = useState<string | null>(null);
   const [detailTry, setDetailTry] = useState(0);
@@ -681,11 +691,15 @@ export default function WorldMap({
       const load = () => {
         const b = m.getBounds();
         const n = ++asked;
+        const isLive = style.fetch === "live";
+        if (isLive) setLiveState((cur) => ({ ...cur, [id]: { ...cur[id], loading: true, every: style.every ?? 60 } }));
         windowData(id, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom()).then((fc) => {
           if (!live || n !== asked) return;
           if (style.timed && fc.loaded === false && id === "conflict_events") fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
           const asOf = id === "port_pressure" ? (fc.features[0]?.properties as { from?: string; as_of?: string } | undefined) : undefined;
           (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
+          if (isLive) setLiveState((cur) => ({ ...cur, [id]: { loading: false, at: Date.now(), count: fc.features.length, every: style.every ?? 60,
+            error: fc.error ? String(fc.error) : !fc.features.length && fc.note ? String(fc.note) : undefined } }));
           const legend = LAYER_STYLE[id].legend;
           const note = fc.error ? `${legend}: ${fc.error}`
             : style.fetch === "live" ? `${legend}: ${fc.features.length.toLocaleString()} in view${!fc.features.length && fc.note ? ` (${fc.note})` : ""}`
@@ -693,7 +707,11 @@ export default function WorldMap({
             : style.timed ? `Fighting and unrest: ${fc.features.length.toLocaleString()}${fc.capped ? " biggest" : ""} in view${fc.note ? ` (${fc.note})` : ""}`
             : fc.loaded === false && fc.note ? `${legend}: ${fc.note}` : "";
           setNotes((cur) => ({ ...cur, [id]: note }));
-        }).catch((e) => setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${String(e?.message ?? e)}` })));
+        }).catch((e) => {
+          if (n !== asked || !live) return;
+          setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${String(e?.message ?? e)}` }));
+          if (isLive) setLiveState((cur) => ({ ...cur, [id]: { ...cur[id], loading: false, every: style.every ?? 60, error: `could not ask the server (${String(e?.message ?? e)})` } }));
+        });
       };
       const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
       if (!style.once) m.on("moveend", soon);
@@ -708,6 +726,7 @@ export default function WorldMap({
         if (timer) clearTimeout(timer);
         if (every) clearInterval(every);
         setNotes((cur) => { const { [id]: _gone, ...rest } = cur; return rest; });
+        setLiveState((cur) => { const { [id]: _gone, ...rest } = cur; return rest; });
       };
     };
     const apply = () => {
@@ -1012,6 +1031,23 @@ export default function WorldMap({
   return (
     <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" />
+        {Object.keys(liveState).length > 0 && (
+          <div className="map-live" role="status" aria-live="polite">
+            {Object.entries(liveState).map(([id, s]) => {
+              const name = LIVE_NAME[id] ?? LAYER_STYLE[id]?.legend ?? id;
+              const ago = s.at ? Math.round((Date.now() - s.at) / 1000) : null;
+              const when = ago == null ? "" : ago < 10 ? "just now" : ago < 90 ? `${ago} s ago` : `${Math.round(ago / 60)} min ago`;
+              const stale = ago != null && ago > s.every * 3;
+              return (
+                <span key={id} className={s.error || stale ? "bad" : undefined} title={s.error ?? `Asked again every ${s.every} s while this tab is open`}>
+                  {s.loading ? <i className="spin" /> : !s.error && !stale ? <i className="ok" /> : null}
+                  {s.loading && s.at == null ? `${name}: loading…`
+                    : s.error ? `${name}: ${s.error.length > 90 ? `${s.error.slice(0, 90)}…` : s.error}`
+                    : `${name}: ${(s.count ?? 0).toLocaleString()} in view, ${s.loading ? "updating…" : `updated ${when}`}${stale ? " (no answer since)" : ""}`}
+                </span>);
+            })}
+          </div>
+        )}
         {info && (
           <div className="map-info" role="dialog" aria-label={info.title}>
             <div className="row"><b>{info.title}</b><span className="spacer" />

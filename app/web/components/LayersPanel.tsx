@@ -163,6 +163,9 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
         ...(hospLists.length < HOSPITAL_LISTS.length
           ? [["any", ["!", ["has", "found"]], ...hospLists.map((k) => ["in", HOSPITAL_LIST_NAME[k], ["get", "found"]])]] : []),
         ...(hospKinds.length < 3 ? [["in", ["coalesce", ["get", "tier"], "hospital"], ["literal", hospKinds]]] : [])],
+      // Ship kinds and plane types switched off with the chips in the Layers panel.
+      live_ships: hiddenFilter(st.map_ships_hidden),
+      live_planes: hiddenFilter(st.map_planes_hidden),
     };
     const legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[] = [];
     if (on("w") && outlines.length) {
@@ -236,7 +239,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     if (wx?.run && forecastFields(letters).length) all.wx_temp = all.wx_rain = all.wx_cloud = all.wx_wind = all.wx_pressure = wx.steps.length < wx.all_steps.length
       ? `${wx.steps.length} of ${wx.all_steps.length} forecast hours in` : `next ${wx.days} days, every ${wx.step_hours} hours`;
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const TAG_COLOUR: Record<string, string> = {
@@ -619,14 +622,40 @@ function HospitalPick() {
   );
 }
 
+function hiddenFilter(hidden?: string): unknown[] | null {
+  const off = (hidden ?? "").split(",").filter(Boolean);
+  return off.length ? ["!", ["in", ["coalesce", ["get", "group"], "unknown"], ["literal", off]]] : null;
+}
+
+// Coloured chips for a layer's kinds; clicking one hides or shows that kind on the map (kept in settings).
+function KindChips({ groups, setting }: { groups: { id: string; label: string; color: string }[]; setting: "map_ships_hidden" | "map_planes_hidden" }) {
+  const hidden = (useSettings()[setting] ?? "").split(",").filter(Boolean);
+  const save = (v: string[]) => saveSettings({ [setting]: v.join(",") });
+  const only = (id: string) => save(groups.map((g) => g.id).filter((x) => x !== id));
+  return (
+    <>
+      <div className="chips-row">
+        {groups.map((g) => {
+          const off = hidden.includes(g.id);
+          return (
+            <button key={g.id} className="chip small" aria-pressed={!off} style={{ opacity: off ? 0.45 : 1, textDecoration: off ? "line-through" : undefined }}
+              title={off ? "Hidden: click to show. Shift-click to show only this kind." : "Click to hide. Shift-click to show only this kind."}
+              onClick={(e) => e.shiftKey ? only(g.id) : save(off ? hidden.filter((x) => x !== g.id) : [...hidden, g.id])}>
+              <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}
+            </button>);
+        })}
+      </div>
+      <p className="caption">Click a kind to hide or show it; shift-click to show only that kind.
+        {hidden.length ? <> {hidden.length} hidden. <button className="link small" onClick={() => save([])}>Show all</button></> : null}</p>
+    </>
+  );
+}
+
 function Kinds({ title, groups, href }: { title: string; groups: { id: string; label: string; color: string }[]; href: string }) {
   return (
     <div className="lp-section">
       <div className="lp-label">{title} <Link className="small" href={href}>Table</Link></div>
-      <div className="chips-row">
-        {groups.map((g) => <span key={g.id} className="chip small" style={{ cursor: "default" }}>
-          <i className="dot" style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}</span>)}
-      </div>
+      <KindChips groups={groups} setting="map_planes_hidden" />
       <p className="caption">Shapes point where each is heading. Click one for where it came from and where it is going.</p>
     </div>
   );
@@ -666,10 +695,7 @@ function ShipsTime() {
           </div>
         </>
       ) : <p className="caption">The time slider appears once ships have been saved for a while.</p>}
-      <div className="chips-row">
-        {SHIP_GROUPS.map((g) => <span key={g.id} className="chip small" style={{ cursor: "default" }}>
-          <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}</span>)}
-      </div>
+      <KindChips groups={SHIP_GROUPS} setting="map_ships_hidden" />
       <p className="caption">
         {st?.collecting
           ? <>Saving ships for {st.area}{st.world_every_hours ? `, and the whole world for 10 minutes every ${st.world_every_hours} hours` : ""}:

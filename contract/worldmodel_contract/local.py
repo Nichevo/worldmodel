@@ -76,6 +76,8 @@ SETTINGS: dict[str, object] = {
     # comma-list check keeps them; the 1st version's names were lower-cased and "Official lists" dropped).
     "map_hospital_sources": "wikidata,osm,overture,national",
     "map_hospital_kinds": "hospital",  # likely kinds the map shows: hospital, unsure, clinic (likely hospitals only at first)
+    "map_ships_hidden": "",   # ship kinds the map's Ships layer leaves out (cargo, tanker ...), comma separated
+    "map_planes_hidden": "",  # plane types the map's Planes layer leaves out (airliner, light ...), comma separated
     "hospitals_osm_fetch": True,     # refresh fetches OpenStreetMap's hospitals (healthsites.io on HDX, every 3 months) and hospital counts
     "hospitals_overture_fetch": True,  # refresh reads Overture's hospitals for the countries below (every 6 months)
     "hospitals_overture_countries": "",  # three-letter codes, comma separated; empty: the countries in contract health.py
@@ -151,6 +153,9 @@ SETTINGS: dict[str, object] = {
     "ships_area": "pacific",             # where ships are collected: pacific (NZ, Australia, South Pacific) or world
     "ships_world_every_hours": 6,        # with the Pacific area: also a 10-minute whole-world snapshot this often (0: none)
     "ships_keep_days": 30,               # days of saved ship positions kept (older days deleted)
+    "ship_owners_gfw": True,             # a ship's details ask Global Fishing Watch for owners and registries (needs GFW_API_TOKEN)
+    "ship_owners_wikidata": True,        # ... and Wikidata for builder, operator and owner by IMO number
+    "ship_owners_equasis": True,         # ... and show an Equasis link (owners and managers, after signing in)
     "live_cameras": True,                # the map's Cameras layer reads road agencies' public camera lists (and Windy's, with WINDY_WEBCAMS_API_KEY)
     "live_military_planes": True,        # Planes now can show military planes only, from adsb.lol's volunteer receivers (no key)
     # Detail from the OSINT communities (connectors/conflict_events.py, wars.py, outages.py, sanctions_now.py, military.py)
@@ -315,7 +320,7 @@ TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reli
          "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities", "spot_ask_model", "spot_scan_model"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off"}  # comma-separated ids, order kept
+IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off", "map_ships_hidden", "map_planes_hidden"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
 LETTERS = {"map_open_layers"}  # map layer letters, each once
 LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30

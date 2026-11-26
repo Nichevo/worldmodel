@@ -24,9 +24,13 @@ OPENSKY_TRACK = "https://opensky-network.org/api/tracks/all"
 ADSB_ROUTES = "https://api.adsb.lol/api/0/routeset"
 ADSB_HEX = "https://api.adsb.lol/v2/hex/{}"
 ROUTE_KEEP = 6 * 3600
+TRACK_KEEP = 30 * 60      # a plane's path is asked of OpenSky at most once in this time
+AIRCRAFT_KEEP = 24 * 3600  # registration and type change rarely
 _lock = threading.Lock()
 _index: dict[str, tuple[float, dict]] = {}
 _routes: dict[str, tuple[float, dict | None]] = {}
+_tracks: dict[str, tuple[float, dict]] = {}
+_aircraft_kept: dict[str, tuple[float, dict | None]] = {}
 
 
 def _layer(q: Q, layer_id: str) -> list[dict]:
@@ -160,12 +164,47 @@ def _nearest_airport(index: dict, lon: float, lat: float, within_km: float = 25)
 
 def plane_journey(q: Q, auth: Callable[[httpx.Client], dict], icao24: str, callsign: str | None,
                   lat: float | None, lon: float | None) -> dict:
+    """A plane's path, route and details. Each part is kept once asked (path 30 minutes, route
+    6 hours, aircraft a day), so clicking the same plane again asks no one."""
+    icao24 = icao24.lower()
+    with _lock:
+        hit = _tracks.get(icao24)
+    if hit and time.time() - hit[0] < TRACK_KEEP:
+        out = {**hit[1], "kept_at": int(hit[0])}
+    else:
+        out = _track(q, auth, icao24)
+        if out.get("track") or out.get("kept_ok"):
+            with _lock:
+                _tracks[icao24] = (time.time(), out)
+                for k in [k for k, v in _tracks.items() if time.time() - v[0] > TRACK_KEEP]:
+                    _tracks.pop(k, None)
+    out = {k: v for k, v in out.items() if k != "kept_ok"}
+    if callsign:
+        from worldmodel_api.airlines import airline
+
+        out["airline"] = airline(callsign)
+        out["route"] = _route(callsign, lat, lon)
+    with _lock:
+        hit_a = _aircraft_kept.get(icao24)
+    if hit_a and time.time() - hit_a[0] < AIRCRAFT_KEEP:
+        out["aircraft"] = hit_a[1]
+    else:
+        out["aircraft"] = _aircraft(icao24)
+        if out["aircraft"]:
+            with _lock:
+                _aircraft_kept[icao24] = (time.time(), out["aircraft"])
+    return out
+
+
+def _track(q: Q, auth: Callable[[httpx.Client], dict], icao24: str) -> dict:
+    """The plane's path this flight from OpenSky; kept_ok marks an answer worth keeping (a path, or no flight)."""
     out: dict = {"track": None, "route": None, "from_airport": None, "note": None}
     try:
         with httpx.Client(timeout=20) as client:
             r = client.get(OPENSKY_TRACK, params={"icao24": icao24.lower(), "time": 0}, headers=auth(client))
             if r.status_code == 404:
                 out["note"] = "OpenSky has no path for this flight yet."
+                out["kept_ok"] = True
             elif r.status_code == 429:
                 out["note"] = "OpenSky's daily limit is used up, so no path for now."
             else:
@@ -191,9 +230,6 @@ def plane_journey(q: Q, auth: Callable[[httpx.Client], dict], icao24: str, calls
                     out["from_airport"] = _nearest_airport(airports(q), start[0], start[1])
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         out["note"] = f"OpenSky did not answer for the path ({exc.__class__.__name__})."
-    if callsign:
-        out["route"] = _route(callsign, lat, lon)
-    out["aircraft"] = _aircraft(icao24)
     return out
 
 

@@ -4037,6 +4037,23 @@ def live_ship_detail(mmsi: int):
     return got
 
 
+@api.get("/live/ships/owner/{mmsi}")
+def live_ship_owner(mmsi: int):
+    """Who owns, runs and built a ship: Global Fishing Watch (with a token), Wikidata by IMO, an Equasis link."""
+    from worldmodel_api import live, shipowners
+
+    got = live.SHIPS.detail(mmsi)
+    if got is None:
+        raise HTTPException(404, "no ship with that MMSI seen")
+    global _SHIP_OWNERS
+    if _SHIP_OWNERS is None or _SHIP_OWNERS.file.parent != live.SHIPS.store.folder:
+        _SHIP_OWNERS = shipowners.Owners(live.SHIPS.store.folder)
+    return shipowners.owner(_SHIP_OWNERS, mmsi, got, live.SHIPS.settings())
+
+
+_SHIP_OWNERS = None
+
+
 @api.get("/live/ships/journey/{mmsi}")
 def live_ship_journey(mmsi: int, hours: float = Query(72, gt=0, le=24 * 400)):
     """Where a ship has been (its saved path) and where it says it is going (its destination, matched to a port)."""

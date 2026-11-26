@@ -21,7 +21,7 @@ type Ship = {
 type Plane = {
   id: string; callsign: string | null; country: string | null; altitude_m: number | null; speed_kmh: number | null; heading: number | null;
   climb_ms: number | null; squawk: string | null; seen: number | null; category: number | null; category_name: string | null; group: string;
-  lat: number; lon: number;
+  lat: number; lon: number; airline?: string | null; airline_code?: string | null;
 };
 
 const when = (t?: number | null) => (t ? new Date(t * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
@@ -147,6 +147,7 @@ function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
             <table className="small"><tbody>{rows.filter(([, v]) => v !== "" && v != null).map(([k, v]) => <tr key={k}><th style={{ textAlign: "left", paddingRight: 12 }}>{k}</th><td>{v}</td></tr>)}</tbody></table>
             <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>
             {j ? journeyText(j, false).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>) : <p className="small muted">Loading…</p>}
+            <OwnerPart id={id} />
             <p className="small"><Link href={mapLayersHref("S")}>Ships on the map</Link> (click the ship there to draw its path)
               {(s.links ?? []).map((l) => <span key={l.href}> · <a href={l.href} target="_blank" rel="noreferrer">{l.label}</a></span>)}</p>
           </>
@@ -156,10 +157,73 @@ function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+type Owner = {
+  imo: string | null; notes: string[];
+  gfw: null | { error?: string; none?: boolean; name?: string; flag?: string; built?: number | string; gear?: string; tonnage_gt?: number; link?: string | null;
+    owners?: { name: string; flag?: string; from?: string; to?: string }[]; flags?: { flag: string; from?: string; to?: string }[];
+    authorisations?: { by?: string; from?: string; to?: string }[] };
+  wikidata: null | { error?: string; none?: boolean; builder?: string[]; operator?: string[]; owner?: string[]; class?: string | null;
+    launched?: string | null; entered_service?: string | null; image?: string | null; wikipedia?: string | null; link?: string | null };
+  equasis: null | { href: string; how: string };
+};
+
+// Who owns, runs and built the ship (Settings > Transport picks the sources).
+function OwnerPart({ id }: { id: string }) {
+  const [o, setO] = useState<Owner | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    get<Owner>(`/live/ships/owner/${encodeURIComponent(id)}`).then((x) => live && setO(x)).catch((e) => live && setErr(String(e.message ?? e)));
+    return () => { live = false; };
+  }, [id]);
+  if (err) return null;
+  if (!o) return <><h3 className="small" style={{ marginBottom: 2 }}>Owner and builder</h3><p className="small muted">Asking Global Fishing Watch and Wikidata…</p></>;
+  const span = (a?: string, b?: string) => (a || b ? ` (${a ?? "?"} to ${b ?? "now"})` : "");
+  const g = o.gfw, w = o.wikidata;
+  const lines: React.ReactNode[] = [];
+  if (w && !w.error && !w.none) {
+    if (w.builder?.length) lines.push(<>Built by {w.builder.join(", ")}{w.launched ? `, launched ${w.launched}` : ""}</>);
+    else if (w.launched) lines.push(<>Launched {w.launched}</>);
+    if (w.owner?.length) lines.push(<>Owner: {w.owner.join(", ")}</>);
+    if (w.operator?.length) lines.push(<>Operator: {w.operator.join(", ")}</>);
+    if (w.class) lines.push(<>Class: {w.class}</>);
+  }
+  if (g && !g.error && !g.none) {
+    for (const ow of (g.owners ?? []).slice(0, 4)) lines.push(<>Registered owner: {ow.name}{ow.flag ? ` [${ow.flag}]` : ""}{span(ow.from, ow.to)}</>);
+    if (g.built && !(w && w.launched)) lines.push(<>Built {g.built}</>);
+    if (g.gear) lines.push(<>Gear: {g.gear}</>);
+    if ((g.flags ?? []).length > 1) lines.push(<>Flags over time: {g.flags!.map((f) => `${f.flag}${f.from ? ` from ${f.from.slice(0, 4)}` : ""}`).join(", ")}</>);
+    if ((g.authorisations ?? []).length) lines.push(<>Authorised by: {[...new Set(g.authorisations!.map((a) => a.by).filter(Boolean))].join(", ")}</>);
+  }
+  const said: string[] = [];
+  if (g?.none) said.push("Global Fishing Watch does not know this ship");
+  if (g?.error) said.push(`Global Fishing Watch: ${g.error}`);
+  if (w?.none) said.push("Wikidata has no ship with this IMO number");
+  if (w?.error) said.push(`Wikidata ${w.error}`);
+  if (!g && !w && !o.equasis && !o.notes.length) return null;
+  return (
+    <>
+      <h3 className="small" style={{ marginBottom: 2 }}>Owner and builder</h3>
+      {w?.image && <img src={`${w.image.replace("http://", "https://")}?width=300`} alt="" style={{ maxWidth: 300, maxHeight: 160, display: "block", margin: "4px 0" }} />}
+      {lines.map((l, i) => <p key={i} className="small" style={{ margin: "2px 0" }}>{l}</p>)}
+      {!lines.length && <p className="small muted" style={{ margin: "2px 0" }}>Nothing found in the free sources.</p>}
+      {[...said.map((t) => `${t}.`), ...o.notes].map((t) => <p key={t} className="caption" style={{ margin: "2px 0" }}>{t}</p>)}
+      <p className="small" style={{ margin: "2px 0" }}>
+        {[g?.link && <a key="g" href={g.link} target="_blank" rel="noreferrer">Global Fishing Watch</a>,
+          w?.wikipedia && <a key="wp" href={w.wikipedia} target="_blank" rel="noreferrer">Wikipedia</a>,
+          w?.link && <a key="w" href={w.link} target="_blank" rel="noreferrer">Wikidata</a>,
+          o.equasis && <span key="e"><a href={o.equasis.href} target="_blank" rel="noreferrer">Equasis</a> <span className="muted">({o.equasis.how})</span></span>]
+          .filter(Boolean).flatMap((x, i) => (i ? [" · ", x] : [x]))}
+      </p>
+    </>
+  );
+}
+
 function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string | null) => void }) {
   const [d, setD] = useState<{ planes: Plane[]; at: number | null; note: string } | null>(null);
   const [q, setQ] = useState("");
   const [group, setGroup] = useState("");
+  const [line, setLine] = useState("");
   const [sort, setSort] = useState<keyof Plane>("altitude_m");
   useEffect(() => {
     let live = true;
@@ -170,32 +234,44 @@ function Planes({ open, setOpen }: { open: string | null; setOpen: (id: string |
   }, []);
   const rows = useMemo(() => {
     const ql = q.trim().toLowerCase();
-    return (d?.planes ?? []).filter((p) => (!group || p.group === group) && (!ql || [p.callsign, p.id, p.country].some((x) => String(x ?? "").toLowerCase().includes(ql))))
+    return (d?.planes ?? []).filter((p) => (!group || p.group === group) && (!line || (line === "-" ? !p.airline : p.airline === line))
+      && (!ql || [p.callsign, p.id, p.country, p.airline].some((x) => String(x ?? "").toLowerCase().includes(ql))))
       .sort((a, b) => {
         const x = a[sort], y = b[sort];
         return typeof x === "number" || typeof y === "number" ? ((y as number) ?? -1e9) - ((x as number) ?? -1e9) : String(x ?? "").localeCompare(String(y ?? ""));
       });
-  }, [d, q, group, sort]);
+  }, [d, q, group, line, sort]);
+  // Airlines in the last answer, most planes first.
+  const airlines = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const p of d?.planes ?? []) if (p.airline) c.set(p.airline, (c.get(p.airline) ?? 0) + 1);
+    return [...c.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [d]);
   const picked = rows.find((p) => p.id === open) ?? d?.planes.find((p) => p.id === open);
   const head = (key: keyof Plane, label: string) => <th><button className="link small" onClick={() => setSort(key)}>{label}{sort === key ? " ▼" : ""}</button></th>;
   return (
     <section className="card">
       <p className="caption">{d?.note ?? "Loading…"} {d?.at ? `Read ${when(d.at)}.` : ""} Turn on Planes now on <Link href={mapLayersHref("F")}>the map</Link> and move it to where you want planes listed.</p>
       <div className="table-tools small">
-        <label>Find <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Callsign, hex code, country" /></label>
+        <label>Find <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Callsign, hex code, country, airline" /></label>
         <label>Type <select value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="">All</option>{PLANE_GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+        </select></label>
+        <label>Airline <select value={line} onChange={(e) => setLine(e.target.value)} style={{ maxWidth: 220 }}>
+          <option value="">All</option><option value="-">No airline (private, military, other)</option>
+          {airlines.map(([a, k]) => <option key={a} value={a}>{a} ({n(k)})</option>)}
         </select></label>
         <span className="muted">{n(rows.length)} planes</span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="small">
-          <thead><tr>{head("callsign", "Callsign")}{head("category_name", "Type")}{head("country", "Registered in")}{head("altitude_m", "Height")}
+          <thead><tr>{head("callsign", "Callsign")}{head("airline", "Airline")}{head("category_name", "Type")}{head("country", "Registered in")}{head("altitude_m", "Height")}
             {head("speed_kmh", "Speed")}{head("climb_ms", "Climbing")}{head("squawk", "Squawk")}</tr></thead>
           <tbody>
             {rows.slice(0, 1000).map((p) => (
               <tr key={p.id} onClick={() => setOpen(p.id)} style={{ cursor: "pointer" }} className={open === p.id ? "selected" : undefined}>
                 <td>{dot(PLANE_GROUPS, p.group)}{p.callsign ?? <span className="muted">{p.id}</span>}</td>
+                <td>{p.airline ?? ""}</td>
                 <td>{p.category_name ?? <span className="muted">not sent</span>}</td>
                 <td>{p.country ?? ""}</td>
                 <td>{p.altitude_m != null ? `${n(p.altitude_m)} m` : ""}</td>

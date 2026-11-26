@@ -22,6 +22,8 @@ import time
 
 import httpx
 
+from worldmodel_api.airlines import airline
+
 log = logging.getLogger(__name__)
 
 OPENSKY = "https://opensky-network.org/api/states/all"
@@ -146,6 +148,7 @@ class Planes:
                     continue
                 seen.add(st[0])
                 cat = st[17] if len(st) > 17 and isinstance(st[17], int) else None
+                al = airline(st[1])
                 feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(st[5], 4), round(st[6], 4)]},
                               "properties": {"id": st[0], "callsign": (st[1] or "").strip() or None, "country": st[2],
                                              "altitude_m": round(st[7]) if st[7] is not None else None,
@@ -154,7 +157,8 @@ class Planes:
                                              "climb_ms": round(st[11], 1) if len(st) > 11 and st[11] is not None else None,
                                              "squawk": st[14] if len(st) > 14 else None,
                                              "seen": st[4] if len(st) > 4 else None,
-                                             "category": cat, "group": plane_group(cat)}})
+                                             "category": cat, "group": plane_group(cat),
+                                             "airline": al["name"] if al else None}})
             self.last = {"type": "FeatureCollection", "features": feats, "at": int(time.time())}
             self.last_at, self.last_box = time.time(), bx
             return self._filter(self.last, bx)
@@ -166,6 +170,8 @@ class Planes:
             p = dict(f["properties"])
             p["lon"], p["lat"] = f["geometry"]["coordinates"]
             p["category_name"] = PLANE_CATEGORY.get(p.get("category")) if p.get("category") is not None else None
+            al = airline(p.get("callsign"))
+            p["airline"], p["airline_code"], p["airline_country"] = (al["name"], al["code"], al["country"]) if al else (None, None, None)
             rows.append(p)
         return {"planes": rows, "at": (self.last or {}).get("at"), "source": "OpenSky Network",
                 "note": "The planes in the map's area from the last request (the map asks every one to three minutes while Planes now is on)."}
@@ -227,6 +233,7 @@ RETRY_AFTER = 30.0     # seconds before trying aisstream again after the listene
 OPEN_TIMEOUT = 60      # aisstream can take 20 s or more to answer a new connection
 TIDY_EVERY = 3600.0    # seconds between turning finished days into Parquet and deleting old ones
 WORLD_LISTEN = 10 * 60  # how long each whole-world snapshot listens
+WORLD_FIRST_AFTER = 30 * 60  # the first whole-world snapshot this long after the app starts
 DETAILS_EVERY = 300.0   # seconds between saves of the ships' details file
 SHIP_MESSAGES = ["PositionReport", "StandardClassBPositionReport", "ExtendedClassBPositionReport", "ShipStaticData", "StaticDataReport"]
 # Where Ships are collected in the background (Settings > Transport). aisstream boxes are
@@ -277,8 +284,8 @@ class Ships:
         self._settings: tuple[float, dict] = (0.0, {})
         self.tidied = 0.0
         self.details_saved = time.time()
-        self.world_thread: threading.Thread | None = None
-        self.world_at = 0.0          # when the last whole-world snapshot started
+        self.world_at = 0.0          # when the last whole-world snapshot started (0: not yet planned)
+        self.world_until = 0.0       # while before this, the one connection listens to the whole world
         self.world_note: str | None = None
 
     def settings(self) -> dict:
@@ -307,7 +314,9 @@ class Ships:
 
     def wanted_boxes(self) -> list:
         if self.collecting():
-            return self.area()[1]
+            # aisstream.io drops a key's connections when a second one opens, so the whole-world
+            # snapshot uses the same connection: it widens to the world for ten minutes, then back.
+            return SHIP_AREAS["world"][1] if time.time() < self.world_until else self.area()[1]
         with self.lock:
             return list(self.box or [])
 
@@ -340,10 +349,11 @@ class Ships:
                 if self.collecting():
                     self.ensure()
                 every = self.world_every()
-                if every and time.time() - self.world_at >= every and not (self.world_thread and self.world_thread.is_alive()):
-                    self.world_at = time.time()
-                    self.world_thread = threading.Thread(target=self._world, args=(self.key(),), daemon=True, name="aisstream-world")
-                    self.world_thread.start()
+                if every and not self.world_at:  # the first snapshot half an hour after the app starts
+                    self.world_at = time.time() - max(0.0, every - WORLD_FIRST_AFTER)
+                if every and time.time() - self.world_at >= every and self.connected:
+                    self.world_at, self.world_until = time.time(), time.time() + WORLD_LISTEN
+                    self.resubscribe.set()
                 if time.time() - self.details_saved >= DETAILS_EVERY:
                     self.details_saved = time.time()
                     self.store.save_details(int(self.settings().get("ships_keep_days") or 30))
@@ -502,40 +512,15 @@ class Ships:
                 "world_every_hours": self.world_every() / 3600, "world_note": self.world_note}
 
     # ------------------------------------------------------------------ whole-world snapshots
-    def _world(self, key: str) -> None:
-        """Listen to the whole world for ten minutes and save what reports (every few hours)."""
-        try:
-            got = asyncio.run(self._listen_world(key))
-            self.world_note = f"Last whole-world snapshot {time.strftime('%H:%M', time.localtime(self.world_at))}: {got:,} reports."
-        except Exception as exc:  # noqa: BLE001 - shown in the status
-            self.world_note = f"Whole-world snapshot failed: {_ship_error(exc).split(';')[0]}."
-            log.warning("aisstream world snapshot: %s", exc)
-
-    async def _listen_world(self, key: str) -> int:
-        import websockets
-
-        got, until = 0, time.time() + WORLD_LISTEN
-        async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, max_size=2**22) as ws:
-            await ws.send(json.dumps({"APIKey": key, "BoundingBoxes": [[[-90, -180], [90, 180]]],
-                                      "FilterMessageTypes": SHIP_MESSAGES}))
-            while time.time() < until and self.collecting():
-                try:
-                    raw = await asyncio.wait_for(ws.recv(), timeout=5)
-                except asyncio.TimeoutError:
-                    continue
-                msg = json.loads(raw)
-                if msg.get("error"):
-                    raise RuntimeError(str(msg["error"]))
-                got += 1
-                self.take(msg, count=False)
-        return got
-
     # ------------------------------------------------------------------ the connection
     def _run(self, key: str) -> None:
         try:
             asyncio.run(self._listen(key))
         except Exception as exc:  # noqa: BLE001 - shown on the map, not raised
             why = self.error or _ship_error(exc)
+            if time.time() < self.world_until:  # the snapshot failed: back to the area, try again next time
+                self.world_until = 0.0
+                self.world_note = f"Whole-world snapshot failed: {why.split(';')[0]}."
             with self.lock:
                 self.error, self.failed_at, self.connected = why, time.time(), False
             log.warning("aisstream stopped: %s (%s)", why, exc)
@@ -554,6 +539,7 @@ class Ships:
             if not bx:
                 return
             self.resubscribe.clear()
+            world, got = bx == SHIP_AREAS["world"][1] and self.area()[1] != bx, 0
             async with websockets.connect(AISSTREAM, open_timeout=OPEN_TIMEOUT, ping_interval=30, max_size=2**22) as ws:
                 await ws.send(json.dumps({"APIKey": key,
                                           "BoundingBoxes": [[[s, w], [n, e]] for w, s, e, n in bx],
@@ -569,7 +555,11 @@ class Ships:
                         raw = await asyncio.wait_for(ws.recv(), timeout=5)
                     except asyncio.TimeoutError:
                         continue
+                    got += 1
                     self.take(json.loads(raw))
+            if world:
+                self.world_until = 0.0
+                self.world_note = f"Last whole-world snapshot {time.strftime('%H:%M', time.localtime(self.world_at))}: {got:,} reports."
 
     def take(self, msg: dict, count: bool = True) -> None:
         """One aisstream message into the ships kept (and saved, while collecting). The whole-world

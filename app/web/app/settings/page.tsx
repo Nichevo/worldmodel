@@ -412,11 +412,17 @@ export default function SettingsPage() {
             <option value="world">The whole world, all the time (much more: 50 MB or more a day, and aisstream may drop the connection)</option>
           </select></label>
         <NumberField label="Whole-world snapshot every" unit="hours" value={s.ships_world_every_hours} min={0} max={168} step={1}
-          note="With the South Pacific area: also listen to the whole world for 10 minutes this often, so the map and the time slider have ships everywhere (as at the last snapshot). 0: none."
+          note="With the South Pacific area: also listen to the whole world for 10 minutes this often, so the map and the time slider have ships everywhere (as at the last snapshot). The one aisstream connection widens to the world for that time, then goes back; the first snapshot is half an hour after the app starts. 0: none."
           save={(v) => save({ ships_world_every_hours: v })} />
         <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
           note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
           save={(v) => save({ ships_keep_days: v })} />
+        <Toggle label="Ship owners: Global Fishing Watch" hint="Opening a ship's details asks Global Fishing Watch (free GFW_API_TOKEN in Settings > Keys, non-commercial use) for its registered owners, flag history and authorisations, kept 30 days. Strongest for fishing boats and their carriers. Off: that part of the details is left out."
+          on={s.ship_owners_gfw} set={(v) => save({ ship_owners_gfw: v })} />
+        <Toggle label="Ship owners: Wikidata" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner, year and picture, by IMO number. Only well-known ships are there. Off: that part is left out."
+          on={s.ship_owners_wikidata} set={(v) => save({ ship_owners_wikidata: v })} />
+        <Toggle label="Ship owners: Equasis link" hint="A ship's details link to Equasis (free sign-in), which has owners and managers for nearly every merchant ship; its terms forbid automated reading, so it is only a link. Off: no link."
+          on={s.ship_owners_equasis} set={(v) => save({ ship_owners_equasis: v })} />
         <Toggle label="Cameras (map layer)" hint="While the map's Cameras layer is on, the server reads the public camera lists of the road agencies whose area is in view (NZ Transport Agency, QLDTraffic, Live Traffic NSW with a free TFNSW_API_KEY, TfL, Caltrans, Fintraffic), kept six hours, and with a free WINDY_WEBCAMS_API_KEY asks Windy for webcams in the area in view (beaches, surf, harbours, cities). Pictures load straight from each owner when you click a camera; nothing is saved. Off: the layer stays empty."
           on={s.live_cameras} set={(v) => save({ live_cameras: v })} />
         <Toggle label="Military planes now (map layer)" hint="While the map's Military planes now layer is on, the server asks adsb.lol (volunteer receivers, no key) for military planes, at most once a minute, and keeps those in the area in view. Many military flights do not broadcast, so it is never the whole picture. Off: the layer stays empty."
