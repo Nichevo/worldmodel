@@ -130,14 +130,37 @@ def planes(rows: list[dict], groups: dict[str, str], top: int = TOP) -> dict:
 
 
 def _airport_text(a: dict | None) -> str:
-    return " ".join(str(a.get(k) or "") for k in ("name", "iata", "icao", "city", "country")).lower() if a else ""
+    return (" ".join(str(a.get(k) or "") for k in ("name", "iata", "icao", "city", "country")) + " " + (airport_country(a) or "")).lower() if a else ""
 
 
-def filter_planes(rows: list[dict], group: str = "", airline: str = "", flag: str = "", q: str = "", frm: str = "", to: str = "") -> list[dict]:
+def country_name(iso2: str | None) -> str | None:
+    """A two-letter country code as a name (from the ship flag list, which covers every country)."""
+    from worldmodel_api.shipflags import MID
+
+    global _NAMES
+    if _NAMES is None:
+        _NAMES = {iso: name for iso, name in MID.values()}
+    return _NAMES.get((iso2 or "").upper()) or (iso2 or None)
+
+
+_NAMES: dict | None = None
+
+
+def airport_country(a: dict | None) -> str | None:
+    return country_name(a.get("country")) if a else None
+
+
+def filter_planes(rows: list[dict], group: str = "", airline: str = "", flag: str = "", q: str = "", frm: str = "", to: str = "",
+                  from_country: str = "", to_country: str = "") -> list[dict]:
     """The plane rows matching the counts tab's filters (the same as the planes table's)."""
     ql, fl, tl = q.strip().lower(), frm.strip().lower(), to.strip().lower()
+    fc, tc = from_country.strip().lower(), to_country.strip().lower()
     out = []
     for p in rows:
+        if fc and (airport_country(p.get("from")) or "").lower() != fc:
+            continue
+        if tc and (airport_country(p.get("to")) or "").lower() != tc:
+            continue
         if group and p.get("group") != group:
             continue
         if airline and ((airline == "-" and p.get("airline")) or (airline != "-" and p.get("airline") != airline)):

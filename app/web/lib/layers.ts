@@ -62,6 +62,27 @@ export const CAMERA_KIND: Record<string, { label: string; color: string }> = {
   city: { label: "City", color: "#2b8a3e" },
   nature: { label: "Scenery", color: "#5c940d" },
 };
+// Who publishes each camera, for the Layers panel's switches and the camera card's credit line.
+export const CAMERA_SOURCE: { id: string; label: string; name: string; page: string }[] = [
+  { id: "nzta", label: "NZ highways", name: "NZ Transport Agency Waka Kotahi", page: "https://www.journeys.nzta.govt.nz/traffic-cameras/" },
+  { id: "qld", label: "Queensland", name: "QLDTraffic, Queensland Government", page: "https://qldtraffic.qld.gov.au/" },
+  { id: "nsw", label: "NSW", name: "Live Traffic NSW, Transport for NSW", page: "https://www.livetraffic.com/" },
+  { id: "tfl", label: "London", name: "Powered by TfL Open Data", page: "https://tfl.gov.uk/traffic/status/" },
+  { id: "caltrans", label: "California", name: "Caltrans", page: "https://quickmap.dot.ca.gov/" },
+  { id: "finland", label: "Finland", name: "Fintraffic Digitraffic (CC BY 4.0)", page: "https://www.digitraffic.fi/en/road-traffic/" },
+  { id: "windy", label: "Windy webcams", name: "Webcams provided by windy.com", page: "https://www.windy.com/webcams" },
+];
+// The map filter for the kinds, owners and offline cameras switched off in the Layers panel.
+export function cameraFilter(hidden?: string): unknown[] | null {
+  const off = (hidden ?? "").split(",").filter(Boolean);
+  const kinds = off.filter((x) => x in CAMERA_KIND);
+  const sources = off.filter((x) => CAMERA_SOURCE.some((s) => s.id === x));
+  const parts: unknown[] = [];
+  if (kinds.length) parts.push(["!", ["in", ["coalesce", ["get", "kind"], "traffic"], ["literal", kinds]]]);
+  if (sources.length) parts.push(["!", ["in", ["coalesce", ["get", "source"], ""], ["literal", sources]]]);
+  if (off.includes("offline")) parts.push(["!", ["boolean", ["get", "offline"], false]]);
+  return parts.length ? ["all", ...parts] : null;
+}
 const riverWidth: ExpressionSpecification =
   ["interpolate", ["linear"], ["coalesce", ["get", "order"], ["get", "rank"], 5], 1, 3.2, 3, 1.8, 5, 0.8, 7, 0.4];
 const zoomWidth = (w0: number, w5: number): ExpressionSpecification => ["interpolate", ["linear"], ["zoom"], 0, w0, 5, w5];

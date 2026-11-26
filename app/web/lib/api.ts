@@ -308,6 +308,7 @@ export type Settings = {
   map_hospital_kinds: string; // likely kinds the map shows: hospital, unsure, clinic
   map_ships_hidden: string; // ship kinds the Ships layer leaves out, comma separated
   map_planes_hidden: string; // plane types the Planes layer leaves out, comma separated
+  map_cameras_hidden: string; // camera kinds and owners the Cameras layer leaves out (traffic, beach, caltrans, windy, offline ...)
   hospitals_osm_fetch: boolean; // OpenStreetMap hospitals (healthsites.io) and hospital counts
   hospitals_overture_fetch: boolean; // Overture hospitals for the countries below
   hospitals_overture_countries: string; // three-letter codes; empty: contract health.py's list
@@ -338,7 +339,7 @@ export type Settings = {
   ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
   ships_keep_days: number; // days of saved ships kept
   ship_schedules: boolean; // cargo ships: ETA history, port calls, on time or late
-  port_lists_fetch: boolean; // read the Auckland and Tauranga arrival lists hourly
+  port_lists_fetch: boolean; // read the ports' arrival lists hourly (NZ and Australia)
   carrier_schedules: boolean; // ask Maersk, Hapag-Lloyd and CMA CGM schedules (with their keys)
   schedules_keep_days: number; // days of schedules kept
   planes_collect: boolean; // save the planes OpenSky sends the map (var/live/planes)

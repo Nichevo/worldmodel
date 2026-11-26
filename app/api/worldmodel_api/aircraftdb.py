@@ -134,7 +134,7 @@ class AircraftDb:
         out = dict(_block(key))
         hit = None
         with self.lock:
-            i = int(np.searchsorted(self.keys, key))
+            i = int(np.searchsorted(self.keys, np.uint32(key)))  # same dtype: a Python int would copy the whole array each call
             if i < len(self.keys) and int(self.keys[i]) == key:
                 hit = (self.regs[i].decode("ascii", "replace"), self.types[int(self.kinds[i])], bool(self.mil[i]))
         if hit:

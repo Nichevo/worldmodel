@@ -503,7 +503,7 @@ def live_ships_status():
 @api.get("/live/ships/table")
 def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "last_seen",
                      limit: int = Query(200, ge=1, le=2000), offset: int = Query(0, ge=0), hours: float = Query(0, ge=0),
-                     to: str = "", came: str = "", ontime: str = ""):
+                     to: str = "", came: str = "", ontime: str = "", from_country: str = "", to_country: str = ""):
     """Every ship seen: name, MMSI, IMO, call sign, flag, type, size, destination (matched to a port)
     and where it was last; `to` keeps ships going to a port, code or country containing it. Cargo
     ships also get on_time (on_time, early, slipping, late, none) and late_h; `ontime` keeps one state
@@ -513,7 +513,8 @@ def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "
     ix = journeys.ports(rows)
     now = time.time()
     fn = (lambda m: _schedule_of(m, ix, now)) if live.SHIPS.settings().get("ship_schedules", True) else None
-    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=ix, came=came, schedule_fn=fn, ontime=ontime)
+    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours, to=to, ports=ix, came=came, schedule_fn=fn, ontime=ontime,
+                              from_country=from_country, to_country=to_country)
     banned = osint.sanctioned_ship_ids(rows)
     for r in out["rows"]:
         r["sanctioned"] = bool(banned and (str(r["id"]) in banned or (r.get("imo") and str(r["imo"]) in banned)))
@@ -613,7 +614,7 @@ def live_ship_schedule(mmsi: int):
 
 @api.get("/live/schedules")
 def live_schedules(port: str = "", days: float = Query(7, gt=0, le=60)):
-    """The ports' arrival lists (Auckland, Tauranga) as a board: each ship's booked arrival, how often
+    """The ports' arrival lists (Auckland, Tauranga, NSW ports, Melbourne) as a board: each ship's booked arrival, how often
     the booking moved, its own ETA, our estimate and whether it is on time. `port` keeps one port."""
     from worldmodel_api import journeys, live
     from worldmodel_api.schedules import PORT_LISTS, line_of
@@ -694,7 +695,7 @@ PLANE_SORTS = {"callsign", "airline", "model", "reg", "country", "altitude_m", "
 @api.get("/live/planes/table")
 def live_planes_table(hours: float = Query(1, ge=0, le=24 * 7), q: str = "", group: str = "", airline: str = "",
                       frm: str = Query("", alias="from"), to: str = "", mins: float = Query(0, ge=0, le=24 * 60 * 7),
-                      sort: str = "", limit: int = Query(0, ge=0, le=100_000)):
+                      sort: str = "", limit: int = Query(0, ge=0, le=100_000), from_country: str = "", to_country: str = ""):
     """The planes from the last OpenSky request, and those saved in the last `hours` (the planes table).
     Filters as on the Live page (q any text, group, airline name or - for none, from, to, heard in the
     last `mins`), sorted by `sort` (numbers largest first); `limit` rows (0: all), with `total` matching
@@ -702,10 +703,17 @@ def live_planes_table(hours: float = Query(1, ge=0, le=24 * 7), q: str = "", gro
     from worldmodel_api import live, livestats
 
     out = live.PLANES.table(hours)
-    if not (q or group or airline or frm or to or mins or sort or limit):
-        return out
     every = out["planes"]
-    rows = livestats.filter_planes(every, group=group, airline=airline, q=q, frm=frm, to=to)
+    places: dict[str, dict[str, int]] = {"from": {}, "to": {}}  # countries flown from and to, for the filters' lists
+    for p in every:
+        for end in ("from", "to"):
+            c = livestats.airport_country(p.get(end))
+            if c:
+                places[end][c] = places[end].get(c, 0) + 1
+    countries = {k: sorted(v.items(), key=lambda kv: (-kv[1], kv[0])) for k, v in places.items()}
+    if not (q or group or airline or frm or to or mins or sort or limit or from_country or to_country):
+        return {**out, "countries": countries}
+    rows = livestats.filter_planes(every, group=group, airline=airline, q=q, frm=frm, to=to, from_country=from_country, to_country=to_country)
     if mins:
         since = time.time() - mins * 60
         rows = [p for p in rows if (p.get("seen") or 0) >= since]
@@ -718,7 +726,8 @@ def live_planes_table(hours: float = Query(1, ge=0, le=24 * 7), q: str = "", gro
         if p.get("airline"):
             counts[p["airline"]] = counts.get(p["airline"], 0) + 1
     airlines = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
-    return {**out, "planes": rows[:limit] if limit else rows, "total": len(rows), "all": len(every), "airlines": airlines}
+    return {**out, "planes": rows[:limit] if limit else rows, "total": len(rows), "all": len(every), "airlines": airlines,
+            "countries": countries}
 
 
 @api.get("/live/planes/status")

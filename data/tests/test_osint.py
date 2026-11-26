@@ -148,43 +148,53 @@ def test_ioda_download_asks_the_ioda_address(tmp_path, monkeypatch):
     c = outages.IODA()
     c.pause_seconds = 0
     monkeypatch.setattr(c, "last_vintage_dir", lambda raw: None)
-    monkeypatch.setattr(c, "get", lambda url, dest, **kw: asked.append(url))
+    monkeypatch.setattr(c, "get", lambda url, dest, **kw: asked.append(url) or dest.write_text('{"data": []}'))
     assert c.download(tmp_path, "x").startswith("https://api.ioda")
     assert asked and all(u.startswith("https://api.ioda.inetintel.cc.gatech.edu/v2/outages/events?entityType=country") for u in asked)
 
 
-def test_ioda_month_that_fails_is_tried_in_halves_then_skipped(tmp_path, monkeypatch):
-    """IODA answers HTTP 500 for some months: the month is asked in two halves, and one that
-    still fails is left out (asked again next time) instead of failing the whole source."""
+def test_ioda_windows_that_fail_are_split_then_skipped(tmp_path, monkeypatch):
+    """IODA answers HTTP 500/504 for some windows: a window that fails is asked in halves, down to
+    two days (with one retry); a month is kept only when all of it was read, and after two months
+    in a row fail outright the older ones wait for the next refresh."""
     import json as _json
 
     from worldmodel_data.connectors import outages
     from worldmodel_data.connectors.base import ConnectorError
 
     monkeypatch.setattr(outages, "_settings", lambda: {"ioda_from_year": 2023})
-    monkeypatch.setattr(outages, "date", type("D", (date,), {"today": staticmethod(lambda: date(2023, 3, 10))}))
+    monkeypatch.setattr(outages, "date", type("D", (date,), {"today": staticmethod(lambda: date(2023, 4, 10))}))
     c = outages.IODA()
     c.pause_seconds = 0
+    c.RETRY_PAUSE = 0
     monkeypatch.setattr(c, "last_vintage_dir", lambda raw: None)
-    jan, feb = outages._ts(date(2023, 1, 1)), outages._ts(date(2023, 2, 1))
+    ts = outages._ts
+    asked = []
 
     def get(url, dest, **kw):
         frm = int(url.split("from=")[1].split("&")[0])
         until = int(url.split("until=")[1].split("&")[0])
-        if frm == jan and until - frm > 20 * 86400:
-            raise ConnectorError("HTTP 500")  # January whole fails, its halves work
-        if feb <= frm < outages._ts(date(2023, 3, 1)):
-            raise ConnectorError("HTTP 500")  # February fails in every form
+        asked.append((frm, until))
+        if ts(date(2023, 1, 1)) <= frm < ts(date(2023, 2, 1)) and until - frm > 8 * 86400:
+            raise ConnectorError("HTTP 504")  # January answers only a week or less at a time
+        if frm < ts(date(2023, 2, 12)) and until > ts(date(2023, 2, 10)):
+            raise ConnectorError("HTTP 500")  # any window with these two days of February fails
         dest.write_text(_json.dumps({"data": [{"start": frm}]}), encoding="utf-8")
 
     monkeypatch.setattr(c, "get", get)
     c.download(tmp_path, "x")
     names = sorted(p.name for p in tmp_path.iterdir())
-    assert names == ["ioda_2023-01.json", "ioda_2023-03.json"]
-    assert len(_json.loads((tmp_path / "ioda_2023-01.json").read_text())["data"]) == 2
+    assert names == ["ioda_2023-01.json", "ioda_2023-03.json", "ioda_2023-04.json"]  # February left out
+    jan = _json.loads((tmp_path / "ioda_2023-01.json").read_text())["data"]
+    assert sorted(r["start"] for r in jan)[0] == ts(date(2023, 1, 1)) and len(jan) >= 4
+    assert asked[0][0] == ts(date(2023, 4, 1))  # newest month first
 
-    monkeypatch.setattr(c, "get", lambda url, dest, **kw: (_ for _ in ()).throw(ConnectorError("HTTP 500")))
+    # IODA down: two months fail outright, the rest are not asked this time.
+    asked.clear()
+    monkeypatch.setattr(c, "get", lambda url, dest, **kw: asked.append(url) or (_ for _ in ()).throw(ConnectorError("HTTP 504")))
     again = tmp_path / "again"
     again.mkdir()
     with pytest.raises(ConnectorError, match="no month"):
         c.download(again, "x")
+    april_and_march = {u.split("from=")[1].split("&")[0] for u in asked}
+    assert min(int(x) for x in april_and_march) >= ts(date(2023, 3, 1))

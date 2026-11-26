@@ -9,13 +9,14 @@ import { zoneTiles } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
 import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
-import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
+import { CAMERA_KIND, CAMERA_SOURCE, cameraFilter, LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { setShipsAt, usePlaneStatus, useShipStatus, useShipsAt } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
+import { showCameraWall, useCameraWall } from "@/lib/cameraWall";
 import { forecastFields, hasWaves, hasWeather, useRadar, useWeatherStatus, useWeatherStep, weatherRasters } from "@/lib/weather";
 import { GROUP_LABEL, KIND_GROUP, kindColor, yl } from "@/lib/long";
 import { setMapYear, useMapYear, useWorldIn, useYearEvents, yearMarks } from "@/lib/longYear";
@@ -166,6 +167,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       // Ship kinds and plane types switched off with the chips in the Layers panel.
       live_ships: hiddenFilter(st.map_ships_hidden),
       live_planes: hiddenFilter(st.map_planes_hidden),
+      live_cameras: cameraFilter(st.map_cameras_hidden),
     };
     const legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[] = [];
     if (on("w") && outlines.length) {
@@ -241,7 +243,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
     if (wx?.waves.run && hasWaves(letters)) all.wx_waves = all.wx_swell = wx.waves.steps.length < wx.waves.all_steps.length
       ? `${wx.waves.steps.length} of ${wx.waves.all_steps.length} wave steps in` : `next ${wx.days} days, every 6 hours`;
     return { outlines, marks, filters, legend, counts: all, start, end, cwMonth: cw?.month ?? null, areas: world, rasters };
-  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cw, ev, centres, counts, letters, start, end, minBeds, unsized, world, pastYear, past, pastLabels, spotted, st.spot_change_source, st.spot_change_from, st.spot_change_to, st.spot_water_show, wx, wxStep, rad, st.map_hospital_sources, st.map_hospital_kinds, st.map_ships_hidden, st.map_planes_hidden, st.map_cameras_hidden]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const TAG_COLOUR: Record<string, string> = {
@@ -533,6 +535,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
           {(panel.layers.includes("S") || panel.layers.includes("F")) && <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />}
           {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
           {panel.layers.includes("h") && <HospitalPick />}
+          {panel.layers.includes("-") && <CameraKinds />}
 
           <div className="lp-section">
             <div className="lp-label">Quick sets</div>
@@ -636,9 +639,14 @@ function hiddenFilter(hidden?: string): unknown[] | null {
 }
 
 // Coloured chips for a layer's kinds; clicking one hides or shows that kind on the map (kept in settings).
-function KindChips({ groups, setting }: { groups: { id: string; label: string; color: string }[]; setting: "map_ships_hidden" | "map_planes_hidden" }) {
-  const hidden = (useSettings()[setting] ?? "").split(",").filter(Boolean);
-  const save = (v: string[]) => saveSettings({ [setting]: v.join(",") });
+// One setting can hold several rows of chips (the Cameras layer's kinds and owners): each row
+// changes only its own ids.
+type ChipSetting = "map_ships_hidden" | "map_planes_hidden" | "map_cameras_hidden";
+function KindChips({ groups, setting, caption = true }: { groups: { id: string; label: string; color?: string; title?: string }[]; setting: ChipSetting; caption?: boolean }) {
+  const all = (useSettings()[setting] ?? "").split(",").filter(Boolean);
+  const mine = new Set(groups.map((g) => g.id));
+  const hidden = all.filter((x) => mine.has(x));
+  const save = (v: string[]) => saveSettings({ [setting]: [...all.filter((x) => !mine.has(x)), ...v].join(",") });
   const only = (id: string) => save(groups.map((g) => g.id).filter((x) => x !== id));
   return (
     <>
@@ -647,15 +655,38 @@ function KindChips({ groups, setting }: { groups: { id: string; label: string; c
           const off = hidden.includes(g.id);
           return (
             <button key={g.id} className="chip small" aria-pressed={!off} style={{ opacity: off ? 0.45 : 1, textDecoration: off ? "line-through" : undefined }}
-              title={off ? "Hidden: click to show. Shift-click to show only this kind." : "Click to hide. Shift-click to show only this kind."}
+              title={`${g.title ? `${g.title}. ` : ""}${off ? "Hidden: click to show. Shift-click to show only this one." : "Click to hide. Shift-click to show only this one."}`}
               onClick={(e) => e.shiftKey ? only(g.id) : save(off ? hidden.filter((x) => x !== g.id) : [...hidden, g.id])}>
-              <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}
+              {g.color && <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />}{g.label}
             </button>);
         })}
       </div>
-      <p className="caption">Click a kind to hide or show it; shift-click to show only that kind.
-        {hidden.length ? <> {hidden.length} hidden. <button className="link small" onClick={() => save([])}>Show all</button></> : null}</p>
+      {caption && <p className="caption">Click a kind to hide or show it; shift-click to show only that kind.
+        {hidden.length ? <> {hidden.length} hidden. <button className="link small" onClick={() => save([])}>Show all</button></> : null}</p>}
     </>
+  );
+}
+
+// The Cameras layer: switch kinds of camera, and whose cameras, on and off; the camera wall.
+function CameraKinds() {
+  const s = useSettings();
+  const hidden = (s.map_cameras_hidden ?? "").split(",").filter(Boolean);
+  const wall = useCameraWall();
+  return (
+    <div className="lp-section">
+      <div className="lp-label">Cameras</div>
+      <div className="caption" style={{ margin: "2px 0" }}>Kind</div>
+      <KindChips setting="map_cameras_hidden" caption={false}
+        groups={[...Object.entries(CAMERA_KIND).map(([id, k]) => ({ id, label: k.label, color: k.color })),
+          { id: "offline", label: "Offline", title: "Cameras their owner marks offline (hollow dots)" }]} />
+      <div className="caption" style={{ margin: "4px 0 2px" }}>Whose</div>
+      <KindChips setting="map_cameras_hidden" caption={false}
+        groups={CAMERA_SOURCE.map((x) => ({ id: x.id, label: x.label, title: x.name }))} />
+      <p className="caption">Click to hide or show; shift-click to show only that one.
+        {hidden.length ? <> {hidden.length} hidden. <button className="link small" onClick={() => saveSettings({ map_cameras_hidden: "" })}>Show all</button></> : null}
+        {" "}Click a camera for its picture; <b>Add to wall</b> on its card (or ctrl-click the dot) puts it on the camera wall, to watch several at once
+        {wall.length ? <> ({wall.length} on the wall. <button className="link small" onClick={() => showCameraWall(true)}>Show the wall</button>)</> : null}.</p>
+    </div>
   );
 }
 

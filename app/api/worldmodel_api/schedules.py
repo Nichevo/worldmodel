@@ -3,7 +3,7 @@
 - the ETA and destination each ship sends, kept every time they change (the ETA over time);
 - the port calls we see (a ship stopped within 15 km of a port, then moving again), from which a
   ship's usual route (its loop of ports) is learned;
-- the bookings in the ports' own arrival lists (Auckland and Tauranga, read hourly), every change kept;
+- the bookings in the ports' own arrival lists (Auckland, Tauranga, Port Botany, Sydney, Newcastle, Port Kembla and Melbourne, read hourly), every change kept;
 - the lines' published schedules (Maersk, Hapag-Lloyd, CMA CGM: the DCSA Commercial Schedules
   standard), when a free key is set.
 
@@ -32,6 +32,8 @@ import httpx
 log = logging.getLogger(__name__)
 
 NZ = ZoneInfo("Pacific/Auckland")
+SYDNEY = ZoneInfo("Australia/Sydney")
+MELBOURNE = ZoneInfo("Australia/Melbourne")
 DAY = 86400.0
 ON_TIME_H = 24.0      # within a day either way is on time
 SLIP_H = 12.0         # an ETA or booking pushed back this much is slipping
@@ -43,11 +45,24 @@ CARRIER_PER_ROUND = 30
 SEA_DETOUR = 1.15     # a straight line under-counts the way round land
 UA = {"User-Agent": "worldmodel (personal research tool)"}
 
+NSW_URL = "https://www.portauthoritynsw.com.au/port-operations/{0}/{0}-daily-vessel-movements"
 PORT_LISTS = {
     "auckland": {"name": "Auckland", "country": "New Zealand", "locode": "NZAKL", "lat": -36.843, "lon": 174.781,
                  "url": "https://www.poal.co.nz/operations/schedules/arrivals"},
     "tauranga": {"name": "Tauranga", "country": "New Zealand", "locode": "NZTRG", "lat": -37.646, "lon": 176.181,
                  "url": "https://www.port-tauranga.co.nz/operations/shipping-schedules/"},
+    # Port Authority of NSW: one page per port, the same layout (names, no IMO numbers)
+    "botany": {"name": "Port Botany", "country": "Australia", "locode": "AUBTB", "lat": -33.972, "lon": 151.221,
+               "url": NSW_URL.format("port-botany")},
+    "sydney": {"name": "Sydney Harbour", "country": "Australia", "locode": "AUSYD", "lat": -33.855, "lon": 151.195,
+               "url": NSW_URL.format("sydney-harbour")},
+    "newcastle": {"name": "Newcastle", "country": "Australia", "locode": "AUNTL", "lat": -32.917, "lon": 151.783,
+                  "url": NSW_URL.format("newcastle-harbour")},
+    "kembla": {"name": "Port Kembla", "country": "Australia", "locode": "AUPKL", "lat": -34.468, "lon": 150.906,
+               "url": NSW_URL.format("port-kembla")},
+    # Ports Victoria: Port Phillip (Melbourne and Geelong) on one page
+    "melbourne": {"name": "Melbourne", "country": "Australia", "locode": "AUMEL", "lat": -37.840, "lon": 144.925,
+                  "url": "https://ports.vic.gov.au/marine-operations/ship-movements/"},
 }
 
 # Which line runs a ship, by its name, for asking that line's schedule and for the reliability table.
@@ -161,7 +176,99 @@ def parse_tauranga(html: str) -> list[dict]:
     return out
 
 
-PARSERS = {"auckland": parse_poal, "tauranga": parse_tauranga}
+def _near_year(day: int, month: int, hour: int, minute: int, tz, now: float) -> float | None:
+    """A local date and time given without a year, in the year that puts it nearest to now."""
+    year, best = datetime.fromtimestamp(now, tz).year, None
+    for y in (year - 1, year, year + 1):
+        try:
+            t = datetime(y, month, day, hour, minute, tzinfo=tz).timestamp()
+        except ValueError:
+            continue
+        if best is None or abs(t - now) < abs(best - now):
+            best = t
+    return best
+
+
+MONTHS = {m: i for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+
+
+def parse_nsw(html: str, now: float | None = None) -> list[dict]:
+    """A Port Authority of NSW 'daily vessel movements' page: one row per arrival, departure or
+    shift, times in Sydney time as 'Fri 27 Nov<br>08:00' with no year. Rows of one ship are joined
+    into one booking: arriving (expected), or in port with its departure time."""
+    now = now or time.time()
+    ships: dict[str, dict] = {}
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+        cells = {name: body for name, body in re.findall(r'<td[^>]*headers="view-([a-z-]+)-table-column"[^>]*>(.*?)</td>', row, re.S)}
+        name = _text(cells.get("vessel-name", ""))
+        m = re.search(r"(\d{1,2})\s+([A-Za-z]{3})\D+?(\d{1,2}):(\d{2})", _text(cells.get("time", "").replace("<br>", " ")))
+        if not name or not m or m.group(2).lower() not in MONTHS:
+            continue
+        t = _near_year(int(m.group(1)), MONTHS[m.group(2).lower()], int(m.group(3)), int(m.group(4)), SYDNEY, now)
+        kind, in_port = _text(cells.get("movement-type", "")).lower(), _text(cells.get("in-port", "")).lower() == "yes"
+        s = ships.setdefault(_key(name), {"name": name, "imo": None, "voyage": None, "arrival": None, "departs": None,
+                                          "cargo": None, "prev": None, "next": None, "state": "expected", "kind": None})
+        s["kind"] = s["kind"] or _text(cells.get("vessel-type", "")) or None
+        if kind.startswith("arr"):
+            s["arrival"], s["prev"] = t, _text(cells.get("origin", "")) or None
+        elif kind.startswith("dep"):
+            s["departs"], s["next"] = t, _text(cells.get("destination", "")) or None
+            if in_port:
+                s["state"] = "in_port"
+    out = []
+    for s in ships.values():  # ships already in port with no arrival row left are skipped: no time to keep
+        s["cargo"] = s.pop("kind")
+        if s["arrival"]:
+            out.append(s)
+    return out
+
+
+def _vic_time(text: str) -> float | None:
+    for fmt in ("%b %d %Y %I:%M%p", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
+        try:
+            return datetime.strptime(text.strip(), fmt).replace(tzinfo=MELBOURNE).timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+VIC_TABLES = {"Expected Arrivals": "expected", "Actual Arrivals": "arrived", "Expected Departures": "leaving",
+              "Actual Departures": "departed", "In Port": "in_port"}
+
+
+def parse_vic(html: str) -> list[dict]:
+    """Ports Victoria's ship movements: tables of expected and actual arrivals and departures, and
+    ships in port, each under its own heading, in Melbourne time. Names carry a pilot code such as
+    '(BM)', which is dropped."""
+    ships: dict[str, dict] = {}
+    for part in re.split(r'(?=<!-- In Port -->|<h3>)', html):
+        head = re.match(r"(?:<h3>([^<]+)</h3>|<!-- (In Port) -->)", part)
+        table = VIC_TABLES.get((head.group(1) or head.group(2)).strip()) if head else None
+        if not table:
+            continue
+        body = re.search(r"<tbody>(.*?)</tbody>", part, re.S)
+        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", body.group(1) if body else "", re.S):
+            c = [_text(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+            if len(c) < 5 or not c[0]:
+                continue
+            name = re.sub(r"\s*\([A-Z]{1,3}\)$", "", c[0])
+            s = ships.setdefault(_key(name), {"name": name, "imo": None, "voyage": None, "arrival": None, "departs": None,
+                                              "cargo": None, "prev": None, "next": None, "state": "expected"})
+            if table == "in_port":
+                s.update(arrival=_vic_time(c[2]) or s["arrival"], departs=_vic_time(c[3]) or s["departs"], next=c[4] or s["next"], state="in_port")
+            elif table in ("expected", "arrived"):
+                s["arrival"], s["prev"] = _vic_time(c[1]), c[2] or None
+                if table == "arrived" and s["state"] == "expected":
+                    s["state"] = "in_port"
+            elif table in ("leaving", "departed"):
+                s["departs"], s["next"] = _vic_time(c[1]), c[3] or None
+                if table == "departed":
+                    s["state"] = "departed"
+    return [s for s in ships.values() if s["arrival"]]
+
+
+PARSERS = {"auckland": parse_poal, "tauranga": parse_tauranga, "botany": parse_nsw, "sydney": parse_nsw,
+           "newcastle": parse_nsw, "kembla": parse_nsw, "melbourne": parse_vic}
 
 
 def _imo(v) -> int | None:

@@ -6,25 +6,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { get } from "@/lib/api";
-import { CAMERA_KIND } from "@/lib/layers";
+import { CAMERA_KIND, CAMERA_SOURCE } from "@/lib/layers";
+import { toggleWall, useCameraWall, WALL_MAX } from "@/lib/cameraWall";
 
 export type CameraProps = {
   id: string; name?: string; kind?: string; source?: string; about?: string; direction?: string; offline?: boolean;
   image?: string; images?: string[]; video?: string; stream?: string; player?: string; page?: string; categories?: string[];
+  lng?: number; lat?: number;
 };
 
-const SOURCE: Record<string, { name: string; page?: string }> = {
-  nzta: { name: "NZ Transport Agency Waka Kotahi", page: "https://www.journeys.nzta.govt.nz/traffic-cameras/" },
-  qld: { name: "QLDTraffic, Queensland Government", page: "https://qldtraffic.qld.gov.au/" },
-  nsw: { name: "Live Traffic NSW, Transport for NSW", page: "https://www.livetraffic.com/" },
-  tfl: { name: "Powered by TfL Open Data", page: "https://tfl.gov.uk/traffic/status/" },
-  caltrans: { name: "Caltrans", page: "https://quickmap.dot.ca.gov/" },
-  finland: { name: "Fintraffic Digitraffic (CC BY 4.0)", page: "https://www.digitraffic.fi/en/road-traffic/" },
-  windy: { name: "Webcams provided by windy.com", page: "https://www.windy.com/webcams" },
-};
+const SOURCE: Record<string, { name: string; page?: string }> = Object.fromEntries(CAMERA_SOURCE.map((x) => [x.id, x]));
 const REFRESH = 60_000;
 
-export default function CameraView({ cam }: { cam: CameraProps }) {
+// wallButton: an Add to wall button (the map's card). compact: a tile on the camera wall (no
+// description line, smaller credit).
+export default function CameraView({ cam, wallButton = false, compact = false }: { cam: CameraProps; wallButton?: boolean; compact?: boolean }) {
+  const wall = useCameraWall();
+  const onWall = wall.some((c) => c.id === cam.id);
   const windy = cam.source === "windy";
   const [fresh, setFresh] = useState<{ image?: string; player?: string; page?: string; error?: string; updated?: string } | null>(null);
   const [view, setView] = useState(0); // which of a station's pictures (Finland has several per station)
@@ -34,11 +32,15 @@ export default function CameraView({ cam }: { cam: CameraProps }) {
   const [at, setAt] = useState(() => new Date());
 
   // Windy's picture links last ten minutes, so ask for a fresh one each time the card opens.
+  // On the camera wall a tile stays open, so ask again every nine minutes.
   useEffect(() => {
     if (!windy) return;
     const n = String(cam.id).split(":")[1];
-    get<{ image?: string; player?: string; page?: string; error?: string; updated?: string }>(`/live/cameras/windy/${encodeURIComponent(n)}`)
+    const ask = () => get<{ image?: string; player?: string; page?: string; error?: string; updated?: string }>(`/live/cameras/windy/${encodeURIComponent(n)}`)
       .then(setFresh).catch(() => setFresh({ error: "Windy did not answer." }));
+    ask();
+    const t = setInterval(() => { if (!document.hidden) ask(); }, 9 * 60_000);
+    return () => clearInterval(t);
   }, [cam.id, windy]);
 
   // Agency pictures: ask again every minute (a new query string gets past the browser's copy).
@@ -49,7 +51,7 @@ export default function CameraView({ cam }: { cam: CameraProps }) {
   }, [windy, mode]);
   useEffect(() => setBroken(false), [tick, view]);
 
-  const pictures = cam.images?.length ? cam.images : cam.image ? [cam.image] : [];
+  const pictures = Array.isArray(cam.images) && cam.images.length ? cam.images : cam.image ? [cam.image] : [];
   const base = windy ? (fresh?.image ?? null) : pictures[view] ?? null;
   const src = base && !windy && tick ? `${base}${base.includes("?") ? "&" : "?"}t=${tick}` : base;
   const player = fresh?.player ?? cam.player;
@@ -57,11 +59,19 @@ export default function CameraView({ cam }: { cam: CameraProps }) {
   const kind = CAMERA_KIND[cam.kind ?? ""]?.label;
 
   return (
-    <div className="camera-view">
-      <p className="small muted" style={{ margin: "0 0 4px" }}>
-        {[kind, cam.direction, cam.about, cam.categories?.join(", ")].filter(Boolean).join(" · ")}
+    <div className={`camera-view${compact ? " compact" : ""}`}>
+      {!compact && <p className="small muted" style={{ margin: "0 0 4px" }}>
+        {[kind, cam.direction, cam.about, Array.isArray(cam.categories) ? cam.categories.join(", ") : null].filter(Boolean).join(" · ")}
         {cam.offline ? " · the owner marks it offline" : ""}
-      </p>
+      </p>}
+      {wallButton && (
+        <p className="small" style={{ margin: "0 0 4px" }}>
+          <button className="small" onClick={() => toggleWall(cam)}
+            title={onWall ? "Take this camera off the camera wall" : `Watch this camera beside others on the camera wall (up to ${WALL_MAX}; ctrl-click a camera on the map does the same)`}>
+            {onWall ? "On the wall ✓ (take off)" : "Add to wall"}</button>
+          {wall.length > 0 && <span className="muted"> {wall.length} on the wall</span>}
+        </p>
+      )}
       {(cam.video || cam.stream || (windy && player)) && (
         <div className="small" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 4 }}>
           <button className={`link small${mode === "picture" ? " on" : ""}`} onClick={() => setMode("picture")}>Latest picture</button>
@@ -93,8 +103,8 @@ export default function CameraView({ cam }: { cam: CameraProps }) {
         <div className="small" style={{ display: "flex", gap: 8, marginTop: 4 }}>View:{pictures.map((_, i) => (
           <button key={i} className={`link small${i === view ? " on" : ""}`} onClick={() => setView(i)}>{i + 1}</button>))}</div>
       )}
-      <p className="small muted" style={{ margin: "4px 0 0" }}>
-        {!windy && mode === "picture" ? `Checked ${at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}, again every minute. ` : ""}
+      <p className="small muted" style={{ margin: "4px 0 0", fontSize: compact ? 11 : undefined }}>
+        {!windy && mode === "picture" ? `${compact ? "" : "Checked "}${at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${compact ? "" : ", again every minute"}. ` : ""}
         {windy && fresh?.updated ? `Picture from ${new Date(fresh.updated).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}. ` : ""}
         {src0 && (src0.page ? <a href={windy ? (fresh?.page ?? cam.page ?? src0.page) : src0.page} target="_blank" rel="noreferrer">{src0.name}</a> : src0.name)}
       </p>
