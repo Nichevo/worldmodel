@@ -12,6 +12,7 @@ import { DETAIL_LAYERS, detailsHref, layerApi, type LayerItem } from "@/lib/laye
 import { CAMERA_KIND, CAMERA_SOURCE, cameraFilter, LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
+import { PLACE_LOOK } from "@/lib/placeIcons";
 import { setShipsAt, usePlaneStatus, useShipStatus, useShipsAt } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
@@ -567,6 +568,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
           {panel.layers.includes("y") && <PastYear />}
           {(panel.layers.includes("S") || panel.layers.includes("F")) && <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />}
           {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
+          {onNow.some((m) => PLACE_LOOK[m.id]) && <PlaceLookToggles names={onNow.filter((m) => PLACE_LOOK[m.id]).map((m) => m.label)} />}
           {panel.layers.includes("h") && <HospitalPick />}
           {panel.layers.includes("q") && <QuakePick selection={selection} names={names} from={from} to={to} />}
           {panel.layers.includes("-") && <CameraKinds />}
@@ -777,6 +779,25 @@ function CameraKinds() {
         {hidden.length ? <> {hidden.length} hidden. <button className="link small" onClick={() => saveSettings({ map_cameras_hidden: "" })}>Show all</button></> : null}
         {" "}Click a camera for its picture; <b>Add to wall</b> on its card (or ctrl-click the dot) puts it on the camera wall, to watch several at once
         {wall.length ? <> ({wall.length} on the wall. <button className="link small" onClick={() => showCameraWall(true)}>Show the wall</button>)</> : null}.</p>
+    </div>
+  );
+}
+
+// Symbols in place dots, and places at their real size close in (also in Settings > Map page).
+function PlaceLookToggles({ names }: { names: string[] }) {
+  const s = useSettings();
+  const real = s.map_real_size === true;
+  return (
+    <div className="lp-section">
+      <div className="lp-label">{names.join(", ")}: how they look</div>
+      <div className="row small" style={{ gap: 12, flexWrap: "wrap" }}>
+        <label title="An anchor, plane, cross, cap, star or bolt in each dot once zoomed in a little; the dot is made big enough to hold it">
+          <input type="checkbox" checked={s.map_place_icons !== false} onChange={(e) => saveSettings({ map_place_icons: e.target.checked }).catch(() => undefined)} /> Symbols</label>
+        <label title="Zoomed in to about a city, ports, airports, hospitals and universities grow to about their real size over the site">
+          <input type="checkbox" checked={real} onChange={(e) => saveSettings({ map_real_size: e.target.checked }).catch(() => undefined)} /> Real size close in</label>
+      </div>
+      <p className="caption">Dots stay sized by how busy each place is.
+        {real ? " Close in, sizes are estimates (airports from their longest runway, hospitals from beds, ports from ship calls or harbour size, universities from students) and a big site covers the street names under it; military bases and power plants keep their dot." : ""}</p>
     </div>
   );
 }

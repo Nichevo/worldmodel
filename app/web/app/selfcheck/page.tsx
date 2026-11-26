@@ -5,6 +5,7 @@ import { useState } from "react";
 import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
 import { get } from "@/lib/api";
 import { LAYER_STYLE, layerSpec } from "@/lib/layers";
+import { PLACE_LOOK, placeSpecs } from "@/lib/placeIcons";
 import { MAP_LAYERS } from "@/lib/workspace";
 
 // Self check: what a review does by hand, in one click, on this PC's own data. It checks every
@@ -41,7 +42,8 @@ function checkLayerStyles(): Row[] {
       errors = validateStyleMin({
         version: 8, glyphs: "/fonts/{fontstack}/{range}.pbf",
         sources: { [lid]: { type: "geojson", data: { type: "FeatureCollection", features: [] } } },
-        layers: [layerSpec(id, lid)],
+        // place layers: also with symbols and real size on (the dots' paint changes and a symbol layer goes on top)
+        layers: [layerSpec(id, lid), ...(PLACE_LOOK[id] ? placeSpecs(id, lid, layerSpec(id, lid)) : [])],
       }).map((e) => e.message);
     } catch (e) {
       errors = [`style could not be made: ${String((e as Error)?.message ?? e)}`];

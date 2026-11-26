@@ -109,6 +109,8 @@ export const DEFAULT_SETTINGS: Settings = {
   map_quake_min: 4.5,
   map_hospitals_unsized: false,
   map_hospitals_all: true,
+  map_place_icons: true,
+  map_real_size: false,
   map_hospital_sources: "wikidata,osm,overture,national",
   map_hospital_kinds: "hospital",
   map_ships_hidden: "",

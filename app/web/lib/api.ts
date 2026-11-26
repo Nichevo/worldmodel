@@ -331,6 +331,8 @@ export type Settings = {
   map_quake_min: number; // the Earthquakes map layer shows quakes of at least this magnitude
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
   map_hospitals_all: boolean; // the Hospitals layer shows every hospital from every list (the two above apply when off)
+  map_place_icons: boolean; // a symbol in each port, airport, hospital ... dot once zoomed in a little
+  map_real_size: boolean; // zoomed in close, those places drawn about their real size over the site
   map_hospital_sources: string; // lists whose hospitals the map shows: wikidata, osm, overture, national (comma separated)
   map_hospital_kinds: string; // likely kinds the map shows: hospital, unsure, clinic
   map_ships_hidden: string; // ship kinds the Ships layer leaves out, comma separated

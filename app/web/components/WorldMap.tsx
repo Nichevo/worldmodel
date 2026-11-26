@@ -23,6 +23,7 @@ import { readSettings, saveSettings, useSettings } from "@/lib/settings";
 import { askHere } from "@/lib/spotting";
 import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
 import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
+import { applyPlaceLook, PLACE_LOOK, withLatScale } from "@/lib/placeIcons";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -33,9 +34,12 @@ export type PickEvent = { shift: boolean; double: boolean; lngLat: [number, numb
 // A layer's filter (hidden kinds); a plane layer's flag-and-logo badges follow it too.
 const badgeFlags = () => readSettings().planes_badges !== false;
 const badgeLogos = () => readSettings().planes_logos !== false;
+// Symbols in place dots and real sizes close in (Settings > Map page; the Layers panel).
+const placeOpts = () => { const s = readSettings(); return { icons: s.map_place_icons !== false, real: s.map_real_size === true }; };
 
 function setLayerFilter(m: maplibregl.Map, lid: string, f: unknown[] | null | undefined) {
   m.setFilter(lid, (f ?? null) as maplibregl.FilterSpecification | null);
+  if (m.getLayer(`${lid}-icon`)) m.setFilter(`${lid}-icon`, (f ?? null) as maplibregl.FilterSpecification | null);
   if (m.getLayer(`${lid}-badge`)) {
     const own = planeBadgeFilter(badgeFlags(), badgeLogos());
     m.setFilter(`${lid}-badge`, (f ? ["all", own, f] : own) as maplibregl.FilterSpecification);
@@ -274,6 +278,14 @@ export default function WorldMap({
     const m = map.current;
     if (m?.getLayer("ov-live_planes")) planeBadges(m);
   }, [settings.planes_badges, settings.planes_logos]);
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !m.getStyle()) return;
+    for (const id of Object.keys(PLACE_LOOK)) {
+      const lid = `ov-${id}`;
+      if (m.getLayer(lid)) applyPlaceLook(m, id, lid, LAYER_STYLE[id].paint() as Record<string, unknown>, placeOpts());
+    }
+  }, [settings.map_place_icons, settings.map_real_size]);
   const aiOn = useRef(true);
   aiOn.current = settings.ai_enabled !== false;
   const { base_map: baseMap, map_centre: mapCentre } = settings;
@@ -750,6 +762,7 @@ export default function WorldMap({
       m.addLayer(layerSpec(id, lid), before);
       const f = filters.current[id];
       if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
+      if (PLACE_LOOK[id]) applyPlaceLook(m, id, lid, style.paint() as Record<string, unknown>, placeOpts());
       // Time zones: each one's offset written on it ("+13", "DST" under it while on daylight saving).
       if (id === "timezones") {
         m.addLayer({ id: `${lid}-badge`, type: "symbol", source: lid,
@@ -771,7 +784,7 @@ export default function WorldMap({
           if (!live || n !== asked) return;
           if (style.timed && fc.loaded === false && id === "conflict_events") fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
           const asOf = id === "port_pressure" ? (fc.features[0]?.properties as { from?: string; as_of?: string } | undefined) : undefined;
-          (m.getSource(lid) as GeoJSONSource | undefined)?.setData(fc);
+          (m.getSource(lid) as GeoJSONSource | undefined)?.setData(PLACE_LOOK[id] ? withLatScale(fc) : fc);
           // The server is still reading part of the data (camera lists): ask again shortly.
           const retry = Number((fc as { retry_in?: number }).retry_in);
           if (retry > 0) { if (timer) clearTimeout(timer); timer = setTimeout(load, retry * 1000); }
@@ -815,6 +828,7 @@ export default function WorldMap({
           dynamic.current[id]?.();
           delete dynamic.current[id];
           if (m.getLayer(`${lid}-badge`)) m.removeLayer(`${lid}-badge`);
+          if (m.getLayer(`${lid}-icon`)) m.removeLayer(`${lid}-icon`);
           if (m.getLayer(lid)) m.removeLayer(lid);
           if (m.getSource(lid)) m.removeSource(lid);
           continue;
@@ -828,7 +842,7 @@ export default function WorldMap({
         }
         layerData(id).then((data) => {
           if (!live || m.getLayer(lid) || !m.getStyle()) return;
-          if (!m.getSource(lid)) m.addSource(lid, { type: "geojson", data });
+          if (!m.getSource(lid)) m.addSource(lid, { type: "geojson", data: PLACE_LOOK[id] ? withLatScale(data) : data });
           addLayer(id, lid);
         }).catch(() => {});
       }

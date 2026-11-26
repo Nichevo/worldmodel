@@ -154,6 +154,9 @@ def test_ports_lanes_airports(built):
     airports = _layer(con, "airports")
     akl = next(f for f in airports if f["properties"].get("iata") == "AKL")
     assert akl["properties"]["size"] == "large" and akl["properties"]["country"] == "NZL"
+    assert akl["properties"]["runway_m"] == 3635  # the longest open runway; the closed grass one is left out
+    chc = next(f for f in airports if f["properties"].get("iata") == "CHC")
+    assert chc["properties"]["runway_m"] == 3288
     assert all(f["properties"]["size"] in ("large", "medium") for f in airports)
 
 
