@@ -25,6 +25,7 @@ terms are marked so they can be swapped if that ever changes
 | Clouds from satellite (read while the layer is on) | NASA Global Imagery Browse Services (GIBS): JMA Himawari AHI and NOAA GOES ABI band 13 infrared | NASA open data, free with attribution |
 | A place's forecast | Open-Meteo (open-meteo.com), or MET Norway Locationforecast (api.met.no) | CC BY 4.0 (both) |
 | Country outlines on the map (`app/web/public/geo/countries.json`) | Natural Earth, 1:50m admin 0 countries | Public domain |
+| Ships' way by sea to the next port | searoute Python package (github.com/genthalili/searoute-py), built on Eurostat's SeaRoute marine network (github.com/eurostat/searoute) | Apache 2.0 (package); EUPL 1.2 (Eurostat SeaRoute) |
 | Bloc membership dates | Entered by hand from the sites linked on each row of `memberships.csv` | n/a |
 | Hospitals from OpenStreetMap | © OpenStreetMap contributors, packaged by healthsites.io on the Humanitarian Data Exchange | ODbL 1.0 |
 | Hospitals from Overture | Overture Maps Foundation, places theme | CDLA Permissive 2.0 (some places ODbL) |
