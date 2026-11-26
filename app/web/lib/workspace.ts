@@ -6,7 +6,10 @@
 // bookmarked. Countries can also be pinned as popups (up to eight, on their
 // panel) and sent to the side panel's pinboard; both are saved with the layout.
 
-export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks" | "bands" | "shares";
+export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks" | "bands" | "shares" | "live";
+// What a "live" panel shows (the Ships and planes page's tabs).
+export const LIVE_TABS = ["ships", "planes", "ship-counts", "plane-counts", "schedules"] as const;
+export type LiveTab = (typeof LIVE_TABS)[number];
 export type Layout = "1" | "2h" | "2v" | "3" | "3h" | "4" | "5" | "6";
 export type Group = "A" | "B";
 // The indicator id for "None" on a map: no colours, only the layers.
@@ -30,6 +33,7 @@ export type Panel = {
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
   layers: string; // map overlays, one letter each (see MAP_LAYERS): "pv" plate boundaries and volcanoes
   rk: string; // ranks options: "years,who,among+order,top" (see rankOptions)
+  lv: string; // live panel: which table (LIVE_TABS), "" = ships
 };
 
 // A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
@@ -80,7 +84,7 @@ export const CHANGE_COL = "chg10";
 
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true, range: false };
 
-const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks", "bands", "shares"];
+const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks", "bands", "shares", "live"];
 export const MAX_PANELS = 6;
 export const MAX_SELECTION = 8; // one categorical colour each
 export const MAX_PINS = 8;
@@ -95,7 +99,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", rk: "", ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", rk: "", lv: "", ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -112,7 +116,7 @@ export const DEFAULT: Workspace = {
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers" | "rk">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers" | "rk" | "lv">> }
   | { type: "load"; ws: Workspace }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
   | { type: "duplicate"; id: string }
@@ -387,7 +391,7 @@ const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.l
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers, p.rk];
+    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers, p.rk, p.lv];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -420,7 +424,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers, rk] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers, rk, lv] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -436,6 +440,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         range: range && RANGE_RE.test(range) ? range : "",
         layers: layers ? [...new Set(layers)].filter((c) => MAP_LAYERS.some((m) => m.letter === c)).join("") : "",
         rk: rk && RANK_RE.test(rk) ? rk : "",
+        lv: (LIVE_TABS as readonly string[]).includes(lv ?? "") ? lv! : "",
       });
     });
   const win = WIN_RE.test(q.get("w") || "") ? q.get("w")! : "";
