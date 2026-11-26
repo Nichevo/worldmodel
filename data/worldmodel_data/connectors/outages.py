@@ -31,6 +31,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
+import httpx
 
 from worldmodel_data.connectors.base import Connector, ConnectorError
 from worldmodel_data.connectors.cities import country_by_name
@@ -117,7 +118,12 @@ class IODA(Connector):
 
     def _ask(self, a: date, b: date, part: Path) -> list:
         time.sleep(self.pause_seconds)
-        self.get(f"{IODA_URL}?entityType=country&from={_ts(a)}&until={_ts(b)}&limit=5000", part, cached=False)
+        try:
+            self.get(f"{IODA_URL}?entityType=country&from={_ts(a)}&until={_ts(b)}&limit=5000", part, cached=False)
+        except (httpx.HTTPError, OSError) as exc:
+            # IODA also drops the connection part way through the TLS handshake on a busy day
+            # ("[SSL: UNEXPECTED_EOF_WHILE_READING]"); that is treated like a 504: split and try again.
+            raise ConnectorError(f"IODA dropped the connection ({exc.__class__.__name__}: {exc})") from exc
         d = json.loads(part.read_text(encoding="utf-8"))
         part.unlink()
         return (d.get("data") or []) if isinstance(d, dict) else d

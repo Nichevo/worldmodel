@@ -198,3 +198,28 @@ def test_ioda_windows_that_fail_are_split_then_skipped(tmp_path, monkeypatch):
         c.download(again, "x")
     april_and_march = {u.split("from=")[1].split("&")[0] for u in asked}
     assert min(int(x) for x in april_and_march) >= ts(date(2023, 3, 1))
+
+
+def test_ioda_dropped_tls_connection_counts_as_a_failed_window(tmp_path, monkeypatch):
+    """A dropped TLS handshake ([SSL: UNEXPECTED_EOF_WHILE_READING]) used to end the whole
+    download; now it is a failed window like a 504, split and tried again."""
+    import httpx
+
+    from worldmodel_data.connectors import outages
+
+    monkeypatch.setattr(outages, "_settings", lambda: {"ioda_from_year": date.today().year})
+    c = outages.IODA()
+    c.pause_seconds = 0
+    c.RETRY_PAUSE = 0
+    monkeypatch.setattr(c, "last_vintage_dir", lambda raw: None)
+    calls = []
+
+    def get(url, dest, **kw):
+        calls.append(url)
+        if len(calls) == 1:
+            raise httpx.ConnectError("[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol")
+        dest.write_text('{"data": []}')
+
+    monkeypatch.setattr(c, "get", get)
+    c.download(tmp_path, "x")
+    assert len(calls) > 1 and any(p.name.startswith("ioda_") for p in tmp_path.iterdir())
