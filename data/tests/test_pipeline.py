@@ -258,3 +258,27 @@ def test_failing_rows_are_summed_up_by_measure(tmp_path):
     build_mod._sample_failures(db, [c], {id(c): "SELECT * FROM o"})
     assert c.examples[0] == "world_prison_brief wpb_total: 200 row(s) in 200 place(s) (C000, C001, C002 and 197 more), 2026"
     assert len(c.examples) < 10
+
+
+def test_group_totals_may_pass_the_one_country_bound(home, monkeypatch):
+    """The upper bound of a summed count is set for one country; a region adding up its
+    countries (heritage sites in the Americas went past 200) must not fail the build."""
+    from worldmodel_data.connectors import tourism
+
+    real = tourism.indicator
+
+    def tight(id, *a, **kw):
+        if id == "heritage_sites":
+            kw["bounds"] = (0, 3)   # NZL has 3 in the fixture, NZL + AUS together 4
+        return real(id, *a, **kw)
+
+    monkeypatch.setattr(tourism, "indicator", tight)
+    store = VintageStore(home)
+    CONNECTORS["un_wpp"]().ingest(store, FIXTURES / "un_wpp")
+    CONNECTORS["unesco_heritage"]().ingest(store, FIXTURES / "unesco_heritage")
+    result = build(home)
+    con = duckdb.connect(str(result.path), read_only=True)
+    over = con.execute("SELECT count(*) FROM series WHERE indicator_id = 'heritage_sites' AND is_aggregate "
+                       "AND value > 3").fetchone()[0]
+    assert over > 0
+    assert not [c for c in result.checks if c.status == "fail"]
