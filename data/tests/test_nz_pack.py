@@ -149,10 +149,10 @@ def test_mbie_energy_balance_and_flow(tmp_path):
     con.close()
 
     from fastapi.testclient import TestClient
-    from worldmodel_api import main
+    from worldmodel_api import core, main
     from worldmodel_api.warehouse import Warehouse
 
-    main.warehouse = Warehouse(str(path))
+    core.warehouse = Warehouse(str(path))
     got = TestClient(main.app).get("/api/v1/energy-flow", params={"entity": "NZL", "year": 2030}).json()
     assert got["years"] == [2024, 2025] and got["year"] == 2025 and got["totals"]["primary_supply"] == pytest.approx(827.053, abs=0.01)
     assert TestClient(main.app).get("/api/v1/energy-flow", params={"entity": "AUS"}).json()["years"] == []

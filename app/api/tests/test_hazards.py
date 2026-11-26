@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import hazards, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 FIRMS_CSV = """latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight
 -33.861,151.101,330.1,0.4,0.4,2026-11-12,0312,N20,VIIRS,n,2.0NRT,290.1,12.5,D
@@ -68,7 +69,7 @@ def test_coral_takes_the_highest_level_in_each_region():
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     return TestClient(main.app)
 
 

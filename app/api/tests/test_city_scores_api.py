@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import cityscore, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 CITIES = [("c1", "New York", "USA"), ("c2", "Auckland", "NZL"), ("c3", "Tokyo", "JPN"), ("c4", "Wellington", "NZL")]
 # indicator -> figures for c1..c4 (None: no figure)
@@ -47,10 +48,10 @@ def client(tmp_path, monkeypatch):
         con.execute("INSERT INTO city_series VALUES (?, 'numbeo_crime', '2018-01-01', 'x', 'v1', ?, 'E', '')", [cid, v])
         con.execute("INSERT INTO city_series VALUES (?, 'numbeo_health_care', '2018-01-01', 'x', 'v1', ?, 'E', '')", [cid, 60])
     con.close()
-    main.warehouse = Warehouse(str(db))
-    main._lh_cache.clear()  # answers kept per build; this copy has the sample's build id
+    core.warehouse = Warehouse(str(db))
+    core._lh_cache.clear()  # answers kept per build; this copy has the sample's build id
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_scaled_places():

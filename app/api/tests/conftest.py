@@ -31,8 +31,8 @@ def _warehouse_put_back():
     """Some tests point the app at a warehouse of their own; the next test gets the one before.
     Run in parallel, tests land on workers in a different order each time, so a test left
     pointing at a small warehouse failed whichever test happened to follow it."""
-    from worldmodel_api import main
+    from worldmodel_api import core
 
-    before = main.warehouse
+    before = core.warehouse
     yield
-    main.warehouse = before
+    core.warehouse = before

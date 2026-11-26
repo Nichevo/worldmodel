@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import basemap, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 ASSETS = [{"name": "go-pmtiles-1.28.0_Darwin_arm64.zip"}, {"name": "go-pmtiles_1.28.0_Linux_x86_64.tar.gz"},
           {"name": "go-pmtiles_1.28.0_Windows_x86_64.zip"}, {"name": "checksums.txt"}]
@@ -35,7 +36,7 @@ def client(tmp_path, monkeypatch):
         Path(args[3]).write_bytes(b"PMTiles" + bytes(range(256)) * 4)
         return "done"
     monkeypatch.setattr(basemap, "_run", run)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     c = TestClient(main.app)
     c.calls = calls
     return c

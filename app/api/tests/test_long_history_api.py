@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import longhistory, main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture()
@@ -35,11 +36,11 @@ def client(tmp_path, monkeypatch):
         ("wd:Q4", "war", "Imjin War", 1592, 37.5, 127.0, "KOR", "east_asia", None, 40, "u", "wikidata_history"),
     ])
     con.close()
-    main.warehouse = Warehouse(str(db))
-    main._lh_cache.clear()
+    core.warehouse = Warehouse(str(db))
+    core._lh_cache.clear()
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
-    main._lh_cache.clear()
+    core.warehouse = Warehouse(str(SAMPLE))
+    core._lh_cache.clear()
 
 
 def test_overview_has_powers_with_peaks(client):

@@ -6,13 +6,14 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import live, main, osint
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("WORLDMODEL_HOME", str(tmp_path))
     monkeypatch.setenv("WORLDMODEL_USER_DIR", str(tmp_path / "user"))
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     return TestClient(main.app)
 
 

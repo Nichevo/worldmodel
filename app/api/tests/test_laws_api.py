@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture()
@@ -28,9 +29,9 @@ def client(tmp_path, monkeypatch):
             for e in ("NZL", "AUS") for y in range(2010, 2016)]
     con.executemany("INSERT INTO observations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_rules_listed(client):

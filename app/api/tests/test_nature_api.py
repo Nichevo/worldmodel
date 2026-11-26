@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main, nature
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 def _grid(nz_north: int) -> bytes:
@@ -55,11 +56,11 @@ def client(tmp_path, monkeypatch):
     con.execute("INSERT INTO species_status VALUES ('NZL', 'Strigops habroptila', 'CR', 2021, 'u', 'iucn_redlist', 'v1')")
     con.execute("INSERT INTO pest_presence VALUES ('DACUTR', 'Queensland fruit fly', 'NZL', NULL, 'Transient', true, 'eppo_pests', 'v1')")
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     nature._grids.clear()
     nature._tiles.clear()
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     nature._grids.clear()
     nature._tiles.clear()
 

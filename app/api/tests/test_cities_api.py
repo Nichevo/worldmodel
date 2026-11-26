@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main, numbeo
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 NUMBEO_PAGE = """<html><body>
 <div>Summary of cost of living in Auckland: A single person estimated monthly costs are <span class="emp_number">1,234.5$</span>
@@ -55,9 +56,9 @@ def client(tmp_path, monkeypatch):
         ('w:transit:Q3', 'transit', 'metro', 'Portland Streetcar', 'USA', NULL, 'Portland', NULL, NULL,
          NULL, NULL, '{}', NULL, 'wikidata_places', 'v1')""")
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_city_list_and_page(client):
@@ -82,7 +83,7 @@ def test_places_by_kind_and_country(client):
 
 
 def test_no_cities_table_is_not_an_error(monkeypatch):
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     res = TestClient(main.app).get("/api/v1/cities").json()
     assert res["rows"] == [] and "refresh" in res["note"]
 

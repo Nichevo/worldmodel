@@ -5,11 +5,12 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 @pytest.fixture(scope="module")
 def client():
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
     return TestClient(main.app)
 
 

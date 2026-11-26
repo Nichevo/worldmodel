@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import main
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 
 def square(x, y):
@@ -46,9 +47,9 @@ def client(tmp_path, monkeypatch):
                     [eid, nm, 1 if level == "state" else 2, json.dumps({"level": level, "parent": parent}), "USA", x, y, x + 1, y + 1,
                      json.dumps(square(x, y))])
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_states_and_counties(client):

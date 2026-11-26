@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from worldmodel_api import live, main, ports
 from worldmodel_api.warehouse import SAMPLE, Warehouse
+from worldmodel_api import core
 
 LINE = {"type": "LineString", "coordinates": [[175.0, -38.0], [176.0, -37.5]]}
 
@@ -47,9 +48,9 @@ def client(tmp_path, monkeypatch):
                    VALUES ('wikidata:a1', 'wikidata', 'v1', 'NZL', 'transport', 'air', 'Air New Zealand Flight 901', '1979-11-28', 'day', 257),
                           ('wikidata:a2', 'wikidata', 'v1', 'NZL', 'transport', 'sea', 'Small boat', '2001-01-01', 'day', 3)""")
     con.close()
-    main.warehouse = Warehouse(str(db))
+    core.warehouse = Warehouse(str(db))
     yield TestClient(main.app)
-    main.warehouse = Warehouse(str(SAMPLE))
+    core.warehouse = Warehouse(str(SAMPLE))
 
 
 def test_geo_by_window_and_zoom(client):
