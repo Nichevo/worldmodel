@@ -92,6 +92,8 @@ class Planes:
         self.world_note: str | None = None
         self.route_thread: threading.Thread | None = None
         self.route_failed: dict[str, float] = {}
+        self.route_note: str | None = None
+        self.route_pause = 0.0
         self.lock = threading.Lock()
         self.last_at = 0.0
         self.last_box: list | None = None
@@ -203,12 +205,15 @@ class Planes:
                 "note": f"Planes as saved at {when_txt}" + ("" if feats else ": none saved for this area and time")}
 
     def status(self) -> dict:
+        from worldmodel_api.journeys import ROUTE_ERRORS
+
         try:
             out = self.store.status()
         except Exception as exc:  # noqa: BLE001
             out = {"days": 0, "bytes": 0, "first": None, "last": None, "error": str(exc)}
         return {**out, "collecting": self.collecting(), "keep_days": int(self.settings().get("planes_keep_days") or 30),
-                "world_every_minutes": round(self.world_every() / 60), "world_note": self.world_note}
+                "world_every_minutes": round(self.world_every() / 60), "world_note": self.world_note, "route_note": self.route_note,
+                "route_errors": list(ROUTE_ERRORS)}
 
     def _kept(self, bx: list, error: str) -> dict:
         """The planes last read (if any), with why they are not new."""
@@ -326,15 +331,15 @@ class Planes:
             p["airline"], p["airline_code"], p["airline_country"] = (al["name"], al["code"], al["country"]) if al else (None, None, None)
             p["from"] = p["to"] = None
             if al:
-                from worldmodel_api.journeys import ROUTE_KEEP, _key
+                from worldmodel_api.journeys import ROUTE_HISTORY, _key
 
-                hit = self.store.lookup("route", _key(p["callsign"]), ROUTE_KEEP)
+                hit = self.store.lookup("route", _key(p["callsign"]), ROUTE_HISTORY)
                 ports = ((hit[0] or {}).get("airports") or []) if hit else []
                 if len(ports) >= 2:
                     p["from"], p["to"] = _place(ports[0]), _place(ports[-1])
                     p["route_plausible"] = hit[0].get("plausible", True)
             rows.append(p)
-        return {"planes": rows, "at": (self.last or {}).get("at"), "source": "OpenSky Network",
+        return {"planes": rows, "at": (self.last or {}).get("at"), "source": "OpenSky Network", "route_note": self.route_note,
                 "note": "The planes in the map's area from the last request (the map asks every one to three minutes while Planes now is on)"
                         + (f", and every plane saved in the last {hours:g} hour{'s' if hours != 1 else ''}." if self.collecting() and hours > 0 else ".")}
 
@@ -346,15 +351,19 @@ class Planes:
     def _fill_routes(self, feats: list) -> None:
         """Ask adsb.lol, in the background and in batches, the routes of airline flights in the
         table not yet known; each answer is kept (3 days), so a callsign is asked only once."""
-        if self.route_thread and self.route_thread.is_alive():
+        if (self.route_thread and self.route_thread.is_alive()) or time.time() < self.route_pause:
             return
-        from worldmodel_api.journeys import ROUTE_HISTORY, ROUTE_KEEP, _key
+        from worldmodel_api.journeys import ROUTE_HISTORY, ROUTE_KEEP, ROUTE_MISS, _key
+
+        def known(cs):
+            hit = self.store.lookup("route", cs, ROUTE_KEEP)
+            return hit is not None and (hit[0] is not None or time.time() - hit[1] < ROUTE_MISS)
 
         want = []
         for f in feats:
             p = f["properties"]
             cs = _key(p.get("callsign") or "")
-            if cs and airline(cs) and not self.store.lookup("route", cs, ROUTE_KEEP) and time.time() - self.route_failed.get(cs, 0) > 3600:
+            if cs and airline(cs) and not known(cs) and time.time() - self.route_failed.get(cs, 0) > 3600:
                 lon, lat = f["geometry"]["coordinates"]
                 want.append((cs, lat, lon))
         if not want:
@@ -365,10 +374,14 @@ class Planes:
 
             try:
                 got = journeys.routes(batch)
-            except Exception as exc:  # noqa: BLE001 - tried again on a later table load
-                log.info("adsb.lol routes: %s", exc)
+            except Exception as exc:  # noqa: BLE001 - tried again later
+                log.warning("adsb.lol routes: %s", exc)
+                self.route_note = f"Routes: adsb.lol did not answer at {time.strftime('%H:%M')} ({exc.__class__.__name__}: {str(exc)[:160]}); trying again in 10 minutes."
+                self.route_pause = time.time() + 600
                 return
             self.store.keep_many("route", {cs: got[cs] for cs, _, _ in batch if cs in got}, ROUTE_HISTORY)
+            found = sum(1 for cs, _, _ in batch if got.get(cs))
+            self.route_note = f"Routes: asked adsb.lol for {len(batch):,} flights at {time.strftime('%H:%M')}, {found:,} found."
             for cs, _, _ in batch:
                 if cs not in got:
                     self.route_failed[cs] = time.time()

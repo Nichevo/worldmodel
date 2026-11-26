@@ -130,3 +130,23 @@ def test_live_counts():
     assert p["total"] == 2 and p["military"] == 1 and p["airline"] == 1
     assert parts["route"]["rows"][0]["key"] == "Auckland, NZ to Sydney, AU"
     assert parts["height"]["rows"][0]["count"] == 1 and parts["flag"]["rows"][0]["label"] in ("New Zealand", "Not known")
+
+
+def test_counts_filters_and_route_misses_asked_again(tmp_path, monkeypatch):
+    from worldmodel_api import journeys, livestats
+
+    rows = [{"group": "airliner", "airline": "Qantas", "flag": "AU", "from": {"city": "Sydney", "iata": "SYD"}, "to": {"city": "Auckland"}},
+            {"group": "light", "airline": None, "flag": "NZ", "reg": "ZK-TIE"}]
+    assert len(livestats.filter_planes(rows, airline="-")) == 1 and len(livestats.filter_planes(rows, frm="syd", to="auck")) == 1
+    assert livestats.filter_planes(rows, flag="nz", q="zk-") == [rows[1]] and livestats.filter_planes(rows, group="glider") == []
+    assert livestats.planes(rows, {}, top=0)["parts"][1]["rows"][0]["count"] == 1
+    # a kept "no route" answer older than ROUTE_MISS is asked again
+    st = PlaneStore(tmp_path / "planes")
+    st.keep("route", "ANZ1", None, 86400)
+    data = st._lookups_load()
+    data["route"]["ANZ1"][0] -= journeys.ROUTE_MISS + 60
+    monkeypatch.setattr(journeys, "_track", lambda q, auth, icao: {"track": None})
+    monkeypatch.setattr(journeys, "_aircraft", lambda icao: None)
+    monkeypatch.setattr(journeys, "routes", lambda b: {"ANZ1": {"codes": "KJFK-NZAA", "airports": []}})
+    j = journeys.plane_journey(None, None, "c81d90", "ANZ1", 0, 0, store=st)
+    assert j["route"]["codes"] == "KJFK-NZAA"

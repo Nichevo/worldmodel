@@ -97,14 +97,31 @@ function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" 
   const [hours, setHours] = useState(24);
   const [d, setD] = useState<CountsData | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [shown, setShown] = useState<Record<string, number>>({}); // rows per list: 25, 100 or 0 (all)
+  const [find, setFind] = useState<Record<string, string>>({});
+  // Filters narrowing what is counted (the same as the lists'); typed ones apply after a pause.
+  const [f, setF] = useState<Record<string, string>>({});
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  useEffect(() => { const t = setTimeout(() => setF((c) => ({ ...c, ...typed })), 500); return () => clearTimeout(t); }, [typed]);
+  const fkey = JSON.stringify(f);
+  // The options of the drop-downs: the kinds, flags and airlines counted with no filter on.
+  const [opts, setOpts] = useState<CountsData | null>(null);
   useEffect(() => {
     let live = true;
     setErr(null);
-    const load = () => get<CountsData>(`/live/${what}/stats`, { hours }).then((x) => live && setD(x)).catch((e) => live && setErr(String(e.message ?? e)));
+    const load = () => get<CountsData>(`/live/${what}/stats`, { hours, top: 0, ...f }).then((x) => {
+      if (!live) return;
+      setD(x);
+      if (!Object.values(f).some(Boolean)) setOpts(x);
+    }).catch((e) => live && setErr(String(e.message ?? e)));
     load();
     const t = setInterval(load, 120_000);
     return () => { live = false; clearInterval(t); };
-  }, [what, hours]);
+  }, [what, hours, fkey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const optRows = (id: string) => (opts ?? d)?.parts.find((p) => p.id === id)?.rows ?? [];
+  const pick = (k: string, v: string) => setF((c) => ({ ...c, [k]: v }));
+  const type = (k: string, v: string) => setTyped((c) => ({ ...c, [k]: v }));
+  const anyFilter = Object.values({ ...f, ...typed }).some(Boolean);
   const groups = what === "ships" ? SHIP_GROUPS : PLANE_GROUPS;
   const label = (part: CountPart, r: CountRow) => (part.id === "group" ? groups.find((g) => g.id === r.key)?.label ?? r.key : r.label);
   const place = (k: string) => k.split(",")[0].trim();
@@ -130,6 +147,23 @@ function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" 
         <label>Count <select value={hours} onChange={(e) => setHours(+e.target.value)}>
           {windows.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select></label>
+        <label>Kind <select value={f.group ?? ""} onChange={(e) => pick("group", e.target.value)}>
+          <option value="">All</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+        </select></label>
+        <label>{what === "ships" ? "Flag" : "Country"} <select value={f.flag ?? ""} onChange={(e) => pick("flag", e.target.value)} style={{ maxWidth: 180 }}>
+          <option value="">All</option>{optRows("flag").filter((r) => r.key.length === 2).map((r) => <option key={r.key} value={r.key}>{r.label} ({n(r.count)})</option>)}
+        </select></label>
+        {what === "planes" && <label>Airline <select value={f.airline ?? ""} onChange={(e) => pick("airline", e.target.value)} style={{ maxWidth: 200 }}>
+          <option value="">All</option><option value="-">No airline</option>
+          {optRows("airline").filter((r) => !r.key.startsWith("No airline")).map((r) => <option key={r.key} value={r.key}>{r.label} ({n(r.count)})</option>)}
+        </select></label>}
+        <label>{what === "ships" ? "Came from" : "From"} <input value={typed[what === "ships" ? "came" : "from"] ?? ""} placeholder="Port, airport, city, country"
+          onChange={(e) => type(what === "ships" ? "came" : "from", e.target.value)} style={{ width: 140 }} /></label>
+        <label>{what === "ships" ? "Going to" : "To"} <input value={typed.to ?? ""} placeholder="Port, airport, city, country"
+          onChange={(e) => type("to", e.target.value)} style={{ width: 140 }} /></label>
+        <label>Find <input value={typed.q ?? ""} placeholder={what === "ships" ? "Name, MMSI, IMO, destination" : "Callsign, registration, model"}
+          onChange={(e) => type("q", e.target.value)} style={{ width: 150 }} /></label>
+        {anyFilter && <button className="link small" onClick={() => { setF({}); setTyped({}); }}>Clear filters</button>}
         {d && <span className="muted">
           {what === "ships"
             ? `${n(d.total)} ships; ${n(d.moving ?? 0)} moving, ${n(d.heard_last_hour ?? 0)} heard in the last hour, ${n(d.first_seen_last_day ?? 0)} first seen in the last day`
@@ -141,12 +175,20 @@ function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
           {d.parts.map((part) => {
             const top = Math.max(1, ...part.rows.map((r) => r.count));
+            const want = shown[part.id] ?? 25;
+            const fl = (find[part.id] ?? "").trim().toLowerCase();
+            const matching = fl ? part.rows.filter((r) => label(part, r).toLowerCase().includes(fl)) : part.rows;
+            const rows = want ? matching.slice(0, want) : matching;
             return (
               <div key={part.id}>
                 <h3 className="small" style={{ margin: "4px 0" }}>{part.title}</h3>
+                {part.rows.length > 25 && want !== 25 && (
+                  <input className="small" placeholder={`Find in ${n(part.rows.length)}`} value={find[part.id] ?? ""} style={{ width: "100%", marginBottom: 4 }}
+                    onChange={(e) => setFind((c) => ({ ...c, [part.id]: e.target.value }))} />)}
                 {!part.rows.length ? <p className="small muted">Nothing known yet.</p> : (
+                  <div style={{ maxHeight: want === 25 ? undefined : 480, overflowY: want === 25 ? undefined : "auto" }}>
                   <table className="small" style={{ width: "100%" }}>
-                    <tbody>{part.rows.map((r) => {
+                    <tbody>{rows.map((r) => {
                       const f = filterFor(part, r);
                       const text = label(part, r);
                       return (
@@ -162,8 +204,14 @@ function Counts({ what, drill }: { what: "ships" | "planes"; drill: (t: "ships" 
                           <td className="muted" style={{ textAlign: "right" }}>{(r.share * 100).toFixed(r.share < 0.01 ? 1 : 0)}%</td>
                         </tr>);
                     })}</tbody>
-                  </table>)}
-                {part.distinct > part.rows.length && <p className="caption">Top {part.rows.length} of {n(part.distinct)}.</p>}
+                  </table>
+                  </div>)}
+                {part.rows.length > 25 && (
+                  <p className="caption">{want && rows.length < matching.length ? `Top ${n(rows.length)} of ${n(matching.length)}. ` : `All ${n(matching.length)}. `}
+                    {want === 25 && <button className="link small" onClick={() => setShown((c) => ({ ...c, [part.id]: 100 }))}>Show 100</button>}
+                    {want !== 0 && <> <button className="link small" onClick={() => setShown((c) => ({ ...c, [part.id]: 0 }))}>Show all</button></>}
+                    {want !== 25 && <> <button className="link small" onClick={() => { setShown((c) => ({ ...c, [part.id]: 25 })); setFind((c) => ({ ...c, [part.id]: "" })); }}>Show top 25</button></>}
+                  </p>)}
               </div>);
           })}
         </div>)}
@@ -415,7 +463,7 @@ function OwnerPart({ id }: { id: string }) {
 }
 
 function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: string | null) => void; init: (k: string) => string }) {
-  const [d, setD] = useState<{ planes: Plane[]; at: number | null; note: string } | null>(null);
+  const [d, setD] = useState<{ planes: Plane[]; at: number | null; note: string; route_note?: string | null } | null>(null);
   const [q, setQ] = useState(init("q"));
   const [group, setGroup] = useState(init("group"));
   const [line, setLine] = useState(init("airline"));
@@ -452,7 +500,7 @@ function Planes({ open, setOpen, init }: { open: string | null; setOpen: (id: st
   const head = (key: keyof Plane, label: string) => <th><button className="link small" onClick={() => setSort(key)}>{label}{sort === key ? " ▼" : ""}</button></th>;
   return (
     <section className="card">
-      <p className="caption">{d?.note ?? "Loading…"} {d?.at ? `Read ${when(d.at)}.` : ""} Turn on Planes now on <Link href={mapLayersHref("F")}>the map</Link> and move it to where you want planes listed.</p>
+      <p className="caption">{d?.note ?? "Loading…"} {d?.at ? `Read ${when(d.at)}.` : ""} {d?.route_note ?? ""} Turn on Planes now on <Link href={mapLayersHref("F")}>the map</Link> and move it to where you want planes listed.</p>
       <div className="table-tools small">
         <label>Find <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Callsign, registration, model, airline" /></label>
         <label>Type <select value={group} onChange={(e) => setGroup(e.target.value)}>

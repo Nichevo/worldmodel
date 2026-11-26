@@ -25,6 +25,7 @@ ADSB_ROUTES = "https://api.adsb.lol/api/0/routeset"
 ADSB_HEX = "https://api.adsb.lol/v2/hex/{}"
 ROUTE_KEEP = 3 * 86400  # a callsign flies the same route for days: looked up again after this
 ROUTE_HISTORY = 60 * 86400  # ... but kept this long on disk, for the routes of past flights
+ROUTE_MISS = 6 * 3600  # a callsign adsb.lol had no route for is asked again after this
 TRACK_KEEP = 30 * 60      # a plane's path is asked of OpenSky at most once in this time
 AIRCRAFT_KEEP = 90 * 86400  # registration and type change rarely
 _lock = threading.Lock()
@@ -128,6 +129,9 @@ def _parse_route(first: dict) -> dict | None:
                          for a in first.get("_airports") or []]}
 
 
+ROUTE_ERRORS: list[str] = []  # the last few failed adsb.lol route requests, for the planes status
+
+
 def routes(planes: list[tuple[str, float | None, float | None]]) -> dict[str, dict | None]:
     """Routes for many callsigns in one adsb.lol request (at most 100 each); callsigns it did not
     answer for are left out, so they are asked again later. Raises on a failed request."""
@@ -153,7 +157,9 @@ def _route(callsign: str, lat: float | None, lon: float | None) -> tuple[dict | 
     try:
         got = routes([(cs, lat, lon)]).get(cs)
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
-        log.info("adsb.lol route for %s: %s", cs, exc)
+        log.warning("adsb.lol route for %s: %s", cs, exc)
+        ROUTE_ERRORS.append(f"{time.strftime('%H:%M')} {exc.__class__.__name__}: {str(exc)[:160]}")
+        del ROUTE_ERRORS[:-5]
         return None, False  # not kept: try again on the next click
     return got, True
 
@@ -200,10 +206,14 @@ def plane_journey(q: Q, auth: Callable[[httpx.Client], dict], icao24: str, calls
         out["airline"] = airline(callsign)
         cs = _key(callsign)
         hit = _kept(store, _routes, "route", cs, ROUTE_KEEP)
+        if hit and hit[0] is None and time.time() - hit[1] > ROUTE_MISS:
+            hit = None  # "no route" answers are asked again sooner
         if hit:
             out["route"] = hit[0]
         else:
             out["route"], ok = _route(callsign, lat, lon)
+            if not ok and ROUTE_ERRORS:
+                out["note"] = ((out.get("note") or "") + f" The route look-up at adsb.lol failed ({ROUTE_ERRORS[-1].split(' ', 1)[1]}).").strip()
             if ok:
                 _keep(store, _routes, "route", cs, out["route"], ROUTE_HISTORY if store is not None else ROUTE_KEEP)
     hit = _kept(store, _aircraft_kept, "aircraft", icao24, AIRCRAFT_KEEP)
