@@ -335,7 +335,12 @@ export default function SettingsPage() {
         <h3 id="weather">Weather</h3>
         <Toggle label="Weather layers on the map" hint="While a layer in the map's Weather group is on: NOAA's GFS forecast (downloaded to this PC every 6 hours), RainViewer's rain radar, NASA's satellite clouds, and a place's forecast from the source below when you click the map. Off: the Weather layers stay empty and city pages show no Forecast card."
           on={s.weather_maps} set={(v) => save({ weather_maps: v })} />
-        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Forecast map detail{" "}
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Forecast model for the maps{" "}
+          <select value={s.weather_model} onChange={(e) => save({ weather_model: e.target.value as typeof s.weather_model })} aria-label="Forecast model for the maps">
+            <option value="gfs">NOAA GFS (a new run every 6 hours; detail below)</option>
+            <option value="ecmwf">ECMWF IFS open data (often the most accurate; 0.25°, twice a day, about 170 MB a run)</option>
+          </select> <span className="muted">Changing it downloads the other model&apos;s latest run. ECMWF forecasts are CC BY 4.0.</span></label>
+        <label className="small" style={{ display: "block", margin: "6px 0 10px" }}>Forecast map detail (GFS){" "}
           <select value={s.weather_detail} onChange={(e) => save({ weather_detail: e.target.value as typeof s.weather_detail })} aria-label="Forecast map detail">
             <option value="1p00">1° squares (about 100 km), about 2.5 MB a day of forecast</option>
             <option value="0p50">0.5° squares (about 50 km), about 10 MB a day of forecast</option>
@@ -349,6 +354,10 @@ export default function SettingsPage() {
             <option value="open_meteo">Open-Meteo (best model for each place, chance of rain, local times)</option>
             <option value="met_norway">MET Norway (yr.no)</option>
           </select></label>
+        <Toggle label="Waves and swell on the map" hint="While the Waves or Swell layer is on, downloads NOAA's wave model (WAVEWATCH III, 0.25°, every 6 hours, about 120 MB a run; one run kept). Off: those two layers stay empty."
+          on={s.weather_waves} set={(v) => save({ weather_waves: v })} />
+        <Toggle label="Air quality" hint="The map's Air quality layer (about 600 big cities, every 3 hours) and the air line on forecast cards, from Open-Meteo's CAMS forecast. Off: both stay empty."
+          on={s.weather_air} set={(v) => save({ weather_air: v })} />
       </section>
 
       <section className="card" id="nature">

@@ -31,7 +31,8 @@ ERDDAP = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/NOAA_DHW.csv"
 CELL = 0.25           # fires are gathered into cells this many degrees across
 HOT = 35.0            # a city counts as in a heatwave at this daily high (°C) ...
 HOT_DAYS = 2          # ... on this many of the next five days
-KEEP = {"fires": 3 * 3600, "heat": 6 * 3600, "coral": 24 * 3600}
+KEEP = {"fires": 3 * 3600, "heat": 6 * 3600, "coral": 24 * 3600, "air": 3 * 3600}
+OPEN_METEO_AIR = "https://air-quality-api.open-meteo.com/v1/air-quality"
 LEVELS = ["No stress", "Watch", "Warning", "Alert level 1", "Alert level 2"]
 
 # Reef regions: (name, country or area, west, south, east, north). Boxes around the main reef areas.
@@ -197,6 +198,41 @@ def heat(cities: list[dict], enabled: bool = True, fetch: Callable[[str, dict], 
         return {"type": "FeatureCollection", "features": feats, "hot": HOT, "checked": len(cities),
                 "fetched": time.strftime("%Y-%m-%d %H:%M")}
     return _cached("heat:all", make)
+
+
+# ----------------------------------------------------------------------------- air quality
+AIR_NOW = ("us_aqi", "european_aqi", "pm2_5", "pm10", "dust", "ozone", "nitrogen_dioxide")
+
+
+def air(cities: list[dict], enabled: bool = True, fetch: Callable[[str, dict], str] | None = None) -> dict:
+    """The air now in big cities (Open-Meteo's CAMS forecast for this hour), kept 3 hours."""
+    if not enabled:
+        return _empty("Air quality is switched off in Settings > Climate.")
+    if not cities:
+        return _empty("No city list yet: a refresh loads the major cities layer.")
+
+    def make() -> dict:
+        feats = []
+        for i in range(0, len(cities), 100):  # many places in one request
+            part = cities[i:i + 100]
+            params = {"latitude": ",".join(f"{c['lat']:.3f}" for c in part), "longitude": ",".join(f"{c['lon']:.3f}" for c in part),
+                      "current": ",".join(AIR_NOW), "timezone": "GMT"}
+            try:
+                got = json.loads(fetch(OPEN_METEO_AIR, params) if fetch else _get(OPEN_METEO_AIR, params))
+            except Exception as exc:  # noqa: BLE001
+                if feats:
+                    break  # keep the cities already in
+                return _empty(f"Open-Meteo's air quality did not answer ({type(exc).__name__}); try again later.")
+            got = got if isinstance(got, list) else [got]
+            for c, g in zip(part, got):
+                cur = (g or {}).get("current") or {}
+                if cur.get("us_aqi") is None:
+                    continue
+                props = {"name": c["name"], "country": c["country"], "time": cur.get("time")}
+                props.update({k: cur.get(k) for k in AIR_NOW if cur.get(k) is not None})
+                feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [c["lon"], c["lat"]]}, "properties": props})
+        return {"type": "FeatureCollection", "features": feats, "checked": len(cities), "fetched": time.strftime("%Y-%m-%d %H:%M")}
+    return _cached("air:all", make)
 
 
 # ----------------------------------------------------------------------------- coral
