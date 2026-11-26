@@ -87,6 +87,19 @@
   limits: Free. The API no longer answers without a key. One refresh asks about 260 questions the first time, about 40 after.
   status: active
 
+- source: bls_laus_county
+  name: BLS Public Data API (county unemployment)
+  env: [BLS_API_KEY]
+  needs_key: false
+  signup: https://data.bls.gov/registrationEngine/
+  how: Optional. Give your organisation ("personal" is fine) and email; the key arrives by email and must be
+    activated from the link in it. Without it the app tries BLS's yearly county files, which BLS's firewall often
+    turns away (then save them by hand in var\manual\bls_laus_county).
+  unlocks: Unemployment rates for every US county, 1990 onward, without saving the yearly files by hand.
+  limits: Free; 500 questions a day. One refresh asks about 130 the first time and about 65 after, half a second apart,
+    once a month.
+  status: active
+
 - source: iucn_redlist
   name: IUCN Red List API (v4)
   env: [IUCN_API_KEY]
