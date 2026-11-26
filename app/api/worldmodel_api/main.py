@@ -73,6 +73,12 @@ def _tiles_starter() -> None:
 async def lifespan(_app: FastAPI):
     background = wiki.Background(wiki_targets)
     background.start()
+    try:  # ships saved in the background while the app runs (Settings > Transport: Collect ships)
+        from worldmodel_api import live
+
+        live.SHIPS.start()
+    except Exception:  # noqa: BLE001 - the map says what is wrong
+        pass
     starter = threading.Timer(30, _tiles_starter)  # the starter map copies, once, after the app is up
     starter.daemon = True
     starter.start()
@@ -3980,14 +3986,14 @@ def live_planes(west: float, south: float, east: float, north: float):
 
 
 @api.get("/live/ships")
-def live_ships(west: float, south: float, east: float, north: float):
-    """Ships' latest positions in a map window (aisstream.io, needs AISSTREAM_API_KEY); the area
-    fills in over a few minutes as ships report."""
+def live_ships(west: float, south: float, east: float, north: float, at: float | None = None):
+    """Ships' latest positions in a map window (aisstream.io, needs AISSTREAM_API_KEY), or with `at`
+    (seconds since 1970) where they were then, from the positions saved while collecting."""
     from worldmodel_api import live
 
     if not local.load_settings().get("live_ships", True):
         return {"type": "FeatureCollection", "features": [], "error": "Ships now is switched off in Settings > Transport."}
-    out = live.SHIPS.get(west, south, east, north)
+    out = live.SHIPS.get(west, south, east, north, at)
     banned = osint.sanctioned_ship_ids(rows)
     if banned:
         for f in out.get("features") or []:
@@ -3995,6 +4001,74 @@ def live_ships(west: float, south: float, east: float, north: float):
             if str(p.get("id")) in banned or (p.get("imo") and str(p["imo"]) in banned):
                 p["sanctioned"] = True
     return out
+
+
+@api.get("/live/ships/status")
+def live_ships_status():
+    """The ship collector: on or off, its area, and the days, size and time span of the saved positions."""
+    from worldmodel_api import live
+
+    return live.SHIPS.status()
+
+
+@api.get("/live/ships/table")
+def live_ships_table(q: str = "", group: str = "", flag: str = "", sort: str = "last_seen",
+                     limit: int = Query(200, ge=1, le=2000), offset: int = Query(0, ge=0), hours: float = Query(0, ge=0)):
+    """Every ship seen: name, MMSI, IMO, call sign, flag, type, size, destination and where it was last."""
+    from worldmodel_api import live
+
+    out = live.SHIPS.table(q, group, flag, sort, limit, offset, hours)
+    banned = osint.sanctioned_ship_ids(rows)
+    for r in out["rows"]:
+        r["sanctioned"] = bool(banned and (str(r["id"]) in banned or (r.get("imo") and str(r["imo"]) in banned)))
+    return out
+
+
+@api.get("/live/ships/detail/{mmsi}")
+def live_ship_detail(mmsi: int):
+    """One ship's details (the ships table's pop-up)."""
+    from worldmodel_api import live
+
+    got = live.SHIPS.detail(mmsi)
+    if got is None:
+        raise HTTPException(404, "no ship with that MMSI seen")
+    banned = osint.sanctioned_ship_ids(rows)
+    got["sanctioned"] = bool(banned and (str(mmsi) in banned or (got.get("imo") and str(got["imo"]) in banned)))
+    return got
+
+
+@api.get("/live/ships/journey/{mmsi}")
+def live_ship_journey(mmsi: int, hours: float = Query(72, gt=0, le=24 * 400)):
+    """Where a ship has been (its saved path) and where it says it is going (its destination, matched to a port)."""
+    from worldmodel_api import journeys, live
+
+    return journeys.ship_journey(rows, live.SHIPS, mmsi, hours)
+
+
+@api.get("/live/planes/journey/{icao24}")
+def live_plane_journey(icao24: str, callsign: str | None = None, lat: float | None = None, lon: float | None = None):
+    """A plane's path this flight (OpenSky), its route by callsign and its registration and type (adsb.lol)."""
+    from worldmodel_api import journeys, live
+
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", icao24):
+        raise HTTPException(400, "icao24 is six hex digits")
+    return journeys.plane_journey(rows, live.PLANES._auth, icao24, callsign, lat, lon)
+
+
+@api.get("/live/planes/table")
+def live_planes_table():
+    """The planes from the last OpenSky request (the planes table)."""
+    from worldmodel_api import live
+
+    return live.PLANES.table()
+
+
+@api.get("/live/ships/track/{mmsi}")
+def live_ship_track(mmsi: int, hours: float = Query(24, gt=0, le=24 * 400), end: float | None = None):
+    """One ship's saved path over the hours before `end` (default now), as GeoJSON."""
+    from worldmodel_api import live
+
+    return live.SHIPS.track(mmsi, hours, end)
 
 
 @api.get("/live/military-planes")

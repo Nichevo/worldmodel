@@ -11,6 +11,8 @@ import { countryCentres } from "@/lib/geo";
 import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
 import { LAYER_STYLE, layerData, mapLayers, type MapLayerInfo } from "@/lib/layers";
 import { LAND_COVER } from "@/lib/maplook";
+import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
+import { setShipsAt, useShipStatus, useShipsAt } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
@@ -517,6 +519,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       </div>
           )}
           {panel.layers.includes("y") && <PastYear />}
+          {panel.layers.includes("S") && <ShipsTime />}
+          {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
           {panel.layers.includes("h") && <HospitalPick />}
 
           <div className="lp-section">
@@ -611,6 +615,69 @@ function HospitalPick() {
       </div>
       <p className="caption">A hospital two lists share shows if either is ticked. Solid dots are likely hospitals, pale ones unsure,
         rings likely clinics (only likely hospitals are ticked at first); hover a kind for how it is told. <Link href="/layers/hospitals?tab=sizes">Details</Link> has counts by list.</p>
+    </div>
+  );
+}
+
+function Kinds({ title, groups, href }: { title: string; groups: { id: string; label: string; color: string }[]; href: string }) {
+  return (
+    <div className="lp-section">
+      <div className="lp-label">{title} <Link className="small" href={href}>Table</Link></div>
+      <div className="chips-row">
+        {groups.map((g) => <span key={g.id} className="chip small" style={{ cursor: "default" }}>
+          <i className="dot" style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}</span>)}
+      </div>
+      <p className="caption">Shapes point where each is heading. Click one for where it came from and where it is going.</p>
+    </div>
+  );
+}
+
+// The Ships layer's time: now, or any time since ships were first saved (the collector in Settings > Transport).
+function ShipsTime() {
+  const st = useShipStatus(true);
+  const at = useShipsAt();
+  const [playing, setPlaying] = useState(false);
+  const first = st?.first ?? null;
+  const last = st?.last ?? Math.round(Date.now() / 1000);
+  useEffect(() => () => setShipsAt(null), []); // back to now when the layer is turned off
+  useEffect(() => {
+    if (!playing || !first) return;
+    let cur = at ?? first;
+    const t = setInterval(() => {
+      cur = cur + 3600;
+      if (cur >= last) { setPlaying(false); setShipsAt(null); return; }
+      setShipsAt(cur);
+    }, 1500);
+    return () => clearInterval(t);
+  }, [playing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fmt = (t: number) => new Date(t * 1000).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const size = st ? (st.bytes > 1e9 ? `${(st.bytes / 1e9).toFixed(1)} GB` : `${Math.max(0.1, st.bytes / 1e6).toFixed(1)} MB`) : "";
+  return (
+    <div className="lp-section">
+      <div className="lp-label">Ships {at ? <>at <b>{fmt(at)}</b></> : <b>now</b>} <Link className="small" href="/live?tab=ships">Table</Link></div>
+      {first && first < last - 1800 ? (
+        <>
+          <input type="range" min={first} max={last} step={600} value={at ?? last} style={{ width: "100%" }} aria-label="Time the ships show"
+            onChange={(e) => { const v = +e.target.value; setShipsAt(v >= last - 600 ? null : v); }} />
+          <div className="row small lp-dates">
+            <span className="muted">{fmt(first)}</span><span className="spacer" />
+            <button className="small" onClick={() => setPlaying(!playing)} title="An hour at a time">{playing ? "❚❚ Stop" : "▶ Play"}</button>
+            {at && <button className="link small" onClick={() => { setPlaying(false); setShipsAt(null); }}>Now</button>}
+          </div>
+        </>
+      ) : <p className="caption">The time slider appears once ships have been saved for a while.</p>}
+      <div className="chips-row">
+        {SHIP_GROUPS.map((g) => <span key={g.id} className="chip small" style={{ cursor: "default" }}>
+          <i style={{ background: g.color, display: "inline-block", width: 8, height: 8, borderRadius: 4, marginRight: 4 }} />{g.label}</span>)}
+      </div>
+      <p className="caption">
+        {st?.collecting
+          ? <>Saving ships for {st.area}{st.world_every_hours ? `, and the whole world for 10 minutes every ${st.world_every_hours} hours` : ""}:
+            {" "}{(st.ships ?? 0).toLocaleString()} ships, {st.days} day{st.days === 1 ? "" : "s"}, {size} (kept {st.keep_days} days).{st.world_note ? ` ${st.world_note}` : ""}</>
+          : <>Ships are not being saved: only the area in view, while the layer is on. Turn on Collect ships in <Link href="/settings#transport">Settings</Link>.</>}
+        {st?.error ? <> <b>{st.error}</b></> : null}
+        {" "}Red-ringed ships are on a sanctions list. Click a ship for where it has been and where it is going.
+      </p>
     </div>
   );
 }

@@ -323,6 +323,10 @@ export type Settings = {
   energy_infrastructure_fetch: boolean; // GEM pipelines and LNG terminals
   live_planes: boolean; // the map's Planes now layer
   live_ships: boolean; // the map's Ships now layer
+  ships_collect: boolean; // keep an aisstream connection open and save ships (var/live/ships)
+  ships_area: "pacific" | "world"; // where ships are collected
+  ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
+  ships_keep_days: number; // days of saved ships kept
   live_cameras: boolean; // the map's Cameras layer (road agencies, Windy webcams)
   live_military_planes: boolean; // the map's Military planes now layer (adsb.lol)
   conflict_events_fetch: boolean; // UCDP located events

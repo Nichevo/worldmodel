@@ -18,6 +18,8 @@ import { addLook, removeLook } from "@/lib/maplook";
 import { MeasureTool, greatCircle } from "@/lib/measure";
 import { useSettings } from "@/lib/settings";
 import { askHere } from "@/lib/spotting";
+import { ensureMapIcons } from "@/lib/mapIcons";
+import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -170,12 +172,28 @@ export default function WorldMap({
   // Why the map detail isn't the one picked in Settings (online tiles not answering), and a way to try again.
   const [detailNote, setDetailNote] = useState<string | null>(null);
   const [detailTry, setDetailTry] = useState(0);
+  // The clicked ship's or plane's path (solid) and the line on to where it is going (dashed).
+  const drawJourney = useRef<(fc: GeoJSON.FeatureCollection | null) => void>(() => {});
   const featurePick = useRef<(layer: string, p: Record<string, unknown>, at: { lng: number; lat: number }) => void>(() => {});
   featurePick.current = (layer, p, at) => {
     const st = LAYER_STYLE[layer];
     if (st?.click === "here") {
       const c = hereCard(layer, p, at);
       setInfo({ layer, title: c.title, lines: c.lines, links: c.links });
+      return;
+    }
+    if (st?.click === "journey") {
+      const plane = layer === "live_planes";
+      const title = plane ? String(p.callsign ?? p.id ?? "Plane") : String(p.name ?? `Ship ${p.id}`);
+      const head = hoverLines(layerLabel(layer, p)).slice(1).filter((l) => !l.startsWith("Click"));
+      const links = [{ label: plane ? "Planes table" : "Ships table", href: `/live?tab=${plane ? "planes" : "ships"}&id=${encodeURIComponent(String(p.id ?? ""))}`,
+        hint: "Every detail, and the others in the table" }];
+      setInfo({ layer, title, lines: [...head, "Finding where from and to…"], links });
+      const ask = plane ? planeJourney(String(p.id), p.callsign ? String(p.callsign) : null, at.lng, at.lat) : shipJourney(String(p.id));
+      ask.then((j) => {
+        drawJourney.current(journeyLines(j, at, plane));
+        setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...head, ...journeyText(j, plane)] } : cur));
+      }).catch(() => setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...head, "Could not find where from and to."] } : cur)));
       return;
     }
     if (st?.click === "camera") {
@@ -640,6 +658,13 @@ export default function WorldMap({
       // Areas go just over the country colours; lines under the dots; all under the hover and selection outlines.
       const before = style.fill ? "line" : style.dot ? "hover"
         : (["ov-volcanoes", "ov-earthquakes", "ov-major_cities", "ov-city_stress", "ov-points"].find((x) => m.getLayer(x)) ?? "hover");
+      if (style.symbol) {
+        ensureMapIcons(m);
+        m.addLayer({ id: lid, type: "symbol", source: lid, layout: style.symbol(), paint: style.paint() as maplibregl.SymbolLayerSpecification["paint"] }, before);
+        const f = filters.current[id];
+        if (f) m.setFilter(lid, f as maplibregl.FilterSpecification);
+        return;
+      }
       m.addLayer(style.fill
         ? { id: lid, type: "fill", source: lid, paint: style.paint() as maplibregl.FillLayerSpecification["paint"] }
         : style.dot
@@ -672,7 +697,7 @@ export default function WorldMap({
       };
       const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
       if (!style.once) m.on("moveend", soon);
-      if (style.timed) window.addEventListener("wm-layer-window", soon);
+      if (style.timed || id === "live_ships") window.addEventListener("wm-layer-window", soon);
       // Live layers ask again every so often, but not while the page is in a hidden tab (OpenSky
       // allows anonymous users only a few hundred requests a day).
       const every = style.fetch === "live" ? setInterval(() => { if (!document.hidden) load(); }, (style.every ?? 60) * 1000) : null;
@@ -715,6 +740,29 @@ export default function WorldMap({
     return () => { live = false; };
   }, [layersKey]);
   useEffect(() => () => { Object.values(dynamic.current).forEach((stop) => stop()); }, []);
+
+  // A clicked ship's or plane's journey: drawn above the overlays, removed when its card closes.
+  drawJourney.current = (fc) => {
+    const m = map.current;
+    if (!m || !m.getStyle()) return;
+    if (!fc) {
+      for (const id of ["journey-ahead", "journey-path", "journey-ends"]) if (m.getLayer(id)) m.removeLayer(id);
+      if (m.getSource("journey")) m.removeSource("journey");
+      return;
+    }
+    const src = m.getSource("journey") as GeoJSONSource | undefined;
+    if (src) { src.setData(fc); return; }
+    m.addSource("journey", { type: "geojson", data: fc });
+    const before = m.getLayer("hover") ? "hover" : undefined;
+    m.addLayer({ id: "journey-path", type: "line", source: "journey", filter: ["==", ["get", "part"], "path"],
+      paint: { "line-color": "#f08c00", "line-width": 2.5, "line-opacity": 0.9 }, layout: { "line-cap": "round", "line-join": "round" } }, before);
+    m.addLayer({ id: "journey-ahead", type: "line", source: "journey", filter: ["==", ["get", "part"], "ahead"],
+      paint: { "line-color": "#f08c00", "line-width": 2, "line-dasharray": [2, 2], "line-opacity": 0.8 } }, before);
+    m.addLayer({ id: "journey-ends", type: "circle", source: "journey", filter: ["==", ["get", "part"], "end"],
+      paint: { "circle-radius": 5, "circle-color": cssVar("--surface"), "circle-stroke-color": "#f08c00", "circle-stroke-width": 2.5 } }, before);
+  };
+  const journeyCard = info?.layer === "live_ships" || info?.layer === "live_planes" ? info.title : "";
+  useEffect(() => { if (!journeyCard) drawJourney.current(null); }, [journeyCard]);
 
   // The countries that rely on the clicked feature, outlined.
   const dependsKey = info?.countries?.map((c) => c.id).join(",") ?? "";
