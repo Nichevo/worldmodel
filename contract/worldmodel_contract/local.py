@@ -160,6 +160,7 @@ SETTINGS: dict[str, object] = {
     "ships_area": "pacific",             # where ships are collected: pacific (NZ, Australia, South Pacific) or world
     "ships_world_every_hours": 6,        # with the Pacific area: also a 10-minute whole-world snapshot this often (0: none)
     "ships_keep_days": 30,               # days of saved ship positions kept (older days deleted)
+    "ship_size_by_length": True,         # map: ship shapes drawn bigger for longer ships (their AIS length)
     "ship_schedules": True,              # cargo ships: keep each ETA and port call, and say whether a ship is on time (Live > Schedules)
     "port_lists_fetch": True,            # ... read the ports' arrival lists every hour (Auckland, Tauranga, NSW ports, Melbourne, Singapore with a key)
     "carrier_schedules": True,           # ... ask the lines' schedules (Maersk, Hapag-Lloyd, CMA CGM) when their free keys are set

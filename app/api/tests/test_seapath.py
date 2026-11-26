@@ -57,3 +57,12 @@ def test_sea_path_soon_never_waits(monkeypatch):
     assert seapath.sea_path_soon(170.1, -40.1, 174.78, -36.84)["nm"] == 99
     seapath._known.clear()
     seapath._route.cache_clear()
+
+
+def test_ship_feature_carries_length():
+    from worldmodel_api.live import _ship_feature
+
+    v = {"id": 1, "lat": -36.8, "lon": 174.8, "seen": 1}
+    assert "length_m" not in _ship_feature(v)["properties"]
+    assert _ship_feature(v, {1: {"length_m": 300}})["properties"]["length_m"] == 300
+    assert _ship_feature({**v, "length_m": 25}, {1: {"length_m": 300}})["properties"]["length_m"] == 25

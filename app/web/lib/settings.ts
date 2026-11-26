@@ -144,6 +144,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ships_area: "pacific",
   ships_world_every_hours: 6,
   ships_keep_days: 30,
+  ship_size_by_length: true,
   ship_schedules: true,
   port_lists_fetch: true,
   carrier_schedules: true,

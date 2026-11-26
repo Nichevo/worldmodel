@@ -6,6 +6,7 @@ import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecif
 import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { shipsAtQuery } from "@/lib/ships";
 import { get } from "@/lib/api";
+import { readSettings } from "@/lib/settings";
 import { cssVar } from "@/lib/colors";
 import { aqiWords, MODEL_COLOURS } from "@/lib/weather";
 import { EVENT_KIND, fightingQuery, lookCloser, portWeeksQuery, SOURCE_NAME } from "@/lib/osint";
@@ -47,6 +48,17 @@ type Style = {
   symbol?: () => SymbolLayerSpecification["layout"];
   sortKey?: unknown[]; // dots: drawn in this order, highest on top (earthquakes: the biggest)
 };
+// A ship shape's size by zoom, and (by default) by the ship's length: about 0.55 times for a 20 m
+// boat, 1 for 120 m, 1.7 for 400 m (by its square root, so the giants don't swamp the map); a ship
+// that hasn't sent its length is drawn as if 80 m long.
+function shipSize(byLength: boolean): ExpressionSpecification {
+  const f = byLength
+    ? ["interpolate", ["linear"], ["sqrt", ["max", 1, ["coalesce", ["get", "length_m"], 80]]], 4.5, 0.55, 11, 1, 20, 1.7]
+    : 1;
+  const at = (z: number, s: number) => [z, typeof f === "number" ? s : ["*", s, f]];
+  return ["interpolate", ["linear"], ["zoom"], ...at(1, 0.45), ...at(5, 0.6), ...at(9, 0.8), ...at(12, 1)] as unknown as ExpressionSpecification;
+}
+
 // The MapLibre layer drawn for an overlay (lid: its layer id, also the source's id). The map adds it,
 // and the Self check validates it against MapLibre's style rules, so both use exactly this.
 export function layerSpec(id: string, lid: string): LayerSpecification {
@@ -437,10 +449,10 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "icon-color": groupColor(PLANE_GROUPS, "#1864ab"), "icon-halo-color": cssVar("--surface"), "icon-halo-width": 1 }) as never,
   },
   live_ships: {
-    legend: "Ship now (aisstream.io), coloured by kind", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "journey",
+    legend: "Ship now (aisstream.io), coloured by kind, sized by length", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "journey",
     symbol: () => ({
       "icon-image": "wm-ship",
-      "icon-size": ["interpolate", ["linear"], ["zoom"], 1, 0.45, 5, 0.6, 9, 0.8, 12, 1] as unknown as ExpressionSpecification,
+      "icon-size": shipSize(readSettings().ship_size_by_length !== false),
       "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
       "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
     }),
