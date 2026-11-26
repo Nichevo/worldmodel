@@ -439,6 +439,9 @@ export type Settings = {
   night_year: "2016" | "2012" | "latest";
   map_3d: boolean;
   map_3d_exaggeration: number;
+  map_globe: boolean;
+  globe_space: boolean;
+  globe_grid: boolean;
   map_tiles: "local_first" | "online";
   map_tiles_starter: boolean;
   land_cover_years_keep: "every5" | "every" | "none";
