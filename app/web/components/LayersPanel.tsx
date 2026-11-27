@@ -805,7 +805,7 @@ function PlaceLookToggles({ names }: { names: string[] }) {
           <input type="checkbox" checked={s.map_place_icons !== false} onChange={(e) => saveSettings({ map_place_icons: e.target.checked }).catch(() => undefined)} /> Symbols</label>
         <label title="Zoomed in to about a city, ports, airports, hospitals and universities grow to about their real size over the site">
           <input type="checkbox" checked={real} onChange={(e) => saveSettings({ map_real_size: e.target.checked }).catch(() => undefined)} /> Real size close in</label>
-        <label title="Zoomed in, each site's grounds as the map draws them, tinted in the layer's colour (ports: industrial land next to the port); needs map detail, not Countries only">
+        <label title="Zoomed in, each site's grounds as the map draws them, tinted in the layer's colour (ports: industrial land next to the port; power plants: their grounds from OpenStreetMap, coloured by kind of plant); needs map detail, not Countries only (power plant grounds work without it)">
           <input type="checkbox" checked={s.map_site_outlines !== false} onChange={(e) => saveSettings({ map_site_outlines: e.target.checked }).catch(() => undefined)} /> Site outlines</label>
       </div>
       <p className="caption">Dots stay sized by how busy each place is.

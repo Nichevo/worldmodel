@@ -77,3 +77,81 @@ def test_power_layers_built(built):
     assert props[2]["fuel"] == "Other"
     n = built.execute("SELECT count(*) FROM geo_features WHERE layer_id = 'power_lines'").fetchone()[0]
     assert n == 2
+
+
+# ----------------------------------------------------------------------------- plant grounds (OpenStreetMap)
+def _sq(lon, lat, d):
+    return [{"lon": lon, "lat": lat}, {"lon": lon + d, "lat": lat}, {"lon": lon + d, "lat": lat + d}, {"lon": lon, "lat": lat + d},
+            {"lon": lon, "lat": lat}]
+
+
+OVERPASS = {"elements": [
+    # Huntly-like coal and gas station: about 600 m square
+    {"type": "way", "id": 11, "tags": {"power": "plant", "name": "Big Station", "plant:source": "coal;gas",
+                                       "plant:output:electricity": "1,000 MW", "operator": "Genesis"},
+     "geometry": _sq(175.15, -37.55, 0.006)},
+    # a solar farm drawn as a relation of two open ways, with a hole
+    {"type": "relation", "id": 22, "tags": {"power": "plant", "plant:source": "solar", "plant:output:electricity": "52 MWp"},
+     "members": [
+         {"type": "way", "role": "outer", "geometry": [{"lon": 172.0, "lat": -43.0}, {"lon": 172.01, "lat": -43.0}, {"lon": 172.01, "lat": -42.99}]},
+         {"type": "way", "role": "outer", "geometry": [{"lon": 172.0, "lat": -43.0}, {"lon": 172.0, "lat": -42.99}, {"lon": 172.01, "lat": -42.99}]},
+         {"type": "way", "role": "inner", "geometry": _sq(172.004, -42.996, 0.001)}]},
+    # a plant that is one small building: left out
+    {"type": "way", "id": 33, "tags": {"power": "plant", "plant:source": "hydro"}, "geometry": _sq(170.0, -45.0, 0.0002)},
+    {"type": "node", "id": 44, "tags": {"power": "plant"}},
+]}
+
+
+def test_site_rows():
+    from worldmodel_data.connectors.power import osm_mw, site_boxes, site_rows
+
+    assert osm_mw({"plant:output:electricity": "1.2 GW"}) == 1200 and osm_mw({"plant:output:electricity": "500 kW"}) == 0.5
+    assert osm_mw({"plant:output:electricity": "yes"}) is None
+    assert site_boxes()[0] == (160, -60) and len(set(site_boxes())) == 126  # New Zealand first, each square once
+    rows = {r[1]: r for r in site_rows(OVERPASS)}
+    assert set(rows) == {"w11", "r22"}
+    big = rows["w11"]
+    assert big[2] == "Big Station" and big[4]["fuel"] == "Coal" and big[4]["mw"] == 1000 and big[4]["operator"] == "Genesis"
+    assert big[3] == 2 and 30 < big[4]["ha"] < 40 and big[6]["type"] == "Polygon"
+    solar = rows["r22"]
+    assert solar[2] == "Solar power plant" and solar[4]["fuel"] == "Solar" and solar[4]["mw"] == 52
+    assert len(solar[6]["coordinates"]) == 2  # the outer ring joined from two ways, and the hole
+    assert solar[3] == 1 or solar[4]["ha"] > 70
+
+
+def test_sites_built(tmp_path):
+    tmp = tmp_path
+    (tmp / "osm").mkdir()
+    (tmp / "osm" / "osm_power_160_-60_20.json").write_text(json.dumps(OVERPASS), encoding="utf-8")
+    home = Paths(tmp / "var")
+    CONNECTORS["osm_power_sites"]().ingest(VintageStore(home), tmp / "osm")
+    con = duckdb.connect(str(build(home).path), read_only=True)
+    got = con.execute("SELECT feature_id, rank FROM geo_features WHERE layer_id = 'power_sites' ORDER BY 1").fetchall()
+    assert [g[0] for g in got] == ["r22", "w11"]
+
+
+def test_sites_download(tmp_path, monkeypatch):
+    """Squares read in turn, one too big read as four, and a refusal stops the run."""
+    from worldmodel_data.connectors import power
+
+    class R:
+        def __init__(self, code, body=b'{"elements": []}'):
+            self.status_code, self.content = code, body
+
+    asked = []
+    late = b'{"elements": [], "remark": "runtime error: Query timed out in \\"query\\" at line 1 after 600 seconds."}'
+
+    def post(url, data, timeout):
+        asked.append(data["data"])
+        n = len(asked)
+        return R(200, late) if n == 2 else R(429) if n == 8 else R(200)
+
+    c = CONNECTORS["osm_power_sites"]()
+    c.gap = 0
+    c._client = type("C", (), {"post": staticmethod(post)})()
+    c.download(tmp_path, "2026-11-28")
+    files = sorted(p.name for p in tmp_path.glob("osm_power_*.json"))
+    assert len(asked) == 8 and len(files) == 6  # 1 whole square, 4 quarters, 1 more square, then refused
+    assert "osm_power_160_-60_20.json" in files and any(f.endswith("_10.json") for f in files)
+    done = json.loads((tmp_path / "fetched.json").read_text())
+    assert len(done) == 3

@@ -30,6 +30,10 @@ def client(tmp_path, monkeypatch):
               ("q3", "M 5.1 - Taupo", 5.1, "2025-03-01")]
     con.executemany("INSERT INTO layer_items VALUES ('earthquakes', ?, ?, 'NZL', -41, 174, ?, NULL, NULL, ?, true, 'usgs_earthquakes', 'v1')",
                     [(i, n, m, json.dumps({"date": d})) for i, n, m, d in quakes])
+    plants = [("p1", "Manapouri", "NZL", -45.5, 167.3, 850, "Hydro"), ("p2", "Huntly", "NZL", -37.5, 175.1, 953, "Coal"),
+              ("p3", "Wairakei", "NZL", -38.6, 176.1, 161, "Geothermal"), ("p4", "Taveuni", "FJI", -16.8, -179.9, 1, "Solar"),
+              ("p5", "Eraring", "AUS", -33.1, 151.5, 2880, "Coal")]
+    con.executemany("INSERT INTO layer_items VALUES ('power_plants', ?, ?, ?, ?, ?, ?, ?, NULL, '{}', false, 'wri_gppd', 'v1')", plants)
     con.execute("""INSERT INTO geo_features VALUES ('cables', 'scn', 'Southern Cross NEXT', 1, ?, 'AUS,NZL,USA',
                    151.2, -33.9, 178.4, -18.1, '{"type":"LineString","coordinates":[[151.2,-33.9],[178.4,-18.1]]}', 'x', 'v1')""",
                 [json.dumps({"length": "15,840 km", "owners": ["Spark", "Telstra"], "rfs": 2022})])
@@ -157,3 +161,16 @@ def test_items_newest_first_with_a_smallest_size_and_dates(client):
     assert client.get(url, params={"country": "NZL", "min_size": 5}).json()["total"] == 2
     got = client.get(url, params={"country": "NZL", "date_from": "2024-01-01", "date_to": "2024-12-31"}).json()
     assert [r["item_id"] for r in got["rows"]] == ["q2"]
+
+
+def test_items_in_a_map_view_by_fuel(client):
+    """The map panel's Power plants table: only plants in the view (across the date line too), a fuel
+    picked, and the key of fuels in view with their capacity."""
+    url = "/api/v1/layer-details/power_plants/items"
+    got = client.get(url, params={"box": "165,-48,180,-34"}).json()
+    assert [r["name"] for r in got["rows"]] == ["Huntly", "Manapouri", "Wairakei"]
+    assert got["categories"][0] == {"category": "Coal", "count": 1, "size": 953}
+    over = client.get(url, params={"box": "165,-48,190,-10"}).json()  # past 180: Fiji too
+    assert "Taveuni" in [r["name"] for r in over["rows"]]
+    coal = client.get(url, params={"box": "165,-48,180,-34", "category": "Coal,Hydro"}).json()
+    assert [r["name"] for r in coal["rows"]] == ["Huntly", "Manapouri"] and len(coal["categories"]) == 3

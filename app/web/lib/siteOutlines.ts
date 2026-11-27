@@ -2,7 +2,9 @@
 // outlines from the map"): with the Airports layer on, every airport's grounds as the map draws
 // them get a tint and an edge in the layer's colour; likewise hospital and university grounds and
 // military land. Ports have no "port" area in either map layout, so their grounds are worked out:
-// the industrial land within about a kilometre of a port dot in view.
+// the industrial land within about a kilometre of a port dot in view. Power plants have no area
+// in the map detail either: their grounds come from OpenStreetMap's plant outlines (the Power plant
+// grounds layer, read by a refresh), drawn with the Power plants layer (COMPANIONS).
 // Both map layouts are read: OpenMapTiles (online, "class") and Protomaps (local files, "kind").
 // Needs map detail (online or local files): with "Countries only" there is nothing to read.
 import type { ExpressionSpecification, GeoJSONSource, LayerSpecification, Map as MlMap } from "maplibre-gl";
@@ -20,6 +22,14 @@ export const SITE_KINDS: Record<string, { kinds: string[]; layers: string[] }> =
   military_bases: { kinds: ["military", "naval_base"], layers: ["landuse"] },
 };
 export const PORT_LAYERS = ["ports", "port_pressure", "ports_all"];
+// Layers drawn along with another while site outlines are on: power plants bring their grounds
+// (OpenStreetMap's plant outlines, a layer of their own, coloured by kind of plant).
+export const COMPANIONS: Record<string, string> = { power_plants: "power_sites" };
+export function withCompanions(layers: string[], outlines: boolean): string[] {
+  if (!outlines) return layers;
+  const extra = layers.map((id) => COMPANIONS[id]).filter((c): c is string => !!c && !layers.includes(c));
+  return extra.length ? [...layers, ...extra] : layers;
+}
 const PORT_LAND = ["industrial", "port", "harbour"];
 export const SITE_FROM = 10; // grounds are drawn from about a region's zoom inward
 const PORT_FROM = 11;

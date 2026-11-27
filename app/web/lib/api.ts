@@ -290,6 +290,7 @@ export type Settings = {
   climate_storms_from: number; // first year of storm tracks kept
   climate_live_map: boolean; // the storms map asks GDACS for what is happening now
   power_fetch: boolean; // refresh reads WRI power plants and gridfinder power lines
+  power_sites_fetch: boolean; // refresh reads power plant grounds from OpenStreetMap (Overpass, 40 squares a month)
   energy_flows_fetch: boolean; // refresh reads UN energy statistics and Eurostat power trade
   grid_now: boolean; // Grid now cards read live while open
   outlook_fetch: boolean; // OECD leading indicators, quarterly GDP, US yield curve and GDPNow downloaded at refresh

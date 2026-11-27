@@ -5,6 +5,7 @@
 // with real size on it grows with the map, in metres, over the site.
 // Settings: map_place_icons (default on) and map_real_size (default off).
 import type { ExpressionSpecification, LayerSpecification, Map as MlMap, SymbolLayerSpecification } from "maplibre-gl";
+import { fuelColourExpr } from "@/lib/fuels";
 import { cssVar } from "@/lib/colors";
 
 type Expr = ExpressionSpecification;
@@ -121,8 +122,7 @@ export const PLACE_LOOK: Record<string, PlaceLook> = {
   power_plants: {
     icon: "wm-p-bolt", from: 6, label: "Power plants",
     busy: () => ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "mw"], 10]], 0, 1.5, 10, 3, 30, 7, 80, 14],
-    color: () => ["match", ["get", "fuel"], "Hydro", "#1c7ed6", "Geothermal", "#e8590c", "Wind", "#37b24d", "Solar", "#f59f00",
-      "Nuclear", "#7048e8", "Coal", "#343a40", "Gas", "#868e96", "Oil", "#5c3d2e", "Biomass", "#82c91e", "Waste", "#a9a9a9", "#adb5bd"],
+    color: () => fuelColourExpr(),
   },
 };
 

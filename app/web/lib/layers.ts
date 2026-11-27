@@ -3,6 +3,7 @@
 // with a line of text on hover. Fetched once per page and shared by every map.
 
 import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LayerSpecification, LineLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
+import { fuelColourExpr } from "@/lib/fuels";
 import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { shipsAtQuery, shipsTooBigQuery } from "@/lib/ships";
 import { get, getAbortable } from "@/lib/api";
@@ -252,11 +253,15 @@ export const LAYER_STYLE: Record<string, Style> = {
   power_plants: {
     legend: "Power plant, sized by capacity, coloured by fuel", swatch: () => "#2b8a3e", dot: true,
     paint: () => ({
-      "circle-color": ["match", ["get", "fuel"], "Hydro", "#1c7ed6", "Geothermal", "#e8590c", "Wind", "#37b24d", "Solar", "#f59f00",
-        "Nuclear", "#7048e8", "Coal", "#343a40", "Gas", "#868e96", "Oil", "#5c3d2e", "Biomass", "#82c91e", "Waste", "#a9a9a9", "#adb5bd"],
+      "circle-color": fuelColourExpr(),
       "circle-opacity": 0.85, "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 0.6,
       "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "mw"], 10]], 0, 1.5, 10, 3, 30, 7, 80, 14],
     }),
+  },
+  power_sites: {
+    legend: "Power plant grounds, coloured by kind of plant (OpenStreetMap; from about region zoom)", swatch: () => "#f59f00", fill: true, fetch: "window",
+    paint: () => ({ "fill-color": fuelColourExpr(), "fill-outline-color": fuelColourExpr(),
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.55, 12, 0.45, 15, 0.3] }),
   },
   power_links: {
     legend: "Electricity traded between countries in a year (thicker: more; hover for which way)", swatch: () => "#e8590c",
@@ -611,6 +616,8 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + `${p.recent ? "" : "<br/><span class=\"muted\">No recent samples</span>"}`;
   if (layer === "power_plants") return `<b>${esc(p.name)}</b><br/>${esc(p.fuel)}${typeof p.mw === "number" ? `, ${num(p.mw)} MW` : ""}`
     + `${p.year ? ` · built ${esc(p.year)}` : ""}${p.owner ? `<br/>${esc(p.owner)}` : ""}`;
+  if (layer === "power_sites") return `<b>${esc(p.name)}</b><br/>${esc(p.fuel === "Other" ? "Power plant (kind not given)" : `${p.fuel} power plant`)}`
+    + `${typeof p.mw === "number" ? `, ${num(p.mw, 1)} MW` : ""}<br/>${num(p.ha, 1)} ha of ground${p.operator ? `<br/>${esc(p.operator)}` : ""}`;
   if (layer === "power_links") return `<b>${esc(p.from_name)} → ${esc(p.to_name)}</b>, ${esc(p.year)}<br/>${num(p.sent)} GWh sent, `
     + `${num(p.back)} GWh back<br/>Net ${num(p.net)} GWh to ${esc(p.to_name)}`;
   if (layer === "timezones") return zoneText(String(p.tz ?? p.name ?? ""), esc);

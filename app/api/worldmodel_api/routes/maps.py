@@ -72,10 +72,13 @@ def layer_details_items(layer_id: str, country: str | None = Query(None, descrip
                         limit: int = Query(200, ge=1, le=5000), offset: int = Query(0, ge=0),
                         min_size: float | None = Query(None, description="Only items at least this big (a magnitude, beds...)"),
                         date_from: str | None = Query(None, description="Only items dated on or after this day (layers with a date)"),
-                        date_to: str | None = Query(None, description="Only items dated on or before this day")):
-    """A layer's items, biggest first (or by name, or newest first), for one country or group or all."""
+                        date_to: str | None = Query(None, description="Only items dated on or before this day"),
+                        box: str | None = Query(None, description="Only items in this map view: west,south,east,north"),
+                        category: str | None = Query(None, description="Only items of these categories (fuels...), comma-separated")):
+    """A layer's items, biggest first (or by name, or newest first), for one country or group or all,
+    or only those in a map view; with how many of each category there are and their size together."""
     return layer_info.list_items(rows, _layer_key(), layer_id, country, q, sort, limit, offset, _live_layer, hazards.country_of,
-                                 min_size=min_size, date_from=date_from, date_to=date_to)
+                                 min_size=min_size, date_from=date_from, date_to=date_to, box=box, category=category)
 
 
 @api.get("/weather/status")

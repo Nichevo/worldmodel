@@ -49,8 +49,8 @@ export const layerApi = {
   list: () => get<LayerOverview[]>("/layer-details"),
   detail: (id: string) => get<LayerDetail>(`/layer-details/${encodeURIComponent(id)}`),
   items: (id: string, p: { country?: string; q?: string; sort?: "size" | "name" | "date"; limit?: number; offset?: number;
-    min_size?: number; date_from?: string; date_to?: string }) =>
-    get<{ rows: LayerItem[]; total: number }>(`/layer-details/${encodeURIComponent(id)}/items`, p),
+    min_size?: number; date_from?: string; date_to?: string; box?: string; category?: string }) =>
+    get<{ rows: LayerItem[]; total: number; categories?: { category: string | null; count: number; size: number }[] }>(`/layer-details/${encodeURIComponent(id)}/items`, p),
   country: (entity: string) => get<CountryLayer[]>(`/layer-details/country/${encodeURIComponent(entity)}`),
 };
 

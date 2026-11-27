@@ -154,6 +154,7 @@ SETTINGS: dict[str, object] = {
     "sea_borders_fetch": True,           # Marine Regions economic zone lines (twice a year) and VATSIM flight region outlines (every three months)
     "timezones_fetch": True,             # time zone outlines (timezone-boundary-builder, about 50 MB twice a year)
     "power_fetch": True,                 # WRI power plants (a 10 MB file twice a year) and gridfinder power lines (700 MB once)
+    "power_sites_fetch": True,           # power plant grounds from OpenStreetMap (Overpass, 40 squares a month, ten seconds apart)
     "energy_flows_fetch": True,          # UN energy statistics for every country (about 100 MB, every three months) and Eurostat power trade
     "grid_now": True,                    # Grid now cards (NZ, Australia, Great Britain, US): read live only while a card is open
     "outlook_fetch": True,               # OECD leading indicators and quarterly GDP (weekly), US yield curve and GDPNow from FRED
