@@ -1420,6 +1420,11 @@ export const api = {
     get<Regions>(`/regions/${encodeURIComponent(country)}`, { level: opts.level, indicator: opts.indicator }),
   regionShapes: (parent: string, level?: string) =>
     get<GeoJSON.FeatureCollection>(`/region-shapes/${encodeURIComponent(parent)}`, { level }),
+  cropLevels: () => get<CropLevel[]>("/crops/levels"),
+  cropTop: (level: string, year?: number | null) => get<CropTop>("/crops/top", { level, year: year ?? undefined }),
+  cropWhere: (crop: string, level: string, year?: number | null) =>
+    get<CropWhere>(`/crops/where/${encodeURIComponent(crop)}`, { level, year: year ?? undefined }),
+  cropPlace: (entity: string) => get<CropPlace>(`/crops/place/${encodeURIComponent(entity)}`),
   regionCountries: () => get<{ entity_id: string; name: string; regions: number; level: string; below: number }[]>("/region-countries"),
   regionFacts: (id: string) => get<RegionFacts>(`/region-facts/${encodeURIComponent(id)}`),
   manualFiles: () => get<ManualFile[]>("/manual-files"),
@@ -1700,3 +1705,16 @@ export type GuessResult = { score: number; years: number; gap: number | null; ac
 export type SavedQuery = { name: string; sql: string; at: string };
 export type ConsoleTables = { tables: { table: string; columns: { name: string; type: string }[] }[]; saved: SavedQuery[]; max_rows: number };
 export type ConsoleResult = { columns: string[]; rows: (string | number | boolean | null)[][]; more: boolean; limit: number };
+
+// Land > Top crops: the crop on the most land in each place.
+export type CropLevel = { level: string; label: string; places: number; years: number[]; source: string };
+export type CropShare = { crop: string; ha: number; share: number | null };
+export type CropTop = {
+  level: string; label: string; year: number | null; years: number[]; unit: string; source: string; note: string;
+  places: { id: string; name: string; total_ha: number; top: CropShare[] }[];
+  crops: { id: string; name: string; color: string; top_in: number; ha: number }[];
+};
+export type CropWhere = { crop: string; name: string; color: string; level: string; year: number | null;
+  values: Record<string, { ha: number; share: number | null; rank: number }> };
+export type CropPlace = { entity_id: string; level: string; years: number[]; source: string;
+  crops: { id: string; name: string; color: string; ha: Record<string, number> }[] };

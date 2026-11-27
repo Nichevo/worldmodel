@@ -209,7 +209,7 @@ def read_table(src, m: dict, labels: dict[str, dict[str, str]] | None = None) ->
     if area is None or len(set(regions[area].values()) - {None}) < 8:
         return {}
     chosen: dict[int, str] = {}
-    keep = {plain(k): plain(v) for k, v in (m.get("keep") or {}).items()}
+    keep = {(k if k == "*" else plain(k)): plain(v) for k, v in (m.get("keep") or {}).items()}
     anywhere = keep.get("*")
     used = set()
     for i in dims:
@@ -307,7 +307,7 @@ def plan_key(struct: dict, ms: list[dict]) -> str | None:
             continue
         want: set[str] = set()
         for m in ms:
-            keep = {plain(k): plain(v) for k, v in (m.get("keep") or {}).items()}
+            keep = {(k if k == "*" else plain(k)): plain(v) for k, v in (m.get("keep") or {}).items()}
             w = _want(keep, plain(name), d)
             for v in [w, keep.get("*")]:
                 if v:
