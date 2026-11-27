@@ -132,6 +132,8 @@ def test_wdi_falls_back_to_the_indicators_api(tmp_path, monkeypatch):
     manifest, new = conn.ingest(store)
     assert new and "api.worldbank.org" in manifest.origin and manifest.row_count == 6
     assert any("source=2" in u and "/indicator/SP.POP.TOTL" in u for u in asked)
+    # every year asked for: without a date range the API gives some series only their last five years
+    assert all("date=1960%3A" in u or "date=1960:" in u for u in asked if "/indicator/" in u)
     out = store.vintage_dir("world_bank_wdi", manifest.vintage)
     inds = {i["id"]: i for i in json.loads((out / "indicators.json").read_text())}
     assert inds["military_spending_gdp"]["domain"] == "military" and inds["military_spending_gdp"]["unit"] == "% of GDP"
