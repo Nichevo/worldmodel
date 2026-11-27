@@ -3173,6 +3173,46 @@
     get: https://www.fhfa.gov/data/hpi/datasets?tab=additional-data
     what: "If the refresh is refused, save 'All-Transactions Indexes: States (CSV)' and 'Counties (annual, XLSX)' here."
 
+- id: nz_property_sales
+  name: Property and sales statistics (New Zealand sale prices and MCERT House Price Index)
+  short_name: NZ house sales (MCERT)
+  publisher: Ministry for Cities, Environment, Regions and Transport (formerly the Ministry of Housing and Urban Development)
+  url: https://www.hud.govt.nz/stats-and-insights/property-and-sales-statistics/about-the-dashboard
+  licence: CC BY 4.0 (New Zealand Government)
+  licence_url: https://www.hud.govt.nz/copyright
+  commercial_use: true
+  cadence: Monthly, whole history recalculated each time; checked every 25 days
+  attribution: "Ministry for Cities, Environment, Regions and Transport, Property and sales statistics (District Valuation Roll data from LINZ and councils)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+  manual:
+    by_hand: false
+    files: ["Property-and-Sales*", "*.xlsx"]
+    get: https://www.hud.govt.nz/stats-and-insights/property-and-sales-statistics/about-the-dashboard
+    what: "If the refresh is refused, download 'Property and sales statistics data download (XLSX, 22 MB)' from the dashboard's About page and save it here."
+
+- id: abs_dwellings
+  name: ABS Total Value of Dwellings and Residential Dwellings medians (Data API RES_DWELL_ST, RES_DWELL)
+  short_name: ABS dwelling prices
+  publisher: Australian Bureau of Statistics
+  url: https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/total-value-dwellings/latest-release
+  licence: CC BY 4.0
+  licence_url: https://www.abs.gov.au/website-privacy-copyright-and-disclaimer
+  commercial_use: true
+  cadence: Quarterly; checked monthly
+  attribution: "Australian Bureau of Statistics, Total Value of Dwellings and Residential Dwellings (Data API)."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: established
+  manual:
+    by_hand: false
+    files: ["RES_DWELL*", "*.csv"]
+    get: https://explore.data.abs.gov.au/
+    what: "If the refresh is refused, open 'Residential Dwellings: Values, Mean Price and Number by State and Territories' and 'Residential Dwellings: Unstratified Medians...' in the ABS Data Explorer, choose Download > 'CSV with labels' for each and save them here."
+
 - id: mit_elections
   name: MIT Election Lab, US presidential returns by state 1976-
   short_name: MIT Election Lab (states)

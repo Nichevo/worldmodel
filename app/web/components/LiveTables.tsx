@@ -8,6 +8,7 @@ import { get } from "@/lib/api";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { journeyLines, journeyText, planeJourney, shipJourney, shipSize, useShipStatus, type Journey, type ShipSize } from "@/lib/ships";
 import SpotMap from "@/components/SpotMap";
+import FlightInfo from "@/components/FlightInfo";
 import { mapLayersHref } from "@/lib/workspace";
 import { useSettings } from "@/lib/settings";
 import { ON_TIME_STATES, OnTimePill, SchedulePart, SchedulesBoard, type OnTime } from "@/components/ShipSchedule";
@@ -677,6 +678,7 @@ export function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; o
         <FlightsPart icao={id} callsign={plane?.callsign ?? null} />
         <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>
         {j ? journeyText(j, true).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>) : <p className="small muted">Asking OpenSky and adsb.lol…</p>}
+        <FlightInfo id={id} callsign={plane?.callsign ?? null} journey={j} />
         <p className="small"><Link href={mapLayersHref("F")}>Planes on the map</Link> (click the plane there to draw its path)
           {" · "}<a href={`https://globe.adsb.lol/?icao=${id}`} target="_blank" rel="noreferrer">adsb.lol</a>
           {" · "}<a href={`https://opensky-network.org/aircraft-profile?icao24=${id}`} target="_blank" rel="noreferrer">OpenSky</a></p>

@@ -166,6 +166,10 @@ NOT_COUNTED = {
     "live_planes": "Planes are fetched only for the area in view, so they can't be counted by country.",
     "live_ships": "Ships are fetched only for the area in view, so they can't be counted by country.",
     "live_military": "Military planes are fetched only for the area in view, so they can't be counted by country.",
+    "live_trains": "Trains are fetched only for the area in view; Transport > Congestion has lateness by line.",
+    "road_traffic": "Live traffic is a picture from TomTom, so it can't be counted; Transport > Congestion has the counting sites.",
+    "count_sites": "Road counting sites are listed on Transport > Congestion with their vehicles a day.",
+    "airport_busy": "Busy hours are listed by airport on Transport > Congestion.",
 }
 
 

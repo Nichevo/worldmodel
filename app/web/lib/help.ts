@@ -56,6 +56,14 @@ export const HELP = {
     sources: [{ label: "OECD", indicator: "oecd_house_price_nominal" }, { label: "Dallas Fed", indicator: "dfed_house_price_nominal" },
       { label: "BIS", indicator: "bis_house_price_nominal" }, { label: "IMF Global Debt Database", indicator: "imf_household_debt_gdp" }],
   },
+  house_regions: {
+    title: "House prices by region",
+    what: "House prices over time for the country and each of its regions (New Zealand) or states and territories (Australia), on one chart, with a table of each place's latest price, its change over one and five years and how far it is below its peak.",
+    how: "New Zealand: sale prices of homes sold on the open market, from the councils' valuation rolls, monthly from 1980 (the middle price over three months, so small regions do not jump about), and the Ministry's own house price index, which sets each sale against the home's rating valuation. The latest two months are left out while late sales come in, and the Ministry recalculates the whole history each month. Australia: the ABS mean price of all dwellings by state (from 2011) and median prices of houses and units sold in each capital city and the rest of each state (from 2002), by quarter. Today's dollars use the country's yearly consumer price inflation.",
+    units: "NZ$ or A$; index; % change on a year earlier",
+    sources: [{ label: "Ministry for Cities, Environment, Regions and Transport (NZ)", indicator: "nzhouse_median_price_m" },
+      { label: "Australian Bureau of Statistics", indicator: "aureg_mean_dwelling_price_q" }],
+  },
   migration: {
     title: "Migration in and out",
     what: "People born abroad living here against people born here living abroad, or refugees hosted here against refugees who fled from here, with the ten largest countries on each side.",

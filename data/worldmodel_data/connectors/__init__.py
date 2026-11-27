@@ -38,6 +38,7 @@ from worldmodel_data.connectors.migration import UNHCR, UNIMS
 from worldmodel_data.connectors.land import CouncilTrees, GFWTreeCover, GHSLUrbanCentres, HYDELand, NZForestry, NZLCDB
 from worldmodel_data.connectors.nature import (PSMSL, UNSDG, WDPA, BerkeleyEarth, EPPOPests, GRIIS, IUCNRedList, KoppenBeck,
                                                 NatureCurated, NDGAIN, WAHISOutbreaks)
+from worldmodel_data.connectors.house_prices import ABSDwellings, NZPropertySales
 from worldmodel_data.connectors.networks import GEMInfrastructure, HydroSHEDS, NERailways, SubmarineCables, Waterways
 from worldmodel_data.connectors.nz import RBNZ, MBIEEnergy, NZCorrections
 from worldmodel_data.connectors.owid import OWIDEnergy, OWIDGrapher
@@ -66,7 +67,7 @@ from worldmodel_data.connectors.zones import CelesTrakSatcat, NSIDCSeaIce
 
 CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     UNWPP, IMFWEO, IMFWEOHistory, WorldBankWDI, OWIDEnergy, OWIDGrapher, CIAFactbook, Wikidata,
-    Coups, UCDPConflicts, EMDAT, BIS, OECD, DallasFedIHPD, IMFGDD, UNIMS, UNHCR, Wittgenstein, UNDPHDR,
+    Coups, UCDPConflicts, EMDAT, BIS, OECD, DallasFedIHPD, IMFGDD, NZPropertySales, ABSDwellings, UNIMS, UNHCR, Wittgenstein, UNDPHDR,
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
     GeoNames, UNWUP, WhereNext, ILOEarnings, ILOHours, WalkFreeGSI, WIDGender, RemoteLifeWork, NatixisGRI, Numbeo, WHOAirQuality, TomTomTraffic, MarineRegionsEEZ, VatsimAirspace, TimezoneBoundaries,

@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import RegionsCard from "@/components/RegionsCard";
 import { api } from "@/lib/api";
 
-// Regions inside a country: the US states (or every county) and New Zealand's regions on a map
+// Regions inside a country: the US states (or every county), New Zealand's regions and Australia's states on a map
 // of their own outlines, one figure at a time. Region figures are kept apart from country
 // figures, so the world map is unchanged. ?country=USA picks the country.
 function RegionsPage() {
@@ -37,6 +37,7 @@ function RegionsPage() {
       )}
       {country && here && <RegionsCard key={country} entity={country} name={here.name} levels={here.below ? [here.level, "county"] : undefined}
         emptyNote={country === "NZL" ? "No figures for New Zealand's regions yet: they come from Stats NZ, which needs STATSNZ_API_KEY (Settings > Keys), then a refresh."
+          : country === "AUS" ? "No figures for Australia's states yet: house prices come from the ABS with a refresh."
           : "No figures for these regions yet: they come with a refresh (Settings > Data, \u201cUS states and counties\u201d)."} />}
     </div>
   );

@@ -25,7 +25,7 @@ FALLBACK = {"world_policy", "rbnz", "mbie_energy", "us_census_voting", "idea_tur
             "ookla_speedtest", "baci", "usgs_mcs", "wmd", "faostat", "wb_pinksheet", "fao_ffpi", "anz_cpi", "iea_ev",
             "cow_religion", "cldr_languages", "glottolog",
             "owid_climate", "noaa_gml", "nasa_gistemp", "noaa_enso", "ibtracs", "gdacs", "cckp", "cckp_normals", "who_aqdb", "marine_regions",
-            "ucdp_ged", "acled", "oryx", "opensanctions", "gfp", "bls_laus_county", "chr_health", "fhfa_hpi", "usda_nass",
+            "ucdp_ged", "acled", "oryx", "opensanctions", "gfp", "bls_laus_county", "chr_health", "fhfa_hpi", "nz_property_sales", "abs_dwellings", "usda_nass",
             "bitre_sea_freight", "world_port_index", "gfw_treecover"}
 ABOUT = "_where to get it.txt"
 OLD = "old"

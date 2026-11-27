@@ -392,11 +392,22 @@ export type Settings = {
   planes_logos: boolean; // airline logos beside airliners
   planes_badges: boolean; // flags and logos beside planes on the map when zoomed in
   planes_keep_days: number; // days of saved planes kept
+  flight_lookups_month: number; // plane card: AeroDataBox schedule look-ups a month at most (0: off)
+  flight_fares: boolean; // plane card: fares seen lately for the route (Travelpayouts)
   ship_owners_gfw: boolean; // ship details ask Global Fishing Watch for owners (GFW_API_TOKEN)
   ship_owners_wikidata: boolean; // ... and Wikidata by IMO
   ship_owners_equasis: boolean; // ... and show an Equasis link
   live_cameras: boolean; // the map's Cameras layer (road agencies, Windy webcams)
   live_military_planes: boolean; // the map's Military planes now layer (adsb.lol)
+  airport_hours_fetch: boolean; // count each airport's flights by hour once a day (OpenSky)
+  airport_hours_world: boolean; // ... the world's busiest airports too
+  airport_gates_fetch: boolean; // gates and stands from OpenStreetMap, monthly
+  airport_delays_fetch: boolean; // EUROCONTROL delays (Europe), FAA status (US)
+  road_counts_fetch: boolean; // roadside traffic counts weekly (NZTA, WebTRIS, NSW)
+  road_traffic_live: boolean; // the map's Road traffic now layer (TomTom tiles, not saved)
+  trains_live: boolean; // the map's Trains now layer
+  trains_collect: boolean; // keep reading trains and save their positions
+  trains_keep_days: number; // days of saved train positions kept
   conflict_events_fetch: boolean; // UCDP located events
   acled_on: boolean; // ACLED battles, protests and riots (free account)
   acled_from_year: number;

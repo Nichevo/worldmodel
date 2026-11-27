@@ -495,6 +495,11 @@ export default function SettingsPage() {
         <NumberField label="Keep saved planes for" unit="days" value={s.planes_keep_days} min={1} max={400} step={1}
           note="Older days of plane positions are deleted."
           save={(v) => save({ planes_keep_days: v })} />
+        <NumberField label="Flight schedule look-ups a month" unit="look-ups" value={s.flight_lookups_month} min={0} max={100000} step={10}
+          note="Opening a plane's card asks AeroDataBox (free AERODATABOX_API_KEY in Settings > Keys) for its flight's published times, delay, terminal and gate; each flight is kept 20 minutes while flying (12 hours once landed), so opening it again asks nothing. Every answer is also saved for good in var\live\planes\flight_history, so the card shows how late the same flight was on earlier days. The free plan allows 600 units a month and a look-up uses about 2, so 250 stays inside it. When the month's number is reached, the card says so until next month. 0: off, no look-ups."
+          save={(v) => save({ flight_lookups_month: v })} />
+        <Toggle label="Seat prices for a plane's route" hint="Opening a plane's card asks Travelpayouts (free TRAVELPAYOUTS_TOKEN in Settings > Keys) for the cheapest fares people found on Aviasales for that route this month, in NZD, kept 12 hours and saved for good in var\live\planes\flight_history (the card shows the cheapest seen before). These are fares seen in recent searches, not a live price for a seat on that flight. Off: only the Google Flights, Skyscanner and Aviasales links show."
+          on={s.flight_fares} set={(v) => save({ flight_fares: v })} />
         <Toggle label="Ship owners: Global Fishing Watch" hint="Opening a ship's details asks Global Fishing Watch (free GFW_API_TOKEN in Settings > Keys, non-commercial use) for its registered owners, flag history and authorisations, kept 30 days. Strongest for fishing boats and their carriers. Off: that part of the details is left out."
           on={s.ship_owners_gfw} set={(v) => save({ ship_owners_gfw: v })} />
         <Toggle label="Ship owners: Wikidata and photos" hint="Opening a ship's details asks Wikidata (no key, one small query per ship, kept 30 days) for its builder, operator, owner and year, and Wikimedia Commons for up to 6 freely licensed photos filed under its IMO number, with credits. Only ships with an IMO number; well-known ones have the most. Off: those parts are left out."
@@ -503,6 +508,26 @@ export default function SettingsPage() {
           on={s.ship_owners_equasis} set={(v) => save({ ship_owners_equasis: v })} />
         <Toggle label="Cameras (map layer)" hint="While the map's Cameras layer is on, the server reads the public camera lists of the road agencies whose area is in view (NZ Transport Agency, QLDTraffic, Live Traffic NSW with a free TFNSW_API_KEY, TfL, Caltrans, Fintraffic), kept six hours, and with a free WINDY_WEBCAMS_API_KEY asks Windy for webcams in the area in view (beaches, surf, harbours, cities). Pictures load straight from each owner when you click a camera; nothing is saved. Off: the layer stays empty."
           on={s.live_cameras} set={(v) => save({ live_cameras: v })} />
+        <h3 id="congestion">Congestion: airports, roads and trains</h3>
+        <Toggle label="Airport busy hours" hint="Once a day, ask OpenSky for each airport's arrivals and departures of the days just gone and count them by the airport's local hour (Transport › Congestion, and the map's Airport busy hours layer). Every New Zealand airport with scheduled flights and the large airports of Australia and the UK: about 50 airports, two requests each a day, two seconds apart, using your OpenSky API client when set in Settings › Keys. Kept in var\congestion\airports. Off: nothing new is counted."
+          on={s.airport_hours_fetch} set={(v) => save({ airport_hours_fetch: v })} />
+        <Toggle label="… the world's busiest airports too" hint="Also count the world's 100 or so busiest airports, the US's busiest among them (about 150 in all, three times the requests). Off: only NZ and the large airports of Australia and the UK."
+          on={s.airport_hours_world} set={(v) => save({ airport_hours_world: v })} />
+        <Toggle label="Airport gates and stands" hint="Once a month, count the gates and aircraft stands OpenStreetMap has mapped within a few kilometres of each of those airports (Overpass, 25 airports a question, ten seconds apart). Counts are only as good as the mapping. Off: the columns stay empty."
+          on={s.airport_gates_fetch} set={(v) => save({ airport_gates_fetch: v })} />
+        <Toggle label="Airport delays" hint="Once a week, EUROCONTROL's open files for European airports (flights a day, arrival delay held on the ground for want of airport capacity, extra taxi-out and holding time, by month; about 10 MB a year) and, when you open a US airport, the FAA's airport status now (ground stops, delay programmes). Off: neither is read."
+          on={s.airport_delays_fetch} set={(v) => save({ airport_delays_fetch: v })} />
+        <Toggle label="Road traffic counts" hint="Once a week, roadside counts from NZTA (every state highway site, daily totals), England's National Highways WebTRIS (about 300 motorway and A-road sites, hourly, with speeds) and Transport for NSW (hourly, with TFNSW_API_KEY). The first read takes a while (about a year of NZ days). Kept in var\congestion\roads. Off: nothing new is read."
+          on={s.road_counts_fetch} set={(v) => save({ road_counts_fetch: v })} />
+        <Toggle label="Road traffic now (map layer)" hint="With a free TOMTOM_API_KEY in Settings › Keys, the map's Road traffic now layer shows TomTom's live traffic flow (roads coloured by speed against free flow), fetched only while the layer is on. TomTom's free terms allow showing the tiles, not keeping them, so nothing is saved. Off: the layer stays empty."
+          on={s.road_traffic_live} set={(v) => save({ road_traffic_live: v })} />
+        <Toggle label="Trains now (map layer)" hint="Trains in Auckland (AT_API_KEY), Wellington (METLINK_API_KEY) and Sydney (TFNSW_API_KEY), all free keys, read from the operators' live feeds every 30 seconds while the layer is on, coloured by minutes late. Off: the layer stays empty."
+          on={s.trains_live} set={(v) => save({ trains_live: v })} />
+        <Toggle label="Save train positions" hint="Keep reading the train feeds while the app runs (not just while the map is open) and save each train's position every 30 seconds, so a train's path for the day can be shown and lateness by line and by hour builds up on Transport › Congestion. About 2 MB a day per city. Off: trains are read only while the layer is on, and nothing is saved."
+          on={s.trains_collect} set={(v) => save({ trains_collect: v })} />
+        <NumberField label="Keep saved train positions for" unit="days" value={s.trains_keep_days} min={1} max={400} step={1}
+          note="Older days of train positions are deleted; lateness by line is kept as long."
+          save={(v) => save({ trains_keep_days: v })} />
         <Toggle label="Military planes now (map layer)" hint="While the map's Military planes now layer is on, the server asks adsb.lol (volunteer receivers, no key) for military planes, at most once a minute, and keeps those in the area in view. Many military flights do not broadcast, so it is never the whole picture. Off: the layer stays empty."
           on={s.live_military_planes} set={(v) => save({ live_military_planes: v })} />
       </section>
