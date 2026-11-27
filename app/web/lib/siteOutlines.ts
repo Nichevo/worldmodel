@@ -45,9 +45,11 @@ export function siteSpecs(id: string, src: string, color: string): LayerSpecific
 }
 // Solid, in a pale mix of the colour, under the roads and buildings: the pieces cut from the
 // tiles overlap a little at tile edges, and a see-through tint would show the overlaps darker.
+// Port land in a warm amber, not the Ports layer's blue, which next to the sea read as more water.
+export const PORT_LAND_COLOUR = "#e0902f";
 export const portSpec = (color: string): LayerSpecification => ({
   id: `${PREFIX}ports`, type: "fill", source: `${PREFIX}ports`, minzoom: PORT_FROM,
-  paint: { "fill-color": pale(color), "fill-opacity": 1, "fill-antialias": false },
+  paint: { "fill-color": pale(color, 0.42), "fill-opacity": 1, "fill-antialias": false },
 });
 function pale(c: string, k = 0.3): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(c.trim());
@@ -84,7 +86,7 @@ export function syncSiteOutlines(m: MlMap, on: string[], enabled: boolean) {
     return;
   }
   if (!m.getSource(`${PREFIX}ports`)) m.addSource(`${PREFIX}ports`, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-  if (!m.getLayer(`${PREFIX}ports`)) m.addLayer(portSpec(colour("ports")), underRoads(m));
+  if (!m.getLayer(`${PREFIX}ports`)) m.addLayer(portSpec(PORT_LAND_COLOUR), underRoads(m));
   findPortLand(m, on.filter((id) => PORT_LAYERS.includes(id)));
 }
 
