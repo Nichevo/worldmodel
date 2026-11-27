@@ -117,3 +117,21 @@ def test_a_cut_off_query_result_is_skipped(built):
     _, con = built
     # begun_heritage.json in the fixtures ends in a Java error, as when the service runs out of time
     assert con.execute("SELECT count(*) FROM history_events WHERE kind = 'built'").fetchone()[0] == 7
+
+
+def test_charts_for_the_inventions_page(built):
+    _, con = built
+    got = {(e, s, y): v for e, s, y, v in con.execute(
+        "SELECT entity_id, series_id, year, value FROM long_series WHERE series_id NOT IN ('population', 'gdp_per_capita')").fetchall()}
+    assert got[("USA", "us_electric_power", 1950)] == 94 and got[("USA", "us_household_refrigerator", 1931)] == 8
+    assert got[("world", "energy_coal", 1800)] == 97 and got[("world", "energy_traditional_biomass", 2020)] == 11000
+    assert got[("NZL", "vaccine_mcv1", 1990)] == 90 and ("NZL", "vaccine_dtpcv3", 1990) not in got
+    assert got[("GBR", "child_mortality", 1841)] == 25.11 and got[("world", "child_mortality", 1800)] == 42.8
+    assert not any(k[1].startswith("energy_") and k[0] != "world" for k in got)  # OWID's regions left out
+
+
+def test_inventions_from_wikidata(built):
+    _, con = built
+    ev = {r[0]: r for r in con.execute("SELECT title, year, entity_id, links, url FROM history_events WHERE kind = 'invention'").fetchall()}
+    assert ev["zipper"][1] == 1851  # two dates: the earliest
+    assert ev["emoji"][2] == "JPN" and ev["zipper"][4] == "https://en.wikipedia.org/wiki/Zipper"

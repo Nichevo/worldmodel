@@ -235,12 +235,36 @@ LONG_CHARTS = (
     ("military_spending", ("military-expenditure-total", "military-spending-sipri"), r"milit|expend"),
     ("military_personnel", ("military-personnel", "armed-forces-personnel"), r"personnel|milit|armed"),
     ("urban_share", ("urbanization-last-500-years", "share-of-population-urban"), r"urban"),
+    # for the Inventions page: how inventions spread and the changes seen around them
+    ("child_mortality", ("child-mortality",), r"child_mortality"),
+    ("maternal_mortality", ("maternal-mortality",), r"^mmr$"),
+    ("fertility_rate", ("children-born-per-woman",), r"fertility"),
+    ("wheat_yield", ("wheat-yields",), r"wheat"),
+    ("cereal_yield", ("cereal-yield",), r"yield"),
+    ("nitrogen_per_ha", ("nitrogen-fertilizer-application-per-hectare-of-cropland",), r"nitrogen"),
+    ("fertiliser_per_ha", ("fertilizer-use-in-kg-per-hectare-of-arable-land",), r"fert"),
+    ("calories", ("daily-per-capita-caloric-supply",), r"calor"),
+    ("uk_coal_output", ("coal-output-uk-tonnes",), r"coal_output"),
+    ("transistors", ("transistors-per-microprocessor",), r"transistor"),
+    ("solar_pv_price", ("solar-pv-prices",), r"cost"),
+    ("smallpox_cases", ("number-of-reported-smallpox-cases",), r"smallpox"),
+)
+# Charts with one series per column, stored as <prefix>_<column> (the column's own name, with
+# any _twh or coverage__antigen_ part taken off), or one per entity (technology_us: the share of
+# US households with each technology, Comin and Hobijn, stored as us_<technology> for the USA).
+MULTI_CHARTS = (
+    ("energy", "global-primary-energy", "columns"),
+    ("vaccine", "global-vaccination-coverage", "columns"),
+    ("computer_cost", "historical-cost-of-computer-memory-and-storage", "columns"),
+    ("us", "technology-adoption-by-households-in-the-united-states", "technology_us"),
 )
 
 
 class OWIDLongRun(Connector):
     source_id = "owid_longrun"
     switch = "history_series_fetch"
+    fetch_version = 2  # charts for the Inventions page added
+    stage_version = 2
     fetch_every_days = 90
     pause_seconds = 1.0
 
@@ -265,6 +289,14 @@ class OWIDLongRun(Connector):
                     (raw_dir / f"{series}__{slug}.csv").unlink(missing_ok=True)
             else:
                 log.warning("owid_longrun: %s skipped: none of its charts (%s) could be downloaded", series, ", ".join(slugs))
+        for prefix, slug, _ in MULTI_CHARTS:
+            time.sleep(self.pause_seconds)
+            try:
+                self.get(f"{GRAPHER}{slug}.csv{GRAPHER_QUERY}", raw_dir / f"{prefix}__{slug}.csv")
+                got.append(slug)
+            except ConnectorError as exc:
+                log.warning("owid_longrun: chart %s not found (%s)", slug, exc)
+                (raw_dir / f"{prefix}__{slug}.csv").unlink(missing_ok=True)
         if not got:
             raise ConnectorError("owid_longrun: none of the charts could be downloaded")
         return " ".join(f"{GRAPHER}{s}" for s in got)
@@ -272,9 +304,13 @@ class OWIDLongRun(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         known = {s for s, *_ in LONG_CHARTS}
         prefer = {s: p for s, _, p in LONG_CHARTS}
+        multi = {p: how for p, _, how in MULTI_CHARTS}
         rows: list[tuple] = []
         for path in sorted(raw_dir.glob("*.csv")):
             series = path.stem.split("__")[0]
+            if series in multi:
+                rows += multi_rows(path.read_text(encoding="utf-8-sig"), series, multi[series])
+                continue
             if series not in known:
                 continue
             rows += long_rows(path.read_text(encoding="utf-8-sig"), series, prefer[series])
@@ -323,6 +359,61 @@ def long_rows(text: str, series: str, prefer: str) -> list[tuple]:
             continue
         if math.isfinite(value):
             out.append((key, scheme, series, year, value))
+    return out
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+def multi_rows(text: str, prefix: str, how: str) -> list[tuple]:
+    """(code, scheme, series, year, value) from a chart with several series: one per value column
+    ("columns"), or one per entity for the US household technology chart ("technology_us")."""
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if not header:
+        return []
+    low = [h.lower() for h in header]
+    if "entity" not in low or "year" not in low:
+        log.warning("owid_longrun: %s has no Entity and Year columns; skipped", prefix)
+        return []
+    ie, iy = low.index("entity"), low.index("year")
+    ic = low.index("code") if "code" in low else None
+    values = [i for i, h in enumerate(low) if i not in (ie, iy, ic) and "annotation" not in h and h != "owid_region"]
+    out = []
+    for r in reader:
+        if len(r) < len(header):
+            continue
+        try:
+            year = int(r[iy])
+        except ValueError:
+            continue
+        if how == "technology_us":
+            tech = _slug(r[ie])
+            for i in values[:1]:
+                try:
+                    v = float(r[i])
+                except ValueError:
+                    continue
+                if tech and math.isfinite(v):
+                    out.append(("USA", "iso3", f"us_{tech}", year, v))
+            continue
+        code = (r[ic] if ic is not None else "").strip()
+        ent = r[ie].strip()
+        if re.fullmatch(r"[A-Z]{3}", code):
+            key, scheme = code, "iso3"
+        elif ent == "World":
+            key, scheme = "World", "name"
+        else:
+            continue
+        for i in values:
+            try:
+                v = float(r[i])
+            except ValueError:
+                continue
+            if math.isfinite(v):
+                col = re.sub(r"^coverage__antigen_|_twh$", "", low[i])
+                out.append((key, scheme, f"{prefix}_{_slug(col)}", year, v))
     return out
 
 
@@ -397,6 +488,19 @@ SELECT ?e ?eLabel ?inc ?coord ?iso3 ?links ?article WHERE {
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }"""
 BEGUN_KINDS = ("built", "city", "religion", "writing")
+# Inventions and discoveries (for the Inventions page's extra dots): kinds of thing (P279, so
+# not islands, moons or stars) with a time of discovery or invention (P575), in 25 or more
+# Wikipedias. Sports, taxa, chemical elements and diseases are left out; foods, games and
+# ideas still come through, so the page labels these as unchecked.
+INVENTION_LINKS = 25
+INVENTION_QUERY = """
+SELECT ?e ?eLabel ?inc ?iso3 ?links ?article WHERE {
+  ?e wdt:P575 ?inc ; wdt:P279 ?sup ; wikibase:sitelinks ?links . FILTER(?links >= %d)
+  FILTER NOT EXISTS { ?e wdt:P31 ?bad . VALUES ?bad { wd:Q31629 wd:Q349 wd:Q16521 wd:Q11344 wd:Q12136 wd:Q112193867 } }
+  OPTIONAL { ?e wdt:P495 ?c . ?c wdt:P298 ?iso3 }
+  OPTIONAL { ?article schema:about ?e ; schema:isPartOf <https://en.wikipedia.org/> }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}"""
 
 # Rulers: whoever held a post that is (a subclass of) monarch, with the post's start year,
 # and the state the post is over (P1001). Popes come too (the Catholic Church is not a state
@@ -453,7 +557,7 @@ def event_rows(kind: str, bindings: list[dict]) -> list[tuple]:
             continue
         if q in seen:
             # Several dates for one thing (Stonehenge: 3000 BC and a rebuilding): the earliest.
-            if kind in BEGUN_KINDS and year < seen[q][3]:
+            if kind in (*BEGUN_KINDS, "invention") and year < seen[q][3]:
                 seen[q] = (*seen[q][:3], year, None, month, day, *seen[q][7:])
             continue
         end = wd_year(_val(b, "end"))[0]
@@ -525,6 +629,7 @@ def history_queries() -> list[tuple[str, str]]:
         out.append((f"begun_{name}", BEGUN_QUERY % (" ".join(f"wd:{c}" for c in classes), "/wdt:P279?" if sub else "", links)))
     out.append(("begun_heritage", HERITAGE_QUERY))
     out.append(("rulers", RULER_QUERY % RULER_LINKS))
+    out.append(("begun_inventions", INVENTION_QUERY % INVENTION_LINKS))
     return out
 
 
@@ -542,8 +647,8 @@ class WikidataHistory(Connector):
     source_id = "wikidata_history"
     switch = "history_events_fetch"
     fetch_every_days = 28
-    fetch_version = 2  # buildings, cities, religions, writing and rulers added
-    stage_version = 2
+    fetch_version = 3  # 2: buildings, cities, religions, writing and rulers; 3: inventions
+    stage_version = 3
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -567,7 +672,7 @@ class WikidataHistory(Connector):
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
         rows: list[tuple] = []
         files = [(f"history_{k}", k) for k in EVENT_CLASSES] + [(f"begun_{n}", v[0]) for n, v in BEGUN.items()] \
-            + [("begun_heritage", "built")]
+            + [("begun_heritage", "built"), ("begun_inventions", "invention")]
         for name, kind in files:
             path = raw_dir / f"{name}.json"
             if path.exists() and (bindings := _bindings(path)) is not None:
@@ -583,7 +688,7 @@ class WikidataHistory(Connector):
         con.execute(f"CREATE TABLE hru ({RULER_COLUMNS})")
         if rulers:
             con.executemany(f"INSERT INTO hru VALUES ({', '.join('?' * 10)})", rulers)
-        kinds = [*EVENT_CLASSES, *BEGUN_KINDS]
+        kinds = [*EVENT_CLASSES, *BEGUN_KINDS, "invention"]
         log.info("wikidata_history: %s events (%s), %s rulers", len(rows),
                  ", ".join(f"{k} {sum(r[1] == k for r in rows)}" for k in kinds), len(rulers))
         self.history_queries = {"history_events": "SELECT * FROM hev", "history_rulers": "SELECT * FROM hru"}

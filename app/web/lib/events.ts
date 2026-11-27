@@ -25,6 +25,7 @@ export const KINDS: { kind: string; label: string; color: string }[] = [
   { kind: "epidemic", label: "Epidemics", color: "--series-1" },
   { kind: "notable", label: "Notable episodes", color: "--series-7" },
   { kind: "episode", label: "Big episodes", color: "--div-neg-2" },
+  { kind: "invention", label: "Inventions", color: "--series-3" },
   { kind: "crisiswatch", label: "CrisisWatch ratings", color: "--div-neg-2" },
   { kind: "un", label: "UN Security Council", color: "--series-2" },
   { kind: "sanction", label: "Sanctions", color: "--series-4" },
