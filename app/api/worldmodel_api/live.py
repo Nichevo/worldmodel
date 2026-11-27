@@ -761,10 +761,14 @@ class Ships:
                 self.thread.start()
 
     # ------------------------------------------------------------------ the map
-    def get(self, west: float, south: float, east: float, north: float, at: float | None = None) -> dict:
+    def get(self, west: float, south: float, east: float, north: float, at: float | None = None,
+            zoom: float | None = None, banned: set | None = None) -> dict:
+        """Ships in the window. With `zoom` (and ships_thin on), zoomed out, only one ship per small
+        square of map is sent (a sanctioned one first, then one heard lately, then the longest); every
+        ship comes back on zooming in. `banned`: MMSIs/IMOs on a sanctions list, marked sanctioned."""
         bx = boxes(west, south, east, north)
         if at is not None:
-            return self.saved_at(at, bx)
+            return self._lean(self.saved_at(at, bx), zoom, banned)
         if not self.key():
             return {"type": "FeatureCollection", "features": [], "count": 0,
                     "error": "Ships now needs a free aisstream.io key: add AISSTREAM_API_KEY in Settings > Keys (or .env)."}
@@ -779,10 +783,10 @@ class Ships:
             now = time.time()
             for k in [k for k, v in self.ships.items() if now - v["seen"] > SHIP_KEEP]:
                 del self.ships[k]
-            feats = [_ship_feature(v, self.store.details) for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)][:MAX_SHIPS]
+            feats = [_ship_feature(v, self.store.details) for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)]
             live_ids = set(self.ships)
         quiet = self.quiet_ships(bx, live_ids, now)
-        feats += quiet[:max(0, MAX_SHIPS - len(feats))]
+        feats += quiet
         with self.lock:
             if self.connected and self.messages:
                 note = f"{self.messages:,} reports read since connecting."
@@ -801,6 +805,36 @@ class Ships:
                "collecting": collecting, "quiet": len(quiet)}
         if self.error:
             out["error"] = self.error
+        return self._lean(out, zoom, banned)
+
+    def _lean(self, out: dict, zoom: float | None, banned: set | None) -> dict:
+        """Marks sanctioned ships, thins them out when zoomed out (setting ships_thin), keeps the
+        MAX_SHIPS cap, and leaves out what the map doesn't draw (IMO, type code, time heard: the
+        ship's card and the Ships table still have them)."""
+        feats = out.get("features") or []
+        for f in feats:
+            p = f["properties"]
+            if banned and (str(p.get("id")) in banned or (p.get("imo") and str(p["imo"]) in banned)):
+                p["sanctioned"] = True
+        total = len(feats)
+        if zoom is not None and self.settings().get("ships_thin", True):
+            feats = thin_ships(feats, zoom)
+        feats = feats[:MAX_SHIPS]
+        for f in feats:
+            p = f["properties"]
+            for k in ("imo", "kind", "seen"):
+                p.pop(k, None)
+            if isinstance(p.get("speed_kn"), float):
+                p["speed_kn"] = round(p["speed_kn"], 1)
+            if isinstance(p.get("heading"), float):
+                p["heading"] = round(p["heading"])
+            if isinstance(p.get("length_m"), float):
+                p["length_m"] = round(p["length_m"])
+            lon, lat = f["geometry"]["coordinates"]
+            f["geometry"]["coordinates"] = [round(lon, 3), round(lat, 3)]  # about 100 m
+        out["features"], out["count"] = feats, len(feats)
+        if len(feats) < total:
+            out["thinned"] = total - len(feats)
         return out
 
     def saved_at(self, when: float, bx: list) -> dict:
@@ -1292,6 +1326,27 @@ def ship_group(code) -> str:
     if c in (35, 51, 55, 58):
         return "official"  # military, search and rescue, law enforcement, medical
     return "other"
+
+
+THIN_PX = 16  # zoomed out, one ship per square this many pixels across
+THIN_BELOW = 7  # ... below this zoom; from it on every ship is sent
+
+
+def thin_ships(feats: list[dict], zoom: float) -> list[dict]:
+    """One ship per small square of map when zoomed out: a sanctioned one first, then one heard
+    lately (not faded), then the longest. Order kept otherwise."""
+    if zoom >= THIN_BELOW:
+        return feats
+    cell = 360 * THIN_PX / (512 * 2 ** max(zoom, 0))
+    def rank(p: dict) -> tuple:
+        return (bool(p.get("sanctioned")), "quiet" not in p, p.get("length_m") or 0)
+    best: dict[tuple, dict] = {}
+    for f in feats:
+        lon, lat = f["geometry"]["coordinates"]
+        k = (int((lon + 180) // cell), int((lat + 90) // cell))
+        if k not in best or rank(f["properties"]) > rank(best[k]["properties"]):
+            best[k] = f
+    return list(best.values())
 
 
 def _ship_feature(v: dict, details: dict | None = None) -> dict:

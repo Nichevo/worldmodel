@@ -369,6 +369,7 @@ export type Settings = {
   ships_collect: boolean; // keep an aisstream connection open and save ships (var/live/ships)
   ships_area: "pacific" | "world"; // where ships are collected
   ships_world_every_hours: number; // whole-world 10-minute snapshot this often (0: none)
+  ships_thin: boolean; // map: zoomed out, one ship per small square (the biggest)
   ships_quiet_days: number; // map: ships not heard lately drawn faded for up to this many days (0: not drawn)
   ships_keep_days: number; // days of saved ships kept
   ship_size_by_length: boolean; // map: ship shapes sized by the ship's length

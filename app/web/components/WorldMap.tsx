@@ -810,7 +810,7 @@ export default function WorldMap({
             error: fc.error ? String(fc.error) : !fc.features.length && fc.note ? String(fc.note) : undefined } }));
           const legend = LAYER_STYLE[id].legend;
           const note = fc.error ? `${legend}: ${fc.error}`
-            : style.fetch === "live" ? `${legend}: ${fc.features.length.toLocaleString()} in view${!fc.features.length && fc.note ? ` (${fc.note})` : ""}`
+            : style.fetch === "live" ? `${legend}: ${fc.features.length.toLocaleString()} in view${fc.thinned ? ` (${fc.thinned.toLocaleString()} more close together left out while zoomed out: zoom in to see them, or Settings > Transport)` : ""}${!fc.features.length && fc.note ? ` (${fc.note})` : ""}`
             : id === "port_pressure" ? (fc.features.length ? `Ports against normal: ${asOf?.from ?? ""} to ${asOf?.as_of ?? ""}` : "Ports against normal: none stored yet (a refresh and rebuild fill it)")
             : style.timed ? `Fighting and unrest: ${fc.features.length.toLocaleString()}${fc.capped ? " biggest" : ""} in view${fc.note ? ` (${fc.note})` : ""}`
             : fc.loaded === false && fc.note ? `${legend}: ${fc.note}` : "";
