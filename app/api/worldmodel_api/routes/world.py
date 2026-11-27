@@ -783,6 +783,29 @@ def live_plane_journey(icao24: str, callsign: str | None = None, lat: float | No
     return journeys.plane_journey(rows, live.PLANES._auth, icao24, callsign, lat, lon, store=live.PLANES.store)
 
 
+@api.get("/live/planes/schedule/{icao24}")
+def live_plane_schedule(icao24: str, callsign: str | None = None):
+    """The published schedule of the flight a plane is flying (AeroDataBox, free key): scheduled,
+    revised and actual times, status, terminal and gate. Asked only when a plane's card is opened."""
+    from worldmodel_api import flightinfo, live
+
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", icao24):
+        raise HTTPException(400, "icao24 is six hex digits")
+    return flightinfo.schedule(live.PLANES.store, icao24, callsign, local.load_settings())
+
+
+@api.get("/live/planes/fares")
+def live_plane_fares(frm: str = Query(..., alias="from", min_length=3, max_length=3), to: str = Query(..., min_length=3, max_length=3),
+                     date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"), airline: str | None = None, number: str | None = None):
+    """Fares people found lately for a route (Travelpayouts, free token) in the month of `date`,
+    plus links to check fares by hand. Airports are IATA codes (AKL, SYD)."""
+    from worldmodel_api import flightinfo, live
+
+    if not (frm.isalpha() and to.isalpha()):
+        raise HTTPException(400, "from and to are three-letter IATA codes")
+    return flightinfo.fares(live.PLANES.store, frm, to, date, airline, number, local.load_settings())
+
+
 PLANE_SORTS = {"callsign", "airline", "model", "reg", "country", "altitude_m", "speed_kmh", "climb_ms", "squawk", "seen"}
 
 
