@@ -273,6 +273,14 @@ def transport() -> dict:
     return _yaml("transport.yaml")
 
 
+@lru_cache
+def congestion() -> dict:
+    """Congestion set-up (congestion.yaml): the world's busiest airports for the busy-hours
+    list, published airport limits (caps, curfews, slot levels) with their sources, the live
+    train feeds and each network's time zone."""
+    return _yaml("congestion.yaml")
+
+
 def history_powers() -> dict[str, dict]:
     """Every power and dynasty by id, the dynasties-only ones too (group china)."""
     h = history()

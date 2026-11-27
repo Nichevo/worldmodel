@@ -49,6 +49,9 @@ def test_schedules_news_history_backups(home, tmp_path):
     (ships / "schedules.json").write_text(json.dumps({"etas": {"1": [[t, "NZAKL"]]}, "calls": {}, "bookings": {}}))
     news = home / "media" / "news"
     news.mkdir(parents=True)
+    trains = home / "congestion" / "trains"
+    trains.mkdir(parents=True)
+    (trains / "akl_2026-11-14.jsonl.gz").write_bytes(b"")
     (news / "items.json").write_text(json.dumps([{"key": "a", "date": "2024-12-05"}]))
     (home / "user" / "history.jsonl").write_text(json.dumps({"id": "x", "at": "2026-10-01T00:00:00+00:00", "kind": "page", "title": "t"}) + "\n")
     bk = tmp_path / "bk"
@@ -58,7 +61,8 @@ def test_schedules_news_history_backups(home, tmp_path):
     _settings(home, schedules_keep_days=90, news_keep_days=700, history_retention_days=60, backup_keep=2,
               backup_folder=str(bk), expiry_warn_days=14)
     got = {i["key"]: i for i in keeping.expiring(today=date(2026, 11, 27))["items"]}
-    assert set(got) == {"schedules", "news", "history", "backups"}
+    assert set(got) == {"trains", "schedules", "news", "history", "backups"}
+    assert got["trains"]["deletes_from"] == "2026-11-29"
     assert got["schedules"]["deletes_from"] == "2026-11-30" and got["news"]["days_left"] < 0
     assert "worldmodel-backup-2026-11-01-0100.zip" in got["backups"]["what"]
 

@@ -1,7 +1,7 @@
 """Saved data that is about to reach the age (or count) its Settings keep it for.
 
-Several stores delete their oldest part as they go: saved plane and ship positions
-(`planes_keep_days`, `ships_keep_days`), cargo-ship schedules (`schedules_keep_days`), news
+Several stores delete their oldest part as they go: saved plane, ship and train positions
+(`planes_keep_days`, `ships_keep_days`, `trains_keep_days`), cargo-ship schedules (`schedules_keep_days`), news
 (`news_keep_days`), the private History log (`history_retention_days`) and backups
 (`backup_keep`). Each is looked at here: how old its oldest part is and when that part
 first goes. Anything within `expiry_warn_days` of its first deletion, or already being
@@ -66,6 +66,17 @@ def _day_files(folder: Path) -> date | None:
                 days.append(date.fromisoformat(f.stem))
             except ValueError:
                 pass
+    return min(days) if days else None
+
+
+def _train_days(folder: Path) -> date | None:
+    """Oldest day in the train store (<feed>_<YYYY-MM-DD>....jsonl.gz)."""
+    days = []
+    for f in folder.glob("*_*.jsonl.gz") if folder.is_dir() else []:
+        try:
+            days.append(date.fromisoformat(f.name.split("_", 1)[1][:10]))
+        except ValueError:
+            pass
     return min(days) if days else None
 
 
@@ -134,6 +145,9 @@ def _items(s: dict, today: date | None = None) -> list[dict]:
         _dated("ships", "Saved ship positions", "ships_keep_days", int(s.get("ships_keep_days") or 30),
                _day_files(home / "live" / "ships"), today, "/settings#keep-ships",
                "older days of positions are deleted, and ships not seen since drop out of the table"),
+        _dated("trains", "Saved train positions", "trains_keep_days", int(s.get("trains_keep_days") or 14),
+               _train_days(home / "congestion" / "trains"), today, "/settings#keep-trains",
+               "older days of train positions and lateness by line are deleted"),
         _dated("schedules", "Ship schedules and port calls", "schedules_keep_days", int(s.get("schedules_keep_days") or 90),
                _cached(home / "live" / "ships" / "schedules.json", _schedules_oldest), today, "/settings#keep-ships",
                "older ETAs, port calls and bookings are dropped (learned routes need a few months)", whole_days=False),

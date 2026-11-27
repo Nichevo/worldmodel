@@ -193,7 +193,7 @@ function hashKey(t: string): string {
   return h.toString(36);
 }
 
-const LIVE_NAME: Record<string, string> = { live_ships: "Ships", live_planes: "Planes", live_military: "Military planes" };
+const LIVE_NAME: Record<string, string> = { live_ships: "Ships", live_planes: "Planes", live_military: "Military planes", live_trains: "Trains" };
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
@@ -235,6 +235,13 @@ export default function WorldMap({
       const detail = layer === "live_military" && p.id
         ? { kind: "plane" as const, id: String(p.id), plane: { ...p, id: String(p.id), lat: at.lat, lon: at.lng, military: true } as unknown as Plane } : undefined;
       setInfo({ layer, title: c.title, lines: c.lines, links: c.links, detail });
+      if (layer === "live_trains" && p.id) {  // its path over the last two hours, drawn like a ship's
+        get<{ path: [number, number, number][] }>(`/live/trains/${encodeURIComponent(String(p.id))}`).then((t) => {
+          const coords = (t.path ?? []).map((r) => [r[1], r[2]]);
+          drawJourney.current(coords.length >= 2 ? { type: "FeatureCollection", features: [
+            { type: "Feature", properties: { part: "path" }, geometry: { type: "LineString", coordinates: coords } }] } : null);
+        }).catch(() => {});
+      }
       return;
     }
     if (st?.click === "journey") {
@@ -945,7 +952,7 @@ export default function WorldMap({
     m.addLayer({ id: "journey-ends", type: "circle", source: "journey", filter: ["==", ["get", "part"], "end"],
       paint: { "circle-radius": 5, "circle-color": cssVar("--surface"), "circle-stroke-color": "#f08c00", "circle-stroke-width": 2.5 } }, before);
   };
-  const journeyCard = info?.layer === "live_ships" || info?.layer === "live_planes" ? info.title : "";
+  const journeyCard = info?.layer === "live_ships" || info?.layer === "live_planes" || info?.layer === "live_trains" ? info.title : "";
   useEffect(() => { if (!journeyCard) drawJourney.current(null); }, [journeyCard]);
 
   // The countries that rely on the clicked feature, outlined.
