@@ -61,7 +61,7 @@ function CountryPick({ value, set, list, title }: { value: string; set: (v: stri
   );
 }
 const airportText = (a?: Airport | null) => (a ? [a.name, a.iata, a.icao, a.city, a.country].filter(Boolean).join(" ").toLowerCase() : "");
-type Plane = {
+export type Plane = {
   id: string; callsign: string | null; country: string | null; altitude_m: number | null; speed_kmh: number | null; heading: number | null;
   climb_ms: number | null; squawk: string | null; seen: number | null; category: number | null; category_name: string | null; group: string;
   lat: number; lon: number; airline?: string | null; airline_code?: string | null;
@@ -648,7 +648,7 @@ function FlightsPart({ icao, callsign }: { icao: string; callsign: string | null
   );
 }
 
-function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose: () => void }) {
+export function PlaneCard({ id, plane, onClose }: { id: string; plane?: Plane; onClose: () => void }) {
   const [j, setJ] = useState<Journey | null>(null);
   useEffect(() => {
     let live = true;
