@@ -597,8 +597,8 @@ left out of every group but a hand-picked one.
 ## Scorecard
 
 **Scorecard** (Explore menu, `/scorecard?c=USA,CHN,DEU,JPN,GBR,IND`): life in the countries
-you pick, 23 measures in five groups (health outcomes, health care, water, sanitation and
-cooking fuel, environment, and work, society and safety). Each cell is coloured by its rank
+you pick, 29 measures in six groups (health outcomes, health care, water, sanitation and
+cooking fuel, environment, work, society and safety, and work-life balance and retirement). Each cell is coloured by its rank
 among the countries shown (red worst to green best, the right way round for each measure),
 the best and any tied with it are starred, and a bar chart counts the measures each country
 is best at. Pick countries or groups by typing, or a ready-made set (the six biggest
@@ -613,6 +613,8 @@ are in contract `scorecard.yaml`; a measure with nothing loaded is listed with w
 | ILOSTAT (`ilostat_hours`) | Mean weekly hours actually worked (all, women, men) | Monthly; if refused, save the bulk file in `var\manual\ilostat_hours` |
 | Walk Free (`walkfree_gsi`) | Global Slavery Index: modern slavery per 1,000, people, vulnerability, government response | By hand: the data file (short form) in `var\manual\walkfree_gsi` |
 | World Inequality Database (`wid_gender`) | Women's share of income from work | By hand: the female labour income share CSV from wid.world/data in `var\manual\wid_gender` |
+| Remote (`remote_lwb`) | Global Life-Work Balance Index: overall score, paid leave and public holidays, sick pay, maternity leave and pay, minimum wage (US$), happiness, hours, LGBTQ+ inclusivity, Global Peace Index (60 biggest economies) | Monthly, read from Remote's index page; if refused, save the page in `var\manual\remote_lwb` |
+| Natixis (`natixis_gri`) | Global Retirement Index: overall score and the health, finances in retirement, quality of life and material wellbeing sub-indices (44 countries) | Monthly, the newest report's full rankings (PDF); if refused, save the report in `var\manual\natixis_gri` (older years' reports too) |
 
 ## Fighting, wars, outages, sanctions and military strength
 

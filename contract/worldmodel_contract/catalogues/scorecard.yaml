@@ -74,7 +74,7 @@ groups:
   - name: Work, society and safety
     measures:
       - {id: work_hours, label: Weekly hours worked, unit: hours, better: lower, decimals: 1,
-         use: [weekly_hours_worked], source: "ILO, ILOSTAT", get: ilostat_hours}
+         use: [weekly_hours_worked, lwb_hours_week], source: "ILO, ILOSTAT (else Remote's figure)", get: ilostat_hours}
       - {id: modern_slavery, label: Modern slavery (forced labour and marriage), unit: "per 1,000", better: lower, decimals: 1,
          use: [modern_slavery_per_1000], source: "Walk Free, Global Slavery Index", get: walkfree_gsi}
       - {id: women_income, label: Women's share of income from work, unit: "%", better: higher, decimals: 1, percent: true,
@@ -87,3 +87,17 @@ groups:
          use: [road_deaths_rate], source: WHO through the World Bank, get: world_bank_wdi}
       - {id: schooling, label: Mean years of schooling, unit: years, better: higher, decimals: 1,
          use: [hdr_mean_years_schooling], source: UNDP Human Development Report, get: undp_hdr}
+  - name: Work-life balance and retirement
+    measures:
+      - {id: life_work_balance, label: Life-work balance score, unit: "0-100", better: higher, decimals: 1, world_rank: true,
+         use: [lwb_score], source: "Remote, Global Life-Work Balance Index (60 biggest economies)", get: remote_lwb}
+      - {id: paid_leave, label: Paid leave and public holidays, unit: days a year, better: higher, decimals: 0,
+         use: [lwb_paid_leave_days], source: "Remote, Global Life-Work Balance Index", get: remote_lwb}
+      - {id: maternity_leave, label: Paid maternity leave, unit: weeks, better: higher, decimals: 0,
+         use: [lwb_maternity_weeks], source: "Remote, Global Life-Work Balance Index", get: remote_lwb}
+      - {id: retirement_index, label: Retirement index, unit: "%", better: higher, decimals: 0, percent: true, world_rank: true,
+         use: [gri_score], source: "Natixis, Global Retirement Index (44 countries)", get: natixis_gri}
+      - {id: retirement_health, label: Health in retirement, unit: "%", better: higher, decimals: 0, percent: true,
+         use: [gri_health], source: "Natixis, Global Retirement Index", get: natixis_gri}
+      - {id: retirement_finances, label: Finances in retirement, unit: "%", better: higher, decimals: 0, percent: true,
+         use: [gri_finances], source: "Natixis, Global Retirement Index", get: natixis_gri}

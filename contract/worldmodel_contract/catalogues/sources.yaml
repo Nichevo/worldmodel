@@ -749,6 +749,46 @@
     get: https://wid.world/data/
     what: "On WID's data page pick the 'Female labor income share' indicator, tick all countries and all years, download the CSV and save it here."
 
+- id: remote_lwb
+  name: Remote Global Life-Work Balance Index
+  short_name: Remote life-work balance
+  publisher: Remote
+  url: https://remote.com/resources/research/global-life-work-balance-index
+  licence: Published research; free to cite with credit
+  licence_url: https://remote.com/terms-and-conditions
+  commercial_use: false
+  cadence: A new edition each year (around June); the page is checked monthly
+  attribution: "Remote, Global Life-Work Balance Index 2025."
+  status: active
+  default_rank: 2
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: false
+    files: ["*Life-Work*", "*life-work*", "*.htm", "*.html", "*.csv"]
+    get: https://remote.com/resources/research/global-life-work-balance-index
+    what: "When Remote refuses the refresh, open the index page in your browser and save it here (Ctrl+S, 'Webpage, HTML only' or 'complete'). All 60 countries are inside the saved page even though only ten show. Keep the year in the file name for an older edition."
+
+- id: natixis_gri
+  name: Natixis Global Retirement Index
+  short_name: Natixis retirement index
+  publisher: Natixis Investment Managers and CoreData Research
+  url: https://www.im.natixis.com/en-us/insights/investor-sentiment/2026/global-retirement-index
+  licence: Published research; free to cite with credit
+  licence_url: https://www.im.natixis.com/en-us/terms-of-use
+  commercial_use: false
+  cadence: A new report each September; checked monthly
+  attribution: "Natixis Investment Managers / CoreData Research, 2026 Global Retirement Index."
+  status: active
+  default_rank: 2
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: false
+    files: ["*natixis*", "*Natixis*", "*retirement*", "*.pdf", "*.csv"]
+    get: https://www.im.natixis.com/en-us/insights/investor-sentiment/2026/global-retirement-index
+    what: "When Natixis refuses the refresh, click 'Read the full report' on the index page and save the PDF here (older years' reports too; keep the year in the file name). The full rankings at the back are read."
+
 - id: numbeo
   name: Numbeo cost of living indices
   short_name: Numbeo
