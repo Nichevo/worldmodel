@@ -172,3 +172,18 @@ def test_a_layer_without_figures_of_its_own_is_skipped_for_indicators():
     layer_tables._indicators(con, {"chokepoints", "airports"}, date(2026, 1, 1))
     got = con.execute("SELECT indicator_id, source_code, value FROM src.raw_observations").fetchall()
     assert ("map_airports_count", "NZL", 1.0) in got and not any("chokepoints" in r[0] for r in got)
+
+
+def test_a_retired_indicator_only_warns(tmp_path):
+    """map_earthquakes_per_m was dropped on purpose: its rows going must not stop the build."""
+    from worldmodel_data import gates
+
+    prev = tmp_path / "prev.duckdb"
+    with duckdb.connect(str(prev)) as c:
+        c.execute("CREATE TABLE series AS SELECT * FROM (VALUES ('map_layers', 'map_earthquakes_per_m'), "
+                  "('map_layers', 'map_hospitals_count')) t(source_id, indicator_id)")
+    now = duckdb.connect()
+    now.execute("CREATE TABLE series (source_id VARCHAR, indicator_id VARCHAR)")
+    got = {c.check_id: c.status for c in gates.shrinkage(now, prev, allow_shrink=False)}
+    assert got["shrinkage:map_layers:map_earthquakes_per_m"] == "warn"
+    assert got["shrinkage:map_layers:map_hospitals_count"] == "fail"

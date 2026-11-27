@@ -28,6 +28,10 @@ SPOT_CHECKS = Path(str(resources.files("worldmodel_data") / "spot_checks.csv"))
 # indicator -> minimum number of countries with an estimate in the latest estimate year
 COVERAGE = {"pop_total": 200, "tfr": 200, "life_expectancy": 200, "pop_by_age_sex": 200, "gdp_growth": 180}
 MAX_SHRINK = 0.10
+# Indicators dropped on purpose: their rows disappearing only warns.
+RETIRED = {
+    "map_earthquakes_per_m",  # earthquakes now count magnitude 6+ per year, with no per-million figure
+}
 
 SOURCE_LINKS = {
     "un_wpp": "https://population.un.org/dataportal/data/indicators/49/locations/{m49}/start/{year}/end/{year}",
@@ -117,7 +121,7 @@ def shrinkage(con, previous: Path | None, allow_shrink: bool, shrink_ok: set[str
     for key, n_before in sorted(before.items()):
         n_now = now.get(key, 0)
         if n_now < n_before * (1 - MAX_SHRINK):
-            status = "warn" if allow_shrink or key[0] in shrink_ok else "fail"
+            status = "warn" if allow_shrink or key[0] in shrink_ok or key[1] in RETIRED else "fail"
             out.append(Check(f"shrinkage:{key[0]}:{key[1]}", "shrinkage", status,
                              f"{n_before:,} rows before, {n_now:,} now"))
     return out or [Check("shrinkage", "shrinkage", "pass", f"no series lost more than {MAX_SHRINK:.0%} of its rows")]
