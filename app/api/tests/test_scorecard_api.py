@@ -16,10 +16,10 @@ def client(tmp_path, monkeypatch):
     return TestClient(main.app)
 
 
-def test_contract_has_23_measures_with_a_direction():
+def test_contract_has_29_measures_with_a_direction():
     card = catalogue.scorecard()
     ms = [m for g in card["groups"] for m in g["measures"]]
-    assert len(ms) == 23 and len({m["id"] for m in ms}) == 23
+    assert len(ms) == 29 and len({m["id"] for m in ms}) == 29
     assert all(m["better"] in ("higher", "lower") and m["use"] for m in ms)
     assert card["default_countries"] == ["USA", "CHN", "DEU", "JPN", "GBR", "IND"]
 
@@ -41,7 +41,7 @@ def test_ranks_share_ties_both_ways():
 def test_scorecard_view(client):
     r = client.get("/api/v1/scorecard", params={"countries": "NZL,AUS,usa,GBR,XXX"}).json()
     assert [c["entity_id"] for c in r["countries"]] == ["NZL", "AUS", "USA", "GBR"]
-    assert r["measures"] == 23 and len(r["groups"]) == 5
+    assert r["measures"] == 29 and len(r["groups"]) == 6
     shown = [row for g in r["groups"] for row in g["rows"] if row["indicator_id"]]
     assert shown, "the sample warehouse should fill some rows"
     for row in shown:
