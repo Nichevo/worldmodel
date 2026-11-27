@@ -49,3 +49,16 @@ def _warehouse_put_back():
     before = core.warehouse
     yield
     core.warehouse = before
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_congestion_collectors():
+    """The congestion collectors (airport flights, road counts, trains) start with the app; in tests
+    they would wait and then reach for the network, so they are switched off for the whole run."""
+    from worldmodel_api import airbusy, roads, trains
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(airbusy.COLLECTOR, "start", lambda *a, **k: None)
+        mp.setattr(roads.COLLECTOR, "start", lambda *a, **k: None)
+        mp.setattr(trains.TRAINS, "start", lambda *a, **k: None)
+        yield
