@@ -421,6 +421,8 @@ def refresh(allow_shrink: bool = typer.Option(False),
         wait = _not_due(cls, last) if not (picked and not cls.manual) else None
         if wait:
             entry.update(status="skipped", vintage=last.vintage if last else None, note=wait)
+            if last:  # when its stored data was fetched: a failure before that is fixed (see local.problems)
+                entry["fetched_at"] = last.retrieved_at
             typer.echo(f"{source_id}: skipped ({wait})")
             continue
         conn = cls()

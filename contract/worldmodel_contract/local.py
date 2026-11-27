@@ -823,6 +823,10 @@ def problems(root: Path | None = None) -> list[dict]:
                      summary=s.get("error") or "", examples=[])
             if s.get("status") in ("new", "unchanged", "error") or s.get("settled"):  # settled: skipped on purpose, nothing to fix
                 fetches.setdefault(sid, []).append((when, s.get("status") != "error"))
+            elif s.get("status") == "skipped" and s.get("fetched_at"):
+                # not due yet, and its stored data was fetched at that time (by another run, or by
+                # load.bat): a failure before then is fixed even though this run left the source alone
+                fetches.setdefault(sid, []).append((s["fetched_at"], True))
         if run.get("kind") == "load":  # files loaded by hand: they clear a refused download, but are not a build
             continue
         if run.get("status") == "ok":

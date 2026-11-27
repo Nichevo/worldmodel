@@ -104,6 +104,19 @@ def test_problems_count_repeats_and_close_once_a_run_passes(tmp_path):
         {"kind": "refresh", "status": "ok", "started_at": "2026-10-06T00:00:00+00:00", "sources": [{"source_id": "un_wup", "status": "error", "error": "HTTP 404"}]},
         {"kind": "refresh", "status": "ok", "started_at": "2026-10-07T00:00:00+00:00", "sources": [{"source_id": "un_wup", "status": "skipped", "settled": True}]}]))
     assert not local.problems(tmp_path)[0]["open"]
+    # A source fetched fine after its failure (by a run that logged nothing for it) and then left
+    # alone until due: the skip says when its data was fetched, which closes the failure.
+    log.write_text(log.read_text() + "".join(json.dumps(r) + "\n" for r in [
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-08T00:00:00+00:00", "sources": [{"source_id": "council_trees", "status": "error", "error": "Auckland"}]},
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-10T00:00:00+00:00",
+         "sources": [{"source_id": "council_trees", "status": "skipped", "note": "fetched 1 days ago", "fetched_at": "2026-10-09T00:00:00+00:00"}]}]))
+    assert not {p["key"]: p for p in local.problems(tmp_path)}["fetch:council_trees"]["open"]
+    # ... but not when the stored data is older than the failure.
+    log.write_text(log.read_text() + "".join(json.dumps(r) + "\n" for r in [
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-11T00:00:00+00:00", "sources": [{"source_id": "council_trees", "status": "error", "error": "Auckland"}]},
+        {"kind": "refresh", "status": "ok", "started_at": "2026-10-12T00:00:00+00:00",
+         "sources": [{"source_id": "council_trees", "status": "skipped", "note": "fetched 3 days ago", "fetched_at": "2026-10-09T00:00:00+00:00"}]}]))
+    assert {p["key"]: p for p in local.problems(tmp_path)}["fetch:council_trees"]["open"]
 
 
 def test_statistical_forecast_models():
