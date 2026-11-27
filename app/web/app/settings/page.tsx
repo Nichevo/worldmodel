@@ -454,6 +454,9 @@ export default function SettingsPage() {
         <NumberField label="Whole-world snapshot every" unit="hours" value={s.ships_world_every_hours} min={0} max={168} step={1}
           note="With the South Pacific area: also listen to the whole world for 10 minutes this often, so the map and the time slider have ships everywhere (as at the last snapshot). The one aisstream connection widens to the world for that time, then goes back; the first snapshot is half an hour after the app starts. 0: none."
           save={(v) => save({ ships_world_every_hours: v })} />
+        <NumberField label="Show quiet ships for" unit="days" value={s.ships_quiet_days} min={0} max={60} step={1}
+          note="Ships not heard for a while stay on the map, faded, for up to this long: moved on along their way by sea to the port they named at their last speed when that port is known, else where they were last heard. Their positions are estimates. 0: a ship leaves the map 20 minutes after it was last heard."
+          save={(v) => save({ ships_quiet_days: v })} />
         <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
           note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
           save={(v) => save({ ships_keep_days: v })} />

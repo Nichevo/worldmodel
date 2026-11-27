@@ -70,7 +70,17 @@ for (const { url, what } of [...mapUrls, ...pageUrls]) {
   page.on("pageerror", (e) => errs.push(`page error: ${e.message}`));
   try {
     await page.goto(`${BASE}/selfcheck`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.getByRole("button", { name: /Run the self check/ }).click();
+    // In dev mode the page can show before React has hooked up the button, and a click then does
+    // nothing (the run waited 15 minutes for a check that never started): click until it starts.
+    for (let i = 0; ; i++) {
+      await page.getByRole("button", { name: /Run the self check/ }).click();
+      try {
+        await page.getByRole("button", { name: /Checking/ }).or(page.locator("[data-selfcheck]")).first().waitFor({ timeout: 10_000 });
+        break;
+      } catch (e) {
+        if (i >= 5) throw e;
+      }
+    }
     await page.locator("[data-selfcheck]").waitFor({ timeout: 15 * 60_000 });
     const bad = await page.$$eval("table tbody tr", (trs) => trs.map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent ?? ""))
       .filter(([status, part]) => status === "Problem" && ["Map layers", "API", "Pages"].includes(part)));

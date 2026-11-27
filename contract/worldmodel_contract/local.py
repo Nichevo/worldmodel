@@ -161,6 +161,7 @@ SETTINGS: dict[str, object] = {
     "ships_collect": True,               # keep one aisstream connection open while the app runs and save ships' positions (var/live/ships)
     "ships_area": "pacific",             # where ships are collected: pacific (NZ, Australia, South Pacific) or world
     "ships_world_every_hours": 6,        # with the Pacific area: also a 10-minute whole-world snapshot this often (0: none)
+    "ships_quiet_days": 3,               # map: ships not heard lately drawn faded for up to this many days (0: not drawn)
     "ships_keep_days": 30,               # days of saved ship positions kept (older days deleted)
     "ship_size_by_length": True,         # map: ship shapes drawn bigger for longer ships (their AIS length)
     "ship_schedules": True,              # cargo ships: keep each ETA and port call, and say whether a ship is on time (Live > Schedules)
@@ -364,7 +365,7 @@ LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
 PHRASES = {"news_watch_words"}  # comma-separated words or short phrases, lower case
 BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
-RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
+RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
