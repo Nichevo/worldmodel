@@ -55,7 +55,7 @@ import shutil
 import tempfile
 import time
 import zipfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import duckdb
@@ -67,6 +67,7 @@ log = logging.getLogger(__name__)
 URL = "https://databank.worldbank.org/data/download/WDI_CSV.zip"
 FILE = "WDI_CSV.zip"
 API = "https://api.worldbank.org/v2"
+API_FIRST_YEAR = 1960  # WDI's first year
 API_FILE = "WDI_API.zip"
 API_PAUSE = 0.3  # seconds between API requests
 DATA_FILE = re.compile(r"^WDI(CSV|Data)\.csv$", re.I)
@@ -275,7 +276,7 @@ def indicator_id(code: str) -> str:
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    fetch_version = 2  # 2: the API fallback asks for the Scorecard series too
+    fetch_version = 3  # 2: the API fallback asks for the Scorecard series too; 3: and for every year (date=1960:<this year>)
     stage_version = 8  # 8: water, sanitation, clean cooking, nurses and air pollution deaths as main series (the Scorecard); 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas; 7: tourism, air, port and rail traffic
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -310,7 +311,10 @@ class WorldBankWDI(Connector):
             for code in codes:
                 time.sleep(API_PAUSE)
                 try:
-                    rows = self._api_pages(f"country/all/indicator/{code}", work, code, source=2)
+                    # The years asked for always: since November 2026 the API answers some series (tax revenue,
+                    # GC.TAX.TOTL.GD.ZS) with only the last five years when no date range is given.
+                    rows = self._api_pages(f"country/all/indicator/{code}", work, code, source=2,
+                                           date=f"{API_FIRST_YEAR}:{date.today().year}")
                 except ConnectorError as exc:  # an old code the World Bank has dropped, say
                     failed.append(code)
                     log.info("world_bank_wdi: %s skipped (%s)", code, exc)
