@@ -23,7 +23,8 @@ import { MeasureTool, greatCircle } from "@/lib/measure";
 import { readSettings, saveSettings, useSettings } from "@/lib/settings";
 import { askHere } from "@/lib/spotting";
 import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
-import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
+import { journeyLines, journeyText, planeJourney, shipJourney, shipSize, sizeText } from "@/lib/ships";
+import { PlaneCard, ShipCard, type Plane } from "@/components/LiveTables";
 import { applyPlaceLook, PLACE_LOOK, withLatScale } from "@/lib/placeIcons";
 import { LANDUSE_LAYER, syncLandUse, syncSiteOutlines, watchPortLand } from "@/lib/siteOutlines";
 
@@ -210,6 +211,7 @@ export default function WorldMap({
   useEffect(() => setHydrated(true), []);
   // A clicked river, basin, cable, pipeline or chokepoint: its card and the countries that rely on it.
   const [info, setInfo] = useState<FeatureInfo | null>(null);
+  const [full, setFull] = useState<FeatureInfo["detail"] | null>(null); // a clicked ship's or plane's full card
   const [notes, setNotes] = useState<Record<string, string>>({});
   // Live layers' status for the badge on the map: asking now, how many came back and when, or the error.
   const [liveState, setLiveState] = useState<Record<string, { loading: boolean; at?: number; count?: number; error?: string; every: number }>>({});
@@ -229,7 +231,9 @@ export default function WorldMap({
     const st = LAYER_STYLE[layer];
     if (st?.click === "here") {
       const c = hereCard(layer, p, at);
-      setInfo({ layer, title: c.title, lines: c.lines, links: c.links });
+      const detail = layer === "live_military" && p.id
+        ? { kind: "plane" as const, id: String(p.id), plane: { ...p, id: String(p.id), lat: at.lat, lon: at.lng, military: true } as unknown as Plane } : undefined;
+      setInfo({ layer, title: c.title, lines: c.lines, links: c.links, detail });
       return;
     }
     if (st?.click === "journey") {
@@ -244,11 +248,15 @@ export default function WorldMap({
       }
       const links = [{ label: plane ? "Planes table" : "Ships table", href: `/live?tab=${plane ? "planes" : "ships"}&id=${encodeURIComponent(String(p.id ?? ""))}`,
         hint: "Every detail, and the others in the table" }];
-      setInfo({ layer, title, lines: [...head, "Finding where from and to…"], links });
+      const detail = plane
+        ? { kind: "plane" as const, id: String(p.id), plane: { ...p, id: String(p.id), lat: at.lat, lon: at.lng } as unknown as Plane }
+        : { kind: "ship" as const, id: String(p.id) };
+      setInfo({ layer, title, lines: [...head, "Finding where from and to…"], links, detail });
       const ask = plane ? planeJourney(String(p.id), p.callsign ? String(p.callsign) : null, at.lng, at.lat) : shipJourney(String(p.id));
       ask.then((j) => {
         drawJourney.current(journeyLines(j, at, plane));
         setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...head, ...journeyText(j, plane)] } : cur));
+        if (!plane) shipSize(String(p.id)).then((sz) => setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...cur.lines ?? [], ...sizeText(sz)] } : cur))).catch(() => {});
       }).catch(() => setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...head, "Could not find where from and to."] } : cur)));
       return;
     }
@@ -1210,9 +1218,12 @@ export default function WorldMap({
         {layers.includes("live_cameras") && (
           <CameraWall onGo={(lng, lat) => map.current?.flyTo({ center: [lng, lat], zoom: Math.max(map.current.getZoom(), 12) })} />
         )}
+        {full?.kind === "ship" && <ShipCard id={full.id} onClose={() => setFull(null)} />}
+        {full?.kind === "plane" && <PlaneCard id={full.id} plane={full.plane} onClose={() => setFull(null)} />}
         {info && (
           <div className="map-info" role="dialog" aria-label={info.title}>
             <div className="row"><b>{info.title}</b><span className="spacer" />
+              {info.detail && <button className="small" onClick={() => setFull(info.detail ?? null)} title="Everything about it: size, containers, where it fits, schedule, owner, flights">Details</button>}
               <button className="link small" onClick={() => setInfo(null)} aria-label="Close">×</button></div>
             {info.loading ? <p className="small muted">Loading…</p> : (
               <>
@@ -1310,6 +1321,7 @@ type FeatureInfo = {
   layer: string; title: string; loading?: boolean; lines?: string[]; countries?: { id: string; name: string }[];
   split?: GeoCard["split"]; links?: { label: string; href: string; hint: string }[]; camera?: CameraProps;
   history?: { p: Record<string, unknown>; at: { lng: number; lat: number } };
+  detail?: { kind: "ship" | "plane"; id: string; plane?: Plane }; // the Details button opens the full card
 };
 const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%` : "…");
 const n0 = (v: unknown) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : null);

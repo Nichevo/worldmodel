@@ -487,15 +487,33 @@ def live_planes(west: float, south: float, east: float, north: float, at: float 
 
 
 @api.get("/live/ships")
-def live_ships(west: float, south: float, east: float, north: float, at: float | None = None, zoom: float | None = None):
+def live_ships(west: float, south: float, east: float, north: float, at: float | None = None, zoom: float | None = None,
+               too_big: str = ""):
     """Ships' latest positions in a map window (aisstream.io, needs AISSTREAM_API_KEY), or with `at`
     (seconds since 1970) where they were then, from the positions saved while collecting. With the map's
-    `zoom`, zoomed out, one ship per small square (Settings > Transport: Thin out ships when zoomed out)."""
-    from worldmodel_api import live
+    `zoom`, zoomed out, one ship per small square (Settings > Transport: Thin out ships when zoomed out).
+    `too_big` keeps only ships over a canal's limits (panama_new, panama_old, suez, malacca, kiel,
+    seaway) or a port's (port:NZAKL), by their length, beam and draught now; no thinning then."""
+    from worldmodel_api import journeys, live, shipsize
 
     if not local.load_settings().get("live_ships", True):
         return {"type": "FeatureCollection", "features": [], "error": "Ships now is switched off in Settings > Transport."}
-    return live.SHIPS.get(west, south, east, north, at, zoom=zoom, banned=osint.sanctioned_ship_ids(rows))
+    banned = osint.sanctioned_ship_ids(rows)
+    if not too_big:
+        return live.SHIPS.get(west, south, east, north, at, zoom=zoom, banned=banned)
+    if not too_big.startswith("port:") and too_big not in shipsize.CANAL_BY_ID:
+        raise HTTPException(400, f"too_big must be one of {', '.join(shipsize.CANAL_BY_ID)} or port:<UN/LOCODE>")
+    got = live.SHIPS.get(west, south, east, north, at, zoom=None, banned=banned)
+    codes = journeys.ports(rows).get("code") or {} if too_big.startswith("port:") else None
+    details = live.SHIPS.store.details
+    keep = []
+    for f in got.get("features") or []:
+        p = f.get("properties") or {}
+        d = details.get(p.get("id")) or {}
+        ship = {"length_m": p.get("length_m") or d.get("length_m"), "width_m": d.get("width_m"), "draught_m": d.get("draught_m")}
+        if shipsize.too_big(ship, too_big, codes):
+            keep.append(f)
+    return {**got, "features": keep, "count": len(keep), "too_big": too_big}
 
 
 @api.get("/live/ships/status")
@@ -571,13 +589,73 @@ def live_ship_owner(mmsi: int):
     got = live.SHIPS.detail(mmsi)
     if got is None:
         raise HTTPException(404, "no ship with that MMSI seen")
-    global _SHIP_OWNERS
-    if _SHIP_OWNERS is None or _SHIP_OWNERS.file.parent != live.SHIPS.store.folder:
-        _SHIP_OWNERS = shipowners.Owners(live.SHIPS.store.folder)
-    return shipowners.owner(_SHIP_OWNERS, mmsi, got, live.SHIPS.settings())
+    return shipowners.owner(_ship_owners(), mmsi, got, live.SHIPS.settings())
 
 
 _SHIP_OWNERS = None
+_KNOWN_TEU = None
+
+
+def _ship_owners():
+    from worldmodel_api import live, shipowners
+
+    global _SHIP_OWNERS
+    if _SHIP_OWNERS is None or _SHIP_OWNERS.file.parent != live.SHIPS.store.folder:
+        _SHIP_OWNERS = shipowners.Owners(live.SHIPS.store.folder)
+    return _SHIP_OWNERS
+
+
+def _known_teu():
+    from worldmodel_api import shipsize
+
+    global _KNOWN_TEU
+    folder = local.home() / "manual" / "ship_teu"
+    if _KNOWN_TEU is None or _KNOWN_TEU.folder != folder:
+        _KNOWN_TEU = shipsize.KnownTeu(folder)
+    return _KNOWN_TEU
+
+
+def _ship_size(mmsi: int, d: dict, ports: dict, now: float | None = None) -> dict:
+    """A ship's TEU (exact or estimated) and whether it fits each canal and its next port."""
+    from worldmodel_api import journeys, live, shipsize
+
+    now = now or time.time()
+    wd = _ship_owners().peek(str(d.get("imo")), "wikidata") if d.get("imo") else None
+    wd = wd if isinstance(wd, dict) else {}
+    size = {"length_m": d.get("length_m") or wd.get("length_m"), "width_m": d.get("width_m") or wd.get("beam_m"),
+            "draught_m": d.get("draught_m")}
+    book = live.SHIPS.schedules.booking_for(d.get("imo"), d.get("name"), now) if d.get("name") or d.get("imo") else None
+    container = shipsize.looks_container(d.get("name"), [book.get("cargo")] if book else None)
+    teu = shipsize.teu_of(size, _known_teu().get(d.get("imo")), wd.get("teu"), container)
+    port = journeys.match_port(d.get("destination"), ports) if d.get("destination") else None
+    if not port and book and book.get("locode"):
+        port = (ports.get("code") or {}).get(re.sub(r"[^A-Z0-9]", "", book["locode"].upper()))
+    out = shipsize.fits(size, port)
+    if out["port"] is None and port:
+        out["port"] = {"name": port.get("name"), "ok": None, "why": [], "checked": 0, "limits": {},
+                       "note": "The World Port Index lists no size limits for this port.", "source": "NGA World Port Index"}
+    return {"id": mmsi, "teu": teu, "size": size, "draught_from": "AIS (as it sits now)" if d.get("draught_m") else None,
+            "full_draught_m": wd.get("draught_m"), **out}
+
+
+@api.get("/live/ships/size/{mmsi}")
+def live_ship_size(mmsi: int):
+    """How many containers a ship carries (exact where known, else estimated from its size) and
+    which canals, straits and its next port it is too big for."""
+    from worldmodel_api import journeys, live
+
+    got = live.SHIPS.detail(mmsi)
+    if got is None:
+        raise HTTPException(404, "no ship with that MMSI seen")
+    return _ship_size(mmsi, got, journeys.ports(rows))
+
+
+@api.get("/live/ships/limits")
+def live_ship_limits():
+    """The canals and straits ships can be checked against (Map > Ships now: Too big for…)."""
+    from worldmodel_api import shipsize
+
+    return {"canals": shipsize.CANALS}
 
 
 @api.get("/live/ships/journey/{mmsi}")

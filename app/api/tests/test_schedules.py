@@ -152,6 +152,26 @@ def test_australian_port_lists_parse():
     assert set(schedules.PARSERS) == {k for k, p in schedules.PORT_LISTS.items() if p["url"]}
 
 
+def test_otago_csv_and_hong_kong_xml():
+    page = (FIX / "otago_page.html").read_text()
+    assert schedules.otago_csv_link(page).endswith("WebsiteShipping-VesselSchedule-1795806909.csv")
+    ot = {r["name"]: r for r in schedules.parse_otago((FIX / "otago_all.csv").read_text())}
+    assert set(ot) == {"Maersk Innoshima", "African Isabelle", "Tsukuyomi Eternity"}  # fishing, cruise and departure-only left out
+    inn = ot["Maersk Innoshima"]
+    assert inn["imo"] == 9348170 and inn["voyage"] == "INN646N" and inn["prev"] == "Timaru" and inn["next"] == "Tauranga"
+    assert inn["arrival"] == datetime(2026, 11, 28, 8, 0, tzinfo=timezone.utc).timestamp()  # 21:00 NZDT
+    assert inn["departs"] > inn["arrival"] and inn["cargo"] == "Containers"
+    assert ot["African Isabelle"]["cargo"] == "Logs" and ot["Tsukuyomi Eternity"]["next"] is None  # 'Sea'
+    due = schedules.parse_hk((FIX / "hk_due.xml").read_text(), "expected")
+    assert [r["name"] for r in due] == ["ANL OTAGO"]  # the tug is left out
+    assert due[0]["arrival"] == datetime(2026, 11, 28, 7, 0, tzinfo=timezone.utc).timestamp() and due[0]["prev"] == "TAURANGA"
+    both = schedules.merge_hk([due, schedules.parse_hk((FIX / "hk_arrived.xml").read_text(), "in_port"),
+                               schedules.parse_hk((FIX / "hk_departed.xml").read_text(), "departed")])
+    abie = next(r for r in both if r["name"] == "ABIE")
+    assert abie["state"] == "departed" and abie["departs"] == datetime(2026, 11, 27, 11, 12, tzinfo=timezone.utc).timestamp()
+    assert "callsign" not in abie and abie["cargo"].startswith("Tanker")
+
+
 def test_singapore_api_rows_merge():
     due = {"data": [{"vesselParticulars": {"vesselName": "MAERSK KOWLOON", "imoNumber": "9784270", "callSign": "9V1", "flag": "SG"},
                      "duetoArriveTime": "2026-11-27 14:30:00", "locationFrom": "PORT KLANG", "locationTo": "PASIR PANJANG"},

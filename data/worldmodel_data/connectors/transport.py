@@ -19,7 +19,8 @@ unctad_port_calls
     of ship, yearly from 2018 (a .7z bulk download holding one CSV).
 world_port_index
     NGA World Port Index (Pub. 150, public domain): about 3,800 ports, with harbour
-    size and type, as a map layer of every port.
+    size and type, channel depth and the largest ship each takes (for 'too big for this
+    port'), as a map layer of every port.
 shipping_lanes
     Global Shipping Lanes (Benden 2022, CC BY 4.0, GitHub): major, middle and minor
     sea routes as lines.
@@ -826,6 +827,11 @@ WPI_OUTAGE_ZIP = "https://msi.nga.mil/apology_objects/WPI.zip"
 HARBOR_SIZE = {"L": "large", "M": "medium", "S": "small", "V": "very small"}
 
 
+def _pos(v) -> float | None:
+    x = num(v)
+    return x if x is not None and x > 0 else None
+
+
 def _wpi_rows(path: Path) -> list[dict]:
     """Port rows from the index CSV (or Excel), or from the CSV inside a zip of it."""
     if path.suffix.lower() == ".zip":
@@ -851,6 +857,7 @@ class WorldPortIndex(Connector):
     source_id = "world_port_index"
     switch = "transport_ports_fetch"
     fetch_every_days = 182
+    stage_version = 2  # 2: the largest ship each port takes (length, beam, draught), pier depth, container port
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -897,7 +904,13 @@ class WorldPortIndex(Connector):
                     "name": str(name).title() if str(name).isupper() else name,
                     "country": pick(r, "countrycode", "country"), "size": HARBOR_SIZE.get(size[:1].upper(), size.lower() or None),
                     "type": pick(r, "harbortype", "harbourtype"), "locode": pick(r, "unlocode"),
-                    "depth": num(pick(r, "channeldepthm", "channeldepth"))}))
+                    "depth": num(pick(r, "channeldepthm", "channeldepth")),
+                    # the largest ship the port takes, as NGA lists it (0 in the file means not known)
+                    "max_len": _pos(pick(r, "maximumvessellengthm", "maximumvessellength")),
+                    "max_beam": _pos(pick(r, "maximumvesselbeamm", "maximumvesselbeam")),
+                    "max_draft": _pos(pick(r, "maximumvesseldraftm", "maximumvesseldraft")),
+                    "pier_depth": _pos(pick(r, "cargopierdepthm", "cargopierdepth")),
+                    "containers": str(pick(r, "facilitiescontainer") or "").strip().lower() == "yes" or None}))
         if not feats:
             raise ConnectorError(f"world_port_index: no ports read from {raw_dir}")
         self.layers = [{"layer_id": "ports_all", "name": "Every port (World Port Index)", "kind": "point",

@@ -157,7 +157,7 @@ export function SchedulesBoard({ openShip }: { openShip: (id: string) => void })
   if (err) return <p className="error">{err}</p>;
   return (
     <section className="card">
-      <p className="caption">Cargo and container ships booked into Auckland, Tauranga, the NSW ports, Melbourne and Singapore (with its key), from the ports&apos; own arrival lists (read every hour, every change kept),
+      <p className="caption">Cargo and container ships booked into Auckland, Tauranga, Port Chalmers, the NSW ports, Melbourne, Hong Kong and Singapore (with its key), from the ports&apos; own arrival lists (read every hour, every change kept),
         beside what each ship says (its ETA) and our estimate from its position and speed. On time means within a day of the first booking, as the shipping industry counts it.
         Open a ship for its ETA over time and its route.</p>
       <div className="table-tools small">

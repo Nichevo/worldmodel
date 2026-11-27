@@ -4,7 +4,7 @@
 
 import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LayerSpecification, LineLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
 import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
-import { shipsAtQuery } from "@/lib/ships";
+import { shipsAtQuery, shipsTooBigQuery } from "@/lib/ships";
 import { get, getAbortable } from "@/lib/api";
 import { readSettings } from "@/lib/settings";
 import { cssVar } from "@/lib/colors";
@@ -508,7 +508,7 @@ export const LAYER_STYLE: Record<string, Style> = {
 export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number, signal?: AbortSignal) {
   const r = (v: number) => Math.round(v * 100) / 100;
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
-  const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}&zoom=${zoom.toFixed(1)}${shipsAtQuery()}`
+  const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}&zoom=${zoom.toFixed(1)}${shipsAtQuery()}${shipsTooBigQuery()}`
     : id === "live_military" ? `/live/military-planes?${q}`
     : id === "live_cameras" ? `/live/cameras?${q}`
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
