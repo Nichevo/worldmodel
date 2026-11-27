@@ -77,6 +77,9 @@ class Methods:
     def retry_due(self, sid: str) -> bool:
         """Auto moved this source off the site: is it time to try the site once more?"""
         e = self.entry(sid)
+        cls = self.connectors.get(sid)
+        if cls is not None and getattr(cls, "fetch_version", 1) > e.get("fetch_version", 1):
+            return True  # the source's download was changed (a new address, say) since it was moved off the site
         when = e.get("retry_from")
         return bool(when) and now_utc().date().isoformat() >= when[:10]
 
@@ -88,6 +91,7 @@ class Methods:
         if e.get("auto") != to:
             e.update(auto=to, since=now.isoformat(), why=why)
         e["retry_from"] = (now + timedelta(days=max(days, 7))).date().isoformat()
+        e["fetch_version"] = getattr(cls, "fetch_version", 1)  # tried with this download; a newer one is tried at once
 
     def outcome(self, sid: str, ok: bool, error: str = "", tried_site: bool = True) -> str | None:
         """Note how the site did; returns a sentence when the automatic choice changed."""

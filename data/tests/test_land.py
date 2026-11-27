@@ -236,3 +236,22 @@ def test_gfw_download_tries_the_yearly_folder_first(tmp_path, monkeypatch):
     monkeypatch.setattr(c, "get", get)
     assert c.download(tmp_path, "2026").endswith("/global.xlsx") and "/download/20" in asked[1]
     assert (tmp_path / "global_country_stats.xlsx").exists() and "/download/" in asked[0]
+
+
+def test_gfw_adds_up_countries_listed_in_several_rows():
+    """GFW splits disputed areas off China, India and Pakistan under the same country name;
+    the pieces are added up so each country has one value a year (they failed the build's
+    uniqueness check when repeated)."""
+    from worldmodel_data.connectors.land import gfw_rows
+
+    table = [["country", "threshold", "area_ha", "extent_2000_ha", "extent_2010_ha", "tc_loss_ha_2001"],
+             ["India", 30, 300, 30, 28, 5],
+             ["India", 30, 100, 50, 49, 1],
+             ["India", 50, 999, 999, 999, 999],  # another canopy threshold: left out
+             ["Pakistan", 30, 80, 1, 1, None]]
+    got = {(e, i, y): v for e, i, y, v in gfw_rows(table)}
+    assert len(got) == len(gfw_rows(table))  # no repeats
+    assert got[("IND", "gfw_tree_cover_loss_ha", 2001)] == 6
+    assert got[("IND", "gfw_tree_cover_ha", 2000)] == 80
+    assert got[("IND", "gfw_tree_cover_pct", 2010)] == pytest.approx(77 / 400 * 100)
+    assert ("PAK", "gfw_tree_cover_loss_ha", 2001) not in got

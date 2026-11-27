@@ -493,37 +493,49 @@ GFW_THRESHOLD = 30
 
 
 def gfw_rows(table: list[list]) -> list[tuple[str, str, int, float]]:
-    """(entity, indicator, year, value) from GFW's country tree cover loss sheet at 30% canopy."""
-    out = []
+    """(entity, indicator, year, value) from GFW's country tree cover loss sheet at 30% canopy.
+
+    Some countries come in several rows under the same name: GFW splits off disputed areas
+    (Kashmir, Arunachal Pradesh, Aksai Chin and others) and labels each with the country that
+    holds it, so China, India and Pakistan have 2 to 6 rows each. Their hectares are added up
+    and the share is worked out on the added-up land area, one value per country and year."""
     for i, row in enumerate(table[:10]):
         heads = [str(c or "").strip().lower() for c in row]
         if "country" not in heads or "threshold" not in heads:
             continue
         ci, ti = heads.index("country"), heads.index("threshold")
+        sums: dict[str, dict[str, float]] = {}
         for r in table[i + 1:]:
             if len(r) <= max(ci, ti) or num(r[ti]) != GFW_THRESHOLD:
                 continue
             ent = iso3_of(r[ci])
             if not is_country(ent):
                 continue
-            cells = dict(zip(heads, r))
-            area = num(cells.get("area_ha"))
+            acc = sums.setdefault(ent, {})
+            for h, v in zip(heads, r):
+                if (h in ("area_ha", "extent_2000_ha", "extent_2010_ha") or re.fullmatch(r"tc_loss_ha_\d{4}", h)) \
+                        and num(v) is not None:
+                    acc[h] = acc.get(h, 0.0) + num(v)
+        out = []
+        for ent, cells in sums.items():
+            area = cells.get("area_ha")
             for y, col in ((2000, "extent_2000_ha"), (2010, "extent_2010_ha")):
-                v = num(cells.get(col))
+                v = cells.get(col)
                 if v is not None:
                     out.append((ent, "gfw_tree_cover_ha", y, v))
                     if area:
                         out.append((ent, "gfw_tree_cover_pct", y, v / area * 100))
             for h, v in cells.items():
                 m = re.fullmatch(r"tc_loss_ha_(\d{4})", h)
-                if m and num(v) is not None:
-                    out.append((ent, "gfw_tree_cover_loss_ha", int(m[1]), num(v)))
+                if m:
+                    out.append((ent, "gfw_tree_cover_loss_ha", int(m[1]), v))
         return out
-    return out
+    return []
 
 
 class GFWTreeCover(Connector):
     source_id = "gfw_treecover"
+    stage_version = 2  # 2: countries listed in several rows (disputed areas split off) added up, not repeated
     switch = "land_trees_fetch"
     fetch_every_days = 180
 
@@ -556,14 +568,18 @@ class GFWTreeCover(Connector):
             files = [p for p in raw_dir.iterdir() if p.suffix.lower() in (".xlsx", ".csv")]
             for z in raw_dir.glob("*.zip"):
                 files += _unzip(z, (".xlsx", ".csv"), tmp)
-            for p in files:
+            for p in sorted(files, key=lambda f: f.name):
+                got = []
                 if p.suffix.lower() == ".xlsx":
                     sheets = xlsx_sheet_names(p)
                     pick = [s for s in sheets if "tree cover loss" in s.lower() and "country" in s.lower()] or sheets[:1]
-                    for s in pick:
-                        found += gfw_rows(xlsx_rows(p, s))
+                    for s in pick[:1]:
+                        got = gfw_rows(xlsx_rows(p, s))
                 else:
-                    found += gfw_rows(read_table(p))
+                    got = gfw_rows(read_table(p))
+                # two copies of the file (a download and one saved by hand) must not give a country twice
+                done = {(e, ind, y) for e, ind, y, _ in found}
+                found += [x for x in got if x[:3] not in done]
         finally:
             import shutil
 

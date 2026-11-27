@@ -102,3 +102,29 @@ def test_corrections_workbook_link():
     assert _workbook_link('<a href="/assets/Prison_Stats_-_Q1_FY_2026_27.xlsx">Download</a>') == \
         "https://www.corrections.govt.nz/assets/Prison_Stats_-_Q1_FY_2026_27.xlsx"
     assert _workbook_link("<a href='/other.pdf'>") is None
+
+
+def test_a_new_download_is_tried_at_once_after_an_automatic_switch(tmp_path, monkeypatch):
+    """A source moved to 'your file' because its address was gone is tried on the site again
+    as soon as its connector has a new download (a higher fetch_version), not weeks later."""
+    from worldmodel_data import methods
+    from worldmodel_data.config import Paths
+
+    class Old:
+        manual, needs_env, fetch_every_days, fetch_version = False, (), 0, 1
+
+    class New(Old):
+        fetch_version = 2
+
+    monkeypatch.setattr(methods, "verify_sources", lambda: set())
+    monkeypatch.setattr(methods, "scraped", lambda: set())
+    monkeypatch.setattr(methods.fm, "read_choices", lambda home: {})
+    monkeypatch.setattr(methods.fm, "read_state", lambda home: {"sources": {}})
+    monkeypatch.setattr("worldmodel_data.manual.FALLBACK", {"un_wup"})
+    ways = methods.Methods(Paths(home=tmp_path), {"un_wup": Old})
+    ways.outcome("un_wup", False, "HTTP 404 Not Found")
+    assert ways.method("un_wup") == "file" and not ways.retry_due("un_wup")
+    ways.connectors["un_wup"] = New  # the connector now knows the new address
+    assert ways.retry_due("un_wup")
+    ways.outcome("un_wup", False, "HTTP 404 Not Found")  # still failing: wait for the usual retry
+    assert not ways.retry_due("un_wup")
