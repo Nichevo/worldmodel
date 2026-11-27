@@ -6,6 +6,7 @@ import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "r
 import ChartCard from "@/components/ChartCard";
 import DriversCard from "@/components/DriversCard";
 import EChart from "@/components/EChart";
+import ForecastScores from "@/components/ForecastScores";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import PredictDialog from "@/components/PredictDialog";
 import { api, type Entity, type Forecast, type ForecastErrors, type Forecaster, type Indicator, type TrackRecord, type WhatIf,
@@ -39,7 +40,7 @@ const PRESETS: { label: string; title: string; levers: WhatIfLevers }[] = [
     levers: { ...DEFAULTS, e0: 5, phase: 25 } },
 ];
 const FORECASTERS = [["imf_weo", "IMF"], ["oecd_eo", "OECD"], ["wb_gep", "World Bank"]] as const;
-type Tab = "whatif" | "stat" | "track" | "synth";
+type Tab = "whatif" | "stat" | "track" | "synth" | "scores";
 const MAX_VS = 3; // countries to compare with, besides the main one
 const HELD_LABEL: Record<string, string> = {
   tfr: "fertility", e0_male: "men's life expectancy", e0_female: "women's life expectancy", net_migration: "migration",
@@ -60,7 +61,7 @@ function num(v: string | null, d: number): number {
 
 function Forecasts() {
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>((["track", "stat", "synth"] as const).find((t) => t === params.get("tab")) ?? "whatif");
+  const [tab, setTab] = useState<Tab>((["track", "stat", "synth", "scores"] as const).find((t) => t === params.get("tab")) ?? "whatif");
   const [eventYear, setEventYear] = useState(num(params.get("ey"), 2008));
   const [entity, setEntity] = useState(params.get("e") ?? "NZL");
   const [levers, setLevers] = useState<WhatIfLevers>({
@@ -92,6 +93,8 @@ function Forecasts() {
     } else if (tab === "stat") {
       q.set("tab", "stat");
       q.set("ind", indicator);
+    } else if (tab === "scores") {
+      q.set("tab", "scores");
     } else if (tab === "synth") {
       q.set("tab", "synth");
       q.set("ind", indicator);
@@ -109,7 +112,7 @@ function Forecasts() {
   const name = nameOf(entity);
   const others = vs.filter((v) => v !== entity).map((id) => ({ id, name: nameOf(id) }));
   useEffect(() => {
-    const what = tab === "track" ? "Forecast track record" : tab === "stat" ? "Statistical forecast" : tab === "synth" ? "Synthetic comparison" : "Population what-if";
+    const what = tab === "track" ? "Forecast track record" : tab === "scores" ? "Forecast scores" : tab === "stat" ? "Statistical forecast" : tab === "synth" ? "Synthetic comparison" : "Population what-if";
     const t = setTimeout(() => logHistory({ kind: "page", title: `${what}: ${name}`,
       url: `/forecasts?${query}`, entity, detail: "forecasts" }), 3000);
     return () => clearTimeout(t);
@@ -123,6 +126,7 @@ function Forecasts() {
           {tab === "whatif"
             ? "Change fertility, life expectancy or migration and see how the population and its ages would differ from the UN projection."
             : tab === "stat" ? "A statistical forecast of any indicator: simple models tried against the past, the best one used, with the ranges it fell inside."
+            : tab === "scores" ? "How good the app's own forecasts have been: each made again from the past with only the figures there were then, scored against what came and against plain guesses, plus a running record of forecasts saved after each refresh."
             : tab === "synth" ? "Did an event change a country's path? The mix of other countries that tracked it best before the event shows what might have happened without it."
             : "How far forecasters' past forecasts of growth and inflation were from what happened, and who forecasts best."}
         </p>
@@ -136,6 +140,8 @@ function Forecasts() {
             onClick={() => { setTab("track"); if (!["gdp_growth", "inflation"].includes(indicator)) setIndicator("gdp_growth"); }}>Track record</button>
           <button role="tab" aria-selected={tab === "synth"} className={tab === "synth" ? "on" : ""}
             onClick={() => setTab("synth")}>Synthetic comparison</button>
+          <button role="tab" aria-selected={tab === "scores"} className={tab === "scores" ? "on" : ""}
+            onClick={() => setTab("scores")}>Scores</button>
         </div>
         <select value={entity} onChange={(e) => setEntity(e.target.value)} aria-label="Country">
           {!countries.some((c) => c.entity_id === entity) && <option value={entity}>{entity}</option>}
@@ -160,6 +166,7 @@ function Forecasts() {
       </div>
       {tab === "whatif" ? <WhatIfView entity={entity} levers={levers} setLevers={setLevers} others={others} />
         : tab === "stat" ? <StatView entity={entity} name={name} indicator={indicator} setIndicator={setIndicator} others={others} />
+        : tab === "scores" ? <ForecastScores entity={entity} name={name} />
         : tab === "synth" ? <SynthView entity={entity} indicator={indicator} setIndicator={setIndicator} year={eventYear} setYear={setEventYear} />
         : <TrackView entity={entity} indicator={indicator} setIndicator={setIndicator} source={forecaster} setSource={setForecaster} others={others} />}
     </div>

@@ -279,8 +279,9 @@ def _design(g: dict[int, float], cli: dict[int, float], quarters: list[int], use
     return np.array(X), np.array(y)
 
 
-def nowcast(q: Q, entity: str, version: str = "") -> dict:
-    """This quarter's growth for one country, the method's track record and, for the US, GDPNow."""
+def nowcast(q: Q, entity: str, version: str = "", remember: bool = True) -> dict:
+    """This quarter's growth for one country, the method's track record and, for the US, GDPNow.
+    `remember` False leaves the kept nowcasts alone (the forecast scores read every country)."""
     F = fit(q, version)
     g = F["gdp"].get(entity, {})
     cli = F["cli"].get(entity, {})
@@ -305,7 +306,7 @@ def nowcast(q: Q, entity: str, version: str = "") -> dict:
         if len(yb) < 16 or not len(Xt):
             continue
         est = float(Xt[0] @ _ols(Xb, yb))
-        track.append({"quarter": qlabel(t), "estimate": round(est, 2), "actual": round(g[t], 2)})
+        track.append({"quarter": qlabel(t), "estimate": round(est, 2), "actual": round(g[t], 2), "before": round(g[before[-1]], 2)})
     errs = [t["actual"] - t["estimate"] for t in track]
     rmse = math.sqrt(sum(e * e for e in errs) / len(errs)) if errs else None
     row = [1.0, g[qs[-1]]]
@@ -332,7 +333,8 @@ def nowcast(q: Q, entity: str, version: str = "") -> dict:
             m = max(now)
             out["gdpnow"] = {"quarter": qlabel(m), "annualised": round(now[m], 1),
                              "quarterly": round(100 * ((1 + now[m] / 100) ** 0.25 - 1), 2)}
-    _remember(entity, out)
+    if remember:
+        _remember(entity, out)
     return out
 
 

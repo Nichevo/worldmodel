@@ -310,6 +310,8 @@ export type Settings = {
   forecast_horizon: number; // years the Forecast button looks ahead
   forecast_ranges: "80+95" | "80" | "none";
   forecast_official: boolean; // also draw the IMF's, OECD's and World Bank's own projections
+  forecast_scores_keep: boolean; // save each refresh's forecasts and score them as figures come in
+  forecast_backtest_years: number; // years of weekly flu and RSV forecasts back-tested on Forecasts > Scores
   base_map: "online" | "local" | "plain"; // map detail under the colours
   map_centre: "pacific" | "atlantic"; // where world maps open centred
   quality_show: QualityShow; // indicator drop-downs list grades up to this (starred ones always)
@@ -1348,6 +1350,35 @@ function batchedSeries(indicator: string, entities: string[], start?: number, en
   });
 }
 
+// Forecasts > Scores: back-tests and the running record of the app's own forecasts.
+export type ScoreRow = {
+  h: number; group?: "all" | "key"; e?: string; name?: string; n: number;
+  mae?: number; rel?: number; bias?: number; cover?: number | null; cover95?: number | null;
+  best_base?: string | null; skill?: number | null; base?: Record<string, { mae: number; rel: number; n: number }>;
+  brier?: number; base_brier?: number; events?: number; mean_p?: number; rate?: number;
+  mean_p_events?: number | null; mean_p_none?: number | null;
+};
+export type ScoreTable = {
+  pooled: ScoreRow[]; countries: ScoreRow[]; from: string | null; to: string | null; n: number;
+  label?: string; unit?: string; decimals?: number; rel_is_share?: boolean; years?: number; origins?: number;
+  indicator?: string; waiting?: number; first?: string;
+};
+export type LiveScores = {
+  saved: number; first: string | null; added: number; keeping: boolean;
+  families: Record<string, Record<string, ScoreTable>>;
+};
+export type ScoresPart = {
+  status: "ready" | "working" | "failed"; error?: string; working_on?: string | null; queued?: number;
+  part?: string; seconds?: number; computed_at?: string;
+  // disease: by measure; stat, nowcast, recession: one table; live: the running record
+  result?: Record<string, ScoreTable> | ScoreTable | LiveScores | null;
+};
+export type ScoresState = {
+  build: string | null; ready: string[]; working_on: string | null; queued: string[]; failed: Record<string, string>;
+  defaults: string[]; stat_default: string[]; horizons: Record<string, number[]>; horizon_unit: Record<string, string>;
+  baselines: Record<string, string>;
+};
+
 export const api = {
   briefing: (days?: number) => get<Briefing>("/briefing", { days }),
   entityLatest: (id: string, days = 30) => get<EntityLatest>(`/entities/${encodeURIComponent(id)}/latest`, { days }),
@@ -1586,6 +1617,8 @@ export const api = {
     get<{ indicator: string; entity: string | null; forecasters: Forecaster[] }>("/track-record/compare", { indicator, entity }),
   forecast: (indicator: string, entity: string, horizon: number, official = true) =>
     get<Forecast>("/forecast", { indicator, entity, horizon, official: official ? "true" : "false" }),
+  forecastScores: (part: string) => get<ScoresPart>("/forecast-scores", { part }),
+  forecastScoresState: () => get<ScoresState>("/forecast-scores/state"),
   topics: () => get<Topic[]>("/topics"),
   topic: (id: string) => get<Topic>(`/topics/${id}`),
   ranking: (indicator: string, year?: number) => get<Ranking>(`/indicators/${indicator}/ranking`, { year }),

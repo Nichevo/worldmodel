@@ -23,6 +23,9 @@ def _no_forecast_scoring_loop():
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(forecast_skill, "start", lambda settings_fn: None)
+        from worldmodel_api import forecast_scores
+
+        mp.setattr(forecast_scores, "start", lambda *a, **k: None)  # the back-tests worked out after each new build
         yield
 
 

@@ -68,6 +68,8 @@ SETTINGS: dict[str, object] = {
     "forecast_horizon": 10,          # years the Forecast button on charts looks ahead
     "forecast_ranges": "80+95",      # ranges drawn around a forecast: "80+95", "80" or "none"
     "forecast_official": True,       # with Forecast on, also draw each forecaster's own projections (IMF, OECD, World Bank)
+    "forecast_scores_keep": True,    # after each refresh, save the app's forecasts of the moment and score them as figures come in (Forecasts > Scores)
+    "forecast_backtest_years": 3,    # Forecasts > Scores: years of weekly flu and RSV forecasts made again from the past and scored
     "places_fetch": True,            # refresh fetches metro and rail, universities and companies from Wikidata (every 4 weeks)
     "map_hospital_beds": 200,        # the Hospitals map layer shows hospitals with at least this many beds
     "map_quake_min": 4.5,            # the Earthquakes map layer shows quakes of at least this magnitude (3 only around New Zealand)
@@ -372,7 +374,7 @@ RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "sh
           "history_retention_days": (0, 36_500), "disaster_min_deaths": (0, 1_000_000),
           "transport_min_deaths": (0, 100_000), "relief_shading": (0, 1), "map_colours_over": (0, 1),
           "map_3d_exaggeration": (1, 5), "spot_change_from": (1992, 2025), "spot_change_to": (1993, 2025), "spot_min_sure": (0, 1), "sharp_save_maxzoom": (10, 20),
-          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50),
+          "ranks_top_n": (0, 300), "crisiswatch_backfill": (0, 300), "scrape_gap_seconds": (2, 120), "forecast_horizon": (1, 50), "forecast_backtest_years": (1, 8),
           "relations_min_countries": (5, 200), "relations_min_years": (5, 60), "relations_max_minutes": (1, 1440),
           "relations_fdr": (0.001, 0.25), "sectors_trade_from": (1995, 2030), "climate_storms_from": (1980, 2030), "map_hospital_beds": (0, 10_000), "map_quake_min": (0, 10), "hospitals_overture_confidence": (0, 1), "internet_speeds_from": (2019, 2030), "internet_speeds_per_refresh": (1, 60),
           "acled_from_year": (1997, 2030), "ioda_from_year": (2020, 2030), "gfp_pages_per_refresh": (0, 145), "ai_temperature": (0, 2),

@@ -138,6 +138,11 @@ export default function SettingsPage() {
         </Field>
         <Toggle label="Forecasters' own projections" hint="With Forecast on, single-country charts also draw the IMF's, OECD's and World Bank's latest forecasts."
           on={s.forecast_official} set={(v) => save({ forecast_official: v })} />
+        <Toggle label="Keep and score each new forecast" hint="After each refresh, save the app's forecasts of the moment (flu and RSV, yearly figures, nowcasts, recession odds) and score each once its figure comes in, on Forecasts > Scores. A few MB a year. Off: nothing new is saved; what was saved is still scored."
+          on={s.forecast_scores_keep} set={(v) => save({ forecast_scores_keep: v })} />
+        <NumberField label="Flu and RSV back-test" unit="years" value={s.forecast_backtest_years} min={1} max={8} step={1}
+          save={(v) => save({ forecast_backtest_years: v })} />
+        <p className="small ink-2">How many past years of weekly flu and RSV forecasts are made again and scored on Forecasts &gt; Scores. More years take longer to work out after each refresh (about a minute a year).</p>
       </section>
 
       <AISettings s={s} save={save} />
