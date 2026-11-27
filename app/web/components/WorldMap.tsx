@@ -24,6 +24,7 @@ import { askHere } from "@/lib/spotting";
 import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
 import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
 import { applyPlaceLook, PLACE_LOOK, withLatScale } from "@/lib/placeIcons";
+import { LANDUSE_LAYER, syncLandUse, syncSiteOutlines, watchPortLand } from "@/lib/siteOutlines";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -295,6 +296,18 @@ export default function WorldMap({
       if (m.getLayer(lid)) applyPlaceLook(m, id, lid, LAYER_STYLE[id].paint() as Record<string, unknown>, placeOpts());
     }
   }, [settings.map_place_icons, settings.map_real_size]);
+  // Places' grounds from the map detail (Settings > Map page, "Site outlines from the map").
+  const layersOn = useRef<string[]>([]);
+  layersOn.current = layers;
+  // ... and the Land use (from the map) layer, under them.
+  const sites = () => {
+    const m = map.current;
+    if (!m?.getLayer("line")) return;
+    const s = readSettings();
+    syncSiteOutlines(m, layersOn.current, s.map_site_outlines !== false);
+    syncLandUse(m, layersOn.current.includes(LANDUSE_LAYER), (s.map_landuse_hidden ?? "").split(",").filter(Boolean));
+  };
+  useEffect(() => { sites(); }, [settings.map_site_outlines, settings.map_landuse_hidden, layers.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   const aiOn = useRef(true);
   aiOn.current = settings.ai_enabled !== false;
   const { base_map: baseMap, map_centre: mapCentre } = settings;
@@ -384,6 +397,7 @@ export default function WorldMap({
       });
     });
     // MapLibre only tracks window resizes; panels resize on their own.
+    watchPortLand(m, () => layersOn.current);
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(el.current);
 
@@ -671,6 +685,7 @@ export default function WorldMap({
         const files = got.shown === "local" ? await baseMapStatus().then((st) => st.files.length).catch(() => 0) : 0;
         m.setMaxZoom(maxZoomFor(got.shown, files));
         setDetailNote(got.note);
+        sites();
       } catch (e) { console.warn("map detail skipped", e); }
     };
     if (m.getSource("countries")) apply();

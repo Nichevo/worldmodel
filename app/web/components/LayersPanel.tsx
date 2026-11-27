@@ -13,6 +13,7 @@ import { CAMERA_KIND, CAMERA_SOURCE, cameraFilter, LAYER_STYLE, layerData, mapLa
 import { LAND_COVER } from "@/lib/maplook";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { PLACE_LOOK } from "@/lib/placeIcons";
+import { LAND_USE } from "@/lib/siteOutlines";
 import { setShipsAt, usePlaneStatus, useShipStatus, useShipsAt } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
@@ -287,7 +288,7 @@ const MADE_SWATCH: Record<string, () => string> = {
   land_change: () => "#c92a2a", water_change: () => "#1c7ed6", ai_spotted: () => "#862e9c",
   wx_temp: () => "#f08246", wx_rain: () => "#2878e6", wx_cloud: () => "#b4bcc6", wx_wind: () => "#3c8cc8",
   wx_pressure: () => "#283040", wx_radar: () => "#1fa34a", wx_satellite: () => "#d0d8e0",
-  wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
+  map_landuse: () => "#f2c14e", wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose, selection = [], names = new Map() }: {
@@ -368,6 +369,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.id === "front_line") return { ok: true, why: "", source: "DeepStateMap via GitHub (a refresh loads it)" };
     if (m.id === "live_ships") return s.live_ships ? { ok: true, why: "", source: "aisstream.io, the area in view (needs AISSTREAM_API_KEY)" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "map_landuse") return s.base_map !== "plain" ? { ok: true, why: "", source: "The map detail (OpenStreetMap, via OpenFreeMap or your local map files)" }
+      : { ok: false, why: "Needs map detail: pick online or local map files in Settings > Map (Countries only has none)", source: "" };
     if (m.id === "night") return { ok: true, why: "", source: "Worked out here from the time and the Sun's position, every minute" };
     if (m.id === "timezones") return { ok: true, why: "", source: "timezone-boundary-builder outlines (a refresh loads them); offsets and local times from your browser's time zone rules" };
     if (LAYER_STYLE[m.id]?.fetch === "window") return { ok: true, why: "", source: "Read for the area in view (a refresh loads them)" };
@@ -389,7 +392,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     const { [name]: _gone, ...rest } = s.map_layer_sets ?? {};
     saveSettings({ map_layer_sets: rest }).catch(() => undefined);
   };
-  const swatch = (m: LayerDef) => (m.made ? MADE_SWATCH[m.id]?.() : LAYER_STYLE[m.id]?.swatch()) ?? cssVar("--muted");
+  const swatch = (m: LayerDef) => (m.made || MADE_SWATCH[m.id] ? MADE_SWATCH[m.id]?.() : LAYER_STYLE[m.id]?.swatch()) ?? cssVar("--muted");
   const custom = /~/.test(win);
   const timedOn = onNow.some((m) => m.timed);
   const groupsShown = LAYER_GROUPS.map((g) => {
@@ -570,6 +573,12 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
           {(panel.layers.includes("S") || panel.layers.includes("F")) && <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />}
           {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
           {onNow.some((m) => PLACE_LOOK[m.id]) && <PlaceLookToggles names={onNow.filter((m) => PLACE_LOOK[m.id]).map((m) => m.label)} />}
+          {panel.layers.includes("+") && (
+            <div className="lp-section">
+              <div className="lp-label">Land use: kinds shown</div>
+              <KindChips setting="map_landuse_hidden" groups={LAND_USE.map((u) => ({ id: u.id, label: u.label, color: u.color, title: u.kinds.join(", ").replace(/_/g, " ") }))} />
+              <p className="caption">From the map detail: only what OpenStreetMap has mapped, clearer as you zoom in.</p>
+            </div>)}
           {panel.layers.includes("h") && <HospitalPick />}
           {panel.layers.includes("q") && <QuakePick selection={selection} names={names} from={from} to={to} />}
           {panel.layers.includes("-") && <CameraKinds />}
@@ -735,7 +744,7 @@ function hiddenFilter(hidden?: string): unknown[] | null {
 // Coloured chips for a layer's kinds; clicking one hides or shows that kind on the map (kept in settings).
 // One setting can hold several rows of chips (the Cameras layer's kinds and owners): each row
 // changes only its own ids.
-type ChipSetting = "map_ships_hidden" | "map_planes_hidden" | "map_cameras_hidden";
+type ChipSetting = "map_ships_hidden" | "map_planes_hidden" | "map_cameras_hidden" | "map_landuse_hidden";
 function KindChips({ groups, setting, caption = true }: { groups: { id: string; label: string; color?: string; title?: string }[]; setting: ChipSetting; caption?: boolean }) {
   const all = (useSettings()[setting] ?? "").split(",").filter(Boolean);
   const mine = new Set(groups.map((g) => g.id));
@@ -796,6 +805,8 @@ function PlaceLookToggles({ names }: { names: string[] }) {
           <input type="checkbox" checked={s.map_place_icons !== false} onChange={(e) => saveSettings({ map_place_icons: e.target.checked }).catch(() => undefined)} /> Symbols</label>
         <label title="Zoomed in to about a city, ports, airports, hospitals and universities grow to about their real size over the site">
           <input type="checkbox" checked={real} onChange={(e) => saveSettings({ map_real_size: e.target.checked }).catch(() => undefined)} /> Real size close in</label>
+        <label title="Zoomed in, each site's grounds as the map draws them, tinted in the layer's colour (ports: industrial land next to the port); needs map detail, not Countries only">
+          <input type="checkbox" checked={s.map_site_outlines !== false} onChange={(e) => saveSettings({ map_site_outlines: e.target.checked }).catch(() => undefined)} /> Site outlines</label>
       </div>
       <p className="caption">Dots stay sized by how busy each place is.
         {real ? " Close in, sizes are estimates (airports from their longest runway, hospitals from beds, ports from ship calls or harbour size, universities from students) and a big site covers the street names under it; military bases and power plants keep their dot." : ""}</p>

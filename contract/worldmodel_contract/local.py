@@ -76,6 +76,7 @@ SETTINGS: dict[str, object] = {
     "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
     "map_hospitals_all": True,       # the Hospitals layer shows every hospital from every list (the two above apply when off)
     "map_place_icons": True,         # ports, airports, hospitals, universities, bases and power plants get a symbol (anchor, plane, cross ...) in their dot once zoomed in a little
+    "map_site_outlines": True,       # ... and zoomed in, their grounds as the map detail draws them tinted in the layer's colour (airports, hospitals, universities, bases; ports from nearby industrial land)
     "map_real_size": False,          # ... and zoomed in close, are drawn about as big as the place really is (runway length, beds, ship calls), over the site
     # Lists whose hospitals the map shows, as worldmodel_contract.health SOURCES keys (lower case, so the
     # comma-list check keeps them; the 1st version's names were lower-cased and "Official lists" dropped).
@@ -83,6 +84,7 @@ SETTINGS: dict[str, object] = {
     "map_hospital_kinds": "hospital",  # likely kinds the map shows: hospital, unsure, clinic (likely hospitals only at first)
     "map_ships_hidden": "",   # ship kinds the map's Ships layer leaves out (cargo, tanker ...), comma separated
     "map_planes_hidden": "",  # plane types the map's Planes layer leaves out (airliner, light ...), comma separated
+    "map_landuse_hidden": "",  # kinds the map's "Land use (from the map)" layer leaves out (homes, shops, farms ...), comma separated
     "map_cameras_hidden": "",  # camera kinds and owners the map's Cameras layer leaves out (traffic, beach, caltrans, windy, offline ...), comma separated
     "hospitals_osm_fetch": True,     # refresh fetches OpenStreetMap's hospitals (healthsites.io on HDX, every 3 months) and hospital counts
     "hospitals_overture_fetch": True,  # refresh reads Overture's hospitals for the countries below (every 6 months)
@@ -361,7 +363,7 @@ TEXTS = {"ollama_url", "ai_model", "ai_model_compare", "searxng_url", "news_reli
          "world_dataverse_datasets", "inbox_downloads_folder", "backup_folder", "distance_key_cities", "spot_ask_model", "spot_scan_model"}
 URLS = {"ollama_url", "searxng_url"}
 IDS = {"profile_average"}
-IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off", "map_ships_hidden", "map_planes_hidden", "map_cameras_hidden"}  # comma-separated ids, order kept
+IDLISTS = {"history_map_groups", "profile_charts", "profile_cards_hidden", "voting_compare", "sectors_hidden", "discover_key_countries", "sources_off", "map_ships_hidden", "map_planes_hidden", "map_cameras_hidden", "map_landuse_hidden"}  # comma-separated ids, order kept
 PARTNERS = {"fx_partners"}  # entity id -> idlist, at most 300
 LETTERS = {"map_open_layers"}  # map layer letters, each once
 LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30

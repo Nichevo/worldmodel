@@ -334,11 +334,13 @@ export type Settings = {
   map_hospitals_unsized: boolean; // ... and well-known hospitals with no bed count
   map_hospitals_all: boolean; // the Hospitals layer shows every hospital from every list (the two above apply when off)
   map_place_icons: boolean; // a symbol in each port, airport, hospital ... dot once zoomed in a little
+  map_site_outlines: boolean; // zoomed in, those places' grounds from the map detail tinted in the layer's colour
   map_real_size: boolean; // zoomed in close, those places drawn about their real size over the site
   map_hospital_sources: string; // lists whose hospitals the map shows: wikidata, osm, overture, national (comma separated)
   map_hospital_kinds: string; // likely kinds the map shows: hospital, unsure, clinic
   map_ships_hidden: string; // ship kinds the Ships layer leaves out, comma separated
   map_planes_hidden: string; // plane types the Planes layer leaves out, comma separated
+  map_landuse_hidden: string; // kinds the Land use (from the map) layer leaves out (homes, shops, farms ...)
   map_cameras_hidden: string; // camera kinds and owners the Cameras layer leaves out (traffic, beach, caltrans, windy, offline ...)
   hospitals_osm_fetch: boolean; // OpenStreetMap hospitals (healthsites.io) and hospital counts
   hospitals_overture_fetch: boolean; // Overture hospitals for the countries below

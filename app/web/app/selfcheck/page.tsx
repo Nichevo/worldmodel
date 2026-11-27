@@ -6,6 +6,7 @@ import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
 import { get } from "@/lib/api";
 import { LAYER_STYLE, layerSpec } from "@/lib/layers";
 import { PLACE_LOOK, placeSpecs } from "@/lib/placeIcons";
+import { landUseSpecs, LANDUSE_LAYER, portSpec, SITE_KINDS, siteSpecs } from "@/lib/siteOutlines";
 import { MAP_LAYERS } from "@/lib/workspace";
 
 // Self check: what a review does by hand, in one click, on this PC's own data. It checks every
@@ -32,7 +33,7 @@ const SLOW_MS = 5000;
 function checkLayerStyles(): Row[] {
   const rows: Row[] = [];
   for (const m of MAP_LAYERS) {
-    if (m.made || LAYER_STYLE[m.id]) continue;
+    if (m.made || LAYER_STYLE[m.id] || m.id === LANDUSE_LAYER) continue;
     rows.push({ part: "Map layers", what: m.label, status: "fail", detail: `no style for layer "${m.id}": it can be turned on but draws nothing` });
   }
   for (const id of Object.keys(LAYER_STYLE)) {
@@ -49,6 +50,18 @@ function checkLayerStyles(): Row[] {
       errors = [`style could not be made: ${String((e as Error)?.message ?? e)}`];
     }
     if (errors.length) rows.push({ part: "Map layers", what: LAYER_STYLE[id].legend, status: "fail", detail: errors.slice(0, 3).join("; ") });
+  }
+  // Site outlines from the map detail (a vector source) and the ports' worked-out land.
+  try {
+    const errors = validateStyleMin({
+      version: 8, glyphs: "/fonts/{fontstack}/{range}.pbf",
+      sources: { "detail-x": { type: "vector", tiles: ["http://localhost/{z}/{x}/{y}.pbf"] },
+        "bm-site-ports": { type: "geojson", data: { type: "FeatureCollection", features: [] } } },
+      layers: [...Object.keys(SITE_KINDS).flatMap((id) => siteSpecs(id, "detail-x", "#888888")), portSpec("#888888"), ...landUseSpecs("detail-x", [])],
+    }).map((e) => e.message);
+    if (errors.length) rows.push({ part: "Map layers", what: "Site outlines from the map", status: "fail", detail: errors.slice(0, 3).join("; ") });
+  } catch (e) {
+    rows.push({ part: "Map layers", what: "Site outlines from the map", status: "fail", detail: String((e as Error)?.message ?? e) });
   }
   const n = Object.keys(LAYER_STYLE).length;
   if (!rows.length) rows.push({ part: "Map layers", what: `${n} layer styles`, status: "ok", detail: "all valid" });
