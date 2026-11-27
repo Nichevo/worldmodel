@@ -392,6 +392,8 @@ export type Settings = {
   planes_logos: boolean; // airline logos beside airliners
   planes_badges: boolean; // flags and logos beside planes on the map when zoomed in
   planes_keep_days: number; // days of saved planes kept
+  flight_lookups_month: number; // plane card: AeroDataBox schedule look-ups a month at most (0: off)
+  flight_fares: boolean; // plane card: fares seen lately for the route (Travelpayouts)
   ship_owners_gfw: boolean; // ship details ask Global Fishing Watch for owners (GFW_API_TOKEN)
   ship_owners_wikidata: boolean; // ... and Wikidata by IMO
   ship_owners_equasis: boolean; // ... and show an Equasis link

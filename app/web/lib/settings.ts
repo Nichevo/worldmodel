@@ -164,6 +164,8 @@ export const DEFAULT_SETTINGS: Settings = {
   planes_logos: true,
   planes_badges: true,
   planes_keep_days: 30,
+  flight_lookups_month: 250,
+  flight_fares: true,
   ship_owners_gfw: true,
   ship_owners_wikidata: true,
   ship_owners_equasis: true,
