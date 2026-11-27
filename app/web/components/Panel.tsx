@@ -183,7 +183,7 @@ export default function Panel({
         ))}</>}
       </div>
       <div className="panel-body" ref={body}>
-        {panel.view === "live" && <LivePanel tab={(panel.lv || "ships") as LiveTab} setTab={(t) => set({ lv: t })} />}
+        {panel.view === "live" && <LivePanel tab={(panel.lv || "ships") as LiveTab} setTab={(t) => set({ lv: t })} cameraBus={cameraBus} />}
         {!indicator && !plain && panel.view !== "live" && <p className="muted">{panel.indicator === NO_INDICATOR ? "Choose an indicator above." : "Loading…"}</p>}
         {((indicator && year !== null) || plain) && panel.view === "map" && (
           <MapView panel={panel} indicator={plain ? null : indicator!} year={plain ? null : year} selection={selection}
