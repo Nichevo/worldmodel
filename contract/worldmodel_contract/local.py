@@ -73,6 +73,8 @@ SETTINGS: dict[str, object] = {
     "map_quake_min": 4.5,            # the Earthquakes map layer shows quakes of at least this magnitude (3 only around New Zealand)
     "map_hospitals_unsized": False,  # ... and also well-known hospitals with no bed count in Wikidata
     "map_hospitals_all": True,       # the Hospitals layer shows every hospital from every list (the two above apply when off)
+    "map_place_icons": True,         # ports, airports, hospitals, universities, bases and power plants get a symbol (anchor, plane, cross ...) in their dot once zoomed in a little
+    "map_real_size": False,          # ... and zoomed in close, are drawn about as big as the place really is (runway length, beds, ship calls), over the site
     # Lists whose hospitals the map shows, as worldmodel_contract.health SOURCES keys (lower case, so the
     # comma-list check keeps them; the 1st version's names were lower-cased and "Official lists" dropped).
     "map_hospital_sources": "wikidata,osm,overture,national",

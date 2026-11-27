@@ -61,6 +61,10 @@ export default function SettingsPage() {
           save={(v) => save({ ranks_top_n: v })} />
         <Toggle label="Side panel (pinboard)" hint="A column beside the panels for cards sent from popups; saved with each layout."
           on={s.side_panel} set={(v) => save({ side_panel: v })} />
+        <Toggle label="Symbols on places" hint="Ports, airports, hospitals, universities, military bases and power plants get a symbol in their dot (an anchor, a plane, a cross, a cap, a star, a bolt) once the map is zoomed in a little, and the dot is made big enough to hold it; dots stay sized by how busy each place is. Also a tickbox in the map's Layers panel. Off: plain dots, as small as their size says."
+          on={s.map_place_icons} set={(v) => save({ map_place_icons: v })} />
+        <Toggle label="Places at their real size close in" hint="Zoomed in to about a city (and closer), ports, airports, hospitals and universities grow with the map to about their real size over the site, as a pale area with a solid edge. The size is an estimate: airports from their longest runway, hospitals from their beds, ports from their ship calls or harbour size, universities from their students. Military bases and power plants keep their dot. Also a tickbox in the map's Layers panel. Gives up: close in, a big site covers the street names under it and hovering anywhere over it shows the place, not the country."
+          on={s.map_real_size} set={(v) => save({ map_real_size: v })} />
         <Toggle label="Flags beside country names" hint="In pickers, headings, tables and cards; groups without a flag get a lettered badge. Off: names only, nothing else changes."
           on={s.flags_on} set={(v) => save({ flags_on: v })} />
       </section>

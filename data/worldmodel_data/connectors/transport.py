@@ -945,12 +945,32 @@ class ShippingLanes(Connector):
 
 # ----------------------------------------------------------------------------- airports
 AIRPORTS_URL = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv"
+RUNWAYS_URL = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/runways.csv"
+
+
+def longest_runways(p: Path) -> dict[str, int]:
+    """Each airport's longest open runway in metres (OurAirports runways.csv), by airport ident."""
+    out: dict[str, int] = {}
+    if not p.exists():
+        return out
+    with p.open(encoding="utf-8-sig", errors="replace", newline="") as fh:
+        for r in csv.DictReader(fh):
+            ft = num(r.get("length_ft"))
+            if not ft or r.get("closed") == "1":
+                continue
+            m = round(ft * 0.3048)
+            a = r.get("airport_ident") or ""
+            if a and 100 <= m <= 6000 and m > out.get(a, 0):
+                out[a] = m
+    return out
 
 
 class OurAirports(Connector):
     source_id = "ourairports"
     switch = "transport_air_fetch"
     fetch_every_days = 90
+    fetch_version = 2  # 2: runways.csv too (each airport's longest runway, for drawing airports at their real size)
+    stage_version = 2
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")
@@ -960,6 +980,10 @@ class OurAirports(Connector):
 
     def download(self, raw_dir: Path, release: str) -> str:
         self.get(AIRPORTS_URL, raw_dir / "airports.csv")
+        try:  # only for sizes: the airports still load without it
+            self.get(RUNWAYS_URL, raw_dir / "runways.csv")
+        except Exception as e:  # noqa: BLE001
+            log.warning("ourairports: runways.csv not fetched (%s); airports drawn at a typical size", e)
         return AIRPORTS_URL
 
     def stage(self, con: duckdb.DuckDBPyConnection, raw_dir: Path, release: str, vintage: str) -> str:
@@ -967,6 +991,7 @@ class OurAirports(Connector):
         if not p.exists():
             raise ConnectorError(f"ourairports: no airports.csv in {raw_dir}")
         feats = []
+        runways = longest_runways(raw_dir / "runways.csv")
         with p.open(encoding="utf-8-sig", errors="replace", newline="") as fh:
             for r in csv.DictReader(fh):
                 if r.get("type") not in ("large_airport", "medium_airport") or r.get("scheduled_service") != "yes":
@@ -978,7 +1003,7 @@ class OurAirports(Connector):
                     "name": r.get("name"), "iata": r.get("iata_code") or None, "icao": r.get("gps_code") or r.get("ident"),
                     "size": "large" if r["type"] == "large_airport" else "medium", "city": r.get("municipality") or None,
                     "country": entity_for("iso2", r.get("iso_country")) or r.get("iso_country"),
-                    "wiki": r.get("wikipedia_link") or None}))
+                    "wiki": r.get("wikipedia_link") or None, "runway_m": runways.get(r.get("ident") or "")}))
         if not feats:
             raise ConnectorError("ourairports: no large or medium airports with scheduled flights in airports.csv")
         self.layers = [{"layer_id": "airports", "name": "Airports", "kind": "point",

@@ -1,0 +1,5 @@
+"id","airport_ref","airport_ident","length_ft","width_ft","surface","lighted","closed","le_ident","le_latitude_deg","le_longitude_deg","le_elevation_ft","le_heading_degT","le_displaced_threshold_ft","he_ident","he_latitude_deg","he_longitude_deg","he_elevation_ft","he_heading_degT","he_displaced_threshold_ft"
+"1","5000","NZAA","11926","148","ASP","1","0","05R",,,,,,"23L",,,,,
+"2","5000","NZAA","2000","100","GRS","0","1","05L",,,,,,"23R",,,,,
+"3","5001","NZCH","10787","148","ASP","1","0","02",,,,,,"20",,,,,
+"4","5001","NZCH","5410","148","ASP","1","0","11",,,,,,"29",,,,,
