@@ -1,0 +1,10 @@
+Date,Vessel,IMO_No,Voyage,Agent,Move,Berth,Time,Tug_Qty,From,ToPort,Trade,LinesHandledBy
+28 Nov 26,Amaltal Enterprise,8619534,,TAL,Arrival,Oil Jetty,21:00,0,Sea,Sea,FISH,PRS
+28 Nov 26,Maersk Innoshima,9348170,INN646N,MSK,Arrival,C/T,21:00,2,Timaru,Tauranga,NORST,POL
+29 Nov 26,Maersk Buton,9392925,MBU647N,MSK,Departure,M/P,00:00,1,Napier,Tauranga,MSKOP,POL
+29 Nov 26,Maersk Innoshima,9348170,INN646N,MSK,Departure,C/T,17:45,2,Timaru,Tauranga,NORST,POL
+30 Nov 26,Viking Venus,9833175,,WILH,Arrival,Beach Street,09:00,1,Hobart,Lyttelton,CRUISE,POL
+30 Nov 26,African Isabelle,9919553,,FERMAR,Arrival,Beach Street,20:30,2,Zhoushan,Timaru,LOGS,POL
+1 Dec 26,Tsukuyomi Eternity,9791078,,FERMAR,Arrival,Leith Berth,07:30,2,Bluff,Sea,LOGS,POL
+2 Dec 26,African Isabelle,9919553,,FERMAR,Departure,Beach Street,12:00,2,Zhoushan,Timaru,LOGS,POL
+3 Dec 26,Tsukuyomi Eternity,9791078,,FERMAR,Shift,Beach Street,16:00,2,Bluff,Sea,LOGS,POL

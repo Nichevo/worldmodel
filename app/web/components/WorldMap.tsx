@@ -23,7 +23,7 @@ import { MeasureTool, greatCircle } from "@/lib/measure";
 import { readSettings, saveSettings, useSettings } from "@/lib/settings";
 import { askHere } from "@/lib/spotting";
 import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
-import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
+import { journeyLines, journeyText, planeJourney, shipJourney, shipSize, sizeText } from "@/lib/ships";
 import { applyPlaceLook, PLACE_LOOK, withLatScale } from "@/lib/placeIcons";
 import { LANDUSE_LAYER, syncLandUse, syncSiteOutlines, watchPortLand } from "@/lib/siteOutlines";
 
@@ -249,6 +249,7 @@ export default function WorldMap({
       ask.then((j) => {
         drawJourney.current(journeyLines(j, at, plane));
         setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...head, ...journeyText(j, plane)] } : cur));
+        if (!plane) shipSize(String(p.id)).then((sz) => setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...cur.lines ?? [], ...sizeText(sz)] } : cur))).catch(() => {});
       }).catch(() => setInfo((cur) => (cur && cur.title === title ? { ...cur, lines: [...head, "Could not find where from and to."] } : cur)));
       return;
     }

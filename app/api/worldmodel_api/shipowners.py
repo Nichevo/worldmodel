@@ -61,6 +61,12 @@ class Owners:
         tmp.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
         tmp.replace(self.file)
 
+    def peek(self, key: str, part: str) -> dict | None:
+        """A part already kept for a ship (fresh or not), without asking anyone."""
+        with _lock:
+            hit = self._load().get(f"{part}:{key}")
+        return hit.get("value") if hit else None
+
     def get(self, key: str, part: str, fetch) -> dict | None:
         """A part (gfw, wikidata) for a ship, from the file when fresh, else fetched and kept."""
         with _lock:
@@ -155,11 +161,13 @@ def gfw(imo: str | None, mmsi: str, token: str) -> dict | None:
 
 # ----------------------------------------------------------------------------- Wikidata
 def wikidata_query(imo: str) -> str:
-    return f"""SELECT ?ship ?shipLabel ?builderLabel ?operatorLabel ?ownerLabel ?classLabel ?launched ?entered ?image ?article WHERE {{
+    return f"""SELECT ?ship ?shipLabel ?builderLabel ?operatorLabel ?ownerLabel ?classLabel ?launched ?entered ?image ?article ?teu ?length ?beam ?draft WHERE {{
   ?ship wdt:P458 "{imo}" .
   OPTIONAL {{ ?ship wdt:P176 ?builder }} OPTIONAL {{ ?ship wdt:P137 ?operator }} OPTIONAL {{ ?ship wdt:P127 ?owner }}
   OPTIONAL {{ ?ship wdt:P289 ?class }} OPTIONAL {{ ?ship wdt:P619 ?launched }} OPTIONAL {{ ?ship wdt:P729 ?entered }}
   OPTIONAL {{ ?ship wdt:P18 ?image }}
+  OPTIONAL {{ ?ship p:P1083 ?cap . ?cap ps:P1083 ?teu ; pq:P518 wd:Q488021 }}
+  OPTIONAL {{ ?ship wdt:P2043 ?length }} OPTIONAL {{ ?ship wdt:P2261 ?beam }} OPTIONAL {{ ?ship wdt:P2262 ?draft }}
   OPTIONAL {{ ?article schema:about ?ship ; schema:isPartOf <https://en.wikipedia.org/> }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en" }}
 }} LIMIT 40"""
@@ -177,10 +185,21 @@ def parse_wikidata(body: dict) -> dict | None:
         v = vals(k)
         return v[0][:4] if v else None
 
+    def num(k):  # 'maximum capacity' in TEU, length, beam, draught (metres as Wikidata usually gives them)
+        for v in vals(k):
+            try:
+                x = float(v)
+            except ValueError:
+                continue
+            if x > 0:
+                return int(x) if k == "teu" else round(x, 2)
+        return None
+
     return {"name": (vals("shipLabel") or [None])[0], "builder": vals("builderLabel"), "operator": vals("operatorLabel"),
             "owner": vals("ownerLabel"), "class": (vals("classLabel") or [None])[0], "launched": year("launched"),
             "entered_service": year("entered"), "image": (vals("image") or [None])[0],
-            "wikipedia": (vals("article") or [None])[0], "link": (vals("ship") or [None])[0]}
+            "wikipedia": (vals("article") or [None])[0], "link": (vals("ship") or [None])[0],
+            "teu": num("teu"), "length_m": num("length"), "beam_m": num("beam"), "draught_m": num("draft")}
 
 
 def wikidata(imo: str) -> dict | None:

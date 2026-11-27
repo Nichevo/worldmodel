@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { get } from "@/lib/api";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
-import { journeyLines, journeyText, planeJourney, shipJourney, useShipStatus, type Journey } from "@/lib/ships";
+import { journeyLines, journeyText, planeJourney, shipJourney, shipSize, useShipStatus, type Journey, type ShipSize } from "@/lib/ships";
 import SpotMap from "@/components/SpotMap";
 import { mapLayersHref } from "@/lib/workspace";
 import { useSettings } from "@/lib/settings";
@@ -375,6 +375,7 @@ export function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
             <table className="small"><tbody>{rows.filter(([, v]) => v !== "" && v != null).map(([k, v]) => <tr key={k}><th style={{ textAlign: "left", paddingRight: 12 }}>{k}</th><td>{v}</td></tr>)}</tbody></table>
             <h3 className="small" style={{ marginBottom: 2 }}>Where from and to</h3>
             {j ? journeyText(j, false).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>) : <p className="small muted">Loading…</p>}
+            <SizePart id={id} />
             {s.group === "cargo" && <SchedulePart id={id} />}
             <OwnerPart id={id} />
             <p className="small"><Link href={mapLayersHref("S")}>Ships on the map</Link> (click the ship there to draw its path)
@@ -383,6 +384,47 @@ export function ShipCard({ id, onClose }: { id: string; onClose: () => void }) {
         )}
       </div>
     </div>
+  );
+}
+
+// Containers (TEU) and which canals, straits and its next port the ship is too big for.
+function SizePart({ id }: { id: string }) {
+  const [z, setZ] = useState<ShipSize | null>(null);
+  useEffect(() => {
+    let live = true;
+    shipSize(id).then((x) => live && setZ(x)).catch(() => {});
+    return () => { live = false; };
+  }, [id]);
+  if (!z) return null;
+  const t = z.teu;
+  const mark = (ok: boolean | null) => (ok === false ? <b style={{ color: "#c92a2a" }}>Too big</b> : ok ? "Fits" : <span className="muted">Can&apos;t tell</span>);
+  const lim = (l: { length: number | null; beam: number | null; draught: number | null }) =>
+    [l.length ? `${l.length} m long` : "", l.beam ? `${l.beam} m wide` : "", l.draught ? `${l.draught} m draught` : ""].filter(Boolean).join(", ");
+  return (
+    <>
+      <h3 className="small" style={{ marginBottom: 2 }}>Containers and where it fits</h3>
+      {t ? <p className="small" style={{ margin: "2px 0" }}>{t.estimated
+        ? <>About <b>{t.teu.toLocaleString()} TEU</b>{t.container ? "" : " if it carries containers"}, estimated from its length and beam (about 20% either way; exact figures can be added in var\manual\ship_teu as a CSV of IMO and TEU).</>
+        : <><b>{t.teu.toLocaleString()} TEU</b> ({t.source}).</>}</p>
+        : <p className="small muted" style={{ margin: "2px 0" }}>Containers: not known (it has not sent its size, or it is not a container ship&apos;s shape).</p>}
+      <table className="small"><tbody>
+        {z.canals.map((c) => (
+          <tr key={c.id} title={`${c.note}. Source: ${c.source}`}>
+            <th style={{ textAlign: "left", paddingRight: 12, fontWeight: "normal" }}>{c.name}</th>
+            <td style={{ paddingRight: 8 }}>{mark(c.ok)}</td>
+            <td className="muted">{c.why.length ? c.why.join("; ") : lim(c.limits)}</td>
+          </tr>
+        ))}
+        {z.port && (
+          <tr title={`${z.port.note}. Source: ${z.port.source}`}>
+            <th style={{ textAlign: "left", paddingRight: 12, fontWeight: "normal" }}>Next port: {z.port.name}</th>
+            <td style={{ paddingRight: 8 }}>{mark(z.port.ok)}</td>
+            <td className="muted">{z.port.why.length ? z.port.why.join("; ") : z.port.checked ? lim(z.port.limits) : z.port.note}</td>
+          </tr>
+        )}
+      </tbody></table>
+      <p className="caption">Draught is how deep it sits now{z.full_draught_m ? ` (${z.full_draught_m} m when full, from Wikidata)` : ""}; a part-loaded ship sits higher than when full. Port limits are from NGA&apos;s World Port Index and can be old.</p>
+    </>
   );
 }
 

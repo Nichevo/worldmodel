@@ -67,7 +67,8 @@ def ports(q: Q) -> dict:
         by_code, by_name = {}, {}
         for f in _layer(q, "ports_all"):
             p, (lon, lat) = f.get("properties") or {}, f["geometry"]["coordinates"]
-            port = {"name": p.get("name"), "country": p.get("country"), "locode": p.get("locode"), "lon": lon, "lat": lat}
+            port = {"name": p.get("name"), "country": p.get("country"), "locode": p.get("locode"), "lon": lon, "lat": lat,
+                    **{k: p[k] for k in ("max_len", "max_beam", "max_draft", "depth", "pier_depth", "containers") if p.get(k)}}
             if p.get("locode"):
                 by_code[_key(p["locode"])] = port
             if p.get("name"):

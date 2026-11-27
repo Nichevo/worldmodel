@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CW_LABEL } from "@/components/CrisisWatchCard";
 import type { MapMark, MapOutline, RasterTiles } from "@/components/WorldMap";
-import { api, type CrisisWatchMonth, type MapEvents } from "@/lib/api";
+import { api, get, type CrisisWatchMonth, type MapEvents } from "@/lib/api";
 import { zoneTiles } from "@/lib/climate";
 import { cssVar } from "@/lib/colors";
 import { countryCentres } from "@/lib/geo";
@@ -14,7 +14,7 @@ import { LAND_COVER } from "@/lib/maplook";
 import { PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { PLACE_LOOK } from "@/lib/placeIcons";
 import { LAND_USE } from "@/lib/siteOutlines";
-import { setShipsAt, usePlaneStatus, useShipStatus, useShipsAt } from "@/lib/ships";
+import { setShipsAt, setShipsTooBig, usePlaneStatus, useShipStatus, useShipsAt, useShipsTooBig, type Canal } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
 import { saveSettings, useSettings } from "@/lib/settings";
@@ -885,6 +885,7 @@ function ShipsTime({ ships, planes }: { ships: boolean; planes: boolean }) {
           : <>Planes are not being saved; turn on Save planes in <Link href="/settings#transport">Settings</Link>.</>}</p>
       )}
       {ships && <KindChips groups={SHIP_GROUPS} setting="map_ships_hidden" />}
+      {ships && <TooBigPicker />}
       {ships && <p className="caption">
         {st?.collecting
           ? <>Saving ships for {st.area}{st.world_every_hours ? `, and the whole world for 10 minutes every ${st.world_every_hours} hours` : ""}:
@@ -893,6 +894,36 @@ function ShipsTime({ ships, planes }: { ships: boolean; planes: boolean }) {
         {st?.error ? <> <b>{st.error}</b></> : null}
         {" "}Red-ringed ships are on a sanctions list. Click a ship for where it has been and where it is going.
       </p>}
+    </div>
+  );
+}
+
+// Map > Ships: show only ships too big for a canal, strait or port (by length, beam and draught now).
+function TooBigPicker() {
+  const v = useShipsTooBig();
+  const [canals, setCanals] = useState<Canal[]>([]);
+  const [port, setPort] = useState(v.startsWith("port:") ? v.slice(5) : "");
+  useEffect(() => {
+    let live = true;
+    get<{ canals: Canal[] }>("/live/ships/limits").then((x) => live && setCanals(x.canals)).catch(() => {});
+    return () => { live = false; setShipsTooBig(""); };
+  }, []);
+  const pick = v.startsWith("port:") ? "port" : v;
+  return (
+    <div className="row small" style={{ flexWrap: "wrap", gap: 6, margin: "4px 0" }}>
+      <label>Too big for{" "}
+        <select value={pick} onChange={(e) => setShipsTooBig(e.target.value === "port" ? (port ? `port:${port}` : "") : e.target.value)}
+          aria-label="Show only ships too big for">
+          <option value="">(every ship)</option>
+          {canals.map((c) => <option key={c.id} value={c.id} title={`${[c.length ? `${c.length} m long` : "", c.beam ? `${c.beam} m wide` : "", `${c.draught} m draught`].filter(Boolean).join(", ")}. ${c.note}`}>{c.name}</option>)}
+          <option value="port">a port (UN/LOCODE)…</option>
+        </select>
+      </label>
+      {pick === "port" && (
+        <input value={port} size={7} placeholder="NZAKL" aria-label="Port code"
+          onChange={(e) => { const c = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5); setPort(c); setShipsTooBig(c.length === 5 ? `port:${c}` : ""); }} />
+      )}
+      {v && <span className="muted">Ships over a limit by length, beam or draught now. Ships that have not sent their size are left out.</span>}
     </div>
   );
 }

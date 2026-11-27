@@ -3,8 +3,9 @@
 - the ETA and destination each ship sends, kept every time they change (the ETA over time);
 - the port calls we see (a ship stopped within 15 km of a port, then moving again), from which a
   ship's usual route (its loop of ports) is learned;
-- the bookings in the ports' own arrival lists (Auckland, Tauranga, Port Botany, Sydney, Newcastle, Port Kembla and Melbourne, read hourly; Singapore
-  with a free MPA key), every change kept;
+- the bookings in the ports' own arrival lists (Auckland, Tauranga, Port Chalmers (Port Otago), Port Botany,
+  Sydney, Newcastle, Port Kembla, Melbourne and Hong Kong, read hourly; Singapore with a free MPA key), every
+  change kept;
 - the lines' published schedules (Maersk, Hapag-Lloyd, CMA CGM: the DCSA Commercial Schedules
   standard), when a free key is set.
 
@@ -36,6 +37,7 @@ NZ = ZoneInfo("Pacific/Auckland")
 SYDNEY = ZoneInfo("Australia/Sydney")
 MELBOURNE = ZoneInfo("Australia/Melbourne")
 SINGAPORE = ZoneInfo("Asia/Singapore")
+HONG_KONG = ZoneInfo("Asia/Hong_Kong")
 DAY = 86400.0
 ON_TIME_H = 24.0      # within a day either way is on time
 SLIP_H = 12.0         # an ETA or booking pushed back this much is slipping
@@ -65,6 +67,14 @@ PORT_LISTS = {
     # Ports Victoria: Port Phillip (Melbourne and Geelong) on one page
     "melbourne": {"name": "Melbourne", "country": "Australia", "locode": "AUMEL", "lat": -37.840, "lon": 144.925,
                   "url": "https://ports.vic.gov.au/marine-operations/ship-movements/"},
+    # Port Otago (Port Chalmers and Dunedin): the all-vessels schedule page links a CSV whose name changes;
+    # the page is read for the link, then the CSV (IMO numbers, from and to ports, about 3 months ahead)
+    "otago": {"name": "Port Chalmers", "country": "New Zealand", "locode": "NZPOE", "lat": -45.815, "lon": 170.623,
+              "url": None, "page": "https://www.portotago.co.nz/marine-and-shipping/shipping-schedule/all-vessels"},
+    # Hong Kong Marine Department open data (data.gov.hk): ships due to arrive, arrived and departed, XML
+    # every 20 minutes; names, call signs and ship types (no IMO numbers in the due list)
+    "hongkong": {"name": "Hong Kong", "country": "Hong Kong", "locode": "HKHKG", "lat": 22.300, "lon": 114.150,
+                 "url": None, "page": "https://data.gov.hk/en-data/dataset/hk-md-mardep-vessel-arrivals-and-departures"},
     # Singapore: MPA's OCEANS-X APIs, with a free key (SG_OCEANSX_API_KEY); asked, not read as a page
     "singapore": {"name": "Singapore", "country": "Singapore", "locode": "SGSIN", "lat": 1.264, "lon": 103.840,
                   "env": "SG_OCEANSX_API_KEY", "url": None},
@@ -353,6 +363,127 @@ def merge_sg(parts: list[list[dict]]) -> list[dict]:
     return [s for s in ships.values() if s["arrival"]]
 
 
+OTAGO_SKIP = {"FISH", "CRUISE"}  # fishing boats and cruise ships: not cargo
+OTAGO_TRADE = {"LOGS": "Logs", "OIL": "Fuel", "GEN": "General cargo", "NONFI": None, "TTZ": None}
+
+
+def _otago_time(day: str, hm: str) -> float | None:
+    for fmt in ("%d %b %y %H:%M", "%d %b %Y %H:%M"):
+        try:
+            return datetime.strptime(f"{day.strip()} {hm.strip()}", fmt).replace(tzinfo=NZ).timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+def otago_csv_link(html: str) -> str | None:
+    """The CSV link on Port Otago's schedule page (its file name changes with each update)."""
+    m = re.search(r'href="([^"]+\.csv)"', html, re.I)
+    if not m:
+        return None
+    link = unescape(m.group(1))
+    return link if link.startswith("http") else "https://www.portotago.co.nz" + ("" if link.startswith("/") else "/") + link
+
+
+def parse_otago(text: str) -> list[dict]:
+    """Port Otago's all-vessels CSV: one row per arrival, departure or shift, in New Zealand time
+    ('28 Nov 26', '21:00'), joined into one booking per ship and voyage. Fishing boats and cruise
+    ships are left out; 'Sea' as a from or to port means none."""
+    import csv
+    import io
+
+    ships: dict[str, dict] = {}
+    for r in csv.DictReader(io.StringIO(text.lstrip("\ufeff"))):
+        r = {(k or "").strip().lstrip("\ufeff"): (v or "").strip() for k, v in r.items()}
+        name, trade = r.get("Vessel"), r.get("Trade", "").upper()
+        if not name or trade in OTAGO_SKIP:
+            continue
+        t = _otago_time(r.get("Date", ""), r.get("Time", ""))
+        move = r.get("Move", "").lower()
+        if t is None or move.startswith("shift"):
+            continue
+        imo = _imo(r.get("IMO_No"))
+        key = f"{imo or _key(name)}|{r.get('Voyage') or ''}"
+        s = ships.get(key)
+        if s and move.startswith("arr") and s["arrival"] and abs(t - s["arrival"]) > SAME_CALL:
+            key += f"|{int(t)}"  # the same ship and voyage back again later: its own call
+            s = None
+        if s is None:
+            berth = r.get("Berth", "")
+            cargo = OTAGO_TRADE.get(trade, "Containers" if berth.upper() in ("C/T", "M/P") or trade.startswith(("MSK", "NORST", "SOULO")) else None)
+            s = ships[key] = {"name": name, "imo": imo, "voyage": r.get("Voyage") or None, "arrival": None, "departs": None,
+                              "cargo": cargo, "prev": None, "next": None, "state": "expected"}
+        frm, to = r.get("From", ""), r.get("ToPort", "")
+        s["prev"] = s["prev"] or (frm if frm and frm.lower() != "sea" else None)
+        s["next"] = s["next"] or (to if to and to.lower() != "sea" else None)
+        if move.startswith("arr"):
+            s["arrival"] = t
+        elif move.startswith("dep"):
+            s["departs"] = t
+    return [s for s in ships.values() if s["arrival"]]
+
+
+HK_URL = "https://www.mardep.gov.hk/e_files/en/opendata/{}.XML"
+HK_FILES = [("RP04005i", "expected"), ("RP05005i", "in_port"), ("RP05505i", "departed")]
+HK_NOT_CARGO = ("TUG", "PILOT", "FISHING", "PASSENGER", "PLEASURE", "YACHT", "OTHER", "GOVERNMENT", "DREDGER", "BARGE")
+
+
+def _hk_time(text: str | None) -> float | None:
+    for fmt in ("%Y/%m/%d %H:%M", "%d-%b-%Y %H:%M"):
+        try:
+            return datetime.strptime(str(text or "").strip().title(), fmt).replace(tzinfo=HONG_KONG).timestamp()
+        except ValueError:
+            continue
+    return None
+
+
+def parse_hk(xml: str, state: str) -> list[dict]:
+    """One of the Marine Department's XML lists (due to arrive, arrived in the last 36 hours,
+    departed in the last 36 hours), cargo ships only; times in Hong Kong time."""
+    out = []
+    for rec in re.findall(r"<G_SQL1>(.*?)</G_SQL1>", xml, re.S):
+        f = {k: unescape(v).strip() for k, v in re.findall(r"<([A-Z_]+)>([^<]*)</\1>", rec)}
+        name, kind = f.get("VESSEL_NAME"), f.get("SHIP_TYPE", "")
+        if not name or any(w in kind.upper() for w in HK_NOT_CARGO):
+            continue
+        row = {"name": name, "imo": _imo(f.get("IMO_NO")), "voyage": None, "arrival": None, "departs": None,
+               "cargo": kind.title() or None, "prev": f.get("LAST_PORT") or None, "next": None, "state": state,
+               "callsign": f.get("CALL_SIGN") or None}
+        if state == "expected":
+            row["arrival"] = _hk_time(f.get("ETA"))
+        elif state == "in_port":
+            row["arrival"] = _hk_time(f.get("ARRIVAL_TIME"))
+            if (f.get("REMARK") or "").lower().startswith("depart"):
+                row["state"] = "departed"
+        else:
+            row["departs"] = _hk_time(f.get("ATD_TIME"))
+        out.append(row)
+    return out
+
+
+def merge_hk(parts: list[list[dict]]) -> list[dict]:
+    """The three lists joined into one booking per ship (by call sign, else name): a departure
+    fills in the time a ship that arrived left."""
+    ships: dict[str, dict] = {}
+    for rows in parts:
+        for r in rows:
+            k = r.get("callsign") or _key(r["name"])
+            s = ships.get(k)
+            if s is None:
+                ships[k] = dict(r)
+            elif r["state"] == "departed" and r.get("departs"):
+                if s["state"] != "expected":
+                    s.update(departs=r["departs"], state="departed")
+            elif r["state"] in ("in_port", "departed") and s["state"] == "expected":
+                ships[k] = {**s, **{x: v for x, v in r.items() if v}}
+    out = []
+    for s in ships.values():
+        s.pop("callsign", None)
+        if s["arrival"]:
+            out.append(s)
+    return out
+
+
 PARSERS = {"auckland": parse_poal, "tauranga": parse_tauranga, "botany": parse_nsw, "sydney": parse_nsw,
            "newcastle": parse_nsw, "kembla": parse_nsw, "melbourne": parse_vic}
 
@@ -559,6 +690,10 @@ class Schedules:
             try:
                 if where == "singapore":
                     rows = self.ask_singapore(client)
+                elif where == "otago":
+                    rows = self.ask_otago(client)
+                elif where == "hongkong":
+                    rows = self.ask_hongkong(client)
                 else:
                     r = client.get(port["url"])
                     r.raise_for_status()
@@ -571,6 +706,26 @@ class Schedules:
                 why = str(exc) if type(exc) is ValueError and str(exc).startswith("the key") else exc.__class__.__name__
                 self.notes[where] = f"{port['name']}: could not read the list at {time.strftime('%H:%M')} ({why})."
                 log.warning("port list %s: %s", where, exc)
+
+    @staticmethod
+    def ask_otago(client: httpx.Client) -> list[dict]:
+        page = client.get(PORT_LISTS["otago"]["page"])
+        page.raise_for_status()
+        link = otago_csv_link(page.text)
+        if not link:
+            raise ValueError("the schedule page has no CSV link (has the page changed?)")
+        r = client.get(link)
+        r.raise_for_status()
+        return parse_otago(r.text)
+
+    @staticmethod
+    def ask_hongkong(client: httpx.Client) -> list[dict]:
+        parts = []
+        for name, state in HK_FILES:
+            r = client.get(HK_URL.format(name))
+            r.raise_for_status()
+            parts.append(parse_hk(r.content.decode("utf-8", errors="replace"), state))
+        return merge_hk(parts)
 
     @staticmethod
     def ask_singapore(client: httpx.Client, now: float | None = None) -> list[dict]:

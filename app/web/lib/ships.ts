@@ -16,7 +16,30 @@ export function setShipsAt(t: number | null) {
 export function useShipsAt(): number | null {
   return useSyncExternalStore((f) => { subs.add(f); return () => { subs.delete(f); }; }, () => shipsAt, () => null);
 }
+// Only ships too big for a canal ("panama_new" ...) or a port ("port:NZAKL"); "" for every ship.
+let shipsTooBig = "";
+export function setShipsTooBig(v: string) {
+  if (v === shipsTooBig) return;
+  shipsTooBig = v;
+  subs.forEach((f) => f());
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("wm-layer-window"));
+}
+export function useShipsTooBig(): string {
+  return useSyncExternalStore((f) => { subs.add(f); return () => { subs.delete(f); }; }, () => shipsTooBig, () => "");
+}
 export const shipsAtQuery = () => (shipsAt ? `&at=${Math.round(shipsAt)}` : "");
+export const shipsTooBigQuery = () => (shipsTooBig ? `&too_big=${encodeURIComponent(shipsTooBig)}` : "");
+
+export type Limit = { length: number | null; beam: number | null; draught: number | null; air?: number | null };
+export type Fit = { ok: boolean | null; why: string[]; checked: number; limits: Limit; note: string; source: string };
+export type ShipSize = {
+  teu: { teu: number; estimated: boolean; source: string; container: boolean } | null;
+  size: { length_m: number | null; width_m: number | null; draught_m: number | null };
+  full_draught_m: number | null;
+  canals: (Fit & { id: string; name: string })[];
+  port: (Fit & { name: string | null }) | null;
+};
+export type Canal = { id: string; name: string; length: number | null; beam: number | null; draught: number; air: number | null; note: string; source: string };
 
 export type ShipStatus = {
   collecting: boolean; area: string; connected: boolean; error: string | null; days: number; bytes: number;
@@ -163,5 +186,28 @@ export function journeyText(j: Journey, plane: boolean): string[] {
     if (j.track?.points) out.push(`Path saved from ${ago(j.track.from)} (${j.track.points} positions)`);
   }
   if (j.note) out.push(j.note);
+  return out;
+}
+
+export function shipSize(mmsi: string | number) {
+  return get<ShipSize>(`/live/ships/size/${encodeURIComponent(String(mmsi))}`);
+}
+
+// Short lines for a ship's containers and where it is too big to go (map pop-up and ship card).
+export function sizeText(s: ShipSize): string[] {
+  const out: string[] = [];
+  const t = s.teu;
+  if (t) {
+    const n = t.teu.toLocaleString();
+    out.push(t.estimated
+      ? `Containers: about ${n} TEU${t.container ? "" : " if it carries containers"} (estimated from its size)`
+      : `Containers: ${n} TEU (${t.source})`);
+  }
+  const over = s.canals.filter((c) => c.ok === false).map((c) => c.name);
+  const fit = s.canals.filter((c) => c.ok === true).map((c) => c.name);
+  if (over.length) out.push(`Too big for: ${over.join(", ")}`);
+  if (fit.length && !over.length) out.push("Fits every canal and strait checked");
+  if (s.port?.ok === false) out.push(`Too big for ${s.port.name}: ${s.port.why.join("; ")}`);
+  else if (s.port?.ok === true) out.push(`Fits ${s.port.name} (${s.port.note})`);
   return out;
 }
