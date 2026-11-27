@@ -449,14 +449,14 @@ export const LAYER_STYLE: Record<string, Style> = {
     paint: () => ({ "icon-color": groupColor(PLANE_GROUPS, "#1864ab"), "icon-halo-color": cssVar("--surface"), "icon-halo-width": 1 }) as never,
   },
   live_ships: {
-    legend: "Ship now (aisstream.io), coloured by kind, sized by length", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "journey",
+    legend: "Ship now (aisstream.io), coloured by kind, sized by length; faded: not heard lately (moved on along its way to the port it named, when known)", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "journey",
     symbol: () => ({
       "icon-image": "wm-ship",
       "icon-size": shipSize(readSettings().ship_size_by_length !== false),
       "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
       "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
     }),
-    paint: () => ({ "icon-color": groupColor(SHIP_GROUPS, "#6b7785"), "icon-halo-color": ["case", ["boolean", ["get", "sanctioned"], false], "#c92a2a", cssVar("--surface")],
+    paint: () => ({ "icon-opacity": ["case", ["has", "quiet"], 0.4, 1], "icon-color": groupColor(SHIP_GROUPS, "#6b7785"), "icon-halo-color": ["case", ["boolean", ["get", "sanctioned"], false], "#c92a2a", cssVar("--surface")],
       "icon-halo-width": ["case", ["boolean", ["get", "sanctioned"], false], 2, 1] }) as never,
   },
   live_cameras: {

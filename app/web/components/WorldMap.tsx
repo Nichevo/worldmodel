@@ -234,6 +234,12 @@ export default function WorldMap({
       const plane = layer === "live_planes";
       const title = plane ? String(p.callsign ?? p.id ?? "Plane") : String(p.name ?? `Ship ${p.id}`);
       const head = hoverLines(layerLabel(layer, p)).slice(1).filter((l) => !l.startsWith("Click"));
+      if (!plane && typeof p.quiet === "number") {  // a ship not heard lately, drawn faded
+        const h = p.quiet as number, ago = h < 48 ? `${Math.round(h)} hours` : `${Math.round(h / 24)} days`;
+        head.unshift(p.estimated
+          ? `Not heard for ${ago}: shown where it would be now${p.at_port ? " (it should have reached its port)" : ""}, moved along its way by sea to the port it named at its last speed (an estimate)`
+          : `Not heard for ${ago}: shown where it was last heard`);
+      }
       const links = [{ label: plane ? "Planes table" : "Ships table", href: `/live?tab=${plane ? "planes" : "ships"}&id=${encodeURIComponent(String(p.id ?? ""))}`,
         hint: "Every detail, and the others in the table" }];
       setInfo({ layer, title, lines: [...head, "Finding where from and to…"], links });

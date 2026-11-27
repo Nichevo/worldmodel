@@ -61,6 +61,29 @@ def inside(lon: float, lat: float, bx: list[tuple[float, float, float, float]]) 
     return any(w <= lon <= e and s <= lat <= n for w, s, e, n in bx)
 
 
+def _nm(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    r = math.radians
+    a = math.sin(r(lat2 - lat1) / 2) ** 2 + math.cos(r(lat1)) * math.cos(r(lat2)) * math.sin(r(lon2 - lon1) / 2) ** 2
+    return 2 * 3440.065 * math.asin(min(1.0, math.sqrt(a)))
+
+
+def along(coords: list, nm: float) -> tuple[float, float, bool]:
+    """The point `nm` nautical miles along a path ([lon, lat] points), and whether it is the end
+    (the ship would be there by now). Works across the date line."""
+    left = max(0.0, nm)
+    for (lon1, lat1), (lon2, lat2) in zip(coords, coords[1:]):
+        if lon2 - lon1 > 180:
+            lon2 -= 360
+        elif lon1 - lon2 > 180:
+            lon2 += 360
+        step = _nm(lon1, lat1, lon2, lat2)
+        if step >= left and step > 0:
+            f = left / step
+            return _lon(lon1 + (lon2 - lon1) * f), lat1 + (lat2 - lat1) * f, False
+        left -= step
+    return _lon(coords[-1][0]), coords[-1][1], True
+
+
 # ----------------------------------------------------------------------------- planes (OpenSky)
 PLANE_CATEGORY = {  # OpenSky's ADS-B emitter categories
     2: "Light (under 7 t)", 3: "Small (7 to 34 t)", 4: "Large (34 to 136 t)", 5: "Large, high wake (B757)",
@@ -757,6 +780,10 @@ class Ships:
             for k in [k for k, v in self.ships.items() if now - v["seen"] > SHIP_KEEP]:
                 del self.ships[k]
             feats = [_ship_feature(v, self.store.details) for v in self.ships.values() if "lat" in v and inside(v["lon"], v["lat"], bx)][:MAX_SHIPS]
+            live_ids = set(self.ships)
+        quiet = self.quiet_ships(bx, live_ids, now)
+        feats += quiet[:max(0, MAX_SHIPS - len(feats))]
+        with self.lock:
             if self.connected and self.messages:
                 note = f"{self.messages:,} reports read since connecting."
             elif self.connected:
@@ -768,8 +795,10 @@ class Ships:
             note = f"Collecting ships for {label}. {note}"
             if not any(w <= e2 and w2 <= e and s <= n2 and s2 <= n for w, s, e, n in bx for w2, s2, e2, n2 in area):
                 note = f"Ships are collected for {label} only; change the area in Settings > Transport. {note}"
+        if quiet:
+            note = f"{note} Also {len(quiet):,} ships not heard lately, drawn faded (Settings > Transport)."
         out = {"type": "FeatureCollection", "features": feats, "count": len(feats), "source": "aisstream.io", "note": note,
-               "collecting": collecting}
+               "collecting": collecting, "quiet": len(quiet)}
         if self.error:
             out["error"] = self.error
         return out
@@ -807,6 +836,45 @@ class Ships:
         feats = [{"type": "Feature", "geometry": geom, "properties": {"id": mmsi, "name": name}}] if geom else []
         return {"type": "FeatureCollection", "features": feats, "points": len(pts), "hours": hours,
                 "from": pts[0][0] if pts else None, "to": pts[-1][0] if pts else None}
+
+    def quiet_ships(self, bx: list, live_ids: set, now: float) -> list[dict]:
+        """Ships not heard for a while (up to ships_quiet_days, 0: none), drawn faded: moved on along
+        the way by sea to the port they named, at their last speed, when that port and way are known;
+        else at the last spot heard. Properties quiet (hours since heard) and estimated."""
+        days = float(self.settings().get("ships_quiet_days", 3) or 0)
+        if days <= 0:
+            return []
+        index = {}
+        if self.ports_fn is not None:
+            try:
+                index = self.ports_fn()
+            except Exception:  # noqa: BLE001 - no ports loaded yet: last spots only
+                index = {}
+        from worldmodel_api.journeys import match_port
+        from worldmodel_api.seapath import sea_path_soon
+
+        cut = now - days * 86400
+        with self.lock:
+            olds = [(m, d) for m, d in self.store.details.items()
+                    if m not in live_ids and d.get("lat") is not None and cut <= (d.get("last_seen") or 0) <= now - SHIP_KEEP]
+        out = []
+        for mmsi, d in olds:
+            lon, lat, est, there = d["lon"], d["lat"], False, False
+            sog, hours = d.get("speed_kn"), (now - d["last_seen"]) / 3600
+            port = match_port(d.get("destination"), index) if index and d.get("destination") else None
+            if port and port.get("lon") is not None and isinstance(sog, (int, float)) and sog >= 2:
+                sea = sea_path_soon(lon, lat, port["lon"], port["lat"])
+                if sea and len(sea["coords"]) >= 2:
+                    lon, lat, there = along(sea["coords"], sog * hours)
+                    est = True
+            if not inside(lon, lat, bx):
+                continue
+            f = _ship_feature({"id": mmsi, "lat": round(lat, 4), "lon": round(lon, 4), "name": d.get("name"), "imo": d.get("imo"),
+                               "kind": d.get("kind"), "seen": d["last_seen"], "length_m": d.get("length_m"),
+                               "speed_kn": sog, "heading": d.get("heading")})
+            f["properties"].update(quiet=round(hours, 1), estimated=est, at_port=there)
+            out.append(f)
+        return out
 
     def port_near(self, lon: float, lat: float, within_km: float = 15) -> dict | None:
         """The World Port Index port nearest a stopped ship, if one is within_km (ports_fn is set by
