@@ -1157,6 +1157,22 @@ def peers_view(entity_id: str, group: str | None = None, measures: str | None = 
             "default_measures": [{"indicator_id": m, "better": b} for m, b in peers.MEASURES]}
 
 
+@api.get("/scorecard")
+def scorecard_view(countries: str | None = None):
+    """Life in the countries picked (comma-separated entity ids, up to 12; default the six biggest economies):
+    the Scorecard's measures in groups, each country's latest figure, its rank among them, the best starred,
+    and how many measures each country is best at. Measures with no figures loaded are listed under `missing`
+    with the source to refresh or file to save."""
+    from worldmodel_api import scorecard
+    card = catalogue.scorecard()
+    names = {r["e"]: r["n"] for r in rows("SELECT entity_id AS e, coalesce(short_name, name) AS n FROM entities")}
+    lower = {k.lower(): k for k in names}
+    ids = [c for c in dict.fromkeys(lower.get(x.lower()) for x in split(countries)) if c][:12]
+    if not ids:
+        ids = [c for c in card.get("default_countries") or [] if c in names]
+    return scorecard.build(rows, card, ids, names)
+
+
 @api.get("/alike/presets")
 def alike_presets():
     """The ready-made indicator sets for countries like this one."""

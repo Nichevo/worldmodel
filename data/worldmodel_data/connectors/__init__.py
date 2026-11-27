@@ -58,6 +58,7 @@ from worldmodel_data.connectors.outlook import FREDCycle, OECDCLI
 from worldmodel_data.connectors.energy import EurostatPowerTrade, UNSDEnergy
 from worldmodel_data.connectors.power import Gridfinder, WRIPowerPlants
 from worldmodel_data.connectors.sectors import BACI, FAOSTAT, IEAEV, ANZCommodityPrices, FAOFoodPrices, PinkSheet, USGSMinerals, WorldMiningData
+from worldmodel_data.connectors.wellbeing import ILOHours, WalkFreeGSI, WIDGender
 from worldmodel_data.connectors.world_bank_wdi import WorldBankWDI
 from worldmodel_data.connectors.world_bodies import GlobalSanctions, IMFMona, UNGAVotes, UNTreaties, UNVetoes, WTODisputes
 from worldmodel_data.connectors.zones import CelesTrakSatcat, NSIDCSeaIce
@@ -67,7 +68,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     Coups, UCDPConflicts, EMDAT, BIS, OECD, DallasFedIHPD, IMFGDD, UNIMS, UNHCR, Wittgenstein, UNDPHDR,
     IDEATurnout, PlatesBird, GEMFaults, GVPVolcanoes, USGSEarthquakes, OECDEO, WorldBankGEP, EurostatAI, AnthropicAEI,
     MicrosoftAIDiffusion, RBNZ, NZCorrections, MBIEEnergy, USCensusVoting, NZElectionTurnout,
-    GeoNames, UNWUP, WhereNext, ILOEarnings, Numbeo, WHOAirQuality, TomTomTraffic, MarineRegionsEEZ, VatsimAirspace, TimezoneBoundaries,
+    GeoNames, UNWUP, WhereNext, ILOEarnings, ILOHours, WalkFreeGSI, WIDGender, Numbeo, WHOAirQuality, TomTomTraffic, MarineRegionsEEZ, VatsimAirspace, TimezoneBoundaries,
     UCDPGED, UCDPCandidate, ACLED, Oryx, UAClaimedLosses, DeepState, KielUkraine, PredictionArchive, IODA, CloudflareRadar, KeepItOn,
     OpenSanctions, GlobalFirepower, SIPRIArms, WikidataPlaces,
     UNGAVotes, UNVetoes, GlobalSanctions, IMFMona, WTODisputes, UNTreaties, CrisisWatch, NSIDCSeaIce, CelesTrakSatcat,

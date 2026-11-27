@@ -1,0 +1,89 @@
+# The Scorecard page: life in the countries you pick, measure by measure, each cell coloured
+# by its rank among them and a star for the best.
+#
+# Each measure:
+#   id        the measure's own name (used in the address and saved choices)
+#   label     what the row says
+#   better    higher or lower
+#   use       indicator ids, tried in order: the first that has figures for at least two of the
+#             countries picked is shown. An entry starting with ~ is a pattern (a regular
+#             expression) matched against indicator ids, for sources whose ids come from their
+#             own column names.
+#   decimals  places shown (default: the indicator's own)
+#   percent   true: shown with a % sign
+#   world_rank  true: each cell also shows the country's rank among every country
+#   source    who publishes it, as the row's note says
+#   get       the source to refresh or file to save when nothing is loaded yet
+
+default_countries: [USA, CHN, DEU, JPN, GBR, IND]
+max_years_apart: 6   # a country's figure older than the newest of the row by more than this is left out
+
+sets:
+  - {name: Six biggest economies, ids: [USA, CHN, DEU, JPN, GBR, IND]}
+  - {name: Key countries, ids: [NZL, AUS, GBR, USA]}
+  - {name: Five Eyes, ids: [NZL, AUS, GBR, USA, CAN]}
+  - {name: Six biggest and New Zealand, ids: [USA, CHN, DEU, JPN, GBR, IND, NZL]}
+  - {name: Nordics, ids: [NOR, SWE, DNK, FIN, ISL]}
+  - {name: Asia-Pacific, ids: [AUS, NZL, JPN, KOR, CHN, IDN, IND]}
+
+groups:
+  - name: Health outcomes
+    measures:
+      - {id: life_expectancy, label: Life expectancy, unit: years, better: higher, decimals: 1,
+         use: [life_expectancy, hdr_life_expectancy], source: UN WPP, get: un_wpp}
+      - {id: child_mortality, label: Child mortality, unit: "per 1,000 births", better: lower, decimals: 1,
+         use: [under5_mortality, infant_mortality], source: UN IGME through the World Bank, get: world_bank_wdi}
+      - {id: maternal_mortality, label: Maternal mortality, unit: "per 100,000 births", better: lower, decimals: 1,
+         use: [maternal_mortality], source: WHO and UN through the World Bank, get: world_bank_wdi}
+      - {id: infectious_deaths, label: Infectious disease deaths, unit: "per 100,000", better: lower, decimals: 1,
+         use: ["~^communicable_ncd_death_rate_(?!.*non).*communicable", "~^cause_death_rate_.*infectious"],
+         source: "WHO / IHME through Our World in Data (age-standardised)", get: owid_grapher}
+      - {id: cardio_deaths, label: Cardiovascular deaths, unit: "per 100,000", better: lower, decimals: 1,
+         use: ["~^cardio_death_rate_ghe", "~^cause_death_rate_.*cardio"],
+         source: "WHO Global Health Estimates (age-standardised)", get: owid_grapher}
+      - {id: diabetes_deaths, label: Diabetes deaths, unit: "per 100,000", better: lower, decimals: 1,
+         use: ["~^diabetes_death_rate_ghe", "~^cause_death_rate_.*diabet"],
+         source: "WHO Global Health Estimates (age-standardised)", get: owid_grapher}
+  - name: Healthcare capacity
+    measures:
+      - {id: hospital_beds, label: Hospital beds, unit: "per 1,000", better: higher, decimals: 1,
+         use: [hospital_beds_per_1000], source: WHO and OECD through the World Bank, get: world_bank_wdi}
+      - {id: physicians, label: Doctors, unit: "per 1,000", better: higher, decimals: 1,
+         use: [physicians_per_1000], source: WHO through the World Bank, get: world_bank_wdi}
+      - {id: nurses, label: Nurses and midwives, unit: "per 1,000", better: higher, decimals: 1,
+         use: [nurses_per_1000, wdi_sh_med_numw_p3], source: WHO through the World Bank, get: world_bank_wdi}
+  - name: Water, sanitation and fuel
+    measures:
+      - {id: basic_water, label: Basic drinking water, unit: "% of people", better: higher, decimals: 0, percent: true,
+         use: [basic_drinking_water, wdi_sh_h2o_basw_zs], source: WHO/UNICEF JMP through the World Bank, get: world_bank_wdi}
+      - {id: safe_water, label: Safely managed drinking water, unit: "% of people", better: higher, decimals: 0, percent: true,
+         use: [safe_drinking_water], source: WHO/UNICEF JMP through the World Bank, get: world_bank_wdi}
+      - {id: basic_sanitation, label: Basic sanitation, unit: "% of people", better: higher, decimals: 0, percent: true,
+         use: [basic_sanitation, wdi_sh_sta_bass_zs], source: WHO/UNICEF JMP through the World Bank, get: world_bank_wdi}
+      - {id: safe_sanitation, label: Safely managed sanitation, unit: "% of people", better: higher, decimals: 0, percent: true,
+         use: [safe_sanitation, wdi_sh_sta_smss_zs], source: WHO/UNICEF JMP through the World Bank, get: world_bank_wdi}
+      - {id: clean_cooking, label: Clean cooking fuel, unit: "% of people", better: higher, decimals: 0, percent: true,
+         use: [clean_cooking_access, wdi_eg_cft_accs_zs], source: WHO through the World Bank, get: world_bank_wdi}
+  - name: Environment
+    measures:
+      - {id: pm25, label: Air pollution (PM2.5), unit: "µg/m³", better: lower, decimals: 1,
+         use: [pm25_exposure], source: "WHO / Global Burden of Disease through the World Bank", get: world_bank_wdi}
+      - {id: air_pollution_deaths, label: Air pollution deaths, unit: "per 100,000", better: lower, decimals: 1,
+         use: [air_pollution_death_rate_who, wdi_sh_sta_airp_p5, air_pollution_death_rate],
+         source: "WHO (age-standardised), else IHME through Our World in Data", get: world_bank_wdi}
+  - name: Work, society and safety
+    measures:
+      - {id: work_hours, label: Weekly hours worked, unit: hours, better: lower, decimals: 1,
+         use: [weekly_hours_worked], source: "ILO, ILOSTAT", get: ilostat_hours}
+      - {id: modern_slavery, label: Modern slavery (forced labour and marriage), unit: "per 1,000", better: lower, decimals: 1,
+         use: [modern_slavery_per_1000], source: "Walk Free, Global Slavery Index", get: walkfree_gsi}
+      - {id: women_income, label: Women's share of income from work, unit: "%", better: higher, decimals: 1, percent: true,
+         use: [female_labour_income_share], source: World Inequality Database, get: wid_gender}
+      - {id: happiness, label: Happiness (life ladder 0-10), unit: "0-10", better: higher, decimals: 2, world_rank: true,
+         use: [whr_happiness, "~^whr_happiness"], source: World Happiness Report, get: owid_grapher}
+      - {id: homicide, label: Homicide rate, unit: "per 100,000", better: lower, decimals: 2,
+         use: [homicide_rate], source: UNODC through the World Bank, get: world_bank_wdi}
+      - {id: road_deaths, label: Road deaths, unit: "per 100,000", better: lower, decimals: 1,
+         use: [road_deaths_rate], source: WHO through the World Bank, get: world_bank_wdi}
+      - {id: schooling, label: Mean years of schooling, unit: years, better: higher, decimals: 1,
+         use: [hdr_mean_years_schooling], source: UNDP Human Development Report, get: undp_hdr}

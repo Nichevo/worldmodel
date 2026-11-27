@@ -1,0 +1,8 @@
+ref_area,source,indicator,sex,time,obs_value,obs_status,note_classif,note_indicator,note_source
+NZL,BA:123,HOW_TEMP_SEX_NB_A,SEX_T,2022,33.4,,,,
+NZL,BA:123,HOW_TEMP_SEX_NB_A,SEX_T,2023,33.1,,,,
+NZL,BA:123,HOW_TEMP_SEX_NB_A,SEX_F,2023,29.6,,,,
+NZL,BA:123,HOW_TEMP_SEX_NB_A,SEX_M,2023,36.3,,,,
+AUS,BA:456,HOW_TEMP_SEX_NB_A,SEX_T,2023,32.2,,,,
+USA,BA:789,HOW_TEMP_SEX_NB_A,SEX_T,2023,36.4,,,,
+X01,BA:1,HOW_TEMP_SEX_NB_A,SEX_T,2023,40.0,,,,

@@ -689,6 +689,66 @@
     get: https://ilostat.ilo.org/topics/wages/
     what: "Download the bulk CSV files EAR_4MTH_SEX_CUR_NB_A and EAR_4MMN_CUR_NB_A when ILOSTAT refuses the refresh."
 
+- id: ilostat_hours
+  name: ILOSTAT hours actually worked
+  short_name: ILOSTAT hours
+  publisher: International Labour Organization
+  url: https://ilostat.ilo.org/topics/working-time/
+  licence: CC BY 4.0
+  licence_url: https://ilostat.ilo.org/about/terms-of-use/
+  commercial_use: true
+  cadence: Updated through the year; checked monthly
+  attribution: "ILO, ILOSTAT: mean weekly hours actually worked per employed person (HOW_TEMP_SEX_NB_A)."
+  status: active
+  default_rank: 2
+  standing: 5
+  definition: established
+  manual:
+    by_hand: false
+    files: ["HOW_*", "*hours*"]
+    get: https://ilostat.ilo.org/data/bulk/
+    what: "When ILOSTAT refuses the refresh, download the bulk file HOW_TEMP_SEX_NB_A (CSV) or a table of 'Mean weekly hours actually worked per employed person by sex' from the data explorer, and save it here."
+
+- id: walkfree_gsi
+  name: Walk Free Global Slavery Index
+  short_name: Global Slavery Index
+  publisher: Walk Free
+  url: https://www.walkfree.org/global-slavery-index/
+  licence: Free to use with credit (Walk Free terms)
+  licence_url: https://www.walkfree.org/terms-of-use/
+  commercial_use: false
+  cadence: A new edition every few years (2018, 2023); load it when it comes out
+  attribution: "Walk Free, Global Slavery Index 2023."
+  status: active
+  default_rank: 2
+  standing: 3
+  definition: exploratory
+  manual:
+    by_hand: true
+    files: ["*Global-Slavery-Index*", "*GSI*", "*.xlsx"]
+    get: https://www.walkfree.org/global-slavery-index/downloads/
+    what: "Fill in the short form on the downloads page, download the Global Slavery Index data file (Excel) and save it here. Keep the year in the file name."
+
+- id: wid_gender
+  name: World Inequality Database, female labour income share
+  short_name: WID female labour share
+  publisher: World Inequality Lab
+  url: https://wid.world/
+  licence: CC BY 4.0
+  licence_url: https://wid.world/
+  commercial_use: true
+  cadence: Updated yearly; load it when you like
+  attribution: "World Inequality Database (WID.world), female labour income share."
+  status: active
+  default_rank: 2
+  standing: 4
+  definition: established
+  manual:
+    by_hand: true
+    files: ["WID*", "*.csv", "*.xlsx"]
+    get: https://wid.world/data/
+    what: "On WID's data page pick the 'Female labor income share' indicator, tick all countries and all years, download the CSV and save it here."
+
 - id: numbeo
   name: Numbeo cost of living indices
   short_name: Numbeo

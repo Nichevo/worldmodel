@@ -95,6 +95,16 @@ CHARTS = (
     ("share-of-global-plastic-waste-emitted-to-the-ocean", "Meijer et al. (2021): share of the world's plastic reaching the ocean",
      "ocean_plastic_share", "pollution"),
     # causes of death (the Disease page): age-standardised, from death certificates
+    # the Scorecard: WHO Global Health Estimates (every country, age-standardised) and the World Happiness Report
+    ("death-rate-from-cardiovascular-disease-age-standardized-ghe", "WHO Global Health Estimates: deaths from "
+     "cardiovascular diseases per 100,000 people, age-standardised", "cardio_death_rate_ghe", "health"),
+    ("death-rate-from-diabetes-ghe", "WHO Global Health Estimates: deaths from diabetes per 100,000 people, "
+     "age-standardised", "diabetes_death_rate_ghe", "health"),
+    ("death-rate-from-communicable-vs-non-communicable-diseases", "Deaths from communicable (infectious, maternal, "
+     "newborn and nutritional) and non-communicable diseases per 100,000 people, age-standardised",
+     "communicable_ncd_death_rate", "health"),
+    ("happiness-cantril-ladder", "World Happiness Report: average answer to 'where on a ladder from 0 (worst possible "
+     "life) to 10 (best possible life) do you stand?' (Gallup World Poll, three-year average)", "whr_happiness", "values"),
     ("death-rate-by-cause-who-mdb", "WHO Mortality Database: deaths per 100,000 people from each broad group of causes, "
      "age-standardised, from the underlying cause on death certificates, since 1950", "cause_death_rate", "health"),
     # nature (the Nature tab on the Climate page)
@@ -247,8 +257,8 @@ def _energy_aggregation(ind: str, unit: str, ids: set[str]) -> dict:
 class OWIDGrapher(_OWID):
     source_id = "owid_grapher"
     fetch_every_days = 14  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 8  # 8: columns cut to the same id named by title; 7: causes of death; 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
-    fetch_version = 5  # 5: causes of death; 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts; 4: nuclear warheads
+    stage_version = 9  # 9: the Scorecard charts (GHE causes of death, happiness); 8: columns cut to the same id named by title; 7: causes of death; 2: long column names no longer cut to the same indicator id; 3: charts' own ids and domains; 4: pollution and nature charts; 5: democracy; 6: nuclear warheads
+    fetch_version = 6  # 6: the Scorecard charts; 5: causes of death; 2: pollution and nature charts added (fetched at the next refresh); 3: democracy charts; 4: nuclear warheads
     pause_seconds = 1.0
 
     def download(self, raw_dir: Path, release: str) -> str:
