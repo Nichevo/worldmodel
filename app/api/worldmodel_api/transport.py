@@ -501,3 +501,17 @@ def heads(q: Q, home: str = "NZL") -> list[dict]:
     out.append({"id": "cuts", "label": "Cables and pipelines cut", "value": str(len(cuts)), "tab": "networks",
                 "note": f"in the last 12 months{': latest ' + cuts[0]['title'][:60] if cuts else ''}", "tone": "bad" if cuts else "neutral"})
     return out
+
+
+def airport(q: Q, codes: list[str]) -> dict:
+    """One airport's passengers and freight each year, by any of its codes (ICAO or IATA), from
+    the yearly airport figures kept (Eurostat for Europe; files saved by hand for NZ, Australia,
+    the UK and the US)."""
+    codes = [c.strip().upper() for c in codes if c and c.strip()]
+    if not codes or not _has(q, "airport_traffic"):
+        return {"years": [], "name": None}
+    got = q(f"""SELECT year, max(passengers) AS passengers, max(freight_t) AS freight_t, any_value(name) AS name
+                FROM airport_traffic WHERE upper(airport) IN ({', '.join('?' * len(codes))})
+                GROUP BY year ORDER BY year""", codes)
+    return {"years": [{"year": r["year"], "passengers": r["passengers"], "freight_t": r["freight_t"]} for r in got],
+            "name": next((r["name"] for r in got if r["name"]), None)}

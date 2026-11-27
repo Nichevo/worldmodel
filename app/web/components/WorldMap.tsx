@@ -13,6 +13,7 @@ import { get } from "@/lib/api";
 import { DETAIL_LAYERS, detailsHref, layerName } from "@/lib/layerDetails";
 import CameraView, { type CameraProps } from "@/components/CameraView";
 import CameraWall from "@/components/CameraWall";
+import PlaceHistory, { HISTORY_LAYERS } from "@/components/PlaceHistory";
 import { toggleWall } from "@/lib/cameraWall";
 import { hereCard, LAYER_STYLE, layerData, layerSpec, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
@@ -463,13 +464,17 @@ export default function WorldMap({
         }
       }
       // A dot of a counted layer (a hospital, port, power plant...): what it is and links to the layer's details.
-      const dots = [...DOT_DETAILS].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
+      const dots = [...new Set([...DOT_DETAILS, ...HISTORY_LAYERS])].map((k) => `ov-${k}`).filter((id) => m.getLayer(id));
       if (dots.length) {
         const f = m.queryRenderedFeatures([[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]], { layers: dots })[0];
         if (f) {
           const layer = f.layer.id.slice(3);
           const p = f.properties as Record<string, unknown>;
-          setInfo({ layer, title: String(p.name ?? layerName(layer)), lines: hoverLines(layerLabel(layer, p)).slice(1), links: detailLinks(layer, p) });
+          const g = f.geometry;
+          const at = g.type === "Point" ? { lng: g.coordinates[0], lat: g.coordinates[1] } : { lng: e.lngLat.lng, lat: e.lngLat.lat };
+          setInfo({ layer, title: String(p.name ?? layerName(layer)), lines: hoverLines(layerLabel(layer, p)).slice(1),
+            links: DOT_DETAILS.has(layer) ? detailLinks(layer, p) : [],
+            history: HISTORY_LAYERS.has(layer) ? { p, at } : undefined }); // ports and airports: a chart of their history
           return;
         }
       }
@@ -1192,6 +1197,7 @@ export default function WorldMap({
               <>
                 {info.camera && <CameraView key={String(info.camera.id)} cam={info.camera} wallButton />}
                 {(info.lines ?? []).filter(Boolean).map((l) => <p key={l} className="small" style={{ margin: "2px 0" }}>{l}</p>)}
+                {info.history && <PlaceHistory layer={info.layer} p={info.history.p} at={info.history.at} />}
                 {info.split?.length ? (
                   <table className="small"><thead><tr><th>Country</th><th>Of the basin</th><th>Of the country</th><th>People (rough)</th></tr></thead>
                     <tbody>{info.split.map((x) => (
@@ -1282,6 +1288,7 @@ function detailLinks(layer: string, p: Record<string, unknown>): { label: string
 type FeatureInfo = {
   layer: string; title: string; loading?: boolean; lines?: string[]; countries?: { id: string; name: string }[];
   split?: GeoCard["split"]; links?: { label: string; href: string; hint: string }[]; camera?: CameraProps;
+  history?: { p: Record<string, unknown>; at: { lng: number; lat: number } };
 };
 const pct = (v: number | null | undefined) => (typeof v === "number" ? `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%` : "…");
 const n0 = (v: unknown) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : null);

@@ -1062,6 +1062,9 @@ export type PollutionCountry = PollutionPage & { entity: string; latest: Latest 
 // ----------------------------------------------------------------------------- transport, tourism, networks
 export type Chokepoint = { id: string; name: string; now: number | null; year_before: number | null; change: number | null; capacity: number | null; as_of: string };
 export type PortRow = { port_id: string; name: string; entity_id: string | null; calls: number; import_t: number | null; export_t: number | null; year: number };
+export type PortMonths = { id: string; entity_id?: string | null;
+  months: { year: number; month: number; calls: number | null; import_t: number | null; export_t: number | null }[] };
+export type AirportYears = { name: string | null; years: { year: number; passengers: number | null; freight_t: number | null }[] };
 export type AirportRow = { airport: string; name: string | null; entity_id: string | null; year: number; passengers: number | null; freight_t: number | null };
 export type Accident = { subkind: string | null; title: string; start_date: string | null; place: string | null; url: string | null; detail: string | null;
   deaths: number | null; entities: string[] };
@@ -1531,6 +1534,11 @@ export const api = {
   hazards: (entity: string) => get<Hazards>(`/hazards/${encodeURIComponent(entity)}`),
   landMix: (entity: string) => get<LandMix>(`/look/land-mix/${encodeURIComponent(entity)}`),
   transportHeads: (home: string) => get<HeadTileData[]>(`/transport/heads?home=${encodeURIComponent(home)}`),
+  // A port's ship calls and cargo each month (IMF PortWatch), an airport's passengers and freight each
+  // year (by its codes), and the PortWatch port nearest a place (for a World Port Index dot).
+  portMonths: (id: string) => get<PortMonths>(`/transport/port/${encodeURIComponent(id)}`),
+  airportYears: (codes: string[]) => get<AirportYears>(`/transport/airport?${codes.map((c) => `code=${encodeURIComponent(c)}`).join("&")}`),
+  portNear: (lat: number, lon: number) => get<{ id: string; name: string | null; km: number } | null>("/transport/port-near", { lat, lon }),
   countryPorts: (entity: string) => get<CountryPorts>(`/transport/ports/${encodeURIComponent(entity)}`),
   climateHeadlines: (keys: string) => get<ClimateHeadlines>(`/climate/headlines?keys=${encodeURIComponent(keys)}`),
   climateCountry: (id: string) => get<ClimateCountry>(`/climate/country/${encodeURIComponent(id)}`),

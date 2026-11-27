@@ -317,3 +317,18 @@ def test_port_goods(client, tmp_path):
     au = client.get("/api/v1/transport/goods/port/AU:port-hedland").json()
     assert au["years"][0]["out_t"] == 5.6e8 and au["goods"] == [] and au["freq"] == "FY"
     assert client.get("/api/v1/transport/goods/port/nope").status_code == 404
+
+
+def test_airport_years_and_port_near(client, tmp_path):
+    con = duckdb.connect(str(tmp_path / "w.duckdb"))
+    fc = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [174.78, -36.84]}, "properties": {"id": "port1", "name": "Auckland"}}]}
+    con.execute("INSERT INTO layers VALUES ('ports', 'Ports', '', 'point', 'portwatch', 'v1', 1, ?)", [json.dumps(fc)])
+    con.close()
+    # by ICAO, IATA or both (any case); unknown codes give no years
+    a = client.get("/api/v1/transport/airport", params=[("code", "nzaa"), ("code", "AKL")]).json()
+    assert a["years"] == [{"year": 2024, "passengers": 18500000, "freight_t": 140000}] and a["name"] == "Auckland"
+    assert client.get("/api/v1/transport/airport", params={"code": "XXXX"}).json()["years"] == []
+    got = client.get("/api/v1/transport/port-near", params={"lat": -36.85, "lon": 174.77}).json()
+    assert got["id"] == "port1" and got["km"] < 2
+    assert client.get("/api/v1/transport/port-near", params={"lat": -41.3, "lon": 174.8}).json() is None

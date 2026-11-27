@@ -356,6 +356,18 @@ def transport_pressure_map(end: date | None = Query(None, description="look back
     return Response(json.dumps(data, separators=(",", ":"), default=str), media_type="application/geo+json")
 
 
+@api.get("/transport/airport")
+def transport_airport(code: list[str] = Query(..., description="the airport's ICAO and IATA codes")):
+    """One airport's passengers and freight each year (for the map's airport card)."""
+    return transport.airport(rows, code)
+
+
+@api.get("/transport/port-near")
+def transport_port_near(lat: float, lon: float, km: float = Query(8.0, gt=0, le=50)):
+    """The PortWatch port nearest a place, within km (a World Port Index dot's weekly figures)."""
+    return ports.near(rows, lat, lon, km)
+
+
 @api.get("/transport/pressure/places")
 def transport_pressure_places(entity: str | None = None):
     """Every port and chokepoint with weekly figures: ships a week and the last four weeks against normal."""

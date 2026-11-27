@@ -304,3 +304,19 @@ def country(q: Q, entity: str, n: int = 4) -> dict:
                                     "ratio": _r(r["ratio"], 3)} for r in reversed(w)]})
     hits = impacts(q, entity=entity, limit=8)
     return {"entity": entity, "ports": out, "impacts": hits}
+
+
+def near(q: Q, lat: float, lon: float, km: float = 8.0) -> dict | None:
+    """The PortWatch port nearest a place (for a World Port Index dot, which has no PortWatch id),
+    if one is within `km`."""
+    import math
+    best, best_d = None, km
+    for pid, p in _layer_props(q, "ports").items():
+        if p.get("lat") is None or p.get("lon") is None:
+            continue
+        dy = (p["lat"] - lat) * 111.2
+        dx = (p["lon"] - lon) * 111.2 * math.cos(math.radians(lat))
+        d = math.hypot(dx, dy)
+        if d <= best_d:
+            best, best_d = {"id": pid, "name": p.get("name"), "km": round(d, 1)}, d
+    return best
