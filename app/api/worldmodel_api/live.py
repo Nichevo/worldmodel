@@ -890,7 +890,7 @@ class Ships:
         cut = now - days * 86400
         with self.lock:
             olds = [(m, d) for m, d in self.store.details.items()
-                    if m not in live_ids and d.get("lat") is not None and cut <= (d.get("last_seen") or 0) <= now - SHIP_KEEP]
+                    if m not in live_ids and isinstance(d.get("lat"), (int, float)) and isinstance(d.get("lon"), (int, float)) and cut <= (d.get("last_seen") or 0) <= now - SHIP_KEEP]
         out = []
         for mmsi, d in olds:
             lon, lat, est, there = d["lon"], d["lat"], False, False
