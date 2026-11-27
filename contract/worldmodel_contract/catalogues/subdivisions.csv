@@ -15,6 +15,14 @@ NZ-STL,NZL,region,15
 NZ-TAS,NZL,region,16
 NZ-NSN,NZL,region,17
 NZ-MBH,NZL,region,18
+AU-NSW,AUS,state,1
+AU-VIC,AUS,state,2
+AU-QLD,AUS,state,3
+AU-SA,AUS,state,4
+AU-WA,AUS,state,5
+AU-TAS,AUS,state,6
+AU-NT,AUS,state,7
+AU-ACT,AUS,state,8
 US-AL,USA,state,01
 US-AK,USA,state,02
 US-AZ,USA,state,04

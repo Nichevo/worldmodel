@@ -1074,6 +1074,7 @@ class NEAdmin1(Connector):
     """Natural Earth's states and provinces, for the regions the catalogue lists outside the US."""
     source_id = "ne_admin1"
     fetch_every_days = 365
+    stage_version = 2  # 2: Australia's states and territories
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y")
