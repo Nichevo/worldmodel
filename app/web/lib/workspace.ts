@@ -297,6 +297,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "p", id: "plate_boundaries", label: "Tectonic plate boundaries", group: "quakes" },
   { letter: "f", id: "active_faults", label: "Active faults", group: "quakes" },
   { letter: "v", id: "volcanoes", label: "Volcanoes", group: "quakes" },
+  { letter: "+", id: "map_landuse", label: "Land use (from the map)", group: "nature", hint: "Homes, shops and offices, industry, schools, parks, farms, forest, sport, cemeteries, military and more, each in its own colour, read from the map detail (OpenStreetMap); clearer as you zoom in. Needs map detail (online or local files), not Countries only" },
   { letter: "k", id: "climate_zones", label: "Climate zones", group: "nature", made: true, hint: "Köppen-Geiger zones for 1991-2020 (five main groups), over the country colours; other periods and paths on Climate > Climate zones" },
   { letter: "x", id: "smoke", label: "Smoke, dust and haze (yesterday)", group: "now", made: true, hint: "NASA satellite aerosol map for two days ago (GIBS, MODIS); other days on the Pollution page" },
   { letter: "g", id: "tide_gauges", label: "Tide gauges (sea level trend)", group: "nature", hint: "How fast the sea has risen against the land at each long-running gauge (PSMSL)" },
