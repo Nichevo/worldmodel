@@ -452,7 +452,7 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
-LAYER_MARKS = "_*-!$();@:^=[]{<>'`"  # layer "letters" past the 62 letters and digits (never "." or "~")
+LAYER_MARKS = "_*-!$();@:^=[]{}|+,<>'`"  # layer "letters" past the 62 letters and digits (never "." or "~")
 
 
 def _letters(v) -> str:
