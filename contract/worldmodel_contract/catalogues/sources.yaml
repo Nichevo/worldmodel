@@ -2491,6 +2491,21 @@
   standing: 3
   definition: established
 
+- id: osm_power_sites
+  name: Power plant grounds (OpenStreetMap)
+  short_name: OSM power plant grounds
+  publisher: OpenStreetMap contributors
+  url: https://wiki.openstreetmap.org/wiki/Tag:power%3Dplant
+  licence: ODbL 1.0
+  licence_url: https://www.openstreetmap.org/copyright
+  commercial_use: true
+  cadence: Read through Overpass, 40 squares of 20 degrees a month, ten seconds apart; each square again after a year
+  attribution: "© OpenStreetMap contributors (ODbL)."
+  status: active
+  default_rank: 5
+  standing: 3
+  definition: exploratory
+
 - id: submarine_cables
   name: TeleGeography Submarine Cable Map
   short_name: Submarine Cable Map

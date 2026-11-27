@@ -62,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   calendar_live: true,
   attention_on: true,
   power_fetch: true,
+  power_sites_fetch: true,
   energy_flows_fetch: true,
   grid_now: true,
   internet_speeds_fetch: true,

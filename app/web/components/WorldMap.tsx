@@ -25,7 +25,8 @@ import { askHere } from "@/lib/spotting";
 import { BADGE_MIN_ZOOM, ensureMapIcons, planeBadgeFilter, planeBadgeLayout, watchPlaneBadges } from "@/lib/mapIcons";
 import { journeyLines, journeyText, planeJourney, shipJourney } from "@/lib/ships";
 import { applyPlaceLook, PLACE_LOOK, withLatScale } from "@/lib/placeIcons";
-import { LANDUSE_LAYER, syncLandUse, syncSiteOutlines, watchPortLand } from "@/lib/siteOutlines";
+import { LANDUSE_LAYER, syncLandUse, syncSiteOutlines, watchPortLand, withCompanions } from "@/lib/siteOutlines";
+import { FUEL_COLOURS } from "@/lib/fuels";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -195,7 +196,7 @@ const LIVE_NAME: Record<string, string> = { live_ships: "Ships", live_planes: "P
 
 export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
-  doubleClick = false, overlays = [], spark = null, onMap, layers = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
+  doubleClick = false, overlays = [], spark = null, onMap, layers: layersAsked = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
   raster = null, boxes = [], outlines, marks, onMark, legend = [], hideScale = false, areas = null, onArea, paths,
   pictures = true, onPoint = null, borders = true,
 }: Props) {
@@ -285,6 +286,10 @@ export default function WorldMap({
   const pick = useRef(onPick);
   pick.current = onPick;
   const settings = useSettings();
+  // The layers asked for, and those that come with them (plant grounds with the power plants, while Site outlines is ticked).
+  const askedKey = layersAsked.join(",");
+  const layers = useMemo(() => withCompanions(layersAsked, settings.map_site_outlines !== false),
+    [askedKey, settings.map_site_outlines]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const m = map.current;
     if (m?.getLayer("ov-live_planes")) planeBadges(m);
@@ -1258,10 +1263,16 @@ export default function WorldMap({
           ))}
           {layers.filter((id) => LAYER_STYLE[id]).map((id) => (
             <span key={id} className="step">
-              <i className={LAYER_STYLE[id].dot ? "dot" : "line"} style={hydrated ? { background: LAYER_STYLE[id].swatch() } : undefined} />
+              <i className={LAYER_STYLE[id].dot ? "dot" : id === "power_sites" ? "outline" : "line"} style={hydrated ? { background: LAYER_STYLE[id].swatch(), borderColor: LAYER_STYLE[id].swatch() } : undefined} />
               {LAYER_STYLE[id].legend}
             </span>
           ))}
+          {(layers.includes("power_plants") || layers.includes("power_sites")) && (
+            <span className="fuel-key" title="Kind of power plant: the dots and the grounds">
+              {FUEL_COLOURS.map(([f, c]) => <span key={f} className="step"><i className={layers.includes("power_sites") ? "outline" : "dot"}
+                style={layers.includes("power_sites") ? { background: c, borderColor: c } : { background: c }} />{f}</span>)}
+            </span>
+          )}
         </div>
       )}
       {overlays.map((o) => { const target = els.get(o.key); return target ? createPortal(o.node, target, o.key) : null; })}

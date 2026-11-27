@@ -36,6 +36,7 @@ import {
   type LiveTab,
 } from "@/lib/workspace";
 import { LivePanel } from "@/components/LiveTables";
+import { PlacesTable } from "@/components/PlacesTable";
 import { csvTable, keep, openAsk, useRegisterChart, type AskPart } from "@/lib/ai";
 
 export type Value = { entity_id: string; value: number; status: string };
@@ -73,10 +74,11 @@ type Props = {
   onWin: (win: string) => void;
 };
 
-const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks", bands: "Bands", shares: "Shares", live: "Ships and planes" };
+const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks", bands: "Bands", shares: "Shares", live: "Ships and planes", places: "Places in view" };
 const VIEW_HINT: Partial<Record<View, string>> = {
   bands: "Every country as a tile, stacked in columns by value band",
   live: "Ships and planes now: the ships and planes tables, their counts and port schedules, beside the map",
+  places: "A table of the power plants (or ports, airports, hospitals...) in the area the map shows or in the selected countries: size, kind, owner and more",
   shares: "Each country's share of the world total, as a circle cut into continents (figures that add up only)",
 };
 
@@ -100,6 +102,8 @@ export default function Panel({
   const year = effectiveYear(panel, indicator);
   // "None" on a map: no colours, only the layers (the background indicator cleared).
   const plain = panel.view === "map" && panel.indicator === NO_INDICATOR;
+  // Ships and planes, and Places in view: tables of their own, with no indicator or year.
+  const tableOnly = panel.view === "live" || panel.view === "places";
   const set = (patch: Extract<Action, { type: "panel" }>["patch"]) => dispatch({ type: "panel", id: panel.id, patch });
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
   const isProjection = indicator && year !== null && indicator.last_estimate_year !== null && year > indicator.last_estimate_year;
@@ -131,12 +135,12 @@ export default function Panel({
             </button>
           ))}
         </div>
-        {panel.view !== "pyramid" && panel.view !== "live" && (
+        {panel.view !== "pyramid" && !tableOnly && (
           <IndicatorSelect indicators={indicators} value={panel.indicator} onChange={(id) => set({ indicator: id })}
             none={panel.view === "map" ? "None (plain map)" : undefined} />
         )}
-        {indicator && panel.view !== "pyramid" && panel.view !== "live" && <Help indicator={indicator} />}
-        {indicator && year !== null && panel.view !== "live" && (
+        {indicator && panel.view !== "pyramid" && !tableOnly && <Help indicator={indicator} />}
+        {indicator && year !== null && !tableOnly && (
           <label className="year">
             <button className="play" aria-label={playing.on ? "Pause" : "Play through the years"} title={playing.on ? "Pause" : "Play"}
               onClick={(e) => { e.preventDefault(); playing.toggle(); }}>{playing.on ? "❚❚" : "▶"}</button>
@@ -161,7 +165,7 @@ export default function Panel({
             Layers{panel.layers ? <span className="muted"> {panel.layers.length}</span> : null}
           </button>
         )}
-        {panel.view !== "live" && <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />}
+        {!tableOnly && <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />}
         <LinksMenu panel={panel} dispatch={dispatch} />
         <div className="panel-actions">
           <button title="Duplicate panel" aria-label="Duplicate panel" disabled={!canDuplicate}
@@ -184,7 +188,9 @@ export default function Panel({
       </div>
       <div className="panel-body" ref={body}>
         {panel.view === "live" && <LivePanel tab={(panel.lv || "ships") as LiveTab} setTab={(t) => set({ lv: t })} cameraBus={cameraBus} />}
-        {!indicator && !plain && panel.view !== "live" && <p className="muted">{panel.indicator === NO_INDICATOR ? "Choose an indicator above." : "Loading…"}</p>}
+        {panel.view === "places" && <PlacesTable layer={panel.lv} setLayer={(id) => set({ lv: id })} cameraBus={cameraBus} group={panel.group}
+          selection={selection} names={names} />}
+        {!indicator && !plain && !tableOnly && <p className="muted">{panel.indicator === NO_INDICATOR ? "Choose an indicator above." : "Loading…"}</p>}
         {((indicator && year !== null) || plain) && panel.view === "map" && (
           <MapView panel={panel} indicator={plain ? null : indicator!} year={plain ? null : year} selection={selection}
             hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}

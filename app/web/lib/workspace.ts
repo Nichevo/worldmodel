@@ -6,7 +6,7 @@
 // bookmarked. Countries can also be pinned as popups (up to eight, on their
 // panel) and sent to the side panel's pinboard; both are saved with the layout.
 
-export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks" | "bands" | "shares" | "live";
+export type View = "map" | "chart" | "table" | "pyramid" | "scatter" | "ranks" | "bands" | "shares" | "live" | "places";
 // What a "live" panel shows (the Ships and planes page's tabs).
 export const LIVE_TABS = ["ships", "planes", "ship-counts", "plane-counts", "schedules"] as const;
 export type LiveTab = (typeof LIVE_TABS)[number];
@@ -33,7 +33,7 @@ export type Panel = {
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
   layers: string; // map overlays, one letter each (see MAP_LAYERS): "pv" plate boundaries and volcanoes
   rk: string; // ranks options: "years,who,among+order,top" (see rankOptions)
-  lv: string; // live panel: which table (LIVE_TABS), "" = ships
+  lv: string; // live panel: which table (LIVE_TABS), "" = ships; places panel: which map layer, "" = power plants
 };
 
 // A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
@@ -84,7 +84,7 @@ export const CHANGE_COL = "chg10";
 
 export const DEFAULT_LINKS: Links = { camera: true, hover: true, select: true, year: false, indicator: false, scale: true, range: false };
 
-const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks", "bands", "shares", "live"];
+const VIEWS: View[] = ["map", "chart", "table", "pyramid", "scatter", "ranks", "bands", "shares", "live", "places"];
 export const MAX_PANELS = 6;
 export const MAX_SELECTION = 8; // one categorical colour each
 export const MAX_PINS = 8;
@@ -308,6 +308,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "T", id: "street_trees", label: "Street trees", group: "nature", hint: "Every tree in a council's list (Auckland first), from street level (zoom 12 and closer)" },
   { letter: "M", id: "electricity_mix", label: "Electricity mix (pies)", group: "energy", made: true, hint: "A pie of each place's electricity by source, sized by how much it makes: continents zoomed out, countries zoomed in; or main-source dots, or the map shaded by one source" },
   { letter: "W", id: "power_plants", label: "Power plants", group: "energy", hint: "About 35,000 power plants sized by capacity and coloured by fuel (WRI Global Power Plant Database)" },
+  { letter: "|", id: "power_sites", label: "Power plant grounds", group: "energy", hint: "The land each power plant takes up, as OpenStreetMap maps it, coloured by kind of plant (coal, gas, nuclear, hydro, solar, wind...); also shown with Power plants when Site outlines is ticked. Big solar and wind farms from region zoom, the rest closer in" },
   { letter: "Y", id: "power_lines", label: "Power lines", group: "energy", hint: "High and medium voltage lines: mapped (OpenStreetMap) and predicted from night lights (World Bank gridfinder)" },
   { letter: "7", id: "power_links", label: "Power links between countries", group: "energy", hint: "Electricity traded between European countries in the latest year, a line between capitals, thicker for more, from the net exporter to the importer (Eurostat); hover a line for both directions" },
   { letter: "P", id: "ports", label: "Ports (by ship calls)", group: "ports", hint: "About 1,700 ports sized by ship calls a year (IMF PortWatch)" },
@@ -449,7 +450,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         range: range && RANGE_RE.test(range) ? range : "",
         layers: layers ? [...new Set(layers)].filter((c) => MAP_LAYERS.some((m) => m.letter === c)).join("") : "",
         rk: rk && RANK_RE.test(rk) ? rk : "",
-        lv: (LIVE_TABS as readonly string[]).includes(lv ?? "") ? lv! : "",
+        lv: (LIVE_TABS as readonly string[]).includes(lv ?? "") || (view === "places" && /^[a-z_]{1,40}$/.test(lv ?? "")) ? lv! : "",
       });
     });
   const win = WIN_RE.test(q.get("w") || "") ? q.get("w")! : "";

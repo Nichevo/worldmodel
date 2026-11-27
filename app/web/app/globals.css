@@ -580,6 +580,7 @@ table.click-rows tbody tr.on { background: var(--warn-bg); }
 .legend.overlays i { display: inline-block; }
 .legend.overlays i.line { width: 16px; height: 3px; border-radius: 2px; }
 .legend.overlays i.dot { width: 9px; height: 9px; border-radius: 50%; }
+.legend.overlays .fuel-key { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; }
 .year-block { border-top: 1px solid var(--border); padding: 8px 0; }
 .year-block > summary { cursor: pointer; font-size: 1rem; margin-bottom: 6px; }
 

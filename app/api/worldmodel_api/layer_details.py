@@ -298,10 +298,11 @@ def _info(q: Q, d: spec.LayerDetail) -> dict:
 
 def list_items(q: Q, key: str, layer_id: str, country: str | None, text: str | None, sort: str, limit: int, offset: int,
                live=None, country_of=None, min_size: float | None = None, date_from: str | None = None,
-               date_to: str | None = None) -> dict:
+               date_to: str | None = None, box: str | None = None, category: str | None = None) -> dict:
     """The items themselves, biggest (or by name, or newest) first, for one country, council or group, or all.
     min_size keeps items at least that big; date_from/date_to (YYYY-MM-DD) keep those dated within, for a
-    layer with a "date" field (earthquakes)."""
+    layer with a "date" field (earthquakes). box ("west,south,east,north", west past east across the date
+    line) keeps those in a map's view; category keeps those of these categories (comma-separated)."""
     d = spec.BY_ID.get(layer_id)
     if d is None:
         return {"rows": [], "total": 0}
@@ -319,6 +320,20 @@ def list_items(q: Q, key: str, layer_id: str, country: str | None, text: str | N
         its = [i for i in its if t in str(i["name"]).lower() or t in str(i.get("category") or "").lower()]
     if min_size is not None:
         its = [i for i in its if i["size"] is not None and i["size"] >= min_size]
+    inside = in_box(box)
+    if inside:
+        its = [i for i in its if i["lat"] is not None and i["lon"] is not None and inside(i["lon"], i["lat"])]
+    categories: dict[str, list] = {}  # how many of each category, and their size together, before picking some (the key)
+    counted: set = set()
+    for i in its:
+        if i["item_id"] not in counted:
+            counted.add(i["item_id"])
+            c = categories.setdefault(i.get("category") or "", [0, 0.0])
+            c[0] += 1
+            c[1] += i["size"] or 0
+    if category:
+        cats = set(category.split(","))
+        its = [i for i in its if (i.get("category") or "") in cats]
     dated = any(k == "date" for k, _ in d.fields)
     day = (lambda i: str((i["props"] or {}).get("date") or ""))
     if dated and (date_from or date_to):
@@ -345,7 +360,25 @@ def list_items(q: Q, key: str, layer_id: str, country: str | None, text: str | N
                     "country_names": [(names.get(c) or {}).get("name") or c for c in r["countries"]],
                     "lat": r["lat"], "lon": r["lon"], "size": r["size"], "category": r["category"], "url": r["url"],
                     "placed": r.get("placed"), "fields": {k: p.get(k) for k, _ in d.fields}, "group": r.get("group")})
-    return {"rows": out, "total": len(rows)}
+    return {"rows": out, "total": len(rows),
+            "categories": [{"category": k or None, "count": v[0], "size": round(v[1], 1)}
+                           for k, v in sorted(categories.items(), key=lambda kv: (-kv[1][1], -kv[1][0]))]}
+
+
+def in_box(box: str | None) -> Callable[[float, float], bool] | None:
+    """A test for "inside this map view" from "west,south,east,north" (west above east: across the date line)."""
+    if not box:
+        return None
+    try:
+        w, s, e, n = (float(x) for x in box.split(","))
+    except ValueError:
+        return None
+    if e - w >= 360:
+        return lambda x, y: s <= y <= n
+    w, e = ((w + 180) % 360) - 180, ((e + 180) % 360) - 180
+    if w <= e:
+        return lambda x, y: s <= y <= n and w <= x <= e
+    return lambda x, y: s <= y <= n and (x >= w or x <= e)
 
 
 def country(q: Q, key: str, entity: str) -> list[dict]:

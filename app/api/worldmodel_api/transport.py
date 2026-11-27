@@ -46,6 +46,8 @@ GEO_LAYERS = {  # layer -> (name, the largest rank shown at each zoom: [(zoom be
     "street_trees": ("Street trees", [(12, 0), (99, 1)], 8000),
     "nz_land_change": ("Land cover change (NZ)", [(7, 1), (99, 2)], 6000),
     "power_lines": ("Power lines", [(4, 1), (99, 2)], 6000),
+    # rank 1: a square kilometre and more (big solar and wind farms, the biggest stations), 2: 5 ha, 3: the rest
+    "power_sites": ("Power plant grounds", [(6, 0), (8, 1), (10, 2), (99, 3)], 5000),
     "eez_lines": ("Economic zones", [(99, 1)], 6000),
     "airspace": ("Flight information regions", [(3.5, 1), (99, 2)], 3000),
     "timezones": ("Time zones", [(99, 1)], 1000),  # every zone (about 300), simplified to the zoom  # whole countries, then each region closer in  # 1° squares: mapped lines (1), then predicted (2) closer in
@@ -55,6 +57,7 @@ NOT_LOADED = {
     "gas_pipelines": "none loaded yet: save Global Energy Monitor's gas tracker file into var\\manual\\gem_infrastructure, then run load.bat gem_infrastructure (see Data status)",
     "oil_pipelines": "none loaded yet: save Global Energy Monitor's oil tracker file into var\\manual\\gem_infrastructure, then run load.bat gem_infrastructure (see Data status)",
     "nz_land_change": "none loaded yet: save the LCDB file into var\\manual\\nz_lcdb, then run load.bat nz_lcdb",
+    "power_sites": "none loaded yet: a refresh reads them from OpenStreetMap, New Zealand and Australia first (the whole world over about four monthly refreshes)",
 }
 COVID = {"kind": "band", "title": "COVID-19 border closures", "start_date": "2020-03-01", "end_date": "2022-06-30"}
 

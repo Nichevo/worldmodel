@@ -56,7 +56,7 @@ from worldmodel_data.connectors.wikidata import Wikidata
 from worldmodel_data.connectors.places import WikidataPlaces
 from worldmodel_data.connectors.outlook import FREDCycle, OECDCLI
 from worldmodel_data.connectors.energy import EurostatPowerTrade, UNSDEnergy
-from worldmodel_data.connectors.power import Gridfinder, WRIPowerPlants
+from worldmodel_data.connectors.power import Gridfinder, OSMPowerSites, WRIPowerPlants
 from worldmodel_data.connectors.sectors import BACI, FAOSTAT, IEAEV, ANZCommodityPrices, FAOFoodPrices, PinkSheet, USGSMinerals, WorldMiningData
 from worldmodel_data.connectors.wellbeing import ILOHours, NatixisGRI, RemoteLifeWork, WalkFreeGSI, WIDGender
 from worldmodel_data.connectors.world_bank_wdi import WorldBankWDI
@@ -84,7 +84,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     TAICInquiries, TransportCurated,
     UNESCOHeritage, UNTourism, WEFTTDI, NZTourism, HydroSHEDS, Waterways, SubmarineCables, GEMInfrastructure, NERailways,
     HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
-    Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OECDCLI, FREDCycle,
+    Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OSMPowerSites, OECDCLI, FREDCycle,
     USCensusPEP, USACS, BEARegional, USUnemployment, BLSLAUSCounty, FHFAHPI, MITElections, MITCountyElections,
     CountyHealthRankings, EIASEDS, USShapes, NEAdmin1, UNSDEnergy, EurostatPowerTrade,
     WHOFluNet, NZWastewater, UKHSA, DelphiFluView, CDCNHSN, CDCNNDSS, ECDCERVISS, OWIDCovid, WHOGHODisease, OpenDengue,
