@@ -476,6 +476,35 @@ export const LAYER_STYLE: Record<string, Style> = {
       "circle-stroke-width": ["case", ["boolean", ["get", "offline"], false], 1.2, 0.6],
     }),
   },
+  // ---- congestion (Transport > Congestion)
+  live_trains: {
+    legend: "Train now (operators' live feeds): green on time, amber 2-5 min late, red 5+ min", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "here",
+    paint: () => ({
+      "circle-color": ["case", ["!=", ["typeof", ["get", "delay_min"]], "number"], "#868e96",
+        ["<", ["get", "delay_min"], 2], "#2b8a3e", ["<", ["get", "delay_min"], 5], "#f08c00", "#c92a2a"] as unknown as ExpressionSpecification,
+      "circle-radius": zoomWidth(3, 7), "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 1.2,
+    }),
+  },
+  count_sites: {
+    legend: "Road counting site, sized by vehicles a day; red busier than the eight weeks before, blue quieter", swatch: () => cssVar("--ink-2"), dot: true,
+    fetch: "window", once: true, click: "here",
+    paint: () => ({
+      "circle-color": ["case", ["!=", ["typeof", ["get", "vs_normal"]], "number"], cssVar("--ink-2"),
+        ["interpolate", ["linear"], ["get", "vs_normal"], -15, cssVar("--div-pos-3"), -5, cssVar("--div-pos-1"), 0, cssVar("--surface-2"), 5, cssVar("--div-neg-1"), 15, cssVar("--div-neg-3")]],
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "vehicles"], 0]], 0, 2, 100, 4, 300, 8, 450, 12],
+      "circle-stroke-color": cssVar("--ink-2"), "circle-stroke-width": 0.5, "circle-opacity": 0.9,
+    }),
+  },
+  airport_busy: {
+    legend: "Airport, sized by flights a day; busiest hour against its limit (or its own record): green under 75%, amber 75-95%, red 95%+",
+    swatch: () => "#f08c00", dot: true, fetch: "window", once: true, click: "here",
+    paint: () => ({
+      "circle-color": ["case", ["!=", ["typeof", ["get", "use"]], "number"], "#868e96",
+        ["<", ["get", "use"], 75], "#2b8a3e", ["<", ["get", "use"], 95], "#f08c00", "#c92a2a"] as unknown as ExpressionSpecification,
+      "circle-radius": ["interpolate", ["linear"], ["sqrt", ["coalesce", ["get", "per_day"], 0]], 0, 3, 10, 5, 30, 10, 45, 14],
+      "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 1, "circle-opacity": 0.9,
+    }),
+  },
   // ---- detail from the OSINT communities
   conflict_events: {
     legend: "Fighting and unrest in the time window (UCDP, ACLED): bigger for more deaths; red fighting, purple civilians killed, blue protests",
@@ -516,6 +545,9 @@ export function windowData(id: string, b: { west: number; south: number; east: n
   const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}&zoom=${zoom.toFixed(1)}${shipsAtQuery()}${shipsTooBigQuery()}`
     : id === "live_military" ? `/live/military-planes?${q}`
     : id === "live_cameras" ? `/live/cameras?${q}`
+    : id === "live_trains" ? `/live/trains?${q}`
+    : id === "count_sites" ? "/congestion/roads/sites"
+    : id === "airport_busy" ? "/congestion/airports/map"
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
     : id === "front_line" ? "/osint/front/russia_ukraine"
     : id === "port_pressure" ? `/transport/pressure/map?${portWeeksQuery()}`
@@ -563,6 +595,17 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + "<br/><span class=\"muted\">Click for where from and to</span>";
   if (layer === "live_ships") return `<b>${esc(p.name ?? `Ship ${p.id}`)}</b>${p.group ? ` (${esc(SHIP_GROUPS.find((g) => g.id === p.group)?.label.toLowerCase())})` : ""}`
     + `${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}${p.sanctioned ? "<br/><b style=\"color:#c92a2a\">On a sanctions list</b> (OpenSanctions)" : ""}<br/><span class="muted">Click for where from and to</span>`;
+  if (layer === "live_trains") return `<b>${esc(p.line || p.label || "Train")}</b>${p.network ? ` (${esc(p.network)})` : ""}`
+    + `${typeof p.delay_min === "number" ? `<br/>${p.delay_min <= 0 ? "On time" : `${num(p.delay_min, 1)} min late`}` : "<br/>Lateness not given"}`
+    + "<br/><span class=\"muted\">Click for its path and line</span>";
+  if (layer === "count_sites") return `<b>${esc(p.name)}</b>`
+    + `${typeof p.vehicles === "number" ? `<br/>${num(p.vehicles)} vehicles a day last week` : ""}`
+    + `${typeof p.vs_normal === "number" ? `<br/>${p.vs_normal > 0 ? "+" : ""}${num(p.vs_normal)}% against the 8 weeks before` : ""}`
+    + `<br/><span class="muted">${esc(p.source_name ?? "")} · click for its hours and days</span>`;
+  if (layer === "airport_busy") return `<b>${esc(p.name)}</b> (${esc(p.icao)})`
+    + `${typeof p.per_day === "number" ? `<br/>${num(p.per_day)} flights a day` : ""}`
+    + `${typeof p.peak_flights === "number" ? `<br/>Busiest hour ${num(p.peak_flights)} flights${typeof p.use === "number" ? `, ${num(p.use)}% of ${p.against === "limit" ? "its limit" : "its record"}` : ""}` : ""}`
+    + "<br/><span class=\"muted\">Click for its busy hours</span>";
   if (layer === "live_cameras") return `<b>${esc(p.name)}</b>${p.direction ? ` (${esc(p.direction)})` : ""}`
     + `<br/>${esc(CAMERA_KIND[String(p.kind)]?.label ?? "Camera")}${p.offline ? " · offline" : ""}${p.about ? `<br/>${esc(String(p.about).slice(0, 90))}` : ""}`
     + "<br/><span class=\"muted\">Click for the latest picture</span>";
@@ -674,6 +717,27 @@ export function hereCard(layer: string, p: Record<string, unknown>, at: { lng: n
         typeof p.speed_kmh === "number" ? `${p.speed_kmh} km/h` : "", "Seen by adsb.lol's volunteer receivers. Many military flights switch their transponder off, so this is never the whole picture."].filter(Boolean),
       links: [{ label: "Follow it on adsb.lol", hint: "The plane's track on the volunteer map", href: `https://globe.adsb.lol/?icao=${encodeURIComponent(hex)}` },
         ...lookCloser(at.lat, at.lng).slice(0, 1)] };
+  }
+  if (layer === "live_trains") {
+    const late = typeof p.delay_min === "number" ? (p.delay_min <= 0 ? "On time" : `${num(p.delay_min, 1)} minutes late`) : "Lateness not given by the feed";
+    return { title: String(p.line || p.label || "Train"),
+      lines: [late, p.network ? `Network: ${p.network}` : "", p.label && p.label !== p.line ? `Train ${p.label}` : "", typeof p.speed_kmh === "number" ? `${num(p.speed_kmh)} km/h` : "", "Its path over the last two hours is drawn on the map."].filter(Boolean),
+      links: [{ label: "Lateness by line", hint: "Transport > Congestion, trains", href: `/transport?tab=congestion&part=trains&feed=${encodeURIComponent(String(p.id ?? "").split(":")[0])}` }] };
+  }
+  if (layer === "count_sites") {
+    return { title: String(p.name ?? "Counting site"),
+      lines: [typeof p.vehicles === "number" ? `${num(p.vehicles)} vehicles a day last week` : "",
+        typeof p.vs_normal === "number" ? `${p.vs_normal > 0 ? "+" : ""}${num(p.vs_normal)}% against the eight weeks before` : "",
+        p.source_name ? `Source: ${p.source_name}` : ""].filter(Boolean),
+      links: [{ label: "Hours and days", hint: "Transport > Congestion, this site", href: `/transport?tab=congestion&part=roads&site=${encodeURIComponent(String(p.id ?? ""))}` }] };
+  }
+  if (layer === "airport_busy") {
+    return { title: `${p.name ?? p.icao} (${p.icao})`,
+      lines: [typeof p.per_day === "number" ? `${num(p.per_day)} flights a day (last four weeks)` : "",
+        typeof p.peak_flights === "number" ? `Busiest weekday hour: ${num(p.peak_flights)} flights${p.peak_hour != null ? ` at ${String(p.peak_hour).padStart(2, "0")}:00` : ""}` : "",
+        typeof p.use === "number" ? `${num(p.use)}% of ${p.against === "limit" ? "its published hourly limit" : "its own busiest hour of the past year"}` : "",
+        p.curfew ? `Curfew ${p.curfew}` : ""].filter(Boolean),
+      links: [{ label: "Busy hours", hint: "Transport > Congestion, this airport", href: `/transport?tab=congestion&part=airports&airport=${encodeURIComponent(String(p.icao ?? ""))}` }] };
   }
   const k = EVENT_KIND[String(p.kind)];
   return {

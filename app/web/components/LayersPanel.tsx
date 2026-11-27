@@ -217,6 +217,11 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
         attribution: "Tree height: NASA GEDI (GIBS)", maxzoom: 7, over: true, opacity: 0.8 });
       legend.push({ label: "Tree height (darker green: taller, up to 40 m+)", color: "#1b5e20", shape: "dot" });
     }
+    if (on("<")) {
+      rasters.push({ tiles: `${location.origin}/api/v1/congestion/traffic-tiles/{z}/{x}/{y}.png`, attribution: "Live traffic: TomTom",
+        maxzoom: 18, over: true, opacity: 0.9 });
+      legend.push({ label: "Traffic now: green flowing, orange slow, red queuing (TomTom)", color: "#e03131", shape: "dot" });
+    }
     // Worked out here: land change and water from the pictures, and what local AI scans spotted.
     if (on("8")) {
       const lc = changeLayer(st);
@@ -279,7 +284,7 @@ const LOOKS: { id: "plain" | "relief" | "satellite" | "sharp" | "night" | "landc
   { id: "landcover", label: "Land cover", gives: "What covers the ground at 10 m: trees, grass, crops, built-up land, water (ESA WorldCover)." },
 ];
 // Read from the internet while on (marked "live" in the list).
-const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_windlines", "wx_waves", "wx_swell", "air_now", "forecast_skill", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras"]);
+const LIVE = new Set(["wx_temp", "wx_rain", "wx_cloud", "wx_wind", "wx_pressure", "wx_windlines", "wx_waves", "wx_swell", "air_now", "forecast_skill", "wx_radar", "wx_satellite", "fires_now", "fires_week", "storms_active", "heat_now", "coral_alerts", "smoke", "marine_heat", "live_planes", "live_ships", "live_military", "live_cameras", "live_trains", "road_traffic"]);
 const ZONE_GROUPS: [string, string][] = [["Tropical", "#1e6eeb"], ["Dry", "#f0a01e"], ["Temperate", "#5abe46"], ["Cold", "#965ac8"], ["Polar", "#aaaaaa"]];
 const MADE_SWATCH: Record<string, () => string> = {
   climate_zones: () => "#5abe46", smoke: () => "#b4783c", marine_heat: () => "#e8590c", tree_height: () => "#1b5e20",
@@ -288,7 +293,7 @@ const MADE_SWATCH: Record<string, () => string> = {
   land_change: () => "#c92a2a", water_change: () => "#1c7ed6", ai_spotted: () => "#862e9c",
   wx_temp: () => "#f08246", wx_rain: () => "#2878e6", wx_cloud: () => "#b4bcc6", wx_wind: () => "#3c8cc8",
   wx_pressure: () => "#283040", wx_radar: () => "#1fa34a", wx_satellite: () => "#d0d8e0",
-  map_landuse: () => "#f2c14e", wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
+  map_landuse: () => "#f2c14e", road_traffic: () => "#e03131", wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
 };
 
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose, selection = [], names = new Map() }: {
@@ -346,6 +351,8 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
       if (m.id === "tree_height") return { ok: true, why: "", source: "NASA GIBS (GEDI), read from the internet" };
       if (m.id === "land_change") return { ok: true, why: "", source: "Worked out here from the land cover maps (Esri or ESA), read from the internet; kept once worked out" };
       if (m.id === "water_change") return { ok: true, why: "", source: "EC JRC Global Surface Water, read from the internet" };
+      if (m.id === "road_traffic") return !s.road_traffic_live ? { ok: false, why: "Switched off in Settings > Transport", source: "" }
+        : { ok: true, why: "", source: "TomTom traffic flow, read from the internet while on, not saved (needs TOMTOM_API_KEY)" };
       if (m.id === "ai_spotted") return { ok: true, why: "", source: "Your area scans with a local model (Spotting page)" };
       return { ok: true, why: "", source: "Your watch words in the news (Settings > Briefing)" };
     }
@@ -368,6 +375,12 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     if (m.id === "conflict_events") return { ok: true, why: "", source: "UCDP and ACLED, the area in view (a refresh loads them; ACLED needs a free account)" };
     if (m.id === "front_line") return { ok: true, why: "", source: "DeepStateMap via GitHub (a refresh loads it)" };
     if (m.id === "live_ships") return s.live_ships ? { ok: true, why: "", source: "aisstream.io, the area in view (needs AISSTREAM_API_KEY)" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "live_trains") return s.trains_live ? { ok: true, why: "", source: "Auckland Transport, Metlink and Transport for NSW live feeds, every 30 seconds (each needs its free key)" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "count_sites") return s.road_counts_fetch ? { ok: true, why: "", source: "NZTA, National Highways WebTRIS and Transport for NSW counts, read once a week" }
+      : { ok: false, why: "Switched off in Settings > Transport", source: "" };
+    if (m.id === "airport_busy") return s.airport_hours_fetch ? { ok: true, why: "", source: "Flights counted daily from OpenSky; limits from airports' published rules" }
       : { ok: false, why: "Switched off in Settings > Transport", source: "" };
     if (m.id === "map_landuse") return s.base_map !== "plain" ? { ok: true, why: "", source: "The map detail (OpenStreetMap, via OpenFreeMap or your local map files)" }
       : { ok: false, why: "Needs map detail: pick online or local map files in Settings > Map (Countries only has none)", source: "" };

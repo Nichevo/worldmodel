@@ -65,6 +65,14 @@ async def lifespan(_app: FastAPI):
         live.PLANES.start()
     except Exception:  # noqa: BLE001 - the map says what is wrong
         pass
+    try:  # congestion: airport flights counted daily, road counts weekly, trains while on (Settings > Transport)
+        from worldmodel_api import airbusy, roads, trains
+
+        airbusy.COLLECTOR.start(rows, local.load_settings)
+        roads.COLLECTOR.start(local.load_settings)
+        trains.TRAINS.start(local.load_settings)
+    except Exception:  # noqa: BLE001 - the Congestion tab says what is wrong
+        pass
     starter = threading.Timer(30, _tiles_starter)  # the starter map copies, once, after the app is up
     starter.daemon = True
     starter.start()

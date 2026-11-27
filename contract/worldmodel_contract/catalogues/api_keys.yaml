@@ -292,13 +292,15 @@
   status: active
 
 - source: live_cameras_nsw
-  name: Transport for NSW Open Data (Live Traffic NSW cameras)
+  name: Transport for NSW Open Data (NSW cameras, Sydney trains, NSW traffic counts)
   env: [TFNSW_API_KEY]
   needs_key: true
   signup: https://opendata.transport.nsw.gov.au/
   how: Sign up (free), create an application in your account and copy its API key.
-  unlocks: New South Wales traffic cameras on the map's "Cameras" layer.
-  limits: Free. The camera list is read only when the view reaches NSW, and kept six hours.
+  unlocks: New South Wales traffic cameras on the map's "Cameras" layer, Sydney Trains on the "Trains now" layer with how late
+    each runs, and NSW's hourly roadside traffic counts on Transport > Congestion.
+  limits: Free. The camera list is read only when the view reaches NSW, and kept six hours; trains every 30 seconds while on;
+    counts once a week.
   status: active
 
 - source: live_cameras_qld
@@ -344,6 +346,37 @@
   how: Sign in, open API keys and create a key.
   unlocks: "The Grid now card for Australia (the National Electricity Market): generation by fuel for the last two days."
   limits: Free for personal use. Asked only while the card is open, at most every five minutes.
+  status: active
+
+- source: tomtom_traffic_live
+  name: TomTom Traffic (Road traffic now)
+  env: [TOMTOM_API_KEY]
+  needs_key: true
+  signup: https://developer.tomtom.com/
+  how: Make a free TomTom developer account, open your dashboard and copy the API key it made for you (or add one).
+  unlocks: The map's "Road traffic now" layer, roads coloured by how fast traffic moves now against free flow, in about 80 countries.
+  limits: Free tier about 50,000 tiles a day. Tiles are fetched only while the layer is on and are never saved, as TomTom's
+    terms ask.
+  status: active
+
+- source: trains_akl
+  name: Auckland Transport (trains now)
+  env: [AT_API_KEY]
+  needs_key: true
+  signup: https://dev-portal.at.govt.nz/
+  how: Sign up on AT's developer portal, subscribe to its real-time product (the GTFS Realtime one) and copy the subscription key.
+  unlocks: Auckland's trains on the map's "Trains now" layer, how late each runs, and lateness by line on Transport > Congestion.
+  limits: Free. Read every 30 seconds while Trains now is on (or while saving train positions); the timetable once a week.
+  status: active
+
+- source: trains_wlg
+  name: Metlink (Wellington trains now)
+  env: [METLINK_API_KEY]
+  needs_key: true
+  signup: https://opendata.metlink.org.nz/
+  how: Sign in to Metlink's open data portal and copy the API key from your account page.
+  unlocks: Wellington's trains on the map's "Trains now" layer, how late each runs, and lateness by line.
+  limits: Free. Read every 30 seconds while Trains now is on; the timetable once a week.
   status: active
 
 - source: linz_basemaps

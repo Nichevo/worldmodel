@@ -185,6 +185,16 @@ SETTINGS: dict[str, object] = {
     "ship_owners_equasis": True,         # ... and show an Equasis link (owners and managers, after signing in)
     "live_cameras": True,                # the map's Cameras layer reads road agencies' public camera lists (and Windy's, with WINDY_WEBCAMS_API_KEY)
     "live_military_planes": True,        # Planes now can show military planes only, from adsb.lol's volunteer receivers (no key)
+    # Congestion (the API's airbusy.py, roads.py, trains.py; Transport > Congestion)
+    "airport_hours_fetch": True,         # count each airport's flights by hour once a day (OpenSky flight lists, about 150 airports)
+    "airport_hours_world": True,         # ... the world's 100 busiest airports too (not just NZ and the large airports of Australia and the UK)
+    "airport_gates_fetch": True,         # count gates and aircraft stands at those airports from OpenStreetMap (Overpass, once a month)
+    "airport_delays_fetch": True,        # EUROCONTROL's monthly delay files (Europe, once a week) and the FAA's airport status (US, when asked)
+    "road_counts_fetch": True,           # roadside traffic counts once a week (NZTA, England's WebTRIS, Transport for NSW with its key)
+    "road_traffic_live": True,           # the map's Road traffic now layer (TomTom's live tiles with TOMTOM_API_KEY; shown, never saved)
+    "trains_live": True,                 # the map's Trains now layer (Auckland, Wellington, Sydney with their free keys), read every 30 seconds
+    "trains_collect": True,              # ... keep reading while the app runs and save each train's positions and lateness
+    "trains_keep_days": 14,              # days of saved train positions kept (older days deleted)
     # Detail from the OSINT communities (connectors/conflict_events.py, wars.py, outages.py, sanctions_now.py, military.py)
     "conflict_events_fetch": True,       # UCDP located events: the yearly dataset (about 30 MB) and monthly candidate events
     "acled_on": True,                    # ACLED battles, protests and riots (needs a free myACLED account in .env)
@@ -371,7 +381,7 @@ LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
 PHRASES = {"news_watch_words"}  # comma-separated words or short phrases, lower case
 BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
-RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
+RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "trains_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
@@ -440,7 +450,7 @@ def _idlist(v) -> str:
     return ",".join(dict.fromkeys(w for w in ids if re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", w)))[:8000]
 
 
-LAYER_MARKS = "_*-!$();@:^=[]{"  # layer "letters" past the 62 letters and digits (never "." or "~")
+LAYER_MARKS = "_*-!$();@:^=[]{<>'`"  # layer "letters" past the 62 letters and digits (never "." or "~")
 
 
 def _letters(v) -> str:

@@ -10,6 +10,7 @@ import IndicatorSet from "@/components/IndicatorSet";
 import NatureEvents from "@/components/NatureEvents";
 import TransportCard, { AccidentList } from "@/components/TransportCard";
 import WorldMap from "@/components/WorldMap";
+import CongestionView from "@/components/Congestion";
 import { GoodsView } from "@/components/GoodsByPort";
 import { BiggestHits, Patterns, PressureMapWeeks, PressureView } from "@/components/PortPressure";
 import { ChokeBars, HeadStrip, PortMultiples, useKeys } from "@/components/PageLook";
@@ -21,21 +22,22 @@ import { logHistory } from "@/lib/history";
 // Transport and trade routes: sea (ports, chokepoints, lanes), air, rail and rivers, the
 // networks under it all (undersea cables, pipelines), accidents, and one country.
 
-type Tab = "sea" | "pressure" | "goods" | "air" | "rivers" | "rail" | "networks" | "accidents" | "country";
-const TABS: [Tab, string][] = [["sea", "Sea"], ["pressure", "Port pressure"], ["goods", "Goods by port"], ["air", "Air"], ["rivers", "Rivers and canals"], ["rail", "Rail"], ["networks", "Cables and pipelines"],
+type Tab = "sea" | "pressure" | "goods" | "air" | "congestion" | "rivers" | "rail" | "networks" | "accidents" | "country";
+const TABS: [Tab, string][] = [["sea", "Sea"], ["pressure", "Port pressure"], ["goods", "Goods by port"], ["air", "Air"], ["congestion", "Congestion"], ["rivers", "Rivers and canals"], ["rail", "Rail"], ["networks", "Cables and pipelines"],
   ["accidents", "Accidents"], ["country", "One country"]];
 const INTRO: Record<Exclude<Tab, "country">, string> = {
   sea: "About 80% of world trade by volume goes by sea, and much of it through a few straits and canals. When one is blocked (the Ever Given in Suez in 2021, Houthi attacks in the Red Sea from late 2023, drought at Panama in 2023) ships take weeks longer and freight costs jump everywhere.",
   pressure: "How busy each port and strait is against its own normal for that time of year, week by week since 2019 (IMF PortWatch ship calls from satellite tracking). Storms, quakes, strikes and wars show as dips; the backlog is the ships that did not come, and recovery is when calls get back to 90% of normal. PortWatch has no queue or waiting times, so time in port comes from UNCTAD (yearly, by country).",
   goods: "What goes in and out of each port: the kinds of goods and the countries they come from or go to, from national statistics. New Zealand (Stats NZ, monthly, value and tonnes, sea ports and airports), Europe's main ports (Eurostat, quarterly tonnes by type of cargo), the UK's major ports (Department for Transport, yearly), US ports (Census Bureau, monthly, by ship) and Australia's ten biggest ports (BITRE, yearly totals only).",
   air: "Air carries few goods by weight but about a third of world trade by value, and most long trips by people. Passengers and freight by country, and the busiest airports where their figures are stored.",
+  congestion: "How busy the airports, roads and railways are. Airports: flights by local hour against published limits, curfews and slot levels (counted daily from OpenSky), gates and stands, and delays (EUROCONTROL in Europe, the FAA now in the US). Roads: counting sites against their normal (New Zealand, England, New South Wales) and live traffic (TomTom, with a free key, not saved). Trains: where each train is now and how late (Auckland, Wellington, Sydney), with lateness by line built up from saved positions.",
   rivers: "Rivers and canals still carry much of the freight of Europe, the United States and China. The map shows rivers by size, whole river basins (click one for the countries in it and roughly how many people live there) and the waterways ships use.",
   rail: "Railways carry much of the freight across North America, Russia, China and Australia, and most trips between cities in Europe and East Asia. The map shows the main intercity and freight lines (Natural Earth); city metro lines are on the main Map under People and places.",
   networks: "Almost all traffic between continents goes through about 600 undersea cables; gas and oil move through pipelines that cross many borders. Click a cable or pipeline on the map to outline every country it reaches.",
   accidents: "Air, sea and rail accidents (from Wikidata; New Zealand's TAIC inquiries where saved) and road deaths per person. Settings > Transport sets how many deaths an accident needs to be listed.",
 };
 const MAP_LAYERS: Record<string, string[]> = {
-  sea: ["shipping_lanes", "chokepoints", "ports"], pressure: ["port_pressure"], goods: [], air: ["airports"], rivers: ["basins", "rivers", "waterways"], rail: ["railways"],
+  sea: ["shipping_lanes", "chokepoints", "ports"], pressure: ["port_pressure"], goods: [], congestion: [], air: ["airports"], rivers: ["basins", "rivers", "waterways"], rail: ["railways"],
   networks: ["cables", "cable_landings", "gas_pipelines", "oil_pipelines", "lng_terminals"], accidents: [],
 };
 
@@ -87,7 +89,7 @@ function TransportView() {
   const loaded = (ids: string[]) => ids.filter((i) => p.loaded[i]).length;
   const notLoaded = <p>Nothing stored for this yet. It comes with <code>.\refresh.bat</code> (switches in <Link href="/settings#transport">Settings: Transport</Link>);
     files saved by hand are listed on <Link href="/data">Data status</Link>.</p>;
-  const ids = tab === "networks" || tab === "country" || tab === "pressure" || tab === "goods" ? [] : p.tabs[tab === "accidents" ? "safety" : tab] ?? [];
+  const ids = tab === "networks" || tab === "country" || tab === "pressure" || tab === "goods" || tab === "congestion" ? [] : p.tabs[tab === "accidents" ? "safety" : tab] ?? [];
   const cp = p.chokepoints.find((c) => c.id === choke);
   return (
     <div className="grid sector-page">
@@ -144,6 +146,8 @@ function TransportView() {
               <Patterns />
             </>
           ) : null}
+          {tab === "congestion" ? <CongestionView part={params.get("part") ?? undefined} airport={params.get("airport") ?? undefined}
+            site={params.get("site") ?? undefined} feed={params.get("feed") ?? undefined} /> : null}
           {tab === "goods" ? <GoodsView initial={params.get("port") ?? undefined} /> : null}
           {tab === "air" && p.airports.length ? (
             <div className="card"><h3>Busiest airports stored</h3><table className="small"><thead><tr><th>Airport</th><th className="num">Passengers</th><th className="num">Freight (t)</th><th className="num">Year</th></tr></thead>
@@ -160,7 +164,7 @@ function TransportView() {
           {tab === "accidents" ? (
             <div className="card"><h3>Air, sea and rail accidents ({p.min_deaths}+ deaths)</h3><AccidentList rows={p.accidents} limit={300} /></div>
           ) : null}
-          {ids.length || !["networks", "pressure", "goods"].includes(tab) ? <IndicatorSet ids={ids} empty={notLoaded} /> : null}
+          {ids.length || !["networks", "pressure", "goods", "congestion"].includes(tab) ? <IndicatorSet ids={ids} empty={notLoaded} /> : null}
         </>
       )}
     </div>

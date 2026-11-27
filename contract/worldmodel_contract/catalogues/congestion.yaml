@@ -1,0 +1,143 @@
+# Congestion set-up: airport busy hours, airport limits, live trains (the API's airbusy.py,
+# roads.py and trains.py). Typed in by hand; every limit names where it is set out.
+
+# The world's busiest passenger airports (about the top 100 by passengers, ACI rankings of
+# recent years), by ICAO code. Their flights per hour are counted each day from OpenSky,
+# beside every New Zealand airport with scheduled flights and the large airports of
+# Australia and the UK (Settings > Transport > Airport busy hours). The US's busiest are in this list.
+busiest_airports: [
+  KATL, OMDB, KDFW, RJTT, EGLL, KDEN, KORD, LTFM, VIDP, KLAX, ZBAD, ZGGG, LFPG, ZSPD, KJFK, RKSI, WSSS, EHAM, VHHH,
+  EDDF, LEMD, VTBS, WMKK, RPLL, OTHH, WIII, KLAS, KMCO, KMIA, KCLT, KSEA, KSFO, KPHX, KEWR, KIAH, KBOS, KMSP, KDTW,
+  CYYZ, CYVR, MMMX, MMUN, SBGR, LEBL, LIRF, EGKK, EGSS, EGCC, EDDM, LSZH, LOWW, EKCH, ENGM, ESSA, EIDW, LPPT, LGAV,
+  OERK, OEJN, OMAA, VABB, VOBL, VOMM, ZUUU, ZUTF, ZUCK, ZSHC, ZGSZ, ZBAA, ZPPP, ZLXY, ZSSS, RJAA, RJBB, RKSS, RCTP,
+  VVTS, VVNB, WADD, YSSY, YMML, YBBN, YPPH, FAOR, HECA, SAEZ, SKBO, SCEL, SPJC, MPTO, KBWI, KPHL, KFLL, KSLC,
+  KSAN, KIAD, KDCA, KLGA, KMDW, KTPA, KBNA, KAUS, PHNL,
+]
+# Large airports in these countries are counted too (with every scheduled airport in the first).
+home_countries: {all_scheduled: [NZL], large: [AUS, GBR]}
+
+# A time zone for each airport's country when the time zone outlines aren't loaded (the
+# outlines, when loaded, give the right zone for countries with several).
+country_time_zones:
+  NZL: Pacific/Auckland
+  AUS: Australia/Sydney
+  GBR: Europe/London
+  USA: America/New_York
+  IRL: Europe/Dublin
+
+# Published limits. hourly_limit: flights (take-offs plus landings) an hour; annual_limit:
+# flights a year; curfew: local hours with no (or very few) flights; slot_level: IATA
+# Worldwide Airport Slot Guidelines level (1 no coordination, 2 schedules facilitated,
+# 3 coordinated, slots needed). source names where it is set out and link the site to look on; add more in
+# var\manual\airport_limits (a CSV with columns icao, hourly_limit, annual_limit, curfew,
+# slot_level, note, source).
+airport_limits:
+  YSSY:
+    hourly_limit: 80
+    limit_kind: legal cap (Sydney Airport Demand Management Act 1997)
+    curfew: "23:00-06:00"
+    slot_level: 3
+    note: The cap counts take-offs and landings in any hour; the curfew lets a few small and freight flights through.
+    source: Sydney Airport Demand Management Act 1997 and Sydney Airport Curfew Act 1995
+    link: https://www.legislation.gov.au/
+  YPAD:
+    curfew: "23:00-06:00"
+    note: Adelaide Airport Curfew Act 2000.
+    source: Adelaide Airport Curfew Act 2000
+    link: https://www.legislation.gov.au/
+  YBCG:
+    curfew: "23:00-06:00"
+    note: Gold Coast Airport curfew (Air Navigation (Gold Coast Airport Curfew) Regulations 2018).
+    source: Gold Coast Airport curfew regulations
+    link: https://www.legislation.gov.au/
+  NZWN:
+    curfew: "00:00-06:00"
+    note: Wellington Airport's noise rules allow scheduled flights from 6 am to midnight.
+    source: Wellington Airport noise rules
+    link: https://www.wellingtonairport.co.nz/
+  EGLL:
+    annual_limit: 480000
+    limit_kind: planning cap
+    slot_level: 3
+    note: Heathrow's planning permission caps flights at 480,000 a year; ACL's capacity declaration has the hourly runway limits.
+    source: ACL (Airport Coordination Limited) capacity declarations
+    link: https://www.acl-uk.org/
+  EGKK:
+    slot_level: 3
+    note: ACL's capacity declaration has the hourly runway and stand limits.
+    source: ACL (Airport Coordination Limited) capacity declarations
+    link: https://www.acl-uk.org/
+  EGSS:
+    slot_level: 3
+    note: ACL's capacity declaration has the hourly runway limits.
+    source: ACL (Airport Coordination Limited) capacity declarations
+    link: https://www.acl-uk.org/
+  EGLC:
+    slot_level: 3
+    source: ACL (Airport Coordination Limited) capacity declarations
+    link: https://www.acl-uk.org/
+  EGCC:
+    slot_level: 3
+    source: ACL (Airport Coordination Limited) capacity declarations
+    link: https://www.acl-uk.org/
+  EDDF:
+    curfew: "23:00-05:00"
+    slot_level: 3
+    note: Frankfurt's night flight ban.
+    source: Frankfurt Airport night flight rules
+    link: https://www.frankfurt-airport.com/
+  KJFK:
+    slot_level: 3
+    source: FAA slot administration
+    link: https://www.faa.gov/
+  KLGA:
+    slot_level: 3
+    source: FAA slot administration
+    link: https://www.faa.gov/
+  KDCA:
+    slot_level: 3
+    source: FAA slot administration
+    link: https://www.faa.gov/
+
+# Live train feeds (GTFS Realtime). key: the .env name of its free key; rail_only: the feed
+# carries trains only (otherwise trains are picked out by the route type in the static
+# timetable, route_type 2 or 100-117).
+train_feeds:
+  - id: akl
+    name: Auckland
+    operator: Auckland Transport
+    country: NZL
+    tz: Pacific/Auckland
+    key: AT_API_KEY
+    header: Ocp-Apim-Subscription-Key
+    positions: https://api.at.govt.nz/realtime/legacy/vehiclelocations
+    updates: https://api.at.govt.nz/realtime/legacy/tripupdates
+    timetable: https://gtfs.at.govt.nz/gtfs.zip
+    on_time_minutes: 5
+    signup: https://dev-portal.at.govt.nz/
+  - id: wlg
+    name: Wellington
+    operator: Metlink
+    country: NZL
+    tz: Pacific/Auckland
+    key: METLINK_API_KEY
+    header: x-api-key
+    positions: https://api.opendata.metlink.org.nz/v1/gtfs-rt/vehiclepositions
+    updates: https://api.opendata.metlink.org.nz/v1/gtfs-rt/tripupdates
+    timetable: https://static.opendata.metlink.org.nz/v1/gtfs/full.zip
+    on_time_minutes: 5
+    signup: https://opendata.metlink.org.nz/
+  - id: syd
+    name: Sydney Trains
+    operator: Transport for NSW
+    country: AUS
+    tz: Australia/Sydney
+    key: TFNSW_API_KEY
+    header: Authorization
+    header_prefix: "apikey "
+    positions: https://api.transport.nsw.gov.au/v2/gtfs/vehiclepos/sydneytrains
+    updates: https://api.transport.nsw.gov.au/v2/gtfs/realtime/sydneytrains
+    timetable: https://api.transport.nsw.gov.au/v1/gtfs/schedule/sydneytrains
+    rail_only: true
+    on_time_minutes: 5
+    signup: https://opendata.transport.nsw.gov.au/
