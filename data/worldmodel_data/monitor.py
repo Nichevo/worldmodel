@@ -62,10 +62,16 @@ def storage_lines(paths: Paths) -> list[str]:
     """Plain-text storage summary for the refresh output and build report, with any warning."""
     st = local.storage(paths.home, freeable=False)
     lines = []
+    warn, critical = st["warn_at"], st["critical_at"]
     for lim in st["limits"]:
+        if lim["key"] == "drive":
+            note = ("" if lim["level"] == "ok" else
+                    f"WARNING: only {lim['free'] / local.GB:.1f} GB free on the drive; free up space or move the data folder.")
+            lines.append(f"{lim['label']}: {lim['free'] / local.GB:.1f} GB free of {lim['limit'] / local.GB:.0f} GB. {note}".rstrip())
+            continue
         share = lim["used"] / lim["limit"] if lim["limit"] else 0
-        note = {"warn": "WARNING: over 80% of the limit; review the limit or free up space.",
-                "critical": "WARNING: over 95% of the limit; free up space or raise the limit in Settings.",
+        note = {"warn": f"WARNING: over {warn:.0%} of the limit; review the limit or free up space.",
+                "critical": f"WARNING: over {critical:.0%} of the limit; free up space or raise the limit in Settings.",
                 "full": "LIMIT REACHED: large downloads are skipped until space is freed or the limit is raised."
                 }.get(lim["level"], "")
         lines.append(f"{lim['label']}: {lim['used'] / local.GB:.2f} GB of {lim['limit'] / local.GB:.0f} GB "

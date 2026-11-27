@@ -170,7 +170,7 @@ def test_storage_free_up_and_refresh_log(client, tmp_path, monkeypatch):
         d.mkdir(parents=True)
         (d / "file.csv").write_bytes(b"x" * 1000)
     (home / "user").mkdir()
-    (home / "user" / "settings.json").write_text('{"disk_limit_gb": 1}')
+    (home / "user" / "settings.json").write_text('{"disk_limit_gb": 1, "drive_free_warn_gb": 0}')
     st = client.get("/api/v1/storage").json()
     raw = next(c for c in st["categories"] if c["key"] == "raw")
     assert raw["bytes"] == 3000 and st["freeable"] == 1000 and st["level"] == "ok"
