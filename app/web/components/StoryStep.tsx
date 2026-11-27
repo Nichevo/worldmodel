@@ -20,6 +20,7 @@ import { fmtOf, type CityData, type CountData, type RankData, type SeriesData, t
 import { BubblesStep, ScoresStep, StatesStep, TrackStep, WarStep } from "@/components/story/MoreSteps";
 import { EventsStep, LayerStep, MonthlyStep } from "@/components/story/ExtraSteps";
 import LandCompare from "@/components/LandCompare";
+import { ThenNowStep } from "@/components/story/CountrySteps";
 import { bandMarks, Frame, notLoaded, type Props, useStoryBands } from "@/components/story/Frame";
 
 
@@ -40,6 +41,7 @@ export default function StoryStep(p: Props) {
   if (s.kind === "monthly") return <MonthlyStep {...p} step={s} />;
   if (s.kind === "events") return <EventsStep {...p} step={s} />;
   if (s.kind === "layer") return <LayerStep {...p} step={s} />;
+  if (s.kind === "thennow") return <ThenNowStep {...p} step={s} />;
   return <Frame {...p} sentence={s.say} data="">{s.view === "seaice" ? <SeaIceCard /> : s.view === "electricity" ? <ElectricityMap />
     : s.view === "landcompare" ? <LandCompare initial={s.with ?? ["NZL", "AUS"]} />
     : s.view === "energyflow" ? <EnergyFlowCard entity={s.entity ?? "NZL"} name={s.entity === "NZL" || !s.entity ? "New Zealand" : s.entity} /> : <LargestCities />}</Frame>;
