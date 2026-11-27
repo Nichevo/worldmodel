@@ -457,7 +457,7 @@ export default function SettingsPage() {
         <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
           note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
           save={(v) => save({ ships_keep_days: v })} />
-        <Toggle label="Size ships by length" hint="On the map, draw each ship's shape bigger the longer the ship (from the length it sends: a 20 m boat small, a 400 m container ship about three times as big). Ships that haven't sent their length are drawn mid-sized. Off: every ship the same size. Turn the Ships layer off and on again to see the change."
+        <Toggle label="Size ships by length" hint="On the map, draw each ship's shape bigger the longer the ship (from the length it sends: boats up to about 60 m at the usual size, a 200 m ship one and a half times and a 400 m container ship twice as big). Ships that haven't sent their length are drawn at the usual size. Off: every ship the same size. Turn the Ships layer off and on again to see the change."
           on={s.ship_size_by_length} set={(v) => save({ ship_size_by_length: v })} />
         <Toggle label="Cargo ship schedules" hint="For cargo and container ships: keep every ETA and destination they send and every port call seen, learn each ship's route, and say whether it is on time (Ships table, a ship's Schedule part, Live › Schedules). Needs ships collected. Off: nothing new is kept and the On time? column stays empty."
           on={s.ship_schedules} set={(v) => save({ ship_schedules: v })} />

@@ -48,12 +48,12 @@ type Style = {
   symbol?: () => SymbolLayerSpecification["layout"];
   sortKey?: unknown[]; // dots: drawn in this order, highest on top (earthquakes: the biggest)
 };
-// A ship shape's size by zoom, and (by default) by the ship's length: about 0.55 times for a 20 m
-// boat, 1 for 120 m, 1.7 for 400 m (by its square root, so the giants don't swamp the map); a ship
-// that hasn't sent its length is drawn as if 80 m long.
+// A ship shape's size by zoom, and (by default) by the ship's length: never smaller than before
+// (boats up to about 60 m as they always were), then growing with the square root of the length to
+// 1.5 times for 200 m and 2 times for 400 m, so the giants stand out without hiding the small ones.
 function shipSize(byLength: boolean): ExpressionSpecification {
   const f = byLength
-    ? ["interpolate", ["linear"], ["sqrt", ["max", 1, ["coalesce", ["get", "length_m"], 80]]], 4.5, 0.55, 11, 1, 20, 1.7]
+    ? ["interpolate", ["linear"], ["sqrt", ["max", 1, ["coalesce", ["get", "length_m"], 1]]], 7.7, 1, 14.1, 1.5, 20, 2]
     : 1;
   const at = (z: number, s: number) => [z, typeof f === "number" ? s : ["*", s, f]];
   return ["interpolate", ["linear"], ["zoom"], ...at(1, 0.45), ...at(5, 0.6), ...at(9, 0.8), ...at(12, 1)] as unknown as ExpressionSpecification;
