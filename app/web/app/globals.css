@@ -246,6 +246,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .map-live .ok { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #2f9e44; }
 @keyframes map-live-spin { to { transform: rotate(360deg); } }
 .map-info:has(.camera-view) { max-height: 88%; }
+.map-info:has(.place-history) { width: min(380px, calc(100% - 20px)); max-height: 80%; }
 .camera-view .camera-media { display: block; width: 100%; max-height: 210px; object-fit: contain; background: var(--surface-2); border-radius: 4px; }
 .camera-view button.link.on { color: var(--ink); font-weight: 600; text-decoration: none; }
 /* The camera wall: several cameras side by side, over the map (bottom right) or on /cameras. */
