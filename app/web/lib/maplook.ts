@@ -47,6 +47,13 @@ export const LAND_COVER: [string, string][] = [["Tree cover", "#006400"], ["Shru
   ["Water", "#0064c8"], ["Wetland", "#0096a0"], ["Mangroves", "#00cf75"], ["Moss and lichen", "#fae6a0"]];
 export const LOOK_PREFIX = "look-";
 
+// How far in each picture is worth zooming. The map's own limit is the larger of this and the
+// map detail's (maxZoomFor), set in one place (WorldMap), so changing one never cuts the other:
+// "Countries only" used to drop a sharp aerial view from 19 to 16 and jump the map out.
+// Sharp aerial: LINZ photos go to 21 inside New Zealand; Esri elsewhere stops at 19 and is enlarged.
+export const lookMaxZoom = (look: Pick<Look, "map_look">) =>
+  look.map_look === "night" ? 8 : look.map_look === "sharp" ? 21 : 12;
+
 const yesterday = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 
 export function tileUrl(set: "relief" | "satellite" | "night" | "landcover", look: Pick<Look, "map_tiles" | "night_year" | "land_cover_year">): string {
@@ -177,7 +184,6 @@ export function addLook(m: maplibregl.Map, look: Look): string | null {
     m.setMaxPitch(70);
     if (m.getPitch() < 20) m.easeTo({ pitch: 50 });
   } else if (m.getPitch() > 0) m.easeTo({ pitch: 0 });
-  m.setMaxZoom(Math.max(m.getMaxZoom(), look.map_look === "night" ? 8 : look.map_look === "sharp" ? 19 : 12));
   refreshFill(m, { picture: true, over: look.map_colours_over });
   return attributions.join(" · ");
 }

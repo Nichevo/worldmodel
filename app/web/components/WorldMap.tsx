@@ -17,7 +17,7 @@ import PlaceHistory, { HISTORY_LAYERS } from "@/components/PlaceHistory";
 import { toggleWall } from "@/lib/cameraWall";
 import { hereCard, LAYER_STYLE, layerData, layerSpec, layerLabel, windowData } from "@/lib/layers";
 import { addDetail, baseMapStatus, LABEL_FONT, maxZoomFor, ONLINE_DOWN_NOTE, ONLINE_FONTS, onlineReachable, quietMapErrors, removeDetail } from "@/lib/basemap";
-import { addLook, removeLook } from "@/lib/maplook";
+import { addLook, lookMaxZoom, removeLook } from "@/lib/maplook";
 import { addGlobeButton, applyGlobe, noDataColour } from "@/lib/globe";
 import { MeasureTool, greatCircle } from "@/lib/measure";
 import { readSettings, saveSettings, useSettings } from "@/lib/settings";
@@ -675,6 +675,12 @@ export default function WorldMap({
     else onLoad.current.push(apply);
   }, [globeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The deepest zoom: whichever of the map detail and the picture under the colours goes further.
+  // Only ever set here, so switching one (say street detail to Countries only on a satellite
+  // view) keeps the other's reach and never moves the camera.
+  const detailMax = useRef(maxZoomFor());
+  const setZoomCap = (m: maplibregl.Map) => m.setMaxZoom(Math.max(detailMax.current, lookMaxZoom(look)));
+
   // Map detail under the colours (Settings > Map): online tiles, the local map files, or none.
   useEffect(() => {
     const m = map.current;
@@ -688,7 +694,8 @@ export default function WorldMap({
         const got = await addDetail(m, baseMap);
         if (gone || map.current !== m) return;
         const files = got.shown === "local" ? await baseMapStatus().then((st) => st.files.length).catch(() => 0) : 0;
-        m.setMaxZoom(maxZoomFor(got.shown, files));
+        detailMax.current = maxZoomFor(got.shown, files);
+        setZoomCap(m);
         setDetailNote(got.note);
         sites();
       } catch (e) { console.warn("map detail skipped", e); }
@@ -704,6 +711,7 @@ export default function WorldMap({
     if (!m) return;
     const apply = () => {
       try { addLook(m, look); } catch (e) { console.warn("map background skipped", e); }
+      setZoomCap(m);
     };
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
