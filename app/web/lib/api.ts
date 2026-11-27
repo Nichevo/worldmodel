@@ -199,6 +199,12 @@ export function get<T>(path: string, params: Record<string, string | number | un
   return p;
 }
 
+// The same as get, but not shared with other callers and stopped when `signal` aborts (a map
+// layer asking for a new view drops its older question, and gives up on one that hangs).
+export function getAbortable<T>(path: string, signal: AbortSignal): Promise<T> {
+  return fetchJson<T>(`/api/v1${path}`, signal);
+}
+
 // Until the API has answered once, a refused connection (the web app's proxy turns it into a
 // plain-text 500) or a network error is taken as the API still starting and asked again
 // quietly for up to about 20 seconds; after that, errors show at once as before.
@@ -209,23 +215,23 @@ function fromApi(res: Response): boolean {
   return (res.headers.get("content-type") ?? "").includes("json");
 }
 
-async function fetchOnce(url: string): Promise<Response> {
+async function fetchOnce(url: string, signal?: AbortSignal): Promise<Response> {
   for (let i = 0; ; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal });
       if (apiSeen || fromApi(res) || res.ok || res.status < 500 || i >= STARTING_WAITS.length) {
         if (fromApi(res)) apiSeen = true;
         return res;
       }
     } catch (e) {
-      if (apiSeen || i >= STARTING_WAITS.length) throw e;
+      if (apiSeen || signal?.aborted || i >= STARTING_WAITS.length) throw e;
     }
     await new Promise((r) => setTimeout(r, STARTING_WAITS[i]));
   }
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetchOnce(url);
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetchOnce(url, signal);
   if (!res.ok) {
     let detail = res.statusText;
     try {

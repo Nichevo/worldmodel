@@ -813,12 +813,22 @@ export default function WorldMap({
       const style = LAYER_STYLE[id];
       let timer: ReturnType<typeof setTimeout> | null = null;
       let asked = 0;
+      // The question in flight: a newer view drops it (so stacked-up questions don't hold the
+      // browser's few connections to the server), and one with no answer in WAIT_S is given up,
+      // said on the badge and asked again at the next turn, instead of 'updating…' for ever.
+      let ctl: AbortController | null = null;
+      const isLive = style.fetch === "live";
+      const WAIT_S = Math.max(30, style.every ?? 60); // live layers only: big map layers can take longer the first time
       const load = () => {
         const b = m.getBounds();
         const n = ++asked;
-        const isLive = style.fetch === "live";
+        ctl?.abort();
+        const c = new AbortController();
+        ctl = c;
+        let late = false;
+        const giveUp = isLive ? setTimeout(() => { late = true; c.abort(); }, WAIT_S * 1000) : undefined;
         if (isLive) setLiveState((cur) => ({ ...cur, [id]: { ...cur[id], loading: true, every: style.every ?? 60 } }));
-        windowData(id, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom()).then((fc) => {
+        windowData(id, { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }, m.getZoom(), c.signal).then((fc) => {
           if (!live || n !== asked) return;
           if (style.timed && fc.loaded === false && id === "conflict_events") fc.note = "none loaded yet: a refresh fetches UCDP and ACLED";
           const asOf = id === "port_pressure" ? (fc.features[0]?.properties as { from?: string; as_of?: string } | undefined) : undefined;
@@ -837,9 +847,11 @@ export default function WorldMap({
           setNotes((cur) => ({ ...cur, [id]: note }));
         }).catch((e) => {
           if (n !== asked || !live) return;
-          setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${String(e?.message ?? e)}` }));
-          if (isLive) setLiveState((cur) => ({ ...cur, [id]: { ...cur[id], loading: false, every: style.every ?? 60, error: `could not ask the server (${String(e?.message ?? e)})` } }));
-        });
+          const why = late ? `no answer from the server in ${WAIT_S} s; asking again in ${style.every ?? 60} s or when the map moves`
+            : String(e?.message ?? e);
+          setNotes((cur) => ({ ...cur, [id]: `${LAYER_STYLE[id].legend}: ${why}` }));
+          if (isLive) setLiveState((cur) => ({ ...cur, [id]: { ...cur[id], loading: false, every: style.every ?? 60, error: late ? why : `could not ask the server (${why})` } }));
+        }).finally(() => clearTimeout(giveUp));
       };
       const soon = () => { if (timer) clearTimeout(timer); timer = setTimeout(load, 450); };
       if (!style.once) m.on("moveend", soon);
@@ -852,6 +864,7 @@ export default function WorldMap({
       dynamic.current[id] = () => {
         m.off("moveend", soon);
         window.removeEventListener("wm-layer-window", soon);
+        ctl?.abort();
         if (timer) clearTimeout(timer);
         if (every) clearInterval(every);
         setNotes((cur) => { const { [id]: _gone, ...rest } = cur; return rest; });

@@ -5,7 +5,7 @@
 import type { CircleLayerSpecification, ExpressionSpecification, FillLayerSpecification, LayerSpecification, LineLayerSpecification, SymbolLayerSpecification } from "maplibre-gl";
 import { groupColor, PLANE_GROUPS, SHIP_GROUPS } from "@/lib/mapIcons";
 import { shipsAtQuery } from "@/lib/ships";
-import { get } from "@/lib/api";
+import { get, getAbortable } from "@/lib/api";
 import { readSettings } from "@/lib/settings";
 import { cssVar } from "@/lib/colors";
 import { aqiWords, MODEL_COLOURS } from "@/lib/weather";
@@ -505,7 +505,7 @@ export const LAYER_STYLE: Record<string, Style> = {
 };
 
 // Features of a "window" or "live" layer for the area in view.
-export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number) {
+export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number, signal?: AbortSignal) {
   const r = (v: number) => Math.round(v * 100) / 100;
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
   const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}&zoom=${zoom.toFixed(1)}${shipsAtQuery()}`
@@ -517,7 +517,7 @@ export function windowData(id: string, b: { west: number; south: number; east: n
     : `/geo/${encodeURIComponent(id)}?${q}&zoom=${zoom.toFixed(1)}`;
   type Got = GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean; thinned?: number };
   if (id === "night") return Promise.resolve(nightNow() as Got); // worked out here from the time
-  const got = get<Got>(path);
+  const got = signal ? getAbortable<Got>(path, signal) : get<Got>(path);
   return id === "timezones" ? got.then((fc) => withOffsets(fc) as Got) : got;
 }
 
