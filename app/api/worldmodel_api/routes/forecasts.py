@@ -378,3 +378,36 @@ def attention_country(entity_id: str):
     if not a:
         return {"entity": entity_id, "points": [], "note": "No Wikipedia article for this kind of place."}
     return attention.country(entity_id, a, _set("attention_on"))
+
+
+# ----------------------------------------------------------------------------- forecast scores (back-tests and the running record)
+def _scores():
+    from worldmodel_api import forecast_scores as fs
+
+    if fs.SCORES.q is None:
+        fs.SCORES.configure(rows, _build_id, _wh_version, userdata.settings)
+    return fs
+
+
+@api.get("/forecast-scores")
+def forecast_scores_part(part: str = Query("disease", description="disease, stat:<indicator>, nowcast, recession or live")):
+    """How good the app's forecasts have been: each made again from the past with only the figures there were
+    then (a rolling-origin back-test) and scored against what came and against simple baselines; or, for
+    `live`, the forecasts saved after each refresh scored as their figures come in. Worked out in the
+    background after each new build: {status: working} until ready, then {status: ready, result}."""
+    fs = _scores()
+    if part.startswith("stat:"):
+        ind = part[5:]
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", ind) or not rows("SELECT 1 FROM indicators WHERE indicator_id = ?", [ind]):
+            raise HTTPException(404, f"no indicator {ind}")
+    elif part not in ("disease", "nowcast", "recession", "live"):
+        raise HTTPException(422, "part must be disease, stat:<indicator>, nowcast, recession or live")
+    return fs.SCORES.ask(part)
+
+
+@api.get("/forecast-scores/state")
+def forecast_scores_state():
+    """Which parts of the scores are ready for this build, which is being worked out and which wait."""
+    fs = _scores()
+    return {**fs.SCORES.state(), "defaults": list(fs.PARTS_DEFAULT), "stat_default": list(fs.STAT_DEFAULT),
+            "horizons": fs.HORIZONS, "horizon_unit": fs.HORIZON_UNIT, "baselines": fs.BASE_NAMES}

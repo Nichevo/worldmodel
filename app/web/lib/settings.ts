@@ -76,6 +76,8 @@ export const DEFAULT_SETTINGS: Settings = {
   forecast_horizon: 10,
   forecast_ranges: "80+95",
   forecast_official: true,
+  forecast_scores_keep: true,
+  forecast_backtest_years: 3,
   base_map: "online",
   map_centre: "pacific",
   quality_show: "B",

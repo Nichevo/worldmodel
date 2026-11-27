@@ -74,6 +74,13 @@ async def lifespan(_app: FastAPI):
         forecast_skill.start(userdata.settings)
     except Exception:  # noqa: BLE001 - shown on the Forecast accuracy page
         pass
+    try:  # forecast scores: back-tests and the running record, worked out after each new build (Forecasts > Scores)
+        from worldmodel_api import forecast_scores, userdata
+        from worldmodel_api.routes.forecasts import _wh_version
+
+        forecast_scores.start(rows, core._build_id, _wh_version, userdata.settings)
+    except Exception:  # noqa: BLE001 - the Scores tab says what is wrong
+        pass
     try:
         spotting.recover()  # a scan left running when the app stopped waits, paused
     except Exception:  # noqa: BLE001 - shown on the Spotting page

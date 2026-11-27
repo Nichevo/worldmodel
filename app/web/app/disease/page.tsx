@@ -320,7 +320,8 @@ function ForecastCard({ f, country }: { f: ForecastView; country: string }) {
       ) : null}
       <p className="caption">Built from {x.from_seasons.length} earlier seasons ({x.from_seasons[0]} to {x.from_seasons[x.from_seasons.length - 1]}), each scaled to the usual peak
         and the other hemisphere&apos;s signal, and slid and fitted to the weeks seen; the dashed line is their weighted middle, the shading the middle 80%.
-        A new strain can make any season break the pattern.</p>
+        A new strain can make any season break the pattern.{" "}
+        <Link href={`/forecasts?tab=scores&e=${country}`}>Week-by-week scores over the last few years, against plain guesses</Link>.</p>
     </div>
   );
 }
