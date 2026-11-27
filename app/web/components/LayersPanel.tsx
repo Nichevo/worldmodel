@@ -218,7 +218,7 @@ export function useMapMarks(letters: string, win: string, year: number | null) {
       legend.push({ label: "Tree height (darker green: taller, up to 40 m+)", color: "#1b5e20", shape: "dot" });
     }
     if (on("<")) {
-      rasters.push({ tiles: `${location.origin}/api/v1/congestion/traffic-tiles/{z}/{x}/{y}.png`, attribution: "Live traffic: TomTom",
+      rasters.push({ tiles: `${typeof location !== "undefined" ? location.origin : ""}/api/v1/congestion/traffic-tiles/{z}/{x}/{y}.png`, attribution: "Live traffic: TomTom",
         maxzoom: 18, over: true, opacity: 0.9 });
       legend.push({ label: "Traffic now: green flowing, orange slow, red queuing (TomTom)", color: "#e03131", shape: "dot" });
     }
