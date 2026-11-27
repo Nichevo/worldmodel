@@ -508,14 +508,14 @@ export const LAYER_STYLE: Record<string, Style> = {
 export function windowData(id: string, b: { west: number; south: number; east: number; north: number }, zoom: number) {
   const r = (v: number) => Math.round(v * 100) / 100;
   const q = `west=${r(b.west)}&south=${r(b.south)}&east=${r(b.east)}&north=${r(b.north)}`;
-  const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}${shipsAtQuery()}`
+  const path = id === "live_planes" ? `/live/planes?${q}${shipsAtQuery()}` : id === "live_ships" ? `/live/ships?${q}&zoom=${zoom.toFixed(1)}${shipsAtQuery()}`
     : id === "live_military" ? `/live/military-planes?${q}`
     : id === "live_cameras" ? `/live/cameras?${q}`
     : id === "conflict_events" ? `/osint/events?${q}&${fightingQuery()}&limit=${zoom < 3 ? 2500 : 6000}`
     : id === "front_line" ? "/osint/front/russia_ukraine"
     : id === "port_pressure" ? `/transport/pressure/map?${portWeeksQuery()}`
     : `/geo/${encodeURIComponent(id)}?${q}&zoom=${zoom.toFixed(1)}`;
-  type Got = GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean };
+  type Got = GeoJSON.FeatureCollection & { error?: string; note?: string; count?: number; capped?: boolean; loaded?: boolean; thinned?: number };
   if (id === "night") return Promise.resolve(nightNow() as Got); // worked out here from the time
   const got = get<Got>(path);
   return id === "timezones" ? got.then((fc) => withOffsets(fc) as Got) : got;

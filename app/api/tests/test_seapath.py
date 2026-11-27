@@ -102,3 +102,27 @@ def test_quiet_ships_moved_along_or_left_where_heard(tmp_path, monkeypatch):
     s2 = live.Ships(store=ShipStore(tmp_path / "s2"), settings=lambda: {"ships_quiet_days": 0})
     s2.store.details = s.store.details
     assert s2.quiet_ships([(160.0, -50.0, 180.0, -30.0)], set(), now) == []
+
+
+def test_ships_thinned_when_zoomed_out_and_lean(monkeypatch):
+    from worldmodel_api import live
+
+    def f(mmsi, lon, lat, **p):
+        return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": {"id": mmsi, "imo": 9000000 + mmsi, "kind": 70, "seen": 1, "speed_kn": 12.345, **p}}
+    feats = [f(1, 174.80001, -36.8, length_m=30), f(2, 174.81, -36.81, length_m=300), f(3, 174.82, -36.8, quiet=5.0, length_m=400),
+             f(4, 174.83, -36.8, length_m=10), f(5, 150.0, -30.0)]
+    kept = live.thin_ships(feats, 3)
+    assert sorted(x["properties"]["id"] for x in kept) == [2, 5]  # the longest heard lately; the far one stays
+    assert live.thin_ships(feats, 8) == feats  # zoomed in: every ship
+
+    ships = live.Ships()
+    monkeypatch.setattr(ships, "settings", lambda: {"ships_thin": True})
+    out = ships._lean({"features": [dict(x, properties=dict(x["properties"])) for x in feats]}, 3, {"9000004"})
+    ids = sorted(x["properties"]["id"] for x in out["features"])
+    assert ids == [4, 5] and out["thinned"] == 3  # the sanctioned one comes first in its square
+    p = next(x for x in out["features"] if x["properties"]["id"] == 4)
+    assert p["properties"]["sanctioned"] and "imo" not in p["properties"] and "seen" not in p["properties"]
+    assert p["properties"]["speed_kn"] == 12.3 and p["geometry"]["coordinates"] == [174.83, -36.8]
+    monkeypatch.setattr(ships, "settings", lambda: {"ships_thin": False})
+    assert len(ships._lean({"features": [dict(x, properties=dict(x["properties"])) for x in feats]}, 3, None)["features"]) == 5

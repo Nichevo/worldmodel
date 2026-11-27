@@ -475,21 +475,15 @@ def live_planes(west: float, south: float, east: float, north: float, at: float 
 
 
 @api.get("/live/ships")
-def live_ships(west: float, south: float, east: float, north: float, at: float | None = None):
+def live_ships(west: float, south: float, east: float, north: float, at: float | None = None, zoom: float | None = None):
     """Ships' latest positions in a map window (aisstream.io, needs AISSTREAM_API_KEY), or with `at`
-    (seconds since 1970) where they were then, from the positions saved while collecting."""
+    (seconds since 1970) where they were then, from the positions saved while collecting. With the map's
+    `zoom`, zoomed out, one ship per small square (Settings > Transport: Thin out ships when zoomed out)."""
     from worldmodel_api import live
 
     if not local.load_settings().get("live_ships", True):
         return {"type": "FeatureCollection", "features": [], "error": "Ships now is switched off in Settings > Transport."}
-    out = live.SHIPS.get(west, south, east, north, at)
-    banned = osint.sanctioned_ship_ids(rows)
-    if banned:
-        for f in out.get("features") or []:
-            p = f.get("properties") or {}
-            if str(p.get("id")) in banned or (p.get("imo") and str(p["imo"]) in banned):
-                p["sanctioned"] = True
-    return out
+    return live.SHIPS.get(west, south, east, north, at, zoom=zoom, banned=osint.sanctioned_ship_ids(rows))
 
 
 @api.get("/live/ships/status")

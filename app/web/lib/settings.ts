@@ -145,6 +145,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ships_collect: true,
   ships_area: "pacific",
   ships_world_every_hours: 6,
+  ships_thin: true,
   ships_quiet_days: 3,
   ships_keep_days: 30,
   ship_size_by_length: true,

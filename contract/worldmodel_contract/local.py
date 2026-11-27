@@ -161,6 +161,7 @@ SETTINGS: dict[str, object] = {
     "ships_collect": True,               # keep one aisstream connection open while the app runs and save ships' positions (var/live/ships)
     "ships_area": "pacific",             # where ships are collected: pacific (NZ, Australia, South Pacific) or world
     "ships_world_every_hours": 6,        # with the Pacific area: also a 10-minute whole-world snapshot this often (0: none)
+    "ships_thin": True,                  # map: zoomed out, one ship per small square (the biggest), every ship on zooming in
     "ships_quiet_days": 3,               # map: ships not heard lately drawn faded for up to this many days (0: not drawn)
     "ships_keep_days": 30,               # days of saved ship positions kept (older days deleted)
     "ship_size_by_length": True,         # map: ship shapes drawn bigger for longer ships (their AIS length)
