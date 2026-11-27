@@ -38,6 +38,12 @@ const lateText = (min?: number | null) =>
 const STATUS: Record<string, string> = { EnRoute: "In the air", Approaching: "Approaching", Departed: "Departed", Arrived: "Arrived",
   Expected: "Expected", CheckIn: "Check-in open", Boarding: "Boarding", GateClosed: "Gate closed", Delayed: "Delayed",
   Canceled: "Cancelled", CanceledUncertain: "Maybe cancelled", Diverted: "Diverted", Unknown: "" };
+type History = { flights: { saved: number; date: string; number?: string | null; late_leave_min?: number | null; late_arrive_min?: number | null }[];
+  fares: { saved: number; month?: string | null; currency?: string | null; cheapest: number; count: number }[] };
+const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso)
+  ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-NZ", { day: "numeric", month: "short", timeZone: "UTC" }) : iso;
+const savedDay = (t: number) => new Date(t * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short" });
+
 type Route = { from: string; to: string; day: string | null; airline?: string | null; number?: string | null };
 const money = (n: number, cur: string) => `${cur} ${Math.round(n).toLocaleString()}`;
 
@@ -65,6 +71,14 @@ export function FlightSchedule({ id, callsign, onRoute }: { id: string; callsign
   onRoute?: (r: Route | null) => void }) {
   const [s, setS] = useState<Schedule | null>(null);
   const [err, setErr] = useState(false);
+  const [past, setPast] = useState<History | null>(null);
+  useEffect(() => {
+    const num = s?.flight?.number ?? s?.flight?.callsign ?? callsign;
+    if (!num) return;
+    let live = true;
+    get<History>("/live/planes/flight-history", { number: num }).then((h) => live && setPast(h)).catch(() => {});
+    return () => { live = false; };
+  }, [s, callsign]);
   useEffect(() => {
     let live = true;
     const q = callsign ? `?callsign=${encodeURIComponent(callsign)}` : "";
@@ -99,6 +113,10 @@ export function FlightSchedule({ id, callsign, onRoute }: { id: string; callsign
             </>
           )}
           {(s.error || s.note) && <p className="small muted" style={{ margin: "2px 0" }}>{s.error ?? s.note}</p>}
+          {past && past.flights.length > 0 && (
+            <p className="small" style={{ margin: "2px 0" }}>Saved so far ({past.flights.length} days): {past.flights.slice(-8).reverse().map((h) =>
+              `${shortDay(h.date)} ${h.late_arrive_min != null ? `arrived ${lateText(h.late_arrive_min)}` : h.late_leave_min != null ? `left ${lateText(h.late_leave_min)}` : "times not known"}`).join(" · ")}</p>
+          )}
           <p className="caption">Times are each airport&apos;s local time. From AeroDataBox{s.kept_at ? ", kept from an earlier look" : ""}; {s.used_month} of {s.cap_month} look-ups used this month.</p>
         </>
       )}
@@ -108,13 +126,15 @@ export function FlightSchedule({ id, callsign, onRoute }: { id: string; callsign
 
 export function SeatPrices({ route }: { route: Route | null }) {
   const [d, setD] = useState<Fares | null>(null);
+  const [past, setPast] = useState<History | null>(null);
   const key = route ? `${route.from}-${route.to}-${route.day}-${route.airline}-${route.number}` : "";
   useEffect(() => {
     if (!route) return;
     let live = true;
     setD(null);
     get<Fares>("/live/planes/fares", { from: route.from, to: route.to, date: route.day ?? undefined, airline: route.airline ?? undefined, number: route.number ?? undefined })
-      .then((x) => live && setD(x)).catch(() => {});
+      .then((x) => live && setD(x)).catch(() => {})
+      .finally(() => get<History>("/live/planes/flight-history", { from: route.from, to: route.to }).then((h) => live && setPast(h)).catch(() => {}));
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!route) return (
@@ -140,6 +160,10 @@ export function SeatPrices({ route }: { route: Route | null }) {
           {fareLine(`Cheapest on ${d.day ? day(d.day) : "that day"}`, d.cheapest_day, false)}
           {fareLine("Cheapest this month", d.cheapest_month)}
           {(d.error || d.note) && <p className="small muted" style={{ margin: "2px 0" }}>{d.error ?? d.note}</p>}
+          {past && past.fares.length > 1 && (
+            <p className="small" style={{ margin: "2px 0" }}>Cheapest seen on earlier looks: {past.fares.slice(-8).reverse().map((h) =>
+              `${savedDay(h.saved)} ${money(h.cheapest, h.currency ?? d.currency)}${h.month ? ` (for ${h.month})` : ""}`).join(" · ")}</p>
+          )}
           <p className="small" style={{ margin: "4px 0" }}>Check fares: {d.links.map((l, i) => <span key={l.href}>{i ? " · " : ""}<a href={l.href} target="_blank" rel="noreferrer">{l.label}</a></span>)}</p>
           {d.count > 0 && <p className="caption">One-way fares people found on Aviasales in the last few days ({d.count} seen this month), not a live price for a seat. From Travelpayouts.</p>}
         </>

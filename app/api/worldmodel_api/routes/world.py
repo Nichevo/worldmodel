@@ -806,6 +806,16 @@ def live_plane_fares(frm: str = Query(..., alias="from", min_length=3, max_lengt
     return flightinfo.fares(live.PLANES.store, frm, to, date, airline, number, local.load_settings())
 
 
+@api.get("/live/planes/flight-history")
+def live_plane_flight_history(number: str | None = None, frm: str | None = Query(None, alias="from"), to: str | None = None,
+                              days: float = Query(365, gt=0, le=36500)):
+    """Schedules and fares saved from plane cards: one row per date a flight number (or callsign)
+    was looked up, with its lateness, and each time fares for a route were asked."""
+    from worldmodel_api import flightinfo, live
+
+    return flightinfo.history(live.PLANES.store, number, frm, to, days)
+
+
 PLANE_SORTS = {"callsign", "airline", "model", "reg", "country", "altitude_m", "speed_kmh", "climb_ms", "squawk", "seen"}
 
 

@@ -122,3 +122,25 @@ def test_fares_cheapest_and_this_flight(monkeypatch):
     assert out["cheapest_month"]["price"] == 250 and out["cheapest_day"]["price"] == 300
     assert out["this_flight"]["price"] == 420 and out["this_flight"]["link"].startswith("https://www.aviasales.com/search/")
     assert flightinfo.fares(store, "AKL", "SYD", "2026-12-05", settings={"flight_fares": False})["cheapest_month"] is None
+
+
+def test_answers_saved_to_history(monkeypatch, tmp_path):
+    monkeypatch.setenv("AERODATABOX_API_KEY", "k")
+    monkeypatch.setenv("TRAVELPAYOUTS_TOKEN", "t")
+    store = Store()
+    store.folder = tmp_path
+    now = datetime.now(timezone.utc)
+    sched = httpx.MockTransport(lambda r: httpx.Response(200, json=[_flight(now - timedelta(hours=1), now + timedelta(hours=2))]))
+    fares_ = httpx.MockTransport(lambda r: httpx.Response(200, json={"success": True, "data": [
+        {"price": 300, "airline": "NZ", "flight_number": "103", "departure_at": "2026-12-05T09:00:00+13:00"}]}))
+    with httpx.Client(transport=sched) as c:
+        flightinfo.schedule(store, "c8222e", "ANZ103", {}, client=c)
+        flightinfo.schedule(store, "c8222e", "ANZ103", {}, client=c)  # kept: not saved twice
+    with httpx.Client(transport=fares_) as c:
+        flightinfo.fares(store, "AKL", "SYD", "2026-12-05", settings={}, client=c)
+    files = sorted(p.name for p in (tmp_path / "flight_history").iterdir())
+    assert files[0].startswith("fares-") and files[1].startswith("schedules-")
+    h = flightinfo.history(store, "NZ103", "AKL", "SYD")
+    assert len(h["flights"]) == 1 and h["flights"][0]["late_leave_min"] == 35 and h["flights"][0]["from"] == "AKL"
+    assert h["fares"][0]["cheapest"] == 300
+    assert flightinfo.history(store, "anz103")["flights"]  # by callsign too

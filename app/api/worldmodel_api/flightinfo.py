@@ -11,11 +11,16 @@ asked only when the plane's card is opened.
   month. These are fares seen in searches, not a live price for a seat on this flight.
 - Links to look up fares by hand (Google Flights, Skyscanner, Aviasales), with no key.
 
+Every answer actually asked (not one kept from earlier) is also saved for good, one JSON line each,
+in <home>/live/planes/flight_history/ (schedules-YYYY-MM.jsonl, fares-YYYY-MM.jsonl), so delays and
+fares can be looked back on later. Nothing there is deleted by the app.
+
 Google Flights prices are not read: Google offers no API and its terms forbid automated reading.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -85,6 +90,73 @@ def used_this_month(store) -> int:
 
 def _count_lookup(store) -> None:
     _keep(store, "adb_month", _month(), used_this_month(store) + 1, 70 * 86400)
+
+
+# ----------------------------------------------------------------------------- history
+def _history_dir(store):
+    folder = getattr(store, "folder", None)
+    return folder / "flight_history" if folder is not None else None
+
+
+def save_history(store, kind: str, row: dict) -> None:
+    """Add one answer to this month's history file (never fails the card)."""
+    folder = _history_dir(store)
+    if folder is None:
+        return
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        with _lock, (folder / f"{kind}-{_month()}.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"at": int(time.time()), **row}, separators=(",", ":")) + "\n")
+    except OSError as exc:
+        log.warning("flight history %s: %s", kind, exc)
+
+
+def _read_history(store, kind: str, since: float):
+    folder = _history_dir(store)
+    if folder is None or not folder.exists():
+        return
+    first = datetime.fromtimestamp(since, timezone.utc).strftime("%Y-%m")
+    for f in sorted(folder.glob(f"{kind}-*.jsonl")):
+        if f.stem.split("-", 1)[1] < first:
+            continue
+        for line in f.read_text(encoding="utf-8").splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(row, dict) and row.get("at", 0) >= since:
+                yield row
+
+
+def history(store, number: str | None = None, frm: str | None = None, to: str | None = None, days: float = 365) -> dict:
+    """Saved schedules for a flight number (or callsign), and saved fares for a route, oldest first.
+    Schedules give one row per flight date (the last answer saved for it)."""
+    since = time.time() - days * 86400
+    want = "".join(ch for ch in str(number or "").upper() if ch.isalnum())
+    flights: dict[str, dict] = {}
+    if want:
+        for row in _read_history(store, "schedules", since):
+            f = row.get("flight") or {}
+            names = {"".join(ch for ch in str(f.get(k) or "").upper() if ch.isalnum()) for k in ("number", "callsign")}
+            if want not in names:
+                continue
+            dep, arr = f.get("departure") or {}, f.get("arrival") or {}
+            day = str((dep.get("scheduled") or {}).get("local") or "")[:10] or str(row["at"])
+            flights[f"{f.get('number')}|{day}"] = {"saved": row["at"], "date": day, "number": f.get("number"), "status": f.get("status"),
+                "from": (dep.get("airport") or {}).get("iata"), "to": (arr.get("airport") or {}).get("iata"),
+                "late_leave_min": dep.get("late_min"), "late_arrive_min": arr.get("late_min"), "gate": dep.get("gate"),
+                "aircraft": (f.get("aircraft") or {}).get("reg")}
+    fares_seen = []
+    if frm and to:
+        route = f"{frm.upper()}-{to.upper()}"
+        for row in _read_history(store, "fares", since):
+            if row.get("route") != route:
+                continue
+            prices = [r.get("price") for r in row.get("rows") or [] if isinstance(r.get("price"), (int, float))]
+            if prices:
+                fares_seen.append({"saved": row["at"], "month": row.get("month"), "currency": row.get("currency"),
+                                   "cheapest": min(prices), "count": len(prices)})
+    return {"flights": sorted(flights.values(), key=lambda r: r["date"]), "fares": fares_seen}
 
 
 # ----------------------------------------------------------------------------- schedule
@@ -209,6 +281,8 @@ def schedule(store, icao24: str, callsign: str | None, settings: dict | None = N
         body = r.json()
         rows = body if isinstance(body, list) else (body.get("items") or [body]) if isinstance(body, dict) else []
         flights = [parse_flight(f) for f in rows if isinstance(f, dict)]
+        for f in flights:
+            save_history(store, "schedules", {"by": by, "what": what, "hex": icao24.lower(), "flight": f})
         chosen = pick_flight(flights, hex_code=icao24)
         value = {"flight": chosen, "found": len(flights)}
         _keep(store, "schedule", f"{by}:{what}", value, 2 * 86400)
@@ -284,6 +358,7 @@ def fares(store, frm: str, to: str, day: str | None, airline: str | None = None,
                 return {**out, "error": f"Travelpayouts: {str(body.get('error') or 'no answer')[:120]}"}
             rows = [_fare_row(d) for d in (body.get("data") or []) if isinstance(d, dict)] if isinstance(body, dict) else []
             _keep(store, "fares", kkey, rows, 3 * 86400)
+            save_history(store, "fares", {"route": f"{frm}-{to}", "month": month, "currency": cur, "rows": rows})
         except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
             log.info("Travelpayouts %s: %s", kkey, exc)
             return {**out, "error": f"Travelpayouts did not answer ({exc.__class__.__name__})."}
