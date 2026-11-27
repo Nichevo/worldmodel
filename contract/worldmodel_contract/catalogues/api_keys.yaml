@@ -326,6 +326,31 @@
     asks at most once every 60 seconds and only while the layer is on.
   status: active
 
+- source: flight_schedule
+  name: AeroDataBox flight status (a clicked plane's published schedule)
+  env: [AERODATABOX_API_KEY]
+  needs_key: true
+  signup: https://rapidapi.com/aedbx-aedbx/api/aerodatabox
+  how: Sign in to RapidAPI (free), open the AeroDataBox API, subscribe to the free Basic plan (no card), and copy the
+    X-RapidAPI-Key shown in its code examples.
+  unlocks: "The Schedule part of a plane's card: its flight number, scheduled, expected and actual times at both ends,
+    how late it is, status, and terminal, gate and baggage belt when the airport publishes them."
+  limits: Free Basic plan, 600 units a month (a flight look-up uses about 2), one request a second. Asked only when a
+    plane's card is opened, kept 20 minutes while the flight is in the air, and capped per month in Settings > Transport.
+  status: active
+
+- source: flight_fares
+  name: Travelpayouts Aviasales data API (fares seen for a route)
+  env: [TRAVELPAYOUTS_TOKEN]
+  needs_key: true
+  signup: https://www.travelpayouts.com/
+  how: Sign up to Travelpayouts (free), then open Profile > API token (tools section) and copy the token.
+  unlocks: "The Seat prices part of a plane's card: the cheapest fares people found on Aviasales for that route this
+    month and on that day, and this flight's own fare when someone searched it."
+  limits: Free. Fares come from searches on Aviasales in the last few days, so quiet routes may show none. Asked only
+    when a plane's card is opened, kept 12 hours per route and month.
+  status: active
+
 - source: metaculus
   name: Metaculus API
   env: [METACULUS_TOKEN]

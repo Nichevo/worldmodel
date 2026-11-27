@@ -65,7 +65,8 @@ export default function RegionFactsCard({ entity, name }: { entity: string; name
         </table>
       </div>
       <p className="caption">#1 is the highest of the {among} that year, whether that is good or bad. Middle is the median.
-        {" "}Figures from the Census Bureau, BEA, BLS, FHFA, MIT Election Lab, County Health Rankings and EIA (US), or Stats NZ.</p>
+        {" "}Figures from the Census Bureau, BEA, BLS, FHFA, MIT Election Lab, County Health Rankings and EIA (US), Stats NZ and the
+        {" "}Ministry for Cities, Environment, Regions and Transport (New Zealand), or the ABS (Australia).</p>
     </div>
   );
 }

@@ -180,6 +180,8 @@ SETTINGS: dict[str, object] = {
     "planes_logos": True,                # airline logos beside airliners (fetched once per airline from GitHub, kept in var/live/planes/logos)
     "planes_badges": True,               # flags (and airline logos on airliners) beside planes on the map when zoomed in
     "planes_keep_days": 30,              # days of saved plane positions kept (older days deleted)
+    "flight_lookups_month": 250,         # plane card: AeroDataBox schedule look-ups a month at most (needs AERODATABOX_API_KEY; 0: off)
+    "flight_fares": True,                # plane card: fares seen lately for the plane's route (needs TRAVELPAYOUTS_TOKEN)
     "ship_owners_gfw": True,             # a ship's details ask Global Fishing Watch for owners and registries (needs GFW_API_TOKEN)
     "ship_owners_wikidata": True,        # ... and Wikidata (builder, operator, owner) + Commons photos by IMO number
     "ship_owners_equasis": True,         # ... and show an Equasis link (owners and managers, after signing in)
@@ -381,7 +383,7 @@ LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
 PHRASES = {"news_watch_words"}  # comma-separated words or short phrases, lower case
 BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
-RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "trains_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
+RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "flight_lookups_month": (0, 100_000), "trains_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),

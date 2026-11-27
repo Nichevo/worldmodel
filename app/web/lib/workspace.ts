@@ -332,7 +332,7 @@ export const MAP_LAYERS: readonly LayerDef[] = [
   { letter: "F", id: "live_planes", label: "Planes now", group: "now", hint: "Planes in the air in the area in view (OpenSky Network), once a minute while on" },
   { letter: "5", id: "live_military", label: "Military planes now", group: "now", hint: "Military planes in the air in the area in view (adsb.lol's volunteer receivers, no key), once a minute while on; only planes that broadcast their position show" },
   { letter: "-", id: "live_cameras", label: "Cameras", group: "now", hint: "Public traffic, beach and city cameras: NZ state highways, Queensland, NSW, London, California, Finland, and webcams worldwide with a free Windy key; click one for its latest picture or video" },
-  { letter: "<", id: "road_traffic", label: "Road traffic now", group: "now", made: true, hint: "How fast traffic moves on each road now against free flow, green to red (TomTom, with a free key in Settings > Keys); shown while on, never saved" },
+  { letter: "<", id: "road_traffic", label: "Road traffic now", group: "now", made: true, hint: "How fast traffic moves on each road now against free flow, green to red (TomTom, with a free key in Data status > Keys); shown while on, never saved" },
   { letter: "'", id: "live_trains", label: "Trains now", group: "now", hint: "Trains in Auckland, Wellington and Sydney where they are now, coloured by minutes late (the operators' live feeds, free keys); click one for its path" },
   { letter: "S", id: "live_ships", label: "Ships now", group: "now", hint: "Ships' latest positions in the area in view (aisstream.io, needs a free key); fills in over a few minutes" },
   { letter: "c", id: "major_cities", label: "Major cities", group: "cities" },

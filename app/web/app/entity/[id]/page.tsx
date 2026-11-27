@@ -44,6 +44,7 @@ import ZonesCard from "@/components/ZonesCard";
 import InternetCard from "@/components/InternetCard";
 import CurrencyCard from "@/components/CurrencyCard";
 import RegionFactsCard from "@/components/RegionFactsCard";
+import RegionHousePricesCard from "@/components/RegionHousePricesCard";
 import RegionsCard from "@/components/RegionsCard";
 import DiscoverCard from "@/components/DiscoverCard";
 import AlikeCard from "@/components/AlikeCard";
@@ -140,6 +141,8 @@ export default function EntityPage() {
   // The cards below the charts, by section; each hides itself when there is nothing to show,
   // and the "Choose charts and cards" panel can switch any of them off.
   const e = entity.entity_id, nm = entity.short_name;
+  // New Zealand and Australia have house prices for each region: the card shows on the country's page and each region's.
+  const houseCountry = (["NZL", "AUS"] as const).find((c) => c === e || entity.subdivision?.parent_id === c);
   const cards: { key: string; title: string; section: string; on: boolean; el: React.ReactNode }[] = [
     { key: "region_facts", title: "Among the regions beside it", section: "people", on: entity.type === "subnational", el: <RegionFactsCard entity={e} name={nm} /> },
     { key: "migration", title: "Migration in and out", section: "people", on: true, el: <MigrationCard entity={e} name={nm} indicators={byId} /> },
@@ -153,6 +156,8 @@ export default function EntityPage() {
     { key: "debt", title: "Debt", section: "money", on: !isGroup, el: <DebtCard entity={e} name={nm} indicators={byId} /> },
     { key: "debtcycle", title: "Debt cycles", section: "money", on: !isGroup, el: <DebtCycleCard entity={e} name={nm} /> },
     { key: "housing", title: "House prices and household debt", section: "money", on: true, el: <HousingCard entity={e} name={nm} indicators={byId} /> },
+    { key: "house_regions", title: "House prices by region", section: "money", on: !!houseCountry,
+      el: houseCountry ? <RegionHousePricesCard entity={e} name={nm} country={houseCountry} indicators={byId} /> : null },
     { key: "prices", title: "Prices and pay", section: "money", on: !isGroup, el: <PricesPayCard entity={e} name={nm} indicators={byId} /> },
     { key: "regions", title: "Regions", section: "places", on: !isGroup || (entity.subdivision?.children ?? 0) > 0,
       el: <RegionsCard entity={e} name={nm} levels={e === "USA" ? ["state", "county"] : undefined} /> },
