@@ -126,3 +126,17 @@ def test_ships_thinned_when_zoomed_out_and_lean(monkeypatch):
     assert p["properties"]["speed_kn"] == 12.3 and p["geometry"]["coordinates"] == [174.83, -36.8]
     monkeypatch.setattr(ships, "settings", lambda: {"ships_thin": False})
     assert len(ships._lean({"features": [dict(x, properties=dict(x["properties"])) for x in feats]}, 3, None)["features"]) == 5
+
+
+def test_quiet_ships_skip_details_without_a_full_position(tmp_path, monkeypatch):
+    import time as _t
+
+    from worldmodel_api import live, shipstore
+
+    ships = live.Ships(store=shipstore.ShipStore(tmp_path), settings=lambda: {"ships_quiet_days": 3})
+    now = _t.time()
+    ships.store.details = {1: {"lat": -36.8, "last_seen": now - 7200}, 2: {"lat": -36.8, "lon": 174.8, "last_seen": now - 7200}}
+    got = ships.quiet_ships(live.boxes(170, -40, 180, -30), set(), now)
+    assert [f["properties"]["id"] for f in got] == [2]
+    ships.store.note(3, lat=0.0, lon=0.0)  # a 0 position is kept (only empty values are skipped)
+    assert ships.store.details[3]["lon"] == 0.0

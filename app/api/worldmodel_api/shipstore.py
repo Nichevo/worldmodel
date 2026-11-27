@@ -139,7 +139,7 @@ class ShipStore:
         with self.lock:
             d = self.details.setdefault(mmsi, {"first_seen": now})
             for k, v in fields.items():
-                if v not in (None, "", 0) or (v is not None and k in ("speed_kn", "status", "heading")):
+                if v not in (None, "", 0) or (v is not None and k in ("speed_kn", "status", "heading", "lat", "lon")):
                     d[k] = v
             d["last_seen"] = now
             self.details_dirty = True
