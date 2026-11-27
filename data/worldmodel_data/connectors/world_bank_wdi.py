@@ -176,6 +176,12 @@ MAIN: dict[str, tuple[str, ...]] = {
     "child_stunting": ("SH.STA.STNT.ZS",),
     "undernourishment": ("SN.ITK.DEFC.ZS",),
     "safe_drinking_water": ("SH.H2O.SMDW.ZS",),
+    "basic_drinking_water": ("SH.H2O.BASW.ZS",),
+    "basic_sanitation": ("SH.STA.BASS.ZS",),
+    "safe_sanitation": ("SH.STA.SMSS.ZS",),
+    "clean_cooking_access": ("EG.CFT.ACCS.ZS",),
+    "nurses_per_1000": ("SH.MED.NUMW.P3",),
+    "air_pollution_death_rate_who": ("SH.STA.AIRP.P5",),
     "hiv_prevalence": ("SH.DYN.AIDS.ZS",),
     "diabetes_prevalence": ("SH.STA.DIAB.ZS",),
     "suicide_rate": ("SH.STA.SUIC.P5",),
@@ -269,7 +275,8 @@ def indicator_id(code: str) -> str:
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    stage_version = 7  # 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas; 7: tourism, air, port and rail traffic
+    fetch_version = 2  # 2: the API fallback asks for the Scorecard series too
+    stage_version = 8  # 8: water, sanitation, clean cooking, nurses and air pollution deaths as main series (the Scorecard); 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas; 7: tourism, air, port and rail traffic
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m")  # the file has no release name of its own

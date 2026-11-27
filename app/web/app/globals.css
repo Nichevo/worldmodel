@@ -1734,3 +1734,26 @@ a.news-chip { color: var(--accent); }
   .news-more { border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
   .news-body { grid-template-columns: 1fr; }
 }
+
+/* Scorecard: cells coloured by rank among the countries picked (worst red to best green). */
+.sc-0 { --sc: 192, 57, 43; } .sc-1 { --sc: 217, 102, 47; } .sc-2 { --sc: 224, 160, 48; }
+.sc-3 { --sc: 181, 184, 58; } .sc-4 { --sc: 108, 174, 74; } .sc-5 { --sc: 27, 138, 75; }
+.sc-scroll { overflow-x: auto; max-width: 100%; }
+.sc-table { border-collapse: separate; border-spacing: 3px; font-size: 13px; min-width: 100%; }
+.sc-table th, .sc-table td { padding: 5px 8px; }
+.sc-table thead th { text-align: center; font-weight: 600; border-bottom: 4px solid var(--colour, var(--grid)); white-space: nowrap; }
+.sc-table .sc-group th { text-align: left; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+  padding-top: 12px; border-bottom: 1px solid var(--grid); }
+.sc-table .sc-label { text-align: left; white-space: nowrap; }
+.sc-table .sc-label .muted { font-size: 11px; }
+.sc-cell { text-align: center; background: rgba(var(--sc), 0.42); border-radius: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 70px; }
+.sc-cell.best { box-shadow: inset 0 0 0 2px rgba(var(--sc), 1); font-weight: 700; }
+.sc-cell .sc-sub { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+.sc-cell.none { background: transparent; color: var(--muted); font-style: italic; font-size: 11px; }
+.sc-key { display: inline-flex; gap: 2px; vertical-align: middle; margin: 0 6px; }
+.sc-key i { width: 18px; height: 10px; display: inline-block; background: rgba(var(--sc), 0.75); border-radius: 2px; }
+.sc-wins { display: flex; align-items: flex-end; gap: 10px; height: 150px; padding: 8px 0 0; }
+.sc-win { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 48px; }
+.sc-win b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.sc-win .bar { width: 70%; max-width: 80px; min-height: 3px; border-radius: 3px 3px 0 0; }
+.sc-win span { font-size: 12px; color: var(--muted); margin-top: 4px; text-align: center; }

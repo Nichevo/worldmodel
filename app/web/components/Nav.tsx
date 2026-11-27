@@ -27,6 +27,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/shapes", label: "Map shapes", hint: "True size, the equal-area map, cartograms and totals told in countries" },
     { href: "/regions", label: "Regions inside a country", hint: "US states and counties, New Zealand's regions: a map and every figure, each with its rank" },
     { href: "/compare", label: "Compare" },
+    { href: "/scorecard", label: "Scorecard", hint: "Life in the countries you pick: health, health care, water, air, work and safety, coloured by rank, with the best starred" },
     { href: "/stories", label: "Stories", hint: "Short visual stories from your own figures: the fertility fall, electricity, exploding cities, the Arctic, NZ in numbers" },
     { href: "/learn", label: "Learn", hint: "Draw your guess, a quiz from your own figures, and guided tours round the app" },
     { href: "/topics", label: "Topics" },

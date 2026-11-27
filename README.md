@@ -594,6 +594,26 @@ regions, every country, or countries picked by hand. *Pick measures* changes the
 is remembered); click a row for the whole ranked list. Countries under 100,000 people are
 left out of every group but a hand-picked one.
 
+## Scorecard
+
+**Scorecard** (Explore menu, `/scorecard?c=USA,CHN,DEU,JPN,GBR,IND`): life in the countries
+you pick, 23 measures in five groups (health outcomes, health care, water, sanitation and
+cooking fuel, environment, and work, society and safety). Each cell is coloured by its rank
+among the countries shown (red worst to green best, the right way round for each measure),
+the best and any tied with it are starred, and a bar chart counts the measures each country
+is best at. Pick countries or groups by typing, or a ready-made set (the six biggest
+economies, Key countries, Five Eyes and others). Happiness also shows each country's rank
+in the world. The measures, their order, which way is better and the indicators each may use
+are in contract `scorecard.yaml`; a measure with nothing loaded is listed with what to run.
+
+| Source | What | How |
+| --- | --- | --- |
+| World Bank WDI | Basic and safely managed water and sanitation, clean cooking fuel, nurses and midwives, air pollution deaths (WHO) | With the usual refresh |
+| Our World in Data | WHO Global Health Estimates: cardiovascular and diabetes death rates; communicable disease death rate; World Happiness Report life ladder | With the usual refresh |
+| ILOSTAT (`ilostat_hours`) | Mean weekly hours actually worked (all, women, men) | Monthly; if refused, save the bulk file in `var\manual\ilostat_hours` |
+| Walk Free (`walkfree_gsi`) | Global Slavery Index: modern slavery per 1,000, people, vulnerability, government response | By hand: the data file (short form) in `var\manual\walkfree_gsi` |
+| World Inequality Database (`wid_gender`) | Women's share of income from work | By hand: the female labour income share CSV from wid.world/data in `var\manual\wid_gender` |
+
 ## Fighting, wars, outages, sanctions and military strength
 
 Detail from the OSINT communities (all switchable in Settings > Fighting, wars, outages…):

@@ -470,3 +470,9 @@ def country_by_name(name: str, on: date | None = None) -> str | None:
 def learn() -> dict:
     """The Learn page's quiz topics (indicators questions are made from) and guided tours (learn.yaml)."""
     return _yaml("learn.yaml") or {"quiz": [], "tours": []}
+
+
+@lru_cache
+def scorecard() -> dict:
+    """The Scorecard page's measures in groups, its ready-made country sets and default countries (scorecard.yaml)."""
+    return _yaml("scorecard.yaml") or {"groups": [], "sets": [], "default_countries": []}
