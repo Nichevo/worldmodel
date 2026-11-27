@@ -42,6 +42,12 @@ export type EventsData = { years: { year: number; by: Record<string, number>; to
 export type LayerData = { name: string; one: string; many: string; total: number; rows: { id: string; name: string; v: number }[];
   row: (id: string) => { id: string; name: string; v: number; rank: number } | undefined };
 export type Band = { from: number; to: number; label: string };
+// One country then and now: each figure in an early year and its latest, and where it sat among
+// countries each time (rank 1 = highest).
+export type ThenNowPoint = { year: number; value: number; rank: number; of: number };
+export type ThenNowData = { entity: string; from: number; rows: { ind: Indicator; then: ThenNowPoint | null; now: ThenNowPoint | null }[];
+  get: (indicator: string) => { ind: Indicator; then: ThenNowPoint | null; now: ThenNowPoint | null } | undefined;
+  fmt: (ind: Indicator, v: number | null | undefined) => string };
 export type CityData = { cities: { name: string; country: string; pts: [number, number, boolean][] }[]; first: number; last: number };
 
 export type Step =
@@ -74,6 +80,9 @@ export type Step =
   // Countries as dots: x against y, sized by people, with a year slider and Play; some countries named and coloured.
   // `latest`: one picture of each country's latest pair of figures (surveys held in different years), no Play.
   | { kind: "bubbles"; x: string; y: string; from?: number; logX?: boolean; latest?: boolean; highlight: string[]; say: (d: BubbleData) => string }
+  // One country then and now: each figure in (or just after) `from` and in its latest year, with where it sat
+  // among countries both times, as a dot moving along a lowest-to-highest track.
+  | { kind: "thennow"; entity: string; from: number; indicators: string[]; say: (d: ThenNowData) => string }
   // Monthly (or yearly) lines for named series, each an indicator for one place; `index` rebases each to 100 at its
   // first month in view so different units can share the chart.
   | { kind: "monthly"; series: { indicator: string; entity: string; label: string; color?: string }[]; from?: number; index?: boolean;
@@ -99,6 +108,7 @@ export const STORY_GROUPS = [
   { id: "power", name: "War, power and politics" },
   { id: "energy", name: "Energy and climate" },
   { id: "places", name: "Places up close" },
+  { id: "countries", name: "How countries changed" },
   { id: "ideas", name: "Technology and ideas" },
   { id: "forecasts", name: "Forecasts" },
 ] as const;
