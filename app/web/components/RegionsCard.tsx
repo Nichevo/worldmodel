@@ -16,7 +16,7 @@ import { short } from "@/lib/sectors";
 // counties): one figure at a time on a map of their outlines, as bars for a year or lines over
 // the years, and a table of every figure's latest year. Counts of people can be shown as a share
 // of each region's population. The US can switch between its states and all its counties.
-export const plainName = (n: string) => n.replace(/ \((NZ regions|US states and counties|US states)\)$/, "");
+export const plainName = (n: string) => n.replace(/ \((NZ regions|US states and counties|US states|Australian states)\)$/, "");
 const POPULATION = ["nzreg_population", "usreg_population"];
 const LEVEL_NAME: Record<string, [string, string]> = { state: ["State", "States"], county: ["County", "Counties"], region: ["Region", "Regions"] };
 const MANY = 30; // bars beyond this show the highest and lowest only

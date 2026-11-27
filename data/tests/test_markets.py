@@ -173,7 +173,8 @@ def test_currency_pairs_storage_and_regions_for_the_app(con):
     assert len(r["regions"]) == 16
     pop = next(m for m in r["measures"] if m["indicator_id"] == "nzreg_population")
     assert pop["values"]["NZ-AUK"]["2023"] == 1739300
-    assert markets.regions(q, "AUS")["regions"] == []
+    assert len(markets.regions(q, "AUS")["regions"]) == 8  # the states and territories
+    assert markets.regions(q, "JPN")["regions"] == []
 
 
 def test_census_tables_as_the_data_explorer_gives_them(tmp_path):
