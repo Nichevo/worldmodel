@@ -196,9 +196,11 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 # The main Overpass server turns queries away when its queue is full ("at capacity", 429/502/503/504);
 # then each square is asked again after a wait, and of the other public Overpass servers in turn.
 OVERPASS_URLS = [OVERPASS_URL, "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
-BUSY_WAITS = (20, 60)   # seconds before asking a busy server again
-BOX_DEG = 20            # the world read in 20° squares (126 of them over land and sea)
-BOXES_A_RUN = 40        # squares read in one refresh; the rest the next time (about a year round)
+BUSY_WAITS = (30,)      # seconds before asking a busy server once more, then the next server
+BOX_DEG = 10            # the world read in 10° squares (504 over land and sea); small queries get a slot sooner
+BOXES_A_RUN = 200       # at most this many squares in one refresh...
+RUN_MINUTES = 20        # ...and no more than this long; the rest the next time, starting where this one stopped
+ASK_TIMEOUT = 240       # seconds to wait for one answer (the query itself may run 180)
 SITE_TOL = 0.00003      # degrees (about 3 m) when simplifying an outline
 SITE_MIN_M2 = 1000      # smaller grounds (a plant that is one building) are left out
 # The squares read first: New Zealand, Australia, the United Kingdom, the United States
@@ -224,7 +226,7 @@ def site_boxes() -> list[tuple[int, int]]:
 
 
 def site_query(w: float, s: float, size: float) -> str:
-    return (f'[out:json][timeout:600][maxsize:1073741824];(way["power"="plant"]({s},{w},{s + size},{w + size});'
+    return (f'[out:json][timeout:180][maxsize:268435456];(way["power"="plant"]({s},{w},{s + size},{w + size});'
             f'relation["power"="plant"]({s},{w},{s + size},{w + size}););out body geom;')  # body: a relation's members too
 
 
@@ -391,7 +393,8 @@ class OSMPowerSites(Connector):
     keeps_files = True
     gap = 10.0  # Overpass is shared by everyone: one query at a time, well apart
     stage_version = 2  # 2: site relations' areas
-    fetch_version = 2  # 2: busy servers asked again, then the other public Overpass servers; relations with their members
+    fetch_version = 3  # 2: busy servers asked again, then the other public Overpass servers; relations with their members
+    # 3: 10° squares with lighter queries, 20 minutes a refresh at most, progress kept after each square
     _server = 0  # the Overpass server that answered last
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -411,20 +414,26 @@ class OSMPowerSites(Connector):
         today = date.today()
         due = []
         for w, s in site_boxes():
-            k = f"{w}_{s}"
+            k = f"{BOX_DEG}:{w}_{s}"
             last = done.get(k)
             if last and (today - datetime.strptime(last, "%Y-%m-%d").date()).days < 330:
                 continue
             due.append((w, s))
         got = 0
+        self._until = time.monotonic() + RUN_MINUTES * 60
         for w, s in due[:BOXES_A_RUN]:
+            if time.monotonic() > self._until:
+                log.info("osm_power_sites: %s minutes used; the rest waits for the next refresh", RUN_MINUTES)
+                break
             ok = self._read_box(raw_dir, w, s, BOX_DEG)
             if ok is None:
-                break  # refused: the rest waits for the next refresh
-            done[f"{w}_{s}"] = today.isoformat()
+                break  # refused or out of time: the rest waits for the next refresh
+            done[f"{BOX_DEG}:{w}_{s}"] = today.isoformat()
             got += 1
+            # kept after each square, so a refresh that is stopped part way resumes where it was
+            (raw_dir / "fetched.json").write_text(json.dumps(done, sort_keys=True), encoding="utf-8")
         (raw_dir / "fetched.json").write_text(json.dumps(done, sort_keys=True), encoding="utf-8")
-        log.info("osm_power_sites: %s of %s squares due read (%s squares read in all)", got, len(due), len(done))
+        log.info("osm_power_sites: %s of %s squares due read this time", got, len(due))
         if not got and not any(raw_dir.glob("osm_power_*.json")) and not (prev and any(prev.glob("osm_power_*.json"))):
             raise ConnectorError("osm_power_sites: the Overpass servers were all busy or refused; nothing read yet, "
                                  "the next refresh tries again")
@@ -436,10 +445,12 @@ class OSMPowerSites(Connector):
         order = OVERPASS_URLS[self._server:] + OVERPASS_URLS[:self._server]
         for url in order:
             for wait in (0, *BUSY_WAITS):
+                if time.monotonic() + wait > getattr(self, "_until", float("inf")):
+                    return None  # out of time for this refresh
                 if wait:
                     time.sleep(wait)
                 try:
-                    r = self.client.post(url, data={"data": query}, timeout=660)
+                    r = self.client.post(url, data={"data": query}, timeout=ASK_TIMEOUT)
                 except Exception as exc:  # noqa: BLE001
                     log.warning("osm_power_sites: %s did not answer (%s)", url.split("/")[2], exc)
                     break  # unreachable: try the next server
