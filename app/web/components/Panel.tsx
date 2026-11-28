@@ -10,7 +10,7 @@ import Flag from "@/components/Flag";
 import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import MultiTable, { cellText, useTableModel } from "@/components/MultiTable";
-import LayersPanel, { useMapMarks } from "@/components/LayersPanel";
+import LayersPanel, { LayersRail, useMapMarks } from "@/components/LayersPanel";
 import WeatherOverlay from "@/components/WeatherOverlay";
 import NewsPanel from "@/components/NewsPanel";
 import { hasWeather } from "@/lib/weather";
@@ -23,6 +23,7 @@ import { flagUrl, useFlagCodes } from "@/lib/flags";
 import { mapLayers } from "@/lib/layers";
 import MixOverlay, { type MixShade } from "@/components/MixOverlay";
 import { useGovernments, withParties } from "@/lib/parties";
+import { useDensity, useLayersPinned } from "@/lib/density";
 import { useSettings } from "@/lib/settings";
 import { EXACT_FLAG, FILL_BACK, MAX_COLS, SHADE_FLAG, SORT_TOKEN, colSpecs, parseSort, sortToken, colToken, useTableColumns, type ColSpec, type TableColumn } from "@/lib/tablecols";
 import { isStarred, passes, useStars } from "@/lib/quality";
@@ -77,6 +78,17 @@ type Props = {
 };
 
 const VIEW_LABEL: Record<View, string> = { map: "Map", chart: "Chart", table: "Table", pyramid: "Pyramid", scatter: "Scatter", ranks: "Ranks", bands: "Bands", shares: "Shares", live: "Ships and planes", places: "Places in view" };
+// Shorter names for the compact toolbars, so the tabs keep to one line.
+const VIEW_SHORT: Partial<Record<View, string>> = { live: "Ships & planes", places: "Places" };
+// The View list in narrow compact panels: charts and maps, then the live tables.
+const VIEW_GROUPS: { label: string; views: View[] }[] = [
+  { label: "Maps and charts", views: ["map", "chart", "table", "pyramid", "scatter", "ranks", "bands", "shares"] },
+  { label: "Live tables", views: ["live", "places"] },
+];
+// Below this width a compact panel's toolbar folds its view tabs into a list and its buttons into ⋯
+// (wider when the toolbar also holds a year slider).
+const NARROW_PANEL = 1000;
+const NARROW_WITH_YEAR = 1300;
 const VIEW_HINT: Partial<Record<View, string>> = {
   bands: "Every country as a tile, stacked in columns by value band",
   live: "Ships and planes now: the ships and planes tables, their counts and port schedules, beside the map",
@@ -97,6 +109,12 @@ export default function Panel({
 }: Props) {
   const [layersOpen, setLayersOpen] = useState(false);
   const settings = useSettings();
+  const density = useDensity();
+  const compact = density === "compact";
+  const pinned = useLayersPinned();
+  const section = useRef<HTMLElement>(null);
+  const downAt = useRef<[number, number] | null>(null);
+  const width = useWidth(section);
   const effWin = win || settings.map_window;
   // A pyramid has no indicator of its own; its years follow total population.
   const chosen = indicators.find((i) => i.indicator_id === panel.indicator);
@@ -106,6 +124,9 @@ export default function Panel({
   const plain = panel.view === "map" && panel.indicator === NO_INDICATOR;
   // Ships and planes, and Places in view: tables of their own, with no indicator or year.
   const tableOnly = panel.view === "live" || panel.view === "places";
+  const narrow = compact && width > 0 && width < (year !== null && !tableOnly && !plain ? NARROW_WITH_YEAR : NARROW_PANEL);
+  // Option: the map's toolbar floats over its top edge and shrinks to a label when the pointer leaves.
+  const floatHead = compact && settings.map_toolbar_float && panel.view === "map" && !layersOpen;
   const set = (patch: Extract<Action, { type: "panel" }>["patch"]) => dispatch({ type: "panel", id: panel.id, patch });
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
   const isProjection = indicator && year !== null && indicator.last_estimate_year !== null && year > indicator.last_estimate_year;
@@ -128,15 +149,28 @@ export default function Panel({
   };
 
   return (
-    <section className="panel" style={style} aria-label={`${indicator?.name ?? "Panel"} ${VIEW_LABEL[panel.view].toLowerCase()}`}>
+    <section ref={section} className={`panel${narrow ? " narrow" : ""}${floatHead ? " float-head" : ""}`} style={style}
+      aria-label={`${indicator?.name ?? "Panel"} ${VIEW_LABEL[panel.view].toLowerCase()}`}>
       <header className="panel-head">
-        <div className="seg" role="group" aria-label="View">
-          {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
-            <button key={v} className={v === panel.view ? "on" : ""} aria-pressed={v === panel.view} onClick={() => set({ view: v })} title={VIEW_HINT[v]}>
-              {VIEW_LABEL[v]}
-            </button>
-          ))}
-        </div>
+        {narrow ? (
+          <select className="view-pick" value={panel.view} onChange={(e) => set({ view: e.target.value as View })} aria-label="View"
+            title={VIEW_HINT[panel.view] ?? "What this panel shows"}>
+            {VIEW_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.views.map((v) => <option key={v} value={v} title={VIEW_HINT[v]}>{VIEW_LABEL[v]}</option>)}
+              </optgroup>
+            ))}
+          </select>
+        ) : (
+          <div className="seg" role="group" aria-label="View">
+            {(Object.keys(VIEW_LABEL) as View[]).map((v) => (
+              <button key={v} className={v === panel.view ? "on" : ""} aria-pressed={v === panel.view} onClick={() => set({ view: v })}
+                title={VIEW_HINT[v] ?? (compact && VIEW_SHORT[v] ? VIEW_LABEL[v] : undefined)}>
+                {compact ? VIEW_SHORT[v] ?? VIEW_LABEL[v] : VIEW_LABEL[v]}
+              </button>
+            ))}
+          </div>
+        )}
         {panel.view !== "pyramid" && !tableOnly && (
           <IndicatorSelect indicators={indicators} value={panel.indicator} onChange={(id) => set({ indicator: id })}
             none={panel.view === "map" ? "None (plain map)" : undefined} />
@@ -167,16 +201,40 @@ export default function Panel({
             Layers{panel.layers ? <span className="muted"> {panel.layers.length}</span> : null}
           </button>
         )}
-        {!tableOnly && <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />}
-        <LinksMenu panel={panel} dispatch={dispatch} />
-        <div className="panel-actions">
-          <button title="Duplicate panel" aria-label="Duplicate panel" disabled={!canDuplicate}
-            onClick={() => dispatch({ type: "duplicate", id: panel.id })}>⧉</button>
-          <button title={maximised ? "Restore layout" : "Maximise panel"} aria-label={maximised ? "Restore layout" : "Maximise panel"}
-            onClick={() => dispatch({ type: "maximise", id: maximised ? null : panel.id })}>{maximised ? "⤡" : "⤢"}</button>
-          <button title="Close panel" aria-label="Close panel" disabled={!canClose}
-            onClick={() => dispatch({ type: "close", id: panel.id })}>×</button>
-        </div>
+        {compact ? (
+          <>
+            <LinksMenu panel={panel} dispatch={dispatch} short={narrow} />
+            {!narrow && (
+              <div className="panel-actions">
+                <button title={maximised ? "Restore layout" : "Maximise panel"} aria-label={maximised ? "Restore layout" : "Maximise panel"}
+                  onClick={() => dispatch({ type: "maximise", id: maximised ? null : panel.id })}>{maximised ? "⤡" : "⤢"}</button>
+              </div>
+            )}
+            <MoreMenu>
+              {!tableOnly && <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} inline />}
+              <div className="menu-head">Panel</div>
+              <button className="link" disabled={!canDuplicate} onClick={() => dispatch({ type: "duplicate", id: panel.id })}>⧉ Duplicate</button>
+              {narrow && (
+                <button className="link" onClick={() => dispatch({ type: "maximise", id: maximised ? null : panel.id })}>
+                  {maximised ? "⤡ Restore layout" : "⤢ Maximise"}</button>
+              )}
+              <button className="link" disabled={!canClose} onClick={() => dispatch({ type: "close", id: panel.id })}>× Close panel</button>
+            </MoreMenu>
+          </>
+        ) : (
+          <>
+            {!tableOnly && <DownloadMenu exporter={exporter} panel={panel} indicator={panel.view === "pyramid" ? undefined : indicator} year={year} selection={selection} names={names} />}
+            <LinksMenu panel={panel} dispatch={dispatch} />
+            <div className="panel-actions">
+              <button title="Duplicate panel" aria-label="Duplicate panel" disabled={!canDuplicate}
+                onClick={() => dispatch({ type: "duplicate", id: panel.id })}>⧉</button>
+              <button title={maximised ? "Restore layout" : "Maximise panel"} aria-label={maximised ? "Restore layout" : "Maximise panel"}
+                onClick={() => dispatch({ type: "maximise", id: maximised ? null : panel.id })}>{maximised ? "⤡" : "⤢"}</button>
+              <button title="Close panel" aria-label="Close panel" disabled={!canClose}
+                onClick={() => dispatch({ type: "close", id: panel.id })}>×</button>
+            </div>
+          </>
+        )}
       </header>
       {/* Shown only with the controls hidden (F): what the panel shows and for whom. */}
       <div className="panel-caption">
@@ -188,7 +246,8 @@ export default function Panel({
           <span key={id} className="cap-entity"><i className="swatch" style={{ background: seriesVar(i) }} />{names.get(id) ?? id}</span>
         ))}</>}
       </div>
-      <div className="panel-body" ref={body}>
+      <div className={`panel-body${compact && layersOpen && pinned && panel.view === "map" ? " lp-pinned" : ""}`} ref={body}
+        {...(compact && layersOpen && !pinned && panel.view === "map" ? closeOnMapClick(() => setLayersOpen(false), downAt) : {})}>
         {panel.view === "live" && <LivePanel tab={(panel.lv || "ships") as LiveTab} setTab={(t) => set({ lv: t })} cameraBus={cameraBus} />}
         {panel.view === "places" && <PlacesTable layer={panel.lv} setLayer={(id) => set({ lv: id })} cameraBus={cameraBus} group={panel.group}
           selection={selection} names={names} />}
@@ -202,6 +261,7 @@ export default function Panel({
                 selection={selection} names={names} />
             ) : null} />
         )}
+        {compact && panel.view === "map" && !layersOpen && panel.layers && <LayersRail letters={panel.layers} onOpen={() => setLayersOpen(true)} />}
         {indicator && panel.view === "table" && year !== null && (
           <TableView panel={panel} indicator={indicator} indicators={indicators} year={year} names={names} selection={selection} dispatch={dispatch}
             hovered={hovered} onHover={onHover} clicks={clicks} exporter={exporter} />
@@ -302,6 +362,45 @@ function useClickHandlers(clicks: Clicks) {
   };
 }
 
+// The panel's width, kept up to date as the layout or the window changes.
+function useWidth(el: React.RefObject<HTMLElement | null>): number {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    if (!el.current) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width)));
+    ro.observe(el.current);
+    return () => ro.disconnect();
+  }, [el]);
+  return w;
+}
+
+// The compact toolbar's ⋯ menu: download, duplicate, maximise and close.
+function MoreMenu({ children }: { children: React.ReactNode }) {
+  const box = useRef<HTMLDetailsElement>(null);
+  useOutsideClose(box);
+  return (
+    <details className="links more" ref={box}>
+      <summary title="Download, duplicate, maximise or close this panel" aria-label="More for this panel">⋯</summary>
+      <div className="links-menu" onClick={(e) => { if ((e.target as HTMLElement).closest("button.link") && box.current) box.current.open = false; }}>{children}</div>
+    </details>
+  );
+}
+
+// A click on the map (not a drag) closes the unpinned Layers panel; clicks inside the panel do not.
+function closeOnMapClick(close: () => void, at: React.RefObject<[number, number] | null>) {
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      const t = e.target as HTMLElement;
+      at.current = t.closest(".layers-panel") || !t.closest(".map-wrap canvas") ? null : [e.clientX, e.clientY];
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const a = at.current;
+      if (a && Math.hypot(e.clientX - a[0], e.clientY - a[1]) < 5) close();
+      at.current = null;
+    },
+  };
+}
+
 function useOutsideClose(box: React.RefObject<HTMLDetailsElement | null>) {
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -313,14 +412,20 @@ function useOutsideClose(box: React.RefObject<HTMLDetailsElement | null>) {
 }
 
 // CSV of the panel's data and a PNG picture, from whatever the view registered.
-function DownloadMenu({ exporter, panel, indicator, year, selection, names }: {
+function DownloadMenu({ exporter, panel, indicator, year, selection, names, inline = false }: {
   exporter: React.RefObject<Exporter>; panel: PanelState; indicator?: Indicator; year: number | null; selection: string[]; names: Map<string, string>;
+  inline?: boolean; // its items only, inside the compact toolbar's ⋯ menu
 }) {
   const box = useRef<HTMLDetailsElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const settings = useSettings();
   useOutsideClose(box);
-  const close = () => { if (box.current) box.current.open = false; };
+  const close = () => {
+    if (box.current) box.current.open = false;
+    const more = inlineBox.current?.closest("details");
+    if (more) more.open = false;
+  };
+  const inlineBox = useRef<HTMLDivElement>(null);
   const shown = selection.map((id) => names.get(id) ?? id);
   const title = `${indicator?.name ?? "Population pyramid"} (${VIEW_LABEL[panel.view].toLowerCase()}${year ? `, ${year}` : ""})`
     + (shown.length ? `: ${shown.slice(0, 6).join(", ")}${shown.length > 6 ? ` and ${shown.length - 6} more` : ""}` : "");
@@ -352,7 +457,7 @@ function DownloadMenu({ exporter, panel, indicator, year, selection, names }: {
   const csv = () => {
     const text = exporter.current.csv?.();
     if (text) saveText(text, `${exporter.current.name ?? "worldmodel"}.csv`);
-    if (box.current) box.current.open = false;
+    close();
   };
   const png = async () => {
     try {
@@ -364,16 +469,20 @@ function DownloadMenu({ exporter, panel, indicator, year, selection, names }: {
       setMsg(String((e as Error).message || e));
     }
   };
+  const items = (
+    <>
+      <button className="link" onClick={csv}>{inline ? "⤓ " : ""}Data (CSV)</button>
+      <button className="link" onClick={png}>{inline ? "⤓ " : ""}Picture (PNG)</button>
+      <button className="link" onClick={keepIt} title="Keep this panel on the Highlights page: it reopens with these settings">Keep in Highlights</button>
+      {settings.ai_enabled && <button className="link" onClick={ask} title="Ask the local AI about what this panel shows">Ask AI about this</button>}
+      {msg && <p className="caption error">{msg}</p>}
+    </>
+  );
+  if (inline) return <div ref={inlineBox} className="menu-group"><div className="menu-head">Download</div>{items}</div>;
   return (
     <details className="links download" ref={box}>
       <summary title="Download this panel's data or a picture" aria-label="Download">⤓</summary>
-      <div className="links-menu">
-        <button className="link" onClick={csv}>Data (CSV)</button>
-        <button className="link" onClick={png}>Picture (PNG)</button>
-        <button className="link" onClick={keepIt} title="Keep this panel on the Highlights page: it reopens with these settings">Keep in Highlights</button>
-        {settings.ai_enabled && <button className="link" onClick={ask} title="Ask the local AI about what this panel shows">Ask AI about this</button>}
-        {msg && <p className="caption error">{msg}</p>}
-      </div>
+      <div className="links-menu">{items}</div>
     </details>
   );
 }
@@ -385,7 +494,7 @@ async function chartPng(chart: ECharts | null, title: string, note: string, foot
   return titledPng(chart.getDataURL({ type: "svg", excludeComponents: ["dataZoom"] }), chart.getWidth(), chart.getHeight(), title, note, lines);
 }
 
-function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Action) => void }) {
+function LinksMenu({ panel, dispatch, short = false }: { panel: PanelState; dispatch: (a: Action) => void; short?: boolean }) {
   const box = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -397,8 +506,8 @@ function LinksMenu({ panel, dispatch }: { panel: PanelState; dispatch: (a: Actio
   const n = LINKS.filter((l) => panel.links[l.key]).length;
   return (
     <details className="links" ref={box}>
-      <summary title="How this panel links to the others" className={`group-${panel.group}`}>
-        Links <b>{panel.group}</b><span className="muted"> {n}/{LINKS.length}</span>
+      <summary title={`How this panel links to the others: group ${panel.group}, ${n} of ${LINKS.length} links on`} className={`group-${panel.group}`}>
+        {short ? <b>{panel.group}</b> : <>Links <b>{panel.group}</b><span className="muted"> {n}/{LINKS.length}</span></>}
       </summary>
       <div className="links-menu">
         <div className="row">
@@ -661,6 +770,7 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
       model.rows.map((id) => [String(model.ranks.get(id) ?? "–"), names.get(id) ?? id, ...columns.map((c) => cellText(c, c.values.get(id)))]),
       40, await credits([...new Set(specs.flatMap((sp) => sourcesOf(indicators.find((x) => x.indicator_id === sp.indicator))))])),
   };
+  const compact = useDensity() === "compact";
   const filled = columns.some((c) => [...c.values.values()].some((v) => v.year));
   const projected = columns.some((c) => [...c.values.values()].some((v) => v.status === "P"));
   const full = extras.length >= MAX_COLS;
@@ -668,7 +778,37 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
   return (
     <>
       {error && <p className="error">{error}</p>}
-      <div className="table-tools">
+      {compact ? (
+        <div className="table-tools">
+        {full ? <span className="small muted">{MAX_COLS} added columns at most</span> : (
+          <IndicatorSelect indicators={indicators.filter((i) => i.available)} value="" label="Add a column" placeholder="+ Add column"
+            className="add-col" onChange={(id) => id && id !== NO_INDICATOR && setCols([...extras, { indicator: id, year: null }])} />
+        )}
+        <label className="small">Sort by
+          <select value={model.sort.by} onChange={(e) => model.setSort({ by: e.target.value, desc: e.target.value !== "name" })}>
+            <option value="name">Country name</option>
+            {columns.map((c) => <option key={c.key} value={c.key}>{c.label}{c.year !== year ? ` (${c.year})` : ""}</option>)}
+          </select>
+          <button className="small" title={model.sort.desc ? "Highest first: click for lowest first" : "Lowest first: click for highest first"}
+            onClick={() => model.setSort({ ...model.sort, desc: !model.sort.desc })}>
+            {model.sort.by === "name" ? (model.sort.desc ? "Z–A" : "A–Z") : model.sort.desc ? "Highest first ↓" : "Lowest first ↑"}
+          </button>
+        </label>
+          <TableOptions>
+        <label className="small" title="A column with the change in the panel's indicator over the ten years to the panel's year">
+          <input type="checkbox" checked={change} onChange={(e) => setFlag(CHANGE_COL, e.target.checked)} /> Change over 10 years</label>
+        <label className="small" title={`A country with no figure for the year shows its latest figure from up to ${FILL_BACK} years before, with that year beside it`}>
+          <input type="checkbox" checked={fill} onChange={(e) => setFlag(EXACT_FLAG, !e.target.checked)} /> Fill gaps from earlier years</label>
+        <label className="small" title="Tint each cell by where it stands in its column: darker is higher">
+          <input type="checkbox" checked={shade} onChange={(e) => setFlag(SHADE_FLAG, e.target.checked)} /> Shade</label>
+        <label className="small"><input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} /> Selected first</label>
+        <label className={`small${selection.length ? "" : " muted"}`} title={selection.length ? "Show only the selected countries" : "Select countries first"}>
+          <input type="checkbox" checked={only && selection.length > 0} disabled={!selection.length} onChange={(e) => setOnly(e.target.checked)} /> Only selected</label>
+        {extras.length > 0 && <button className="small" onClick={() => setCols([])}>Remove added columns</button>}
+          </TableOptions>
+        </div>
+      ) : (
+        <div className="table-tools">
         {full ? <span className="small muted">{MAX_COLS} added columns at most</span> : (
           <IndicatorSelect indicators={indicators.filter((i) => i.available)} value="" label="Add a column" placeholder="+ Add column"
             className="add-col" onChange={(id) => id && id !== NO_INDICATOR && setCols([...extras, { indicator: id, year: null }])} />
@@ -693,7 +833,8 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
         <label className={`small${selection.length ? "" : " muted"}`} title={selection.length ? "Show only the selected countries" : "Select countries first"}>
           <input type="checkbox" checked={only && selection.length > 0} disabled={!selection.length} onChange={(e) => setOnly(e.target.checked)} /> Only selected</label>
         {extras.length > 0 && <button className="small" onClick={() => setCols([])}>Remove added columns</button>}
-      </div>
+        </div>
+      )}
       <div className="table-scroll">
         <MultiTable model={model} names={names} selection={selection} hovered={hovered} onHover={onHover} shade={shade}
           onRowClick={(id, e) => handlers.click(id, e)} onRowDouble={(id, e) => handlers.double(id, e)} headTools={headTools} />
@@ -704,6 +845,18 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
         {projected ? " * projection." : ""}{filled ? " A small year beside a figure: the country's latest figure, from that year." : ""}
       </p>
     </>
+  );
+}
+
+// The table's tickboxes folded into one menu in the compact toolbars (sort and Add column stay out).
+function TableOptions({ children }: { children: React.ReactNode }) {
+  const box = useRef<HTMLDetailsElement>(null);
+  useOutsideClose(box);
+  return (
+    <details className="links table-opts" ref={box}>
+      <summary title="Change over 10 years, fill gaps, shade, selected first, only selected">Options</summary>
+      <div className="links-menu">{children}</div>
+    </details>
   );
 }
 

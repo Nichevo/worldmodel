@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, type Problem } from "@/lib/api";
+import { useDensity } from "@/lib/density";
 import { useSettings } from "@/lib/settings";
 
 // Refresh problems in plain words: each failed check, failed download or stopped build
@@ -100,12 +101,27 @@ function writeSeen(keys: string[]) {
   try { localStorage.setItem(SEEN, JSON.stringify(keys)); } catch { /* private window: shows again next time */ }
 }
 
+// Open problems not yet hidden or seen on Data status (the top menu's dot on the compact map page).
+export async function freshProblems(): Promise<Problem[]> {
+  const seen = readSeen();
+  return (await api.problems()).filter((p) => p.open && !seen.includes(p.key));
+}
+
+// The compact map page shows each new problem's notice once, then leaves a dot on the Data menu.
+const MAP_SHOWN = "worldmodel-problems-shown-on-map";
+function readMapShown(): string[] {
+  try { return JSON.parse(localStorage.getItem(MAP_SHOWN) || "[]"); } catch { return []; }
+}
+
 // One line at the top of every page while a new problem is open (switchable in Settings).
 export function ProblemBanner() {
   const s = useSettings();
   const path = usePathname();
+  const density = useDensity();
+  const folded = path === "/" && density === "compact";
   const [open, setOpen] = useState<Problem[]>([]);
   const [seen, setSeen] = useState<string[]>([]);
+  const [shownOnMap, setShownOnMap] = useState<string[]>([]);
   useEffect(() => {
     if (!s.problem_banner) return;
     api.problems().then((l) => {
@@ -116,10 +132,17 @@ export function ProblemBanner() {
       writeSeen(kept);
       setSeen(kept);
       setOpen(now);
+      // Read before this visit's notice adds to it, so the notice stays up while the page is open.
+      const shown = readMapShown().filter((k) => keys.has(k));
+      setShownOnMap(shown);
+      if (path === "/") {
+        try { localStorage.setItem(MAP_SHOWN, JSON.stringify([...new Set([...shown, ...now.map((p) => p.key)])])); } catch { /* shows again next time */ }
+      }
     }).catch(() => setOpen([]));
   }, [path, s.problem_banner]);
   const fresh = open.filter((p) => !seen.includes(p.key));
   if (!s.problem_banner || fresh.length === 0 || path === "/data") return null;
+  if (folded && fresh.every((p) => shownOnMap.includes(p.key))) return null;
   const p = fresh[0];
   const hide = () => { const all = [...new Set([...seen, ...fresh.map((x) => x.key)])]; writeSeen(all); setSeen(all); };
   return (

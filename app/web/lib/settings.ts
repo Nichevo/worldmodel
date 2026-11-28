@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hover_sparkline: true,
   popup_tabs: true,
   side_panel: true,
+  map_toolbar_float: false,
   disk_limit_gb: 100,
   storage_warn_pct: 80,
   storage_critical_pct: 95,

@@ -7,6 +7,8 @@ import { pageEntity } from "@/components/AIHost";
 import Search from "@/components/Search";
 import { openAsk } from "@/lib/ai";
 import { api } from "@/lib/api";
+import { useDensity } from "@/lib/density";
+import { freshProblems } from "@/components/Problems";
 import { useSettings } from "@/lib/settings";
 
 // The menu in five groups. Each group opens a short list; the group holding the page
@@ -91,6 +93,14 @@ export default function Nav() {
   // How many things on the To do list need you, shown on the Data menu (asked again on each page change).
   const [todo, setTodo] = useState(0);
   useEffect(() => { api.todo().then((d) => setTodo(d.count)).catch(() => {}); }, [path]);
+  // On the compact map page a new refresh problem shows once as a notice, then as a dot on Data.
+  const density = useDensity();
+  const folded = path === "/" && density === "compact" && s.problem_banner;
+  const [problem, setProblem] = useState<{ title: string; more: number } | null>(null);
+  useEffect(() => {
+    if (!folded) { setProblem(null); return; }
+    freshProblems().then((f) => setProblem(f.length ? { title: f[0].title, more: f.length - 1 } : null)).catch(() => setProblem(null));
+  }, [path, folded]);
   useEffect(() => {
     const close = (e: MouseEvent) => { if (bar.current && !bar.current.contains(e.target as Node)) setOpen(null); };
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
@@ -116,6 +126,11 @@ export default function Nav() {
             <button className={`nav-group-btn${here ? " active" : ""}`} aria-expanded={open === g.label} title={g.hint}
               onClick={() => setOpen(open === g.label ? null : g.label)}>
               {g.label}{g.label === "Data" && todo > 0 && <span className="badge" title={`${todo} things on the To do list`}>{todo}</span>}
+              {g.label === "Data" && problem && (
+                <span className="nav-alert" role="status"
+                  title={`New refresh problem: ${problem.title}${problem.more ? ` and ${problem.more} more` : ""}. The app keeps the last good data; Data status lists them.`}
+                  aria-label="New refresh problem: see Data status" />
+              )}
               {" "}<span aria-hidden="true" className="caret">▾</span>
             </button>
             {open === g.label && (
@@ -132,6 +147,8 @@ export default function Nav() {
       })}
       <Link href="/" className={`nav-quick${path === "/" ? " active" : ""}`} title="The world map">Map</Link>
       <Link href="/briefing" className={`nav-quick${path === "/briefing" ? " active" : ""}`} title="Everything new since the last refresh">Briefing</Link>
+      {/* The map page's own bar goes here in its compact look on a wide window. */}
+      <div id="nav-page-slot" className="nav-slot" />
       <span className="spacer" />
       {s.ai_enabled && (
         <input className="nav-ask" type="search" value={q} placeholder="Ask AI…" aria-label="Ask the local AI"

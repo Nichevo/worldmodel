@@ -309,9 +309,19 @@ have a "Save picture" link too.
 **The map page** holds up to six panels: one, two side by side or stacked,
 one large and two small, three side by side, two by two, one large and four
 small, or three by two.
-**Hide controls** (or the F key) folds away the menus, banners and panel
-toolbars so the panels fill the window; "Show controls", F or Esc brings them
-back. The choice is remembered in the browser.
+The **Full / Compact / Focus** buttons set how much room the toolbars take
+(F steps through them; the choice is remembered in the browser). **Full** is the
+original look. **Compact** (the default) puts the page bar (Layout, the country
+box, Pinboard) in the empty middle of the top menu on a wide window, keeps each
+panel's toolbar to one row (narrow panels get a View list and a ⋯ menu for
+download, duplicate, maximise and close; a table's tickboxes go under Options),
+shows a new refresh problem's notice once and then as a red dot on Data, and
+slims the Layers panel: each layer's own settings fold out, a strip down the
+map's edge shows the layers on while it is closed, and **Pin** keeps it beside
+the map instead of over it. Settings > Map toolbar floats over the map (off at
+first) also gives a map panel's toolbar row to the map. **Focus** folds away
+every menu, banner and toolbar so the panels fill the window; "Show controls",
+F or Esc brings them back.
 
 **Ranks.** A panel's **Ranks** view is a bump chart: how countries' ranks on
 the panel's indicator change over the years (from a start year every few years,
