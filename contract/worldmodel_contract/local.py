@@ -32,6 +32,7 @@ SETTINGS: dict[str, object] = {
     "hover_sparkline": True,         # small trend line in the map tooltip
     "popup_tabs": True,              # popups get a tab per indicator shown in the panels
     "side_panel": True,              # the pinboard down the right of the map page
+    "map_toolbar_float": False,      # compact map page: a map panel's toolbar floats over the map and shrinks to a label when the pointer leaves
     "disk_limit_gb": 100.0,          # the whole data folder
     "pictures_limit_gb": 2.0,        # media/ (pictures, cached pages)
     "basemap_limit_gb": 20.0,        # basemap/ (the local map files)

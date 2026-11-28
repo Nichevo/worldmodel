@@ -17,6 +17,7 @@ import { LAND_USE } from "@/lib/siteOutlines";
 import { setShipsAt, setShipsTooBig, usePlaneStatus, useShipStatus, useShipsAt, useShipsTooBig, type Canal } from "@/lib/ships";
 import { setFightingWindow } from "@/lib/osint";
 import { CHANGE_LEGEND, changeLayer, spotLayer, waterTiles, WATER_LEGEND, type LayerPoint } from "@/lib/spotting";
+import { setLayersPinned, useDensity, useLayersPinned } from "@/lib/density";
 import { saveSettings, useSettings } from "@/lib/settings";
 import { showCameraWall, useCameraWall } from "@/lib/cameraWall";
 import { forecastFields, hasWaves, hasWeather, useRadar, useWeatherStatus, useWeatherStep, weatherRasters } from "@/lib/weather";
@@ -296,6 +297,39 @@ const MADE_SWATCH: Record<string, () => string> = {
   map_landuse: () => "#f2c14e", road_traffic: () => "#e03131", wx_windlines: () => "#1c263a", wx_waves: () => "#3278d2", wx_swell: () => "#6e50c8",
 };
 
+// A layer's colour, as its dot and swatch show it.
+function layerSwatch(m: LayerDef): string {
+  return (m.made || MADE_SWATCH[m.id] ? MADE_SWATCH[m.id]?.() : LAYER_STYLE[m.id]?.swatch()) ?? cssVar("--muted");
+}
+
+// The compact map's closed Layers panel: a thin strip down the map's right edge with a dot per layer on.
+export function LayersRail({ letters, onOpen }: { letters: string; onOpen: () => void }) {
+  const on = MAP_LAYERS.filter((m) => letters.includes(m.letter));
+  // The colours come from the page's styles, so the strip is drawn once in the browser.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  if (!on.length || !ready) return null;
+  return (
+    <button className="lp-rail" onClick={onOpen} title={`Layers on: ${on.map((m) => m.label).join(", ")}. Click to open the Layers panel.`}
+      aria-label={`Open the Layers panel (${on.length} on)`}>
+      <span className="lp-rail-label">Layers {on.length}</span>
+      {on.slice(0, 12).map((m) => <i key={m.letter} className="lp-swatch" style={{ background: layerSwatch(m) }} />)}
+    </button>
+  );
+}
+
+// In the compact look, a layer's own settings (replay, kinds shown, lists) fold out and start closed.
+function Fold({ title, children }: { title: string; children: React.ReactNode }) {
+  const compact = useDensity() === "compact";
+  if (!compact) return <>{children}</>;
+  return (
+    <details className="lp-fold">
+      <summary>{title}</summary>
+      {children}
+    </details>
+  );
+}
+
 export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose, selection = [], names = new Map() }: {
   panel: PanelState; dispatch: (a: Action) => void; win: string; onWin: (w: string) => void; counts: LayerCounts;
   year: number | null; onClose: () => void; selection?: string[]; names?: Map<string, string>;
@@ -405,7 +439,9 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
     const { [name]: _gone, ...rest } = s.map_layer_sets ?? {};
     saveSettings({ map_layer_sets: rest }).catch(() => undefined);
   };
-  const swatch = (m: LayerDef) => (m.made || MADE_SWATCH[m.id] ? MADE_SWATCH[m.id]?.() : LAYER_STYLE[m.id]?.swatch()) ?? cssVar("--muted");
+  const swatch = layerSwatch;
+  const compact = useDensity() === "compact";
+  const pinned = useLayersPinned();
   const custom = /~/.test(win);
   const timedOn = onNow.some((m) => m.timed);
   const groupsShown = LAYER_GROUPS.map((g) => {
@@ -441,6 +477,13 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         <h2>Layers</h2>
         <Link className="small" href="/layers" title="Every layer counted by country, with sizes">All in detail</Link>
         <span className="spacer" />
+        {compact && (
+          <button className={`small lp-pin${pinned ? " on" : ""}`} aria-pressed={pinned} onClick={() => setLayersPinned(!pinned)}
+            title={pinned ? "Pinned: the map moves over to make room, and the panel stays open. Click to let it open over the map and close when you click the map."
+              : "Pin: keep this panel open beside the map (the map moves over) instead of over it, closing when you click the map"}>
+            {pinned ? "Pinned" : "Pin"}
+          </button>
+        )}
         <button className="small" onClick={onClose} aria-label="Close the layers panel">Close</button>
       </div>
       <div className="seg lp-tabs" role="tablist">
@@ -551,6 +594,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
           </div>
 
           {timedOn && (
+            <Fold title={`Time window: ${from} to ${to}`}>
             <div className="lp-section lp-window">
         <div className="lp-label">Time window for timed layers <span className="muted">{from} to {to}</span></div>
         <div className="seg" role="group" aria-label="Time window">
@@ -581,21 +625,29 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
         </div>
         <p className="caption">One window for events, news, earthquakes and storms on every map on this page. Older items in the window are fainter.</p>
       </div>
+            </Fold>
           )}
-          {panel.layers.includes("y") && <PastYear />}
-          {(panel.layers.includes("S") || panel.layers.includes("F")) && <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />}
-          {panel.layers.includes("F") && <Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" />}
-          {onNow.some((m) => PLACE_LOOK[m.id]) && <PlaceLookToggles names={onNow.filter((m) => PLACE_LOOK[m.id]).map((m) => m.label)} />}
+          {panel.layers.includes("y") && <Fold title="World in year: the year"><PastYear /></Fold>}
+          {(panel.layers.includes("S") || panel.layers.includes("F")) && (
+            <Fold title={`${panel.layers.includes("S") && panel.layers.includes("F") ? "Ships and planes" : panel.layers.includes("S") ? "Ships" : "Planes"} now: replay and kinds shown`}>
+              <ShipsTime ships={panel.layers.includes("S")} planes={panel.layers.includes("F")} />
+            </Fold>
+          )}
+          {panel.layers.includes("F") && <Fold title="Planes now, by type"><Kinds title="Planes now, by type" groups={PLANE_GROUPS} href="/live?tab=planes" /></Fold>}
+          {onNow.some((m) => PLACE_LOOK[m.id]) && <Fold title="Places: symbols, real size and outlines"><PlaceLookToggles names={onNow.filter((m) => PLACE_LOOK[m.id]).map((m) => m.label)} /></Fold>}
           {panel.layers.includes("+") && (
+            <Fold title="Land use: kinds shown">
             <div className="lp-section">
               <div className="lp-label">Land use: kinds shown</div>
               <KindChips setting="map_landuse_hidden" groups={LAND_USE.map((u) => ({ id: u.id, label: u.label, color: u.color, title: u.kinds.join(", ").replace(/_/g, " ") }))} />
               <p className="caption">From the map detail: only what OpenStreetMap has mapped, clearer as you zoom in.</p>
-            </div>)}
-          {panel.layers.includes("h") && <HospitalPick />}
-          {panel.layers.includes("q") && <QuakePick selection={selection} names={names} from={from} to={to} />}
-          {panel.layers.includes("-") && <CameraKinds />}
+            </div>
+            </Fold>)}
+          {panel.layers.includes("h") && <Fold title="Hospitals: lists and kinds shown"><HospitalPick /></Fold>}
+          {panel.layers.includes("q") && <Fold title="Earthquakes: size and lists"><QuakePick selection={selection} names={names} from={from} to={to} /></Fold>}
+          {panel.layers.includes("-") && <Fold title="Cameras: kinds shown"><CameraKinds /></Fold>}
 
+          <Fold title="Quick sets">
           <div className="lp-section">
             <div className="lp-label">Quick sets</div>
             <div className="chips-row lp-quick">
@@ -613,6 +665,7 @@ export default function LayersPanel({ panel, dispatch, win, onWin, counts, year,
               <button className="chip" onClick={saveSet} disabled={!panel.layers} title="Keep the layers on now as a set of your own">+ Save</button>
             </div>
           </div>
+          </Fold>
 
           {groupsShown.map(({ g, rows, ready, waiting, n }) => {
             const open = !!words || n > 0 ? !shut.has(g.id) || !!words : opened.has(g.id);

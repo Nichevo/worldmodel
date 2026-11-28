@@ -250,6 +250,7 @@ export type Settings = {
   hover_sparkline: boolean;
   popup_tabs: boolean;
   side_panel: boolean;
+  map_toolbar_float: boolean;
   disk_limit_gb: number;
   storage_warn_pct: number; // storage warnings from this share of a limit ...
   storage_critical_pct: number; // ... and stronger from this one

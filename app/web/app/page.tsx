@@ -3,7 +3,8 @@
 import Flag from "@/components/Flag";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Panel, { effectiveYear, type Activate, type At, type PanelPopup, type Value } from "@/components/Panel";
 import PopupCard from "@/components/PopupCard";
 import Search from "@/components/Search";
@@ -14,6 +15,7 @@ import { DIVERGING, seriesVar } from "@/lib/colors";
 import { BRIEFING_SEEN } from "@/lib/briefing";
 import { logHistory } from "@/lib/history";
 import { rememberCameras, rememberQuery, rememberedCameras, rememberedQuery, setRememberMode } from "@/lib/mapMemory";
+import { DENSITIES, leaveFocus, nextDensity, setDensity, useDensity, type Density } from "@/lib/density";
 import { useSettings } from "@/lib/settings";
 import { colIndicators } from "@/lib/tablecols";
 import {
@@ -159,7 +161,12 @@ function ExploreWorkspace() {
     return () => clearTimeout(t);
   }, [ws, indicators.length]);
 
-  const [focus, setFocus] = useMapFocus();
+  const density = useMapDensity();
+  const focus = density === "focus";
+  const compact = density === "compact";
+  // Compact on a wide window: the page bar sits in the empty middle of the top menu.
+  const wide = useWide(1500);
+  const slot = useNavSlot();
 
   // The opening map (no view in the address) turns on the layers chosen in Settings: CrisisWatch and events by default.
   const [resetKey, setResetKey] = useState(0);
@@ -207,25 +214,35 @@ function ExploreWorkspace() {
     setResetKey((k) => k + 1); // new maps, which open on the whole world
   };
 
+  const loadQuery = (query: string) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) });
+  const bar = (
+    <>
+      {!compact && <h1 className="ws-title">World map</h1>}
+      {compact ? (
+        <LayoutsMenu ws={ws} onLoad={loadQuery} onStartAgain={startAgain}
+          picker={<LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />} />
+      ) : (
+        <>
+          <LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />
+          <LayoutsMenu ws={ws} onLoad={loadQuery} onStartAgain={startAgain} />
+        </>
+      )}
+      <SelectionBar ws={ws} names={names} dispatch={dispatch} narrow={compact} />
+      <DensityPicker density={density} />
+      {settings.side_panel && (
+        <button className={`small side-toggle${ws.side ? " on" : ""}`} aria-pressed={ws.side} onClick={() => dispatch({ type: "side", on: !ws.side })}
+          title="Cards kept beside the panels; send one from any popup">
+          Pinboard{ws.board.length ? ` (${ws.board.length})` : ""}
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="workspace-page">
-      <div className="controls ws-bar">
-        <h1 className="ws-title">World map</h1>
-        <LayoutPicker layout={ws.layout} onPick={(layout) => dispatch({ type: "layout", layout })} />
-        <LayoutsMenu ws={ws} onLoad={(query) => dispatch({ type: "load", ws: fromQuery(new URLSearchParams(query)) })} onStartAgain={startAgain} />
-        <SelectionBar ws={ws} names={names} dispatch={dispatch} />
-        <button className="small" onClick={() => setFocus(true)} title="Hide the menus and panel toolbars so the panels fill the window (F)">
-          Hide controls
-        </button>
-        {settings.side_panel && (
-          <button className={`small side-toggle${ws.side ? " on" : ""}`} aria-pressed={ws.side} onClick={() => dispatch({ type: "side", on: !ws.side })}
-            title="Cards kept beside the panels; send one from any popup">
-            Pinboard{ws.board.length ? ` (${ws.board.length})` : ""}
-          </button>
-        )}
-      </div>
+      {compact && wide && slot ? createPortal(<div className="controls ws-bar in-nav">{bar}</div>, slot) : <div className="controls ws-bar">{bar}</div>}
       {focus && (
-        <button className="small show-controls" onClick={() => setFocus(false)} title="Show the menus and panel toolbars again (F or Esc)">
+        <button className="small show-controls" onClick={leaveFocus} title="Show the menus and panel toolbars again (F or Esc)">
           Show controls
         </button>
       )}
@@ -300,6 +317,20 @@ function Grid({ ws, dispatch, children }: { ws: Workspace; dispatch: (a: { type:
   const cols = layout === "5" ? `${c}fr ${(1 - c) / 2}fr ${(1 - c) / 2}fr`
     : THREE_COLS.has(layout) ? "repeat(3, minmax(0, 1fr))" : HAS_COLS.has(layout) ? `${c}fr ${1 - c}fr` : "1fr";
   const rows = HAS_ROWS.has(layout) ? `${r}fr ${1 - r}fr` : "1fr";
+  // The panels fill the window below whatever is above them (the menu, notices, the page bar),
+  // measured again when any of those change size or a notice comes or goes.
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => (el.parentElement ?? el).style.setProperty("--ws-top", `${Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY))}px`);
+    measure();
+    const ro = new ResizeObserver(measure);
+    document.querySelectorAll("body > nav, .ws-bar").forEach((n) => ro.observe(n));
+    const mo = new MutationObserver(measure);
+    mo.observe(document.body, { childList: true, subtree: false, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); mo.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
 
   // Dragging a divider moves the split; kept between 20% and 80% so no panel vanishes.
   const drag = (axis: 0 | 1) => (e: React.PointerEvent) => {
@@ -365,7 +396,7 @@ function LayoutPicker({ layout, onPick }: { layout: Layout; onPick: (l: Layout) 
   );
 }
 
-function SelectionBar({ ws, names, dispatch }: { ws: Workspace; names: Map<string, string>; dispatch: (a: import("@/lib/workspace").Action) => void }) {
+function SelectionBar({ ws, names, dispatch, narrow = false }: { ws: Workspace; names: Map<string, string>; dispatch: (a: import("@/lib/workspace").Action) => void; narrow?: boolean }) {
   const full = ws.selection.length >= MAX_SELECTION;
   const compare = useMemo(() => `/compare?ids=${ws.selection.join(",")}&indicator=${ws.panels.find((p) => p.indicator !== NO_INDICATOR)?.indicator ?? "tfr"}`, [ws]);
   return (
@@ -377,9 +408,9 @@ function SelectionBar({ ws, names, dispatch }: { ws: Workspace; names: Map<strin
           <button aria-label={`Remove ${names.get(id) ?? id}`} onClick={() => dispatch({ type: "toggleSelect", entity: id })}>×</button>
         </span>
       ))}
-      <div style={{ width: 220 }}>
+      <div style={{ width: narrow ? 190 : 220 }}>
         <Search
-          placeholder={full ? `Up to ${MAX_SELECTION} selected` : "Select a country, region or bloc"}
+          placeholder={full ? `Up to ${MAX_SELECTION} selected` : narrow ? "Select a country, region…" : "Select a country, region or bloc"}
           kinds={["entity"]}
           onPick={(h) => !ws.selection.includes(h.id) && dispatch({ type: "toggleSelect", entity: h.id })}
         />
@@ -404,7 +435,7 @@ export default function ExplorePage() {
 
 // Save the whole workspace under a name, and load saved ones or a starter.
 // Saved layouts are kept by the API in a user folder beside the data.
-function LayoutsMenu({ ws, onLoad, onStartAgain }: { ws: Workspace; onLoad: (query: string) => void; onStartAgain: () => void }) {
+function LayoutsMenu({ ws, onLoad, onStartAgain, picker }: { ws: Workspace; onLoad: (query: string) => void; onStartAgain: () => void; picker?: React.ReactNode }) {
   const box = useRef<HTMLDetailsElement>(null);
   const [saved, setSaved] = useState<SavedLayout[]>([]);
   const [name, setName] = useState("");
@@ -446,8 +477,11 @@ function LayoutsMenu({ ws, onLoad, onStartAgain }: { ws: Workspace; onLoad: (que
 
   return (
     <details className="links layouts" ref={box}>
-      <summary>Layouts</summary>
+      {picker ? (
+        <summary title="The panels' shape, and your saved layouts"><LayoutIcon layout={ws.layout} /> Layout</summary>
+      ) : <summary>Layouts</summary>}
       <div className="links-menu">
+        {picker && (<><div className="menu-head">Shape</div><div className="layout-shapes">{picker}</div></>)}
         <form onSubmit={save} className="row">
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name this layout" maxLength={60}
             aria-label="Layout name" />
@@ -499,32 +533,58 @@ function useStartPage(fresh: boolean) {
   }, [fresh, router]);
 }
 
-// Controls hidden or shown, remembered in this browser. F toggles it (not while
-// typing in a box), Esc shows them again. The class lives on <body> only while
-// the map page is open, so other pages keep their menu.
-const FOCUS_KEY = "wm.mapFocus";
-function useMapFocus(): [boolean, (on: boolean) => void] {
-  const [focus, setFocusState] = useState(false);
-  const setFocus = useCallback((on: boolean) => {
-    setFocusState(on);
-    try { window.localStorage.setItem(FOCUS_KEY, on ? "1" : "0"); } catch { /* kept for this visit only */ }
-  }, []);
+// The toolbars' size (Full, Compact, Focus), remembered in this browser (lib/density). F steps
+// through the three (not while typing in a box), Esc leaves Focus. The classes live on <body>
+// only while the map page is open, so other pages keep their menu.
+function useMapDensity(): Density {
+  const density = useDensity();
   useEffect(() => {
-    try { setFocusState(window.localStorage.getItem(FOCUS_KEY) === "1"); } catch { /* storage blocked */ }
-  }, []);
-  useEffect(() => {
-    document.body.classList.toggle("map-focus", focus);
-    return () => document.body.classList.remove("map-focus");
-  }, [focus]);
+    document.body.classList.toggle("map-focus", density === "focus");
+    document.body.classList.toggle("map-compact", density === "compact");
+    return () => document.body.classList.remove("map-focus", "map-compact");
+  }, [density]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (e.ctrlKey || e.metaKey || e.altKey || (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)))) return;
-      if (e.key === "f" || e.key === "F") { e.preventDefault(); setFocus(!document.body.classList.contains("map-focus")); }
-      else if (e.key === "Escape" && document.body.classList.contains("map-focus")) setFocus(false);
+      const now = document.body.classList.contains("map-focus") ? "focus" : document.body.classList.contains("map-compact") ? "compact" : "full";
+      if (e.key === "f" || e.key === "F") { e.preventDefault(); setDensity(nextDensity(now)); }
+      else if (e.key === "Escape" && now === "focus") leaveFocus();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [setFocus]);
-  return [focus, setFocus];
+  }, []);
+  return density;
+}
+
+function DensityPicker({ density }: { density: Density }) {
+  return (
+    <div className="seg density" role="group" aria-label="Toolbar size" title="How much room the toolbars take (F steps through them)">
+      {DENSITIES.map((d) => (
+        <button key={d.id} className={d.id === density ? "on" : ""} aria-pressed={d.id === density} title={d.hint} onClick={() => setDensity(d.id)}>
+          {d.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// True while the window is at least this wide.
+function useWide(px: number): boolean {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const q = window.matchMedia(`(min-width: ${px}px)`);
+    const on = () => setWide(q.matches);
+    on();
+    q.addEventListener("change", on);
+    return () => q.removeEventListener("change", on);
+  }, [px]);
+  return wide;
+}
+
+// The place in the top menu (components/Nav) the map page can put its bar into.
+function useNavSlot(): HTMLElement | null {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setSlot(document.getElementById("nav-page-slot")); }, []);
+  return slot;
 }
