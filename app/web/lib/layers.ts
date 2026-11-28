@@ -478,12 +478,19 @@ export const LAYER_STYLE: Record<string, Style> = {
   },
   // ---- congestion (Transport > Congestion)
   live_trains: {
-    legend: "Train now (operators' live feeds): green on time, amber 2-5 min late, red 5+ min", swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "here",
-    paint: () => ({
-      "circle-color": ["case", ["!=", ["typeof", ["get", "delay_min"]], "number"], "#868e96",
-        ["<", ["get", "delay_min"], 2], "#2b8a3e", ["<", ["get", "delay_min"], 5], "#f08c00", "#c92a2a"] as unknown as ExpressionSpecification,
-      "circle-radius": zoomWidth(3, 7), "circle-stroke-color": cssVar("--surface"), "circle-stroke-width": 1.2,
+    legend: "Train now (operators' live feeds), pointing the way it is going: green on time, amber 2-5 min late, red 5+ min, grey not given",
+    swatch: () => "#2b8a3e", dot: true, fetch: "live", every: 30, click: "here",
+    symbol: () => ({
+      "icon-image": "wm-train",
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.45, 10, 0.7, 13, 1, 16, 1.4] as unknown as ExpressionSpecification,
+      "icon-rotate": ["coalesce", ["get", "heading"], 0] as unknown as ExpressionSpecification,
+      "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-ignore-placement": true,
     }),
+    paint: () => ({
+      "icon-color": ["case", ["!=", ["typeof", ["get", "delay_min"]], "number"], "#868e96",
+        ["<", ["get", "delay_min"], 2], "#2b8a3e", ["<", ["get", "delay_min"], 5], "#f08c00", "#c92a2a"] as unknown as ExpressionSpecification,
+      "icon-halo-color": cssVar("--surface"), "icon-halo-width": 1,
+    }) as never,
   },
   count_sites: {
     legend: "Road counting site, sized by vehicles a day; red busier than the eight weeks before, blue quieter", swatch: () => cssVar("--ink-2"), dot: true,
@@ -560,6 +567,12 @@ export function windowData(id: string, b: { west: number; south: number; east: n
 
 const num = (v: unknown, d = 0) => (typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: d }) : "");
 
+// How full a train is (GTFS Realtime occupancy, as the server names it).
+const OCCUPANCY_LABEL: Record<string, string> = { empty: "Empty", many_seats: "Many seats free", few_seats: "Few seats free",
+  standing: "Standing room only", crushed: "Crowded", full: "Full", not_accepting: "Not taking passengers", not_boardable: "Not for passengers" };
+const OCCUPANCY_SHORT: Record<string, string> = { empty: "empty", many_seats: "seats", few_seats: "few seats", standing: "standing",
+  crushed: "crowded", full: "full", not_accepting: "closed", not_boardable: "closed" };
+
 // The text shown when the pointer is over one of a layer's features.
 export function layerLabel(layer: string, p: Record<string, unknown>): string {
   const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -597,6 +610,8 @@ export function layerLabel(layer: string, p: Record<string, unknown>): string {
     + `${typeof p.speed_kn === "number" ? `<br/>${p.speed_kn} knots` : ""}${p.sanctioned ? "<br/><b style=\"color:#c92a2a\">On a sanctions list</b> (OpenSanctions)" : ""}<br/><span class="muted">Click for where from and to</span>`;
   if (layer === "live_trains") return `<b>${esc(p.line || p.label || "Train")}</b>${p.network ? ` (${esc(p.network)})` : ""}`
     + `${typeof p.delay_min === "number" ? `<br/>${p.delay_min <= 0 ? "On time" : `${num(p.delay_min, 1)} min late`}` : "<br/>Lateness not given"}`
+    + (p.occupancy ? `<br/>${esc(OCCUPANCY_LABEL[String(p.occupancy)] ?? p.occupancy)}` : "")
+    + (typeof p.cars === "number" ? ` · ${p.cars} carriages` : "")
     + "<br/><span class=\"muted\">Click for its path and line</span>";
   if (layer === "count_sites") return `<b>${esc(p.name)}</b>`
     + `${typeof p.vehicles === "number" ? `<br/>${num(p.vehicles)} vehicles a day last week` : ""}`
@@ -720,8 +735,12 @@ export function hereCard(layer: string, p: Record<string, unknown>, at: { lng: n
   }
   if (layer === "live_trains") {
     const late = typeof p.delay_min === "number" ? (p.delay_min <= 0 ? "On time" : `${num(p.delay_min, 1)} minutes late`) : "Lateness not given by the feed";
+    let cars: { n: number; label?: string | null; occupancy?: string | null; quiet?: boolean }[] = [];
+    try { cars = typeof p.carriages === "string" ? JSON.parse(p.carriages) : Array.isArray(p.carriages) ? p.carriages as typeof cars : []; } catch { cars = []; }
+    const full = p.occupancy ? `How full: ${OCCUPANCY_LABEL[String(p.occupancy)] ?? p.occupancy}` : "";
+    const byCar = cars.length ? `${cars.length} carriages${cars.some((c) => c.occupancy) ? `: ${cars.map((c) => `${c.n} ${OCCUPANCY_SHORT[String(c.occupancy)] ?? "?"}${c.quiet ? " (quiet)" : ""}`).join(", ")}` : ""}` : "";
     return { title: String(p.line || p.label || "Train"),
-      lines: [late, p.network ? `Network: ${p.network}` : "", p.label && p.label !== p.line ? `Train ${p.label}` : "", typeof p.speed_kmh === "number" ? `${num(p.speed_kmh)} km/h` : "", "Its path over the last two hours is drawn on the map."].filter(Boolean),
+      lines: [late, full, byCar, p.network ? `Network: ${p.network}` : "", p.label && p.label !== p.line ? `Train ${p.label}` : "", typeof p.speed_kmh === "number" ? `${num(p.speed_kmh)} km/h` : "", "Its path over the last two hours is drawn on the map."].filter(Boolean),
       links: [{ label: "Lateness by line", hint: "Transport > Congestion, trains", href: `/transport?tab=congestion&part=trains&feed=${encodeURIComponent(String(p.id ?? "").split(":")[0])}` }] };
   }
   if (layer === "count_sites") {
