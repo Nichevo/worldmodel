@@ -251,6 +251,10 @@ export type Settings = {
   popup_tabs: boolean;
   side_panel: boolean;
   disk_limit_gb: number;
+  storage_warn_pct: number; // storage warnings from this share of a limit ...
+  storage_critical_pct: number; // ... and stronger from this one
+  drive_free_warn_gb: number; // warn when the drive has less free than this (0: never)
+  expiry_warn_days: number; // warn this many days before saved data first reaches the age it is deleted at (0: never)
   pictures_limit_gb: number;
   numbeo_daily: number;
   distance_key_cities: string;
@@ -631,7 +635,13 @@ export type StorageLevel = "ok" | "warn" | "critical" | "full";
 export type Storage = {
   home: string; total: number; level: StorageLevel; warn_at: number; critical_at: number; freeable: number;
   categories: { key: string; label: string; bytes: number }[];
-  limits: { key: string; label: string; used: number; limit: number; level: StorageLevel }[];
+  limits: { key: string; label: string; used: number; limit: number; level: StorageLevel; free?: number; free_warn?: number }[];
+};
+
+// Saved data close to the age (or count) its Settings keep it for (/storage/expiring).
+export type Expiring = {
+  key: string; label: string; setting: string; keep: number; unit: "days" | "backups"; oldest: string;
+  deletes_from: string | null; days_left: number; href: string; what: string; due: boolean; ok: boolean;
 };
 
 export type RefreshSource = {
@@ -1522,6 +1532,8 @@ export const api = {
   mapRange: (indicator: string, start?: number, end?: number) => get<MapRange>("/map/range", { indicator, start, end }),
   storage: () => get<Storage>("/storage"),
   freeUp: () => send<{ removed: string[]; freed_bytes: number }>("POST", "/storage/free-up"),
+  expiring: (all = false) => get<{ warn_days: number; items: Expiring[] }>("/storage/expiring", { all: all ? "true" : undefined }),
+  keepAsIs: (key: string) => send<{ warn_days: number; items: Expiring[] }>("POST", `/storage/expiring/${encodeURIComponent(key)}/keep`),
   refreshLog: () => get<RefreshRun[]>("/refresh-log"),
   problems: () => get<Problem[]>("/problems"),
   events: (q: EventQuery) => get<EventRow[]>("/events", {

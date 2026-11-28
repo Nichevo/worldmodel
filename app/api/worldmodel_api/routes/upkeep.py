@@ -22,6 +22,27 @@ def storage():
     return local.storage()
 
 
+@api.get("/storage/expiring")
+def storage_expiring(all: bool = Query(False)):
+    """Saved data close to the age (or count) its Settings keep it for: planes, ships, ship
+    schedules, news, the History log and backups. all=true lists every store, warned or not."""
+    from worldmodel_api import keeping
+
+    return keeping.expiring(everything=all)
+
+
+@api.post("/storage/expiring/{key}/keep")
+def storage_expiring_keep(key: str):
+    """Keep as is: no warning for this store until its setting changes."""
+    from worldmodel_api import keeping
+
+    try:
+        keeping.keep_as_is(key)
+    except KeyError:
+        raise HTTPException(404, f"Nothing saved under {key} to warn about")
+    return keeping.expiring()
+
+
 @api.post("/storage/free-up")
 def free_up(keep: int = Query(2, ge=1, le=10)):
     """Delete old raw downloads, keeping the newest `keep` per source. Never vintages or builds."""

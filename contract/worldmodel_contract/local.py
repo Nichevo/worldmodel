@@ -35,6 +35,10 @@ SETTINGS: dict[str, object] = {
     "disk_limit_gb": 100.0,          # the whole data folder
     "pictures_limit_gb": 2.0,        # media/ (pictures, cached pages)
     "basemap_limit_gb": 20.0,        # basemap/ (the local map files)
+    "storage_warn_pct": 80,          # storage limits: a warning (banner, Data status, refresh report) from this share of a limit ...
+    "storage_critical_pct": 95,      # ... and a stronger one from this share
+    "drive_free_warn_gb": 20.0,      # warn when the drive the data folder is on has less free than this (stronger below a quarter of it; 0: never)
+    "expiry_warn_days": 7,           # warn this many days before saved data (planes, ships, schedules, news, history, backups) first reaches the age it is deleted at (0: never)
     "map_centre": "pacific",         # world maps open centred on the Pacific (New Zealand near the middle) or on "atlantic" (Europe and Africa)
     "base_map": "online",            # map detail under the colours: "online" (OpenFreeMap), "local" (map files on this PC) or "plain"
     "basemap_regions": "nzl",        # countries the local map file holds in full detail (street level)
@@ -383,7 +387,7 @@ LAYERSETS = {"map_layer_sets"}  # name -> layer letters, at most 30
 PHRASES = {"news_watch_words"}  # comma-separated words or short phrases, lower case
 BETTER = {"discover_better"}  # indicator id -> "higher" | "lower" | "neither", at most 5,000
 PROFILES = {"profile_saved"}  # name -> {"charts": idlist, "hidden": idlist}, at most 30
-RANGES = {"disk_limit_gb": (1, 10_000), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "flight_lookups_month": (0, 100_000), "trains_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
+RANGES = {"disk_limit_gb": (1, 10_000), "storage_warn_pct": (10, 99), "storage_critical_pct": (11, 100), "drive_free_warn_gb": (0, 10_000), "expiry_warn_days": (0, 90), "ships_world_every_hours": (0, 168), "ships_keep_days": (1, 400), "ships_quiet_days": (0, 60), "schedules_keep_days": (7, 800), "planes_keep_days": (1, 400), "flight_lookups_month": (0, 100_000), "trains_keep_days": (1, 400), "weather_days": (1, 10), "pictures_limit_gb": (0.1, 1_000), "basemap_limit_gb": (0.1, 5_000),
           "basemap_world_zoom": (4, 15), "basemap_region_zoom": (8, 15), "numbeo_daily": (0, 200),
           "wikipedia_countries_daily": (0, 500), "wikipedia_cities_daily": (0, 500), "wikipedia_empires_daily": (0, 500),
           "history_event_min_links": (5, 200), "map_history_year": (-3400, 2024),
@@ -613,9 +617,36 @@ def disk_usage(root: Path | None = None, max_age: float = 0) -> dict[str, int]:
     return out
 
 
-def level(used: float, limit: float) -> str:
+def level(used: float, limit: float, warn_at: float = WARN_AT, critical_at: float = CRITICAL_AT) -> str:
     share = used / limit if limit else 0
-    return "full" if share >= 1 else "critical" if share >= CRITICAL_AT else "warn" if share >= WARN_AT else "ok"
+    return "full" if share >= 1 else "critical" if share >= critical_at else "warn" if share >= warn_at else "ok"
+
+
+def thresholds(s: dict | None = None) -> tuple[float, float]:
+    """The warning and stronger-warning shares of a storage limit, from Settings (critical kept above warn)."""
+    s = s or load_settings()
+    warn = float(s.get("storage_warn_pct", 80)) / 100
+    critical = max(warn + 0.01, float(s.get("storage_critical_pct", 95)) / 100)
+    return warn, min(critical, 1.0)
+
+
+def drive(root: Path | None = None, s: dict | None = None) -> dict | None:
+    """Space on the drive that holds the data folder, with a level from Settings > drive_free_warn_gb:
+    warn below it, critical below a quarter of it, full below 1 GB. None if the drive can't be read."""
+    s = s or load_settings(root)
+    root = root or home()
+    probe = root
+    while not probe.exists() and probe.parent != probe:
+        probe = probe.parent
+    try:
+        du = shutil.disk_usage(probe)
+    except OSError:
+        return None
+    want = float(s.get("drive_free_warn_gb", 20)) * GB
+    lvl = ("ok" if not want else "full" if du.free < GB else "critical" if du.free < want / 4
+           else "warn" if du.free < want else "ok")
+    return {"key": "drive", "label": "Drive the data is on", "used": du.used, "limit": du.total, "free": du.free,
+            "free_warn": want, "level": lvl}
 
 
 def storage(root: Path | None = None, freeable: bool = True, max_age: float = 0) -> dict:
@@ -624,18 +655,22 @@ def storage(root: Path | None = None, freeable: bool = True, max_age: float = 0)
     s = load_settings(root)
     root = root or home()
     use = disk_usage(root, max_age)
+    warn, critical = thresholds(s)
     disk, pics = s["disk_limit_gb"] * GB, s["pictures_limit_gb"] * GB
     limits = [
-        {"key": "disk", "label": "Whole data folder", "used": use["total"], "limit": disk, "level": level(use["total"], disk)},
+        {"key": "disk", "label": "Whole data folder", "used": use["total"], "limit": disk, "level": level(use["total"], disk, warn, critical)},
         {"key": "pictures", "label": "Pictures and pages", "used": use["pictures"], "limit": pics,
-         "level": level(use["pictures"], pics)},
+         "level": level(use["pictures"], pics, warn, critical)},
         {"key": "basemap", "label": "Map files", "used": use["basemap"], "limit": s["basemap_limit_gb"] * GB,
-         "level": level(use["basemap"], s["basemap_limit_gb"] * GB)},
+         "level": level(use["basemap"], s["basemap_limit_gb"] * GB, warn, critical)},
     ]
+    d = drive(root, s)
+    if d:  # last, so limits[0] stays the whole data folder (a refresh reads it to skip big downloads)
+        limits.append(d)
     order = ["ok", "warn", "critical", "full"]
     worst = max((lim["level"] for lim in limits), key=order.index)
     return {"home": str(root), "categories": [{"key": k, "label": label, "bytes": use[k]} for k, label in CATEGORIES],
-            "total": use["total"], "limits": limits, "level": worst, "warn_at": WARN_AT, "critical_at": CRITICAL_AT,
+            "total": use["total"], "limits": limits, "level": worst, "warn_at": warn, "critical_at": critical,
             "freeable": sum(f["bytes"] for f in freeable_raw(root)) if freeable else None}
 
 

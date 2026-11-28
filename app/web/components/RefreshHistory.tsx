@@ -12,10 +12,14 @@ import { SOURCE_SHORT } from "@/lib/format";
 // Settings, a button to free space, and charts of every refresh from the
 // pipeline's refresh log (space over time, rows changed, health).
 const gb = (b: number) => `${(b / 1024 ** 3).toFixed(b < 10 * 1024 ** 3 ? 2 : 1)} GB`;
+const pc = (x: number) => `${Math.round(x * 100)}%`;
 const mb = (b: number) => (b >= 1024 ** 3 ? gb(b) : `${(b / 1024 ** 2).toFixed(1)} MB`);
-const LEVEL: Record<string, { label: string; tone: string }> = {
-  ok: { label: "OK", tone: "ok" }, warn: { label: "Over 80%", tone: "warn" },
-  critical: { label: "Over 95%", tone: "warn" }, full: { label: "Limit reached", tone: "warn" },
+const level = (st: Storage, l: Storage["limits"][number]): { label: string; tone: string } => {
+  if (l.key === "drive") return l.level === "ok" ? { label: "OK", tone: "ok" } : { label: "Low on space", tone: "warn" };
+  return {
+    ok: { label: "OK", tone: "ok" }, warn: { label: `Over ${Math.round(st.warn_at * 100)}%`, tone: "warn" },
+    critical: { label: `Over ${Math.round(st.critical_at * 100)}%`, tone: "warn" }, full: { label: "Limit reached", tone: "warn" },
+  }[l.level];
 };
 
 export function StorageCard() {
@@ -44,19 +48,21 @@ export function StorageCard() {
       <h2>Storage</h2>
       <p className="ink-2" style={{ marginTop: 0 }}>
         The data folder <code>{st.home}</code> holds {gb(st.total)}. Limits are set in <Link href="/settings">Settings</Link>;
-        warnings show at 80% and 95%. Nothing is deleted on its own.
+        warnings show at {Math.round(st.warn_at * 100)}% and {Math.round(st.critical_at * 100)}%. Nothing is deleted on its own.
+        Saved planes, ships, news and History are kept for the time set in <Link href="/settings#expiry">Settings</Link>, with a warning before they start to go.
       </p>
       {st.limits.map((l) => {
         const share = l.limit ? l.used / l.limit : 0;
         return (
           <div className="limit" key={l.key}>
             <div className="limit-head">
-              <b>{l.label}</b> <span className="muted">{gb(l.used)} of {gb(l.limit)} ({(share * 100).toFixed(share < 0.1 ? 1 : 0)}%)</span>
-              <span className={`status ${LEVEL[l.level].tone}`}>{LEVEL[l.level].label}</span>
+              <b>{l.label}</b> <span className="muted">{gb(l.used)} of {gb(l.limit)} ({(share * 100).toFixed(share < 0.1 ? 1 : 0)}%)
+                {l.key === "drive" && l.free != null ? `, ${gb(l.free)} free` : ""}</span>
+              <span className={`status ${level(st, l).tone}`}>{level(st, l).label}</span>
             </div>
             <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={l.label}>
               <div className={`fill ${l.level}`} style={{ width: `${Math.min(100, share * 100)}%` }} />
-              <i style={{ left: "80%" }} title="80%" /><i style={{ left: "95%" }} title="95%" />
+              {l.key !== "drive" && <><i style={{ left: pc(st.warn_at) }} title={pc(st.warn_at)} /><i style={{ left: pc(st.critical_at) }} title={pc(st.critical_at)} /></>}
             </div>
           </div>
         );

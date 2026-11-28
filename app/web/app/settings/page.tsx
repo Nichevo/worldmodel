@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { KINDS, kindVar } from "@/lib/events";
 import { Fragment, useEffect, useState } from "react";
-import { api, TYPE_TEXT, type AIStatus, type MeasureType, type Settings, type Storage, type Upkeep } from "@/lib/api";
+import { api, TYPE_TEXT, type AIStatus, type Expiring, type MeasureType, type Settings, type Storage, type Upkeep } from "@/lib/api";
 import { useJob } from "@/components/Upkeep";
 import { DEFAULT_SETTINGS, saveSettings, useSettings } from "@/lib/settings";
 import { visionModels, type VisionModels } from "@/lib/spotting";
@@ -18,7 +18,16 @@ export default function SettingsPage() {
   const s = useSettings();
   const [msg, setMsg] = useState<string | null>(null);
   const [storage, setStorage] = useState<Storage | null>(null);
-  useEffect(() => { api.storage().then(setStorage).catch(() => {}); }, [s.disk_limit_gb, s.pictures_limit_gb]);
+  const [kept, setKept] = useState<Expiring[] | null>(null);
+  useEffect(() => { api.storage().then(setStorage).catch(() => {}); },
+    [s.disk_limit_gb, s.pictures_limit_gb, s.basemap_limit_gb, s.storage_warn_pct, s.storage_critical_pct, s.drive_free_warn_gb]);
+  useEffect(() => { api.expiring(true).then((r) => setKept(r.items)).catch(() => {}); },
+    [s.expiry_warn_days, s.planes_keep_days, s.ships_keep_days, s.trains_keep_days, s.schedules_keep_days, s.news_keep_days, s.history_retention_days, s.backup_keep]);
+  // The banners link to a setting by #id; the page renders after its settings load, so scroll then.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "center" }), 300);
+  }, []);
 
   const save = async (patch: Partial<Settings>) => {
     try {
@@ -150,10 +159,10 @@ export default function SettingsPage() {
       <AISettings s={s} save={save} />
       <SpottingSettings s={s} save={save} />
 
-      <section className="card">
+      <section className="card" id="storage-limits">
         <h2>Storage limits</h2>
         <p className="small ink-2" style={{ marginTop: 0 }}>
-          Warnings show at 80% and 95% on the <Link href="/data">Data status</Link> page, in the refresh report and as a banner.
+          Warnings show at {s.storage_warn_pct}% and {s.storage_critical_pct}% on the <Link href="/data">Data status</Link> page, in the refresh report and as a banner.
           Nothing is ever deleted on its own; at 100% a refresh skips large downloads until you free space or raise the limit.
         </p>
         <NumberField label="Whole data folder" unit="GB" value={s.disk_limit_gb} min={1} max={10000} step={1}
@@ -162,6 +171,33 @@ export default function SettingsPage() {
           note={used("pictures") ? `${gb(used("pictures")!.used)} used now` : undefined} save={(v) => save({ pictures_limit_gb: v })} />
         <NumberField label="Map files" unit="GB" value={s.basemap_limit_gb} min={0.1} max={5000} step={1}
           note={used("basemap") ? `${gb(used("basemap")!.used)} used now` : undefined} save={(v) => save({ basemap_limit_gb: v })} />
+        <NumberField label="Warn from" unit="% of a limit" value={s.storage_warn_pct} min={10} max={99} step={1}
+          note="A banner at the top of every page, a line in the refresh report and an amber mark on Data status." save={(v) => save({ storage_warn_pct: v })} />
+        <NumberField label="Stronger warning from" unit="% of a limit" value={s.storage_critical_pct} min={11} max={100} step={1}
+          note="The banner turns red. Kept above the first warning." save={(v) => save({ storage_critical_pct: v })} />
+        <NumberField label="Warn when the drive has less free than" unit="GB" value={s.drive_free_warn_gb} min={0} max={10000} step={5}
+          note={`${used("drive") ? `${gb(used("drive")!.free ?? 0)} free now on the drive the data folder is on. ` : ""}The data folder's own limit can't help if the drive fills with other things first. Red below a quarter of this. 0: no drive warning.`}
+          save={(v) => save({ drive_free_warn_gb: v })} />
+        <h3 id="expiry">Saved data kept for a time</h3>
+        <p className="small ink-2" style={{ marginTop: 0 }}>
+          Some saved data is deleted once it is older than its setting allows. A banner names each one a few days before its oldest part first goes,
+          so you can extend it in time; Keep as is hides that warning until you change the setting.
+        </p>
+        <NumberField label="Warn before deleting starts" unit="days" value={s.expiry_warn_days} min={0} max={90} step={1}
+          note="0: no warnings." save={(v) => save({ expiry_warn_days: v })} />
+        {kept && kept.length > 0 && (
+          <table className="small">
+            <thead><tr><th>What</th><th>Kept</th><th>Oldest saved</th><th>Oldest goes</th><th /></tr></thead>
+            <tbody>{kept.map((i) => (
+              <tr key={i.key}>
+                <td><Link href={i.href}>{i.label}</Link></td>
+                <td>{i.keep} {i.unit}</td>
+                <td>{i.oldest}</td>
+                <td>{i.unit === "backups" ? "at the next backup" : i.days_left > 0 ? `${i.deletes_from} (in ${i.days_left} days)` : "now (deleting as it ages)"}</td>
+                <td className="muted">{i.due ? (i.ok ? "kept as is" : "warning shown") : ""}</td>
+              </tr>))}</tbody>
+          </table>
+        )}
         <Toggle label="Banner when a new refresh problem comes up"
           hint="Names a new failed check or download at the top of every page until you hide it or open Data status; after that it stays only in the Problems list there, and shows again only if it is fixed and later comes back. Off: no banner at all."
           on={s.problem_banner} set={(v) => save({ problem_banner: v })} />
@@ -466,6 +502,7 @@ export default function SettingsPage() {
         <NumberField label="Show quiet ships for" unit="days" value={s.ships_quiet_days} min={0} max={60} step={1}
           note="Ships not heard for a while stay on the map, faded, for up to this long: moved on along their way by sea to the port they named at their last speed when that port is known, else where they were last heard. Their positions are estimates. 0: a ship leaves the map 20 minutes after it was last heard."
           save={(v) => save({ ships_quiet_days: v })} />
+        <div id="keep-ships" />
         <NumberField label="Keep saved ships for" unit="days" value={s.ships_keep_days} min={1} max={400} step={1}
           note="Older days of positions are deleted, and ships not seen in that time drop out of the table."
           save={(v) => save({ ships_keep_days: v })} />
@@ -492,6 +529,7 @@ export default function SettingsPage() {
           on={s.planes_logos} set={(v) => save({ planes_logos: v })} />
         <Toggle label="Flags beside planes on the map" hint="When the map is zoomed in to about a country's size, each plane gets its flag beside the shape (airliners also their logo, under Airline logos); badges that would overlap are left out. Also a tickbox under Planes in the map's Layers panel. Off: no flags on the map."
           on={s.planes_badges} set={(v) => save({ planes_badges: v })} />
+        <div id="keep-planes" />
         <NumberField label="Keep saved planes for" unit="days" value={s.planes_keep_days} min={1} max={400} step={1}
           note="Older days of plane positions are deleted."
           save={(v) => save({ planes_keep_days: v })} />
@@ -525,6 +563,7 @@ export default function SettingsPage() {
           on={s.trains_live} set={(v) => save({ trains_live: v })} />
         <Toggle label="Save train positions" hint="Keep reading the train feeds while the app runs (not just while the map is open) and save each train's position every 30 seconds, so a train's path for the day can be shown and lateness by line and by hour builds up on Transport › Congestion. About 2 MB a day per city. Off: trains are read only while the layer is on, and nothing is saved."
           on={s.trains_collect} set={(v) => save({ trains_collect: v })} />
+        <div id="keep-trains" />
         <NumberField label="Keep saved train positions for" unit="days" value={s.trains_keep_days} min={1} max={400} step={1}
           note="Older days of train positions are deleted; lateness by line is kept as long."
           save={(v) => save({ trains_keep_days: v })} />
@@ -782,6 +821,7 @@ export default function SettingsPage() {
           A private log of what you open, kept only on this computer. See it on the <Link href="/history">History</Link> page.
         </p>
         <Toggle label="Pause history" hint="Nothing new is logged while paused." on={s.history_paused} set={(v) => save({ history_paused: v })} />
+        <div id="keep-history" />
         <Field label="Keep history for" hint="Older entries are dropped as new ones come in; starred entries are always kept.">
           <select value={s.history_retention_days} onChange={(e) => save({ history_retention_days: +e.target.value })}>
             <option value={0}>Forever</option>
@@ -1090,6 +1130,7 @@ function LookingAfter({ s, save }: { s: Settings; save: (p: Partial<Settings>) =
         on={s.backup_on_update} set={(v) => save({ backup_on_update: v })} />
       <TextField label="Backup folder" value={s.backup_folder} placeholder={u?.backup_folder ?? "worldmodel-backups beside the worldmodel folder"}
         note={u ? `Now: ${u.backup_folder}` : undefined} save={(v) => save({ backup_folder: v })} />
+      <div id="keep-backups" />
       <NumberField label="Backups kept" unit="" value={s.backup_keep} min={1} max={100} step={1}
         note="Older backups the app made (worldmodel-backup-*.zip) are removed; nothing else in the folder is touched." save={(v) => save({ backup_keep: v })} />
       <Toggle label="Put the keys themselves in backups"
@@ -1539,6 +1580,7 @@ function DiscoverSettings({ s, save }: { s: Settings; save: (patch: Partial<Sett
         note="ReliefWeb only answers app names it has approved; ask for one free at apidoc.reliefweb.int. Blank: no ReliefWeb items, even with it ticked."
         save={(v) => save({ news_reliefweb_app: v })} />
       <NumberField label="Fetch news again after" unit="hours" value={s.news_every_hours} min={1} max={720} step={1} save={(v) => save({ news_every_hours: v })} />
+      <div id="keep-news" />
       <NumberField label="Keep news for" unit="days" value={s.news_keep_days} min={7} max={36500} step={1}
         note="Older items are dropped at the next fetch, unless you marked them Interesting." save={(v) => save({ news_keep_days: v })} />
     </section>
