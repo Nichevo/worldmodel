@@ -15,6 +15,7 @@ import { BRIEFING_SEEN } from "@/lib/briefing";
 import { logHistory } from "@/lib/history";
 import { rememberCameras, rememberQuery, rememberedCameras, rememberedQuery, setRememberMode } from "@/lib/mapMemory";
 import { useSettings } from "@/lib/settings";
+import { colIndicators } from "@/lib/tablecols";
 import {
   LAYOUTS, MAX_PANELS, MAX_PINS, MAX_SELECTION, NO_INDICATOR, STARTERS, fromQuery, reducer, selectionOf, toQuery,
   type Action, type Group, type Layout, type Panel as PanelState, type Pin, type Workspace,
@@ -96,7 +97,7 @@ function ExploreWorkspace() {
   }, []);
 
   // Panel menus offer the indicators switched on in the Indicators page, plus any a panel already shows.
-  const inUse = new Set(ws.panels.flatMap((p) => [p.indicator, ...p.cols]));
+  const inUse = new Set(ws.panels.flatMap((p) => [p.indicator, ...colIndicators(p.cols)]));
   const menu = useMemo(() => indicators.filter((i) => i.enabled || inUse.has(i.indicator_id)), [indicators, [...inUse].join(",")]);
   const byId = useMemo(() => new Map(indicators.map((i) => [i.indicator_id, i])), [indicators]);
 
