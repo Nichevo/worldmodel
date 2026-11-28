@@ -1,4 +1,4 @@
-// Small shapes for the map's ship and plane layers, drawn once per map on a canvas and added as
+// Small shapes for the map's ship, plane and train layers, drawn once per map on a canvas and added as
 // SDF images so each layer can colour them (by kind) and turn them (by heading). They point
 // north; icon-rotate turns them to the heading.
 import type { ExpressionSpecification, Map as MlMap } from "maplibre-gl";
@@ -14,6 +14,8 @@ const SHAPES: Record<string, string> = {
   "wm-plane-light": "M24 4 C26 4 26.5 7 26.5 10 L26.5 16 L44 17 L44 22 L26.5 22 L26 34 L32 36 L32 40 L24 39 L16 40 L16 36 L22 34 L21.5 22 L4 22 L4 17 L21.5 16 L21.5 10 C21.5 7 22 4 24 4 Z",
   // a helicopter: round body, two rotor blades, tail boom
   "wm-heli": "M22.5 2 L25.5 2 L25.5 15 L44 15 L44 18 L28.5 18 A7 7 0 0 1 27 30 L25.5 30 L25.5 41 L31 43 L31 46 L17 46 L17 43 L22.5 41 L22.5 30 L21 30 A7 7 0 0 1 19.5 18 L4 18 L4 15 L22.5 15 Z",
+  // a train from above: rounded cab at the front, a long car behind with two couplings
+  "wm-train": "M24 1 C29.5 1 32 4 32 9 L32 20 L30 21 L30 23 L32 24 L32 34 L30 35 L30 37 L32 38 L32 47 L16 47 L16 38 L18 37 L18 35 L16 34 L16 24 L18 23 L18 21 L16 20 L16 9 C16 4 18.5 1 24 1 Z",
   // a glider: long thin wings
   "wm-glider": "M24 6 C25.5 6 26 8 26 10 L26 18 L47 20 L47 23 L26 23 L25.5 38 L30 39 L30 42 L18 42 L18 39 L22.5 38 L22 23 L1 23 L1 20 L22 18 L22 10 C22 8 22.5 6 24 6 Z",
 };

@@ -19,6 +19,7 @@ import gzip
 import io
 import json
 import logging
+import math
 import os
 import struct
 import threading
@@ -120,6 +121,24 @@ def _position(b: bytes) -> dict:
     return out
 
 
+def _carriage(b: bytes, tfnsw: bool = False) -> dict:
+    """One carriage: GTFS Realtime CarriageDetails (1 id, 2 label, 3 occupancy, 4 percentage,
+    5 sequence) or TfNSW's CarriageDescriptor (1 name, 2 position, 3 occupancy, 4 quiet carriage)."""
+    out: dict = {}
+    for n, wt, v in _fields(b):
+        if n in (1, 2) and wt == 2 and "label" not in out:
+            out["label"] = v.decode("utf-8", "replace")
+        elif n == 3 and wt == 0:
+            out["occupancy_status"] = v
+        elif tfnsw and n == 2 and wt == 0 or not tfnsw and n == 5 and wt == 0:
+            out["sequence"] = v
+        elif not tfnsw and n == 4 and wt == 0 and _signed(v) >= 0:
+            out["occupancy_percentage"] = _signed(v)
+        elif tfnsw and n == 4 and wt == 0:
+            out["quiet"] = bool(v)
+    return out
+
+
 def _stop_event(b: bytes) -> dict:
     out = {}
     for n, wt, v in _fields(b):
@@ -154,6 +173,12 @@ def decode_feed(b: bytes) -> list[dict]:
                         vp["stop_id"] = x.decode("utf-8", "replace")
                     elif k == 8:
                         vp["vehicle"] = _vehicle_desc(x)
+                    elif k == 9 and w2 == 0:
+                        vp["occupancy_status"] = x
+                    elif k == 10 and w2 == 0:
+                        vp["occupancy_percentage"] = x
+                    elif k in (11, 1007) and w2 == 2:  # standard multi_carriage_details; TfNSW's consist extension
+                        vp.setdefault("carriages", []).append(_carriage(x, tfnsw=k == 1007))
                 e["vehicle"] = vp
             elif fn == 3:  # TripUpdate
                 tu: dict = {"stop_time_update": []}
@@ -177,6 +202,30 @@ def decode_feed(b: bytes) -> list[dict]:
                 e["trip_update"] = tu
         out.append(e)
     return out
+
+
+# GTFS Realtime OccupancyStatus, by number and by name (JSON feeds send either).
+OCCUPANCY = ["empty", "many_seats", "few_seats", "standing", "crushed", "full", "not_accepting", "no_data", "not_boardable"]
+OCCUPANCY_LABEL = {"empty": "Empty", "many_seats": "Many seats free", "few_seats": "Few seats free", "standing": "Standing room only",
+                   "crushed": "Crowded, little standing room", "full": "Full", "not_accepting": "Not taking passengers",
+                   "not_boardable": "Not for passengers"}
+
+
+_OCC_NAMES = {"empty": "empty", "many_seats_available": "many_seats", "few_seats_available": "few_seats",
+              "standing_room_only": "standing", "crushed_standing_room_only": "crushed", "full": "full",
+              "not_accepting_passengers": "not_accepting", "no_data_available": "no_data", "not_boardable": "not_boardable"}
+
+
+def occupancy(v) -> str | None:
+    """An occupancy status as one of OCCUPANCY (None when unknown)."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)) or str(v).isdigit():
+        i = int(v)
+        got = OCCUPANCY[i] if 0 <= i < len(OCCUPANCY) else None
+    else:
+        got = _OCC_NAMES.get(str(v).lower().strip())
+    return None if got == "no_data" else got
 
 
 def _snake(d):
@@ -254,8 +303,47 @@ def trains_from(ents: list[dict], rail_routes: set[str] | None, routes: dict[str
                     "trip": trip.get("trip_id"), "lon": round(float(lon), 5), "lat": round(float(lat), 5),
                     "heading": round(float(pos["bearing"])) if pos.get("bearing") is not None else None,
                     "speed_kmh": round(float(pos["speed"]) * 3.6) if pos.get("speed") is not None else None,
-                    "at": ts, "delay_s": delay})
+                    "at": ts, "delay_s": delay, **_crowding(vp)})
     return out
+
+
+def _crowding(vp: dict) -> dict:
+    """How full the train is, and each carriage in order where the feed lists them."""
+    out: dict = {}
+    occ = occupancy(vp.get("occupancy_status"))
+    if occ:
+        out["occupancy"] = occ
+    if vp.get("occupancy_percentage") is not None:
+        try:
+            out["occupancy_pct"] = int(vp["occupancy_percentage"])
+        except (TypeError, ValueError):
+            pass
+    cars = []
+    for i, c in enumerate(sorted(vp.get("carriages") or vp.get("multi_carriage_details") or [],
+                                 key=lambda c: (c.get("sequence") or c.get("carriage_sequence") or 0))):
+        cars.append({"n": i + 1, "label": c.get("label") or c.get("id") or None, "occupancy": occupancy(c.get("occupancy_status")),
+                     **({"quiet": True} if c.get("quiet") else {})})
+    if cars:
+        out["carriages"] = cars
+        if "occupancy" not in out:  # the fullest carriage, when only carriages are given
+            known = [OCCUPANCY.index(c["occupancy"]) for c in cars if c["occupancy"] in OCCUPANCY[:6]]
+            if known:
+                out["occupancy"] = OCCUPANCY[max(known)]
+    return out
+
+
+def _bearing(path: list) -> float | None:
+    """The way a train is going, from the last two places in its path at least 20 m apart."""
+    if len(path) < 2:
+        return None
+    _, lon2, lat2 = path[-1][:3]
+    for p in reversed(path[:-1]):
+        lon1, lat1 = p[1], p[2]
+        dy = (lat2 - lat1) * 111_320
+        dx = (lon2 - lon1) * 111_320 * math.cos(math.radians(lat2))
+        if dx * dx + dy * dy >= 400:
+            return round(math.degrees(math.atan2(dx, dy)) % 360)
+    return None
 
 
 def rail_routes_from_zip(data: bytes) -> dict[str, str]:
@@ -450,10 +538,17 @@ class Trains:
                     if not (south <= lat <= north and (west <= lon <= east if west <= east else lon >= west or lon <= east)):
                         continue
                     d = t.get("delay_s")
+                    heading = t.get("heading")
+                    if heading is None:
+                        heading = _bearing(self.trails.get(f"{fid}:{t['id']}") or [])
+                    cars = t.get("carriages") or []
                     feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [lon, lat]},
                                   "properties": {"id": f"{fid}:{t['id']}", "network": names.get(fid, fid), "line": t.get("line"),
-                                                 "label": t.get("label"), "heading": t.get("heading"), "speed_kmh": t.get("speed_kmh"),
-                                                 "delay_min": round(d / 60, 1) if d is not None else None, "at": t["at"]}})
+                                                 "label": t.get("label"), "heading": heading, "speed_kmh": t.get("speed_kmh"),
+                                                 "delay_min": round(d / 60, 1) if d is not None else None, "at": t["at"],
+                                                 "occupancy": t.get("occupancy"), "cars": len(cars) or None,
+                                                 # MapLibre properties are flat: the carriages as text
+                                                 "carriages": json.dumps(cars) if cars else None}})
         out: dict = {"type": "FeatureCollection", "features": feats}
         missing = [f for f in feeds() if not os.environ.get(f["key"], "").strip()]
         if not feats:

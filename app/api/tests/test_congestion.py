@@ -277,6 +277,28 @@ def test_auckland_reads_one_combined_feed(home, monkeypatch):
     assert t.geojson(174, -37, 175, -36)["features"][0]["properties"]["delay_min"] == 2.0
 
 
+def test_crowding_carriages_and_heading(home, monkeypatch):
+    """How full a train is (standard field), each carriage (TfNSW's consist extension), and
+    the way it is going worked out from its path when the feed gives no bearing."""
+    trip = _ld(1, b"T1") + _ld(5, b"T1R")
+    car = lambda name, pos, occ: _ld(1007, _ld(1, name) + _vi(2, pos) + _vi(3, occ))
+    vp = (_ld(1, trip) + _ld(2, _f32(1, -33.87) + _f32(2, 151.2)) + _ld(8, _ld(1, b"V1")) + _vi(9, 2)
+          + car(b"D6001", 2, 3) + car(b"D6002", 1, 1))
+    ents = trains.decode_feed(_ld(2, _ld(1, b"e") + _ld(4, vp)))
+    t = trains.trains_from(ents, None, {}, 1.0)[0]
+    assert t["occupancy"] == "few_seats"
+    assert [(c["n"], c["label"], c["occupancy"]) for c in t["carriages"]] == [(1, "D6002", "many_seats"), (2, "D6001", "standing")]
+    assert trains.occupancy("STANDING_ROOM_ONLY") == "standing" and trains.occupancy(7) is None
+    assert trains._bearing([[0, 151.2, -33.87], [30, 151.2, -33.86]]) == 0  # moving north
+    assert trains._bearing([[0, 151.2, -33.87], [30, 151.21, -33.87]]) == 90  # moving east
+    monkeypatch.setattr(trains, "feeds", lambda: [{"id": "syd", "name": "Sydney Trains", "key": "TFNSW_API_KEY"}])
+    tr = trains.Trains()
+    tr.now["syd"] = {"V1": {**t, "heading": None}}
+    tr.trails["syd:V1"] = [[0, 151.2, -33.88], [30, 151.2, -33.87]]
+    p = tr.geojson(150, -35, 152, -33)["features"][0]["properties"]
+    assert p["heading"] == 0 and p["cars"] == 2 and json.loads(p["carriages"])[0]["label"] == "D6002"
+
+
 def test_trains_without_keys_say_so(home, monkeypatch):
     for k in ("AT_API_KEY", "METLINK_API_KEY", "TFNSW_API_KEY"):
         monkeypatch.delenv(k, raising=False)
