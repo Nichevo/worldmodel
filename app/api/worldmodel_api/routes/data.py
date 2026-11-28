@@ -91,13 +91,24 @@ def series_many(indicators: str = Query(..., description="Comma-separated indica
 
 
 @api.get("/map")
-def map_values(indicator: str, year: int, source: str | None = None):
-    """One value per country for a year, to colour the map."""
-    data = _series(indicator, None, None, year, year, source, "", "central", True, None)
+def map_values(indicator: str, year: int, source: str | None = None,
+               back: int = Query(0, ge=0, le=50, description="Fill a missing year with the country's latest figure up to this many years before")):
+    """One value per country for a year, to colour the map. With `back`, a country with no figure
+    that year gets its latest one from the years before, and each row says which year it is from."""
+    data = _series(indicator, None, None, year - back, year, source, "", "central", True, None)
     countries = {r["entity_id"] for r in rows("SELECT entity_id FROM entities WHERE type = 'country'")}
-    return {"indicator": indicator, "year": year,
-            "rows": [{"entity_id": r["entity_id"], "value": r["value"], "status": r["status"]}
-                     for r in data if r["entity_id"] in countries]}
+    if not back:
+        return {"indicator": indicator, "year": year,
+                "rows": [{"entity_id": r["entity_id"], "value": r["value"], "status": r["status"]}
+                         for r in data if r["entity_id"] in countries]}
+    best: dict[str, dict] = {}
+    for r in data:
+        if r["entity_id"] not in countries or r["value"] is None:
+            continue
+        y = int(r["period"][:4])
+        if r["entity_id"] not in best or y > best[r["entity_id"]]["year"]:
+            best[r["entity_id"]] = {"entity_id": r["entity_id"], "value": r["value"], "status": r["status"], "year": y}
+    return {"indicator": indicator, "year": year, "back": back, "rows": list(best.values())}
 
 
 @api.get("/map/range")

@@ -346,6 +346,16 @@ main:has(.workspace-page) { max-width: none; }
 .table-tools { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
 .table-tools label { display: flex; align-items: center; gap: 4px; }
 .cols .links-menu { left: 0; right: auto; max-height: 340px; overflow: auto; }
+/* Tables of several indicators (MultiTable): headings wrap, with unit and year beneath; a ⋯ menu per added column. */
+.multi-table th.mt-col { white-space: normal; min-width: 90px; max-width: 170px; vertical-align: bottom; }
+.multi-table th.mt-col .th-sort { text-align: right; }
+.multi-table .mt-sub { font-size: 0.72rem; font-weight: 400; color: var(--muted); }
+.multi-table .mt-year { font-size: 0.7rem; color: var(--muted); }
+.multi-table td.mt-name { white-space: nowrap; }
+.multi-table .col-menu { display: inline-block; }
+.multi-table .col-menu summary { padding: 0 6px; font-size: 0.75rem; line-height: 1.4; }
+.multi-table .col-menu .links-menu { text-align: left; font-weight: 400; width: 230px; }
+.table-tools .add-col .isel-button { font-weight: 600; }
 .links-menu .menu-head { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
 .status { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
 .status.ok { background: color-mix(in srgb, var(--series-3) 18%, transparent); color: var(--ink); }

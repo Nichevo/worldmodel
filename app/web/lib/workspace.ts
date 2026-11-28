@@ -27,7 +27,7 @@ export type Panel = {
   group: Group;
   offset: number; // years added to the group's year when year is linked
   selection: string[]; // used only while selection is unlinked
-  cols: string[]; // extra table columns: other indicators' ids, or CHANGE_COL
+  cols: string[]; // extra table columns (see lib/tablecols: ids, id-year, CHANGE_COL, flags); a chart's extra lines
   pyr: string; // pyramid options: "" overlays the second selected country, "-" none, "1975" that year; "a" suffix = absolute
   xy: string; // scatter options: "y,size,flags,colour" (the panel's indicator is x; see scatterOptions); flags "o" (trim outliers), "g" (governing party) and "s" (statistical forecast) also apply to charts
   range: string; // chart years: "" all, "h10f5" ten years back and five ahead of today, "1990-2030" a dragged span (see chartRange)
@@ -448,7 +448,8 @@ export function fromQuery(q: URLSearchParams): Workspace {
         group: group === "B" ? "B" : "A",
         offset: offset && /^-?\d{1,3}$/.test(offset) ? +offset : 0,
         selection: list(q.get(`s${i}`)),
-        cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+$/.test(c)).slice(0, 8),
+        // Indicator ids (optionally "-year" for a fixed year), CHANGE_COL and the table's flags.
+        cols: (cols || "").split(",").filter((c) => /^[a-z0-9_]+(-\d{4})?$/.test(c)).slice(0, 16),
         pyr: pyr && /^(-|\d{4})?a?$/.test(pyr) ? pyr : "",
         xy: xy && /^[a-z0-9_]*(,[a-z0-9_]*(,[xymaogs]{0,7}(,[a-z0-9_-]*)?)?)?$/.test(xy) ? xy : "",
         range: range && RANGE_RE.test(range) ? range : "",

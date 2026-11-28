@@ -1494,8 +1494,9 @@ export const api = {
     send<IndicatorQuality>("PUT", `/quality/${encodeURIComponent(id)}`, change),
   search: (q: string) => get<SearchHit[]>("/search", { q }),
   series: (indicator: string, entities: string[], start?: number, end?: number) => batchedSeries(indicator, entities, start, end),
-  map: (indicator: string, year: number) =>
-    get<{ rows: { entity_id: string; value: number; status: string }[] }>("/map", { indicator, year }).then((r) => r.rows),
+  // With `back`, a country missing that year gets its latest figure from up to `back` years before, with its `year`.
+  map: (indicator: string, year: number, back = 0) =>
+    get<{ rows: { entity_id: string; value: number; status: string; year?: number }[] }>("/map", back ? { indicator, year, back } : { indicator, year }).then((r) => r.rows),
   memberships: (q: { type?: string; group?: string }) =>
     get<{ group_id: string; group_name: string; member_id: string }[]>("/memberships", q),
   pyramid: (entity: string, year: number) => get<Pyramid>("/pyramid", { entity, year }),

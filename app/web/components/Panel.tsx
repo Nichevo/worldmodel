@@ -9,6 +9,7 @@ import ShareCircle from "@/components/ShareCircle";
 import Flag from "@/components/Flag";
 import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
+import MultiTable, { cellText, useTableModel } from "@/components/MultiTable";
 import LayersPanel, { useMapMarks } from "@/components/LayersPanel";
 import WeatherOverlay from "@/components/WeatherOverlay";
 import NewsPanel from "@/components/NewsPanel";
@@ -23,6 +24,7 @@ import { mapLayers } from "@/lib/layers";
 import MixOverlay, { type MixShade } from "@/components/MixOverlay";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
+import { EXACT_FLAG, FILL_BACK, MAX_COLS, SHADE_FLAG, colSpecs, colToken, useTableColumns, type ColSpec, type TableColumn } from "@/lib/tablecols";
 import { isStarred, passes, useStars } from "@/lib/quality";
 import { forecastCaption, useForecastsFor, withForecast } from "@/lib/forecast";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
@@ -586,132 +588,125 @@ function mapValues(indicator: string, year: number): Promise<Value[]> {
   return mapCache.get(key)!;
 }
 
-type Column = { key: string; label: string; unit: string; decimals: number; values: Map<string, Value> };
-type Sort = { by: string; desc: boolean };
-
+// A table of countries against several indicators: the panel's indicator first, optionally its
+// change over ten years, then any columns added with "Add column" (each at the panel's year or a
+// year of its own). Drawn by MultiTable, which other pages can use too.
 function TableView({ panel, indicator, indicators, year, names, selection, dispatch, hovered, onHover, clicks, exporter }: {
   panel: PanelState; indicator: Indicator; indicators: Indicator[]; year: number; names: Map<string, string>;
   selection: string[]; dispatch: (a: Action) => void; hovered: string | null; onHover: (e: string | null) => void;
   clicks: Clicks; exporter: React.RefObject<Exporter>;
 }) {
   const handlers = useClickHandlers(clicks);
-  // The panel's indicator, any extra indicators picked for this table (same year),
-  // and optionally its change over ten years.
-  const extra = panel.cols.filter((c) => c !== panel.indicator && (c === CHANGE_COL || indicators.some((i) => i.indicator_id === c)));
-  const wanted = useMemo(() => [
-    { id: panel.indicator, year },
-    ...extra.filter((c) => c !== CHANGE_COL).map((id) => ({ id, year })),
-    ...(extra.includes(CHANGE_COL) ? [{ id: panel.indicator, year: year - 10 }] : []),
-  ], [panel.indicator, year, extra.join(",")]);
-  const [loaded, setLoaded] = useState<Map<string, Value[]>>(new Map());
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    Promise.all(wanted.map((w) => mapValues(w.id, w.year).catch(() => [] as Value[]).then((v) => [`${w.id}|${w.year}`, v] as const)))
-      .then((pairs) => { if (live) { setLoaded(new Map(pairs)); setError(null); } })
-      .catch((e) => live && setError(String(e.message || e)));
-    return () => { live = false; };
-  }, [wanted]);
-
-  const byId = (rows: Value[] | undefined) => new Map((rows ?? []).map((v) => [v.entity_id, v]));
-  const main = byId(loaded.get(`${panel.indicator}|${year}`));
-  const columns: Column[] = [
-    { key: "main", label: `${indicator.name}, ${year}`, unit: indicator.unit, decimals: indicator.decimals, values: main },
-    ...extra.map((c): Column => {
-      if (c === CHANGE_COL) {
-        const before = byId(loaded.get(`${panel.indicator}|${year - 10}`));
-        const diff = new Map<string, Value>();
-        main.forEach((v, id) => {
-          const b = before.get(id);
-          if (b) diff.set(id, { entity_id: id, value: v.value - b.value, status: v.status });
-        });
-        return { key: c, label: `Change since ${year - 10}`, unit: indicator.unit === "percent" ? "points" : indicator.unit,
-          decimals: indicator.decimals, values: diff };
-      }
-      const ind = indicators.find((i) => i.indicator_id === c)!;
-      return { key: c, label: ind.name, unit: ind.unit, decimals: ind.decimals, values: byId(loaded.get(`${c}|${year}`)) };
-    }),
+  const known = (id: string) => indicators.some((i) => i.indicator_id === id);
+  const extras = colSpecs(panel.cols).filter((c) => known(c.indicator) && !(c.indicator === panel.indicator && c.year === null));
+  const change = panel.cols.includes(CHANGE_COL);
+  const fill = !panel.cols.includes(EXACT_FLAG);
+  const shade = panel.cols.includes(SHADE_FLAG);
+  const specs: ColSpec[] = [
+    { indicator: panel.indicator, year: null },
+    ...(change ? [{ indicator: panel.indicator, year: null, change: 10 }] : []),
+    ...extras,
   ];
-
-  const [sort, setSort] = useState<Sort>({ by: "main", desc: true });
+  const { columns, error } = useTableColumns(specs, year, indicators, fill);
   const [pin, setPin] = useState(true);
-  const sortCol = columns.find((c) => c.key === sort.by) ?? columns[0];
-  const rows = useMemo(() => {
-    const ids = [...main.keys()];
-    const dir = sort.desc ? -1 : 1;
-    const name = (id: string) => names.get(id) ?? id;
-    ids.sort((a, b) => {
-      if (sort.by === "name") return dir * name(a).localeCompare(name(b));
-      const va = sortCol.values.get(a)?.value, vb = sortCol.values.get(b)?.value;
-      if (va === undefined || vb === undefined) return va === undefined ? (vb === undefined ? 0 : 1) : -1; // blanks last
-      return dir * (va - vb);
-    });
-    // Selected countries first, in the sort order, so they're easy to compare.
-    if (pin && selection.length) ids.sort((a, b) => Number(selection.includes(b)) - Number(selection.includes(a)));
-    return ids;
-  }, [main, sort, sortCol, names, pin, selection]);
-  const ranks = useMemo(() => {
-    const ranked = [...sortCol.values.values()].sort((a, b) => (sort.desc ? b.value - a.value : a.value - b.value));
-    return new Map(ranked.map((v, i) => [v.entity_id, i + 1]));
-  }, [sortCol, sort.desc]);
+  const [only, setOnly] = useState(false);
+  const model = useTableModel(columns, names, { first: pin ? selection : [], only: only && selection.length ? selection : undefined });
 
-  const head = (by: string, label: string, cls?: string) => (
-    <th key={by} className={cls} aria-sort={sort.by === by ? (sort.desc ? "descending" : "ascending") : "none"}>
-      <button className="th-sort" onClick={() => setSort({ by, desc: sort.by === by ? !sort.desc : by !== "name" })}>
-        {label}{sort.by === by ? (sort.desc ? " ↓" : " ↑") : ""}
-      </button>
-    </th>
-  );
-  const fmt = (c: Column, v: Value | undefined) =>
-    v === undefined ? "–" : `${c.key === CHANGE_COL && v.value > 0 ? "+" : ""}${formatValue(v.value, c.unit === "points" ? "" : c.unit, c.decimals)}${c.key === CHANGE_COL && c.unit === "points" ? " pts" : ""}${v.status === "P" ? " *" : ""}`;
-  exporter.current = {
-    name: fileName(indicator.indicator_id, "table", year),
-    csv: () => csvText(["rank", "entity_id", "name", ...columns.flatMap((c) => [c.label, `${c.label} status`])],
-      rows.map((id) => [ranks.get(id), id, names.get(id) ?? id,
-        ...columns.flatMap((c) => [c.values.get(id)?.value, c.values.get(id)?.status])])),
-    png: async () => tablePng(`${indicator.name}, ${year}`, ["Rank", "Country", ...columns.map((c) => c.label)],
-      rows.map((id) => [String(ranks.get(id) ?? "–"), names.get(id) ?? id, ...columns.map((c) => fmt(c, c.values.get(id)))]),
-      40, await credits(sourcesOf(indicator))),
+  // The panel's cols: its flags, then the added columns in order.
+  const flags = (on: Record<string, boolean>) => [CHANGE_COL, EXACT_FLAG, SHADE_FLAG].filter((f) => (f in on ? on[f] : panel.cols.includes(f)));
+  const setCols = (cols: ColSpec[], on: Record<string, boolean> = {}) =>
+    dispatch({ type: "panel", id: panel.id, patch: { cols: [...flags(on), ...[...new Set(cols.map(colToken))].slice(0, MAX_COLS)] } });
+  const setFlag = (f: string, v: boolean) => setCols(extras, { [f]: v });
+  const first = 1 + (change ? 1 : 0); // columns before the added ones
+  const headTools = (c: TableColumn, i: number) => {
+    if (i < first) return null;
+    const k = i - first;
+    const spec = extras[k];
+    const move = (d: number) => {
+      const next = [...extras];
+      [next[k], next[k + d]] = [next[k + d], next[k]];
+      setCols(next);
+    };
+    return (
+      <ColumnMenu label={c.label} year={spec.year} panelYear={year} indicator={indicators.find((x) => x.indicator_id === spec.indicator)}
+        canLeft={k > 0} canRight={k < extras.length - 1} onLeft={() => move(-1)} onRight={() => move(1)}
+        onYear={(y) => setCols(extras.map((e, j) => (j === k ? { ...e, year: y } : e)))}
+        onRemove={() => setCols(extras.filter((_, j) => j !== k))} />
+    );
   };
+
+  const title = columns.length > 1 ? `${columns.length} indicators, ${year}` : `${indicator.name}, ${year}`;
+  exporter.current = {
+    name: fileName(columns.length > 1 ? `${indicator.indicator_id}-and-${columns.length - 1}-more` : indicator.indicator_id, "table", year),
+    csv: () => csvText(["rank", "entity_id", "name", ...columns.flatMap((c) => [`${c.label} (${c.year})`, `${c.label} status`, `${c.label} year`])],
+      model.rows.map((id) => [model.ranks.get(id), id, names.get(id) ?? id,
+        ...columns.flatMap((c) => { const v = c.values.get(id); return [v?.value, v?.status, v ? (v.year ?? c.year) : undefined]; })])),
+    png: async () => tablePng(title, ["Rank", "Country", ...columns.map((c) => c.year !== year ? `${c.label} (${c.year})` : c.label)],
+      model.rows.map((id) => [String(model.ranks.get(id) ?? "–"), names.get(id) ?? id, ...columns.map((c) => cellText(c, c.values.get(id)))]),
+      40, await credits([...new Set(specs.flatMap((sp) => sourcesOf(indicators.find((x) => x.indicator_id === sp.indicator))))])),
+  };
+  const filled = columns.some((c) => [...c.values.values()].some((v) => v.year));
+  const projected = columns.some((c) => [...c.values.values()].some((v) => v.status === "P"));
+  const full = extras.length >= MAX_COLS;
 
   return (
     <>
       {error && <p className="error">{error}</p>}
       <div className="table-tools">
-        <ColumnsMenu panel={panel} indicators={indicators} dispatch={dispatch} />
+        {full ? <span className="small muted">{MAX_COLS} added columns at most</span> : (
+          <IndicatorSelect indicators={indicators.filter((i) => i.available)} value="" label="Add a column" placeholder="+ Add column"
+            className="add-col" onChange={(id) => id && id !== NO_INDICATOR && setCols([...extras, { indicator: id, year: null }])} />
+        )}
+        <label className="small" title="A column with the change in the panel's indicator over the ten years to the panel's year">
+          <input type="checkbox" checked={change} onChange={(e) => setFlag(CHANGE_COL, e.target.checked)} /> Change over 10 years</label>
+        <label className="small" title={`A country with no figure for the year shows its latest figure from up to ${FILL_BACK} years before, with that year beside it`}>
+          <input type="checkbox" checked={fill} onChange={(e) => setFlag(EXACT_FLAG, !e.target.checked)} /> Fill gaps from earlier years</label>
+        <label className="small" title="Tint each cell by where it stands in its column: darker is higher">
+          <input type="checkbox" checked={shade} onChange={(e) => setFlag(SHADE_FLAG, e.target.checked)} /> Shade</label>
         <label className="small"><input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} /> Selected first</label>
-        <span className="small muted">Rank by {sort.by === "name" ? indicator.name : sortCol.label}</span>
+        <label className={`small${selection.length ? "" : " muted"}`} title={selection.length ? "Show only the selected countries" : "Select countries first"}>
+          <input type="checkbox" checked={only && selection.length > 0} disabled={!selection.length} onChange={(e) => setOnly(e.target.checked)} /> Only selected</label>
+        {extras.length > 0 && <button className="small" onClick={() => setCols([])}>Remove added columns</button>}
       </div>
       <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th className="num">Rank</th>
-              {head("name", "Country")}
-              {columns.map((c) => head(c.key, c.label, "num"))}
-            </tr>
-          </thead>
-          <tbody onMouseLeave={() => onHover(null)}>
-            {rows.map((id) => {
-              const on = selection.includes(id);
-              return (
-                <tr key={id} className={[on ? "selected" : "", hovered === id ? "hovered" : ""].join(" ")}
-                  onClick={(e) => handlers.click(id, e)} onDoubleClick={(e) => handlers.double(id, e)}
-                  onMouseEnter={() => onHover(id)} aria-selected={on}>
-                  <td className="num">{ranks.get(id) ?? "–"}</td>
-                  <td><Flag id={id} />{names.get(id) ?? id}</td>
-                  {columns.map((c) => <td key={c.key} className="num">{fmt(c, c.values.get(id))}</td>)}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <MultiTable model={model} names={names} selection={selection} hovered={hovered} onHover={onHover} shade={shade}
+          onRowClick={(id, e) => handlers.click(id, e)} onRowDouble={(id, e) => handlers.double(id, e)} headTools={headTools} />
       </div>
       <p className="caption">
-        {sourceLine(indicator)}. {rows.length} countries. {clicks.mode === "popup" ? "Click a row for its popup, shift-click to select it" : "Click a row to select it, double-click for its popup"}; click a heading to sort.
-        {[...main.values()].some((r) => r.status === "P") ? " * projection." : ""}
+        {[...new Set(specs.map((sp) => { const i = indicators.find((x) => x.indicator_id === sp.indicator); return i ? sourceLine(i) : ""; }).filter(Boolean))].join(", ")}.
+        {" "}{model.rows.length} countries. Ranked by {model.sortCol?.label ?? "name"}. {clicks.mode === "popup" ? "Click a row for its popup, shift-click to select it" : "Click a row to select it, double-click for its popup"}; click a heading to sort, ⋯ to move or remove a column.
+        {projected ? " * projection." : ""}{filled ? " A small year beside a figure: the country's latest figure, from that year." : ""}
       </p>
     </>
+  );
+}
+
+// The ⋯ menu under an added column's heading: its year, moving it, removing it.
+function ColumnMenu({ label, year, panelYear, indicator, canLeft, canRight, onLeft, onRight, onYear, onRemove }: {
+  label: string; year: number | null; panelYear: number; indicator: Indicator | undefined;
+  canLeft: boolean; canRight: boolean; onLeft: () => void; onRight: () => void; onYear: (y: number | null) => void; onRemove: () => void;
+}) {
+  const box = useRef<HTMLDetailsElement>(null);
+  useOutsideClose(box);
+  const lo = indicator?.first_year ?? 1800, hi = indicator?.last_year ?? 2100;
+  return (
+    <details className="links col-menu" ref={box} onClick={(e) => e.stopPropagation()}>
+      <summary aria-label={`Options for ${label}`} title="Year, move or remove this column">⋯</summary>
+      <div className="links-menu">
+        <label><input type="radio" checked={year === null} onChange={() => onYear(null)} /> The panel&apos;s year ({panelYear})</label>
+        <label><input type="radio" checked={year !== null} onChange={() => onYear(Math.min(hi, Math.max(lo, panelYear)))} /> Its own year
+          {year !== null && (
+            <input type="number" min={lo} max={hi} value={year} aria-label="Year"
+              onChange={(e) => { const y = +e.target.value; if (y >= lo && y <= hi) onYear(y); }} />
+          )}
+        </label>
+        <div className="row">
+          <button className="small" disabled={!canLeft} onClick={onLeft}>◂ Move left</button>
+          <button className="small" disabled={!canRight} onClick={onRight}>Move right ▸</button>
+        </div>
+        <button className="small" onClick={onRemove}>Remove column</button>
+      </div>
+    </details>
   );
 }
 

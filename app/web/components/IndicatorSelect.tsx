@@ -22,8 +22,9 @@ const STRIP_W = 84;
 // Each indicator shows its years (Settings > Events on charts > years in drop-downs): the
 // first and last year of history, "→ 2050" in orange when the source forecasts, and a small
 // strip on one shared time scale. Hovering one says more at the foot of the list.
-export default function IndicatorSelect({ indicators, value, onChange, skip, label = "Indicator", className, none }: {
+export default function IndicatorSelect({ indicators, value, onChange, skip, label = "Indicator", className, none, placeholder = "Choose…" }: {
   indicators: Indicator[]; value: string; onChange: (id: string) => void; skip?: string; label?: string; className?: string; none?: string;
+  placeholder?: string; // the button's text while nothing is chosen
 }) {
   const { quality_show: show, quality_type: type, year_strips: strips, forecast_horizon: horizon } = useSettings();
   const [folded, setFolded] = useState<Record<string, boolean>>({});
@@ -132,7 +133,7 @@ export default function IndicatorSelect({ indicators, value, onChange, skip, lab
   return (
     <div className={`isel${className ? ` ${className}` : ""}`} ref={box}>
       <button className="isel-button" aria-haspopup="listbox" aria-expanded={open} aria-label={label} onClick={() => setOpen(!open)}>
-        <span className="isel-name">{current?.name ?? (none && value === NO_INDICATOR ? none : "Choose…")}</span>
+        <span className="isel-name">{current?.name ?? (none && value === NO_INDICATOR ? none : placeholder)}</span>
         {current && sums.get(current.indicator_id) && (
           <YearStrip years={years?.[current.indicator_id]} first={current.first_year} last={current.last_year}
             lastHist={current.last_estimate_year} width={48} title={yearsSentence(sums.get(current.indicator_id)!, horizon)} />

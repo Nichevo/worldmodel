@@ -41,6 +41,11 @@ def test_search_uses_synonyms(client):
 def test_map_and_pyramid(client):
     rows = client.get("/api/v1/map", params={"indicator": "pop_total", "year": 2023}).json()["rows"]
     assert len(rows) >= 200
+    # A year with no figures yet: `back` fills each country with its latest earlier one.
+    assert client.get("/api/v1/map", params={"indicator": "gdp_growth", "year": 2060}).json()["rows"] == []
+    filled = client.get("/api/v1/map", params={"indicator": "gdp_growth", "year": 2060, "back": 50}).json()["rows"]
+    assert len(filled) > 100 and all(r["year"] <= 2025 for r in filled)
+    assert len({r["entity_id"] for r in filled}) == len(filled)
     pyr = client.get("/api/v1/pyramid", params={"entity": "JPN", "year": 2020}).json()
     assert len(pyr["groups"]) == 21 and pyr["groups"][0]["age"] == "0-4"
 
