@@ -1,0 +1,4 @@
+entity,code,year,child_mortality_rate
+United Kingdom,GBR,1841,25.11
+World,OWID_WRL,1800,42.8
+Asia,,1800,44

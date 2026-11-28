@@ -331,6 +331,8 @@ def events(q: Q, start: int | None = None, end: int | None = None, kinds: list[s
         if kinds:
             where.append("kind IN (SELECT unnest(?))")
             params.append(kinds)
+        else:
+            where.append("kind <> 'invention'")  # Wikidata's inventions belong on the Inventions page
         if bbox:
             w, s, e, n = bbox
             where.append("lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?")

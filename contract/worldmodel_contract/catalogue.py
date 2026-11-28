@@ -219,6 +219,27 @@ def release_calendar() -> list[dict]:
 
 
 @lru_cache
+def inventions() -> dict:
+    """Inventions over time (inventions.yaml): categories with their default related series,
+    names of the long-run series used, and each invention with its year (negative for BC),
+    category, place, what it is, Wikipedia article and the series on its card."""
+    data = _yaml("inventions.yaml") or {}
+    cats = list(data.get("categories", []))
+    defaults = {c["id"]: list(c.get("related", [])) for c in cats}
+    out = []
+    for i in data.get("inventions", []):
+        i = dict(i)
+        i["year"] = int(i["year"])
+        i["approx"] = bool(i.get("approx", False))
+        i["spread"] = list(i.get("spread") or [])
+        i["related"] = list(i.get("related") or []) or defaults.get(i["category"], [])
+        out.append(i)
+    out.sort(key=lambda i: i["year"])
+    return {"categories": [{"id": c["id"], "name": c["name"]} for c in cats], "measures": dict(data.get("measures", {})),
+            "inventions": out}
+
+
+@lru_cache
 def episodes() -> dict:
     """Big episodes typed in from economic histories (episodes.yaml): kinds and, for each
     episode, its dates, countries, summary, timeline, charts and links. Dates come back as

@@ -1,0 +1,4 @@
+entity,code,year,solar_twh,coal_twh,traditional_biomass_twh
+World,OWID_WRL,1800,0,97,5556
+World,OWID_WRL,2020,1200,43000,11000
+Africa,,2020,10,500,4000

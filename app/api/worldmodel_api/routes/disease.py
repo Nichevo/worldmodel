@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import Body, HTTPException, Query
 
-from worldmodel_api import disease, disease_forecast, episodes, hazards, userdata
+from worldmodel_api import disease, disease_forecast, episodes, hazards, inventions, userdata
 from worldmodel_api.core import api, rows, split
 from worldmodel_api.routes.data import _series
 from worldmodel_api.routes.events import EVENT_COLUMNS, _milestone_rows, _year_or_date
@@ -170,6 +170,16 @@ def events(
         enames = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
         for m in episodes.as_events(ents or None):
             if (lo and m["end_date"] < lo) or (hi and m["start_date"] > hi):
+                continue
+            if q and q.lower() not in f"{m['title']} {m['detail']}".lower():
+                continue
+            out.append({**m, "entity_name": enames.get(m["entity_id"], m["entity_id"])})
+        out.sort(key=lambda r: (r["start_date"], r["entity_id"]))
+    # Inventions only when asked for by kind: they are general, not news about a country.
+    if kind_list and "invention" in kind_list and (not src_list or "inventions" in src_list):
+        enames = {r["entity_id"]: r["short_name"] for r in rows("SELECT entity_id, short_name FROM entities")}
+        for m in inventions.as_events(ents or None):
+            if (lo and m["start_date"] < lo) or (hi and m["start_date"] > hi):
                 continue
             if q and q.lower() not in f"{m['title']} {m['detail']}".lower():
                 continue

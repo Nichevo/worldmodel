@@ -1,0 +1,6 @@
+{"head": {"vars": []}, "results": {"bindings": [
+{"e": {"type": "uri", "value": "http://www.wikidata.org/entity/Q11019"}, "eLabel": {"type": "literal", "value": "machine"}, "inc": {"type": "literal", "value": "1800-01-01T00:00:00Z"}, "links": {"type": "literal", "value": "40"}},
+{"e": {"type": "uri", "value": "http://www.wikidata.org/entity/Q190121"}, "eLabel": {"type": "literal", "value": "zipper"}, "inc": {"type": "literal", "value": "1893-01-01T00:00:00Z"}, "links": {"type": "literal", "value": "84"}, "article": {"type": "uri", "value": "https://en.wikipedia.org/wiki/Zipper"}},
+{"e": {"type": "uri", "value": "http://www.wikidata.org/entity/Q190121"}, "eLabel": {"type": "literal", "value": "zipper"}, "inc": {"type": "literal", "value": "1851-01-01T00:00:00Z"}, "links": {"type": "literal", "value": "84"}, "article": {"type": "uri", "value": "https://en.wikipedia.org/wiki/Zipper"}},
+{"e": {"type": "uri", "value": "http://www.wikidata.org/entity/Q5185279"}, "eLabel": {"type": "literal", "value": "emoji"}, "inc": {"type": "literal", "value": "1999-01-01T00:00:00Z"}, "links": {"type": "literal", "value": "86"}, "iso3": {"type": "literal", "value": "JPN"}}
+]}}

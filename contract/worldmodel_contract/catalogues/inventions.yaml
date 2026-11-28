@@ -1,0 +1,428 @@
+# Inventions over time (Explore > Inventions), typed in from Wikipedia.
+#
+# Each invention: its year (negative for BC; approx: true where only roughly known), category,
+# place and the country it is credited to (ISO3, or none), who made it, one line on what it is,
+# its English Wikipedia article, and the series charted on its card:
+#   spread   how the invention itself spread (share of homes with it, users, output)
+#   related  changes seen around the same time, with `link`: one line on how they connect.
+# Series: an indicator id reads the yearly series table; "long:<id>" reads the long-run table
+# (Our World in Data long-run charts, source owid_longrun). A category's `related` is used when
+# an invention gives none of its own.
+#
+# The page never says an invention caused the changes charted: many things change at once.
+# Dates are the usual "first working version" date on Wikipedia; spreading often took decades.
+
+categories:
+  - id: energy
+    name: Energy
+    related: ["long:gdp_per_capita", energy_use_per_capita, "long:energy_coal"]
+  - id: transport
+    name: Transport
+    related: ["long:gdp_per_capita", "long:urban_share", "long:exports_share_gdp"]
+  - id: medicine
+    name: Medicine and health
+    related: ["long:life_expectancy", "long:child_mortality"]
+  - id: communication
+    name: Communication
+    related: ["long:literacy", internet_users_share]
+  - id: food
+    name: Food and farming
+    related: ["long:wheat_yield", cereal_yield, "long:population"]
+  - id: computing
+    name: Computing
+    related: [internet_users_share, gdp_per_worker, "long:transistors"]
+  - id: materials
+    name: Materials and making
+    related: ["long:gdp_per_capita", "long:urban_share"]
+  - id: science
+    name: Science and measuring
+    related: ["long:life_expectancy", "long:gdp_per_capita"]
+  - id: home
+    name: Home and everyday life
+    related: [labour_participation_female, "long:fertility_rate"]
+  - id: money
+    name: Money and trade
+    related: ["long:exports_share_gdp", trade_share_gdp, "long:gdp_per_capita"]
+
+# Names, units and sources of the long-run series used here (history.yaml has the others).
+measures:
+  child_mortality: {name: Child deaths before age 5, unit: "% of children", source: "Gapminder and the UN IGME (through Our World in Data)"}
+  maternal_mortality: {name: Mothers dying in childbirth, unit: "per 100,000 live births", source: "Gapminder, WHO and others (through Our World in Data)"}
+  fertility_rate: {name: Children per woman, unit: children, source: "Gapminder and the UN (through Our World in Data)"}
+  wheat_yield: {name: Wheat yield, unit: "tonnes per hectare", source: "Broadberry et al. for England before 1961, then FAO (through Our World in Data)"}
+  cereal_yield: {name: Cereal yield, unit: "tonnes per hectare", source: "FAO (through Our World in Data)"}
+  nitrogen_per_ha: {name: Nitrogen fertiliser used, unit: "kg per hectare of cropland", source: "FAO (through Our World in Data)"}
+  fertiliser_per_ha: {name: Fertiliser used, unit: "kg per hectare of arable land", source: "FAO through the World Bank (through Our World in Data)"}
+  calories: {name: Food supply, unit: "calories per person per day", source: "FAO (through Our World in Data)"}
+  uk_coal_output: {name: Coal dug in the UK, unit: tonnes, source: "UK government (BEIS) (through Our World in Data)"}
+  transistors: {name: Transistors on a microprocessor, unit: transistors, source: "Karl Rupp and others (through Our World in Data)"}
+  solar_pv_price: {name: Price of solar panels, unit: "US$ per watt (2024 prices)", source: "Nemet, IRENA (through Our World in Data)"}
+  smallpox_cases: {name: Smallpox cases reported, unit: cases, source: "WHO (through Our World in Data)"}
+  energy_coal: {name: World energy from coal, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_oil: {name: World energy from oil, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_gas: {name: World energy from gas, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_nuclear: {name: World energy from nuclear power, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_hydro: {name: World energy from hydropower, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_wind: {name: World energy from wind, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_solar: {name: World energy from solar, unit: TWh, source: "Smil and the Energy Institute (through Our World in Data)"}
+  energy_traditional_biomass: {name: World energy from wood and other biomass, unit: TWh, source: "Smil (through Our World in Data)"}
+  energy_biofuels: {name: World energy from biofuels, unit: TWh, source: "Energy Institute (through Our World in Data)"}
+  vaccine_dtpcv3: {name: Children given three doses of the DTP vaccine, unit: "% of one-year-olds", source: "WHO and UNICEF (through Our World in Data)"}
+  vaccine_mcv1: {name: Children given a measles vaccine, unit: "% of one-year-olds", source: "WHO and UNICEF (through Our World in Data)"}
+  vaccine_pol3: {name: Children given three doses of polio vaccine, unit: "% of one-year-olds", source: "WHO and UNICEF (through Our World in Data)"}
+  vaccine_hepb3: {name: Children given three doses of hepatitis B vaccine, unit: "% of one-year-olds", source: "WHO and UNICEF (through Our World in Data)"}
+  computer_cost_memory: {name: Price of computer memory, unit: "US$ per terabyte", source: "John McCallum and others (through Our World in Data)"}
+  computer_cost_ddrives: {name: Price of disk storage, unit: "US$ per terabyte", source: "John McCallum and others (through Our World in Data)"}
+  computer_cost_flash: {name: Price of flash storage, unit: "US$ per terabyte", source: "John McCallum and others (through Our World in Data)"}
+  # US households with each technology (Comin and Hobijn and others, through Our World in Data)
+  us_electric_power: {name: US homes with electricity, unit: "% of households", us: true}
+  us_running_water: {name: US homes with running water, unit: "% of households", us: true}
+  us_flush_toilet: {name: US homes with a flush toilet, unit: "% of households", us: true}
+  us_central_heating: {name: US homes with central heating, unit: "% of households", us: true}
+  us_landline: {name: US homes with a telephone, unit: "% of households", us: true}
+  us_radio: {name: US homes with a radio, unit: "% of households", us: true}
+  us_automobile: {name: US homes with a car, unit: "% of households", us: true}
+  us_refrigerator: {name: US homes with a refrigerator, unit: "% of households", us: true}
+  us_household_refrigerator: {name: US homes with a refrigerator (later series), unit: "% of households", us: true}
+  us_washing_machine: {name: US homes with a washing machine, unit: "% of households", us: true}
+  us_vacuum: {name: US homes with a vacuum cleaner, unit: "% of households", us: true}
+  us_stove: {name: US homes with a stove, unit: "% of households", us: true}
+  us_colour_tv: {name: US homes with a colour TV, unit: "% of households", us: true}
+  us_television: {name: US homes with a television, unit: "% of households", us: true}
+  us_home_air_conditioning: {name: US homes with air conditioning, unit: "% of households", us: true}
+  us_dishwasher: {name: US homes with a dishwasher, unit: "% of households", us: true}
+  us_microwave: {name: US homes with a microwave, unit: "% of households", us: true}
+  us_computer: {name: US homes with a computer, unit: "% of households", us: true}
+  us_microcomputer: {name: US homes with a personal computer, unit: "% of households", us: true}
+  us_internet: {name: US homes with the internet, unit: "% of households", us: true}
+  us_cellular_phone: {name: US homes with a mobile phone, unit: "% of households", us: true}
+  us_smartphone_usage: {name: US adults using a smartphone, unit: "%", us: true}
+  us_social_media_usage: {name: US adults using social media, unit: "%", us: true}
+  us_tablet: {name: US adults with a tablet, unit: "%", us: true}
+  us_ebook_reader: {name: US adults with an e-book reader, unit: "%", us: true}
+  us_videocassette_recorder: {name: US homes with a video recorder, unit: "% of households", us: true}
+  us_shipping_container_port_infrastructure: {name: Ports able to handle containers, unit: "% of ports", us: true}
+
+inventions:
+  # ------------------------------------------------------------------ before 1500
+  - {id: stone-tools, name: Stone tools, year: -3300000, approx: true, category: materials, place: East Africa,
+     what: "Sharpened stones for cutting and chopping, the oldest known human-made tools.", wiki: Stone_tool, spread: ["long:population"], related: []}
+  - {id: fire, name: Control of fire, year: -1000000, approx: true, category: energy, place: Africa,
+     what: "Keeping and making fire, for warmth, light, safety and cooking.", wiki: Control_of_fire_by_early_humans, spread: [], related: ["long:population"]}
+  - {id: farming, name: Farming, year: -10000, approx: true, category: food, place: The Fertile Crescent,
+     what: "Sowing crops and keeping animals instead of only gathering and hunting; began separately in several places.",
+     wiki: Neolithic_Revolution, spread: [], related: ["long:population"],
+     link: "Farming fed far more people per square kilometre than foraging, and the world's population grew from a few million."}
+  - {id: pottery, name: Pottery, year: -18000, approx: true, category: materials, place: China,
+     what: "Fired clay pots for cooking and storing food.", wiki: Pottery, spread: [], related: ["long:population"]}
+  - {id: wheel, name: The wheel, year: -3500, approx: true, category: transport, place: Mesopotamia,
+     what: "Wheels on an axle, first for potters, then carts.", wiki: Wheel, spread: [], related: ["long:population"]}
+  - {id: writing, name: Writing, year: -3200, approx: true, category: communication, place: Mesopotamia (Sumer),
+     what: "Marks standing for words and sounds (cuneiform); invented separately in Egypt, China and Mesoamerica.",
+     wiki: History_of_writing, spread: ["long:literacy"], related: ["long:population"]}
+  - {id: bronze, name: Bronze, year: -3300, approx: true, category: materials, place: The Near East,
+     what: "Copper mixed with tin, harder than either, for tools and weapons.", wiki: Bronze_Age, spread: [], related: ["long:population"]}
+  - {id: irrigation, name: Irrigation canals, year: -6000, approx: true, category: food, place: Mesopotamia,
+     what: "Channels bringing river water to fields.", wiki: Irrigation, spread: [], related: ["long:population", cereal_yield]}
+  - {id: sailing, name: Sailing ships, year: -3500, approx: true, category: transport, place: Egypt and Mesopotamia,
+     what: "Boats driven by sails on the Nile and the Gulf.", wiki: Sailing_ship, spread: [], related: ["long:population"]}
+  - {id: iron, name: Iron smelting, year: -1200, approx: true, category: materials, place: Anatolia,
+     what: "Getting iron from its ore in a furnace; iron was cheaper and more common than bronze.", wiki: Iron_Age, spread: [], related: ["long:population"]}
+  - {id: alphabet, name: The alphabet, year: -1050, approx: true, category: communication, place: Phoenicia,
+     what: "A few dozen letters for sounds, far easier to learn than thousands of signs.", wiki: Phoenician_alphabet, spread: ["long:literacy"], related: []}
+  - {id: coins, name: Coins, year: -600, approx: true, category: money, place: Lydia (Anatolia),
+     what: "Stamped metal pieces of set weight, so payments did not need weighing.", wiki: Coin, spread: [], related: ["long:population"]}
+  - {id: aqueduct, name: Aqueducts and sewers, year: -312, category: science, place: Rome, where: ITA,
+     what: "Rome's first aqueduct (Aqua Appia) and sewers brought clean water in and took waste away.", wiki: Roman_aqueduct, spread: [], related: ["long:urban_share"]}
+  - {id: concrete, name: Concrete (Roman), year: -200, approx: true, category: materials, place: Rome, where: ITA,
+     what: "Lime and volcanic ash that set hard even under water.", wiki: Roman_concrete, spread: [], related: ["long:urban_share"]}
+  - {id: paper, name: Paper, year: 105, category: communication, place: China, where: CHN, who: Cai Lun (improved),
+     what: "Sheets of pulped plant fibre, far cheaper than silk or parchment.", wiki: Paper, spread: [], related: ["long:literacy"]}
+  - {id: compass, name: Magnetic compass, year: 1040, approx: true, category: transport, place: China, where: CHN,
+     what: "A magnetised needle pointing north, used at sea from about 1100.", wiki: Compass, spread: [], related: ["long:exports_share_gdp"]}
+  - {id: gunpowder, name: Gunpowder, year: 850, approx: true, category: materials, place: China, where: CHN,
+     what: "Saltpetre, sulphur and charcoal: the first explosive.", wiki: Gunpowder, spread: [], related: ["long:military_spending"]}
+  - {id: movable-type, name: Movable type, year: 1040, approx: true, category: communication, place: China, where: CHN, who: Bi Sheng,
+     what: "Single characters cast in clay, set together to print a page.", wiki: Movable_type, spread: [], related: ["long:literacy"]}
+  - {id: windmill, name: Windmill, year: 900, approx: true, category: energy, place: Persia, where: IRN,
+     what: "Sails turned by the wind to grind grain and pump water.", wiki: Windmill, spread: [], related: ["long:population"]}
+  - {id: spectacles, name: Spectacles, year: 1286, approx: true, category: medicine, place: Italy, where: ITA,
+     what: "Lenses in a frame for reading, letting craftsmen and scholars work into old age.", wiki: Glasses, spread: [], related: ["long:literacy"]}
+  - {id: mechanical-clock, name: Mechanical clock, year: 1283, approx: true, category: science, place: England and Italy,
+     what: "Clocks driven by weights and an escapement, set in church towers.", wiki: History_of_timekeeping_devices, spread: [], related: ["long:urban_share"]}
+  - {id: double-entry, name: Double-entry bookkeeping, year: 1340, approx: true, category: money, place: Italy, where: ITA, who: Merchants of Genoa and Florence; Luca Pacioli wrote it up (1494),
+     what: "Each sum written twice, as debit and credit, so the books must balance.", wiki: Double-entry_bookkeeping, spread: [], related: ["long:gdp_per_capita"]}
+  - {id: printing-press, name: Printing press, year: 1440, approx: true, category: communication, place: Mainz, where: DEU, who: Johannes Gutenberg,
+     what: "Metal type and a screw press: books in hundreds of copies.", wiki: Printing_press,
+     spread: [], related: ["long:literacy", "long:gdp_per_capita"],
+     link: "Books became far cheaper; reading spread across Europe over the next three centuries, earliest where printing came first."}
+  # ------------------------------------------------------------------ 1500 to 1800
+  - {id: telescope, name: Telescope, year: 1608, category: science, place: Netherlands, where: NLD, who: Hans Lipperhey,
+     what: "Lenses in a tube to see far; Galileo turned one to the sky in 1609.", wiki: Telescope, spread: [], related: []}
+  - {id: microscope, name: Microscope, year: 1590, approx: true, category: science, place: Netherlands, where: NLD, who: Zacharias Janssen; Antonie van Leeuwenhoek saw bacteria (1676),
+     what: "Lenses that make tiny things visible: cells, then bacteria.", wiki: Microscope, spread: [], related: ["long:life_expectancy"]}
+  - {id: stock-exchange, name: Joint-stock company and stock exchange, year: 1602, category: money, place: Amsterdam, where: NLD, who: Dutch East India Company,
+     what: "Shares in a company that anyone could buy and sell at a market.", wiki: Amsterdam_Stock_Exchange, spread: [], related: ["long:exports_share_gdp", "long:gdp_per_capita"]}
+  - {id: newspaper, name: Newspaper, year: 1605, category: communication, place: Strasbourg, where: FRA, who: Johann Carolus,
+     what: "Regular printed news, weekly at first.", wiki: History_of_newspaper_publishing, spread: [], related: ["long:literacy"]}
+  - {id: central-bank, name: Central bank, year: 1668, category: money, place: Sweden, where: SWE, who: Riksbank; Bank of England 1694,
+     what: "A bank for the government that issues money and lends to other banks.", wiki: Central_bank, spread: [], related: ["long:gdp_per_capita"]}
+  - {id: steam-pump, name: Steam engine (Newcomen), year: 1712, category: energy, place: England, where: GBR, who: Thomas Newcomen,
+     what: "Steam pushed a piston to pump water out of mines.", wiki: Newcomen_atmospheric_engine,
+     spread: ["long:uk_coal_output"], related: ["long:gdp_per_capita"],
+     link: "Pumping let mines go deeper, and Britain's coal output rose."}
+  - {id: seed-drill, name: Seed drill, year: 1701, category: food, place: England, where: GBR, who: Jethro Tull,
+     what: "A horse-drawn machine sowing seed in rows at an even depth.", wiki: Seed_drill, spread: [], related: ["long:wheat_yield"]}
+  - {id: smallpox-inoculation, name: Smallpox inoculation (variolation), year: 1721, category: medicine, place: Brought to Britain from Turkey, where: GBR, who: "Lady Mary Wortley Montagu (long used in China, India and Africa)",
+     what: "Giving a mild dose of smallpox to protect against the full disease.", wiki: Variolation, spread: [], related: ["long:life_expectancy"]}
+  - {id: flying-shuttle, name: Flying shuttle, year: 1733, category: materials, place: England, where: GBR, who: John Kay,
+     what: "A shuttle knocked across the loom, doubling a weaver's speed.", wiki: Flying_shuttle, spread: [], related: ["long:gdp_per_capita"]}
+  - {id: chronometer, name: Marine chronometer, year: 1761, category: science, place: England, where: GBR, who: John Harrison,
+     what: "A clock accurate enough at sea to work out longitude.", wiki: Marine_chronometer, spread: [], related: ["long:exports_share_gdp"]}
+  - {id: spinning-jenny, name: Spinning jenny and water frame, year: 1765, category: materials, place: England, where: GBR, who: James Hargreaves; Richard Arkwright (1769),
+     what: "Machines spinning many threads at once; Arkwright's ran on water power in the first factories.", wiki: Spinning_jenny,
+     spread: [], related: ["long:gdp_per_capita", "long:urban_share"]}
+  - {id: watt-engine, name: Steam engine (Watt), year: 1769, category: energy, place: Scotland, where: GBR, who: James Watt,
+     what: "A separate condenser made steam engines far more efficient, and they could turn machinery.", wiki: Watt_steam_engine,
+     spread: ["long:uk_coal_output", "long:energy_coal"], related: ["long:gdp_per_capita", "long:urban_share"],
+     link: "Steam power ran factories, mines and later trains; income per person in Britain began to grow steadily in the next century."}
+  - {id: smallpox-vaccine, name: Smallpox vaccine, year: 1796, category: medicine, place: England, where: GBR, who: Edward Jenner,
+     what: "Cowpox given to protect against smallpox: the first vaccine. Smallpox was declared gone from the world in 1980.", wiki: Smallpox_vaccine,
+     spread: ["long:smallpox_cases"], related: ["long:life_expectancy", "long:child_mortality"],
+     link: "Smallpox killed a large share of young children before vaccination spread."}
+  - {id: hot-air-balloon, name: Hot-air balloon, year: 1783, category: transport, place: France, where: FRA, who: The Montgolfier brothers,
+     what: "The first flight carrying people.", wiki: Hot_air_balloon, spread: [], related: []}
+  - {id: cotton-gin, name: Cotton gin, year: 1793, category: food, place: United States, where: USA, who: Eli Whitney,
+     what: "A machine pulling cotton fibre from its seeds fifty times faster than by hand.", wiki: Cotton_gin, spread: [], related: ["long:exports_share_gdp"],
+     link: "Cotton growing, and slavery in the US South, grew fast afterwards."}
+  - {id: battery, name: Electric battery, year: 1800, category: energy, place: Italy, where: ITA, who: Alessandro Volta,
+     what: "A pile of metal discs and brine giving a steady electric current.", wiki: Voltaic_pile, spread: [], related: []}
+  # ------------------------------------------------------------------ 1800 to 1900
+  - {id: canning, name: Food canning, year: 1810, category: food, place: France and England, where: FRA, who: Nicolas Appert; Peter Durand (tin can),
+     what: "Food sealed in jars, then tins, and heated so it keeps for years.", wiki: Canning, spread: [], related: ["long:calories"]}
+  - {id: steam-locomotive, name: Steam railway, year: 1825, category: transport, place: England, where: GBR, who: George Stephenson (Stockton and Darlington Railway),
+     what: "Steam engines pulling trains on iron rails; the Liverpool and Manchester line (1830) carried passengers.", wiki: Stockton_and_Darlington_Railway,
+     spread: [rail_passenger_km, rail_freight_tkm], related: ["long:gdp_per_capita", "long:urban_share", "long:exports_share_gdp"],
+     link: "Railways cut the cost of moving goods and people overland; cities and trade grew along them."}
+  - {id: photography, name: Photography, year: 1839, category: communication, place: France, where: FRA, who: Louis Daguerre; Nicéphore Niépce (1826),
+     what: "Pictures fixed on a plate by light.", wiki: Daguerreotype, spread: [], related: []}
+  - {id: telegraph, name: Electric telegraph, year: 1837, category: communication, place: Britain and the US, where: USA, who: Samuel Morse; Cooke and Wheatstone,
+     what: "Messages sent as electric pulses down a wire; a cable crossed the Atlantic in 1866.", wiki: Electrical_telegraph,
+     spread: [], related: ["long:exports_share_gdp"], link: "News and prices crossed oceans in minutes instead of weeks; prices in distant markets moved together."}
+  - {id: anaesthesia, name: Anaesthesia, year: 1846, category: medicine, place: Boston, where: USA, who: William Morton (ether),
+     what: "Ether, then chloroform, so patients slept through surgery.", wiki: History_of_general_anesthesia, spread: [], related: ["long:life_expectancy"]}
+  - {id: reaper, name: Mechanical reaper, year: 1831, category: food, place: United States, where: USA, who: Cyrus McCormick,
+     what: "A horse-drawn machine cutting grain, doing the work of several people.", wiki: Reaper, spread: [], related: [employment_agriculture_share, "long:wheat_yield"]}
+  - {id: hand-washing, name: Hand washing and clean water, year: 1847, category: medicine, place: Vienna and London, who: "Ignaz Semmelweis; John Snow (cholera, 1854)",
+     what: "Doctors washing hands cut deaths of mothers; Snow traced cholera to a dirty water pump.", wiki: Ignaz_Semmelweis,
+     spread: [safe_drinking_water, basic_sanitation], related: ["long:maternal_mortality", "long:child_mortality"]}
+  - {id: bessemer, name: Bessemer steel, year: 1856, category: materials, place: England, where: GBR, who: Henry Bessemer,
+     what: "Blowing air through molten iron made cheap steel in bulk.", wiki: Bessemer_process, spread: [], related: ["long:gdp_per_capita", "long:urban_share"],
+     link: "Cheap steel went into rails, ships, bridges and tall buildings."}
+  - {id: oil-well, name: Oil well, year: 1859, category: energy, place: Pennsylvania, where: USA, who: Edwin Drake,
+     what: "The first commercial well drilled for oil; kerosene for lamps came first, petrol later.", wiki: Drake_Well,
+     spread: ["long:energy_oil"], related: [energy_use_per_capita, co2_per_capita]}
+  - {id: germ-theory, name: Germ theory and pasteurisation, year: 1861, category: medicine, place: France, where: FRA, who: Louis Pasteur; Robert Koch,
+     what: "Proof that microbes cause disease and spoil food; heating milk kills them.", wiki: Germ_theory_of_disease,
+     spread: [], related: ["long:life_expectancy", "long:child_mortality"],
+     link: "Clean water, sewers, hygiene and later vaccines and antibiotics followed from it; child deaths began to fall in rich countries."}
+  - {id: antiseptic, name: Antiseptic surgery, year: 1867, category: medicine, place: Glasgow, where: GBR, who: Joseph Lister,
+     what: "Carbolic acid on wounds and instruments to kill germs.", wiki: Antiseptic, spread: [], related: ["long:life_expectancy", "long:maternal_mortality"]}
+  - {id: dynamite, name: Dynamite, year: 1867, category: materials, place: Sweden, where: SWE, who: Alfred Nobel,
+     what: "A safer high explosive for mining, tunnels and roads.", wiki: Dynamite, spread: [], related: []}
+  - {id: typewriter, name: Typewriter, year: 1868, category: communication, place: United States, where: USA, who: Christopher Sholes,
+     what: "Printed letters by keyboard; office work for women grew with it.", wiki: Typewriter, spread: [], related: [labour_participation_female]}
+  - {id: refrigeration, name: Refrigeration, year: 1856, category: food, place: Australia, where: AUS, who: James Harrison,
+     what: "Machines making ice; refrigerated ships followed.", wiki: Refrigeration,
+     spread: ["long:us_refrigerator", "long:us_household_refrigerator"], related: ["long:calories"],
+     link: "Refrigerated ships from 1882 let New Zealand and Australia sell frozen meat and butter to Britain."}
+  - {id: frozen-meat-ship, name: Refrigerated shipping, year: 1882, category: food, place: New Zealand to Britain, where: NZL, who: The Dunedin,
+     what: "The first successful shipment of frozen meat from New Zealand to London.", wiki: Dunedin_(ship),
+     spread: [], related: ["long:exports_share_gdp", "long:gdp_per_capita"],
+     link: "Meat and dairy for Britain became New Zealand's main trade for the next century."}
+  - {id: telephone, name: Telephone, year: 1876, category: communication, place: United States, where: USA, who: Alexander Graham Bell,
+     what: "Speech sent along a wire.", wiki: Telephone, spread: ["long:us_landline"], related: [mobile_subscriptions_per_100]}
+  - {id: light-bulb, name: Electric light bulb, year: 1879, category: home, place: US and England, where: USA, who: Thomas Edison; Joseph Swan,
+     what: "A glowing carbon thread in a glass bulb that lasted long enough to sell.", wiki: Incandescent_light_bulb,
+     spread: ["long:us_electric_power", electricity_access], related: [electricity_use_per_capita]}
+  - {id: power-station, name: Power station and grid, year: 1882, category: energy, place: London and New York, where: USA, who: Thomas Edison (Pearl Street),
+     what: "Central stations sending electricity to many buildings; alternating current (Tesla, Westinghouse) carried it far.", wiki: Electric_power_distribution,
+     spread: ["long:us_electric_power", electricity_access, per_capita_electricity], related: ["long:gdp_per_capita", energy_use_per_capita, labour_participation_female],
+     link: "Electric motors and light changed factories and homes; most of the world had electricity by the 2010s."}
+  - {id: steam-turbine, name: Steam turbine, year: 1884, category: energy, place: England, where: GBR, who: Charles Parsons,
+     what: "Steam spinning blades: still how most coal, gas and nuclear power stations make electricity.", wiki: Steam_turbine,
+     spread: [per_capita_electricity], related: [electricity_use_per_capita]}
+  - {id: car, name: Motor car, year: 1886, category: transport, place: Germany, where: DEU, who: Karl Benz,
+     what: "A petrol engine driving a carriage; Ford's assembly line (1913) made cars cheap.", wiki: Benz_Patent-Motorwagen,
+     spread: ["long:us_automobile", "long:energy_oil"], related: ["long:urban_share", road_deaths_rate, co2_per_capita]}
+  - {id: pneumatic-tyre, name: Pneumatic tyre, year: 1888, category: transport, place: Belfast, where: GBR, who: John Boyd Dunlop,
+     what: "An air-filled rubber tyre, first for bicycles.", wiki: Tire, spread: [], related: []}
+  - {id: radio, name: Radio, year: 1895, category: communication, place: Italy and England, where: ITA, who: Guglielmo Marconi,
+     what: "Messages sent without wires; broadcasts to homes from the 1920s.", wiki: Invention_of_radio, spread: ["long:us_radio"], related: []}
+  - {id: x-ray, name: X-rays, year: 1895, category: medicine, place: Germany, where: DEU, who: Wilhelm Röntgen,
+     what: "Rays that pass through flesh, showing bones.", wiki: X-ray, spread: [], related: ["long:life_expectancy"]}
+  - {id: aspirin, name: Aspirin, year: 1897, category: medicine, place: Germany, where: DEU, who: Felix Hoffmann (Bayer),
+     what: "A painkiller made in a factory, one of the first mass-made medicines.", wiki: Aspirin, spread: [], related: []}
+  - {id: milking-machine, name: Milking machine, year: 1902, approx: true, category: food, place: Victoria (Australia), where: AUS, who: Alexander Gillies,
+     what: "Suction milking, letting one farmer milk many more cows.", wiki: Milking_machine, spread: [], related: [employment_agriculture_share]}
+  # ------------------------------------------------------------------ 1900 to 1950
+  - {id: aeroplane, name: Aeroplane, year: 1903, category: transport, place: North Carolina, where: USA, who: The Wright brothers,
+     what: "The first controlled, powered flight.", wiki: Wright_Flyer, spread: [air_passengers], related: [tourist_arrivals]}
+  - {id: air-conditioning, name: Air conditioning, year: 1902, category: home, place: New York, where: USA, who: Willis Carrier,
+     what: "Cooling and drying air by machine, first for a printing works.", wiki: Air_conditioning,
+     spread: ["long:us_home_air_conditioning"], related: [electricity_use_per_capita]}
+  - {id: vacuum-tube, name: Vacuum tube, year: 1904, category: computing, place: England, where: GBR, who: "John Ambrose Fleming; Lee de Forest (amplifier, 1906)",
+     what: "Valves that switch and amplify current: radio, TV and the first computers ran on them.", wiki: Vacuum_tube, spread: [], related: []}
+  - {id: plastic, name: Plastic (Bakelite), year: 1907, category: materials, place: New York, where: USA, who: Leo Baekeland,
+     what: "The first fully synthetic plastic.", wiki: Bakelite, spread: [], related: []}
+  - {id: haber-bosch, name: Haber-Bosch process, year: 1909, category: food, place: Germany, where: DEU, who: "Fritz Haber; Carl Bosch (factory, 1913)",
+     what: "Making ammonia from the nitrogen in the air, for fertiliser (and explosives).", wiki: Haber_process,
+     spread: ["long:nitrogen_per_ha", "long:fertiliser_per_ha"], related: [cereal_yield, "long:wheat_yield", "long:population", undernourishment],
+     link: "Most nitrogen fertiliser is made this way; crop yields per hectare roughly tripled over the twentieth century."}
+  - {id: assembly-line, name: Moving assembly line, year: 1913, category: materials, place: Detroit, where: USA, who: Henry Ford,
+     what: "Work carried past workers on a belt; a Model T took 93 minutes instead of 12 hours.", wiki: Assembly_line,
+     spread: ["long:us_automobile"], related: ["long:gdp_per_capita", manufacturing_share_gdp]}
+  - {id: washing-machine, name: Electric washing machine, year: 1908, category: home, place: United States, where: USA, who: Alva Fisher and others,
+     what: "A motor-driven tub for washing clothes.", wiki: Washing_machine,
+     spread: ["long:us_washing_machine"], related: [labour_participation_female],
+     link: "Hours of housework fell as electric appliances spread; more women took paid work."}
+  - {id: vacuum-cleaner, name: Vacuum cleaner, year: 1901, category: home, place: England, where: GBR, who: Hubert Booth,
+     what: "Suction to clean floors and carpets.", wiki: Vacuum_cleaner, spread: ["long:us_vacuum"], related: [labour_participation_female]}
+  - {id: tractor, name: Petrol tractor, year: 1892, category: food, place: Iowa, where: USA, who: John Froelich; the Fordson (1917) sold widely,
+     what: "Engine-driven farm machines replacing horses.", wiki: Tractor,
+     spread: [], related: [employment_agriculture_share, cereal_yield, "long:urban_share"],
+     link: "Fewer people were needed on farms; the share working in farming fell and towns grew."}
+  - {id: insulin, name: Insulin treatment, year: 1922, category: medicine, place: Toronto, where: CAN, who: Frederick Banting and Charles Best,
+     what: "Insulin from animals given to people with diabetes, who had died young before.", wiki: Insulin_(medication), spread: [], related: [diabetes_prevalence]}
+  - {id: television, name: Television, year: 1926, category: communication, place: London, where: GBR, who: "John Logie Baird; Philo Farnsworth (electronic, 1927)",
+     what: "Moving pictures sent by radio.", wiki: History_of_television, spread: ["long:us_colour_tv", "long:us_television"], related: []}
+  - {id: penicillin, name: Penicillin, year: 1928, category: medicine, place: London, where: GBR, who: Alexander Fleming; Florey and Chain made it a medicine (1941),
+     what: "A mould that kills bacteria: the first antibiotic, mass-made from 1943.", wiki: Penicillin,
+     spread: [], related: ["long:life_expectancy", "long:child_mortality", "long:maternal_mortality", tb_incidence],
+     link: "Infections that often killed (pneumonia, wound and childbirth fever) became curable."}
+  - {id: jet-engine, name: Jet engine, year: 1937, category: transport, place: Britain and Germany, where: GBR, who: Frank Whittle; Hans von Ohain,
+     what: "Air sucked in, burned with fuel and blasted out; jet airliners from 1952.", wiki: Jet_engine,
+     spread: [air_passengers, air_departures], related: [tourist_arrivals, tourist_departures]}
+  - {id: nylon, name: Nylon, year: 1935, category: materials, place: Delaware, where: USA, who: Wallace Carothers (DuPont),
+     what: "The first synthetic fibre, for stockings, rope and parachutes.", wiki: Nylon, spread: [], related: []}
+  - {id: radar, name: Radar, year: 1935, category: science, place: Britain, where: GBR, who: Robert Watson-Watt and others,
+     what: "Radio echoes showing where planes and ships are.", wiki: Radar, spread: [], related: [air_passengers]}
+  - {id: ddt, name: DDT insecticide, year: 1939, category: medicine, place: Switzerland, where: CHE, who: Paul Müller,
+     what: "A cheap insect killer used against malaria mosquitoes and lice; banned on farms from the 1970s for its harm to wildlife.", wiki: DDT,
+     spread: [], related: [malaria_incidence, "long:life_expectancy"]}
+  - {id: computer, name: Electronic computer, year: 1945, category: computing, place: Britain and the US, where: USA, who: Colossus (1943); ENIAC (1945),
+     what: "Machines doing sums with electronics at thousands of steps a second.", wiki: ENIAC, spread: ["long:us_computer"], related: [gdp_per_worker]}
+  - {id: nuclear-bomb, name: Nuclear fission, year: 1942, category: energy, place: Chicago, where: USA, who: Enrico Fermi (first reactor),
+     what: "A controlled chain reaction splitting uranium.", wiki: Chicago_Pile-1, spread: [], related: [nuclear_warheads]}
+  - {id: microwave, name: Microwave oven, year: 1947, category: home, place: United States, where: USA, who: Percy Spencer,
+     what: "Cooking with microwaves from a magnetron, a radar part.", wiki: Microwave_oven, spread: ["long:us_microwave"], related: []}
+  - {id: transistor, name: Transistor, year: 1947, category: computing, place: Bell Labs, where: USA, who: "Bardeen, Brattain and Shockley",
+     what: "A tiny switch made of semiconductor, replacing the vacuum tube.", wiki: Transistor,
+     spread: ["long:transistors"], related: [high_tech_share_exports, gdp_per_worker]}
+  # ------------------------------------------------------------------ 1950 to 2000
+  - {id: green-revolution, name: High-yield wheat and rice, year: 1953, category: food, place: Mexico and the Philippines, where: MEX, who: "Norman Borlaug; IRRI (IR8 rice, 1966)",
+     what: "Short, strong-stemmed varieties that give far more grain with fertiliser and water.", wiki: Green_Revolution,
+     spread: [cereal_yield, "long:fertiliser_per_ha"], related: [undernourishment, "long:calories", "long:population"],
+     link: "Grain output in Asia and Latin America rose faster than population from the 1960s; hunger fell in share."}
+  - {id: dna, name: Structure of DNA, year: 1953, category: science, place: Cambridge, where: GBR, who: "Watson, Crick, Franklin and Wilkins",
+     what: "The double helix: how genes are copied.", wiki: DNA, spread: [], related: []}
+  - {id: polio-vaccine, name: Polio vaccine, year: 1955, category: medicine, place: United States, where: USA, who: "Jonas Salk; Albert Sabin (oral, 1961)",
+     what: "Vaccines against the virus that paralysed children.", wiki: Polio_vaccine,
+     spread: ["long:vaccine_pol3"], related: [polio_cases, under5_mortality]}
+  - {id: solar-cell, name: Solar cell, year: 1954, category: energy, place: Bell Labs, where: USA, who: "Chapin, Fuller and Pearson",
+     what: "A silicon cell turning sunlight into electricity.", wiki: Solar_cell,
+     spread: ["long:solar_pv_price", "long:energy_solar", solar_share_elec], related: [carbon_intensity_elec]}
+  - {id: nuclear-power, name: Nuclear power station, year: 1954, category: energy, place: Obninsk (Soviet Union), where: RUS, who: "Calder Hall (UK, 1956) was the first large one",
+     what: "Electricity from nuclear fission.", wiki: Nuclear_power, spread: ["long:energy_nuclear", nuclear_share_elec], related: [carbon_intensity_elec]}
+  - {id: container, name: Shipping container, year: 1956, category: transport, place: United States, where: USA, who: Malcom McLean,
+     what: "Standard steel boxes moved straight from ship to truck or train.", wiki: Containerization,
+     spread: ["long:us_shipping_container_port_infrastructure", container_port_traffic], related: [trade_share_gdp, "long:exports_share_gdp"],
+     link: "Loading a ship became far cheaper and faster; world trade grew faster than output from the 1960s."}
+  - {id: satellite, name: Satellite, year: 1957, category: communication, place: Soviet Union, where: RUS, who: Sputnik 1,
+     what: "The first object put into orbit; weather, TV and GPS satellites followed.", wiki: Sputnik_1, spread: [], related: []}
+  - {id: microchip, name: Integrated circuit (microchip), year: 1958, category: computing, place: United States, where: USA, who: Jack Kilby; Robert Noyce (1959),
+     what: "Many transistors made together on one chip of silicon.", wiki: Integrated_circuit,
+     spread: ["long:transistors", "long:computer_cost_memory"], related: [high_tech_share_exports]}
+  - {id: laser, name: Laser, year: 1960, category: science, place: California, where: USA, who: Theodore Maiman,
+     what: "A narrow beam of one colour of light; now in fibre optic cables, surgery and shops' scanners.", wiki: Laser, spread: [], related: []}
+  - {id: the-pill, name: Contraceptive pill, year: 1960, category: medicine, place: United States, where: USA, who: "Gregory Pincus, Carl Djerassi and others",
+     what: "A daily pill preventing pregnancy, approved in the US in 1960 and New Zealand in 1961.", wiki: Combined_oral_contraceptive_pill,
+     spread: [], related: ["long:fertility_rate", tfr, labour_participation_female, tertiary_enrolment],
+     link: "Births per woman fell in rich countries from the 1960s, and women's schooling and paid work rose; many other changes came at the same time."}
+  - {id: measles-vaccine, name: Measles vaccine, year: 1963, category: medicine, place: United States, where: USA, who: John Enders and Maurice Hilleman,
+     what: "A vaccine against measles, then a leading killer of children.", wiki: Measles_vaccine,
+     spread: ["long:vaccine_mcv1", measles_immunisation], related: [under5_mortality, "long:child_mortality"]}
+  - {id: dtp-vaccine, name: Child vaccination programme, year: 1974, category: medicine, place: World (WHO), who: World Health Organization (Expanded Programme on Immunization),
+     what: "A world drive to vaccinate every child against six diseases.", wiki: Expanded_Program_on_Immunization,
+     spread: ["long:vaccine_dtpcv3", "long:vaccine_mcv1", "long:vaccine_pol3"], related: [under5_mortality, "long:child_mortality", "long:life_expectancy"]}
+  - {id: oral-rehydration, name: Oral rehydration solution, year: 1968, category: medicine, place: Bangladesh and India, where: BGD, who: Dhaka cholera research lab; Dilip Mahalanabis,
+     what: "Water, salt and sugar to treat diarrhoea, a cheap cure for a leading killer of children.", wiki: Oral_rehydration_therapy,
+     spread: [], related: [under5_mortality, "long:child_mortality"]}
+  - {id: arpanet, name: "Internet (ARPANET, TCP/IP)", year: 1969, category: computing, place: United States, where: USA, who: "ARPA; Vint Cerf and Bob Kahn (TCP/IP, 1974)",
+     what: "Computers linked in a network sending data in packets; TCP/IP joined networks together from 1983.", wiki: ARPANET,
+     spread: [internet_users_share, "long:us_internet"], related: [broadband_subscriptions_per_100, services_share_gdp]}
+  - {id: microprocessor, name: Microprocessor, year: 1971, category: computing, place: California, where: USA, who: "Intel 4004 (Federico Faggin, Ted Hoff, Masatoshi Shima)",
+     what: "A whole computer processor on one chip.", wiki: Microprocessor, spread: ["long:transistors"], related: [high_tech_share_exports]}
+  - {id: mobile-phone, name: Mobile phone, year: 1973, category: communication, place: New York, where: USA, who: Martin Cooper (Motorola); networks from 1979 (Japan),
+     what: "A telephone carried about, linked by radio to masts.", wiki: Mobile_phone,
+     spread: [mobile_subscriptions_per_100, "long:us_cellular_phone"], related: [fb_mobile_per_100]}
+  - {id: personal-computer, name: Personal computer, year: 1977, category: computing, place: United States, where: USA, who: "Apple II, Commodore PET, TRS-80; IBM PC (1981)",
+     what: "A computer cheap enough for a home or desk.", wiki: Personal_computer,
+     spread: ["long:us_microcomputer", "long:us_computer"], related: [gdp_per_worker]}
+  - {id: gene-engineering, name: Genetic engineering, year: 1973, category: science, place: California, where: USA, who: Herbert Boyer and Stanley Cohen,
+     what: "Moving a gene from one living thing to another; insulin made by bacteria from 1982.", wiki: Genetic_engineering, spread: [], related: []}
+  - {id: ivf, name: IVF, year: 1978, category: medicine, place: England, where: GBR, who: Robert Edwards and Patrick Steptoe,
+     what: "Eggs fertilised outside the body: the first 'test-tube baby'.", wiki: In_vitro_fertilisation, spread: [], related: [tfr]}
+  - {id: wind-turbine, name: Modern wind turbine, year: 1978, category: energy, place: Denmark, where: DNK, who: Tvind turbine and Danish makers,
+     what: "Three-bladed turbines making electricity for the grid.", wiki: Wind_turbine,
+     spread: ["long:energy_wind", wind_share_elec], related: [carbon_intensity_elec, renewables_share_elec]}
+  - {id: gps, name: GPS, year: 1978, category: transport, place: United States, where: USA, who: US Department of Defense; open to everyone from 2000,
+     what: "Satellites letting a receiver work out where it is.", wiki: Global_Positioning_System, spread: [], related: []}
+  - {id: hiv-drugs, name: HIV medicines, year: 1987, category: medicine, place: United States, where: USA, who: AZT (1987); triple therapy (1996),
+     what: "Drugs holding back HIV so people with it live a normal span.", wiki: Management_of_HIV/AIDS, spread: [], related: [hiv_prevalence, life_expectancy]}
+  - {id: lithium-battery, name: Lithium-ion battery, year: 1991, category: energy, place: Japan, where: JPN, who: "Whittingham, Goodenough, Yoshino; Sony sold the first",
+     what: "Light rechargeable batteries for phones, laptops and electric cars.", wiki: Lithium-ion_battery,
+     spread: [ev_sales_share], related: [mobile_subscriptions_per_100]}
+  - {id: web, name: World Wide Web, year: 1989, category: computing, place: CERN (Geneva), where: CHE, who: Tim Berners-Lee,
+     what: "Pages linked to each other across the internet, read with a browser.", wiki: World_Wide_Web,
+     spread: [internet_users_share, "long:us_internet"], related: [broadband_subscriptions_per_100, services_share_gdp]}
+  - {id: sms, name: Text messages, year: 1992, category: communication, place: England, where: GBR, who: Neil Papworth (Vodafone),
+     what: "Short written messages between mobile phones.", wiki: SMS, spread: [mobile_subscriptions_per_100], related: []}
+  - {id: mobile-money, name: Mobile money, year: 2007, category: money, place: Kenya, where: KEN, who: M-Pesa (Safaricom and Vodafone),
+     what: "Paying and saving with a basic mobile phone, no bank needed.", wiki: M-Pesa, spread: [mobile_subscriptions_per_100], related: [remittances_received_gdp]}
+  - {id: card-payment, name: Payment card and cash machine, year: 1967, category: money, place: London, where: GBR, who: Barclays (cash machine); Diners Club card (1950),
+     what: "Cash machines and cards instead of cheques and bank counters; New Zealand's EFTPOS came in 1985.", wiki: Automated_teller_machine, spread: [], related: []}
+  - {id: barcode, name: Barcode, year: 1974, category: money, place: Ohio, where: USA, who: Woodland and Silver; first scan at a supermarket,
+     what: "Lines a laser reads to name a product at the till.", wiki: Barcode, spread: [], related: []}
+  - {id: statins, name: Statins, year: 1987, category: medicine, place: Japan and the US, where: JPN, who: Akira Endo; Merck (lovastatin),
+     what: "Pills lowering cholesterol and heart attacks.", wiki: Statin, spread: [], related: [life_expectancy]}
+  - {id: led, name: LED lighting, year: 1993, category: home, place: Japan, where: JPN, who: "Shuji Nakamura, Isamu Akasaki and Hiroshi Amano (blue LED)",
+     what: "Blue LEDs made white LED light possible, using a fraction of a bulb's power.", wiki: Light-emitting_diode, spread: [], related: [electricity_use_per_capita]}
+  - {id: malaria-nets, name: Insecticide-treated bed nets, year: 1985, approx: true, category: medicine, place: Africa, who: Trials in the Gambia and elsewhere,
+     what: "Nets soaked in insecticide over beds against malaria mosquitoes; given out by the hundred million from the 2000s.", wiki: Mosquito_net,
+     spread: [], related: [malaria_incidence, under5_mortality]}
+  - {id: hybrid-car, name: Hybrid and electric car, year: 1997, category: transport, place: Japan, where: JPN, who: Toyota Prius; Tesla Roadster (2008),
+     what: "Cars running partly or wholly on batteries.", wiki: Electric_car, spread: [ev_sales_share, ev_stock_share], related: [co2_per_capita]}
+  # ------------------------------------------------------------------ since 2000
+  - {id: human-genome, name: Human genome mapped, year: 2003, category: science, place: International, who: Human Genome Project,
+     what: "All three billion letters of human DNA read; the cost has since fallen a millionfold.", wiki: Human_Genome_Project, spread: [], related: []}
+  - {id: social-media, name: Social media, year: 2004, category: communication, place: United States, where: USA, who: "Facebook (2004), YouTube (2005), Twitter (2006)",
+     what: "Sites where people share posts with friends and strangers.", wiki: Social_media,
+     spread: ["long:us_social_media_usage", internet_users_share], related: [wvs_trust]}
+  - {id: smartphone, name: Smartphone, year: 2007, category: communication, place: United States, where: USA, who: Apple iPhone; Android (2008),
+     what: "A touch-screen phone that is also a computer and camera.", wiki: Smartphone,
+     spread: ["long:us_smartphone_usage", mobile_subscriptions_per_100], related: [internet_users_share]}
+  - {id: cheap-solar, name: Cheap solar panels, year: 2010, approx: true, category: energy, place: China, where: CHN,
+     what: "Factories in China made panels in bulk; prices fell about nine-tenths in ten years.", wiki: Solar_power_in_China,
+     spread: ["long:solar_pv_price", solar_share_elec], related: [renewables_share_elec, carbon_intensity_elec]}
+  - {id: crispr, name: CRISPR gene editing, year: 2012, category: science, place: US and Europe, who: Jennifer Doudna and Emmanuelle Charpentier,
+     what: "A cheap, exact way to cut and change DNA; the first treatment approved in 2023.", wiki: CRISPR_gene_editing, spread: [], related: []}
+  - {id: mrna-vaccine, name: mRNA vaccines, year: 2020, category: medicine, place: Germany and the US, where: DEU, who: Katalin Karikó and Drew Weissman; BioNTech and Moderna,
+     what: "Vaccines that give cells instructions to make a harmless part of a virus; the first COVID-19 vaccines.", wiki: MRNA_vaccine,
+     spread: [], related: [life_expectancy]}
+  - {id: deep-learning, name: Deep learning, year: 2012, category: computing, place: Toronto, where: CAN, who: "Krizhevsky, Sutskever and Hinton (AlexNet)",
+     what: "Large neural networks trained on graphics chips began to beat other methods at seeing and hearing.", wiki: Deep_learning,
+     spread: [ai_publications_per_million], related: []}
+  - {id: transformer-ai, name: Large language models, year: 2017, category: computing, place: Google and others, who: Vaswani et al. (the Transformer); ChatGPT (2022),
+     what: "AI models trained on huge amounts of text that write and answer questions.", wiki: Large_language_model,
+     spread: [ai_use_enterprises, ai_claude_use_per_capita_index, ai_publications_per_million], related: [gdp_per_worker]}

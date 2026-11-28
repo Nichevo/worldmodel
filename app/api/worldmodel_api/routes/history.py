@@ -13,7 +13,7 @@ from fastapi import Body, HTTPException, Query
 from fastapi.responses import Response
 
 from worldmodel_contract import catalogue
-from worldmodel_api import cycles, episodes, longhistory, userdata, wiki
+from worldmodel_api import cycles, episodes, inventions, longhistory, userdata, wiki
 from worldmodel_api.core import _has_cities, _has_table, _lh, api, rows, split
 from worldmodel_api.routes.basics import _with_image_urls
 
@@ -222,6 +222,28 @@ def cycles_short(entity_id: str, start: int = Query(1960, ge=1900, le=2020)):
 def episodes_list():
     """The typed-in big episodes, newest first, with how far output fell in the worst-hit country."""
     return _lh(("episodes",), lambda: episodes.listing(rows, date.today().year))
+
+
+@api.get("/inventions")
+def inventions_list():
+    """Inventions over time: the typed-in list with categories, the series their cards chart, and
+    extra inventions from Wikidata."""
+    return _lh(("inventions",), lambda: inventions.listing(rows))
+
+
+@api.get("/inventions/along")
+def inventions_along(series: str, entities: str | None = None, categories: str | None = None):
+    """One series (an indicator id or long:<id>) with the typed-in inventions along it."""
+    return inventions.along(rows, series, split(entities) or None, split(categories) or None)
+
+
+@api.get("/inventions/{invention_id}")
+def invention_card(invention_id: str, entities: str | None = None):
+    """One invention: what, when and where, how it spread and the changes seen around it."""
+    got = inventions.card(rows, invention_id, split(entities) or None)
+    if got is None:
+        raise HTTPException(404, f"no invention {invention_id}")
+    return got
 
 
 @api.get("/episodes/found")

@@ -36,6 +36,7 @@ export const GROUPS: { label: string; hint: string; links: { href: string; label
     { href: "/disease", label: "Disease", hint: "Flu, COVID, RSV, measles: now against usual, seasons, outbreaks" },
     { href: "/crises", label: "Financial crises" },
     { href: "/long", label: "Long history", hint: "Empires, borders over time, people since 10,000 BC, the eight factors, the big cycle and debt cycles" },
+    { href: "/inventions", label: "Inventions", hint: "Inventions over time in ten categories, how each spread and the changes seen around it" },
     { href: "/episodes", label: "Episodes", hint: "Big episodes from the Great Depression to the 2022 inflation: timeline, charts, who was hit, and does today look like it" },
     { href: "/indicators", label: "Indicators" },
     { href: "/sectors", label: "Sectors" },
