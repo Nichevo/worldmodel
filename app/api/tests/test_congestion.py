@@ -13,6 +13,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from worldmodel_api import airbusy, main, roads, trains
+from worldmodel_contract import catalogue
 
 
 @pytest.fixture()
@@ -252,6 +253,28 @@ def test_poll_saves_paths_and_lateness(home, monkeypatch):
     assert t.day_path("syd:V1", "2026-11-27")[0][3] == 600
     late = t.lateness(7)["networks"][0]
     assert late["hours"][8]["late_pct"] == 100.0
+
+
+def test_auckland_reads_one_combined_feed(home, monkeypatch):
+    """Auckland's free product allows 35,000 calls a week: one call a read (positions and
+    trip updates together) keeps 30-second reads around 20,000 a week."""
+    akl = next(f for f in catalogue.congestion()["train_feeds"] if f["id"] == "akl")
+    assert not akl.get("updates") and 7 * 24 * 3600 / 30 <= 35_000
+    monkeypatch.setenv("AT_API_KEY", "k")
+    monkeypatch.setattr(trains, "feeds", lambda: [{**akl, "rail_only": True}])
+    trip = _ld(1, b"T1") + _ld(5, b"STH")
+    both = (_ld(2, _ld(1, b"e") + _ld(4, _ld(1, trip) + _ld(2, _f32(1, -36.85) + _f32(2, 174.76)) + _ld(8, _ld(1, b"V1"))))
+            + _ld(2, _ld(1, b"u") + _ld(3, _ld(1, trip) + _vi(5, 120))))
+    calls = []
+
+    def handler(req):
+        calls.append(str(req.url))
+        return httpx.Response(200, content=both, headers={"content-type": "application/x-protobuf"})
+
+    t = trains.Trains()
+    t.poll(httpx.Client(transport=httpx.MockTransport(handler)), {"trains_collect": True}, now=datetime(2026, 11, 27, 8, tzinfo=ZoneInfo("Pacific/Auckland")).timestamp())
+    assert calls == ["https://api.at.govt.nz/realtime/legacy/"]
+    assert t.geojson(174, -37, 175, -36)["features"][0]["properties"]["delay_min"] == 2.0
 
 
 def test_trains_without_keys_say_so(home, monkeypatch):

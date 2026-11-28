@@ -110,8 +110,9 @@ train_feeds:
     tz: Pacific/Auckland
     key: AT_API_KEY
     header: Ocp-Apim-Subscription-Key
-    positions: https://api.at.govt.nz/realtime/legacy/vehiclelocations
-    updates: https://api.at.govt.nz/realtime/legacy/tripupdates
+    # The Combined Feed (positions and trip updates in one answer): one call a read keeps a
+    # week of 30-second reads (~20,000) under the free product's 35,000 calls a week.
+    positions: https://api.at.govt.nz/realtime/legacy/
     timetable: https://gtfs.at.govt.nz/gtfs.zip
     on_time_minutes: 5
     signup: https://dev-portal.at.govt.nz/
