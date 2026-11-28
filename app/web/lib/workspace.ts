@@ -34,6 +34,7 @@ export type Panel = {
   layers: string; // map overlays, one letter each (see MAP_LAYERS): "pv" plate boundaries and volcanoes
   rk: string; // ranks options: "years,who,among+order,top" (see rankOptions)
   lv: string; // live panel: which table (LIVE_TABS), "" = ships; places panel: which map layer, "" = power plants
+  kf: string; // a map's key: "1" folded to its chip, "" open (or as Settings > Map key starts it)
 };
 
 // A popup pinned open: on a map it sits at lng/lat and moves with the map; elsewhere in its panel's corner.
@@ -99,7 +100,7 @@ let nextId = 0;
 const newId = () => `p${Date.now().toString(36)}${(nextId++).toString(36)}`;
 
 const panel = (id: string, p: Partial<Panel> = {}): Panel => ({
-  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", rk: "", lv: "", ...p,
+  id, view: "map", indicator: "tfr", year: null, links: { ...DEFAULT_LINKS }, group: "A", offset: 0, selection: [], cols: [], pyr: "", xy: "", range: "", layers: "", rk: "", lv: "", kf: "", ...p,
 });
 
 export const DEFAULT: Workspace = {
@@ -116,10 +117,10 @@ export const DEFAULT: Workspace = {
 
 export type Action =
   | { type: "layout"; layout: Layout }
-  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers" | "rk" | "lv">> }
+  | { type: "panel"; id: string; patch: Partial<Pick<Panel, "view" | "indicator" | "year" | "group" | "offset" | "cols" | "pyr" | "xy" | "range" | "layers" | "rk" | "lv" | "kf">> }
   | { type: "load"; ws: Workspace }
   | { type: "link"; id: string; key: LinkKey; on: boolean }
-  | { type: "duplicate"; id: string }
+  | { type: "duplicate"; id: string; patch?: Partial<Pick<Panel, "view" | "indicator" | "lv">> } // a copy, changed by patch
   | { type: "close"; id: string }
   | { type: "maximise"; id: string | null }
   | { type: "split"; split: [number, number] }
@@ -206,7 +207,7 @@ export function reducer(ws: Workspace, a: Action): Workspace {
       if (ws.panels.length >= MAX_PANELS) return ws;
       const i = ws.panels.findIndex((p) => p.id === a.id);
       if (i < 0) return ws;
-      const panels = [...ws.panels.slice(0, i + 1), { ...ws.panels[i], id: newId() }, ...ws.panels.slice(i + 1)];
+      const panels = [...ws.panels.slice(0, i + 1), { ...ws.panels[i], ...a.patch, id: newId() }, ...ws.panels.slice(i + 1)];
       return { ...ws, panels, layout: layoutFor(panels.length, ws.layout), maximised: null };
     }
     case "close": {
@@ -405,7 +406,7 @@ const DEFAULT_LETTERS = LINKS.filter((l) => DEFAULT_LINKS[l.key]).map((l) => l.l
 function panelToken(p: Panel): string {
   const letters = LINKS.filter((l) => p.links[l.key]).map((l) => l.letter).join("") || "-";
   const parts = [p.view, p.indicator, p.year ?? "", letters === DEFAULT_LETTERS ? "" : letters, p.group === "A" ? "" : p.group,
-    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers, p.rk, p.lv];
+    p.offset ? String(p.offset) : "", p.cols.join(","), p.pyr, p.xy, p.range, p.layers, p.rk, p.lv, p.kf];
   while (parts.length > 2 && parts[parts.length - 1] === "") parts.pop();
   return parts.join(".");
 }
@@ -438,7 +439,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
     .filter(Boolean)
     .slice(0, MAX_PANELS)
     .map((s, i) => {
-      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers, rk, lv] = s.split(".");
+      const [view, indicator, year, letters, group, offset, cols, pyr, xy, range, layers, rk, lv, kf] = s.split(".");
       const l = letters === undefined || letters === "" ? DEFAULT_LETTERS : letters;
       return panel(`p${i}`, {
         view: VIEWS.includes(view as View) ? (view as View) : "map",
@@ -456,6 +457,7 @@ export function fromQuery(q: URLSearchParams): Workspace {
         layers: layers ? [...new Set(layers)].filter((c) => MAP_LAYERS.some((m) => m.letter === c)).join("") : "",
         rk: rk && RANK_RE.test(rk) ? rk : "",
         lv: (LIVE_TABS as readonly string[]).includes(lv ?? "") || (view === "places" && /^[a-z_]{1,40}$/.test(lv ?? "")) ? lv! : "",
+        kf: kf === "1" || kf === "0" ? kf : "",
       });
     });
   const win = WIN_RE.test(q.get("w") || "") ? q.get("w")! : "";

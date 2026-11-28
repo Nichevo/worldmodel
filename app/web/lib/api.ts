@@ -251,6 +251,8 @@ export type Settings = {
   popup_tabs: boolean;
   side_panel: boolean;
   map_toolbar_float: boolean;
+  map_key: "card" | "below"; // the map page's key: a card on the map that folds away, or rows under the map
+  map_key_folded: boolean; // new maps open with the key folded to its chip
   disk_limit_gb: number;
   storage_warn_pct: number; // storage warnings from this share of a limit ...
   storage_critical_pct: number; // ... and stronger from this one

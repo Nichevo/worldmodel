@@ -27,7 +27,7 @@ import { journeyLines, journeyText, planeJourney, shipJourney, shipSize, sizeTex
 import { PlaneCard, ShipCard, type Plane } from "@/components/LiveTables";
 import { applyPlaceLook, PLACE_LOOK, withLatScale } from "@/lib/placeIcons";
 import { LANDUSE_LAYER, syncLandUse, syncSiteOutlines, watchPortLand, withCompanions } from "@/lib/siteOutlines";
-import { FUEL_COLOURS } from "@/lib/fuels";
+import { FUEL_COLOURS, OTHER_FUEL } from "@/lib/fuels";
 
 // MapLibre's worker file, copied into public/ on npm install (scripts/copy-maplibre-worker.mjs).
 if (typeof window !== "undefined") maplibregl.setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
@@ -128,6 +128,24 @@ type Props = {
   // Country outlines (default on). Off for the world map with "None (plain map)" picked, so only the
   // base map and layers show (Settings > Maps > Borders on the plain map).
   borders?: boolean;
+  // The map page's key: a card over the map's corner that folds to a chip, whose parts can be clicked
+  // (left out: the key is drawn under the map as before).
+  mapKey?: MapKey | null;
+};
+
+// A layer on the map as the key lists it (key: the layer's letter on the map page).
+export type MapKeyLayer = { key: string; label: string; color: string; hidden: boolean; details?: string | null };
+export type MapKey = {
+  open: boolean;
+  onOpen: (open: boolean) => void;
+  title: string; // what the colours show, and the year
+  layers: MapKeyLayer[];
+  // toggle: hide for now or show again; only: hide all the others; settings: open the Layers panel at it.
+  onLayer: (key: string, act: "toggle" | "only" | "all" | "settings") => void;
+  info?: React.ReactNode; // the source line, behind the card's i
+  unitHelp?: React.ReactNode; // the indicator's help card, beside the unit
+  onSelect?: (isos: string[]) => void; // "Select these" for the countries in the picked bands
+  onCounts?: (layer: string) => void; // a live layer's count clicked (open its table)
 };
 
 export type RasterTiles = { tiles: string; attribution: string; maxzoom?: number; over?: boolean; opacity?: number };
@@ -178,12 +196,30 @@ function strictlyIncreasing(breaks: number[], colors: string[]): Scale {
 // Zoom from which the world map draws the finer country outlines.
 const FINE_FROM = 3.5;
 
-function colorExpression(scale: Scale, noData = cssVar("--no-data")): ExpressionSpecification | string {
-  if (!scale.breaks.length) return scale.colors[0] ?? noData;
-  const steps: (number | string)[] = [scale.colors[0]];
-  scale.breaks.forEach((b, i) => steps.push(b, scale.colors[i + 1]));
+// focus: the bands picked in the key (their index; -1 for no data); the rest are drawn pale.
+function colorExpression(scale: Scale, noData = cssVar("--no-data"), focus: number[] = []): ExpressionSpecification | string {
+  const pale = cssVar("--no-data");
+  const keep = (i: number, c: string) => (!focus.length || focus.includes(i) ? c : pale);
+  const nd = focus.length ? (focus.includes(-1) ? cssVar("--ink-2") : pale) : noData;
+  if (!scale.breaks.length) return scale.colors[0] ? keep(0, scale.colors[0]) : nd;
+  const steps: (number | string)[] = [keep(0, scale.colors[0])];
+  scale.breaks.forEach((b, i) => steps.push(b, keep(i + 1, scale.colors[i + 1])));
   return ["case", ["has", "value"], ["step", ["get", "value"], ...steps] as unknown as ExpressionSpecification,
-    noData] as ExpressionSpecification;
+    nd] as ExpressionSpecification;
+}
+
+// Which band of the scale a value falls in (as the map's step colours it).
+const bandOf = (scale: Scale, v: number) => scale.breaks.filter((b) => v >= b).length;
+
+// The Power plants layers showing only the fuels picked in the key ("Other" for any not listed).
+function fuelFilter(picked: string[]): unknown[] | null {
+  if (!picked.length) return null;
+  const named = picked.filter((f) => f !== "Other");
+  const listed = ["in", ["get", "fuel"], ["literal", FUEL_COLOURS.map(([f]) => f)]];
+  const parts: unknown[] = [];
+  if (named.length) parts.push(["in", ["get", "fuel"], ["literal", named]]);
+  if (picked.includes("Other")) parts.push(["!", listed]);
+  return parts.length === 1 ? parts[0] as unknown[] : ["any", ...parts];
 }
 
 // A short id for a picture layer's tiles (MapLibre ids can't hold the whole URL comfortably).
@@ -199,7 +235,7 @@ export default function WorldMap({
   values, unit, decimals, diverging, onPick, selected = [], fill = false, scale: shared, hovered = null, onHover, camera = null,
   doubleClick = false, overlays = [], spark = null, onMap, layers: layersAsked = [], points, fitPoints = false, pointsTop, onCity, lines, layerFilter,
   raster = null, boxes = [], outlines, marks, onMark, legend = [], hideScale = false, areas = null, onArea, paths,
-  pictures = true, onPoint = null, borders = true,
+  pictures = true, onPoint = null, borders = true, mapKey = null,
 }: Props) {
   const pointPick = useRef(onPoint);
   pointPick.current = onPoint;
@@ -354,6 +390,14 @@ export default function WorldMap({
   const own = useMemo(() => makeScale(values.map((v) => v.value), diverging), [values, diverging]);
   const scale = shared ?? own;
   const byIso = useMemo(() => new Map(values.map((v) => [v.entity_id, v])), [values]);
+  // Bands picked in the key (and one only hovered), and power plant fuels picked: what the map draws only.
+  const [focus, setFocus] = useState<number[]>([]);
+  const [preview, setPreview] = useState<number | null>(null);
+  const [fuels, setFuels] = useState<string[]>([]);
+  const scaleKey = JSON.stringify(scale.breaks);
+  useEffect(() => { setFocus([]); setPreview(null); }, [scaleKey, mapKey === null]);
+  const shownFocus = preview !== null ? [preview] : focus;
+  const focusKey = shownFocus.join(",");
 
   useEffect(() => {
     if (!el.current) return;
@@ -668,11 +712,16 @@ export default function WorldMap({
         }),
       };
       (m.getSource("countries") as GeoJSONSource).setData(data);
-      m.setPaintProperty("fill", "fill-color", colorExpression(scale, noDataColour(globeLook)));
+      m.setPaintProperty("fill", "fill-color", colorExpression(scale, noDataColour(globeLook), shownFocus));
     };
     if (m.getSource("countries")) apply();
     else onLoad.current.push(apply);
   }, [byIso, scale, unit, decimals, fineShapes, globeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Bands picked or hovered in the key: only the colours change.
+  useEffect(() => {
+    const m = map.current;
+    if (m?.getLayer("fill")) m.setPaintProperty("fill", "fill-color", colorExpression(scale, noDataColour(globeLook), shownFocus));
+  }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Country outlines on or off (off on the plain world map; the base map's own borders stay).
   useEffect(() => {
@@ -794,11 +843,20 @@ export default function WorldMap({
 
   // Filters on overlays (kept for layers still loading).
   const filters = useRef<Record<string, unknown[] | null>>({});
-  const filterKey = JSON.stringify(layerFilter ?? {});
+  const fuelF = fuelFilter(fuels);
+  const filterKey = JSON.stringify(layerFilter ?? {}) + JSON.stringify(fuelF);
   useEffect(() => {
-    filters.current = layerFilter ?? {};
+    // The fuels picked in the key go with any filter the page gives the power plant layers.
+    const both = (a: unknown[] | null | undefined) => (a && fuelF ? ["all", a, fuelF] : a ?? fuelF);
+    filters.current = { ...(layerFilter ?? {}) };
+    for (const id of ["power_plants", "power_sites"]) {
+      const f = both(layerFilter?.[id]);
+      if (f) filters.current[id] = f;
+      else delete filters.current[id];
+    }
     const m = map.current;
     if (!m) return;
+    for (const id of ["power_plants", "power_sites"]) if (!filters.current[id] && m.getLayer(`ov-${id}`)) setLayerFilter(m, `ov-${id}`, null);
     for (const [id, f] of Object.entries(filters.current)) {
       if (m.getLayer(`ov-${id}`)) setLayerFilter(m, `ov-${id}`, f);
     }
@@ -1210,6 +1268,11 @@ export default function WorldMap({
   return (
     <div className={fill ? "map-fill" : undefined}>
       <div className="map-wrap"><div ref={el} className="map" />
+        {mapKey && hydrated && (
+          <KeyCard k={mapKey} scale={hideScale ? null : scale} unit={unit} values={values} legend={legend}
+            fuelsShown={layers.includes("power_plants") || layers.includes("power_sites")} fuels={fuels} setFuels={setFuels}
+            focus={focus} setFocus={setFocus} setPreview={setPreview} notes={Object.values(notes).filter(Boolean)} />
+        )}
         {Object.keys(liveState).length > 0 && (
           <div className="map-live" role="status" aria-live="polite">
             {Object.entries(liveState).map(([id, s]) => {
@@ -1218,7 +1281,10 @@ export default function WorldMap({
               const when = ago == null ? "" : ago < 10 ? "just now" : ago < 90 ? `${ago} s ago` : `${Math.round(ago / 60)} min ago`;
               const stale = ago != null && ago > s.every * 3;
               return (
-                <span key={id} className={s.error || stale ? "bad" : undefined} title={s.error ?? `Asked again every ${s.every} s while this tab is open`}>
+                <span key={id} className={`${s.error || stale ? "bad" : ""}${mapKey?.onCounts ? " can-open" : ""}`}
+                  title={(s.error ?? `Asked again every ${s.every} s while this tab is open`) + (mapKey?.onCounts ? ". Click for the table in a new panel." : "")}
+                  {...(mapKey?.onCounts ? { role: "button", tabIndex: 0, onClick: () => mapKey.onCounts!(id),
+                    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") mapKey.onCounts!(id); } } : {})}>
                   {s.loading ? <i className="spin" /> : !s.error && !stale ? <i className="ok" /> : null}
                   {s.loading && s.at == null ? `${name}: loading…`
                     : s.error ? `${name}: ${s.error.length > 90 ? `${s.error.slice(0, 90)}…` : s.error}`
@@ -1268,9 +1334,9 @@ export default function WorldMap({
         <p className="caption" role="status">{detailNote}{" "}
           <button className="link small" onClick={() => setDetailTry((n) => n + 1)}>Try again</button></p>
       )}
-      {Object.values(notes).some(Boolean) && <p className="caption">{Object.values(notes).filter(Boolean).join(" · ")}</p>}
-      {!hideScale && <Legend scale={scale} unit={unit} />}
-      {(layers.length > 0 || legend.length > 0) && (
+      {!mapKey && Object.values(notes).some(Boolean) && <p className="caption">{Object.values(notes).filter(Boolean).join(" · ")}</p>}
+      {!mapKey && !hideScale && <Legend scale={scale} unit={unit} />}
+      {!mapKey && (layers.length > 0 || legend.length > 0) && (
         <div className="legend overlays" aria-label="Map layers">
           {legend.map((l) => (
             <span key={l.label} className="step">
@@ -1294,6 +1360,140 @@ export default function WorldMap({
         </div>
       )}
       {overlays.map((o) => { const target = els.get(o.key); return target ? createPortal(o.node, target, o.key) : null; })}
+    </div>
+  );
+}
+
+// The map page's key: a card in the map's corner (or a chip when folded). Bands, layers and fuels can be clicked.
+function KeyCard({ k, scale, unit, values, legend, fuelsShown, fuels, setFuels, focus, setFocus, setPreview, notes }: {
+  k: MapKey; scale: Scale | null; unit: string; values: { entity_id: string; value: number }[];
+  legend: { label: string; color: string; shape: "dot" | "ring" | "outline" }[]; fuelsShown: boolean;
+  fuels: string[]; setFuels: (f: string[]) => void; focus: number[]; setFocus: (f: number[]) => void;
+  setPreview: (b: number | null) => void; notes: string[];
+}) {
+  const [info, setInfo] = useState(false);
+  const [menu, setMenu] = useState<string | null>(null);
+  const card = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest(".key-menu, .key-layer")) setMenu(null); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menu]);
+  useEffect(() => {
+    if (!focus.length) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setFocus([]); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [focus.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bands = scale && scale.colors.length ? scale.colors.slice(0, scale.breaks.length + 1) : [];
+  const inBand = (b: number) => b === -1 ? [] : values.filter((v) => bandOf(scale!, v.value) === b).map((v) => v.entity_id);
+  const picked = focus.flatMap(inBand);
+  const range = (b: number) => {
+    if (b === -1) return "no data";
+    const lo = b === 0 ? null : scale!.breaks[b - 1];
+    const hi = b < scale!.breaks.length ? scale!.breaks[b] : null;
+    return lo === null ? `under ${compact(hi!)}` : hi === null ? `${compact(lo)} and over` : `${compact(lo)} to ${compact(hi)}`;
+  };
+  const pick = (b: number, add: boolean) => setFocus(add ? (focus.includes(b) ? focus.filter((x) => x !== b) : [...focus, b])
+    : focus.length === 1 && focus[0] === b ? [] : [b]);
+  const hiddenCount = k.layers.filter((l) => l.hidden).length;
+
+  if (!k.open) {
+    return (
+      <button className="key-chip" onClick={() => k.onOpen(true)} title="Open the map's key (K)" aria-label="Open the map's key">
+        <b>Key</b>
+        {bands.length > 0 && <span className="key-mini">{bands.map((c, i) => <i key={i} style={{ background: c }} />)}</span>}
+        {k.layers.length > 0 && <span className="muted">{k.layers.length} layer{k.layers.length === 1 ? "" : "s"}{hiddenCount ? `, ${hiddenCount} hidden` : ""}</span>}
+        {focus.length > 0 && <span className="muted">· {picked.length} picked</span>}
+        <span aria-hidden="true">▴</span>
+      </button>
+    );
+  }
+  return (
+    <div className="key-card" ref={card} role="group" aria-label="Map key">
+      <div className="key-head">
+        <b>Key</b><span className="muted key-title">{k.title}</span>
+        <span className="spacer" />
+        {k.info && <button className={`key-btn${info ? " on" : ""}`} aria-pressed={info} onClick={() => setInfo(!info)} title="Where the figures come from">i</button>}
+        <button className="key-btn" onClick={() => k.onOpen(false)} title="Fold the key away (K)" aria-label="Fold the key away">–</button>
+      </div>
+      {info && k.info && <div className="key-info">{k.info}</div>}
+      {bands.length > 0 && (
+        <div className="key-scale">
+          <div className="key-ramp" onMouseLeave={() => setPreview(null)}>
+            {bands.map((c, i) => (
+              <button key={i} className={`key-band${focus.length && !focus.includes(i) ? " dim" : ""}${focus.includes(i) ? " on" : ""}`}
+                onMouseEnter={() => setPreview(i)} onFocus={() => setPreview(i)} onBlur={() => setPreview(null)}
+                onClick={(e) => pick(i, e.shiftKey)} aria-pressed={focus.includes(i)}
+                title={`${range(i)}: ${inBand(i).length} countries. Click to show only these; shift-click to add bands.`}>
+                <i style={{ background: c }} /><span>{i === 0 ? "" : compact(scale!.breaks[i - 1])}</span>
+              </button>
+            ))}
+            <span className="key-unit">{unit === "percent" ? "%" : unit}{k.unitHelp}</span>
+            <button className={`key-band nodata${focus.includes(-1) ? " on" : ""}`} onClick={(e) => pick(-1, e.shiftKey)} aria-pressed={focus.includes(-1)}
+              onMouseEnter={() => setPreview(-1)} onMouseLeave={() => setPreview(null)}
+              title="Click to show which countries have no figure (drawn dark)"><i /><span>no data</span></button>
+          </div>
+          {focus.length > 0 && (
+            <div className="key-picked small">
+              {focus.includes(-1) && focus.length === 1 ? <>Countries with no figure drawn dark.</>
+                : <><b>{picked.length} countries</b> {focus.filter((b) => b >= 0).sort((a, b) => a - b).map(range).join(", ")}</>}
+              {" "}{k.onSelect && picked.length > 0 && <button className="link small" onClick={() => k.onSelect!(picked)}
+                title="Make these the selected countries, so tables and charts follow">Select these</button>}
+              {" "}<button className="link small" onClick={() => setFocus([])}>Clear</button>
+            </div>
+          )}
+        </div>
+      )}
+      {k.layers.length > 0 && (
+        <div className="key-layers">
+          {k.layers.map((l) => (
+            <span key={l.key} className={`key-layer${l.hidden ? " off" : ""}`}>
+              <button className="key-name" onClick={() => k.onLayer(l.key, "toggle")} aria-pressed={!l.hidden}
+                title={l.hidden ? `${l.label}: hidden for now. Click to show it again.` : `${l.label}: click to hide it for now (it stays on in Layers)`}>
+                <i style={{ background: l.color }} />{l.label}
+              </button>
+              <button className="key-more" onClick={() => setMenu(menu === l.key ? null : l.key)} aria-label={`More for ${l.label}`} aria-expanded={menu === l.key}>⋯</button>
+            </span>
+          ))}
+          {(() => { const l = k.layers.find((x) => x.key === menu); if (!l) return null; return (
+            <span className="key-menu" role="menu">
+              <b className="small">{l.label}</b>
+              <button className="link" onClick={() => { k.onLayer(l.key, "toggle"); setMenu(null); }}>{l.hidden ? "Show again" : "Hide for now"}</button>
+              <button className="link" onClick={() => { k.onLayer(l.key, "only"); setMenu(null); }}>Only this layer</button>
+              {hiddenCount > 0 && <button className="link" onClick={() => { k.onLayer(l.key, "all"); setMenu(null); }}>Show all layers</button>}
+              <button className="link" onClick={() => { k.onLayer(l.key, "settings"); setMenu(null); }}>Its settings in Layers…</button>
+              {l.details && <a href={l.details}>Details: by country</a>}
+            </span>); })()}
+        </div>
+      )}
+      {legend.length > 0 && (
+        <div className="key-extra legend overlays">
+          {legend.map((l) => (
+            <span key={l.label} className="step">
+              <i className={l.shape === "dot" ? "dot" : l.shape === "ring" ? "dot ring" : "outline"}
+                style={l.shape === "dot" ? { background: l.color } : { borderColor: l.color }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+      )}
+      {fuelsShown && (
+        <div className="key-fuels" title="Power plants by fuel: click one to show only it, shift-click to add more">
+          {[...FUEL_COLOURS, ["Other", OTHER_FUEL] as [string, string]].map(([f, c]) => {
+            const on = !fuels.length || fuels.includes(f);
+            return (
+              <button key={f} className={`key-fuel${on ? "" : " off"}${fuels.includes(f) ? " on" : ""}`} aria-pressed={fuels.includes(f)}
+                onClick={(e) => setFuels(e.shiftKey ? (fuels.includes(f) ? fuels.filter((x) => x !== f) : [...fuels, f]) : fuels.length === 1 && fuels[0] === f ? [] : [f])}>
+                <i style={{ background: c }} />{f}
+              </button>
+            );
+          })}
+          {fuels.length > 0 && <button className="link small" onClick={() => setFuels([])}>All fuels</button>}
+        </div>
+      )}
+      {notes.length > 0 && <div className="key-notes small muted">{notes.join(" · ")}</div>}
     </div>
   );
 }

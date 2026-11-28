@@ -32,6 +32,8 @@ SETTINGS: dict[str, object] = {
     "hover_sparkline": True,         # small trend line in the map tooltip
     "popup_tabs": True,              # popups get a tab per indicator shown in the panels
     "side_panel": True,              # the pinboard down the right of the map page
+    "map_key": "card",               # map page: the key as a card on the map that folds away ("card") or rows under the map ("below")
+    "map_key_folded": False,         # map page: new maps open with the key folded to its chip
     "map_toolbar_float": False,      # compact map page: a map panel's toolbar floats over the map and shrinks to a label when the pointer leaves
     "disk_limit_gb": 100.0,          # the whole data folder
     "pictures_limit_gb": 2.0,        # media/ (pictures, cached pages)
@@ -367,6 +369,7 @@ CHOICES = {"click_mode": ("popup", "select"), "ships_area": ("pacific", "world")
            "weather_model": ("gfs", "ecmwf"), "party_office": ("government", "state"),
            "forecast_ranges": ("80+95", "80", "none"), "ai_search_engine": ("brave", "searxng", "off"),
            "base_map": ("online", "local", "plain"),
+           "map_key": ("card", "below"),
            "map_look": ("plain", "relief", "satellite", "sharp", "night", "landcover"), "sharp_outside_nz": ("esri", "eox"), "relief_style": ("classic", "grey", "satellite"),
            "night_year": ("2016", "2012", "latest"), "land_cover_year": ("2021", "2020"), "land_cover_years_keep": ("every5", "every", "none"), "spot_change_source": ("lc10", "lcyears"), "spot_water_show": ("changes", "all"), "map_tiles": ("local_first", "online"), "map_centre": ("pacific", "atlantic"),
            "relations_indicators": ("on", "all"), "storage_chart": ("clock", "lines"), "quality_show": ("A", "B", "C", "all", "starred"),

@@ -242,6 +242,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .map-live { position: absolute; left: 10px; top: 10px; z-index: 2; display: flex; flex-direction: column; gap: 4px; pointer-events: none; max-width: calc(100% - 70px); }
 .map-live span { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 2px 9px; font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12); width: fit-content; }
 .map-live .bad { border-color: #c92a2a; color: #c92a2a; }
+.map-live span.can-open { pointer-events: auto; cursor: pointer; }
+.map-live span.can-open:hover { border-color: var(--accent); }
 .map-live .spin { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border: 2px solid var(--border); border-top-color: #1c7ed6; border-radius: 50%; animation: map-live-spin .8s linear infinite; vertical-align: -1px; }
 .map-live .ok { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #2f9e44; }
 @keyframes map-live-spin { to { transform: rotate(360deg); } }
@@ -1855,3 +1857,56 @@ body.map-compact .panel.float-head > .panel-caption {
 }
 body.map-compact .panel.float-head:hover > .panel-caption, body.map-compact .panel.float-head:focus-within > .panel-caption { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { body.map-compact .panel.float-head > .panel-head, body.map-compact .panel.float-head > .panel-caption { transition: none; } }
+body.map-compact .panel.float-head .map-live { top: 44px; }
+
+/* The map's key as a card in the bottom-left corner, folding to a "Key" chip (K). */
+.key-card, .key-chip { position: absolute; left: 10px; bottom: 10px; z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.14); font-size: 12px; color: var(--ink); }
+.key-card { width: min(380px, calc(100% - 20px)); padding: 6px 10px 8px; }
+.key-card .help-pop { top: auto; bottom: 24px; left: auto; right: -8px; }
+.key-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; cursor: pointer; }
+.key-chip:hover, .key-chip:focus-visible { border-color: var(--accent); }
+.key-mini { display: inline-flex; }
+.key-mini i { width: 9px; height: 8px; display: inline-block; }
+.key-mini i:first-child { border-radius: 2px 0 0 2px; }
+.key-mini i:last-child { border-radius: 0 2px 2px 0; }
+.key-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.key-head .spacer { flex: 1; }
+.key-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.key-btn { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); font-size: 12px; line-height: 1; cursor: pointer; flex: none; }
+.key-btn:hover, .key-btn.on { border-color: var(--accent); color: var(--accent); }
+.key-info { font-size: 11.5px; color: var(--ink-2); border-left: 2px solid var(--border); padding: 2px 0 2px 8px; margin: 2px 0 6px; }
+.key-scale { margin-bottom: 4px; }
+.key-ramp { display: flex; align-items: flex-start; flex-wrap: wrap; row-gap: 4px; }
+.key-band { display: flex; flex-direction: column; align-items: flex-start; min-width: 34px; flex: 1 1 34px; padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); }
+.key-band i { display: block; height: 11px; width: 100%; outline: 2px solid transparent; outline-offset: -1px; }
+.key-band span { transform: translateX(-50%); min-height: 1.3em; white-space: nowrap; }
+.key-band:first-child span { transform: none; }
+.key-band:first-child i { border-radius: 3px 0 0 3px; }
+.key-ramp > .key-band:nth-last-child(3) i { border-radius: 0 3px 3px 0; }
+.key-band:hover i, .key-band:focus-visible i { outline-color: var(--ink); }
+.key-band.dim i { opacity: .3; }
+.key-band.on i { outline-color: var(--ink); }
+.key-unit { align-self: flex-start; margin-left: 6px; font-size: 11px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 2px; }
+.key-band.nodata { flex: none; flex-direction: row; align-items: center; gap: 5px; margin-left: 10px; min-width: 0; font-family: inherit; font-size: 11px; }
+.key-band.nodata i { width: 14px; height: 10px; background: var(--no-data); border-radius: 2px; }
+.key-band.nodata span { transform: none; min-height: 0; }
+.key-band.nodata.on i { background: var(--ink-2); }
+.key-picked { margin-top: 2px; color: var(--ink-2); }
+.key-layers { max-height: 30vh; overflow: auto; display: flex; flex-wrap: wrap; gap: 4px 6px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px; }
+.key-layer { position: relative; display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.key-name { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 2px 4px 2px 8px; cursor: pointer; font-size: 11.5px; color: var(--ink); }
+.key-name i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.key-layer.off .key-name { color: var(--ink-2); text-decoration: line-through; }
+.key-layer.off .key-name i { opacity: .3; }
+.key-layer:hover { border-color: var(--accent); }
+.key-more { border: 0; background: none; padding: 2px 7px 2px 2px; cursor: pointer; color: var(--ink-2); font-size: 12px; line-height: 1; }
+.key-more:hover { color: var(--accent); }
+.key-menu { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 8px; background: var(--surface-2, rgba(0,0,0,.03)); border: 1px solid var(--border); border-radius: 8px; }
+.key-menu a, .key-menu button { font-size: 12px; white-space: nowrap; }
+.key-extra { margin-top: 6px; font-size: 11.5px; }
+.key-fuels { display: flex; flex-wrap: wrap; gap: 3px 4px; margin-top: 6px; align-items: center; }
+.key-fuel { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; font-size: 11px; color: var(--ink); }
+.key-fuel i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.key-fuel.off { opacity: .45; }
+.key-fuel.on { border-color: var(--ink); }
+.key-notes { margin-top: 6px; font-size: 11px; max-height: 5.5em; overflow: auto; }

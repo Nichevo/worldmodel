@@ -11,6 +11,8 @@ export const DEFAULT_SETTINGS: Settings = {
   popup_tabs: true,
   side_panel: true,
   map_toolbar_float: false,
+  map_key: "card",
+  map_key_folded: false,
   disk_limit_gb: 100,
   storage_warn_pct: 80,
   storage_critical_pct: 95,
