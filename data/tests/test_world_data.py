@@ -109,8 +109,8 @@ def test_wdi_falls_back_to_the_indicators_api(tmp_path, monkeypatch):
 
     def rows(code, name):
         return [{"indicator": {"id": code, "value": name}, "country": {"id": e["iso2Code"], "value": e["name"]},
-                 "countryiso3code": e["id"], "date": str(y), "value": None if y == 2023 else 1.5 + i,
-                 "unit": "", "obs_status": "", "decimal": 1} for i, e in enumerate(economies) for y in (2022, 2023)]
+                 "countryiso3code": e["id"], "date": str(y), "value": None if y in (1960, 2023) else 1.5 + i,
+                 "unit": "", "obs_status": "", "decimal": 1} for i, e in enumerate(economies) for y in (1960, 2022, 2023)]
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
@@ -146,6 +146,39 @@ def test_wdi_falls_back_to_the_indicators_api(tmp_path, monkeypatch):
     # The same answers again make the same file: no new vintage.
     again, new_again = CONNECTORS["world_bank_wdi"](httpx.Client(transport=httpx.MockTransport(handler))).ingest(store)
     assert not new_again and again.vintage == manifest.vintage
+
+
+def test_wdi_api_answer_cut_short_keeps_the_stored_data(tmp_path, monkeypatch):
+    """A series answered with only its last few years (as the API did on 27 November 2026) must not be
+    stored as a new vintage: the download fails and the stored one stays the newest."""
+    import httpx
+
+    from worldmodel_data.connectors import world_bank_wdi
+    from worldmodel_data.connectors.base import ConnectorError
+
+    monkeypatch.setattr(world_bank_wdi, "API_PAUSE", 0)
+    asked = []
+    economy = {"id": "NZL", "iso2Code": "NZ", "name": "New Zealand", "region": {"value": "East Asia & Pacific"},
+               "incomeLevel": {"value": "High income"}}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "databank.worldbank.org" in str(request.url):
+            return httpx.Response(403, content=b"Forbidden")
+        if request.url.path == "/v2/country":
+            return httpx.Response(200, json=[{"page": 1, "pages": 1}, [economy]])
+        code = request.url.path.rsplit("/", 1)[-1]
+        asked.append(code)
+        years = range(2020, 2025) if code == "GC.TAX.TOTL.GD.ZS" else range(1960, 2025)
+        return httpx.Response(200, json=[{"page": 1, "pages": 1}, [
+            {"indicator": {"id": code, "value": code}, "countryiso3code": "NZL", "date": str(y), "value": 30.0}
+            for y in years]])
+
+    store = VintageStore(Paths(tmp_path / "var"))
+    conn = CONNECTORS["world_bank_wdi"](httpx.Client(transport=httpx.MockTransport(handler)))
+    with pytest.raises(ConnectorError, match="GC.TAX.TOTL.GD.ZS with only the years 2020-2024"):
+        conn.ingest(store)
+    assert asked.count("GC.TAX.TOTL.GD.ZS") == 2  # asked once more before giving up
+    assert store.latest("world_bank_wdi") is None
 
 
 def test_owid_chart_columns_with_long_names_keep_their_own_ids(built):
