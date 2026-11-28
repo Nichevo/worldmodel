@@ -117,7 +117,7 @@ def test_site_rows():
 
     assert osm_mw({"plant:output:electricity": "1.2 GW"}) == 1200 and osm_mw({"plant:output:electricity": "500 kW"}) == 0.5
     assert osm_mw({"plant:output:electricity": "yes"}) is None
-    assert site_boxes()[0] == (160, -60) and len(set(site_boxes())) == 126  # New Zealand first, each square once
+    assert site_boxes()[0] == (170, -50) and len(set(site_boxes())) == 504  # New Zealand first, each square once
     rows = {r[1]: r for r in site_rows(OVERPASS)}
     assert set(rows) == {"w11", "r22", "r55", "r66"}
     assert rows["r66"][4]["fuel"] == "Wind" and rows["r66"][3] == 1 and len(rows["r66"][6]["coordinates"][0]) == 5  # 4 corners
@@ -166,7 +166,7 @@ def test_sites_download(tmp_path, monkeypatch):
     c.download(tmp_path, "2026-11-28")
     files = sorted(p.name for p in tmp_path.glob("osm_power_*.json"))
     assert len(asked) == 8 and len(files) == 6  # 1 whole square, 4 quarters, 1 more square, then refused
-    assert "osm_power_160_-60_20.json" in files and any(f.endswith("_10.json") for f in files)
+    assert "osm_power_170_-50_10.json" in files and any(f.endswith("_5.json") for f in files)
     done = json.loads((tmp_path / "fetched.json").read_text())
     assert len(done) == 3
 
@@ -192,6 +192,17 @@ def test_sites_busy_server(tmp_path, monkeypatch):
     c.download(tmp_path, "2026-11-28")
     assert hosts == ["overpass-api.de"] * 3 + ["overpass.private.coffee"] * 2  # three tries, then the next; it stays first
     assert len(list(tmp_path.glob("osm_power_*.json"))) == 2
+
+    # out of time: stops before asking, keeps what it read, and the next refresh resumes there
+    monkeypatch.setattr(power, "RUN_MINUTES", 0)
+    c3 = CONNECTORS["osm_power_sites"]()
+    c3._client = c._client
+    hosts.clear()
+    (tmp_path / "y").mkdir()
+    with pytest.raises(power.ConnectorError, match="nothing read yet"):
+        c3.download(tmp_path / "y", "2026-11-28")
+    assert hosts == []
+    monkeypatch.setattr(power, "RUN_MINUTES", 20)
 
     c2 = CONNECTORS["osm_power_sites"]()
     c2._client = type("C", (), {"post": staticmethod(lambda url, data, timeout: type("R", (), {"status_code": 429, "content": busy})())})()
