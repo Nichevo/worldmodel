@@ -91,7 +91,7 @@ OVERPASS = {"elements": [
                                        "plant:output:electricity": "1,000 MW", "operator": "Genesis"},
      "geometry": _sq(175.15, -37.55, 0.006)},
     # a solar farm drawn as a relation of two open ways, with a hole
-    {"type": "relation", "id": 22, "tags": {"power": "plant", "plant:source": "solar", "plant:output:electricity": "52 MWp"},
+    {"type": "relation", "id": 22, "tags": {"power": "plant", "type": "multipolygon", "plant:source": "solar", "plant:output:electricity": "52 MWp"},
      "members": [
          {"type": "way", "role": "outer", "geometry": [{"lon": 172.0, "lat": -43.0}, {"lon": 172.01, "lat": -43.0}, {"lon": 172.01, "lat": -42.99}]},
          {"type": "way", "role": "outer", "geometry": [{"lon": 172.0, "lat": -43.0}, {"lon": 172.0, "lat": -42.99}, {"lon": 172.01, "lat": -42.99}]},
@@ -99,6 +99,16 @@ OVERPASS = {"elements": [
     # a plant that is one small building: left out
     {"type": "way", "id": 33, "tags": {"power": "plant", "plant:source": "hydro"}, "geometry": _sq(170.0, -45.0, 0.0002)},
     {"type": "node", "id": 44, "tags": {"power": "plant"}},
+    # a wind farm as a site of turbines only (as Te Uku is mapped): the ground they stand on
+    {"type": "relation", "id": 66, "tags": {"power": "plant", "type": "site", "name": "Te Uku Wind Farm", "plant:source": "wind",
+                                            "plant:output:electricity": "64.4 MW"},
+     "members": [{"type": "node", "role": "", "lat": la, "lon": lo} for la, lo in
+                 [(-37.8638, 174.9496), (-37.8725, 174.9622), (-37.9058, 174.9649), (-37.8919, 174.9788), (-37.88, 174.96)]]},
+    # a hydro scheme as a site relation: the powerhouse area counts, the penstock line does not
+    {"type": "relation", "id": 55, "tags": {"power": "plant", "type": "site", "name": "Lake Station", "plant:source": "hydro"},
+     "members": [{"type": "way", "role": "", "geometry": _sq(175.6, -38.0, 0.002)},
+                 {"type": "way", "role": "", "geometry": [{"lon": 175.6, "lat": -38.0}, {"lon": 175.61, "lat": -38.01}]},
+                 {"type": "node", "role": "", "lat": -38.0, "lon": 175.6}]},
 ]}
 
 
@@ -109,7 +119,9 @@ def test_site_rows():
     assert osm_mw({"plant:output:electricity": "yes"}) is None
     assert site_boxes()[0] == (160, -60) and len(set(site_boxes())) == 126  # New Zealand first, each square once
     rows = {r[1]: r for r in site_rows(OVERPASS)}
-    assert set(rows) == {"w11", "r22"}
+    assert set(rows) == {"w11", "r22", "r55", "r66"}
+    assert rows["r66"][4]["fuel"] == "Wind" and rows["r66"][3] == 1 and len(rows["r66"][6]["coordinates"][0]) == 5  # 4 corners
+    assert rows["r55"][4]["fuel"] == "Hydro" and rows["r55"][6]["type"] == "Polygon" and 3 < rows["r55"][4]["ha"] < 5
     big = rows["w11"]
     assert big[2] == "Big Station" and big[4]["fuel"] == "Coal" and big[4]["mw"] == 1000 and big[4]["operator"] == "Genesis"
     assert big[3] == 2 and 30 < big[4]["ha"] < 40 and big[6]["type"] == "Polygon"
@@ -127,12 +139,14 @@ def test_sites_built(tmp_path):
     CONNECTORS["osm_power_sites"]().ingest(VintageStore(home), tmp / "osm")
     con = duckdb.connect(str(build(home).path), read_only=True)
     got = con.execute("SELECT feature_id, rank FROM geo_features WHERE layer_id = 'power_sites' ORDER BY 1").fetchall()
-    assert [g[0] for g in got] == ["r22", "w11"]
+    assert [g[0] for g in got] == ["r22", "r55", "r66", "w11"]
 
 
 def test_sites_download(tmp_path, monkeypatch):
     """Squares read in turn, one too big read as four, and a refusal stops the run."""
     from worldmodel_data.connectors import power
+
+    monkeypatch.setattr(power, "BUSY_WAITS", (0, 0))
 
     class R:
         def __init__(self, code, body=b'{"elements": []}'):
@@ -144,7 +158,7 @@ def test_sites_download(tmp_path, monkeypatch):
     def post(url, data, timeout):
         asked.append(data["data"])
         n = len(asked)
-        return R(200, late) if n == 2 else R(429) if n == 8 else R(200)
+        return R(200, late) if n == 2 else R(403, b"<html>no</html>") if n == 8 else R(200)
 
     c = CONNECTORS["osm_power_sites"]()
     c.gap = 0
@@ -155,3 +169,31 @@ def test_sites_download(tmp_path, monkeypatch):
     assert "osm_power_160_-60_20.json" in files and any(f.endswith("_10.json") for f in files)
     done = json.loads((tmp_path / "fetched.json").read_text())
     assert len(done) == 3
+
+
+def test_sites_busy_server(tmp_path, monkeypatch):
+    """The main Overpass server at capacity: asked again after a wait, then the next server answers
+    and is asked first from then on; all of them busy stops the run with a clear failure."""
+    from worldmodel_data.connectors import power
+
+    monkeypatch.setattr(power, "BUSY_WAITS", (0, 0))
+    monkeypatch.setattr(power, "BOXES_A_RUN", 2)
+    busy = b"# 502 Gateway Timeout\n\nThis Overpass API server is currently at capacity."
+    hosts = []
+
+    def post(url, data, timeout):
+        hosts.append(url.split("/")[2])
+        ok = "private.coffee" in url
+        return type("R", (), {"status_code": 200 if ok else 502, "content": b'{"elements": []}' if ok else busy})()
+
+    c = CONNECTORS["osm_power_sites"]()
+    c.gap = 0
+    c._client = type("C", (), {"post": staticmethod(post)})()
+    c.download(tmp_path, "2026-11-28")
+    assert hosts == ["overpass-api.de"] * 3 + ["overpass.private.coffee"] * 2  # three tries, then the next; it stays first
+    assert len(list(tmp_path.glob("osm_power_*.json"))) == 2
+
+    c2 = CONNECTORS["osm_power_sites"]()
+    c2._client = type("C", (), {"post": staticmethod(lambda url, data, timeout: type("R", (), {"status_code": 429, "content": busy})())})()
+    with pytest.raises(power.ConnectorError, match="busy"):
+        c2.download(tmp_path / "x", "2026-11-28") if (tmp_path / "x").mkdir() is None else None

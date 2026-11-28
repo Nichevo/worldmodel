@@ -13,6 +13,7 @@ gridfinder
 osm_power_sites
     The grounds of power plants as OpenStreetMap maps them (power=plant areas, ODbL), with the
     kind of plant, read through Overpass one 20° square at a time (geo_features layer power_sites).
+    A busy server (its queue full) is asked again after a wait, then the other public servers.
 """
 
 from __future__ import annotations
@@ -192,6 +193,10 @@ class Gridfinder(Connector):
 
 # ----------------------------------------------------------------------------- plant grounds (OpenStreetMap)
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+# The main Overpass server turns queries away when its queue is full ("at capacity", 429/502/503/504);
+# then each square is asked again after a wait, and of the other public Overpass servers in turn.
+OVERPASS_URLS = [OVERPASS_URL, "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+BUSY_WAITS = (20, 60)   # seconds before asking a busy server again
 BOX_DEG = 20            # the world read in 20° squares (126 of them over land and sea)
 BOXES_A_RUN = 40        # squares read in one refresh; the rest the next time (about a year round)
 SITE_TOL = 0.00003      # degrees (about 3 m) when simplifying an outline
@@ -220,7 +225,7 @@ def site_boxes() -> list[tuple[int, int]]:
 
 def site_query(w: float, s: float, size: float) -> str:
     return (f'[out:json][timeout:600][maxsize:1073741824];(way["power"="plant"]({s},{w},{s + size},{w + size});'
-            f'relation["power"="plant"]({s},{w},{s + size},{w + size}););out tags geom;')
+            f'relation["power"="plant"]({s},{w},{s + size},{w + size}););out body geom;')  # body: a relation's members too
 
 
 def osm_fuel(tags: dict) -> str:
@@ -280,6 +285,28 @@ def _join_rings(parts: list[list[list[float]]]) -> list[list[list[float]]]:
     return rings
 
 
+def _hull(pts: list[list[float]]) -> list[list[float]]:
+    """The convex hull of points as a closed ring (monotone chain)."""
+    p = sorted(set(map(tuple, pts)))
+    if len(p) < 3:
+        return []
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower, upper = [], []
+    for q in p:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], q) <= 0:
+            lower.pop()
+        lower.append(q)
+    for q in reversed(p):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], q) <= 0:
+            upper.pop()
+        upper.append(q)
+    ring = [list(q) for q in lower[:-1] + upper[:-1]]
+    return ring + [ring[0]] if len(ring) >= 3 else []
+
+
 def _inside(pt: list[float], ring: list[list[float]]) -> bool:
     x, y = pt
     hit = False
@@ -319,8 +346,17 @@ def site_rows(body: dict) -> list[tuple]:
             outers, inners = _join_rings([pt(el.get("geometry") or [])]), []
         elif el.get("type") == "relation":
             mem = [m for m in el.get("members") or [] if m.get("type") == "way" and m.get("geometry")]
-            outers = _join_rings([pt(m["geometry"]) for m in mem if m.get("role") in ("outer", "")])
-            inners = _join_rings([pt(m["geometry"]) for m in mem if m.get("role") == "inner"])
+            if t.get("type") == "multipolygon":  # outer and inner rings, each perhaps drawn as several ways
+                outers = _join_rings([pt(m["geometry"]) for m in mem if m.get("role") in ("outer", "")])
+                inners = _join_rings([pt(m["geometry"]) for m in mem if m.get("role") == "inner"])
+            else:  # a site (a hydro scheme: powerhouse, dam, switchyard...): each closed area it holds
+                outers = _join_rings([g for g in (pt(m["geometry"]) for m in mem) if len(g) >= 4 and g[0] == g[-1]])
+                inners = []
+                dots = [[round(m["lon"], 6), round(m["lat"], 6)] for m in el.get("members") or []
+                        if m.get("type") == "node" and "lon" in m]
+                if not outers and len(dots) >= 3:  # a wind farm drawn as its turbines: the ground they stand on
+                    hull = _hull(dots)
+                    outers = [hull] if len(hull) >= 4 else []
         else:
             continue
         polys = []
@@ -354,6 +390,9 @@ class OSMPowerSites(Connector):
     fetch_every_days = 30
     keeps_files = True
     gap = 10.0  # Overpass is shared by everyone: one query at a time, well apart
+    stage_version = 2  # 2: site relations' areas
+    fetch_version = 2  # 2: busy servers asked again, then the other public Overpass servers; relations with their members
+    _server = 0  # the Overpass server that answered last
 
     def default_release(self, fetched_at: datetime) -> str:
         return fetched_at.strftime("%Y-%m-%d")
@@ -386,26 +425,50 @@ class OSMPowerSites(Connector):
             got += 1
         (raw_dir / "fetched.json").write_text(json.dumps(done, sort_keys=True), encoding="utf-8")
         log.info("osm_power_sites: %s of %s squares due read (%s squares read in all)", got, len(due), len(done))
+        if not got and not any(raw_dir.glob("osm_power_*.json")) and not (prev and any(prev.glob("osm_power_*.json"))):
+            raise ConnectorError("osm_power_sites: the Overpass servers were all busy or refused; nothing read yet, "
+                                 "the next refresh tries again")
         return OVERPASS_URL
+
+    def _ask(self, query: str):
+        """An Overpass answer to a query: the server that answered last first, a busy one asked
+        again after a wait, then the next. None when none would answer."""
+        order = OVERPASS_URLS[self._server:] + OVERPASS_URLS[:self._server]
+        for url in order:
+            for wait in (0, *BUSY_WAITS):
+                if wait:
+                    time.sleep(wait)
+                try:
+                    r = self.client.post(url, data={"data": query}, timeout=660)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("osm_power_sites: %s did not answer (%s)", url.split("/")[2], exc)
+                    break  # unreachable: try the next server
+                busy = r.status_code in (429, 502, 503, 504) or b"at capacity" in r.content[:600]
+                if not busy:
+                    self._server = OVERPASS_URLS.index(url)
+                    return r
+                log.info("osm_power_sites: %s is busy (%s)%s", url.split("/")[2], r.status_code,
+                         "; asking again shortly" if wait != BUSY_WAITS[-1] else "")
+        return None
 
     def _read_box(self, raw_dir: Path, w: float, s: float, size: float, depth: int = 0) -> bool | None:
         """One square into osm_power_<w>_<s>_<size>.json; a square too big to answer in time is
-        read as four smaller ones. None: Overpass refused, stop."""
-        try:
-            r = self.client.post(OVERPASS_URL, data={"data": site_query(w, s, size)}, timeout=660)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("osm_power_sites: Overpass did not answer (%s); the rest waits for the next refresh", exc)
+        read as four smaller ones. None: no Overpass server would answer, stop."""
+        r = self._ask(site_query(w, s, size))
+        if r is None:
+            log.warning("osm_power_sites: no Overpass server would answer for the square at %s,%s; "
+                        "the rest waits for the next refresh", w, s)
             return None
         time.sleep(self.gap)
-        too_big = r.status_code == 504 or (r.status_code == 200 and b'"remark"' in r.content[-2000:]
-                                            and (b"runtime error" in r.content[-2000:] or b"Timeout" in r.content[-2000:]))
+        tail = r.content[-2000:]
+        too_big = r.status_code == 200 and b'"remark"' in tail and (b"runtime error" in tail or b"Timeout" in tail)
         if too_big and depth < 2:
             half = size / 2
             for dw, ds in ((0, 0), (half, 0), (0, half), (half, half)):
                 if self._read_box(raw_dir, w + dw, s + ds, half, depth + 1) is None:
                     return None
             return True
-        if r.status_code != 200 or too_big:
+        if r.status_code != 200 or too_big or not r.content.lstrip().startswith(b"{"):
             log.warning("osm_power_sites: Overpass answered %s for the square at %s,%s; stopping until the next refresh",
                         r.status_code, w, s)
             return None
