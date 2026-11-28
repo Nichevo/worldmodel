@@ -15,6 +15,7 @@ export type GlobeLook = { globe: boolean; space: boolean; grid: boolean };
 export const SPACE = { land: "#1537d6", sea: "#06102a", border: "rgba(170, 195, 255, 0.55)", grid: "rgba(150, 180, 255, 0.28)" };
 
 const GRID = "globe-grid";
+const UNDER = "globe-land";
 
 // Lines of latitude every 15 degrees (to 75) and longitude every 15 degrees, as short steps so they curve.
 function gridLines(): GeoJSON.FeatureCollection {
@@ -99,6 +100,17 @@ export function applyGlobe(m: maplibregl.Map, look: GlobeLook, opts: { fit?: boo
   if (space) haloFollows(m);
   m.getContainer().style.setProperty("--globe-r", `${Math.round(globeRadius(m))}px`);
   if (m.getLayer("line")) m.setPaintProperty("line", "line-color", space ? SPACE.border : cssVar("--surface"));
+  // On the globe the background is the sea, so country colours (which turn a little see-through
+  // when the map detail is on, more as you zoom in) would take a blue tint from it. An opaque copy
+  // of the land just above the background gives them the same ground as the flat map's page colour.
+  // Pictures and the map detail sit above it, so they still show.
+  if (m.getLayer(UNDER)) m.removeLayer(UNDER);
+  if (look.globe && m.getSource("countries")) {
+    const layers = m.getStyle()?.layers ?? [];
+    const next = layers[layers.findIndex((l) => l.id === "bg") + 1]?.id;
+    m.addLayer({ id: UNDER, type: "fill", source: "countries",
+      paint: { "fill-color": space ? SPACE.land : cssVar("--surface"), "fill-antialias": false } }, next);
+  }
   if (m.getLayer(GRID)) m.removeLayer(GRID);
   if (m.getSource(GRID)) m.removeSource(GRID);
   if (look.globe && look.grid) {
