@@ -8,7 +8,7 @@ import json
 import tempfile
 from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Body, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -92,7 +92,7 @@ def series_many(indicators: str = Query(..., description="Comma-separated indica
 
 @api.get("/map")
 def map_values(indicator: str, year: int, source: str | None = None,
-               back: int = Query(0, ge=0, le=50, description="Fill a missing year with the country's latest figure up to this many years before")):
+               back: Annotated[int, Query(ge=0, le=50, description="Fill a missing year with the country's latest figure up to this many years before")] = 0):
     """One value per country for a year, to colour the map. With `back`, a country with no figure
     that year gets its latest one from the years before, and each row says which year it is from."""
     data = _series(indicator, None, None, year - back, year, source, "", "central", True, None)
