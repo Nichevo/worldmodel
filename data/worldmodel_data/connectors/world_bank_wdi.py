@@ -269,6 +269,10 @@ SUM_METHODS = ("sum", "gap-filled total")
 UNIT_HINT = re.compile(r"%|\$|US\$|LCU|per |number|km|kg|kt|mt|hectares|tonnes|kwh|years|days|index|ratio|people|persons", re.I)
 
 
+class WDIIncomplete(ConnectorError):
+    """The Indicators API answered a series with fewer years than asked for."""
+
+
 def indicator_id(code: str) -> str:
     return "wdi_" + re.sub(r"[^a-z0-9]+", "_", code.lower()).strip("_")
 
@@ -276,7 +280,7 @@ def indicator_id(code: str) -> str:
 class WorldBankWDI(Connector):
     source_id = "world_bank_wdi"
     fetch_every_days = 7  # checked at most this often; the site answering "not changed" also skips the download
-    fetch_version = 3  # 2: the API fallback asks for the Scorecard series too; 3: and for every year (date=1960:<this year>)
+    fetch_version = 3  # 2: the API fallback asks for the Scorecard series too; 3: and for every year (date=1960:<this year>), refusing a cut-short answer
     stage_version = 8  # 8: water, sanitation, clean cooking, nurses and air pollution deaths as main series (the Scorecard); 2: income per person in local currency became main series (gni/gdp_per_capita_lcu); 3: fixed broadband subscriptions; 4: science series; 5: high-tech exports back under high_tech_share_exports (4 mapped the code twice); 6: pollution and protected areas; 7: tourism, air, port and rail traffic
 
     def default_release(self, fetched_at: datetime) -> str:
@@ -311,10 +315,9 @@ class WorldBankWDI(Connector):
             for code in codes:
                 time.sleep(API_PAUSE)
                 try:
-                    # The years asked for always: since November 2026 the API answers some series (tax revenue,
-                    # GC.TAX.TOTL.GD.ZS) with only the last five years when no date range is given.
-                    rows = self._api_pages(f"country/all/indicator/{code}", work, code, source=2,
-                                           date=f"{API_FIRST_YEAR}:{date.today().year}")
+                    rows = self._api_series(code, work)
+                except WDIIncomplete:
+                    raise
                 except ConnectorError as exc:  # an old code the World Bank has dropped, say
                     failed.append(code)
                     log.info("world_bank_wdi: %s skipped (%s)", code, exc)
@@ -357,6 +360,26 @@ class WorldBankWDI(Connector):
                            compress_type=zipfile.ZIP_DEFLATED)
         log.info("world_bank_wdi: %s series for %s economies from the Indicators API", len(names),
                  len({e for e, _ in values}))
+
+    def _api_series(self, code: str, work: Path) -> list[dict]:
+        """One series for every economy and year. The years are asked for always: on 27 November
+        2026 (UTC) the API answered some series (tax revenue, GC.TAX.TOTL.GD.ZS) with only their last five
+        years, and that cut-down download, stored as the newest vintage, stopped every build at the
+        shrinkage gate. The API gives a row for every year asked for (empty ones too), so an answer
+        that does not reach back to 1960 is cut short: asked once more, then the whole download
+        fails, which keeps the data already stored instead of storing a partial copy."""
+        for attempt in (1, 2):
+            rows = self._api_pages(f"country/all/indicator/{code}", work, code, source=2,
+                                   date=f"{API_FIRST_YEAR}:{date.today().year}")
+            years = [int(y) for r in rows if re.fullmatch(r"(19|20)\d\d", y := str(r.get("date") or ""))]
+            if not years or min(years) <= API_FIRST_YEAR:
+                return rows
+            if attempt == 1:
+                time.sleep(API_PAUSE * 10)
+        raise WDIIncomplete(f"world_bank_wdi: the World Bank's Indicators API answered {code} with only the years "
+                            f"{min(years)}-{max(years)} (asked for {API_FIRST_YEAR} on); the data already stored is "
+                            "kept. This has been a passing fault at the World Bank: try again later with "
+                            ".\\refresh.bat --only world_bank_wdi")
 
     def _api_pages(self, path: str, work: Path, name: str, **params) -> list[dict]:
         """Every row of one Indicators API listing, following its pages."""
