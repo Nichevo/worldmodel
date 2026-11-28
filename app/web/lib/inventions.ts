@@ -1,7 +1,7 @@
 // Inventions over time (Explore > Inventions): types, calls and chart options.
 // The charts show changes seen around an invention, never that it caused them.
 
-import type { EChartsOption, SeriesOption } from "echarts";
+import type { CustomSeriesRenderItemAPI, CustomSeriesRenderItemParams, EChartsOption, SeriesOption } from "echarts";
 import { get } from "@/lib/api";
 import { chrome } from "@/lib/charts";
 import { cssVar } from "@/lib/colors";
@@ -24,8 +24,21 @@ export type InventionCard = { invention: Invention; entities: string[]; charts: 
 export type Along = { series: string; name: string; unit: string; source: string | null; lines: Line[]; caution: string;
   inventions: (Other & { category_name: string; linked: boolean })[] };
 
+// Expected inventions ("Coming next"): ranges typed in from named sources, plus live crowd forecasts.
+export type CrowdMatch = { key: string; site: string; title: string; url: string | null; kind: "binary" | "date"; closes: string | null;
+  forecasters: number | null; chance?: number; year?: number; early?: number | null; late?: number | null };
+export type FutureItem = { id: string; name: string; category: string; category_name: string; what: string; now: string; effects: string;
+  maybe_never: boolean; range: [number, number, number]; sources: { name: string; year: number; says: string }[]; wiki: string | null;
+  overdue: boolean; built_on: string[]; measures: string[]; crowd?: CrowdMatch[] };
+export type FutureList = { categories: { id: string; name: string }[]; future: FutureItem[]; caution: string; this_year: number };
+export type FutureChart = { series: string; name: string; unit: string; source: string | null; lines: Line[] };
+export type FutureCard = { item: FutureItem; entities: string[]; charts: FutureChart[]; crowd: CrowdMatch[]; caution: string;
+  built_on: { id: string; name: string; year: number; category: string }[]; same_category: { id: string; name: string; range: [number, number, number] }[] };
+
 export const inventionsApi = {
   list: () => get<InventionList>("/inventions"),
+  future: () => get<FutureList>("/inventions/future"),
+  futureCard: (id: string, entities?: string[]) => get<FutureCard>(`/inventions/future/${encodeURIComponent(id)}`, { entities: entities?.join(",") }),
   card: (id: string, entities?: string[]) => get<InventionCard>(`/inventions/${encodeURIComponent(id)}`, { entities: entities?.join(",") }),
   along: (series: string, entities?: string[], categories?: string[]) =>
     get<Along>("/inventions/along", { series, entities: entities?.join(","), categories: categories?.join(",") }),
@@ -65,7 +78,7 @@ export type Dot = { id: string; name: string; year: number; category: string; ex
 
 // The timeline: one lane per category, a dot per invention, names next to the larger dots.
 export function timelineOption(dots: Dot[], cats: { id: string; name: string }[], range: [number, number], squeezed: boolean,
-  selected: string | null): EChartsOption {
+  selected: string | null, future: FutureItem[] = []): EChartsOption {
   const base = chrome();
   const lane = new Map(cats.map((c, i) => [c.id, i]));
   const X = (y: number) => (squeezed ? squeeze(y) : y);
@@ -100,12 +113,39 @@ export function timelineOption(dots: Dot[], cats: { id: string; name: string }[]
           formatter: () => (d.name.length > 24 ? `${d.name.slice(0, 23)}…` : d.name) },
       })) },
   ];
+  // "Show what's coming": each expected invention as a faint bar in its lane, earliest to late year.
+  const ahead = future.filter((f) => lane.has(f.category));
+  if (ahead.length) {
+    series.push({ type: "custom", id: "future", name: "Coming next", z: 2,
+      data: ahead.map((f) => ({ value: [X(f.range[0]), lane.get(f.category)!, X(f.range[2]), X(f.range[1])], name: f.name, id: `future:${f.id}`,
+        range: f.range, category: f.category, maybe_never: f.maybe_never })),
+      encode: { x: [0, 2], y: 1 },
+      renderItem: (params: CustomSeriesRenderItemParams, api: CustomSeriesRenderItemAPI) => {
+        const a = api.coord([api.value(0), api.value(1)]);
+        const b = api.coord([api.value(2), api.value(1)]);
+        const m = api.coord([api.value(3), api.value(1)]);
+        const f = ahead[params.dataIndex];
+        // Rows within the lane so bars in the same category do not sit on each other.
+        const same = ahead.filter((x) => x.category === f.category);
+        const k = same.indexOf(f) % 4;
+        const y = a[1] - 12 + k * 7;
+        const color = catColor(f.category);
+        return { type: "group", children: [
+          { type: "rect", shape: { x: a[0], y: y - 2, width: Math.max(2, b[0] - a[0]), height: 4, r: 2 },
+            style: { fill: color, opacity: f.maybe_never ? 0.2 : 0.4 } },
+          { type: "circle", shape: { cx: m[0], cy: y, r: 3 }, style: { fill: color, opacity: 0.8 } },
+        ] };
+      } } as SeriesOption);
+  }
   return {
     ...base,
     grid: { left: 8, right: 24, top: 16, bottom: 44, containLabel: true },
     tooltip: { ...(base.tooltip as object), trigger: "item",
       formatter: (p: unknown) => {
-        const q = p as { data: { name: string; year: number; approx?: boolean }; seriesId: string };
+        const q = p as { data: { name: string; year: number; approx?: boolean; range?: number[]; maybe_never?: boolean }; seriesId: string };
+        if (q.seriesId === "future" && q.data.range) {
+          return `<b>${q.data.name}</b><br/>Expected ${q.data.range[0]} to ${q.data.range[2]}, middle ${q.data.range[1]}${q.data.maybe_never ? "<br/>May never happen" : ""}<br/><span style='opacity:.7'>Coming next: a guess from named sources</span>`;
+        }
         return `<b>${q.data.name}</b><br/>${yearText(q.data.year, q.data.approx)}${q.seriesId === "extra" ? "<br/><span style='opacity:.7'>From Wikidata, unchecked</span>" : ""}`;
       } },
     xAxis: { type: "value", min: X(range[0]), max: X(range[1]), splitLine: { show: true, lineStyle: { color: cssVar("--grid") } },
@@ -166,4 +206,84 @@ export function inventionChartOption(lines: Line[], unit: string, mark: { year: 
 export function startFor(year: number): number | undefined {
   if (year < 1500) return undefined;
   return year - 60;
+}
+
+// ---------------------------------------------------------------------------- coming next
+
+// The "Coming next" chart: a row per expected invention, a bar from the earliest to the latest
+// year its sources give, a dot at the middle year, today as a line, and the crowd's middle year
+// (with its middle half) as a diamond where a matching date question is loaded.
+export function futureOption(items: FutureItem[], thisYear: number, showCrowd: boolean, selected: string | null): EChartsOption {
+  const base = chrome();
+  const names = items.map((f) => f.name);
+  const hi = Math.max(thisYear + 30, ...items.map((f) => Math.min(f.range[2], 2120)));
+  const crowdPts = showCrowd ? items.flatMap((f, n) => (f.crowd ?? []).filter((c) => c.kind === "date" && c.year)
+    .slice(0, 1).map((c) => ({ value: [c.year!, n], early: c.early, late: c.late, name: f.name, title: c.title, site: c.site }))) : [];
+  const series: SeriesOption[] = [
+    { type: "custom", id: "range", name: "Expected", z: 2, clip: true,
+      data: items.map((f, n) => ({ value: [f.range[0], n, Math.min(f.range[2], hi), f.range[1]], id: f.id, name: f.name })),
+      encode: { x: [0, 2], y: 1 },
+      renderItem: (params: CustomSeriesRenderItemParams, api: CustomSeriesRenderItemAPI) => {
+        const f = items[params.dataIndex];
+        const a = api.coord([api.value(0), api.value(1)]);
+        const b = api.coord([api.value(2), api.value(1)]);
+        const m = api.coord([api.value(3), api.value(1)]);
+        const h = Math.min(12, ((api.size?.([0, 1]) as number[] | undefined)?.[1] ?? 20) * 0.55);
+        const color = catColor(f.category);
+        const on = selected === f.id;
+        return { type: "group", children: [
+          { type: "rect", shape: { x: a[0], y: a[1] - h / 2, width: Math.max(3, b[0] - a[0]), height: h, r: h / 2 },
+            style: { fill: color, opacity: f.maybe_never ? 0.22 : 0.45, stroke: on ? cssVar("--ink") : f.overdue ? color : "none",
+              lineWidth: on ? 2 : 1.2, lineDash: f.overdue && !on ? [3, 2] : undefined } },
+          { type: "circle", shape: { cx: m[0], cy: m[1], r: h / 2 + 1 }, style: { fill: color, stroke: cssVar("--surface"), lineWidth: 1.5 } },
+        ] };
+      } } as SeriesOption,
+    { type: "scatter", id: "crowd", name: "Crowd forecast", symbol: "diamond", symbolSize: 11, z: 4,
+      itemStyle: { color: cssVar("--ink"), borderColor: cssVar("--surface"), borderWidth: 1 }, data: crowdPts },
+    { type: "line", id: "today", data: [], markLine: { symbol: "none", silent: true, animation: false,
+      lineStyle: { color: cssVar("--muted"), type: "solid", width: 1 },
+      label: { formatter: () => `Today (${thisYear})`, color: cssVar("--muted"), fontSize: 10.5, position: "insideEndTop" },
+      data: [{ xAxis: thisYear }] } } as SeriesOption,
+  ];
+  return {
+    ...base,
+    grid: { left: 8, right: 28, top: 22, bottom: 30, containLabel: true },
+    tooltip: { ...(base.tooltip as object), trigger: "item",
+      formatter: (p: unknown) => {
+        const q = p as { seriesId: string; dataIndex: number; data: { title?: string; site?: string; value: number[]; early?: number | null; late?: number | null } };
+        if (q.seriesId === "crowd") {
+          const r = q.data.early && q.data.late ? ` (middle half ${Math.round(q.data.early)} to ${Math.round(q.data.late)})` : "";
+          return `<b>${q.data.title}</b><br/>${q.data.site}: middle guess ${Math.round(q.data.value[0])}${r}`;
+        }
+        const f = items[q.dataIndex];
+        if (!f) return "";
+        return `<b>${f.name}</b><br/>Expected ${f.range[0]} to ${f.range[2]}, middle ${f.range[1]}${f.maybe_never ? "<br/>May never happen" : ""}`
+          + `${f.overdue ? `<br/>Was expected by ${f.range[1]}` : ""}<br/><span style='opacity:.7'>${f.sources.map((s) => s.name).join("; ")}</span>`;
+      } },
+    xAxis: { type: "value", min: thisYear - 1, max: hi, minInterval: 1, position: "top",
+      axisLabel: { color: cssVar("--muted"), formatter: (v: number) => String(Math.round(v)) }, splitLine: { show: true, lineStyle: { color: cssVar("--grid") } } },
+    yAxis: { type: "category", data: names, inverse: true, axisTick: { show: false }, axisLine: { show: false },
+      axisLabel: { color: cssVar("--ink-2"), fontSize: 11.5, formatter: (v: string) => (v.length > 38 ? `${v.slice(0, 37)}…` : v) } },
+    series,
+  };
+}
+
+// A chart on an expected invention's card: today's figures, then the expected years shaded.
+// No line goes into the future: the page does not guess the effect.
+export function futureChartOption(lines: Line[], unit: string, item: FutureItem): EChartsOption {
+  const o = inventionChartOption(lines, unit, null, [], false, item.range[0] - 60);
+  const x = o.xAxis as { max?: number; min?: number };
+  const late = Math.min(item.range[2], item.range[0] + 60);
+  x.max = Math.max(x.max ?? late, late);
+  const s = (o.series as SeriesOption[])[0] as Record<string, unknown> | undefined;
+  if (s) {
+    s.markArea = { silent: true, itemStyle: { color: catColor(item.category), opacity: item.maybe_never ? 0.06 : 0.12 },
+      label: { show: true, position: "insideTop", color: catColor(item.category), fontSize: 10.5, formatter: () => `Expected ${item.range[0]}–${item.range[2]}` },
+      data: [[{ xAxis: item.range[0] }, { xAxis: late }]] };
+    s.markLine = { symbol: "none", silent: true, animation: false, data: [{ xAxis: item.range[1],
+      lineStyle: { color: catColor(item.category), type: "dashed", width: 1.5 }, label: { show: false } }] };
+  }
+  const zoom = o.dataZoom as { endValue?: number }[] | undefined;
+  if (zoom) for (const z of zoom) z.endValue = x.max;
+  return o;
 }

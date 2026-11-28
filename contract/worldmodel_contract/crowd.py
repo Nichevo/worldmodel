@@ -49,7 +49,11 @@ CATEGORY_WORDS = {
     "economics": r"gdp|inflation|recession|interest rate|central bank|fed\b|rbnz|unemploy|tariff|default|debt|stock|s&p|nasdaq|oil price|currency|dollar",
     "geopolitics": r"war|invade|invasion|ceasefire|troops|missile|nuclear|nato|sanction|attack|strike|conflict|coup|treaty|annex|blockade",
     "climate": r"temperature|warmest|hottest|emission|co2|carbon|hurricane|cyclone|el ni|la ni|sea ice|climate|wildfire|drought",
-    "science": r"vaccine|pandemic|outbreak|virus|disease|ai\b|artificial intelligence|agi|launch|mars|moon|fusion|nobel",
+    # The last words keep questions about the expected inventions (Inventions > Coming next).
+    "science": r"vaccine|pandemic|outbreak|virus|disease|ai\b|artificial intelligence|agi|launch|mars|moon|fusion|nobel|"
+               r"quantum|qubit|robot|driverless|self-driving|robotaxi|superconduct|crispr|gene (therapy|editing)|xenotransplant|"
+               r"lab-grown|cultivated meat|geothermal|modular reactor|solid-state batter|brain.computer|neuralink|carbon removal|"
+               r"direct air capture|supersonic|evtol|air taxi|longevity|\b(ageing|aging)\b|exoplanet|6g\b|digital (currency|dollar|euro)|cbdc",
 }
 # Words that make a question geopolitics whatever the site filed it under.
 GEO_STRONG = re.compile(r"\b(war|wars|invade[sd]?|invasion|ceasefire|troops|missiles?|blockade|annex(es|ed)?|coup|military strikes?|"

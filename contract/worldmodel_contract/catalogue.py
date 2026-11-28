@@ -235,8 +235,18 @@ def inventions() -> dict:
         i["related"] = list(i.get("related") or []) or defaults.get(i["category"], [])
         out.append(i)
     out.sort(key=lambda i: i["year"])
+    # Expected inventions ("Coming next"): a year range [early, middle, late] from named sources.
+    future = []
+    for f in data.get("future", []):
+        f = dict(f)
+        f["range"] = [int(y) for y in f["range"]]
+        f["maybe_never"] = bool(f.get("maybe_never", False))
+        for k in ("sources", "measures", "built_on"):
+            f[k] = list(f.get(k) or [])
+        future.append(f)
+    future.sort(key=lambda f: (f["range"][1], f["range"][0]))
     return {"categories": [{"id": c["id"], "name": c["name"]} for c in cats], "measures": dict(data.get("measures", {})),
-            "inventions": out}
+            "inventions": out, "future": future}
 
 
 @lru_cache

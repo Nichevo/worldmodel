@@ -10,14 +10,14 @@ import Flag from "@/components/Flag";
 import { openAsk } from "@/lib/ai";
 import { logHistory } from "@/lib/history";
 import {
-  type Along, type Dot, type InventionCard, type InventionChart, type InventionList, catVar, inventionChartOption, inventionsApi,
-  startFor, timelineOption, yearText,
+  type Along, type CrowdMatch, type Dot, type FutureCard as FutureCardData, type FutureList, type InventionCard, type InventionChart,
+  type InventionList, catVar, futureChartOption, futureOption, inventionChartOption, inventionsApi, startFor, timelineOption, yearText,
 } from "@/lib/inventions";
 
 // Inventions over time: a timeline in ten categories, a card for each invention with how it
 // spread and the changes seen around it, any measure with the inventions along it, and a list.
 // Explore > Inventions. Nothing here says an invention caused a change.
-type Tab = "timeline" | "along" | "list";
+type Tab = "timeline" | "next" | "along" | "list";
 type Range = "all" | "1700" | "1900" | "pick";
 const RANGES: [Range, string][] = [["all", "All time"], ["1700", "Since 1700"], ["1900", "Since 1900"], ["pick", "Pick years"]];
 const KEY = ["world", "NZL", "AUS", "GBR", "USA"];
@@ -26,10 +26,14 @@ const NOW = new Date().getFullYear();
 function InventionsView() {
   const router = useRouter();
   const params = useSearchParams();
-  const tab = (["along", "list"].includes(params.get("tab") ?? "") ? params.get("tab") : "timeline") as Tab;
+  const tab = (["next", "along", "list"].includes(params.get("tab") ?? "") ? params.get("tab") : "timeline") as Tab;
   const id = params.get("id");
   const [d, setD] = useState<InventionList | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Expected inventions load once, when "Coming next" or the Timeline's switch first needs them.
+  const [fut, setFut] = useState<FutureList | null>(null);
+  const [wantFut, setWantFut] = useState(false);
+  useEffect(() => { if ((tab === "next" || wantFut) && !fut) inventionsApi.future().then(setFut).catch(() => setFut({ categories: [], future: [], caution: "", this_year: NOW })); }, [tab, wantFut, fut]);
   const set = useCallback((changes: Record<string, string | null>) => {
     const p = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(changes)) if (v === null) p.delete(k); else p.set(k, v);
@@ -46,13 +50,17 @@ function InventionsView() {
       <div className="title-row"><h1>Inventions</h1></div>
       <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{d.inventions.length} inventions from stone tools to large language models, in
         ten categories. Pick one to see how it spread and the changes in health, food, work and growth seen around the same time.
-        {" "}{d.caution}</p>
+        {" "}{d.caution} Coming next has the ones still expected, with the years people expect them.</p>
       <div className="seg" role="tablist">
-        {([["timeline", "Timeline"], ["along", "Changes over time"], ["list", "List"]] as [Tab, string][]).map(([t, label]) => (
+        {([["timeline", "Timeline"], ["next", "Coming next"], ["along", "Changes over time"], ["list", "List"]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""}
             onClick={() => set({ tab: t === "timeline" ? null : t })}>{label}</button>))}
       </div>
-      {tab === "timeline" && <Timeline d={d} id={id} onPick={(iid) => set({ id: iid })} />}
+      {tab === "timeline" && <Timeline d={d} id={id} fut={fut} onFuture={() => setWantFut(true)}
+        onPick={(iid) => (iid.startsWith("future:") ? set({ tab: "next", id: iid.slice(7) }) : set({ id: iid }))} />}
+      {tab === "next" && (fut ? <ComingNext f={fut} id={id} onPick={(fid) => set({ id: fid })} /> : <p className="muted">Loading…</p>)}
+      {tab === "next" && fut && id && fut.future.some((x) => x.id === id) && <FutureCardView id={id} onPick={(fid) => set({ id: fid })}
+        onPast={(iid) => set({ tab: null, id: iid })} />}
       {tab === "along" && <AlongTab d={d} onPick={(iid) => set({ id: iid, tab: null })} />}
       {tab === "list" && <ListTab d={d} onPick={open} />}
       {tab === "timeline" && id && !id.startsWith("wd:") && <Card id={id} onPick={(iid) => set({ id: iid })} />}
@@ -62,13 +70,17 @@ function InventionsView() {
 }
 
 // ------------------------------------------------------------------ timeline
-function Timeline({ d, id, onPick }: { d: InventionList; id: string | null; onPick: (id: string) => void }) {
+function Timeline({ d, id, fut, onFuture, onPick }: { d: InventionList; id: string | null; fut: FutureList | null; onFuture: () => void;
+  onPick: (id: string) => void }) {
   const [range, setRange] = useState<Range>("1700");
   const [pick, setPick] = useState<[number, number]>([1800, NOW]);
   const [cats, setCats] = useState<Set<string>>(new Set(d.categories.map((c) => c.id)));
   const [extras, setExtras] = useState(true);
   const [filter, setFilter] = useState("");
-  const span: [number, number] = range === "all" ? [-3_400_000, NOW] : range === "1700" ? [1700, NOW] : range === "1900" ? [1900, NOW] : pick;
+  const [ahead, setAhead] = useState(false);
+  const futureShown = ahead && fut ? fut.future : [];
+  const end = futureShown.length && range !== "pick" ? Math.max(NOW + 25, ...futureShown.map((x) => Math.min(x.range[2], NOW + 50))) : NOW;
+  const span: [number, number] = range === "all" ? [-3_400_000, end] : range === "1700" ? [1700, end] : range === "1900" ? [1900, end] : pick;
   const shownCats = d.categories.filter((c) => cats.has(c.id));
   const f = filter.trim().toLowerCase();
   const dots: Dot[] = useMemo(() => [
@@ -78,7 +90,8 @@ function Timeline({ d, id, onPick }: { d: InventionList; id: string | null; onPi
     ...(extras ? d.extras.filter((x) => !f || x.name.toLowerCase().includes(f))
       .map((x, n) => ({ id: x.id, name: x.name, year: x.year, category: shownCats[n % Math.max(1, shownCats.length)]?.id ?? "", extra: true })) : []),
   ], [d, f, extras, shownCats]);
-  const option = useCallback(() => timelineOption(dots, shownCats, span, range === "all", id), [dots, shownCats, span, range, id]);
+  const futureDots = useMemo(() => futureShown.filter((x) => !f || `${x.name} ${x.what}`.toLowerCase().includes(f)), [futureShown, f]);
+  const option = useCallback(() => timelineOption(dots, shownCats, span, range === "all", id, futureDots), [dots, shownCats, span, range, id, futureDots]);
   const onReady = useCallback((chart: { on: (ev: string, fn: (p: unknown) => void) => void }) => {
     chart.on("click", (p) => {
       const q = p as { data?: { id?: string } };
@@ -101,6 +114,7 @@ function Timeline({ d, id, onPick }: { d: InventionList; id: string | null; onPi
         </span>}
         <input type="search" placeholder="Filter inventions…" aria-label="Filter inventions" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 180 }} />
         <label className="small"><input type="checkbox" checked={extras} onChange={(e) => setExtras(e.target.checked)} /> More from Wikidata ({d.extras.length})</label>
+        <label className="small"><input type="checkbox" checked={ahead} onChange={(e) => { setAhead(e.target.checked); if (e.target.checked) onFuture(); }} /> Show what&apos;s coming</label>
         <CardAsk onAsk={ask} />
       </div>
       <div className="chips-row small" style={{ marginTop: 8 }}>
@@ -114,7 +128,8 @@ function Timeline({ d, id, onPick }: { d: InventionList; id: string | null; onPi
       <EChart option={option} height={Math.max(260, shownCats.length * 54 + 80)} label="Timeline of inventions by category" onReady={onReady} />
       <p className="caption">{n} inventions shown. Click a dot for its card; drag the slider to zoom. Grey dots are inventions and discoveries
         Wikidata dates (in 25 or more Wikipedias), unchecked and without charts; they sit in the lanes only to spread them out.
-        {range === "all" ? " Before 1500 the scale is squeezed: each step left is ten times further back." : ""}</p>
+        {range === "all" ? " Before 1500 the scale is squeezed: each step left is ten times further back." : ""}
+        {futureDots.length ? ` Faint bars after ${NOW}: inventions still expected, from the earliest to the latest year their sources give (dot: the middle year); click one for its card in Coming next.` : ""}</p>
     </div>
   );
 }
@@ -208,6 +223,135 @@ function ExtraCard({ d, id }: { d: InventionList; id: string }) {
       <p className="small muted">{yearText(x.year)} · from Wikidata (articles in {x.links} Wikipedias), unchecked{x.where ? ` · ${x.where}` : ""}</p>
       <p className="small">Wikidata gives this a date of discovery or invention but not which figures relate to it, so there are no charts.
         {" "}<a href={x.url} target="_blank" rel="noreferrer">Read about it</a></p>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ coming next
+function crowdText(c: CrowdMatch): string {
+  if (c.kind === "date" && c.year) {
+    const r = c.early && c.late ? `, middle half ${Math.round(c.early)} to ${Math.round(c.late)}` : "";
+    return `middle guess ${Math.round(c.year)}${r}`;
+  }
+  return c.chance !== undefined ? `${Math.round(c.chance * 100)}% chance` : "";
+}
+const SITE: Record<string, string> = { metaculus: "Metaculus", manifold: "Manifold", polymarket: "Polymarket" };
+
+function ComingNext({ f, id, onPick }: { f: FutureList; id: string | null; onPick: (id: string) => void }) {
+  const [cat, setCat] = useState("all");
+  const [crowd, setCrowd] = useState(true);
+  const [order, setOrder] = useState<"year" | "category">("year");
+  const catOrder = new Map(f.categories.map((c, n) => [c.id, n]));
+  const items = f.future.filter((x) => cat === "all" || x.category === cat)
+    .sort((a, b) => (order === "category" ? (catOrder.get(a.category) ?? 0) - (catOrder.get(b.category) ?? 0) : 0) || a.range[1] - b.range[1] || a.range[0] - b.range[0]);
+  const option = useCallback(() => futureOption(items, f.this_year, crowd, id), [items, f.this_year, crowd, id]);
+  const onReady = useCallback((chart: { on: (ev: string, fn: (p: unknown) => void) => void }) => {
+    chart.on("click", (p) => {
+      const q = p as { seriesId?: string; dataIndex?: number; data?: { id?: string } };
+      if (q.seriesId === "range" && q.data?.id) onPick(q.data.id);
+    });
+  }, [onPick]);
+  const matched = f.future.filter((x) => x.crowd?.length).length;
+  const slipped = f.future.filter((x) => x.overdue);
+  const ask = () => openAsk({ title: "Inventions still to come", parts: [
+    { key: "data", kind: "data", label: "Expected inventions", text: f.future.map((x) => `${x.name} (${x.category_name}): expected ${x.range[0]}-${x.range[2]}, middle ${x.range[1]}${x.maybe_never ? ", may never happen" : ""}. Sources: ${x.sources.map((s) => `${s.name} (${s.year}): ${s.says}`).join(" ")} Might lead to: ${x.effects}`).join("\n") },
+    { key: "caution", kind: "description", label: "Note", text: f.caution }] });
+  return (
+    <div className="card">
+      <div className="long-tools" style={{ flexWrap: "wrap", gap: 8 }}>
+        <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Category">
+          <option value="all">All categories</option>
+          {f.categories.filter((c) => f.future.some((x) => x.category === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <div className="seg small">
+          {([["year", "By middle year"], ["category", "By category"]] as const).map(([o, label]) =>
+            <button key={o} className={order === o ? "on" : ""} aria-pressed={order === o} onClick={() => setOrder(o)}>{label}</button>)}
+        </div>
+        <label className="small"><input type="checkbox" checked={crowd} onChange={(e) => setCrowd(e.target.checked)} /> Show live crowd forecasts</label>
+        <CardAsk onAsk={ask} />
+      </div>
+      {!items.length ? <p className="muted small">None in this category.</p>
+        : <EChart option={option} height={items.length * 26 + 60} label="Expected inventions with their year ranges" onReady={onReady} />}
+      <p className="caption">Bar: from the earliest to the latest year the sources give (paler: may never happen; dashed edge: its middle year has passed
+        without it). Dot: the middle year. {crowd ? (matched ? "Black diamond: the crowd's middle year where a matching date question is loaded. " : "No matching crowd forecasts loaded yet (they come with the crowd forecasts refresh). ") : ""}
+        Click a row for its card. {f.caution}</p>
+      {slipped.length > 0 && <p className="small">Was expected by now: {slipped.map((x, n) => <span key={x.id}>{n ? ", " : ""}
+        <button className="link" onClick={() => onPick(x.id)}>{x.name}</button> (by {x.range[1]})</span>)}.</p>}
+    </div>
+  );
+}
+
+function FutureCardView({ id, onPick, onPast }: { id: string; onPick: (id: string) => void; onPast: (id: string) => void }) {
+  const [entities, setEntities] = useState<string[] | null>(null);
+  const [c, setC] = useState<FutureCardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { setEntities(null); }, [id]);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    inventionsApi.futureCard(id, entities ?? undefined).then((x) => { if (!live) return; setC(x); logHistory({ kind: "page", title: `Coming next: ${x.item.name}`, url: `/inventions?tab=next&id=${id}`, detail: "invention" }); })
+      .catch((e) => live && setError(String(e)));
+    return () => { live = false; };
+  }, [id, entities]);
+  if (error) return <p className="error">{error}</p>;
+  if (!c || c.item.id !== id) return <p className="muted">Loading…</p>;
+  const i = c.item;
+  const ents = c.entities;
+  const ask = () => openAsk({ title: `${i.name}: when, and what it might change`, parts: [
+    { key: "description", kind: "description", label: "Expected invention", text: `${i.name}. ${i.what} Now: ${i.now} Expected ${i.range[0]}-${i.range[2]}, middle ${i.range[1]}${i.maybe_never ? " (may never happen)" : ""}. Might lead to: ${i.effects}` },
+    { key: "sources", kind: "data", label: "Who expects when", text: [...i.sources.map((s) => `${s.name} (${s.year}): ${s.says}`), ...c.crowd.map((x) => `${SITE[x.site] ?? x.site} "${x.title}": ${crowdText(x)}`)].join("\n") },
+    { key: "data", kind: "data", label: "Charts", text: c.charts.map((ch) => `${ch.name} (${ch.unit}): ${ch.lines.map((l) => `${l.name} latest ${l.points[l.points.length - 1]?.[0]}: ${l.points[l.points.length - 1]?.[1]}`).join("; ")}`).join("\n") },
+    { key: "caution", kind: "description", label: "Note", text: c.caution }] });
+  return (
+    <div className="grid" id="invention-card">
+      <div className="card">
+        <div className="card-head"><h2 style={{ margin: 0 }}>{i.name}</h2>
+          <span className="chip small"><span style={{ background: catVar(i.category), display: "inline-block", width: 9, height: 9, borderRadius: "50%", marginRight: 5 }} />{i.category_name}</span>
+          {i.maybe_never && <span className="chip small">May never happen</span>}
+          {i.overdue && <span className="chip small">Was expected by {i.range[1]}</span>}
+          <CardAsk onAsk={ask} /></div>
+        <p className="small" style={{ margin: "2px 0 8px" }}><b>Expected {i.range[0]}–{i.range[2]}</b>, middle {i.range[1]}</p>
+        <p style={{ maxWidth: 820, marginTop: 0 }}>{i.what}</p>
+        <div className="cards-2">
+          <div><h3 style={{ margin: "4px 0" }}>Where things stand</h3><p className="small" style={{ marginTop: 0 }}>{i.now}</p>
+            <h3 style={{ margin: "8px 0 4px" }}>Might lead to</h3><p className="small" style={{ marginTop: 0 }}>{i.effects}</p>
+            {c.built_on.length > 0 && <p className="small">Built on: {c.built_on.map((b, n) => <span key={b.id}>{n ? ", " : ""}
+              <button className="link" onClick={() => onPast(b.id)}>{b.name}</button> ({yearText(b.year)})</span>)}</p>}</div>
+          <div><h3 style={{ margin: "4px 0" }}>Who expects when</h3>
+            <ul className="small" style={{ marginTop: 0, paddingLeft: 18 }}>{i.sources.map((s) => <li key={s.name}><b>{s.name}</b> ({s.year}): {s.says}</li>)}</ul>
+            <h3 style={{ margin: "8px 0 4px" }}>The crowd</h3>
+            {c.crowd.length ? <ul className="small" style={{ marginTop: 0, paddingLeft: 18 }}>{c.crowd.map((x) => <li key={x.key}>
+              {SITE[x.site] ?? x.site}: {x.url ? <a href={x.url} target="_blank" rel="noreferrer">{x.title}</a> : x.title}{" "}
+              <b>{crowdText(x)}</b>{x.forecasters ? <span className="muted"> ({x.forecasters.toLocaleString()} forecasters)</span> : null}</li>)}</ul>
+              : <p className="small muted" style={{ marginTop: 0 }}>No matching open question in the crowd forecasts loaded (Metaculus, Manifold, Polymarket).</p>}</div>
+        </div>
+        <p className="small">{i.wiki && <a href={i.wiki} target="_blank" rel="noreferrer">Wikipedia</a>}
+          {c.same_category.length > 0 && <> · Also expected in {i.category_name.toLowerCase()}: {c.same_category.map((x, n) => <span key={x.id}>{n ? ", " : ""}
+            <button className="link" onClick={() => onPick(x.id)}>{x.name}</button> ({x.range[1]})</span>)}</>}</p>
+        {c.charts.length > 0 && <div className="long-tools" style={{ flexWrap: "wrap", gap: 6 }}>
+          <span className="small muted">Countries:</span>
+          {ents.map((e) => <span key={e} className="chip small"><Flag id={e} />{e === "world" ? "World" : e}
+            {ents.length > 1 && <button className="link" aria-label={`Remove ${e}`} onClick={() => setEntities(ents.filter((x) => x !== e))}> ×</button>}</span>)}
+          {ents.length < 8 && <CountryChoice value="" label="Add a country" onChange={(e) => e && !ents.includes(e) && setEntities([...ents, e])} />}
+          {entities && <button className="link small" onClick={() => setEntities(null)}>Reset</button>}
+        </div>}
+        <p className="caption">{c.caution}</p>
+      </div>
+      {c.charts.length > 0 && <><h3 style={{ margin: "4px 0 0" }}>What it might change: the figures today</h3>
+        <div className="cards-2">{c.charts.map((ch) => <FutureChartCard key={ch.series} ch={ch} item={i} />)}</div></>}
+    </div>
+  );
+}
+
+function FutureChartCard({ ch, item }: { ch: FutureCardData["charts"][number]; item: FutureCardData["item"] }) {
+  const option = useCallback(() => futureChartOption(ch.lines, ch.unit, item), [ch, item]);
+  return (
+    <div className="card">
+      <div className="card-head"><h3>{ch.name}{ch.unit ? <span className="small muted"> ({ch.unit})</span> : null}</h3>
+        {!ch.series.startsWith("long:") && <Link className="small" href={`/indicator/${ch.series}`}>Open</Link>}</div>
+      {!ch.lines.length ? <p className="muted small">No figures loaded for this yet.</p>
+        : <EChart option={option} height={240} label={`${ch.name} with the years ${item.name} is expected`} />}
+      <p className="caption">{ch.source ? `${ch.source}. ` : ""}Shaded: the years it is expected; dashed line: the middle year. The figures stop today; no line is drawn ahead, because the page does not guess the effect.</p>
     </div>
   );
 }
