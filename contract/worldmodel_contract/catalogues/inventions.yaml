@@ -426,3 +426,429 @@ inventions:
   - {id: transformer-ai, name: Large language models, year: 2017, category: computing, place: Google and others, who: Vaswani et al. (the Transformer); ChatGPT (2022),
      what: "AI models trained on huge amounts of text that write and answer questions.", wiki: Large_language_model,
      spread: [ai_use_enterprises, ai_claude_use_per_capita_index, ai_publications_per_million], related: [gdp_per_worker]}
+
+# ------------------------------------------------------------------ still to come
+# Expected inventions, for the Coming next tab. `range` is [earliest, central, late]: a summary of
+# the forecasts in `sources` (an expert survey, a roadmap or a forecasting site, with the year
+# each said it), never our own forecast. `maybe_never` marks ones that may not happen at all.
+# `measures` are today's figures for what it might change (charted up to today, no guessed
+# future line); `crowd` is a pattern matched against loaded crowd forecast titles (Metaculus,
+# Manifold, Polymarket) to show a live forecast beside the typed-in range; `built_on` names
+# typed-in inventions above.
+future:
+  - id: useful-quantum-computer
+    name: Quantum computer that does useful work
+    category: computing
+    range: [2028, 2032, 2040]
+    what: "An error-corrected quantum computer solving a real problem (chemistry, materials) that ordinary computers cannot."
+    now: "Machines with a few hundred physical qubits; error correction shown on a small scale (Google, 2024)."
+    sources:
+      - {name: "IBM quantum roadmap", year: 2025, says: "Starling, about 200 error-corrected qubits, planned for 2029."}
+      - {name: "Google Quantum AI", year: 2025, says: "Aims for a useful error-corrected computer by the end of the decade."}
+    effects: "Might speed up the design of drugs, catalysts and batteries; little change to everyday computing."
+    measures: [rd_spending_gdp, high_tech_share_exports]
+    crowd: "quantum (advantage|supremacy)|logical qubits?|fault.tolerant quantum|useful quantum"
+    built_on: [transistor, microchip]
+    wiki: Quantum_computing
+  - id: quantum-codebreaker
+    name: Quantum computer that breaks today's encryption
+    category: computing
+    range: [2030, 2037, 2050]
+    what: "A quantum computer big enough to break the public-key encryption that protects the internet and banking."
+    now: "Far beyond today's machines; new quantum-safe encryption standards were published in 2024 (NIST)."
+    sources:
+      - {name: "Global Risk Institute, Quantum Threat Timeline Report", year: 2025, says: "About half the experts asked think it is likely within 10 to 15 years."}
+      - {name: "NIST", year: 2024, says: "Plans to retire today's vulnerable encryption by 2035."}
+    effects: "Old encrypted data could be read; banks, governments and websites must switch to quantum-safe encryption first."
+    measures: []
+    crowd: "\\brsa\\b|break.*encryption|\\bshor"
+    built_on: [arpanet, web]
+    wiki: Post-quantum_cryptography
+  - id: human-level-ai
+    name: AI as capable as people at every task
+    category: computing
+    range: [2028, 2047, 2075]
+    what: "Machines that can do every task better and more cheaply than human workers."
+    now: "Large language models write, code and answer questions; companies are rolling them out at work."
+    sources:
+      - {name: "AI Impacts survey of 2,778 AI researchers", year: 2023, says: "50% chance by 2047, 10% by 2027 (published 2024)."}
+      - {name: "Metaculus forecasters", year: 2025, says: "Much earlier, around the early 2030s, for their definition of general AI."}
+    effects: "Might raise output per worker sharply and change which jobs exist; the effect on wages and unemployment is disputed."
+    measures: [gdp_per_worker, unemployment, ai_use_enterprises]
+    crowd: "\\bagi\\b|artificial general intelligence|general ai|human-level|transformative ai"
+    built_on: [transformer-ai, deep-learning]
+    wiki: Artificial_general_intelligence
+  - id: humanoid-robots
+    name: Humanoid robots in homes and workplaces
+    category: home
+    range: [2028, 2035, 2050]
+    what: "General-purpose robots in human shape doing chores, warehouse and factory work."
+    now: "Pilots in car factories and warehouses (Figure, Agility, Tesla Optimus); first home robots offered for pre-order."
+    sources:
+      - {name: "Company plans (Figure, 1X, Tesla)", year: 2025, says: "Home robots on sale from the late 2020s."}
+    effects: "Might take over physical chores and some manual jobs; adds to what software AI can do."
+    measures: [labour_participation, employment_services_share]
+    crowd: "humanoid robot|optimus"
+    built_on: [transformer-ai, lithium-battery]
+    wiki: Humanoid_robot
+  - id: quantum-internet
+    name: Quantum internet
+    category: communication
+    range: [2035, 2040, 2060]
+    what: "Networks that send quantum states between distant quantum computers, with eavesdropping detectable by physics."
+    now: "Short city links and a China-Austria satellite link (2017); no network of quantum computers yet."
+    sources:
+      - {name: "EU Quantum Internet Alliance", year: 2024, says: "A prototype network linking cities in Europe in the 2030s."}
+    effects: "Might make some communication impossible to intercept unseen and link quantum computers together."
+    measures: []
+    crowd: "quantum internet|quantum network"
+    built_on: [laser, satellite]
+    wiki: Quantum_network
+  - id: fusion-power
+    name: Fusion power on the grid
+    category: energy
+    range: [2032, 2040, 2060]
+    what: "Power stations that make electricity by fusing hydrogen, as the Sun does."
+    now: "Net energy from the fuel reached in a laser experiment (NIF, 2022); several firms are building pilot plants."
+    sources:
+      - {name: "Fusion Industry Association company survey", year: 2025, says: "Most firms expect a pilot plant to send power to the grid in the 2030s."}
+      - {name: "ITER", year: 2024, says: "New plan: full fusion fuel experiments from 2039."}
+      - {name: "UK STEP programme", year: 2024, says: "A prototype plant at West Burton by 2040."}
+    effects: "Might give steady low-carbon electricity without weather swings, and cheaper power if costs fall."
+    measures: [carbon_intensity_elec, electricity_use_per_capita, "long:energy_coal"]
+    crowd: "\\bfusion\\b"
+    built_on: [nuclear-bomb, laser]
+    wiki: Fusion_power
+  - id: small-modular-reactors
+    name: Small modular nuclear reactors
+    category: energy
+    range: [2029, 2031, 2035]
+    what: "Factory-built nuclear reactors a tenth the size of a big plant."
+    now: "Russia runs a floating one (2020), China a small high-temperature one (2023) and is finishing Linglong One; the first in the West is being built in Ontario."
+    sources:
+      - {name: "Ontario Power Generation", year: 2025, says: "First BWRX-300 at Darlington to run by about 2030."}
+    effects: "Might add low-carbon power faster and closer to towns and factories."
+    measures: [nuclear_share_elec, carbon_intensity_elec]
+    crowd: "small modular|\\bsmrs?\\b"
+    built_on: [nuclear-power]
+    wiki: Small_modular_reactor
+  - id: solid-state-batteries
+    name: Solid-state batteries in cars
+    category: energy
+    range: [2027, 2029, 2035]
+    what: "Batteries with a solid instead of liquid inside: more range, faster charging, less fire risk."
+    now: "Prototypes and small trial runs; carmakers plan the first models later this decade."
+    sources:
+      - {name: "Toyota", year: 2024, says: "First cars with them planned for 2027 to 2028."}
+    effects: "Might make electric cars cheaper and longer-ranged than petrol cars."
+    measures: [ev_sales_share, co2_per_capita]
+    crowd: "solid.state batter"
+    built_on: [lithium-battery]
+    wiki: Solid-state_battery
+  - id: enhanced-geothermal
+    name: Enhanced geothermal power
+    category: energy
+    range: [2026, 2030, 2040]
+    what: "Drilling and fracturing hot dry rock to make geothermal power almost anywhere, not just where hot water rises."
+    now: "Fervo's test plant in Nevada ran in 2023; its first large plant in Utah is due from 2026."
+    sources:
+      - {name: "Fervo Energy", year: 2025, says: "Cape Station in Utah to start sending power in 2026."}
+      - {name: "IEA, The Future of Geothermal", year: 2024, says: "Could meet up to 15% of growth in world electricity demand to 2050 if costs fall."}
+    effects: "Might add round-the-clock clean power in many more countries."
+    measures: [renewables_share_elec, carbon_intensity_elec]
+    crowd: "geothermal"
+    built_on: [oil-well]
+    wiki: Enhanced_geothermal_system
+  - id: green-steel
+    name: Steel made with hydrogen
+    category: materials
+    range: [2026, 2030, 2045]
+    what: "Making iron with hydrogen instead of coal, so steelmaking gives off water instead of CO₂."
+    now: "Pilot plants in Sweden (HYBRIT); the first commercial plant (Stegra, Boden) is being built."
+    sources:
+      - {name: "Stegra", year: 2025, says: "First steel from its Boden plant in 2026 to 2027."}
+    effects: "Might cut one of the largest industrial sources of CO₂ (about 7% of the world's)."
+    measures: [co2_per_capita, manufacturing_share_gdp]
+    crowd: "green steel|hydrogen steel"
+    built_on: [bessemer]
+    wiki: Hydrogen_direct_reduction
+  - id: low-carbon-cement
+    name: Low-carbon cement at scale
+    category: materials
+    range: [2030, 2040, 2050]
+    what: "Cement made with new recipes, electric kilns and captured CO₂, cutting most of its emissions."
+    now: "The first full-scale carbon capture at a cement plant opened in Norway (Brevik, 2025)."
+    sources:
+      - {name: "Global Cement and Concrete Association roadmap", year: 2021, says: "Net-zero concrete by 2050, a quarter less CO₂ by 2030."}
+    effects: "Might cut about 7% of the world's CO₂."
+    measures: [co2_cement]
+    crowd: "cement"
+    built_on: [concrete]
+    wiki: Environmental_impact_of_concrete
+  - id: carbon-removal
+    name: Carbon removal at a billion tonnes a year
+    category: energy
+    range: [2040, 2050, 2070]
+    what: "Machines and other methods pulling CO₂ back out of the air at the scale of today's big emitters."
+    now: "Direct air capture plants remove thousands of tonnes a year (Climeworks Mammoth, 2024); a larger one is being built in Texas."
+    sources:
+      - {name: "IEA Net Zero by 2050 scenario", year: 2023, says: "Close to a billion tonnes a year by direct air capture by 2050."}
+    effects: "Might let the world bring the CO₂ in the air back down after emissions stop rising."
+    measures: [co2_emissions_total, co2_per_capita]
+    crowd: "direct air capture|carbon removal"
+    built_on: []
+    wiki: Direct_air_capture
+  - id: space-solar
+    name: Solar power from space
+    category: energy
+    range: [2035, 2045, 2070]
+    what: "Solar panels in orbit beaming power down to Earth by microwave."
+    now: "Caltech sent power wirelessly in space in a small test (2023)."
+    sources:
+      - {name: "UK Space Energy Initiative", year: 2023, says: "A working demonstrator in the 2030s and a full plant by about 2040."}
+    effects: "Might give solar power day and night, whatever the weather."
+    measures: [carbon_intensity_elec]
+    crowd: "space.based solar|space solar"
+    built_on: [solar-cell, satellite]
+    wiki: Space-based_solar_power
+  - id: room-temperature-superconductor
+    name: Room-temperature superconductor
+    category: science
+    range: [2035, 2060, 2100]
+    maybe_never: true
+    what: "A material that carries electricity with no loss at everyday temperatures and pressures."
+    now: "Only under huge pressure or extreme cold; the 2023 LK-99 claim did not hold up."
+    sources:
+      - {name: "Physicists' views", year: 2024, says: "No accepted route yet; it may not be possible."}
+    effects: "Might make power lines lossless and magnets, motors and scanners far cheaper."
+    measures: [electricity_use_per_capita]
+    crowd: "superconductor"
+    built_on: []
+    wiki: Room-temperature_superconductor
+  - id: robotaxis
+    name: Driverless taxis in most big cities
+    category: transport
+    range: [2027, 2033, 2045]
+    what: "Cars with no driver carrying paying passengers in most of the world's large cities."
+    now: "Running in several US and Chinese cities (Waymo, Baidu Apollo Go); trials in London and Tokyo."
+    sources:
+      - {name: "Company plans (Waymo, Baidu, Tesla, Wayve)", year: 2025, says: "Many more cities in the late 2020s."}
+    effects: "Might cut road deaths and the cost of getting about, and change how many people own cars."
+    measures: [road_deaths_rate, "long:us_automobile"]
+    crowd: "waymo|robotaxi|self.driving|autonomous (car|vehicle)"
+    built_on: [car, transformer-ai]
+    wiki: Self-driving_car
+  - id: flying-taxis
+    name: Electric flying taxis
+    category: transport
+    range: [2026, 2028, 2035]
+    what: "Small battery-powered aircraft taking off vertically, for short city trips."
+    now: "Test flights; the first passenger services are planned in Dubai and the UAE."
+    sources:
+      - {name: "Joby Aviation and Archer", year: 2025, says: "First paid passenger flights in Dubai and Abu Dhabi from 2026."}
+    effects: "Might make short trips over traffic common in rich cities; how far it spreads depends on cost and noise."
+    measures: [air_departures]
+    crowd: "evtol|flying taxi|joby|archer aviation"
+    built_on: [aeroplane, lithium-battery]
+    wiki: Electric_vertical_take-off_and_landing
+  - id: supersonic-airliner
+    name: Supersonic airliners again
+    category: transport
+    range: [2029, 2031, 2040]
+    what: "Passenger jets faster than sound, the first since Concorde stopped in 2003."
+    now: "Boom's XB-1 test plane went supersonic in 2025; NASA tests a quieter design (X-59)."
+    sources:
+      - {name: "Boom Supersonic", year: 2025, says: "Overture to carry passengers by about 2029."}
+    effects: "Might halve long flight times such as Auckland to Los Angeles, at a high fare."
+    measures: [air_passengers, tourist_arrivals]
+    crowd: "supersonic|boom overture"
+    built_on: [jet-engine]
+    wiki: Boom_Overture
+  - id: moon-return
+    name: People back on the Moon
+    category: transport
+    range: [2027, 2028, 2032]
+    what: "The first crewed Moon landing since 1972 (NASA's Artemis III, or China's plan)."
+    now: "Artemis II flies around the Moon first; China aims to land people before 2030."
+    sources:
+      - {name: "NASA", year: 2025, says: "Artemis III landing planned for 2027."}
+      - {name: "China Manned Space Agency", year: 2024, says: "A crewed landing before 2030."}
+    effects: "Might lead to bases and mining on the Moon; little direct effect on life on Earth."
+    measures: []
+    crowd: "artemis|moon landing|land.*on the moon|humans? on the moon"
+    built_on: [satellite]
+    wiki: Artemis_III
+  - id: humans-on-mars
+    name: Humans on Mars
+    category: transport
+    range: [2031, 2039, 2055]
+    what: "The first people to land on Mars."
+    now: "Robots only; SpaceX's Starship is in test flights."
+    sources:
+      - {name: "NASA Moon to Mars plan", year: 2024, says: "First crewed missions in the late 2030s or 2040s."}
+      - {name: "SpaceX", year: 2025, says: "Uncrewed Starships first, then crews in the early 2030s."}
+    effects: "Mostly scientific and symbolic for decades."
+    measures: []
+    crowd: "\\bmars\\b"
+    built_on: [satellite]
+    wiki: Human_mission_to_Mars
+  - id: ageing-drugs
+    name: Medicines that slow ageing
+    category: medicine
+    range: [2032, 2045, 2075]
+    maybe_never: true
+    what: "Drugs shown to slow human ageing itself, not just one disease at a time."
+    now: "Some drugs extend lifespan in mice; human trials (such as TAME for metformin) are small and early."
+    sources:
+      - {name: "Researchers' views", year: 2024, says: "No drug yet proven to slow ageing in people."}
+    effects: "Might add years of healthy life and change pensions and working lives."
+    measures: ["long:life_expectancy", life_expectancy]
+    crowd: "\\b(ageing|aging|longevity|lifespan)\\b"
+    built_on: [dna, gene-engineering]
+    wiki: Life_extension
+  - id: universal-flu-vaccine
+    name: Universal flu vaccine
+    category: medicine
+    range: [2030, 2035, 2045]
+    what: "One vaccine that protects against most or all flu strains for years, instead of a new jab each season."
+    now: "Several candidates in early human trials."
+    sources:
+      - {name: "US NIAID strategic plan for a universal flu vaccine", year: 2018, says: "Long-term goal; candidates now in trials."}
+    effects: "Might cut flu deaths and lower the risk from a new flu pandemic."
+    measures: [life_expectancy]
+    crowd: "universal (flu|influenza)"
+    built_on: [mrna-vaccine]
+    wiki: Universal_flu_vaccine
+  - id: hiv-vaccine
+    name: HIV vaccine
+    category: medicine
+    range: [2032, 2040, 2060]
+    what: "A vaccine that prevents infection with HIV."
+    now: "No working vaccine after 40 years; a twice-yearly injection to prevent infection (lenacapavir) was approved in 2025."
+    sources:
+      - {name: "IAVI and other researchers", year: 2024, says: "Early trials of new approaches; no date given."}
+    effects: "Might end new HIV infections, most of all in southern Africa."
+    measures: [hiv_prevalence]
+    crowd: "hiv vaccine"
+    built_on: [hiv-drugs, mrna-vaccine]
+    wiki: HIV_vaccine_development
+  - id: pig-organs
+    name: Pig organ transplants
+    category: medicine
+    range: [2027, 2032, 2040]
+    what: "Gene-edited pig kidneys, hearts and livers transplanted into people who need an organ."
+    now: "A few patients have lived months with pig kidneys; the first clinical trials were approved in 2025."
+    sources:
+      - {name: "US FDA trial approvals (United Therapeutics, eGenesis)", year: 2025, says: "First formal trials of pig kidneys."}
+    effects: "Might end waiting lists for kidneys, where many people die waiting."
+    measures: [life_expectancy]
+    crowd: "xenotransplant|pig (kidney|heart|organ)"
+    built_on: [crispr]
+    wiki: Xenotransplantation
+  - id: in-body-gene-editing
+    name: Gene-editing cures given as an injection
+    category: medicine
+    range: [2027, 2032, 2040]
+    what: "Editing genes inside the body with one injection to cure inherited disease or lower heart risk for life."
+    now: "The first CRISPR cure (Casgevy, 2023) edits cells outside the body; a baby was treated with a custom in-body edit in 2025."
+    sources:
+      - {name: "Intellia and Verve trials", year: 2025, says: "Late-stage trials of one-off in-body edits."}
+    effects: "Might cure many rare inherited diseases and lower common heart risks."
+    measures: [life_expectancy]
+    crowd: "crispr|gene edit"
+    built_on: [crispr]
+    wiki: Genome_editing
+  - id: brain-implants
+    name: Brain implants for paralysis
+    category: medicine
+    range: [2028, 2032, 2040]
+    what: "Implants that let people who cannot move or speak use computers, or speak through them, by thought."
+    now: "Dozens of trial patients (Neuralink, Synchron, BrainGate); none approved for sale yet."
+    sources:
+      - {name: "Company trials (Neuralink, Synchron, Precision)", year: 2025, says: "Seeking approval later this decade."}
+    effects: "Might give independence back to people with paralysis or ALS."
+    measures: []
+    crowd: "neuralink|brain.computer interface|brain implant"
+    built_on: [microchip]
+    wiki: Brain–computer_interface
+  - id: gene-drive-mosquitoes
+    name: Gene drive mosquitoes against malaria
+    category: medicine
+    range: [2028, 2032, 2040]
+    what: "Mosquitoes carrying a gene that spreads through the wild population and stops it carrying malaria."
+    now: "Tested in caged trials; first field releases of gene-modified (not yet gene drive) mosquitoes in Africa."
+    sources:
+      - {name: "Target Malaria", year: 2024, says: "Aims for a first gene drive release in Africa around 2030."}
+    effects: "Might cut malaria, which kills about 600,000 people a year, most of them African children."
+    measures: [malaria_incidence, under5_mortality]
+    crowd: "gene drive|malaria (vaccine|eradicat|free)"
+    built_on: [crispr, malaria-nets]
+    wiki: Gene_drive
+  - id: cultivated-meat
+    name: Lab-grown meat as cheap as farmed meat
+    category: food
+    range: [2030, 2040, 2060]
+    maybe_never: true
+    what: "Meat grown from animal cells in tanks, sold at the price of meat from animals."
+    now: "Approved for sale in Singapore (2020), the US (2023) and a few others, in small amounts at high cost."
+    sources:
+      - {name: "Good Food Institute and cost studies", year: 2024, says: "Price parity needs much bigger, cheaper plants; dates vary widely."}
+    effects: "Might free up farmland and cut farm emissions; would hit meat-exporting countries such as New Zealand."
+    measures: [arable_land_share, ghg_emissions_total, agriculture_share_gdp]
+    crowd: "lab.grown|cultivated meat|cultured meat"
+    built_on: [gene-engineering]
+    wiki: Cultured_meat
+  - id: nitrogen-fixing-cereals
+    name: Cereals that make their own fertiliser
+    category: food
+    range: [2035, 2045, 2060]
+    what: "Wheat, maize or rice that fix nitrogen from the air, as peas and clover do."
+    now: "Lab and field research; some maize varieties do it in part with help from microbes."
+    sources:
+      - {name: "Researchers (ENSA programme and others)", year: 2024, says: "Long-term research; no date given."}
+    effects: "Might cut fertiliser use and costs, and raise yields where farmers cannot afford fertiliser."
+    measures: [cereal_yield, "long:nitrogen_per_ha"]
+    crowd: "nitrogen.fixing"
+    built_on: [haber-bosch, gene-engineering]
+    wiki: Nitrogen_fixation
+  - id: sixg
+    name: 6G mobile networks
+    category: communication
+    range: [2029, 2030, 2033]
+    what: "The next generation of mobile networks after 5G."
+    now: "Standards are being written (3GPP); trials in Japan, Korea, China and Europe."
+    sources:
+      - {name: "ITU IMT-2030 plan", year: 2023, says: "Standards by about 2030, the first networks soon after."}
+    effects: "Might add faster links and sensing for machines more than new uses for phones."
+    measures: [mobile_subscriptions_per_100, broadband_subscriptions_per_100]
+    crowd: "\\b6g\\b"
+    built_on: [mobile-phone, smartphone]
+    wiki: 6G
+  - id: digital-cash
+    name: Central bank digital money
+    category: money
+    range: [2027, 2030, 2040]
+    what: "Digital cash issued by a central bank for everyone, like notes and coins but on a phone."
+    now: "Running in the Bahamas, Jamaica and Nigeria; pilots in China (e-CNY) and India; the euro area is preparing a digital euro."
+    sources:
+      - {name: "European Central Bank", year: 2025, says: "A digital euro could be issued from about 2029 if the law passes."}
+      - {name: "Atlantic Council CBDC tracker", year: 2025, says: "Over 130 countries looking at one."}
+    effects: "Might change how banks get deposits and how payments work; privacy is a worry."
+    measures: []
+    crowd: "digital euro|cbdc|central bank digital"
+    built_on: [mobile-money, card-payment]
+    wiki: Central_bank_digital_currency
+  - id: life-on-exoplanet
+    name: Signs of life on another planet
+    category: science
+    range: [2030, 2045, 2075]
+    maybe_never: true
+    what: "Gases in a distant planet's air that are hard to explain without life."
+    now: "Telescopes can read the air of a few planets (JWST); a 2025 claim about K2-18b was disputed."
+    sources:
+      - {name: "NASA Habitable Worlds Observatory", year: 2024, says: "A telescope built to look for life, planned for the 2040s."}
+    effects: "Would change how people see their place in the universe; little practical effect."
+    measures: []
+    crowd: "extraterrestrial life|alien life|biosignature"
+    built_on: [telescope]
+    wiki: Biosignature

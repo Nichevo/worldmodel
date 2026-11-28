@@ -237,6 +237,23 @@ def inventions_along(series: str, entities: str | None = None, categories: str |
     return inventions.along(rows, series, split(entities) or None, split(categories) or None)
 
 
+@api.get("/inventions/future")
+def inventions_future():
+    """Expected inventions: year ranges from named sources, what might follow, and matching
+    crowd forecasts where they are loaded."""
+    return inventions.future_listing(rows, date.today().year)
+
+
+@api.get("/inventions/future/{future_id}")
+def invention_future_card(future_id: str, entities: str | None = None):
+    """One expected invention: its range and sources, what it might lead to, the crowd's view
+    and today's figures for the things it might change."""
+    got = inventions.future_card(rows, future_id, date.today().year, split(entities) or None)
+    if got is None:
+        raise HTTPException(404, f"no expected invention {future_id}")
+    return got
+
+
 @api.get("/inventions/{invention_id}")
 def invention_card(invention_id: str, entities: str | None = None):
     """One invention: what, when and where, how it spread and the changes seen around it."""

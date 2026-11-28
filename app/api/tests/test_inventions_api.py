@@ -99,3 +99,56 @@ def test_inventions_as_chart_events():
     assert {r["entity_id"] for r in pen} == {"NZL", "AUS"}
     assert pen[0]["start_date"] == "1928-01-01" and pen[0]["kind"] == "invention" and pen[0]["url"] == "/inventions?id=penicillin"
     assert all(int(r["start_date"][:4]) >= 1700 for r in rows)
+
+
+def test_future_catalogue_is_consistent():
+    cat = catalogue.inventions()
+    cats = {c["id"] for c in cat["categories"]}
+    typed = {i["id"] for i in cat["inventions"]}
+    ids = [f["id"] for f in cat["future"]]
+    assert len(ids) == len(set(ids)) and len(ids) >= 25 and not set(ids) & typed
+    for f in cat["future"]:
+        early, mid, late = f["range"]
+        assert early <= mid <= late, f["id"]
+        assert f["category"] in cats and f["what"] and f["now"] and f["effects"] and f["sources"], f["id"]
+        assert all(s["name"] and s["says"] for s in f["sources"]), f["id"]
+        assert set(f["built_on"]) <= typed, f["id"]
+        for s in f["measures"]:
+            if s.startswith("long:"):
+                assert s[5:] in cat["measures"] or s[5:] in catalogue.history()["series"], f"{f['id']}: {s}"
+
+
+def _crowd(q_con):
+    q_con("""CREATE TABLE crowd_questions (question_key VARCHAR, site VARCHAR, title VARCHAR, url VARCHAR, kind VARCHAR,
+             status VARCHAR, chance DOUBLE, closes TIMESTAMP, forecasters INTEGER, volume DOUBLE)""", [])
+    q_con("CREATE TABLE crowd_points (question_key VARCHAR, at_time TIMESTAMP, chance DOUBLE, lower DOUBLE, upper DOUBLE)", [])
+    ts = lambda y: (y - 1970) * inventions.YEAR_SECONDS  # noqa: E731
+    q_con("""INSERT INTO crowd_questions VALUES
+             ('mc:1', 'metaculus', 'When will a fusion power plant first supply the grid?', 'u1', 'date', 'open', ?, NULL, 900, NULL),
+             ('mc:2', 'metaculus', 'Will nuclear fusion reach net energy by 2030?', 'u2', 'binary', 'open', 0.31, NULL, 300, NULL),
+             ('mc:3', 'metaculus', 'Will fusion be done by 2020?', 'u3', 'binary', 'resolved', 0.0, NULL, 50, NULL),
+             ('pm:4', 'polymarket', 'Next prime minister of somewhere?', 'u4', 'binary', 'open', 0.5, NULL, NULL, 10)""", [ts(2045.5)])
+    q_con("INSERT INTO crowd_points VALUES ('mc:1', '2026-11-01', ?, ?, ?)", [ts(2045.5), ts(2038), ts(2060)])
+
+
+def test_future_listing_matches_the_crowd(q):
+    _crowd(q)
+    got = inventions.future_listing(q, 2026)
+    assert len(got["future"]) == len(catalogue.inventions()["future"])
+    fusion = next(f for f in got["future"] if f["id"] == "fusion-power")
+    assert [c["key"] for c in fusion["crowd"]] == ["mc:1", "mc:2"]  # open only, most forecasters first
+    assert fusion["crowd"][0]["year"] == 2045.5 and fusion["crowd"][0]["early"] == 2038.0 and fusion["crowd"][0]["late"] == 2060.0
+    assert fusion["crowd"][1]["chance"] == 0.31
+    assert "guesses" in got["caution"]
+    # an item whose middle year has passed is flagged
+    assert inventions.future_listing(q, 2200)["future"][0]["overdue"] is True
+    assert not any(f["overdue"] for f in got["future"] if f["range"][1] >= 2026)
+
+
+def test_future_card_has_charts_and_what_it_builds_on(q):
+    got = inventions.future_card(q, "nitrogen-fixing-cereals", 2026)
+    assert got["item"]["name"] and got["item"]["sources"]
+    assert any(c["series"] == "cereal_yield" and c["lines"] for c in got["charts"])
+    assert all(b["year"] < 2026 for b in got["built_on"])
+    assert got["crowd"] == []  # no crowd tables here: none, no error
+    assert inventions.future_card(q, "no-such-thing", 2026) is None

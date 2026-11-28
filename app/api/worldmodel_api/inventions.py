@@ -165,3 +165,87 @@ def as_events(entities: list[str] | None = None) -> list[dict]:
                         "precision": "year", "size": None, "size_unit": None, "deaths": None, "affected": None, "damage_usd": None,
                         "place": i.get("place"), "url": f"/inventions?id={i['id']}", "detail": i["what"], "color": None})
     return out
+
+
+# ----------------------------------------------------------------------------- Coming next
+FUTURE_CAUTION = ("Expected years are guesses from the sources named, not facts. Such guesses have often been "
+                  "too early (fusion has been 30 years away for decades) and sometimes too late (phones, solar power).")
+YEAR_SECONDS = 365.2425 * 86400
+
+
+def future_by_id(fid: str) -> dict | None:
+    return next((f for f in catalogue.inventions()["future"] if f["id"] == fid), None)
+
+
+def _ts_year(v) -> float | None:
+    """A Metaculus date answer (seconds since 1970) as a year with a fraction."""
+    return None if v is None else round(1970 + float(v) / YEAR_SECONDS, 1)
+
+
+def crowd_matches(q: Q, pattern: str | None, limit: int = 5) -> list[dict]:
+    """Open crowd questions whose title matches the item's pattern, best-followed first.
+    Yes/no questions give a chance; date questions give the crowd's middle year and its
+    quarter-to-three-quarter range."""
+    if not pattern:
+        return []
+    try:
+        got = q("""SELECT q.question_key, q.site, q.title, q.url, q.kind, q.chance, q.closes, q.forecasters, q.volume,
+                     (SELECT p.lower FROM crowd_points p WHERE p.question_key = q.question_key ORDER BY p.at_time DESC LIMIT 1) AS lower,
+                     (SELECT p.upper FROM crowd_points p WHERE p.question_key = q.question_key ORDER BY p.at_time DESC LIMIT 1) AS upper
+                   FROM crowd_questions q
+                   WHERE q.status = 'open' AND q.kind IN ('binary', 'date') AND regexp_matches(lower(q.title), ?)
+                   ORDER BY coalesce(q.forecasters, 0) DESC, coalesce(q.volume, 0) DESC LIMIT ?""", [pattern.lower(), limit])
+    except Exception:  # noqa: BLE001 - no crowd tables loaded yet, or a bad pattern
+        return []
+    out = []
+    for r in got:
+        item = {"key": r["question_key"], "site": r["site"], "title": r["title"], "url": r["url"], "kind": r["kind"],
+                "closes": str(r["closes"])[:10] if r.get("closes") else None, "forecasters": r.get("forecasters")}
+        if r["kind"] == "date":
+            item.update(year=_ts_year(r["chance"]), early=_ts_year(r.get("lower")), late=_ts_year(r.get("upper")))
+            if item["year"] is None:
+                continue
+        else:
+            if r["chance"] is None:
+                continue
+            item["chance"] = round(float(r["chance"]), 3)
+        out.append(item)
+    return out
+
+
+def _future_public(f: dict, cats: dict[str, str], this_year: int) -> dict:
+    early, central, late = f["range"]
+    return {**{k: f.get(k) for k in ("id", "name", "category", "what", "now", "effects", "maybe_never", "range", "sources")},
+            "category_name": cats.get(f["category"], f["category"]), "wiki": wiki_url(f.get("wiki")),
+            # Passed its middle year without arriving: flag it, the guess was too early.
+            "overdue": central < this_year, "built_on": f["built_on"], "measures": f["measures"]}
+
+
+def future_listing(q: Q, this_year: int) -> dict:
+    cat = catalogue.inventions()
+    cats = {c["id"]: c["name"] for c in cat["categories"]}
+    items = []
+    for f in cat["future"]:
+        p = _future_public(f, cats, this_year)
+        p["crowd"] = crowd_matches(q, f.get("crowd"), limit=3)
+        items.append(p)
+    return {"categories": cat["categories"], "future": items, "caution": FUTURE_CAUTION, "this_year": this_year}
+
+
+def future_card(q: Q, fid: str, this_year: int, entities: list[str] | None = None) -> dict | None:
+    f = future_by_id(fid)
+    if f is None:
+        return None
+    cat = catalogue.inventions()
+    cats = {c["id"]: c["name"] for c in cat["categories"]}
+    names = _names(q)
+    ents = list(entities or KEY)
+    meta = measure_meta(q, f["measures"])
+    charts = [chart(q, s, ents, names, meta[s]) for s in f["measures"]]
+    typed = {i["id"]: i for i in cat["inventions"]}
+    built_on = [{"id": b, "name": typed[b]["name"], "year": typed[b]["year"], "category": typed[b]["category"]}
+                for b in f["built_on"] if b in typed]
+    same = [x for x in cat["future"] if x["category"] == f["category"] and x["id"] != fid]
+    return {"item": _future_public(f, cats, this_year), "entities": ents, "charts": charts, "built_on": built_on,
+            "crowd": crowd_matches(q, f.get("crowd"), limit=6), "caution": FUTURE_CAUTION,
+            "same_category": [{"id": x["id"], "name": x["name"], "range": x["range"]} for x in same]}
