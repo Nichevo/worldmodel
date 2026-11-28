@@ -323,6 +323,19 @@ first) also gives a map panel's toolbar row to the map. **Focus** folds away
 every menu, banner and toolbar so the panels fill the window; "Show controls",
 F or Esc brings them back.
 
+In Compact and Focus the map's **key** is a card in the map's bottom-left
+corner. **–** or K (with the pointer over that panel) folds it to a small "Key"
+chip and back; each panel remembers this in the layout and its link. Click a
+colour band to show only those countries (shift-click adds bands, Esc clears),
+then **Select these** to make them the selected countries; click "no data" to
+see which countries have no figure. Click a layer's name to hide it for now (it
+stays on in Layers); its ⋯ gives Only this layer, Show all layers, its settings
+in Layers and Details. With power plants on, click a fuel to show only those
+plants. Click a live count (planes, ships) for its table in a new panel, the
+unit's ? for what the figure means, and **i** for where it comes from. Settings
+> Map key on the map (on at first) puts the old key back under the map, and
+Map key starts folded opens every map with the chip.
+
 **Ranks.** A panel's **Ranks** view is a bump chart: how countries' ranks on
 the panel's indicator change over the years (from a start year every few years,
 years you pick, or every year in a span). Rank the selected countries, a group's

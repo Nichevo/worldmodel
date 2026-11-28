@@ -10,7 +10,8 @@ import Flag from "@/components/Flag";
 import Help from "@/components/Help";
 import IndicatorSelect from "@/components/IndicatorSelect";
 import MultiTable, { cellText, useTableModel } from "@/components/MultiTable";
-import LayersPanel, { LayersRail, useMapMarks } from "@/components/LayersPanel";
+import LayersPanel, { LayersRail, layerSwatch, useMapMarks } from "@/components/LayersPanel";
+import { DETAIL_LAYERS, detailsHref } from "@/lib/layerDetails";
 import WeatherOverlay from "@/components/WeatherOverlay";
 import NewsPanel from "@/components/NewsPanel";
 import { hasWeather } from "@/lib/weather";
@@ -33,7 +34,7 @@ import { DIVERGING, cssVar, seriesColor, seriesVar } from "@/lib/colors";
 import { credits, csvText, fileName, saveText, saveUrl, sourcesOf, tablePng, titledPng, type Exporter } from "@/lib/download";
 import { SOURCE_SHORT, compact, formatValue, shortUnit } from "@/lib/format";
 import {
-  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, NO_INDICATOR, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
+  CHANGE_COL, FORECAST_CHOICES, HISTORY_CHOICES, LINKS, MAP_LAYERS, MAX_SELECTION, NO_INDICATOR, chartSpan, parseRange, pyramidOptions, pyramidString, rangeString,
   rankOptions, rankString, rankTable, rankYears, type RankOptions,
   scatterOptions, scatterString, toQuery, DEFAULT as DEFAULT_WORKSPACE, type Action, type Group, type Panel as PanelState, type View,
   type LiveTab,
@@ -108,6 +109,8 @@ export default function Panel({
   hovered, onHover, scale, onValues, cameraBus, clickMode, onActivate, popups, sparkline, win, onWin,
 }: Props) {
   const [layersOpen, setLayersOpen] = useState(false);
+  const [layersFind, setLayersFind] = useState(""); // the Layers panel opened at one layer from the key
+  const [hiddenLayers, setHiddenLayers] = useState(""); // layer letters hidden for now from the key
   const settings = useSettings();
   const density = useDensity();
   const compact = density === "compact";
@@ -127,6 +130,25 @@ export default function Panel({
   const narrow = compact && width > 0 && width < (year !== null && !tableOnly && !plain ? NARROW_WITH_YEAR : NARROW_PANEL);
   // Option: the map's toolbar floats over its top edge and shrinks to a label when the pointer leaves.
   const floatHead = compact && settings.map_toolbar_float && panel.view === "map" && !layersOpen;
+  // The key as a card on the map (Compact and Focus, unless Settings keeps it under the map); K folds or opens it.
+  const keyCard = density !== "full" && settings.map_key !== "below" && panel.view === "map";
+  const keyOpen = panel.kf === "1" ? false : panel.kf === "0" ? true : density === "focus" ? false : !settings.map_key_folded;
+  const pointerIn = useRef(false);
+  const keyToggle = useRef(() => {});
+  keyToggle.current = () => set({ kf: keyOpen ? "1" : "0" });
+  useEffect(() => {
+    if (!keyCard) return;
+    const key = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!pointerIn.current || e.ctrlKey || e.metaKey || e.altKey || (t && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)))) return;
+      if (e.key === "k" || e.key === "K") { e.preventDefault(); keyToggle.current(); }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [keyCard]);
+  useEffect(() => { // a layer turned off in Layers is no longer hidden from the key
+    setHiddenLayers((h) => [...h].filter((l) => panel.layers.includes(l)).join(""));
+  }, [panel.layers]);
   const set = (patch: Extract<Action, { type: "panel" }>["patch"]) => dispatch({ type: "panel", id: panel.id, patch });
   const playing = usePlay(year, indicator?.first_year ?? null, indicator?.last_year ?? null, (y) => set({ year: y }));
   const isProjection = indicator && year !== null && indicator.last_estimate_year !== null && year > indicator.last_estimate_year;
@@ -150,6 +172,7 @@ export default function Panel({
 
   return (
     <section ref={section} className={`panel${narrow ? " narrow" : ""}${floatHead ? " float-head" : ""}`} style={style}
+      onMouseEnter={() => { pointerIn.current = true; }} onMouseLeave={() => { pointerIn.current = false; }}
       aria-label={`${indicator?.name ?? "Panel"} ${VIEW_LABEL[panel.view].toLowerCase()}`}>
       <header className="panel-head">
         {narrow ? (
@@ -256,9 +279,22 @@ export default function Panel({
           <MapView panel={panel} indicator={plain ? null : indicator!} year={plain ? null : year} selection={selection}
             hovered={hovered} onHover={onHover} scale={scale} onValues={onValues} cameraBus={cameraBus}
             clicks={clicks} popups={popups} sparkline={sparkline} exporter={exporter} win={effWin}
+            keyOpts={keyCard ? {
+              open: keyOpen, onOpen: (o) => set({ kf: o ? "0" : "1" }), hidden: hiddenLayers,
+              onLayer: (k, act) => {
+                if (act === "toggle") setHiddenLayers((h) => (h.includes(k) ? h.replace(k, "") : h + k));
+                else if (act === "only") setHiddenLayers([...panel.layers].filter((l) => l !== k).join(""));
+                else if (act === "all") setHiddenLayers("");
+                else { setLayersFind(MAP_LAYERS.find((m) => m.letter === k)?.label ?? ""); setLayersOpen(true); }
+              },
+              unitHelp: indicator ? <Help indicator={indicator} /> : null,
+              onSelect: (isos) => dispatch({ type: "select", selection: isos.slice(0, MAX_SELECTION) }),
+              onCounts: (layer) => dispatch({ type: "duplicate", id: panel.id,
+                patch: layer === "places" ? { view: "places" } : { view: "live", lv: layer === "live_ships" ? "ships" : "planes" } }),
+            } : null}
             layersPanel={layersOpen ? (counts) => (
-              <LayersPanel panel={panel} dispatch={dispatch} win={win} onWin={onWin} counts={counts} year={year} onClose={() => setLayersOpen(false)}
-                selection={selection} names={names} />
+              <LayersPanel panel={panel} dispatch={dispatch} win={win} onWin={onWin} counts={counts} year={year}
+                onClose={() => { setLayersOpen(false); setLayersFind(""); }} selection={selection} names={names} find={layersFind} />
             ) : null} />
         )}
         {compact && panel.view === "map" && !layersOpen && panel.layers && <LayersRail letters={panel.layers} onOpen={() => setLayersOpen(true)} />}
@@ -556,16 +592,27 @@ function sourceLine(indicator: Indicator) {
   return s ? (SOURCE_SHORT[s] ?? s) : "";
 }
 
-function MapView({ panel, indicator, year, selection, hovered, onHover, scale, onValues, cameraBus, clicks, popups, sparkline, exporter, win, layersPanel }: {
+// The map page's key card, as the panel runs it: open or folded, layers hidden for now, and what its clicks do.
+type KeyOpts = {
+  open: boolean; onOpen: (open: boolean) => void; hidden: string;
+  onLayer: (key: string, act: "toggle" | "only" | "all" | "settings") => void;
+  unitHelp: React.ReactNode; onSelect: (isos: string[]) => void; onCounts: (layer: string) => void;
+};
+
+function MapView({ panel, indicator, year, selection, hovered, onHover, scale, onValues, cameraBus, clicks, popups, sparkline, exporter, win, layersPanel, keyOpts = null }: {
   panel: PanelState; indicator: Indicator | null; year: number | null; selection: string[];
   hovered: string | null; onHover: (e: string | null) => void; scale?: Scale;
   onValues: (id: string, v: Value[] | null) => void; cameraBus: CameraBus;
   clicks: Clicks; popups: PanelPopup[]; sparkline: boolean; exporter: React.RefObject<Exporter>;
   win: string; layersPanel: ((counts: Record<string, string>) => React.ReactNode) | null;
+  keyOpts?: KeyOpts | null; // the key as a card on the map (left out: rows under the map)
 }) {
-  const marks = useMapMarks(panel.layers, win, year);
+  // Layers hidden for now from the key are left off the map (they stay on in the panel and its link).
+  const hidden = keyOpts?.hidden ?? "";
+  const letters = hidden ? [...panel.layers].filter((l) => !hidden.includes(l)).join("") : panel.layers;
+  const marks = useMapMarks(letters, win, year);
   const plainBorders = useSettings().plain_map_borders;
-  const timed = MAP_LAYERS.some((m) => m.timed && panel.layers.includes(m.letter));
+  const timed = MAP_LAYERS.some((m) => m.timed && letters.includes(m.letter));
   const { values, error } = useMapValues(indicator?.indicator_id ?? null, year);
   useEffect(() => { onValues(panel.id, values); }, [panel.id, values, onValues]);
   useEffect(() => () => onValues(panel.id, null), [panel.id, onValues]);
@@ -575,8 +622,8 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
   const map = useRef<maplibregl.Map | null>(null);
   const [mapObj, setMapObj] = useState<maplibregl.Map | null>(null);
   const onMap = useCallback((m: maplibregl.Map | null) => { map.current = m; setMapObj(m); }, []);
-  const mixOn = panel.layers.includes("M");
-  const wxOn = hasWeather(panel.layers);
+  const mixOn = letters.includes("M");
+  const wxOn = hasWeather(letters);
   const [wxPoint, setWxPoint] = useState<[number, number] | null>(null);
   useEffect(() => { if (!wxOn) setWxPoint(null); }, [wxOn]);
   // A news mark opens the news panel (other marks open their link as before).
@@ -591,7 +638,7 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
     csv: () => csvText(["entity_id", "indicator_id", "year", "value", "status"],
       values.map((v) => [v.entity_id, indicator?.indicator_id ?? "", year, v.value, v.status])),
     png: async () => {
-      const shown: string[] = MAP_LAYERS.filter((m) => !m.made && panel.layers.includes(m.letter)).map((m) => m.id);
+      const shown: string[] = MAP_LAYERS.filter((m) => !m.made && letters.includes(m.letter)).map((m) => m.id);
       const overlaySources = shown.length ? (await mapLayers().catch(() => [])).filter((l) => shown.includes(l.layer_id)).map((l) => l.source_id) : [];
       const footer = await credits([...(indicator ? sourcesOf(indicator) : []), ...overlaySources], ["Borders: Natural Earth (public domain)."]);
       return new Promise((ok, fail) => {
@@ -606,6 +653,12 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
       });
     },
   };
+  const caption = (hint: string) => (
+    <>
+      {shaded ? `${shade.label}, each country's latest year (Our World in Data energy). ` : null}{shaded ? "" : indicator ? `${sourceLine(indicator)}. ${values.length} countries with data.` : "No background indicator: only the layers."}{indicator && scale ? " Colour scale shared with linked maps." : ""}
+      {timed ? ` Events and timed layers: ${marks.start} to ${marks.end}.` : ""} {hint}
+    </>
+  );
   const hint = wxOn ? "Click anywhere for that place's forecast; shift-click a country to select it."
     : clicks.mode === "popup" ? "Click a country for its popup; shift-click to select it." : "Click a country to select it; double-click for its popup.";
   return (
@@ -629,24 +682,30 @@ function MapView({ panel, indicator, year, selection, hovered, onHover, scale, o
         overlays={overlays}
         spark={spark}
         onMap={onMap}
-        layers={MAP_LAYERS.filter((m) => !m.made && panel.layers.includes(m.letter)).map((m) => m.id)}
+        layers={MAP_LAYERS.filter((m) => !m.made && letters.includes(m.letter)).map((m) => m.id)}
         layerFilter={marks.filters}
         outlines={marks.outlines}
-        marks={panel.layers.includes("e") || panel.layers.includes("n") || panel.layers.includes("y") ? marks.marks : []}
+        marks={letters.includes("e") || letters.includes("n") || letters.includes("y") ? marks.marks : []}
         legend={marks.legend}
         areas={marks.areas}
         raster={marks.rasters}
         onPoint={wxOn ? setWxPoint : null}
         onMark={(k) => { if (!marks.watch.some((h) => h.key === k)) return false; setNewsKey(k); }}
+        mapKey={keyOpts ? {
+          open: keyOpts.open, onOpen: keyOpts.onOpen,
+          title: shaded ? shade.label : indicator ? `${indicator.name}, ${year}` : "Layers",
+          layers: MAP_LAYERS.filter((m) => panel.layers.includes(m.letter)).map((m) => ({
+            key: m.letter, label: m.label, color: layerSwatch(m), hidden: hidden.includes(m.letter),
+            details: DETAIL_LAYERS.has(m.id) ? detailsHref(m.id) : null })),
+          onLayer: keyOpts.onLayer, info: caption(hint), unitHelp: indicator && !shaded ? keyOpts.unitHelp : null,
+          onSelect: keyOpts.onSelect, onCounts: keyOpts.onCounts,
+        } : null}
       />
       {newsHit && <NewsPanel hit={newsHit} start={marks.start} end={marks.end} onClose={() => setNewsKey(null)} />}
       {mixOn && <MixOverlay map={mapObj} onShade={setShade} />}
-      {wxOn && <WeatherOverlay map={mapObj} letters={panel.layers} point={wxPoint} onClosePoint={() => setWxPoint(null)} />}
+      {wxOn && <WeatherOverlay map={mapObj} letters={letters} point={wxPoint} onClosePoint={() => setWxPoint(null)} />}
       {layersPanel?.(marks.counts)}
-      <p className="caption">
-        {shaded ? `${shade.label}, each country's latest year (Our World in Data energy). ` : null}{shaded ? "" : indicator ? `${sourceLine(indicator)}. ${values.length} countries with data.` : "No background indicator: only the layers."}{indicator && scale ? " Colour scale shared with linked maps." : ""}
-        {timed ? ` Events and timed layers: ${marks.start} to ${marks.end}.` : ""} {hint}
-      </p>
+      {!keyOpts && <p className="caption">{caption(hint)}</p>}
     </>
   );
 }

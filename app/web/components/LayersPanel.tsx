@@ -298,7 +298,7 @@ const MADE_SWATCH: Record<string, () => string> = {
 };
 
 // A layer's colour, as its dot and swatch show it.
-function layerSwatch(m: LayerDef): string {
+export function layerSwatch(m: LayerDef): string {
   return (m.made || MADE_SWATCH[m.id] ? MADE_SWATCH[m.id]?.() : LAYER_STYLE[m.id]?.swatch()) ?? cssVar("--muted");
 }
 
@@ -330,13 +330,15 @@ function Fold({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose, selection = [], names = new Map() }: {
+export default function LayersPanel({ panel, dispatch, win, onWin, counts, year, onClose, selection = [], names = new Map(), find = "" }: {
   panel: PanelState; dispatch: (a: Action) => void; win: string; onWin: (w: string) => void; counts: LayerCounts;
   year: number | null; onClose: () => void; selection?: string[]; names?: Map<string, string>;
+  find?: string; // opened from the map key at one layer: its name in the Find box
 }) {
   const s = useSettings();
   const [have, setHave] = useState<Map<string, MapLayerInfo> | null>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(find);
+  useEffect(() => { if (find) setQ(find); }, [find]);
   const [shut, setShut] = useState<Set<string>>(new Set()); // groups with a layer on that were closed
   const [opened, setOpened] = useState<Set<string>>(new Set()); // groups with nothing on that were opened
   const [waitingOpen, setWaitingOpen] = useState<Set<string>>(new Set());
