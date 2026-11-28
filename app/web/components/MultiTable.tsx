@@ -19,8 +19,12 @@ export type TableModel = {
 
 // Sorted rows and ranks for some columns. Rows are every entity any column has a figure for
 // (or `only`, when given); blanks sort last; `first` (selected countries) go on top in that order.
-export function useTableModel(columns: TableColumn[], names: Map<string, string>, opts: { first?: string[]; only?: string[] } = {}): TableModel {
-  const [sort, setSort] = useState<TableSort>({ by: "", desc: true });
+// Pass `sort` and `onSort` to keep the sort elsewhere (in a link, say); otherwise the table keeps it.
+export function useTableModel(columns: TableColumn[], names: Map<string, string>,
+  opts: { first?: string[]; only?: string[]; sort?: TableSort; onSort?: (s: TableSort) => void } = {}): TableModel {
+  const [own, setOwn] = useState<TableSort>({ by: "", desc: true });
+  const sort = opts.sort ?? own;
+  const setSort = opts.onSort ?? setOwn;
   const sortCol = columns.find((c) => c.key === sort.by) ?? (sort.by === "name" ? undefined : columns[0]);
   const { first = [], only } = opts;
   const rows = useMemo(() => {

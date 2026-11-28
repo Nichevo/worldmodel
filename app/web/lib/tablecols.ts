@@ -27,6 +27,14 @@ export type ColSpec = { indicator: string; year: number | null; change?: number 
 export const EXACT_FLAG = "exact"; // no filling of missing years
 export const SHADE_FLAG = "shade"; // tint each cell by where it stands in its column
 export const FLAGS = new Set([EXACT_FLAG, SHADE_FLAG, CHANGE_COL]);
+// The table's sort: "sortby_2" (third column, highest first), "sortby_2_up" (lowest first), "sortby_name".
+export const SORT_TOKEN = /^sortby_(name|\d{1,2})(_up)?$/;
+export function parseSort(cols: string[]): { col: number | "name"; desc: boolean } {
+  const m = cols.map((c) => SORT_TOKEN.exec(c)).find(Boolean);
+  if (!m) return { col: 0, desc: true };
+  return { col: m[1] === "name" ? "name" : +m[1], desc: !m[2] };
+}
+export const sortToken = (col: number | "name", desc: boolean) => `sortby_${col}${desc ? "" : "_up"}`;
 // Years back a missing figure is filled from, unless the table is set to exact years.
 export const FILL_BACK = 10;
 export const MAX_COLS = 12;
@@ -34,7 +42,7 @@ export const COL_TOKEN = /^[a-z0-9_]+(-\d{4})?$/;
 
 // "gdp_growth" (the table's year) or "gdp_growth-2015" (that year).
 export function parseCol(token: string): ColSpec | null {
-  if (FLAGS.has(token) || !COL_TOKEN.test(token)) return null;
+  if (FLAGS.has(token) || SORT_TOKEN.test(token) || !COL_TOKEN.test(token)) return null;
   const [indicator, y] = token.split("-");
   return { indicator, year: y ? +y : null };
 }

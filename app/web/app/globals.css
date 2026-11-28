@@ -356,6 +356,7 @@ main:has(.workspace-page) { max-width: none; }
 .multi-table .col-menu summary { padding: 0 6px; font-size: 0.75rem; line-height: 1.4; }
 .multi-table .col-menu .links-menu { text-align: left; font-weight: 400; width: 230px; }
 .table-tools .add-col .isel-button { font-weight: 600; }
+.table-tools select { max-width: 220px; }
 .links-menu .menu-head { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
 .status { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
 .status.ok { background: color-mix(in srgb, var(--series-3) 18%, transparent); color: var(--ink); }

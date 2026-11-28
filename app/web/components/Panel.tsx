@@ -24,7 +24,7 @@ import { mapLayers } from "@/lib/layers";
 import MixOverlay, { type MixShade } from "@/components/MixOverlay";
 import { useGovernments, withParties } from "@/lib/parties";
 import { useSettings } from "@/lib/settings";
-import { EXACT_FLAG, FILL_BACK, MAX_COLS, SHADE_FLAG, colSpecs, colToken, useTableColumns, type ColSpec, type TableColumn } from "@/lib/tablecols";
+import { EXACT_FLAG, FILL_BACK, MAX_COLS, SHADE_FLAG, SORT_TOKEN, colSpecs, parseSort, sortToken, colToken, useTableColumns, type ColSpec, type TableColumn } from "@/lib/tablecols";
 import { isStarred, passes, useStars } from "@/lib/quality";
 import { forecastCaption, useForecastsFor, withForecast } from "@/lib/forecast";
 import { linesOption, outlierFence, pyramidCompareOption, scatterExtent, scatterOption, type Extent, type ScatterPoint } from "@/lib/charts";
@@ -610,28 +610,44 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
   const { columns, error } = useTableColumns(specs, year, indicators, fill);
   const [pin, setPin] = useState(true);
   const [only, setOnly] = useState(false);
-  const model = useTableModel(columns, names, { first: pin ? selection : [], only: only && selection.length ? selection : undefined });
+  // The sort is kept in the panel's cols (so in the link), as a column position.
+  const sorted = parseSort(panel.cols);
+  const sortKey = sorted.col === "name" ? "name" : (columns[sorted.col] ?? columns[0])?.key ?? "";
+  const model = useTableModel(columns, names, {
+    first: pin ? selection : [], only: only && selection.length ? selection : undefined,
+    sort: { by: sortKey, desc: sorted.desc },
+    onSort: (s) => {
+      const i = columns.findIndex((c) => c.key === s.by);
+      setSort(s.by === "name" ? "name" : Math.max(0, i), s.desc);
+    },
+  });
 
   // The panel's cols: its flags, then the added columns in order.
   const flags = (on: Record<string, boolean>) => [CHANGE_COL, EXACT_FLAG, SHADE_FLAG].filter((f) => (f in on ? on[f] : panel.cols.includes(f)));
-  const setCols = (cols: ColSpec[], on: Record<string, boolean> = {}) =>
-    dispatch({ type: "panel", id: panel.id, patch: { cols: [...flags(on), ...[...new Set(cols.map(colToken))].slice(0, MAX_COLS)] } });
+  const sortNow = panel.cols.filter((c) => SORT_TOKEN.test(c)).slice(0, 1);
+  const setCols = (cols: ColSpec[], on: Record<string, boolean> = {}, sort: string[] = sortNow) =>
+    dispatch({ type: "panel", id: panel.id, patch: { cols: [...flags(on), ...sort, ...[...new Set(cols.map(colToken))].slice(0, MAX_COLS)] } });
+  // Sorting by the first column, highest first, is the default and is left out of the link.
+  const setSort = (col: number | "name", desc: boolean) => setCols(extras, {}, col === 0 && desc ? [] : [sortToken(col, desc)]);
   const setFlag = (f: string, v: boolean) => setCols(extras, { [f]: v });
   const first = 1 + (change ? 1 : 0); // columns before the added ones
   const headTools = (c: TableColumn, i: number) => {
     if (i < first) return null;
     const k = i - first;
     const spec = extras[k];
+    // The sort follows its column when columns move, and goes back to the first when its column goes.
+    const at = sorted.col;
     const move = (d: number) => {
       const next = [...extras];
       [next[k], next[k + d]] = [next[k + d], next[k]];
-      setCols(next);
+      setCols(next, {}, at === i ? [sortToken(i + d, sorted.desc)] : at === i + d ? [sortToken(i, sorted.desc)] : sortNow);
     };
     return (
       <ColumnMenu label={c.label} year={spec.year} panelYear={year} indicator={indicators.find((x) => x.indicator_id === spec.indicator)}
         canLeft={k > 0} canRight={k < extras.length - 1} onLeft={() => move(-1)} onRight={() => move(1)}
         onYear={(y) => setCols(extras.map((e, j) => (j === k ? { ...e, year: y } : e)))}
-        onRemove={() => setCols(extras.filter((_, j) => j !== k))} />
+        onRemove={() => setCols(extras.filter((_, j) => j !== k), {},
+          at === i ? [] : typeof at === "number" && at > i ? [sortToken(at - 1, sorted.desc)] : sortNow)} />
     );
   };
 
@@ -663,6 +679,16 @@ function TableView({ panel, indicator, indicators, year, names, selection, dispa
           <input type="checkbox" checked={fill} onChange={(e) => setFlag(EXACT_FLAG, !e.target.checked)} /> Fill gaps from earlier years</label>
         <label className="small" title="Tint each cell by where it stands in its column: darker is higher">
           <input type="checkbox" checked={shade} onChange={(e) => setFlag(SHADE_FLAG, e.target.checked)} /> Shade</label>
+        <label className="small">Sort by
+          <select value={model.sort.by} onChange={(e) => model.setSort({ by: e.target.value, desc: e.target.value !== "name" })}>
+            <option value="name">Country name</option>
+            {columns.map((c) => <option key={c.key} value={c.key}>{c.label}{c.year !== year ? ` (${c.year})` : ""}</option>)}
+          </select>
+          <button className="small" title={model.sort.desc ? "Highest first: click for lowest first" : "Lowest first: click for highest first"}
+            onClick={() => model.setSort({ ...model.sort, desc: !model.sort.desc })}>
+            {model.sort.by === "name" ? (model.sort.desc ? "Z–A" : "A–Z") : model.sort.desc ? "Highest first ↓" : "Lowest first ↑"}
+          </button>
+        </label>
         <label className="small"><input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} /> Selected first</label>
         <label className={`small${selection.length ? "" : " muted"}`} title={selection.length ? "Show only the selected countries" : "Select countries first"}>
           <input type="checkbox" checked={only && selection.length > 0} disabled={!selection.length} onChange={(e) => setOnly(e.target.checked)} /> Only selected</label>
