@@ -12,6 +12,7 @@ from worldmodel_data.connectors.wars import DeepState, KielUkraine, Oryx, UAClai
 from worldmodel_data.connectors.outages import IODA, CloudflareRadar, KeepItOn
 from worldmodel_data.connectors.sanctions_now import OpenSanctions
 from worldmodel_data.connectors.military import GlobalFirepower, SIPRIArms
+from worldmodel_data.connectors.crops import USDANASS
 from worldmodel_data.connectors.cities import UNWUP, GeoNames, ILOEarnings, Numbeo, TomTomTraffic, WhereNext, WHOAirQuality
 from worldmodel_data.connectors.coups import Coups
 from worldmodel_data.connectors.crisiswatch import CrisisWatch
@@ -87,7 +88,7 @@ CONNECTORS: dict[str, type[Connector]] = {c.source_id: c for c in (
     HYDELand, GHSLUrbanCentres, GFWTreeCover, CouncilTrees, NZLCDB, NZForestry,
     Polymarket, Metaculus, Manifold, ViEWS, WRIPowerPlants, Gridfinder, OSMPowerSites, OECDCLI, FREDCycle,
     USCensusPEP, USACS, BEARegional, USUnemployment, BLSLAUSCounty, FHFAHPI, MITElections, MITCountyElections,
-    CountyHealthRankings, EIASEDS, USShapes, NEAdmin1, UNSDEnergy, EurostatPowerTrade,
+    CountyHealthRankings, EIASEDS, USShapes, NEAdmin1, USDANASS, UNSDEnergy, EurostatPowerTrade,
     WHOFluNet, NZWastewater, UKHSA, DelphiFluView, CDCNHSN, CDCNNDSS, ECDCERVISS, OWIDCovid, WHOGHODisease, OpenDengue,
     HMDSTMF, WHODON, NZNotifiable,
     HealthsitesOSM, OvertureHospitals, NationalHospitals, HospitalCounts)}

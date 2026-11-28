@@ -13,7 +13,7 @@ from fastapi import Body, HTTPException, Query
 from worldmodel_contract import catalogue
 from worldmodel_contract.cities import CITY_INDICATORS
 from worldmodel_contract.queries import series_sql, stream_query
-from worldmodel_api import cityscore, core, land, numbeo, userdata, wiki
+from worldmodel_api import cityscore, core, crops, land, numbeo, userdata, wiki
 from worldmodel_api.core import _has_cities, _lh, api, rows, split
 from worldmodel_api.routes.basics import _with_image_urls
 from worldmodel_api.routes.data import _respond
@@ -34,6 +34,36 @@ def land_ranking(indicator: str = "land_forest_ha", start: int = 1990, end: int 
         return land.ranking(rows, indicator, start, end, per)
     except ValueError as exc:
         raise HTTPException(422, str(exc))
+
+
+@api.get("/crops/levels")
+def crops_levels():
+    """Which Top crops maps have figures: countries, US states, US counties, New Zealand regions."""
+    return _lh(("crops", "levels"), lambda: crops.levels(rows))
+
+
+@api.get("/crops/top")
+def crops_top(level: str = "world", year: int | None = None):
+    """The crop on the most land in each place at a level, with each place's top five and the map's legend."""
+    try:
+        return _lh(("crops", "top", level, year), lambda: crops.top(rows, level, year))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.get("/crops/where/{crop}")
+def crops_where(crop: str, level: str = "world", year: int | None = None):
+    """Where one crop is grown: its hectares and share of crop land in each place at a level."""
+    try:
+        return _lh(("crops", "where", crop, level, year), lambda: crops.crop_where(rows, crop, level, year))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+
+
+@api.get("/crops/place/{entity}")
+def crops_place(entity: str):
+    """One country's, state's, county's or region's crops by land over the years held."""
+    return crops.entity_crops(rows, entity)
 
 
 @api.get("/land/where")

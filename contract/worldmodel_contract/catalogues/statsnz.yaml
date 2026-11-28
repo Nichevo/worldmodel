@@ -154,3 +154,93 @@ measures:
     find: [agricultur, land use]
     prefer: [regional council, region, forest]
     keep: {"*": plantation}
+
+  # Horticulture by regional council (Agricultural Production Statistics): hectares of each crop, for Land > Top crops
+
+  - id: nzreg_hort_apples_ha
+    name: Apples, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of apples in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total apples}
+
+  - id: nzreg_hort_kiwifruit_ha
+    name: Kiwifruit, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of kiwifruit in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total kiwifruit}
+
+  - id: nzreg_hort_avocados_ha
+    name: Avocados, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of avocados in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total avocados}
+
+  - id: nzreg_hort_wine_grapes_ha
+    name: Wine grapes, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of wine grapes in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total wine grapes}
+
+  - id: nzreg_hort_olives_ha
+    name: Olives, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of olives in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total olives}
+
+  - id: nzreg_hort_onions_ha
+    name: Onions, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of onions in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total onions}
+
+  - id: nzreg_hort_potatoes_ha
+    name: Potatoes, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of potatoes in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total potatoes}
+
+  - id: nzreg_hort_squash_ha
+    name: Squash, hectares (NZ regions)
+    unit: ha
+    decimals: 0
+    domain: land
+    description: Hectares of squash in each region at 30 June, Stats NZ Agricultural Production Statistics (horticulture by regional council).
+    table: AGR_AGR_002
+    find: [horticulture, regional council]
+    prefer: [horticulture]
+    keep: {"*": total squash}

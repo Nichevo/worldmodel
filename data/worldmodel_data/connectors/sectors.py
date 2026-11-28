@@ -64,6 +64,7 @@ import duckdb
 
 from worldmodel_contract import catalogue
 from worldmodel_contract import sectors as sec
+from worldmodel_contract.crops import FAO_GROUP_CODES, fao_crop
 from worldmodel_data.connectors.base import Connector, ConnectorError, sql_str
 from worldmodel_data.connectors.tabular import Rows, entity_for, indicator, is_country, key, num, xlsx_rows, xlsx_sheet_names
 
@@ -548,7 +549,7 @@ class FAOSTAT(Connector):
     source_id = "faostat"
     # 3: production in tonnes only (eggs also come as counts); 4: forestry in cubic metres again (3 dropped it);
     # 5: land use, live animals, dairy cows, area harvested and nitrogen per hectare (version 4, PR 6)
-    stage_version = 7  # 6: land cover shares by year from ESA's satellite maps (lc_*_pct); 7: land areas allow world and region
+    stage_version = 8  # 8: every crop's area harvested (crop_area_ha, breakdown crop=) for Land > Top crops; 6: land cover shares by year from ESA's satellite maps (lc_*_pct); 7: land areas allow world and region
     # totals (the world has about 13 billion hectares of land; the old upper bound of 2 billion fitted one country only)
     fetch_version = 3  # 2: the land use file; 3: the land cover file
     fetch_every_days = 90
@@ -586,6 +587,7 @@ class FAOSTAT(Connector):
             if not csvs:
                 raise ConnectorError(f"faostat: no bulk CSV in {raw_dir}")
             con.execute("CREATE TABLE fao (m49 VARCHAR, stage VARCHAR, element VARCHAR, y INTEGER, unit VARCHAR, v DOUBLE)")
+            con.execute("CREATE TABLE fao_crop (m49 VARCHAR, item VARCHAR, y INTEGER, v DOUBLE)")
             for f in csvs:
                 cols = [d[0] for d in con.execute(f"DESCRIBE SELECT * FROM read_csv({sql_str(f.as_posix())}, header = true, all_varchar = true, encoding = 'latin-1')").fetchall()]
                 m49 = next((c for c in cols if key(c) in ("areacodem49", "m49code")), None)
@@ -598,6 +600,12 @@ class FAOSTAT(Connector):
                     JOIN fao_items fi ON lower(trim(r."Item")) = fi.item
                     WHERE lower(trim(r."Element")) IN ('production', 'area harvested', 'stocks', 'milk animals', 'area',
                                                        'use per area of cropland', 'area from cci_lc')""")
+                if "Item Code" in cols:  # every crop's area harvested, for the Top crops map (groups left out)
+                    con.execute(f"""INSERT INTO fao_crop
+                        SELECT replace("{m49}", '''', ''), trim("Item"), TRY_CAST("Year" AS INTEGER), TRY_CAST("Value" AS DOUBLE)
+                        FROM read_csv({sql_str(f.as_posix())}, header = true, all_varchar = true, encoding = 'latin-1')
+                        WHERE lower(trim("Element")) = 'area harvested' AND lower(trim("Unit")) = 'ha'
+                          AND TRY_CAST("Item Code" AS INTEGER) < {FAO_GROUP_CODES} AND TRY_CAST("Value" AS DOUBLE) > 0""")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         rows, found = Rows(), set()
@@ -639,6 +647,15 @@ class FAOSTAT(Connector):
                 continue  # eggs also come as numbers of eggs ("1000 no")
             rows.add("iso3", ent, f"sp_{st}", y, v * FAO_UNITS[unit])
             found.add(st)
+        crop_area: dict[tuple[str, int, str], float] = defaultdict(float)
+        for m, item, y, v in con.execute("SELECT * FROM fao_crop WHERE y IS NOT NULL").fetchall():
+            ent = entity_for("m49", m)
+            if is_country(ent):
+                crop_area[(ent, y, fao_crop(item))] += v
+        for (ent, y, c), v in crop_area.items():
+            rows.add("iso3", ent, "crop_area_ha", y, v, breakdown=f"crop={c}")
+        if crop_area:
+            found.add("crop_area_ha")
         for (ent, y), got in land.items():
             area = got.get("land_area_ha")
             for ind, share in FAO_LAND_SHARES.items():
@@ -692,6 +709,11 @@ def fao_land_indicators(source_id: str, found: set[str]) -> list[dict]:
                                  "land and inland water, from ESA's yearly satellite land cover maps (CCI, 300 m) as FAOSTAT sums "
                                  "them by country, 1992 on.", "%", "land", source_id, f"lc_{c}_pct", decimals=1, bounds=(0, 100),
                                  notes="FAOSTAT land cover (ESA Climate Change Initiative land cover).", default_on=c in ("trees", "crops", "built")))
+    if "crop_area_ha" in found:
+        out.append(indicator("crop_area_ha", "Area harvested by crop (FAOSTAT)", "Hectares harvested of each crop in the "
+                             "year (breakdown crop=<id>), every primary crop FAOSTAT counts; land cropped twice in a year "
+                             "counts twice. Land > Top crops maps the largest.", "ha", "land", source_id, "crop_area_ha",
+                             decimals=0, bounds=(0, 5e8), breakdowns=["crop"], notes=note, default_on=False))
     if "fert_n_per_ha" in found:
         out.append(indicator("fert_n_per_ha", "Nitrogen fertiliser per hectare of cropland (FAOSTAT)",
                              "Nitrogen (N) put on farmland, per hectare of cropland (FAOSTAT fertilisers by nutrient).",

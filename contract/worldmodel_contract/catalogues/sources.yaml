@@ -3269,6 +3269,26 @@
     get: https://www.countyhealthrankings.org/health-data/methodology-and-sources/data-documentation
     what: "If the refresh is refused, save the 'National Data & Documentation' analytic data CSV (analytic_dataYYYY.csv) here."
 
+- id: usda_nass
+  name: USDA NASS Quick Stats, Census of Agriculture crop acres by state and county
+  short_name: USDA NASS crop acres
+  publisher: US Department of Agriculture, National Agricultural Statistics Service
+  url: https://quickstats.nass.usda.gov/
+  licence: Public domain (US government work)
+  licence_url: https://quickstats.nass.usda.gov/api
+  commercial_use: true
+  cadence: Every five years (Census of Agriculture, published about 14 months after the census year); checked every three months. Needs a free NASS_API_KEY
+  attribution: "USDA National Agricultural Statistics Service, Quick Stats: Census of Agriculture, acres harvested and bearing and non-bearing acres by crop. This product uses the NASS API but is not endorsed or certified by NASS."
+  status: active
+  default_rank: 1
+  standing: 5
+  definition: standard
+  manual:
+    by_hand: false
+    files: ["*.csv"]
+    get: https://quickstats.nass.usda.gov/
+    what: "Without a NASS_API_KEY: in Quick Stats pick Program CENSUS, Sector CROPS, Category AREA HARVESTED (and again AREA BEARING & NON-BEARING), Domain TOTAL, Geographic level COUNTY (or STATE), a year, then Get Data and Spreadsheet; save each CSV here (one state at a time if it says too many rows)."
+
 - id: eia_seds
   name: EIA State Energy Data System (energy used and produced by state)
   short_name: EIA State Energy Data

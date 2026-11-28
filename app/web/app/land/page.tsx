@@ -10,6 +10,7 @@ import EChart from "@/components/EChart";
 import IndicatorSet from "@/components/IndicatorSet";
 import LandCompare from "@/components/LandCompare";
 import LandYears from "@/components/land/LandYears";
+import TopCrops from "@/components/land/TopCrops";
 import WorldMap from "@/components/WorldMap";
 import { compact } from "@/lib/format";
 import { logHistory } from "@/lib/history";
@@ -23,11 +24,12 @@ import { useSettings } from "@/lib/settings";
 // Land: what the world's land is used for since 1700, where it goes, cities and how they
 // spread, trees, New Zealand's land cover in detail, and land beside climate.
 
-type Tab = "use" | "maps" | "compare" | "where" | "cities" | "trees" | "nz" | "climate";
-const TABS: [Tab, string][] = [["use", "Land use"], ["maps", "Land cover maps"], ["compare", "Compare countries"], ["where", "Where the land goes"], ["cities", "Cities"], ["trees", "Trees"],
+type Tab = "use" | "crops" | "maps" | "compare" | "where" | "cities" | "trees" | "nz" | "climate";
+const TABS: [Tab, string][] = [["use", "Land use"], ["crops", "Top crops"], ["maps", "Land cover maps"], ["compare", "Compare countries"], ["where", "Where the land goes"], ["cities", "Cities"], ["trees", "Trees"],
   ["nz", "New Zealand"], ["climate", "Land and climate"]];
 const INTRO: Record<Tab, string> = {
   use: "Cropland, meadows and pastures, and forest by country or for the world: FAOSTAT from 1961, and HYDE's long run back to 1700 (dashed; modelled from population and old maps, so rough).",
+  crops: "The crop grown on the most land in each country (FAOSTAT), each US state and county (USDA Census of Agriculture) and each New Zealand region (Stats NZ horticulture). Pick a crop to see where it is grown; click a place for its crops over the years.",
   compare: "Two to four countries side by side: each outline beside a bar of its land cover seen from space. Pick a kind of cover (in a bar, the table or the chips) and every map shows where it is.",
   where: "Earth's surface down to the farmland that feeds us. Most farmland is grazing for animals, which give far less of our food than crops do.",
   cities: "About 11,000 urban centres from the European Commission's Global Human Settlement Layer: people and built-up land from 1975 to 2025 (2030 projected), and their outlines.",
@@ -60,6 +62,7 @@ function LandView() {
       <div className="seg" role="tablist">{TABS.map(([t, label]) => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "on" : ""} onClick={() => go(t)}>{label}</button>)}</div>
       <p className="ink-2" style={{ marginTop: 0, maxWidth: 860 }}>{INTRO[tab]}</p>
       {tab === "use" && <UseTab entity={entity} pick={pickCountry} />}
+      {tab === "crops" && <TopCrops />}
       {tab === "compare" && <LandCompare initial={(params.get("with") ?? "").split(",").filter(Boolean).length ? (params.get("with") ?? "").split(",").filter(Boolean)
         : [entity === "world" ? "NZL" : entity, entity === "AUS" ? "NZL" : "AUS"]}
         onChange={(ids) => router.replace(`/land?tab=compare&with=${ids.join(",")}`, { scroll: false })} />}

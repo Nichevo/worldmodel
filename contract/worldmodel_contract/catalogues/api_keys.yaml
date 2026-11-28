@@ -87,6 +87,16 @@
   limits: Free. The API no longer answers without a key. One refresh asks about 260 questions the first time, about 40 after.
   status: active
 
+- source: usda_nass
+  name: USDA NASS Quick Stats API (crop acres by county)
+  env: [NASS_API_KEY]
+  needs_key: true
+  signup: https://quickstats.nass.usda.gov/api
+  how: Click "Request API Key", give your email and agree to the terms; the key arrives by email straight away.
+  unlocks: The crop grown on the most land in every US state and county, and every crop's acres there, at each Census of Agriculture (2002 onward), for Land > Top crops.
+  limits: Free; at most 50,000 rows a question. One refresh asks about 520 questions the first time (one per state, census and kind of acreage), 0.4 seconds apart; a census already read is not asked again.
+  status: active
+
 - source: bls_laus_county
   name: BLS Public Data API (county unemployment)
   env: [BLS_API_KEY]

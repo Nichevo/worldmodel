@@ -63,6 +63,13 @@ def test_faostat_land_use_and_animals(built):
     assert val(con, "NZL", "sp_milk", 2023) == 21_500_000  # production still read as before
 
 
+def test_faostat_every_crop_area(built):
+    _, con = built
+    assert val(con, "NZL", "crop_area_ha", 2023, "crop=kiwifruit") == 13_500
+    assert val(con, "NZL", "crop_area_ha", 2023, "crop=wheat") == 40_000
+    assert not con.execute("SELECT count(*) FROM series WHERE indicator_id = 'crop_area_ha' AND breakdown LIKE '%cereals%'").fetchone()[0]
+
+
 def test_faostat_land_cover_shares(built):
     _, con = built
     total = 9000 + 30 + 14000 + 400 + 100 + 800 + 100 + 370  # coastal water left out; MODIS rows ignored
